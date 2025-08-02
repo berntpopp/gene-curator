@@ -2,11 +2,11 @@
 User CRUD operations.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, func
 
 from app.core.security import get_password_hash, verify_password
 from app.crud.base import CRUDBase
@@ -17,7 +17,7 @@ from app.schemas.auth import UserCreate, UserUpdate
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     """CRUD operations for User model."""
 
-    def get_by_email(self, db: Session, *, email: str) -> Optional[User]:
+    def get_by_email(self, db: Session, *, email: str) -> User | None:
         """Get user by email address."""
         return db.query(User).filter(User.email == email).first()
 
@@ -41,7 +41,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def update(
         self, db: Session, *, user_id: str, user_update: UserUpdate
-    ) -> Optional[User]:
+    ) -> User | None:
         """Update user data."""
         db_obj = self.get(db, id=user_id)
         if not db_obj:
@@ -72,7 +72,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.commit()
         return True
 
-    def authenticate(self, db: Session, *, email: str, password: str) -> Optional[User]:
+    def authenticate(self, db: Session, *, email: str, password: str) -> User | None:
         """Authenticate user by email and password."""
         user = self.get_by_email(db, email=email)
         if not user:
@@ -93,13 +93,13 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         """Check if user has specific role."""
         return user.role == role
 
-    def has_any_role(self, user: User, roles: List[UserRole]) -> bool:
+    def has_any_role(self, user: User, roles: list[UserRole]) -> bool:
         """Check if user has any of the specified roles."""
         return user.role in roles
 
     def get_by_role(
         self, db: Session, *, role: UserRole, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """Get users by role."""
         return (
             db.query(User)
@@ -112,7 +112,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def search(
         self, db: Session, *, query: str, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """Search users by name or email."""
         search_filter = (
             or_(
@@ -126,7 +126,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
         return db.query(User).filter(search_filter).offset(skip).limit(limit).all()
 
-    def get_statistics(self, db: Session) -> Dict[str, Any]:
+    def get_statistics(self, db: Session) -> dict[str, Any]:
         """Get user statistics."""
         total_users = db.query(func.count(User.id)).scalar()
         active_users = (
@@ -145,7 +145,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             "role_distribution": role_counts,
         }
 
-    def get_user_activity(self, db: Session, *, user_id: str) -> Dict[str, Any]:
+    def get_user_activity(self, db: Session, *, user_id: str) -> dict[str, Any]:
         """Get user activity summary."""
         user = self.get(db, id=user_id)
         if not user:
@@ -165,7 +165,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def get_users_by_scope(
         self, db: Session, *, scope_id: UUID, skip: int = 0, limit: int = 100
-    ) -> List[User]:
+    ) -> list[User]:
         """Get users assigned to a specific scope."""
         return (
             db.query(User)
@@ -213,7 +213,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         user = self.get(db, id=user_id)
         if not user:
             return False
-        
+
         from datetime import datetime
         user.last_login = datetime.now()
         db.commit()

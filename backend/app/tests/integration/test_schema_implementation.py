@@ -12,9 +12,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 try:
     from app.core.schema_validator import schema_validator
-    from app.scoring.clingen import ClinGenEngine
-    from app.scoring.gencc import GenCCEngine
-    from app.scoring.qualitative import QualitativeEngine
     from app.scoring.registry import scoring_registry
 
 except ImportError:

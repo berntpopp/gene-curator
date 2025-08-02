@@ -9,12 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn
-        color="primary"
-        variant="flat"
-        @click="createSchemaDialog = true"
-        size="large"
-      >
+      <v-btn color="primary" variant="flat" @click="createSchemaDialog = true" size="large">
         <v-icon start>mdi-plus</v-icon>
         New Schema
       </v-btn>
@@ -66,7 +61,7 @@
         <v-icon start>mdi-file-document-outline</v-icon>
         Schemas ({{ filteredSchemas.length }})
       </v-card-title>
-      
+
       <v-data-table
         :headers="tableHeaders"
         :items="filteredSchemas"
@@ -80,51 +75,31 @@
             <div class="text-caption">{{ item.description }}</div>
           </div>
         </template>
-        
+
         <template #item.type="{ item }">
-          <v-chip
-            :color="getTypeColor(item.type)"
-            size="small"
-            variant="outlined"
-          >
+          <v-chip :color="getTypeColor(item.type)" size="small" variant="outlined">
             {{ formatType(item.type) }}
           </v-chip>
         </template>
-        
+
         <template #item.status="{ item }">
-          <v-chip
-            :color="getStatusColor(item.status)"
-            size="small"
-            variant="flat"
-          >
+          <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
             {{ formatStatus(item.status) }}
           </v-chip>
         </template>
-        
+
         <template #item.version="{ item }">
-          <v-chip size="small" color="info" variant="outlined">
-            v{{ item.version }}
-          </v-chip>
+          <v-chip size="small" color="info" variant="outlined"> v{{ item.version }} </v-chip>
         </template>
-        
+
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
         </template>
-        
+
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn
-              icon="mdi-eye"
-              size="small"
-              variant="text"
-              @click="viewSchema(item)"
-            />
-            <v-btn
-              icon="mdi-pencil"
-              size="small"
-              variant="text"
-              @click="editSchema(item)"
-            />
+            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewSchema(item)" />
+            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editSchema(item)" />
             <v-btn
               icon="mdi-content-copy"
               size="small"
@@ -156,14 +131,14 @@
               :rules="[v => !!v || 'Name is required']"
               required
             />
-            
+
             <v-textarea
               v-model="newSchema.description"
               label="Description"
               variant="outlined"
               rows="3"
             />
-            
+
             <v-select
               v-model="newSchema.type"
               :items="schemaTypes"
@@ -172,7 +147,7 @@
               :rules="[v => !!v || 'Type is required']"
               required
             />
-            
+
             <v-text-field
               v-model="newSchema.version"
               label="Version"
@@ -186,12 +161,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="outlined" @click="createSchemaDialog = false">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            @click="createSchema"
-            :loading="creating"
-          >
+          <v-btn color="primary" variant="flat" @click="createSchema" :loading="creating">
             Create
           </v-btn>
         </v-card-actions>
@@ -201,158 +171,158 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useSchemasStore } from '@/stores'
+  import { ref, computed, onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useSchemasStore } from '@/stores'
 
-const router = useRouter()
-const schemasStore = useSchemasStore()
+  const router = useRouter()
+  const schemasStore = useSchemasStore()
 
-const loading = ref(false)
-const creating = ref(false)
-const searchQuery = ref('')
-const selectedType = ref(null)
-const selectedStatus = ref(null)
-const createSchemaDialog = ref(false)
-const createForm = ref(null)
+  const loading = ref(false)
+  const creating = ref(false)
+  const searchQuery = ref('')
+  const selectedType = ref(null)
+  const selectedStatus = ref(null)
+  const createSchemaDialog = ref(false)
+  const createForm = ref(null)
 
-const newSchema = ref({
-  name: '',
-  description: '',
-  type: null,
-  version: '1.0.0'
-})
+  const newSchema = ref({
+    name: '',
+    description: '',
+    type: null,
+    version: '1.0.0'
+  })
 
-const schemaTypes = [
-  { title: 'Precuration', value: 'precuration' },
-  { title: 'Curation', value: 'curation' },
-  { title: 'Combined', value: 'combined' }
-]
+  const schemaTypes = [
+    { title: 'Precuration', value: 'precuration' },
+    { title: 'Curation', value: 'curation' },
+    { title: 'Combined', value: 'combined' }
+  ]
 
-const statusOptions = [
-  { title: 'Draft', value: 'draft' },
-  { title: 'Active', value: 'active' },
-  { title: 'Deprecated', value: 'deprecated' }
-]
+  const statusOptions = [
+    { title: 'Draft', value: 'draft' },
+    { title: 'Active', value: 'active' },
+    { title: 'Deprecated', value: 'deprecated' }
+  ]
 
-const tableHeaders = [
-  { title: 'Name', key: 'name', sortable: true },
-  { title: 'Type', key: 'type', sortable: true },
-  { title: 'Status', key: 'status', sortable: true },
-  { title: 'Version', key: 'version', sortable: true },
-  { title: 'Created', key: 'created_at', sortable: true },
-  { title: 'Actions', key: 'actions', sortable: false }
-]
+  const tableHeaders = [
+    { title: 'Name', key: 'name', sortable: true },
+    { title: 'Type', key: 'type', sortable: true },
+    { title: 'Status', key: 'status', sortable: true },
+    { title: 'Version', key: 'version', sortable: true },
+    { title: 'Created', key: 'created_at', sortable: true },
+    { title: 'Actions', key: 'actions', sortable: false }
+  ]
 
-const schemas = computed(() => schemasStore.schemas)
+  const schemas = computed(() => schemasStore.schemas)
 
-const filteredSchemas = computed(() => {
-  let filtered = [...schemas.value]
-  
-  if (selectedType.value) {
-    filtered = filtered.filter(s => s.type === selectedType.value)
+  const filteredSchemas = computed(() => {
+    let filtered = [...schemas.value]
+
+    if (selectedType.value) {
+      filtered = filtered.filter(s => s.type === selectedType.value)
+    }
+
+    if (selectedStatus.value) {
+      filtered = filtered.filter(s => s.status === selectedStatus.value)
+    }
+
+    return filtered
+  })
+
+  const getTypeColor = type => {
+    const colorMap = {
+      precuration: 'blue',
+      curation: 'green',
+      combined: 'purple'
+    }
+    return colorMap[type] || 'grey'
   }
-  
-  if (selectedStatus.value) {
-    filtered = filtered.filter(s => s.status === selectedStatus.value)
+
+  const getStatusColor = status => {
+    const colorMap = {
+      draft: 'orange',
+      active: 'success',
+      deprecated: 'error'
+    }
+    return colorMap[status] || 'grey'
   }
-  
-  return filtered
-})
 
-const getTypeColor = (type) => {
-  const colorMap = {
-    'precuration': 'blue',
-    'curation': 'green',
-    'combined': 'purple'
+  const formatType = type => {
+    return type.charAt(0).toUpperCase() + type.slice(1)
   }
-  return colorMap[type] || 'grey'
-}
 
-const getStatusColor = (status) => {
-  const colorMap = {
-    'draft': 'orange',
-    'active': 'success',
-    'deprecated': 'error'
+  const formatStatus = status => {
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
-  return colorMap[status] || 'grey'
-}
 
-const formatType = (type) => {
-  return type.charAt(0).toUpperCase() + type.slice(1)
-}
-
-const formatStatus = (status) => {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString()
-}
-
-const viewSchema = (schema) => {
-  // Navigate to schema detail view
-  console.log('View schema:', schema)
-}
-
-const editSchema = (schema) => {
-  router.push({ name: 'SchemaEditor', params: { id: schema.id } })
-}
-
-const duplicateSchema = async (schema) => {
-  try {
-    const duplicated = await schemasStore.duplicateSchema(schema.id)
-    console.log('Schema duplicated:', duplicated)
-  } catch (error) {
-    console.error('Failed to duplicate schema:', error)
+  const formatDate = dateString => {
+    return new Date(dateString).toLocaleDateString()
   }
-}
 
-const deleteSchema = async (schema) => {
-  if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
+  const viewSchema = schema => {
+    // Navigate to schema detail view
+    console.log('View schema:', schema)
+  }
+
+  const editSchema = schema => {
+    router.push({ name: 'SchemaEditor', params: { id: schema.id } })
+  }
+
+  const duplicateSchema = async schema => {
     try {
-      await schemasStore.deleteSchema(schema.id)
+      const duplicated = await schemasStore.duplicateSchema(schema.id)
+      console.log('Schema duplicated:', duplicated)
     } catch (error) {
-      console.error('Failed to delete schema:', error)
+      console.error('Failed to duplicate schema:', error)
     }
   }
-}
 
-const createSchema = async () => {
-  const { valid } = await createForm.value.validate()
-  if (!valid) return
-
-  creating.value = true
-  try {
-    await schemasStore.createSchema(newSchema.value)
-    createSchemaDialog.value = false
-    newSchema.value = {
-      name: '',
-      description: '',
-      type: null,
-      version: '1.0.0'
+  const deleteSchema = async schema => {
+    if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
+      try {
+        await schemasStore.deleteSchema(schema.id)
+      } catch (error) {
+        console.error('Failed to delete schema:', error)
+      }
     }
-  } catch (error) {
-    console.error('Failed to create schema:', error)
-  } finally {
-    creating.value = false
   }
-}
 
-onMounted(async () => {
-  loading.value = true
-  try {
-    await schemasStore.fetchSchemas()
-  } catch (error) {
-    console.error('Failed to load schemas:', error)
-  } finally {
-    loading.value = false
+  const createSchema = async () => {
+    const { valid } = await createForm.value.validate()
+    if (!valid) return
+
+    creating.value = true
+    try {
+      await schemasStore.createSchema(newSchema.value)
+      createSchemaDialog.value = false
+      newSchema.value = {
+        name: '',
+        description: '',
+        type: null,
+        version: '1.0.0'
+      }
+    } catch (error) {
+      console.error('Failed to create schema:', error)
+    } finally {
+      creating.value = false
+    }
   }
-})
+
+  onMounted(async () => {
+    loading.value = true
+    try {
+      await schemasStore.fetchSchemas()
+    } catch (error) {
+      console.error('Failed to load schemas:', error)
+    } finally {
+      loading.value = false
+    }
+  })
 </script>
 
 <style scoped>
-.v-data-table {
-  border-radius: 8px;
-}
+  .v-data-table {
+    border-radius: 8px;
+  }
 </style>

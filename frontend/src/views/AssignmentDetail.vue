@@ -4,16 +4,11 @@
       <v-progress-circular indeterminate color="primary" size="64" />
       <div class="mt-4 text-h6">Loading assignment...</div>
     </div>
-    
+
     <div v-else-if="assignment">
       <!-- Page Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn
-          icon="mdi-arrow-left"
-          variant="text"
-          @click="$router.back()"
-          class="mr-4"
-        />
+        <v-btn icon="mdi-arrow-left" variant="text" @click="$router.back()" class="mr-4" />
         <div>
           <h1 class="text-h4 font-weight-bold">
             {{ assignment.gene_symbol }} - {{ assignment.disease_name }}
@@ -23,11 +18,7 @@
           </p>
         </div>
         <v-spacer />
-        <v-chip
-          :color="getStatusColor(assignment.status)"
-          size="large"
-          variant="flat"
-        >
+        <v-chip :color="getStatusColor(assignment.status)" size="large" variant="flat">
           {{ formatStatus(assignment.status) }}
         </v-chip>
       </div>
@@ -52,18 +43,24 @@
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <div class="text-caption text-medium-emphasis">Assigned To</div>
-              <div v-if="assignment.assigned_to" class="text-body-1">{{ assignment.assignee_name }}</div>
+              <div v-if="assignment.assigned_to" class="text-body-1">
+                {{ assignment.assignee_name }}
+              </div>
               <div v-else class="text-body-1 text-medium-emphasis">Unassigned</div>
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <div class="text-caption text-medium-emphasis">Due Date</div>
-              <div v-if="assignment.due_date" class="text-body-1" :class="getDueDateClass(assignment.due_date)">
+              <div
+                v-if="assignment.due_date"
+                class="text-body-1"
+                :class="getDueDateClass(assignment.due_date)"
+              >
                 {{ formatDate(assignment.due_date) }}
               </div>
               <div v-else class="text-body-1 text-medium-emphasis">No due date</div>
             </v-col>
           </v-row>
-          
+
           <div v-if="assignment.notes" class="mt-4">
             <div class="text-caption text-medium-emphasis">Assignment Notes</div>
             <div class="text-body-2 mt-1">{{ assignment.notes }}</div>
@@ -125,11 +122,7 @@
             @submit="handleCurationSubmit"
             @save-draft="handleCurationDraft"
           />
-          <v-alert
-            v-else-if="!canAccessCuration"
-            type="info"
-            variant="tonal"
-          >
+          <v-alert v-else-if="!canAccessCuration" type="info" variant="tonal">
             <template #prepend>
               <v-icon>mdi-information</v-icon>
             </template>
@@ -166,26 +159,26 @@
                   <template #icon>
                     <v-icon size="small">{{ getEventIcon(event.event_type) }}</v-icon>
                   </template>
-                  
+
                   <div class="d-flex justify-space-between align-center mb-1">
                     <span class="font-weight-medium">{{ formatEventType(event.event_type) }}</span>
                     <span class="text-caption text-medium-emphasis">
                       {{ formatDateTime(event.created_at) }}
                     </span>
                   </div>
-                  
+
                   <div class="text-body-2 mb-1">{{ event.description }}</div>
-                  
+
                   <div class="text-caption text-medium-emphasis">
                     By: {{ event.user_name }} ({{ event.user_role }})
                   </div>
-                  
+
                   <div v-if="event.details" class="text-body-2 mt-2 pa-2 bg-grey-lighten-4 rounded">
                     {{ event.details }}
                   </div>
                 </v-timeline-item>
               </v-timeline>
-              
+
               <div v-else class="text-center py-8 text-medium-emphasis">
                 <v-icon size="64" class="mb-4">mdi-history</v-icon>
                 <div class="text-body-1">No history available</div>
@@ -195,12 +188,8 @@
         </v-window-item>
       </v-window>
     </div>
-    
-    <v-alert
-      v-else-if="error"
-      type="error"
-      variant="tonal"
-    >
+
+    <v-alert v-else-if="error" type="error" variant="tonal">
       <template #prepend>
         <v-icon>mdi-alert-circle</v-icon>
       </template>
@@ -210,224 +199,229 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { useAssignmentsStore, useValidationStore } from '@/stores'
-import DynamicForm from '@/components/dynamic/DynamicForm.vue'
-import WorkflowStages from '@/components/dynamic/WorkflowStages.vue'
-import ScoreDisplay from '@/components/dynamic/ScoreDisplay.vue'
+  import { ref, computed, onMounted, watch } from 'vue'
+  import { useRoute, useRouter } from 'vue-router'
+  import { useAssignmentsStore, useValidationStore } from '@/stores'
+  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import WorkflowStages from '@/components/dynamic/WorkflowStages.vue'
+  import ScoreDisplay from '@/components/dynamic/ScoreDisplay.vue'
 
-const route = useRoute()
-const router = useRouter()
-const assignmentsStore = useAssignmentsStore()
-const validationStore = useValidationStore()
+  const route = useRoute()
+  const router = useRouter()
+  const assignmentsStore = useAssignmentsStore()
+  const validationStore = useValidationStore()
 
-const loading = ref(false)
-const error = ref(null)
-const activeTab = ref('precuration')
-const assignment = ref(null)
-const precurationData = ref({})
-const curationData = ref({})
-const assignmentHistory = ref([])
+  const loading = ref(false)
+  const error = ref(null)
+  const activeTab = ref('precuration')
+  const assignment = ref(null)
+  const precurationData = ref({})
+  const curationData = ref({})
+  const assignmentHistory = ref([])
 
-const assignmentId = computed(() => route.params.id)
+  const assignmentId = computed(() => route.params.id)
 
-const canAccessCuration = computed(() => {
-  return assignment.value?.precuration_status === 'completed' ||
-         assignment.value?.current_stage === 'curation' ||
-         assignment.value?.current_stage === 'completed'
-})
+  const canAccessCuration = computed(() => {
+    return (
+      assignment.value?.precuration_status === 'completed' ||
+      assignment.value?.current_stage === 'curation' ||
+      assignment.value?.current_stage === 'completed'
+    )
+  })
 
-const combinedEvidenceData = computed(() => {
-  return {
-    ...precurationData.value,
-    ...curationData.value
-  }
-})
-
-const currentScoringSchemaId = computed(() => {
-  if (activeTab.value === 'precuration') {
-    return assignment.value?.precuration_schema_id
-  }
-  return assignment.value?.curation_schema_id
-})
-
-// Helper functions
-const getStatusColor = (status) => {
-  const colorMap = {
-    'draft': 'grey',
-    'assigned': 'info',
-    'in_progress': 'primary',
-    'pending_review': 'warning',
-    'under_review': 'warning',
-    'completed': 'success',
-    'rejected': 'error',
-    'on_hold': 'orange'
-  }
-  return colorMap[status] || 'grey'
-}
-
-const formatStatus = (status) => {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString()
-}
-
-const formatDateTime = (dateString) => {
-  return new Date(dateString).toLocaleString()
-}
-
-const getDueDateClass = (dateString) => {
-  const dueDate = new Date(dateString)
-  const today = new Date()
-  const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
-  
-  if (diffDays < 0) return 'text-error'
-  if (diffDays < 7) return 'text-warning'
-  return 'text-success'
-}
-
-const getEventColor = (eventType) => {
-  const colorMap = {
-    'created': 'primary',
-    'assigned': 'info',
-    'precuration_submitted': 'success',
-    'curation_submitted': 'success',
-    'review_requested': 'warning',
-    'approved': 'success',
-    'rejected': 'error',
-    'draft_saved': 'grey'
-  }
-  return colorMap[eventType] || 'grey'
-}
-
-const getEventIcon = (eventType) => {
-  const iconMap = {
-    'created': 'mdi-plus',
-    'assigned': 'mdi-account-plus',
-    'precuration_submitted': 'mdi-file-check',
-    'curation_submitted': 'mdi-file-check',
-    'review_requested': 'mdi-eye',
-    'approved': 'mdi-check-circle',
-    'rejected': 'mdi-close-circle',
-    'draft_saved': 'mdi-content-save'
-  }
-  return iconMap[eventType] || 'mdi-circle'
-}
-
-const formatEventType = (eventType) => {
-  return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-// Event handlers
-const handleStageChanged = (action) => {
-  console.log('Stage changed:', action)
-  loadAssignmentData()
-}
-
-const handleActionCompleted = (action) => {
-  console.log('Action completed:', action)
-  loadAssignmentData()
-}
-
-const handlePrecurationSubmit = async (data) => {
-  try {
-    await assignmentsStore.submitPrecuration(assignmentId.value, data)
-    precurationData.value = data
-    
-    // Switch to curation tab if available
-    if (canAccessCuration.value) {
-      activeTab.value = 'curation'
+  const combinedEvidenceData = computed(() => {
+    return {
+      ...precurationData.value,
+      ...curationData.value
     }
-  } catch (error) {
-    console.error('Precuration submission failed:', error)
-  }
-}
+  })
 
-const handlePrecurationDraft = async (data) => {
-  try {
-    await assignmentsStore.savePrecurationDraft(assignmentId.value, data)
-    precurationData.value = data
-  } catch (error) {
-    console.error('Precuration draft save failed:', error)
-  }
-}
-
-const handleCurationSubmit = async (data) => {
-  try {
-    await assignmentsStore.submitCuration(assignmentId.value, data)
-    curationData.value = data
-    
-    // Switch to scoring tab
-    activeTab.value = 'scoring'
-  } catch (error) {
-    console.error('Curation submission failed:', error)
-  }
-}
-
-const handleCurationDraft = async (data) => {
-  try {
-    await assignmentsStore.saveCurationDraft(assignmentId.value, data)
-    curationData.value = data
-  } catch (error) {
-    console.error('Curation draft save failed:', error)
-  }
-}
-
-const handleScoreUpdated = (scoreResult) => {
-  console.log('Scores updated:', scoreResult)
-}
-
-const handleClassificationChanged = (classification) => {
-  console.log('Classification changed:', classification)
-}
-
-// Data loading
-const loadAssignmentData = async () => {
-  loading.value = true
-  error.value = null
-  
-  try {
-    const [assignmentData, historyData] = await Promise.all([
-      assignmentsStore.fetchAssignmentById(assignmentId.value),
-      assignmentsStore.fetchAssignmentHistory(assignmentId.value)
-    ])
-    
-    assignment.value = assignmentData
-    assignmentHistory.value = historyData
-    
-    // Load existing evidence data
-    if (assignmentData.precuration_data) {
-      precurationData.value = assignmentData.precuration_data
+  const currentScoringSchemaId = computed(() => {
+    if (activeTab.value === 'precuration') {
+      return assignment.value?.precuration_schema_id
     }
-    
-    if (assignmentData.curation_data) {
-      curationData.value = assignmentData.curation_data
-    }
-  } catch (err) {
-    error.value = err.message || 'Failed to load assignment'
-    console.error('Failed to load assignment:', err)
-  } finally {
-    loading.value = false
-  }
-}
+    return assignment.value?.curation_schema_id
+  })
 
-// Watch for route changes
-watch(() => route.params.id, (newId) => {
-  if (newId) {
+  // Helper functions
+  const getStatusColor = status => {
+    const colorMap = {
+      draft: 'grey',
+      assigned: 'info',
+      in_progress: 'primary',
+      pending_review: 'warning',
+      under_review: 'warning',
+      completed: 'success',
+      rejected: 'error',
+      on_hold: 'orange'
+    }
+    return colorMap[status] || 'grey'
+  }
+
+  const formatStatus = status => {
+    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  const formatDate = dateString => {
+    return new Date(dateString).toLocaleDateString()
+  }
+
+  const formatDateTime = dateString => {
+    return new Date(dateString).toLocaleString()
+  }
+
+  const getDueDateClass = dateString => {
+    const dueDate = new Date(dateString)
+    const today = new Date()
+    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
+
+    if (diffDays < 0) return 'text-error'
+    if (diffDays < 7) return 'text-warning'
+    return 'text-success'
+  }
+
+  const getEventColor = eventType => {
+    const colorMap = {
+      created: 'primary',
+      assigned: 'info',
+      precuration_submitted: 'success',
+      curation_submitted: 'success',
+      review_requested: 'warning',
+      approved: 'success',
+      rejected: 'error',
+      draft_saved: 'grey'
+    }
+    return colorMap[eventType] || 'grey'
+  }
+
+  const getEventIcon = eventType => {
+    const iconMap = {
+      created: 'mdi-plus',
+      assigned: 'mdi-account-plus',
+      precuration_submitted: 'mdi-file-check',
+      curation_submitted: 'mdi-file-check',
+      review_requested: 'mdi-eye',
+      approved: 'mdi-check-circle',
+      rejected: 'mdi-close-circle',
+      draft_saved: 'mdi-content-save'
+    }
+    return iconMap[eventType] || 'mdi-circle'
+  }
+
+  const formatEventType = eventType => {
+    return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  // Event handlers
+  const handleStageChanged = action => {
+    console.log('Stage changed:', action)
     loadAssignmentData()
   }
-})
 
-onMounted(() => {
-  loadAssignmentData()
-})
+  const handleActionCompleted = action => {
+    console.log('Action completed:', action)
+    loadAssignmentData()
+  }
+
+  const handlePrecurationSubmit = async data => {
+    try {
+      await assignmentsStore.submitPrecuration(assignmentId.value, data)
+      precurationData.value = data
+
+      // Switch to curation tab if available
+      if (canAccessCuration.value) {
+        activeTab.value = 'curation'
+      }
+    } catch (error) {
+      console.error('Precuration submission failed:', error)
+    }
+  }
+
+  const handlePrecurationDraft = async data => {
+    try {
+      await assignmentsStore.savePrecurationDraft(assignmentId.value, data)
+      precurationData.value = data
+    } catch (error) {
+      console.error('Precuration draft save failed:', error)
+    }
+  }
+
+  const handleCurationSubmit = async data => {
+    try {
+      await assignmentsStore.submitCuration(assignmentId.value, data)
+      curationData.value = data
+
+      // Switch to scoring tab
+      activeTab.value = 'scoring'
+    } catch (error) {
+      console.error('Curation submission failed:', error)
+    }
+  }
+
+  const handleCurationDraft = async data => {
+    try {
+      await assignmentsStore.saveCurationDraft(assignmentId.value, data)
+      curationData.value = data
+    } catch (error) {
+      console.error('Curation draft save failed:', error)
+    }
+  }
+
+  const handleScoreUpdated = scoreResult => {
+    console.log('Scores updated:', scoreResult)
+  }
+
+  const handleClassificationChanged = classification => {
+    console.log('Classification changed:', classification)
+  }
+
+  // Data loading
+  const loadAssignmentData = async () => {
+    loading.value = true
+    error.value = null
+
+    try {
+      const [assignmentData, historyData] = await Promise.all([
+        assignmentsStore.fetchAssignmentById(assignmentId.value),
+        assignmentsStore.fetchAssignmentHistory(assignmentId.value)
+      ])
+
+      assignment.value = assignmentData
+      assignmentHistory.value = historyData
+
+      // Load existing evidence data
+      if (assignmentData.precuration_data) {
+        precurationData.value = assignmentData.precuration_data
+      }
+
+      if (assignmentData.curation_data) {
+        curationData.value = assignmentData.curation_data
+      }
+    } catch (err) {
+      error.value = err.message || 'Failed to load assignment'
+      console.error('Failed to load assignment:', err)
+    } finally {
+      loading.value = false
+    }
+  }
+
+  // Watch for route changes
+  watch(
+    () => route.params.id,
+    newId => {
+      if (newId) {
+        loadAssignmentData()
+      }
+    }
+  )
+
+  onMounted(() => {
+    loadAssignmentData()
+  })
 </script>
 
 <style scoped>
-.v-window {
-  min-height: 400px;
-}
+  .v-window {
+    min-height: 400px;
+  }
 </style>

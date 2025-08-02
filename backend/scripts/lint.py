@@ -9,10 +9,9 @@ a unified interface for code quality checks.
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 
-def run_command(cmd: List[str], description: str) -> bool:
+def run_command(cmd: list[str], description: str) -> bool:
     """Run a command and return True if successful."""
     print(f"🔍 {description}...")
     try:

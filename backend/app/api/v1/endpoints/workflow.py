@@ -56,7 +56,7 @@ def get_workflow_state(
         state_info = workflow_engine.get_workflow_state(db, item_id, item_type)
         return state_info
     except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
+        raise HTTPException(status_code=404, detail=str(e)) from e
 
 
 @router.post(
@@ -95,7 +95,7 @@ def validate_workflow_transition(
         )
         return validation
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{item_type}/{item_id}/transition", response_model=WorkflowTransition)
@@ -125,7 +125,7 @@ def execute_workflow_transition(
         )
         return transition
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 # ========================================
@@ -159,7 +159,7 @@ def assign_peer_reviewer(
         )
         return review_request
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/reviews/{review_id}/submit", response_model=PeerReviewResult)
@@ -187,7 +187,7 @@ def submit_peer_review(
         )
         return PeerReviewResult(**result)
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/reviews/my-assignments", response_model=list[PeerReviewRequest])
@@ -210,8 +210,8 @@ def get_my_review_assignments(
         try:
             status_enum = ReviewStatus(status)
             query = query.filter(Review.status == status_enum)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}")
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from e
 
     reviews = query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit).all()
 

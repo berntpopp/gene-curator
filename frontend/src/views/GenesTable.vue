@@ -431,7 +431,7 @@
       // Watch for auth initialization
       const unwatch = watch(
         () => authStore.isAuthenticated,
-        async (isAuthenticated) => {
+        async isAuthenticated => {
           if (isAuthenticated) {
             await loadGenes()
             unwatch() // Stop watching once loaded

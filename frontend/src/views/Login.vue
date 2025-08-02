@@ -149,7 +149,11 @@
 
   // Development mode check
   const isDevelopment = computed(() => {
-    return import.meta.env.DEV || import.meta.env.MODE === 'development' || import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true'
+    return (
+      import.meta.env.DEV ||
+      import.meta.env.MODE === 'development' ||
+      import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true'
+    )
   })
 
   // Validation rules

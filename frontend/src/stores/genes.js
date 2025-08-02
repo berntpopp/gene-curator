@@ -32,7 +32,7 @@ export const useGenesStore = defineStore('genes', {
     },
 
     getGenesByScope: state => scopeId => {
-      return state.genes.filter(gene => 
+      return state.genes.filter(gene =>
         gene.assignments?.some(assignment => assignment.scope_id === scopeId)
       )
     },
@@ -46,9 +46,7 @@ export const useGenesStore = defineStore('genes', {
     },
 
     getUnassignedGenes: state => {
-      return state.genes.filter(gene => 
-        !gene.assignments || gene.assignments.length === 0
-      )
+      return state.genes.filter(gene => !gene.assignments || gene.assignments.length === 0)
     }
   },
 
@@ -61,13 +59,13 @@ export const useGenesStore = defineStore('genes', {
           ...this.searchParams,
           ...params
         })
-        
+
         this.genes = response.genes || response.data || response
-        
+
         if (response.pagination) {
           this.pagination = response.pagination
         }
-        
+
         return response
       } catch (error) {
         this.error = error.message
@@ -83,7 +81,7 @@ export const useGenesStore = defineStore('genes', {
       try {
         const gene = await genesAPI.getGeneById(id)
         this.currentGene = gene
-        
+
         // Update the gene in the list if it exists
         const index = this.genes.findIndex(g => g.id === id)
         if (index !== -1) {
@@ -91,7 +89,7 @@ export const useGenesStore = defineStore('genes', {
         } else {
           this.genes.push(gene)
         }
-        
+
         return gene
       } catch (error) {
         this.error = error.message
@@ -217,7 +215,6 @@ export const useGenesStore = defineStore('genes', {
         throw error
       }
     },
-
 
     clearError() {
       this.error = null

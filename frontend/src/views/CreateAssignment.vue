@@ -1,12 +1,7 @@
 <template>
   <v-container fluid>
     <div class="d-flex align-center mb-6">
-      <v-btn
-        icon="mdi-arrow-left"
-        variant="text"
-        @click="$router.back()"
-        class="mr-4"
-      />
+      <v-btn icon="mdi-arrow-left" variant="text" @click="$router.back()" class="mr-4" />
       <div>
         <h1 class="text-h4 font-weight-bold">Create New Assignment</h1>
         <p class="text-body-1 text-medium-emphasis mt-1">
@@ -26,13 +21,13 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+  import { onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
 
-const router = useRouter()
+  const router = useRouter()
 
-onMounted(() => {
-  // Redirect to the scope selection flow
-  router.replace({ name: 'ScopeSelection' })
-})
+  onMounted(() => {
+    // Redirect to the scope selection flow
+    router.replace({ name: 'ScopeSelection' })
+  })
 </script>

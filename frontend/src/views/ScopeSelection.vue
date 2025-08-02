@@ -3,11 +3,7 @@
     <v-row justify="center" align="center">
       <v-col cols="12" md="8" lg="6">
         <!-- Progress Stepper -->
-        <v-stepper
-          v-model="currentStep"
-          alt-labels
-          class="mb-6"
-        >
+        <v-stepper v-model="currentStep" alt-labels class="mb-6">
           <v-stepper-header>
             <v-stepper-item
               :complete="currentStep > 1"
@@ -55,7 +51,7 @@
                 <v-icon start>mdi-dna</v-icon>
                 Gene Assignment
               </v-card-title>
-              
+
               <v-card-text>
                 <div class="mb-4">
                   <div class="text-subtitle-1 font-weight-medium mb-2">Selected Configuration</div>
@@ -117,7 +113,9 @@
 
                 <!-- Disease/Phenotype Selection -->
                 <div class="mb-4">
-                  <div class="text-subtitle-1 font-weight-medium mb-2">Associated Disease/Phenotype</div>
+                  <div class="text-subtitle-1 font-weight-medium mb-2">
+                    Associated Disease/Phenotype
+                  </div>
                   <v-autocomplete
                     v-model="selectedDisease"
                     :items="availableDiseases"
@@ -173,7 +171,7 @@
                   />
                 </div>
               </v-card-text>
-              
+
               <v-card-actions>
                 <v-btn variant="outlined" @click="currentStep = 2">
                   <v-icon start>mdi-arrow-left</v-icon>
@@ -197,21 +195,11 @@
 
         <!-- Navigation -->
         <div v-if="currentStep < 3" class="text-center mt-6">
-          <v-btn
-            v-if="currentStep > 1"
-            variant="outlined"
-            @click="currentStep--"
-            class="mr-4"
-          >
+          <v-btn v-if="currentStep > 1" variant="outlined" @click="currentStep--" class="mr-4">
             <v-icon start>mdi-arrow-left</v-icon>
             Back
           </v-btn>
-          <v-btn
-            variant="text"
-            to="/dashboard"
-          >
-            Cancel
-          </v-btn>
+          <v-btn variant="text" to="/dashboard"> Cancel </v-btn>
         </div>
       </v-col>
     </v-row>
@@ -219,166 +207,169 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
-import { useGenesStore, useAssignmentsStore } from '@/stores'
-import ScopeSelector from '@/components/dynamic/ScopeSelector.vue'
-import SchemaSelector from '@/components/dynamic/SchemaSelector.vue'
+  import { ref, computed, watch } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useGenesStore, useAssignmentsStore } from '@/stores'
+  import ScopeSelector from '@/components/dynamic/ScopeSelector.vue'
+  import SchemaSelector from '@/components/dynamic/SchemaSelector.vue'
 
-const router = useRouter()
-const genesStore = useGenesStore()
-const assignmentsStore = useAssignmentsStore()
+  const router = useRouter()
+  const genesStore = useGenesStore()
+  const assignmentsStore = useAssignmentsStore()
 
-// Reactive state
-const currentStep = ref(1)
-const selectedScope = ref(null)
-const selectedSchemas = ref(null)
-const selectedGene = ref(null)
-const selectedDisease = ref(null)
-const assignmentPriority = ref('medium')
-const assignmentDueDate = ref('')
-const assignmentNotes = ref('')
-const creating = ref(false)
+  // Reactive state
+  const currentStep = ref(1)
+  const selectedScope = ref(null)
+  const selectedSchemas = ref(null)
+  const selectedGene = ref(null)
+  const selectedDisease = ref(null)
+  const assignmentPriority = ref('medium')
+  const assignmentDueDate = ref('')
+  const assignmentNotes = ref('')
+  const creating = ref(false)
 
-// Search states
-const geneSearchQuery = ref('')
-const diseaseSearchQuery = ref('')
-const searchingGenes = ref(false)
-const searchingDiseases = ref(false)
-const availableGenes = ref([])
-const availableDiseases = ref([])
+  // Search states
+  const geneSearchQuery = ref('')
+  const diseaseSearchQuery = ref('')
+  const searchingGenes = ref(false)
+  const searchingDiseases = ref(false)
+  const availableGenes = ref([])
+  const availableDiseases = ref([])
 
-const priorityOptions = [
-  { title: 'Low', value: 'low' },
-  { title: 'Medium', value: 'medium' },
-  { title: 'High', value: 'high' },
-  { title: 'Urgent', value: 'urgent' }
-]
+  const priorityOptions = [
+    { title: 'Low', value: 'low' },
+    { title: 'Medium', value: 'medium' },
+    { title: 'High', value: 'high' },
+    { title: 'Urgent', value: 'urgent' }
+  ]
 
-const canCreateAssignment = computed(() => {
-  return selectedScope.value && 
-         selectedSchemas.value && 
-         selectedGene.value && 
-         selectedDisease.value
-})
-
-// Step handlers
-const handleScopeSelected = (scope) => {
-  selectedScope.value = scope
-  currentStep.value = 2
-}
-
-const handleSchemasSelected = (schemas) => {
-  selectedSchemas.value = schemas
-  currentStep.value = 3
-}
-
-// Search functions
-const searchGenes = async (query) => {
-  if (!query || query.length < 2) {
-    availableGenes.value = []
-    return
-  }
-
-  searchingGenes.value = true
-  try {
-    const results = await genesStore.searchGenes({
-      query,
-      scope_id: selectedScope.value?.id,
-      include_assignment_status: true,
-      limit: 20
-    })
-    availableGenes.value = results
-  } catch (error) {
-    console.error('Gene search failed:', error)
-    availableGenes.value = []
-  } finally {
-    searchingGenes.value = false
-  }
-}
-
-const searchDiseases = async (query) => {
-  if (!query || query.length < 2) {
-    availableDiseases.value = []
-    return
-  }
-
-  searchingDiseases.value = true
-  try {
-    // Mock disease search - replace with actual API call
-    const mockDiseases = [
-      { id: '1', name: 'Cardiomyopathy, Hypertrophic', omim_id: '192600', category: 'Cardiovascular' },
-      { id: '2', name: 'Long QT Syndrome', omim_id: '192500', category: 'Cardiovascular' },
-      { id: '3', name: 'Brugada Syndrome', omim_id: '601144', category: 'Cardiovascular' }
-    ]
-    
-    availableDiseases.value = mockDiseases.filter(d => 
-      d.name.toLowerCase().includes(query.toLowerCase()) ||
-      d.omim_id.includes(query)
+  const canCreateAssignment = computed(() => {
+    return (
+      selectedScope.value && selectedSchemas.value && selectedGene.value && selectedDisease.value
     )
-  } catch (error) {
-    console.error('Disease search failed:', error)
-    availableDiseases.value = []
-  } finally {
-    searchingDiseases.value = false
+  })
+
+  // Step handlers
+  const handleScopeSelected = scope => {
+    selectedScope.value = scope
+    currentStep.value = 2
   }
-}
 
-// Helper functions
-const getAssignmentStatusColor = (status) => {
-  const colorMap = {
-    'available': 'success',
-    'assigned': 'warning',
-    'in_progress': 'primary',
-    'completed': 'grey'
+  const handleSchemasSelected = schemas => {
+    selectedSchemas.value = schemas
+    currentStep.value = 3
   }
-  return colorMap[status] || 'grey'
-}
 
-const formatAssignmentStatus = (status) => {
-  return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-// Create assignment
-const createAssignment = async () => {
-  if (!canCreateAssignment.value) return
-
-  creating.value = true
-  try {
-    const assignmentData = {
-      gene_id: selectedGene.value.id,
-      disease_id: selectedDisease.value.id,
-      scope_id: selectedScope.value.id,
-      workflow_pair_id: selectedSchemas.value.workflowPair.id,
-      priority: assignmentPriority.value,
-      due_date: assignmentDueDate.value || null,
-      notes: assignmentNotes.value || null,
-      precuration_schema_id: selectedSchemas.value.precurationSchema.id,
-      curation_schema_id: selectedSchemas.value.curationSchema.id
+  // Search functions
+  const searchGenes = async query => {
+    if (!query || query.length < 2) {
+      availableGenes.value = []
+      return
     }
 
-    const assignment = await assignmentsStore.createAssignment(assignmentData)
-    
-    // Navigate to the new assignment
-    router.push({ name: 'AssignmentDetail', params: { id: assignment.id } })
-  } catch (error) {
-    console.error('Failed to create assignment:', error)
-  } finally {
-    creating.value = false
+    searchingGenes.value = true
+    try {
+      const results = await genesStore.searchGenes({
+        query,
+        scope_id: selectedScope.value?.id,
+        include_assignment_status: true,
+        limit: 20
+      })
+      availableGenes.value = results
+    } catch (error) {
+      console.error('Gene search failed:', error)
+      availableGenes.value = []
+    } finally {
+      searchingGenes.value = false
+    }
   }
-}
 
-// Watch for gene selection to trigger disease search
-watch(selectedGene, (gene) => {
-  if (gene) {
-    // Auto-search for related diseases based on gene
-    searchDiseases(gene.symbol)
+  const searchDiseases = async query => {
+    if (!query || query.length < 2) {
+      availableDiseases.value = []
+      return
+    }
+
+    searchingDiseases.value = true
+    try {
+      // Mock disease search - replace with actual API call
+      const mockDiseases = [
+        {
+          id: '1',
+          name: 'Cardiomyopathy, Hypertrophic',
+          omim_id: '192600',
+          category: 'Cardiovascular'
+        },
+        { id: '2', name: 'Long QT Syndrome', omim_id: '192500', category: 'Cardiovascular' },
+        { id: '3', name: 'Brugada Syndrome', omim_id: '601144', category: 'Cardiovascular' }
+      ]
+
+      availableDiseases.value = mockDiseases.filter(
+        d => d.name.toLowerCase().includes(query.toLowerCase()) || d.omim_id.includes(query)
+      )
+    } catch (error) {
+      console.error('Disease search failed:', error)
+      availableDiseases.value = []
+    } finally {
+      searchingDiseases.value = false
+    }
   }
-})
+
+  // Helper functions
+  const getAssignmentStatusColor = status => {
+    const colorMap = {
+      available: 'success',
+      assigned: 'warning',
+      in_progress: 'primary',
+      completed: 'grey'
+    }
+    return colorMap[status] || 'grey'
+  }
+
+  const formatAssignmentStatus = status => {
+    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  // Create assignment
+  const createAssignment = async () => {
+    if (!canCreateAssignment.value) return
+
+    creating.value = true
+    try {
+      const assignmentData = {
+        gene_id: selectedGene.value.id,
+        disease_id: selectedDisease.value.id,
+        scope_id: selectedScope.value.id,
+        workflow_pair_id: selectedSchemas.value.workflowPair.id,
+        priority: assignmentPriority.value,
+        due_date: assignmentDueDate.value || null,
+        notes: assignmentNotes.value || null,
+        precuration_schema_id: selectedSchemas.value.precurationSchema.id,
+        curation_schema_id: selectedSchemas.value.curationSchema.id
+      }
+
+      const assignment = await assignmentsStore.createAssignment(assignmentData)
+
+      // Navigate to the new assignment
+      router.push({ name: 'AssignmentDetail', params: { id: assignment.id } })
+    } catch (error) {
+      console.error('Failed to create assignment:', error)
+    } finally {
+      creating.value = false
+    }
+  }
+
+  // Watch for gene selection to trigger disease search
+  watch(selectedGene, gene => {
+    if (gene) {
+      // Auto-search for related diseases based on gene
+      searchDiseases(gene.symbol)
+    }
+  })
 </script>
 
 <style scoped>
-.fill-height {
-  min-height: 100vh;
-}
+  .fill-height {
+    min-height: 100vh;
+  }
 </style>

@@ -126,7 +126,7 @@ def create_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/search", response_model=list[GeneNewSummary])
@@ -270,7 +270,7 @@ def update_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.delete("/{gene_id}")

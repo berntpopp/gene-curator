@@ -3,17 +3,15 @@
 Script to create a default admin user for development.
 """
 
-import sys
 import os
+import sys
 
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
-from sqlalchemy.orm import Session
-from app.core.database import get_db, engine
+from app.core.database import get_db
 from app.crud.user import user_crud
 from app.schemas.auth import UserCreate
-from app.models import UserRole
 
 
 def create_default_user():
@@ -57,7 +55,7 @@ def create_default_user():
         print(f"   ID: {user.id}")
         print()
         print("💡 You can now login with these credentials:")
-        print(f"   POST /api/v1/auth/login")
+        print("   POST /api/v1/auth/login")
         print(f'   {{"email": "{default_email}", "password": "{default_password}"}}')
 
         return user

@@ -50,13 +50,13 @@ export const useAssignmentsStore = defineStore('assignments', {
       this.error = null
       try {
         const response = await assignmentsAPI.getAssignments(params)
-        
+
         this.assignments = response.assignments || response.data || response
-        
+
         if (response.pagination) {
           this.pagination = response.pagination
         }
-        
+
         return response
       } catch (error) {
         this.error = error.message
@@ -71,15 +71,15 @@ export const useAssignmentsStore = defineStore('assignments', {
       this.error = null
       try {
         const result = await assignmentsAPI.bulkAssignGenes(assignmentData)
-        
+
         // Refresh assignments after bulk operation
         await this.fetchAssignments()
-        
+
         // Refresh scope assignments if scope_id is provided
         if (assignmentData.scope_id) {
           await this.fetchAssignmentsByScope(assignmentData.scope_id)
         }
-        
+
         return result
       } catch (error) {
         this.error = error.message
@@ -115,13 +115,13 @@ export const useAssignmentsStore = defineStore('assignments', {
       this.error = null
       try {
         const result = await assignmentsAPI.updateAssignmentPriority(assignmentId, priority)
-        
+
         // Update the assignment in the local state
         const index = this.assignments.findIndex(a => a.id === assignmentId)
         if (index !== -1) {
           this.assignments[index].priority_level = priority
         }
-        
+
         return result
       } catch (error) {
         this.error = error.message

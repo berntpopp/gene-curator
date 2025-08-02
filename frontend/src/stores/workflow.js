@@ -22,11 +22,13 @@ export const useWorkflowStore = defineStore('workflow', {
       return state.curationHistory[curationId] || []
     },
 
-    getAvailableReviewers: state => (excludeUserId = null) => {
-      return state.peerReviewers.filter(reviewer => 
-        !excludeUserId || reviewer.id !== excludeUserId
-      )
-    },
+    getAvailableReviewers:
+      state =>
+      (excludeUserId = null) => {
+        return state.peerReviewers.filter(
+          reviewer => !excludeUserId || reviewer.id !== excludeUserId
+        )
+      },
 
     getWorkflowStageStats: state => stage => {
       return state.statistics?.stages?.[stage] || {}
@@ -54,10 +56,10 @@ export const useWorkflowStore = defineStore('workflow', {
       this.error = null
       try {
         const result = await workflowAPI.transitionCuration(curationId, transitionData)
-        
+
         // Refresh available transitions after successful transition
         await this.fetchAvailableTransitions(curationId)
-        
+
         return result
       } catch (error) {
         this.error = error.message
@@ -94,10 +96,10 @@ export const useWorkflowStore = defineStore('workflow', {
       this.error = null
       try {
         const result = await workflowAPI.submitPeerReview(curationId, reviewData)
-        
+
         // Refresh curation history after review submission
         await this.fetchCurationWorkflowHistory(curationId)
-        
+
         return result
       } catch (error) {
         this.error = error.message

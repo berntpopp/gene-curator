@@ -13,7 +13,10 @@ export const workflowAPI = {
    * Transition curation to next workflow stage
    */
   async transitionCuration(curationId, transitionData) {
-    const response = await apiClient.post(`/workflow/curation/${curationId}/transition`, transitionData)
+    const response = await apiClient.post(
+      `/workflow/curation/${curationId}/transition`,
+      transitionData
+    )
     return response.data
   },
 

@@ -110,7 +110,7 @@ def validate_evidence_data(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Validation error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Validation error: {e!s}") from e
 
 
 @router.post("/validate-schema", response_model=ValidationResponse)
@@ -144,7 +144,7 @@ def validate_schema_definition(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Schema validation error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Schema validation error: {e!s}") from e
 
 
 @router.post("/generate-json-schema", response_model=JSONSchemaResponse)
@@ -179,7 +179,7 @@ def generate_json_schema(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"JSON Schema generation error: {e!s}"
-        )
+        ) from e
 
 
 @router.get("/schema/{schema_id}/json-schema", response_model=JSONSchemaResponse)
@@ -214,7 +214,7 @@ def get_json_schema_for_schema(
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"JSON Schema generation error: {e!s}"
-        )
+        ) from e
 
 
 # ========================================
@@ -281,7 +281,7 @@ def validate_single_field(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Field validation error: {e!s}")
+        raise HTTPException(status_code=500, detail=f"Field validation error: {e!s}") from e
 
 
 # ========================================

@@ -47,7 +47,7 @@ export const useScopesStore = defineStore('scopes', {
       try {
         const scope = await scopesAPI.getScopeById(id)
         this.currentScope = scope
-        
+
         // Update the scope in the list if it exists
         const index = this.scopes.findIndex(s => s.id === id)
         if (index !== -1) {
@@ -55,7 +55,7 @@ export const useScopesStore = defineStore('scopes', {
         } else {
           this.scopes.push(scope)
         }
-        
+
         return scope
       } catch (error) {
         this.error = error.message

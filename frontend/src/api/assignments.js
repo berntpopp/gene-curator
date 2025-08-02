@@ -29,7 +29,9 @@ export const assignmentsAPI = {
    * Get curator assignments
    */
   async getCuratorAssignments(curatorId, params = {}) {
-    const response = await apiClient.get(`/gene-assignments/curator/${curatorId}/assignments`, { params })
+    const response = await apiClient.get(`/gene-assignments/curator/${curatorId}/assignments`, {
+      params
+    })
     return response.data
   },
 
@@ -37,7 +39,9 @@ export const assignmentsAPI = {
    * Update assignment priority
    */
   async updateAssignmentPriority(assignmentId, priority) {
-    const response = await apiClient.put(`/gene-assignments/${assignmentId}/priority`, { priority_level: priority })
+    const response = await apiClient.put(`/gene-assignments/${assignmentId}/priority`, {
+      priority_level: priority
+    })
     return response.data
   },
 

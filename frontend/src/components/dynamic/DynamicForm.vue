@@ -5,13 +5,13 @@
         <v-icon start>mdi-form-select</v-icon>
         {{ title }}
       </v-card-title>
-      
+
       <v-card-text>
         <div v-if="loading" class="text-center py-8">
           <v-progress-circular indeterminate color="primary" />
           <div class="mt-4">Loading form schema...</div>
         </div>
-        
+
         <div v-else-if="jsonSchema && jsonSchema.properties">
           <v-row>
             <v-col
@@ -29,7 +29,7 @@
               />
             </v-col>
           </v-row>
-          
+
           <v-alert
             v-if="validationResult && !validationResult.is_valid"
             type="error"
@@ -46,7 +46,7 @@
               </li>
             </ul>
           </v-alert>
-          
+
           <v-alert
             v-if="validationResult && validationResult.warnings?.length"
             type="warning"
@@ -63,7 +63,7 @@
               </li>
             </ul>
           </v-alert>
-          
+
           <div v-if="validationResult && validationResult.score_calculations">
             <v-divider class="my-6" />
             <h3 class="text-h6 mb-4 d-flex align-center">
@@ -90,19 +90,15 @@
             </v-row>
           </div>
         </div>
-        
-        <v-alert
-          v-else-if="error"
-          type="error"
-          variant="tonal"
-        >
+
+        <v-alert v-else-if="error" type="error" variant="tonal">
           <template #prepend>
             <v-icon>mdi-alert-circle</v-icon>
           </template>
           Failed to load form schema: {{ error }}
         </v-alert>
       </v-card-text>
-      
+
       <v-card-actions>
         <v-spacer />
         <v-btn
@@ -131,154 +127,162 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted, watch } from 'vue'
-import { useValidationStore } from '@/stores'
-import DynamicField from './DynamicField.vue'
+  import { ref, computed, onMounted, watch } from 'vue'
+  import { useValidationStore } from '@/stores'
+  import DynamicField from './DynamicField.vue'
 
-const props = defineProps({
-  schemaId: {
-    type: String,
-    required: true
-  },
-  title: {
-    type: String,
-    default: 'Dynamic Form'
-  },
-  initialData: {
-    type: Object,
-    default: () => ({})
-  }
-})
-
-const emit = defineEmits(['submit', 'save-draft'])
-
-const validationStore = useValidationStore()
-const formRef = ref(null)
-const formData = ref({ ...props.initialData })
-const saving = ref(false)
-const submitting = ref(false)
-
-const loading = computed(() => validationStore.loading)
-const error = computed(() => validationStore.error)
-const jsonSchema = computed(() => validationStore.getJsonSchema(props.schemaId))
-const validationResult = computed(() => validationStore.getValidationResult('form'))
-
-const hasChanges = computed(() => {
-  return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
-})
-
-const canSubmit = computed(() => {
-  return validationResult.value?.is_valid !== false && hasChanges.value
-})
-
-const updateField = (fieldName, value) => {
-  formData.value[fieldName] = value
-  // Trigger validation debounced
-  clearTimeout(updateField.timeout)
-  updateField.timeout = setTimeout(() => {
-    validateForm()
-  }, 500)
-}
-
-const validateField = async (fieldName, value) => {
-  try {
-    await validationStore.validateField({
-      field_name: fieldName,
-      field_value: value,
-      schema_id: props.schemaId
-    })
-  } catch (error) {
-    console.error('Field validation error:', error)
-  }
-}
-
-const validateForm = async () => {
-  try {
-    await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
-  } catch (error) {
-    console.error('Form validation error:', error)
-  }
-}
-
-const getFieldValidation = (fieldName) => {
-  return validationResult.value?.field_validations?.[fieldName]
-}
-
-const getFieldCols = (field) => {
-  // Determine column width based on field type
-  switch (field.type) {
-    case 'boolean':
-      return 12
-    case 'array':
-    case 'object':
-      return 12
-    case 'text':
-      if (field.multiline) return 12
-      return 6
-    default:
-      return 6
-  }
-}
-
-const formatScoreCategory = (category) => {
-  return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-}
-
-const handleSubmit = async () => {
-  submitting.value = true
-  try {
-    // Final validation
-    await validateForm()
-    
-    if (validationResult.value?.is_valid !== false) {
-      emit('submit', formData.value)
+  const props = defineProps({
+    schemaId: {
+      type: String,
+      required: true
+    },
+    title: {
+      type: String,
+      default: 'Dynamic Form'
+    },
+    initialData: {
+      type: Object,
+      default: () => ({})
     }
-  } catch (error) {
-    console.error('Submit error:', error)
-  } finally {
-    submitting.value = false
-  }
-}
+  })
 
-const saveDraft = async () => {
-  saving.value = true
-  try {
-    emit('save-draft', formData.value)
-  } catch (error) {
-    console.error('Save draft error:', error)
-  } finally {
-    saving.value = false
-  }
-}
+  const emit = defineEmits(['submit', 'save-draft'])
 
-// Watch for schema changes and generate JSON schema
-watch(() => props.schemaId, async (newSchemaId) => {
-  if (newSchemaId) {
+  const validationStore = useValidationStore()
+  const formRef = ref(null)
+  const formData = ref({ ...props.initialData })
+  const saving = ref(false)
+  const submitting = ref(false)
+
+  const loading = computed(() => validationStore.loading)
+  const error = computed(() => validationStore.error)
+  const jsonSchema = computed(() => validationStore.getJsonSchema(props.schemaId))
+  const validationResult = computed(() => validationStore.getValidationResult('form'))
+
+  const hasChanges = computed(() => {
+    return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
+  })
+
+  const canSubmit = computed(() => {
+    return validationResult.value?.is_valid !== false && hasChanges.value
+  })
+
+  const updateField = (fieldName, value) => {
+    formData.value[fieldName] = value
+    // Trigger validation debounced
+    clearTimeout(updateField.timeout)
+    updateField.timeout = setTimeout(() => {
+      validateForm()
+    }, 500)
+  }
+
+  const validateField = async (fieldName, value) => {
     try {
-      await validationStore.generateJsonSchema(newSchemaId)
+      await validationStore.validateField({
+        field_name: fieldName,
+        field_value: value,
+        schema_id: props.schemaId
+      })
     } catch (error) {
-      console.error('Failed to generate JSON schema:', error)
+      console.error('Field validation error:', error)
     }
   }
-}, { immediate: true })
 
-// Initial validation when form data changes
-watch(formData, () => {
-  if (Object.keys(formData.value).length > 0) {
-    validateForm()
-  }
-}, { deep: true })
-
-onMounted(async () => {
-  if (props.schemaId) {
+  const validateForm = async () => {
     try {
-      await validationStore.generateJsonSchema(props.schemaId)
-      if (Object.keys(formData.value).length > 0) {
-        await validateForm()
+      await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+    } catch (error) {
+      console.error('Form validation error:', error)
+    }
+  }
+
+  const getFieldValidation = fieldName => {
+    return validationResult.value?.field_validations?.[fieldName]
+  }
+
+  const getFieldCols = field => {
+    // Determine column width based on field type
+    switch (field.type) {
+      case 'boolean':
+        return 12
+      case 'array':
+      case 'object':
+        return 12
+      case 'text':
+        if (field.multiline) return 12
+        return 6
+      default:
+        return 6
+    }
+  }
+
+  const formatScoreCategory = category => {
+    return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  const handleSubmit = async () => {
+    submitting.value = true
+    try {
+      // Final validation
+      await validateForm()
+
+      if (validationResult.value?.is_valid !== false) {
+        emit('submit', formData.value)
       }
     } catch (error) {
-      console.error('Failed to initialize form:', error)
+      console.error('Submit error:', error)
+    } finally {
+      submitting.value = false
     }
   }
-})
+
+  const saveDraft = async () => {
+    saving.value = true
+    try {
+      emit('save-draft', formData.value)
+    } catch (error) {
+      console.error('Save draft error:', error)
+    } finally {
+      saving.value = false
+    }
+  }
+
+  // Watch for schema changes and generate JSON schema
+  watch(
+    () => props.schemaId,
+    async newSchemaId => {
+      if (newSchemaId) {
+        try {
+          await validationStore.generateJsonSchema(newSchemaId)
+        } catch (error) {
+          console.error('Failed to generate JSON schema:', error)
+        }
+      }
+    },
+    { immediate: true }
+  )
+
+  // Initial validation when form data changes
+  watch(
+    formData,
+    () => {
+      if (Object.keys(formData.value).length > 0) {
+        validateForm()
+      }
+    },
+    { deep: true }
+  )
+
+  onMounted(async () => {
+    if (props.schemaId) {
+      try {
+        await validationStore.generateJsonSchema(props.schemaId)
+        if (Object.keys(formData.value).length > 0) {
+          await validateForm()
+        }
+      } catch (error) {
+        console.error('Failed to initialize form:', error)
+      }
+    }
+  })
 </script>

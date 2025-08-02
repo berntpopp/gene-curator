@@ -139,7 +139,7 @@ def create_gene_assignment(
         )
         return assignment
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/{assignment_id}", response_model=GeneScopeAssignmentWithDetails)
@@ -234,7 +234,7 @@ def deactivate_gene_assignment(
         )
         return {"message": "Assignment deactivated successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{assignment_id}/reactivate")
@@ -361,7 +361,7 @@ def assign_curator_to_gene(
         )
         return {"message": "Curator assigned successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.post("/{assignment_id}/unassign-curator")

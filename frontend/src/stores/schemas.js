@@ -22,11 +22,15 @@ export const useSchemasStore = defineStore('schemas', {
     },
 
     getPrecurationSchemas: state => {
-      return state.schemas.filter(schema => schema.schema_type === 'precuration' || schema.schema_type === 'combined')
+      return state.schemas.filter(
+        schema => schema.schema_type === 'precuration' || schema.schema_type === 'combined'
+      )
     },
 
     getCurationSchemas: state => {
-      return state.schemas.filter(schema => schema.schema_type === 'curation' || schema.schema_type === 'combined')
+      return state.schemas.filter(
+        schema => schema.schema_type === 'curation' || schema.schema_type === 'combined'
+      )
     },
 
     getWorkflowPairById: state => id => {
@@ -56,7 +60,7 @@ export const useSchemasStore = defineStore('schemas', {
       try {
         const schema = await schemasAPI.getSchemaById(id)
         this.currentSchema = schema
-        
+
         // Update the schema in the list if it exists
         const index = this.schemas.findIndex(s => s.id === id)
         if (index !== -1) {
@@ -64,7 +68,7 @@ export const useSchemasStore = defineStore('schemas', {
         } else {
           this.schemas.push(schema)
         }
-        
+
         return schema
       } catch (error) {
         this.error = error.message

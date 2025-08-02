@@ -9,12 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn
-        color="primary"
-        variant="outlined"
-        @click="refreshAll"
-        :loading="refreshing"
-      >
+      <v-btn color="primary" variant="outlined" @click="refreshAll" :loading="refreshing">
         <v-icon start>mdi-refresh</v-icon>
         Refresh All
       </v-btn>
@@ -26,22 +21,26 @@
         <v-card>
           <v-card-text class="text-center">
             <v-icon size="48" color="success" class="mb-2">mdi-check-circle</v-icon>
-            <div class="text-h4 font-weight-bold text-success">{{ stats.valid_curations || 0 }}</div>
+            <div class="text-h4 font-weight-bold text-success">
+              {{ stats.valid_curations || 0 }}
+            </div>
             <div class="text-body-2 text-medium-emphasis">Valid Curations</div>
           </v-card-text>
         </v-card>
       </v-col>
-      
+
       <v-col cols="12" sm="6" md="3">
         <v-card>
           <v-card-text class="text-center">
             <v-icon size="48" color="error" class="mb-2">mdi-alert-circle</v-icon>
-            <div class="text-h4 font-weight-bold text-error">{{ stats.invalid_curations || 0 }}</div>
+            <div class="text-h4 font-weight-bold text-error">
+              {{ stats.invalid_curations || 0 }}
+            </div>
             <div class="text-body-2 text-medium-emphasis">Invalid Curations</div>
           </v-card-text>
         </v-card>
       </v-col>
-      
+
       <v-col cols="12" sm="6" md="3">
         <v-card>
           <v-card-text class="text-center">
@@ -51,12 +50,14 @@
           </v-card-text>
         </v-card>
       </v-col>
-      
+
       <v-col cols="12" sm="6" md="3">
         <v-card>
           <v-card-text class="text-center">
             <v-icon size="48" color="info" class="mb-2">mdi-chart-line</v-icon>
-            <div class="text-h4 font-weight-bold text-info">{{ stats.schema_compliance_rate || 0 }}%</div>
+            <div class="text-h4 font-weight-bold text-info">
+              {{ stats.schema_compliance_rate || 0 }}%
+            </div>
             <div class="text-body-2 text-medium-emphasis">Compliance Rate</div>
           </v-card-text>
         </v-card>
@@ -129,7 +130,7 @@
         <v-icon start>mdi-clipboard-check</v-icon>
         Validation Results ({{ filteredResults.length }})
       </v-card-title>
-      
+
       <v-data-table
         :headers="validationHeaders"
         :items="filteredResults"
@@ -143,25 +144,27 @@
             <div class="text-caption">{{ item.entity_type }} • {{ item.scope_name }}</div>
           </div>
         </template>
-        
+
         <template #item.schema="{ item }">
           <div>
             <div class="text-body-2">{{ item.schema_name }}</div>
             <div class="text-caption">v{{ item.schema_version }}</div>
           </div>
         </template>
-        
+
         <template #item.status="{ item }">
           <v-chip
             :color="getValidationStatusColor(item.validation_status)"
             size="small"
             variant="flat"
           >
-            <v-icon start size="small">{{ getValidationStatusIcon(item.validation_status) }}</v-icon>
+            <v-icon start size="small">{{
+              getValidationStatusIcon(item.validation_status)
+            }}</v-icon>
             {{ formatValidationStatus(item.validation_status) }}
           </v-chip>
         </template>
-        
+
         <template #item.issues="{ item }">
           <div class="d-flex flex-column gap-1">
             <v-chip
@@ -173,24 +176,21 @@
             >
               {{ issue.message }}
             </v-chip>
-            <v-chip
-              v-if="item.issues.length > 2"
-              size="x-small"
-              variant="outlined"
-              color="grey"
-            >
+            <v-chip v-if="item.issues.length > 2" size="x-small" variant="outlined" color="grey">
               +{{ item.issues.length - 2 }} more
             </v-chip>
           </div>
         </template>
-        
+
         <template #item.last_validated="{ item }">
           <div>
             <div class="text-body-2">{{ formatDate(item.last_validated) }}</div>
-            <div class="text-caption text-medium-emphasis">{{ getTimeAgo(item.last_validated) }}</div>
+            <div class="text-caption text-medium-emphasis">
+              {{ getTimeAgo(item.last_validated) }}
+            </div>
           </div>
         </template>
-        
+
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
             <v-btn
@@ -206,12 +206,7 @@
               @click="revalidateEntity(item)"
               :loading="revalidating[item.id]"
             />
-            <v-btn
-              icon="mdi-file-document"
-              size="small"
-              variant="text"
-              @click="viewEntity(item)"
-            />
+            <v-btn icon="mdi-file-document" size="small" variant="text" @click="viewEntity(item)" />
           </div>
         </template>
       </v-data-table>
@@ -234,7 +229,7 @@
           </v-card-text>
         </v-card>
       </v-col>
-      
+
       <v-col cols="12" lg="4">
         <v-card>
           <v-card-title class="d-flex align-center">
@@ -243,25 +238,18 @@
           </v-card-title>
           <v-card-text>
             <v-list density="compact">
-              <v-list-item
-                v-for="issue in commonIssues"
-                :key="issue.type"
-              >
+              <v-list-item v-for="issue in commonIssues" :key="issue.type">
                 <template #prepend>
                   <v-icon :color="getSeverityColor(issue.severity)" size="small">
                     mdi-alert-circle
                   </v-icon>
                 </template>
-                
+
                 <v-list-item-title>{{ issue.message }}</v-list-item-title>
                 <v-list-item-subtitle>{{ issue.count }} occurrences</v-list-item-subtitle>
-                
+
                 <template #append>
-                  <v-chip
-                    :color="getSeverityColor(issue.severity)"
-                    size="small"
-                    variant="outlined"
-                  >
+                  <v-chip :color="getSeverityColor(issue.severity)" size="small" variant="outlined">
                     {{ issue.severity }}
                   </v-chip>
                 </template>
@@ -281,16 +269,20 @@
         </v-card-title>
         <v-card-text>
           <div class="mb-4">
-            <h3 class="text-h6 mb-2">{{ selectedValidation.gene_symbol }} - {{ selectedValidation.disease_name }}</h3>
+            <h3 class="text-h6 mb-2">
+              {{ selectedValidation.gene_symbol }} - {{ selectedValidation.disease_name }}
+            </h3>
             <div class="text-body-2 text-medium-emphasis">
               Schema: {{ selectedValidation.schema_name }} v{{ selectedValidation.schema_version }}
             </div>
           </div>
-          
+
           <v-divider class="my-4" />
-          
+
           <div v-if="selectedValidation.issues.length">
-            <h4 class="text-subtitle-1 mb-3">Validation Issues ({{ selectedValidation.issues.length }})</h4>
+            <h4 class="text-subtitle-1 mb-3">
+              Validation Issues ({{ selectedValidation.issues.length }})
+            </h4>
             <v-list>
               <v-list-item
                 v-for="issue in selectedValidation.issues"
@@ -298,29 +290,23 @@
                 class="mb-2 border rounded"
               >
                 <template #prepend>
-                  <v-icon :color="getSeverityColor(issue.severity)">
-                    mdi-alert-circle
-                  </v-icon>
+                  <v-icon :color="getSeverityColor(issue.severity)"> mdi-alert-circle </v-icon>
                 </template>
-                
+
                 <v-list-item-title>{{ issue.message }}</v-list-item-title>
                 <v-list-item-subtitle>
                   Field: {{ issue.field_path }} • {{ issue.rule_type }}
                 </v-list-item-subtitle>
-                
+
                 <template #append>
-                  <v-chip
-                    :color="getSeverityColor(issue.severity)"
-                    size="small"
-                    variant="flat"
-                  >
+                  <v-chip :color="getSeverityColor(issue.severity)" size="small" variant="flat">
                     {{ issue.severity }}
                   </v-chip>
                 </template>
               </v-list-item>
             </v-list>
           </div>
-          
+
           <div v-else class="text-center py-4 text-success">
             <v-icon size="64" color="success" class="mb-2">mdi-check-circle</v-icon>
             <div class="text-h6">No Issues Found</div>
@@ -330,11 +316,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="outlined" @click="detailDialog = false">Close</v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            @click="revalidateEntity(selectedValidation)"
-          >
+          <v-btn color="primary" variant="flat" @click="revalidateEntity(selectedValidation)">
             Re-validate
           </v-btn>
         </v-card-actions>
@@ -344,191 +326,191 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
-import { useValidationStore, useScopesStore, useSchemasStore } from '@/stores'
+  import { ref, computed, onMounted } from 'vue'
+  import { useRouter } from 'vue-router'
+  import { useValidationStore, useScopesStore, useSchemasStore } from '@/stores'
 
-const router = useRouter()
-const validationStore = useValidationStore()
-const scopesStore = useScopesStore()
-const schemasStore = useSchemasStore()
+  const router = useRouter()
+  const validationStore = useValidationStore()
+  const scopesStore = useScopesStore()
+  const schemasStore = useSchemasStore()
 
-const loading = ref(false)
-const refreshing = ref(false)
-const revalidating = ref({})
-const detailDialog = ref(false)
-const selectedValidation = ref(null)
+  const loading = ref(false)
+  const refreshing = ref(false)
+  const revalidating = ref({})
+  const detailDialog = ref(false)
+  const selectedValidation = ref(null)
 
-// Filters
-const selectedScope = ref(null)
-const selectedSchema = ref(null)
-const selectedStatus = ref(null)
-const selectedSeverity = ref(null)
+  // Filters
+  const selectedScope = ref(null)
+  const selectedSchema = ref(null)
+  const selectedStatus = ref(null)
+  const selectedSeverity = ref(null)
 
-const validationHeaders = [
-  { title: 'Entity', key: 'entity', sortable: true },
-  { title: 'Schema', key: 'schema', sortable: true },
-  { title: 'Status', key: 'status', sortable: true },
-  { title: 'Issues', key: 'issues', sortable: false },
-  { title: 'Last Validated', key: 'last_validated', sortable: true },
-  { title: 'Actions', key: 'actions', sortable: false }
-]
+  const validationHeaders = [
+    { title: 'Entity', key: 'entity', sortable: true },
+    { title: 'Schema', key: 'schema', sortable: true },
+    { title: 'Status', key: 'status', sortable: true },
+    { title: 'Issues', key: 'issues', sortable: false },
+    { title: 'Last Validated', key: 'last_validated', sortable: true },
+    { title: 'Actions', key: 'actions', sortable: false }
+  ]
 
-const validationStatuses = [
-  { title: 'Valid', value: 'valid' },
-  { title: 'Invalid', value: 'invalid' },
-  { title: 'Warning', value: 'warning' },
-  { title: 'Pending', value: 'pending' }
-]
+  const validationStatuses = [
+    { title: 'Valid', value: 'valid' },
+    { title: 'Invalid', value: 'invalid' },
+    { title: 'Warning', value: 'warning' },
+    { title: 'Pending', value: 'pending' }
+  ]
 
-const severityLevels = [
-  { title: 'Error', value: 'error' },
-  { title: 'Warning', value: 'warning' },
-  { title: 'Info', value: 'info' }
-]
+  const severityLevels = [
+    { title: 'Error', value: 'error' },
+    { title: 'Warning', value: 'warning' },
+    { title: 'Info', value: 'info' }
+  ]
 
-// Computed properties
-const stats = computed(() => validationStore.validationStats)
-const validationResults = computed(() => validationStore.validationResults)
-const commonIssues = computed(() => validationStore.commonIssues)
-const availableScopes = computed(() => scopesStore.scopes)
-const availableSchemas = computed(() => schemasStore.schemas)
+  // Computed properties
+  const stats = computed(() => validationStore.validationStats)
+  const validationResults = computed(() => validationStore.validationResults)
+  const commonIssues = computed(() => validationStore.commonIssues)
+  const availableScopes = computed(() => scopesStore.scopes)
+  const availableSchemas = computed(() => schemasStore.schemas)
 
-const filteredResults = computed(() => {
-  let filtered = [...validationResults.value]
-  
-  if (selectedScope.value) {
-    filtered = filtered.filter(r => r.scope_id === selectedScope.value)
+  const filteredResults = computed(() => {
+    let filtered = [...validationResults.value]
+
+    if (selectedScope.value) {
+      filtered = filtered.filter(r => r.scope_id === selectedScope.value)
+    }
+
+    if (selectedSchema.value) {
+      filtered = filtered.filter(r => r.schema_id === selectedSchema.value)
+    }
+
+    if (selectedStatus.value) {
+      filtered = filtered.filter(r => r.validation_status === selectedStatus.value)
+    }
+
+    if (selectedSeverity.value) {
+      filtered = filtered.filter(r =>
+        r.issues.some(issue => issue.severity === selectedSeverity.value)
+      )
+    }
+
+    return filtered
+  })
+
+  // Helper functions
+  const getValidationStatusColor = status => {
+    const colorMap = {
+      valid: 'success',
+      invalid: 'error',
+      warning: 'warning',
+      pending: 'info'
+    }
+    return colorMap[status] || 'grey'
   }
-  
-  if (selectedSchema.value) {
-    filtered = filtered.filter(r => r.schema_id === selectedSchema.value)
+
+  const getValidationStatusIcon = status => {
+    const iconMap = {
+      valid: 'mdi-check',
+      invalid: 'mdi-close',
+      warning: 'mdi-alert',
+      pending: 'mdi-clock'
+    }
+    return iconMap[status] || 'mdi-help'
   }
-  
-  if (selectedStatus.value) {
-    filtered = filtered.filter(r => r.validation_status === selectedStatus.value)
+
+  const getSeverityColor = severity => {
+    const colorMap = {
+      error: 'error',
+      warning: 'warning',
+      info: 'info'
+    }
+    return colorMap[severity] || 'grey'
   }
-  
-  if (selectedSeverity.value) {
-    filtered = filtered.filter(r => 
-      r.issues.some(issue => issue.severity === selectedSeverity.value)
-    )
+
+  const formatValidationStatus = status => {
+    return status.charAt(0).toUpperCase() + status.slice(1)
   }
-  
-  return filtered
-})
 
-// Helper functions
-const getValidationStatusColor = (status) => {
-  const colorMap = {
-    'valid': 'success',
-    'invalid': 'error',
-    'warning': 'warning',
-    'pending': 'info'
+  const formatDate = dateString => {
+    return new Date(dateString).toLocaleDateString()
   }
-  return colorMap[status] || 'grey'
-}
 
-const getValidationStatusIcon = (status) => {
-  const iconMap = {
-    'valid': 'mdi-check',
-    'invalid': 'mdi-close',
-    'warning': 'mdi-alert',
-    'pending': 'mdi-clock'
+  const getTimeAgo = dateString => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now - date
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+    if (diffHours < 1) return 'Just now'
+    if (diffHours < 24) return `${diffHours}h ago`
+    if (diffDays < 7) return `${diffDays}d ago`
+    return 'Over a week ago'
   }
-  return iconMap[status] || 'mdi-help'
-}
 
-const getSeverityColor = (severity) => {
-  const colorMap = {
-    'error': 'error',
-    'warning': 'warning',
-    'info': 'info'
+  // Actions
+  const applyFilters = () => {
+    // Filters are applied reactively through computed property
   }
-  return colorMap[severity] || 'grey'
-}
 
-const formatValidationStatus = (status) => {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-const formatDate = (dateString) => {
-  return new Date(dateString).toLocaleDateString()
-}
-
-const getTimeAgo = (dateString) => {
-  const date = new Date(dateString)
-  const now = new Date()
-  const diffMs = now - date
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-  
-  if (diffHours < 1) return 'Just now'
-  if (diffHours < 24) return `${diffHours}h ago`
-  if (diffDays < 7) return `${diffDays}d ago`
-  return 'Over a week ago'
-}
-
-// Actions
-const applyFilters = () => {
-  // Filters are applied reactively through computed property
-}
-
-const refreshAll = async () => {
-  refreshing.value = true
-  try {
-    await validationStore.refreshAllValidations()
-  } catch (error) {
-    console.error('Failed to refresh validations:', error)
-  } finally {
-    refreshing.value = false
+  const refreshAll = async () => {
+    refreshing.value = true
+    try {
+      await validationStore.refreshAllValidations()
+    } catch (error) {
+      console.error('Failed to refresh validations:', error)
+    } finally {
+      refreshing.value = false
+    }
   }
-}
 
-const viewValidationDetails = (validation) => {
-  selectedValidation.value = validation
-  detailDialog.value = true
-}
-
-const revalidateEntity = async (validation) => {
-  revalidating.value[validation.id] = true
-  try {
-    await validationStore.revalidateEntity(validation.entity_id, validation.entity_type)
-  } catch (error) {
-    console.error('Failed to revalidate entity:', error)
-  } finally {
-    revalidating.value[validation.id] = false
+  const viewValidationDetails = validation => {
+    selectedValidation.value = validation
+    detailDialog.value = true
   }
-}
 
-const viewEntity = (validation) => {
-  router.push({ name: 'AssignmentDetail', params: { id: validation.entity_id } })
-}
-
-onMounted(async () => {
-  loading.value = true
-  try {
-    await Promise.all([
-      validationStore.fetchValidationResults(),
-      validationStore.fetchValidationStats(),
-      validationStore.fetchCommonIssues(),
-      scopesStore.fetchScopes(),
-      schemasStore.fetchSchemas()
-    ])
-  } catch (error) {
-    console.error('Failed to load validation dashboard:', error)
-  } finally {
-    loading.value = false
+  const revalidateEntity = async validation => {
+    revalidating.value[validation.id] = true
+    try {
+      await validationStore.revalidateEntity(validation.entity_id, validation.entity_type)
+    } catch (error) {
+      console.error('Failed to revalidate entity:', error)
+    } finally {
+      revalidating.value[validation.id] = false
+    }
   }
-})
+
+  const viewEntity = validation => {
+    router.push({ name: 'AssignmentDetail', params: { id: validation.entity_id } })
+  }
+
+  onMounted(async () => {
+    loading.value = true
+    try {
+      await Promise.all([
+        validationStore.fetchValidationResults(),
+        validationStore.fetchValidationStats(),
+        validationStore.fetchCommonIssues(),
+        scopesStore.fetchScopes(),
+        schemasStore.fetchSchemas()
+      ])
+    } catch (error) {
+      console.error('Failed to load validation dashboard:', error)
+    } finally {
+      loading.value = false
+    }
+  })
 </script>
 
 <style scoped>
-.border {
-  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
+  .border {
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
 
-.v-data-table {
-  border-radius: 8px;
-}
+  .v-data-table {
+    border-radius: 8px;
+  }
 </style>

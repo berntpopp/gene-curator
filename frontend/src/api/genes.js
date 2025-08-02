@@ -71,6 +71,5 @@ export const genesAPI = {
   async getStatistics() {
     const response = await apiClient.get('/genes/statistics')
     return response.data
-  },
-
+  }
 }
