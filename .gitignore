@@ -21,7 +21,3 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
-
-# claude files and folders
-.claude/
-CLAUDE.md
