@@ -602,6 +602,90 @@ verdict = qualitative_engine.compute_verdict(evidence_data)
 - **Testing**: pytest for backend, comprehensive coverage expected
 - **Security**: Bandit security checks, no secrets in code
 
+### Unified Logging System (ALWAYS USE)
+
+Gene Curator uses a production-grade unified logging system with request correlation, database persistence, and performance monitoring.
+
+**Basic Usage**:
+```python
+from app.core.logging import get_logger
+
+logger = get_logger(__name__)  # NOT logging.getLogger()
+
+# Works in both async and sync contexts (auto-detects)
+logger.info("Message", key="value", another_key=123)
+logger.error("Error occurred", error=exception, context_data="value")
+```
+
+**NEVER Use These**:
+- ❌ `logging.getLogger()` - Always use `get_logger()` instead
+- ❌ `print()` - Always use logger
+- ❌ Manual context building - Context is automatic via middleware
+- ❌ `f"Error: {e}"` string formatting - Use `error=e` parameter
+
+**Performance Monitoring**:
+```python
+from app.core.logging import timed_operation, api_endpoint, database_query
+
+@api_endpoint()  # Automatic endpoint timing
+async def my_endpoint():
+    pass
+
+@timed_operation("complex_calculation", warning_threshold_ms=200)
+async def calculate():
+    pass
+
+@database_query("SELECT")
+async def query_data():
+    pass
+
+@batch_operation("bulk_import", batch_size_getter=lambda data, **kwargs: len(data))
+def bulk_import(data):
+    pass
+```
+
+**Request Correlation**:
+- All logs within a request automatically include the same `request_id`
+- Query logs in production: `SELECT * FROM system_logs WHERE request_id = 'abc-123'`
+- Request timing added to response headers: `X-Request-ID`, `X-Process-Time`
+
+**Context Binding**:
+```python
+# Bind context for a specific operation
+curation_logger = logger.bind(curation_id=42, scope_id=1)
+curation_logger.info("Message")  # Includes curation_id and scope_id
+```
+
+**Automatic Sanitization**:
+The logging system automatically protects sensitive data:
+- Tokens, passwords, API keys → `[REDACTED]`
+- Email addresses → `[REDACTED_EMAIL]`
+- Genetic variants (HGVS notation) → `[REDACTED_VARIANT]`
+- Genomic coordinates → `[REDACTED_COORDINATE]`
+
+**When to Log**:
+- **DEBUG**: Detailed operation flow (disabled in production)
+- **INFO**: Normal operations (curation created, gene assigned)
+- **WARNING**: Slow operations, deprecated usage, recoverable errors
+- **ERROR**: Failed operations, caught exceptions
+- **CRITICAL**: System failures, data corruption
+
+**Database Persistence**:
+- All logs automatically persisted to `system_logs` table
+- Partitioned by month with 90-day retention
+- JSONB context field for rich queries
+- Query examples:
+  ```sql
+  -- All errors for a specific request
+  SELECT * FROM system_logs WHERE request_id = 'abc-123';
+
+  -- Slow operations
+  SELECT * FROM system_logs WHERE duration_ms > 1000;
+
+  -- User activity
+  SELECT * FROM system_logs WHERE user_id = 'user-uuid';
+  ```
+
 ### Package Management
 - **Backend**: Use `uv` (modern Python package manager) - faster than pip/poetry
 - **Frontend**: Use `npm` (standard Node.js package manager)

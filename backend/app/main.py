@@ -2,7 +2,6 @@
 FastAPI main application entry point.
 """
 
-import logging
 import time
 
 from fastapi import FastAPI, Request
@@ -11,13 +10,16 @@ from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.core.logging import configure_logging, get_logger
+from app.middleware import LoggingMiddleware
 
-# Configure logging
-logging.basicConfig(
-    level=getattr(logging, settings.LOG_LEVEL.upper()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Configure unified logging system
+configure_logging(
+    log_level=settings.LOG_LEVEL,
+    database_enabled=True,
+    console_enabled=True,
 )
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 # Create FastAPI application
 app = FastAPI(
@@ -29,6 +31,9 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.ENVIRONMENT == "development" else None,
 )
 
+# Add logging middleware (first, to capture all requests)
+app.add_middleware(LoggingMiddleware)
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -37,16 +42,6 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
 )
-
-
-# Add request timing middleware
-@app.middleware("http")
-async def add_process_time_header(request: Request, call_next):
-    start_time = time.time()
-    response = await call_next(request)
-    process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = str(process_time)
-    return response
 
 
 # Include API routes
@@ -81,7 +76,7 @@ async def health_check():
         db.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
-        logger.error(f"Database health check failed: {e}")
+        logger.error("Database health check failed", error=e)
         db_status = "unhealthy"
 
     return {
@@ -96,7 +91,7 @@ async def health_check():
 # Global exception handler
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Global exception: {exc}", exc_info=True)
+    logger.error("Global exception caught", error=exc)
     return JSONResponse(
         status_code=500,
         content={
@@ -110,10 +105,12 @@ async def global_exception_handler(request: Request, exc: Exception):
 # Startup event
 @app.on_event("startup")
 async def startup_event():
-    logger.info("Starting Gene Curator API...")
-    logger.info(f"Environment: {settings.ENVIRONMENT}")
-    logger.info(f"Database URL: {settings.DATABASE_URL}")
-    logger.info(f"ClinGen SOP Version: {settings.CLINGEN_SOP_VERSION}")
+    logger.info(
+        "Starting Gene Curator API...",
+        environment=settings.ENVIRONMENT,
+        database_url=settings.DATABASE_URL,
+        clingen_sop_version=settings.CLINGEN_SOP_VERSION,
+    )
 
 
 # Shutdown event

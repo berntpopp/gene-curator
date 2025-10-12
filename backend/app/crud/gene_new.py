@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, text
 from sqlalchemy.orm import Session
 
+from app.core.logging import batch_operation, database_query, timed_operation
 from app.crud.base import CRUDBase
 from app.models import (
     CurationNew,
@@ -38,6 +39,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         )
         return hashlib.sha256(content_string.encode()).hexdigest()
 
+    @database_query(query_type="SELECT")
     def get_by_hgnc_id(self, db: Session, *, hgnc_id: str) -> GeneNew | None:
         """Get gene by HGNC ID."""
         return db.query(GeneNew).filter(GeneNew.hgnc_id == hgnc_id).first()
@@ -50,6 +52,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             .first()
         )
 
+    @database_query(query_type="SELECT")
     def get_multi(
         self,
         db: Session,
@@ -72,6 +75,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
 
         return query.offset(skip).limit(limit).all()
 
+    @timed_operation("gene_search", warning_threshold_ms=500)
     def search(self, db: Session, *, search_params: GeneSearchQuery) -> list[GeneNew]:
         """Advanced gene search with multiple filters."""
         query = db.query(GeneNew)
@@ -107,6 +111,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
 
         return query.offset(search_params.skip).limit(search_params.limit).all()
 
+    @database_query(query_type="INSERT")
     def create_with_owner(
         self, db: Session, *, obj_in: GeneNewCreate, owner_id: UUID
     ) -> GeneNew:
@@ -173,6 +178,10 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         db.refresh(db_obj)
         return db_obj
 
+    @batch_operation(
+        "gene_bulk_create",
+        batch_size_getter=lambda genes_data, **kwargs: len(genes_data),
+    )
     def bulk_create(
         self,
         db: Session,
@@ -336,6 +345,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             "has_active_work": len(precurations) > 0 or len(curations) > 0,
         }
 
+    @timed_operation("gene_statistics", warning_threshold_ms=1000)
     def get_statistics(
         self, db: Session, *, scope_id: UUID | None = None
     ) -> dict[str, Any]:

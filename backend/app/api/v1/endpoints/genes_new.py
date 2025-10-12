@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.logging import api_endpoint
 from app.crud.gene_new import gene_new_crud
 from app.models import UserNew
 from app.schemas.gene_new import (
@@ -39,6 +40,7 @@ router = APIRouter()
 
 
 @router.get("/", response_model=GeneNewListResponse)
+@api_endpoint()
 def get_genes(
     db: Session = Depends(deps.get_db),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -108,6 +110,7 @@ def get_genes(
 
 
 @router.post("/", response_model=GeneNew)
+@api_endpoint()
 def create_gene(
     *,
     db: Session = Depends(deps.get_db),
@@ -130,6 +133,7 @@ def create_gene(
 
 
 @router.get("/search", response_model=list[GeneNewSummary])
+@api_endpoint()
 def search_genes(
     *,
     db: Session = Depends(deps.get_db),
@@ -363,6 +367,7 @@ def get_gene_curation_progress(
 
 
 @router.post("/bulk", response_model=GeneBulkCreateResponse)
+@api_endpoint()
 def bulk_create_genes(
     *,
     db: Session = Depends(deps.get_db),
