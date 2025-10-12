@@ -96,12 +96,11 @@
 
 <script setup>
   import { ref, onMounted } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
+  import { useRoute } from 'vue-router'
   import { useGenesStore } from '@/stores/genes.js'
   import { showSuccess, showError } from '@/composables/useNotifications.js'
 
   const route = useRoute()
-  const router = useRouter()
   const genesStore = useGenesStore()
 
   const activeTab = ref('add')
@@ -109,53 +108,6 @@
   const editingGene = ref(null)
   const deleteDialog = ref(false)
   const geneToDelete = ref(null)
-
-  const handleGeneSubmit = async geneData => {
-    try {
-      loading.value = true
-
-      if (editingGene.value) {
-        await genesStore.updateGene(editingGene.value.id, geneData)
-        showSuccess('Gene updated successfully!')
-      } else {
-        await genesStore.createGene(geneData)
-        showSuccess('Gene created successfully!')
-      }
-
-      // Reset form
-      editingGene.value = null
-    } catch (error) {
-      console.error('Gene operation failed:', error)
-      showError('Operation failed. Please try again.')
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const handleBulkSubmit = async genes => {
-    try {
-      loading.value = true
-      const result = await genesStore.bulkCreateGenes(genes)
-      showSuccess(
-        `Bulk import completed: ${result.total_created} genes created, ${result.total_skipped} skipped`
-      )
-    } catch (error) {
-      console.error('Bulk import failed:', error)
-      showError('Bulk import failed. Please try again.')
-    } finally {
-      loading.value = false
-    }
-  }
-
-  const handleEdit = async gene => {
-    editingGene.value = gene
-    activeTab.value = 'add'
-  }
-
-  const handleDelete = gene => {
-    geneToDelete.value = gene
-    deleteDialog.value = true
-  }
 
   const confirmDelete = async () => {
     try {
@@ -170,10 +122,6 @@
     } finally {
       loading.value = false
     }
-  }
-
-  const handleCancel = () => {
-    editingGene.value = null
   }
 
   onMounted(() => {

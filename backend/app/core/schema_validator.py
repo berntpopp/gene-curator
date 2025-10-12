@@ -322,13 +322,12 @@ class SchemaValidator:
 
         # Decimal places validation
         decimal_places = config.get("decimal_places")
-        if decimal_places is not None:
-            if "." in str(value) and len(str(value).split(".")[1]) > decimal_places:
-                result.add_error(
-                    field_name,
-                    f"Value cannot have more than {decimal_places} decimal places",
-                    "precision",
-                )
+        if decimal_places is not None and "." in str(value) and len(str(value).split(".")[1]) > decimal_places:
+            result.add_error(
+                field_name,
+                f"Value cannot have more than {decimal_places} decimal places",
+                "precision",
+            )
 
     def _validate_boolean_field(
         self,
@@ -686,12 +685,9 @@ class SchemaValidator:
             f"Field {required_field} is required when {depends_on} is provided",
         )
 
-        if depends_on in evidence_data and evidence_data[depends_on] is not None:
-            if (
-                required_field not in evidence_data
-                or evidence_data[required_field] is None
-            ):
-                result.add_error(required_field, message, "dependency")
+        if (depends_on in evidence_data and evidence_data[depends_on] is not None
+            and (required_field not in evidence_data or evidence_data[required_field] is None)):
+            result.add_error(required_field, message, "dependency")
 
     def _apply_calculation_rule(
         self,
@@ -785,13 +781,12 @@ class SchemaValidator:
         """Validate ClinGen contradictory evidence business rules."""
         contradictory = evidence_data.get("contradictory_evidence", {})
 
-        if contradictory.get("has_contradictory", False):
-            if not contradictory.get("description"):
-                result.add_business_rule_violation(
-                    "clingen_contradictory_description",
-                    "Contradictory evidence must include a detailed description",
-                    "error",
-                )
+        if contradictory.get("has_contradictory", False) and not contradictory.get("description"):
+            result.add_business_rule_violation(
+                "clingen_contradictory_description",
+                "Contradictory evidence must include a detailed description",
+                "error",
+            )
 
     def _validate_gencc_classification(
         self,
@@ -911,11 +906,9 @@ class SchemaValidator:
         for field_name, _field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
 
-            if field_value is not None and field_value != "":
-                if (
-                    isinstance(field_value, str) and field_value.strip()
-                ) or not isinstance(field_value, str):
-                    completed_fields += 1
+            if (field_value is not None and field_value != ""
+                and ((isinstance(field_value, str) and field_value.strip()) or not isinstance(field_value, str))):
+                completed_fields += 1
 
         result.completeness_score = (
             (completed_fields / total_fields) * 100 if total_fields > 0 else 0
@@ -1031,7 +1024,7 @@ class SchemaValidator:
                 "configuration",
             )
 
-    def _convert_field_to_json_schema(
+    def _convert_field_to_json_schema(  # noqa: C901
         self, field_config: dict[str, Any]
     ) -> dict[str, Any]:
         """Convert field configuration to JSON Schema property."""

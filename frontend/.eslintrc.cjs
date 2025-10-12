@@ -24,6 +24,7 @@ module.exports = {
     'vue/require-default-prop': 'warn',
     'vue/require-prop-types': 'error',
     'vue/no-v-html': 'warn',
+    'vue/valid-v-slot': ['error', { allowModifiers: true }],
 
     // General JavaScript rules
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',

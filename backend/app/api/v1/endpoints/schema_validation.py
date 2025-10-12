@@ -144,7 +144,9 @@ def validate_schema_definition(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Schema validation error: {e!s}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Schema validation error: {e!s}"
+        ) from e
 
 
 @router.post("/generate-json-schema", response_model=JSONSchemaResponse)
@@ -281,7 +283,9 @@ def validate_single_field(
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Field validation error: {e!s}") from e
+        raise HTTPException(
+            status_code=500, detail=f"Field validation error: {e!s}"
+        ) from e
 
 
 # ========================================

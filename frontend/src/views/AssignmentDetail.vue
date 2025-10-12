@@ -200,16 +200,14 @@
 
 <script setup>
   import { ref, computed, onMounted, watch } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { useAssignmentsStore, useValidationStore } from '@/stores'
+  import { useRoute } from 'vue-router'
+  import { useAssignmentsStore } from '@/stores'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import WorkflowStages from '@/components/dynamic/WorkflowStages.vue'
   import ScoreDisplay from '@/components/dynamic/ScoreDisplay.vue'
 
   const route = useRoute()
-  const router = useRouter()
   const assignmentsStore = useAssignmentsStore()
-  const validationStore = useValidationStore()
 
   const loading = ref(false)
   const error = ref(null)

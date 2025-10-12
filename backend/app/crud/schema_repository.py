@@ -115,7 +115,7 @@ class CRUDCurationSchema(
             or (curation_count or 0) > 0
         )
 
-    def validate_schema_structure(
+    def validate_schema_structure(  # noqa: C901
         self, schema_data: dict[str, Any]
     ) -> SchemaValidationResult:
         """Validate schema structure and configuration."""

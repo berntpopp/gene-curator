@@ -55,6 +55,7 @@ def check_db_connection():
     """Check database connection health."""
     try:
         from sqlalchemy import text
+
         with engine.connect() as connection:
             result = connection.execute(text("SELECT 1"))
             return result.fetchone()[0] == 1

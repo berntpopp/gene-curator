@@ -104,7 +104,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return (
             db.query(User)
             .filter(User.role == role)
-            .filter(User.is_active == True)
+            .filter(User.is_active)
             .offset(skip)
             .limit(limit)
             .all()
@@ -130,7 +130,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         """Get user statistics."""
         total_users = db.query(func.count(User.id)).scalar()
         active_users = (
-            db.query(func.count(User.id)).filter(User.is_active == True).scalar()
+            db.query(func.count(User.id)).filter(User.is_active).scalar()
         )
 
         role_counts = {}
@@ -170,7 +170,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return (
             db.query(User)
             .filter(User.assigned_scopes.contains([str(scope_id)]))
-            .filter(User.is_active == True)
+            .filter(User.is_active)
             .offset(skip)
             .limit(limit)
             .all()
@@ -215,6 +215,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return False
 
         from datetime import datetime
+
         user.last_login = datetime.now()
         db.commit()
         return True

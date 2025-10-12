@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 
-def test_complete_system():
+def test_complete_system():  # noqa: C901
     """Test the complete integrated system."""
 
     # Test 1: Core module imports

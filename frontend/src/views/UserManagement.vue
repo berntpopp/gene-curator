@@ -388,7 +388,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, watch, nextTick } from 'vue'
+  import { ref, onMounted, watch } from 'vue'
   import { useUsersStore } from '@/stores/users'
 
   // Simple debounce function

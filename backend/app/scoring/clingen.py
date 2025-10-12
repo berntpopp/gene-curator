@@ -309,7 +309,7 @@ class ClinGenEngine(ScoringEngine):
 
         return warnings
 
-    def validate_evidence(
+    def validate_evidence(  # noqa: C901
         self, evidence_data: dict[str, Any], schema_config: dict[str, Any]
     ) -> list[str]:
         """Validate evidence data for ClinGen compliance."""

@@ -361,14 +361,12 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, watch } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { ref, computed, onMounted } from 'vue'
   import { useCurationsStore, useAuthStore } from '@/stores'
   import { showError, showSuccess } from '@/composables/useNotifications.js'
   import ClinGenScoreCard from '@/components/clingen/ClinGenScoreCard.vue'
   import CurationForm from '@/components/clingen/CurationForm.vue'
 
-  const router = useRouter()
   const curationsStore = useCurationsStore()
   const authStore = useAuthStore()
 

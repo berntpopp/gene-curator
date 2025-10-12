@@ -217,12 +217,6 @@
     return colors[role] || 'grey'
   }
 
-  const formatDate = dateString => {
-    if (!dateString) return 'N/A'
-    const date = new Date(dateString)
-    return date.toLocaleDateString()
-  }
-
   onMounted(async () => {
     try {
       statistics.value = await genesStore.fetchStatistics()

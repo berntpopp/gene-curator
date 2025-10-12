@@ -28,26 +28,23 @@ User = UserNew
 UserRole = UserRoleNew
 
 __all__ = [
-    # Backward compatibility aliases
-    "User",
-    "UserRole",
-    # New schema-agnostic models
-    "UserNew",
-    "UserRoleNew",
-    "Scope",
-    "CurationSchema",
-    "WorkflowPair",
-    "GeneScopeAssignment",
-    "GeneNew",
-    "PrecurationNew",
-    "CurationNew",
-    "Review",
     "ActiveCuration",
     "AuditLogNew",
-    "SchemaSelection",
-    # Enums
-    "WorkflowStage",
-    "ReviewStatus",
+    "CurationNew",
+    "CurationSchema",
     "CurationStatus",
+    "GeneNew",
+    "GeneScopeAssignment",
+    "PrecurationNew",
+    "Review",
+    "ReviewStatus",
+    "SchemaSelection",
     "SchemaType",
+    "Scope",
+    "User",
+    "UserNew",
+    "UserRole",
+    "UserRoleNew",
+    "WorkflowPair",
+    "WorkflowStage",
 ]

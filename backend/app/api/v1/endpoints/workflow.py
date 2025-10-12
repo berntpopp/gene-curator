@@ -211,7 +211,9 @@ def get_my_review_assignments(
             status_enum = ReviewStatus(status)
             query = query.filter(Review.status == status_enum)
         except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from e
+            raise HTTPException(
+                status_code=400, detail=f"Invalid status: {status}"
+            ) from e
 
     reviews = query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit).all()
 

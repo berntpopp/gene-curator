@@ -209,14 +209,8 @@ class QualitativeEngine(ScoringEngine):
     def _get_phenotype_score(self, phenotype_match: str) -> float:
         """Get phenotype match score."""
         match = phenotype_match.lower()
-        if match == "excellent":
-            return 3.0
-        elif match == "good":
-            return 2.0
-        elif match == "fair":
-            return 1.0
-        else:
-            return 0.0
+        phenotype_scores = {"excellent": 3.0, "good": 2.0, "fair": 1.0}
+        return phenotype_scores.get(match, 0.0)
 
     def _get_inheritance_score(self, inheritance_consistency: str) -> float:
         """Get inheritance consistency score."""
@@ -231,14 +225,8 @@ class QualitativeEngine(ScoringEngine):
     def _get_evidence_quality_score(self, evidence_quality: str) -> float:
         """Get evidence quality score."""
         quality = evidence_quality.lower()
-        if quality == "high":
-            return 3.0
-        elif quality == "moderate":
-            return 2.0
-        elif quality == "low":
-            return 1.0
-        else:
-            return 0.0
+        quality_scores = {"high": 3.0, "moderate": 2.0, "low": 1.0}
+        return quality_scores.get(quality, 0.0)
 
     def _get_study_design_score(self, study_design: str) -> float:
         """Get study design strength score."""
@@ -250,7 +238,7 @@ class QualitativeEngine(ScoringEngine):
         else:
             return 0.0
 
-    def _check_qualitative_warnings(self, evidence_data: dict[str, Any]) -> list[str]:
+    def _check_qualitative_warnings(self, evidence_data: dict[str, Any]) -> list[str]:  # noqa: C901
         """Check for potential issues in qualitative assessment."""
 
         warnings = []

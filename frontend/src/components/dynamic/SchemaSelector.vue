@@ -110,12 +110,6 @@
   import { useSchemasStore } from '@/stores'
 
   const emit = defineEmits(['schemas-selected'])
-  const props = defineProps({
-    scopeId: {
-      type: String,
-      required: true
-    }
-  })
 
   const schemasStore = useSchemasStore()
   const selectedPrecurationSchema = ref(null)

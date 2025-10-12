@@ -280,7 +280,7 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { useAssignmentsStore, useScopesStore, useUsersStore } from '@/stores'
 
   const assignmentsStore = useAssignmentsStore()
