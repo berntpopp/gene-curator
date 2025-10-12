@@ -104,9 +104,9 @@
         <v-btn
           color="secondary"
           variant="outlined"
-          @click="saveDraft"
           :loading="saving"
           :disabled="!hasChanges"
+          @click="saveDraft"
         >
           <v-icon start>mdi-content-save</v-icon>
           Save Draft

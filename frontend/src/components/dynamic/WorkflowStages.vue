@@ -118,8 +118,8 @@
                 v-if="canAdvanceStage"
                 color="success"
                 variant="flat"
-                @click="advanceStage"
                 :loading="advancing"
+                @click="advanceStage"
               >
                 <v-icon start>mdi-arrow-right-circle</v-icon>
                 Advance to {{ getNextStageName() }}
@@ -129,8 +129,8 @@
                 v-if="canRejectStage"
                 color="error"
                 variant="outlined"
-                @click="rejectStage"
                 :loading="rejecting"
+                @click="rejectStage"
               >
                 <v-icon start>mdi-close-circle</v-icon>
                 Reject & Return
@@ -140,14 +140,14 @@
                 v-if="canRequestRevision"
                 color="warning"
                 variant="outlined"
-                @click="requestRevision"
                 :loading="requesting"
+                @click="requestRevision"
               >
                 <v-icon start>mdi-comment-edit</v-icon>
                 Request Revision
               </v-btn>
 
-              <v-btn color="secondary" variant="outlined" @click="saveDraft" :loading="saving">
+              <v-btn color="secondary" variant="outlined" :loading="saving" @click="saveDraft">
                 <v-icon start>mdi-content-save</v-icon>
                 Save Draft
               </v-btn>

@@ -24,37 +24,103 @@ Gene Curator is a **schema-agnostic genetic curation platform** supporting any c
 
 ## Essential Commands
 
-### Docker-Based Development (Recommended)
+### Quick Start
 ```bash
-# Primary Commands
-make dev           # Start full stack (backend:8001, frontend:3001, db:5433)
+# RECOMMENDED: Hybrid Development Mode (DB in Docker, API/Frontend local)
+make hybrid-up     # Start PostgreSQL in Docker
+make backend       # Terminal 1: Start backend API (port 8051)
+make frontend      # Terminal 2: Start frontend (port 5193)
+make status        # Check system status
+make help          # Show all 50+ commands
+```
+
+### Development Modes
+
+**Hybrid Mode (RECOMMENDED for fast iteration)**
+```bash
+# Fastest development workflow - no Docker rebuild needed
+make hybrid-up     # Start DB services only (ports: DB=5453, Redis=6399)
+make backend       # Start backend API locally (port 8051)
+make frontend      # Start frontend locally (port 5193)
+make hybrid-down   # Stop all services
+
+# Access points in hybrid mode:
+# - Frontend (Vite):  http://localhost:5193
+# - Backend API:      http://localhost:8051/docs
+# - Database:         localhost:5453
+```
+
+**Full Docker Mode (all services in containers)**
+```bash
+# All services in Docker
+make dev           # Start full stack (backend:8051, frontend:3051, db:5453)
 make dev-build     # Rebuild and start
 make dev-down      # Stop environment
 make dev-logs      # View logs
+make dev-restart   # Restart all services
+```
 
-# Database
-make db-init       # Initialize database
-make db-reset      # Reset database (destructive)
-make db-shell      # PostgreSQL shell
+### Port Configuration (Non-Standard - No Conflicts)
+All ports are configured in `.env.dev` to avoid conflicts with other applications:
+- **Backend API**: 8051 (instead of 8001/8000)
+- **Frontend Docker**: 3051 (instead of 3001)
+- **Frontend Vite Dev**: 5193 (instead of 5173)
+- **PostgreSQL**: 5453 (instead of 5433)
+- **Redis**: 6399 (instead of 6379)
 
-# Testing & Quality
-make test          # Run all tests
-make test-backend  # Backend tests only
-make test-frontend # Frontend tests only
-make lint          # Backend linting (ruff, mypy, bandit)
-make format        # Backend formatting
+### Database Management
+```bash
+make db-init         # Initialize database with seed data
+make db-reset        # Complete database reset (destructive)
+make db-clean        # Remove all data (keep structure)
+make db-shell        # Open PostgreSQL shell
+make db-backup-full  # Create full database backup
+make db-restore      # Restore from backup
+make db-migrate      # Run database migrations
+```
 
-# Utilities
-make health        # Check service health
-make status        # Container status
-make clean         # Clean Docker resources
-make backend-shell # Backend container shell
+### Monitoring & Status
+```bash
+make status        # Comprehensive system status with database stats
+make health        # Health checks for all services
+make version       # Show component versions
+make ps            # Show running containers
+make top           # Container resource usage
+```
+
+### Testing & Code Quality
+```bash
+# Testing
+make test              # Run all backend tests
+make test-unit         # Unit tests only (fast)
+make test-integration  # Integration tests
+make test-coverage     # Tests with coverage report
+make test-frontend     # Frontend tests
+
+# Code Quality
+make lint              # Backend linting (ruff, mypy, bandit)
+make lint-frontend     # Frontend linting (ESLint)
+make format            # Backend formatting
+make format-frontend   # Frontend formatting (Prettier)
+make format-all        # Format all code
+make check             # Run all quality checks
+```
+
+### Utilities
+```bash
+make backend-shell     # Open bash shell in backend container
+make frontend-shell    # Open bash shell in frontend container
+make clean             # Clean up Docker resources
+make clean-all         # Stop everything and clean all data
+make install-backend   # Install backend dependencies
+make install-frontend  # Install frontend dependencies
+make docs              # Show API documentation URLs
 ```
 
 ### Backend Commands (Direct - in backend/)
 ```bash
 # Development
-uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8051
 
 # Code Quality
 uv run python scripts/lint.py    # All linting checks
@@ -71,9 +137,9 @@ uv run pytest --cov=app          # With coverage
 ### Frontend Commands (Direct - in frontend/)
 ```bash
 # Development
-npm run dev        # Vite dev server (http://localhost:5173)
-npm run build      # Production build
-npm run preview    # Preview production build
+npm run dev -- --port 5193  # Vite dev server (non-standard port)
+npm run build               # Production build
+npm run preview             # Preview production build
 
 # Code Quality
 npm run lint       # ESLint with auto-fix
@@ -298,33 +364,69 @@ deleteItem(id)                // Delete
 
 ### Environment Setup
 
-**Backend (.env in backend/)**:
+**Root Level (.env.dev)**:
 ```bash
-DATABASE_URL=postgresql://dev_user:dev_password@localhost:5433/gene_curator_dev
+# Non-standard ports to avoid conflicts
+BACKEND_PORT=8051
+FRONTEND_PORT=3051
+POSTGRES_PORT=5453
+VITE_DEV_PORT=5193
+REDIS_PORT=6399
+
+# Database
+POSTGRES_DB=gene_curator_dev
+POSTGRES_USER=dev_user
+POSTGRES_PASSWORD=dev_password
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5453/gene_curator_dev
+
+# Backend
+ENVIRONMENT=development
+DEBUG=true
+LOG_LEVEL=debug
+SECRET_KEY=dev_secret_key_change_in_production
+ALLOWED_ORIGINS=["http://localhost:3051","http://localhost:5193"]
+
+# Frontend
+VITE_API_BASE_URL=http://localhost:8051
+VITE_APP_TITLE=Gene Curator (Dev)
+```
+
+**Backend (.env in backend/)** - For local development:
+```bash
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5453/gene_curator_dev
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
 REFRESH_TOKEN_EXPIRE_DAYS=7
 ENVIRONMENT=development
 LOG_LEVEL=debug
-ALLOWED_ORIGINS=["http://localhost:3001", "http://localhost:5173"]
+ALLOWED_ORIGINS=["http://localhost:3051", "http://localhost:5193"]
 ```
 
-**Frontend (.env.local in frontend/)**:
+**Frontend (.env.local in frontend/)** - For local development:
 ```bash
-VITE_API_BASE_URL=http://localhost:8001
+VITE_API_BASE_URL=http://localhost:8051
 VITE_APP_TITLE=Gene Curator
 VITE_ENVIRONMENT=development
 ```
 
 ### Docker Configuration
 
-**Development Environment**:
-- **Backend**: http://localhost:8001 (internal port 8000)
-- **Frontend**: http://localhost:3001 (internal port 3000)
-- **Database**: localhost:5433 (PostgreSQL 15)
-- **API Docs**: http://localhost:8001/docs (Swagger)
+**Development Environment (Non-Standard Ports)**:
+- **Backend API**: http://localhost:8051 (internal port 8000)
+- **Frontend Docker**: http://localhost:3051 (internal port 3000)
+- **Frontend Vite**: http://localhost:5193 (local development)
+- **Database**: localhost:5453 (PostgreSQL 15)
+- **Redis**: localhost:6399
+- **API Docs**: http://localhost:8051/docs (Swagger)
 - **Credentials**: dev_user / dev_password / gene_curator_dev
+
+**Hybrid Mode (RECOMMENDED)**:
+- **Database**: Docker container on port 5453
+- **Redis**: Docker container on port 6399
+- **Backend API**: Local process on port 8051
+- **Frontend**: Local Vite dev server on port 5193
+- **Benefits**: Instant code reload, no Docker rebuild, fastest iteration
 
 **Production Environment**:
 - **Backend**: Port 8001 (configurable)
@@ -545,29 +647,51 @@ npm run test:unit              # Unit tests
 
 ## Deployment
 
-### Development Deployment
+### Development Deployment (Hybrid Mode - RECOMMENDED)
 ```bash
 git clone https://github.com/halbritter-lab/gene-curator.git
 cd gene-curator
-make dev                       # Start all services
-# Access: http://localhost:3001
-# API Docs: http://localhost:8001/docs
+
+# Start hybrid development environment
+make hybrid-up                 # Start DB in Docker
+
+# In separate terminals:
+make backend                   # Terminal 1: Backend API
+make frontend                  # Terminal 2: Frontend
+
+# Access points:
+# - Frontend: http://localhost:5193
+# - API Docs: http://localhost:8051/docs
+# - Database: localhost:5453
+# - Default credentials: admin@gene-curator.dev / admin123
+```
+
+### Development Deployment (Full Docker)
+```bash
+git clone https://github.com/halbritter-lab/gene-curator.git
+cd gene-curator
+make dev                       # Start all services in Docker
+# Access: http://localhost:3051
+# API Docs: http://localhost:8051/docs
 # Default credentials: admin@gene-curator.dev / admin123
 ```
 
 ### Production Deployment
 ```bash
 # Build production images
-docker-compose build
+docker compose build
 
 # Start production services
-docker-compose up -d
+docker compose up -d
 
 # Check health
-curl http://localhost:8001/health
+make health
 
 # View logs
-docker-compose logs -f
+docker compose logs -f
+
+# Check status
+make status
 ```
 
 ### Environment Variables (Production)

@@ -51,7 +51,7 @@ def main() -> int:
         (["uv", "run", "ruff", "check", "app/"], "Ruff linting"),
         (["uv", "run", "ruff", "format", "--check", "app/"], "Ruff formatting check"),
         (["uv", "run", "mypy", "app/"], "MyPy type checking"),
-        (["uv", "run", "bandit", "-r", "app/", "-f", "json"], "Bandit security check"),
+        (["uv", "run", "bandit", "-r", "app/"], "Bandit security check"),
     ]
 
     failed_checks = []

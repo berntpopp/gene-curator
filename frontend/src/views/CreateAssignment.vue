@@ -1,7 +1,7 @@
 <template>
   <v-container fluid>
     <div class="d-flex align-center mb-6">
-      <v-btn icon="mdi-arrow-left" variant="text" @click="$router.back()" class="mr-4" />
+      <v-btn icon="mdi-arrow-left" variant="text" class="mr-4" @click="$router.back()" />
       <div>
         <h1 class="text-h4 font-weight-bold">Create New Assignment</h1>
         <p class="text-body-1 text-medium-emphasis mt-1">

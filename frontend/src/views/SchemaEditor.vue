@@ -8,7 +8,7 @@
     <div v-else-if="schema">
       <!-- Page Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn icon="mdi-arrow-left" variant="text" @click="$router.back()" class="mr-4" />
+        <v-btn icon="mdi-arrow-left" variant="text" class="mr-4" @click="$router.back()" />
         <div>
           <h1 class="text-h4 font-weight-bold">
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
@@ -27,8 +27,8 @@
             v-if="isEditing"
             color="success"
             variant="flat"
-            @click="saveSchema"
             :loading="saving"
+            @click="saveSchema"
           >
             <v-icon start>mdi-content-save</v-icon>
             Save
@@ -182,8 +182,8 @@
                   color="info"
                   variant="outlined"
                   block
-                  @click="validateSchema"
                   :loading="validating"
+                  @click="validateSchema"
                 >
                   <v-icon start>mdi-check-decagram</v-icon>
                   Validate Schema
@@ -203,8 +203,8 @@
                   color="error"
                   variant="outlined"
                   block
-                  @click="deleteSchema"
                   :disabled="schema.usage_count > 0"
+                  @click="deleteSchema"
                 >
                   <v-icon start>mdi-delete</v-icon>
                   Delete Schema

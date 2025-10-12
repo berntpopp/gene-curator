@@ -260,7 +260,7 @@
     return (
       props.fieldSchema.enum?.map(value => ({
         title: value,
-        value: value
+        value
       })) || []
     )
   }

@@ -245,11 +245,11 @@
 
     <v-card-actions v-if="scoreCalculations">
       <v-spacer />
-      <v-btn variant="outlined" @click="refreshScores" :loading="refreshing">
+      <v-btn variant="outlined" :loading="refreshing" @click="refreshScores">
         <v-icon start>mdi-refresh</v-icon>
         Recalculate
       </v-btn>
-      <v-btn variant="outlined" @click="exportScores" :loading="exporting">
+      <v-btn variant="outlined" :loading="exporting" @click="exportScores">
         <v-icon start>mdi-download</v-icon>
         Export
       </v-btn>

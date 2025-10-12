@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="flat" @click="createWorkflowDialog = true" size="large">
+      <v-btn color="primary" variant="flat" size="large" @click="createWorkflowDialog = true">
         <v-icon start>mdi-plus</v-icon>
         New Workflow Pair
       </v-btn>
@@ -73,8 +73,8 @@
               size="small"
               variant="text"
               color="error"
-              @click="deleteWorkflow(item)"
               :disabled="item.usage_count > 0"
+              @click="deleteWorkflow(item)"
             />
           </div>
         </template>
@@ -163,7 +163,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="outlined" @click="createWorkflowDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" @click="createWorkflow" :loading="creating">
+          <v-btn color="primary" variant="flat" :loading="creating" @click="createWorkflow">
             Create
           </v-btn>
         </v-card-actions>

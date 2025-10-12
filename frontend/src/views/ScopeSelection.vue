@@ -181,9 +181,9 @@
                 <v-btn
                   color="primary"
                   variant="flat"
-                  @click="createAssignment"
                   :loading="creating"
                   :disabled="!canCreateAssignment"
+                  @click="createAssignment"
                 >
                   <v-icon start>mdi-plus</v-icon>
                   Create Assignment
@@ -195,7 +195,7 @@
 
         <!-- Navigation -->
         <div v-if="currentStep < 3" class="text-center mt-6">
-          <v-btn v-if="currentStep > 1" variant="outlined" @click="currentStep--" class="mr-4">
+          <v-btn v-if="currentStep > 1" variant="outlined" class="mr-4" @click="currentStep--">
             <v-icon start>mdi-arrow-left</v-icon>
             Back
           </v-btn>

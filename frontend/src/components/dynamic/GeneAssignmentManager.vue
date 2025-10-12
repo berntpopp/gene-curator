@@ -64,8 +64,8 @@
           <v-btn
             color="primary"
             variant="flat"
-            @click="openBulkAssignDialog"
             :disabled="!selectedAssignments.length"
+            @click="openBulkAssignDialog"
           >
             <v-icon start>mdi-account-multiple-plus</v-icon>
             Bulk Assign ({{ selectedAssignments.length }})
@@ -74,8 +74,8 @@
           <v-btn
             color="secondary"
             variant="outlined"
-            @click="rebalanceWorkload"
             :loading="rebalancing"
+            @click="rebalanceWorkload"
           >
             <v-icon start>mdi-scale-balance</v-icon>
             Rebalance Workload
@@ -83,12 +83,12 @@
         </div>
 
         <div class="d-flex gap-2">
-          <v-btn variant="outlined" @click="exportAssignments" :loading="exporting">
+          <v-btn variant="outlined" :loading="exporting" @click="exportAssignments">
             <v-icon start>mdi-download</v-icon>
             Export
           </v-btn>
 
-          <v-btn variant="outlined" @click="refreshAssignments" :loading="loading">
+          <v-btn variant="outlined" :loading="loading" @click="refreshAssignments">
             <v-icon start>mdi-refresh</v-icon>
             Refresh
           </v-btn>
@@ -268,8 +268,8 @@
           <v-btn
             color="primary"
             variant="flat"
-            @click="executeBulkAssignment"
             :loading="bulkAssigning"
+            @click="executeBulkAssignment"
           >
             Assign
           </v-btn>

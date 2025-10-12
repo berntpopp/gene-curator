@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="outlined" @click="refreshAll" :loading="refreshing">
+      <v-btn color="primary" variant="outlined" :loading="refreshing" @click="refreshAll">
         <v-icon start>mdi-refresh</v-icon>
         Refresh All
       </v-btn>
@@ -203,8 +203,8 @@
               icon="mdi-refresh"
               size="small"
               variant="text"
-              @click="revalidateEntity(item)"
               :loading="revalidating[item.id]"
+              @click="revalidateEntity(item)"
             />
             <v-btn icon="mdi-file-document" size="small" variant="text" @click="viewEntity(item)" />
           </div>

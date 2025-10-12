@@ -91,13 +91,13 @@
         v-if="canCreateWorkflowPair && !existingWorkflowPair"
         color="secondary"
         variant="outlined"
-        @click="createWorkflowPair"
         :loading="creating"
+        @click="createWorkflowPair"
       >
         <v-icon start>mdi-plus</v-icon>
         Create Workflow Pair
       </v-btn>
-      <v-btn color="primary" variant="flat" @click="proceedWithSchemas" :disabled="!canProceed">
+      <v-btn color="primary" variant="flat" :disabled="!canProceed" @click="proceedWithSchemas">
         <v-icon start>mdi-arrow-right</v-icon>
         Continue
       </v-btn>

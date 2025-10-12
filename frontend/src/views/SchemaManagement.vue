@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="flat" @click="createSchemaDialog = true" size="large">
+      <v-btn color="primary" variant="flat" size="large" @click="createSchemaDialog = true">
         <v-icon start>mdi-plus</v-icon>
         New Schema
       </v-btn>
@@ -161,7 +161,7 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="outlined" @click="createSchemaDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" @click="createSchema" :loading="creating">
+          <v-btn color="primary" variant="flat" :loading="creating" @click="createSchema">
             Create
           </v-btn>
         </v-card-actions>
