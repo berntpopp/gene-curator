@@ -2,9 +2,148 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8">
-    <link rel="icon" href="/favicon.ico">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gene Curator</title>
+
+    <!-- Primary Meta Tags -->
+    <title>Gene Curator - Flexible Platform for Genetic Evidence Curation</title>
+    <meta name="title" content="Gene Curator - Flexible Platform for Genetic Evidence Curation">
+    <meta name="description" content="Methodology-agnostic platform for clinical genetics teams to curate gene-disease associations using ClinGen, GenCC, or custom frameworks. Structured evidence capture, automated scoring, peer review workflows, and complete provenance tracking.">
+    <meta name="keywords" content="gene curation, genetic classification, gene-disease relationships, ClinGen SOP, GenCC, clinical genetics, bioinformatics, precision medicine, genetic variants, evidence-based medicine, gene-disease validity, medical genetics, genomic medicine, variant interpretation, genetic curation platform">
+    <meta name="author" content="Halbritter Lab">
+    <meta name="robots" content="index, follow">
+    <link rel="canonical" href="https://github.com/halbritter-lab/gene-curator">
+
+    <!-- Open Graph / Facebook Meta Tags -->
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Gene Curator">
+    <meta property="og:title" content="Gene Curator - Methodology-Agnostic Genetic Curation Platform">
+    <meta property="og:description" content="Enable clinical genetics teams to curate gene-disease associations with any methodology. Features structured evidence capture, automated ClinGen/GenCC scoring, peer review, and complete audit trails.">
+    <meta property="og:url" content="https://github.com/halbritter-lab/gene-curator">
+    <meta property="og:image" content="https://raw.githubusercontent.com/halbritter-lab/gene-curator/master/frontend/public/img/logo.png">
+    <meta property="og:image:type" content="image/png">
+    <meta property="og:image:width" content="192">
+    <meta property="og:image:height" content="192">
+    <meta property="og:image:alt" content="Gene Curator Logo">
+    <meta property="og:locale" content="en_US">
+
+    <!-- Twitter Card Meta Tags -->
+    <meta name="twitter:card" content="summary">
+    <meta name="twitter:title" content="Gene Curator - Genetic Evidence Curation Platform">
+    <meta name="twitter:description" content="Flexible platform for curating gene-disease associations using ClinGen, GenCC, or custom methodologies. Built for clinical genetics teams with quality assurance workflows.">
+    <meta name="twitter:image" content="https://raw.githubusercontent.com/halbritter-lab/gene-curator/master/frontend/public/img/logo.png">
+    <meta name="twitter:image:alt" content="Gene Curator Logo">
+
+    <!-- Additional SEO Meta Tags -->
+    <meta name="application-name" content="Gene Curator">
+    <meta name="theme-color" content="#1976D2">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Gene Curator">
+    <meta name="format-detection" content="telephone=no">
+
+    <!-- Favicon Setup for Multiple Platforms -->
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="/img/logo.png" type="image/png" sizes="192x192">
+    <link rel="apple-touch-icon" href="/img/logo.png">
+
+    <!-- Structured Data (JSON-LD) for Search Engines -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebApplication",
+      "name": "Gene Curator",
+      "alternateName": "Gene Curator Platform",
+      "url": "https://github.com/halbritter-lab/gene-curator",
+      "description": "A flexible, methodology-agnostic platform for genetic evidence curation and gene-disease validity assessment. Supports ClinGen SOP, GenCC standards, and custom curation frameworks with structured evidence capture, automated scoring, peer review workflows, and complete provenance tracking.",
+      "applicationCategory": "HealthcareApplication",
+      "operatingSystem": "Web Browser, Docker",
+      "softwareVersion": "2.0.0",
+      "author": {
+        "@type": "Organization",
+        "name": "Halbritter Lab",
+        "url": "https://github.com/halbritter-lab"
+      },
+      "publisher": {
+        "@type": "Organization",
+        "name": "Halbritter Lab",
+        "url": "https://github.com/halbritter-lab",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://raw.githubusercontent.com/halbritter-lab/gene-curator/master/frontend/public/img/logo.png"
+        }
+      },
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD",
+        "availability": "https://schema.org/InStock"
+      },
+      "featureList": [
+        "Methodology Flexibility: ClinGen, GenCC, or custom frameworks",
+        "Clinical Organization: Scope-based specialty domains",
+        "Quality Assurance: Multi-stage workflow with peer review",
+        "Evidence Management: Structured capture with real-time validation",
+        "Team Collaboration: Role-based access control",
+        "Scientific Integrity: Complete audit trails with cryptographic verification"
+      ],
+      "keywords": "gene curation, genetic classification, gene-disease relationships, ClinGen SOP, GenCC, clinical genetics, bioinformatics, precision medicine, genetic variants, evidence-based medicine, gene-disease validity, medical genetics, variant interpretation",
+      "audience": {
+        "@type": "Audience",
+        "audienceType": "Clinical Genetics Teams, Genetic Curators, Researchers, Bioinformaticians"
+      },
+      "programmingLanguage": [
+        {
+          "@type": "ComputerLanguage",
+          "name": "Python",
+          "url": "https://www.python.org/"
+        },
+        {
+          "@type": "ComputerLanguage",
+          "name": "JavaScript",
+          "url": "https://developer.mozilla.org/en-US/docs/Web/JavaScript"
+        }
+      ],
+      "license": "https://opensource.org/licenses/MIT",
+      "codeRepository": "https://github.com/halbritter-lab/gene-curator",
+      "isAccessibleForFree": true,
+      "potentialAction": {
+        "@type": "UseAction",
+        "target": {
+          "@type": "EntryPoint",
+          "urlTemplate": "https://github.com/halbritter-lab/gene-curator"
+        }
+      }
+    }
+    </script>
+
+    <!-- Additional Structured Data: SoftwareSourceCode -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareSourceCode",
+      "name": "Gene Curator",
+      "description": "Open-source genetic curation platform supporting ClinGen, GenCC, and custom methodologies",
+      "codeRepository": "https://github.com/halbritter-lab/gene-curator",
+      "programmingLanguage": ["Python", "JavaScript", "Vue.js"],
+      "runtimePlatform": "Docker, PostgreSQL, FastAPI, Vue 3",
+      "license": "https://opensource.org/licenses/MIT",
+      "author": {
+        "@type": "Organization",
+        "name": "Halbritter Lab"
+      },
+      "dateCreated": "2023",
+      "dateModified": "2025"
+    }
+    </script>
+
+    <!-- Performance Optimization: Resource Hints -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://fonts.gstatic.com">
+
+    <!-- Preload Critical Assets -->
+    <link rel="preload" href="/img/logo.png" as="image" type="image/png" fetchpriority="high">
   </head>
   <body>
     <div id="app"></div>

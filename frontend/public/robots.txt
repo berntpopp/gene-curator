@@ -1,0 +1,20 @@
+# robots.txt for Gene Curator
+# https://github.com/halbritter-lab/gene-curator
+
+User-agent: *
+Allow: /
+
+# Optimize crawl budget by preventing unnecessary crawling
+Disallow: /api/
+Disallow: /*.json$
+Disallow: /*?*debug=
+Disallow: /*?*test=
+
+# Sitemap location (create sitemap.xml if deploying to production)
+# Sitemap: https://your-domain.com/sitemap.xml
+
+# Crawl delay (optional, adjust based on server capacity)
+# Crawl-delay: 1
+
+# Allow search engines to index all pages
+# This is an open-source research tool for clinical genetics
