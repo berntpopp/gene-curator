@@ -20,6 +20,34 @@
             {{ link.title }}
           </v-btn>
 
+          <!-- Disclaimer Button with Acknowledgment Indicator -->
+          <v-tooltip location="top">
+            <template v-slot:activator="{ props }">
+              <v-btn
+                v-bind="props"
+                variant="text"
+                size="small"
+                class="text-caption"
+                @click="showDisclaimer"
+              >
+                <v-icon size="small" class="mr-1">mdi-scale-balance</v-icon>
+                Disclaimer
+                <v-icon
+                  v-if="disclaimerStore.isAcknowledged"
+                  size="x-small"
+                  color="success"
+                  class="ml-1"
+                >
+                  mdi-check-circle
+                </v-icon>
+              </v-btn>
+            </template>
+            <span v-if="disclaimerStore.isAcknowledged">
+              Acknowledged on {{ disclaimerStore.formattedAcknowledgmentDate }}
+            </span>
+            <span v-else>View research use disclaimer</span>
+          </v-tooltip>
+
           <!-- Log Viewer Button with Error Count Badge -->
           <v-btn
             variant="text"
@@ -47,8 +75,12 @@
 <script setup>
   import { computed } from 'vue'
   import { useLogStore } from '@/stores/logStore'
+  import { useDisclaimerStore } from '@/stores/disclaimer'
+  import { useLogger } from '@/composables/useLogger'
 
+  const logger = useLogger()
   const logStore = useLogStore()
+  const disclaimerStore = useDisclaimerStore()
   const currentYear = computed(() => new Date().getFullYear())
 
   const footerLinks = [
@@ -65,6 +97,11 @@
       icon: 'mdi-book-open-variant'
     }
   ]
+
+  const showDisclaimer = () => {
+    logger.debug('Disclaimer button clicked in footer')
+    disclaimerStore.showDisclaimerDialog()
+  }
 </script>
 
 <style scoped>
