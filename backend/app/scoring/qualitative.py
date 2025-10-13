@@ -7,6 +7,7 @@ from datetime import datetime
 from typing import Any
 
 from .base import ScoringEngine, ScoringResult
+from .qualitative_checker import check_qualitative_warnings
 
 
 class QualitativeEngine(ScoringEngine):
@@ -238,52 +239,20 @@ class QualitativeEngine(ScoringEngine):
         else:
             return 0.0
 
-    def _check_qualitative_warnings(self, evidence_data: dict[str, Any]) -> list[str]:  # noqa: C901
-        """Check for potential issues in qualitative assessment."""
+    def _check_qualitative_warnings(self, evidence_data: dict[str, Any]) -> list[str]:
+        """
+        Check for potential issues in qualitative assessment.
 
-        warnings = []
+        Delegates to QualitativeWarningChecker for complexity management.
+        Complexity: 1 (simple delegation)
 
-        clinical_assessment = evidence_data.get("clinical_assessment", {})
-        literature_review = evidence_data.get("literature_review", {})
+        Args:
+            evidence_data: The evidence data to check
 
-        # Check for missing assessments
-        if not clinical_assessment:
-            warnings.append("No clinical assessment provided")
-        if not literature_review:
-            warnings.append("No literature review provided")
-
-        # Check for incomplete clinical assessment
-        if clinical_assessment:
-            if not clinical_assessment.get("phenotype_match"):
-                warnings.append("Phenotype match assessment missing")
-            if not clinical_assessment.get("inheritance_consistency"):
-                warnings.append("Inheritance consistency assessment missing")
-
-        # Check for incomplete literature review
-        if literature_review:
-            if not literature_review.get("evidence_quality"):
-                warnings.append("Evidence quality assessment missing")
-            if not literature_review.get("study_design_strength"):
-                warnings.append("Study design strength assessment missing")
-
-        # Check for low confidence assessments
-        if clinical_assessment.get("phenotype_match", "").lower() == "poor":
-            warnings.append(
-                "Poor phenotype match may indicate weak gene-disease association"
-            )
-
-        if (
-            clinical_assessment.get("inheritance_consistency", "").lower()
-            == "inconsistent"
-        ):
-            warnings.append(
-                "Inconsistent inheritance pattern raises questions about association"
-            )
-
-        if literature_review.get("evidence_quality", "").lower() == "low":
-            warnings.append("Low evidence quality limits confidence in assessment")
-
-        return warnings
+        Returns:
+            List of warning message strings
+        """
+        return check_qualitative_warnings(evidence_data)
 
     def validate_evidence(
         self, evidence_data: dict[str, Any], schema_config: dict[str, Any]

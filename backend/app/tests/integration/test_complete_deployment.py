@@ -19,19 +19,31 @@ def test_complete_system():  # noqa: C901
         from app.crud.workflow_engine import workflow_engine
         from app.scoring.registry import scoring_registry
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Core module import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error importing core modules: {e}")
         return False
 
     # Test 2: Model imports with corrected names
     try:
         pass
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Model import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error importing models: {e}")
         return False
 
     # Test 3: CRUD operations
     try:
         pass
-    except Exception:
+    except ImportError as e:
+        print(f"❌ CRUD operation import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error with CRUD operations: {e}")
         return False
 
     # Test 4: Schema definitions
@@ -40,19 +52,31 @@ def test_complete_system():  # noqa: C901
             workflow_engine,
         )
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Schema definition import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error importing schema definitions: {e}")
         return False
 
     # Test 5: API dependencies
     try:
         pass
-    except Exception:
+    except ImportError as e:
+        print(f"❌ API dependency import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error with API dependencies: {e}")
         return False
 
     # Test 6: Complete API integration
     try:
         pass
-    except Exception:
+    except ImportError as e:
+        print(f"❌ API integration import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Unexpected error with API integration: {e}")
         return False
 
     # Test 7: Main API router
@@ -81,9 +105,19 @@ def test_complete_system():  # noqa: C901
         if len(found_routes) == len(expected_routes):
             pass
         else:
-            set(expected_routes) - set(found_routes)
+            missing_routes = sorted(set(expected_routes) - set(found_routes))
+            # Log missing routes for debugging
+            print(f"❌ Missing {len(missing_routes)} API routes: {', '.join(missing_routes)}")
+            return False
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ API router import failed: {e}")
+        return False
+    except KeyError as e:
+        print(f"❌ OpenAPI spec structure error: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ API route check failed: {e}")
         return False
 
     # Test 8: End-to-end workflow simulation
@@ -147,7 +181,17 @@ def test_complete_system():  # noqa: C901
             "curation",
         )
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Workflow test import failed: {e}")
+        return False
+    except AttributeError as e:
+        print(f"❌ Workflow attribute error (possibly invalid transition): {e}")
+        return False
+    except ValueError as e:
+        print(f"❌ Workflow validation error: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ End-to-end workflow test failed: {e}")
         return False
 
     # Test 9: Database schema SQL files
@@ -170,7 +214,14 @@ def test_complete_system():  # noqa: C901
             else:
                 pass
 
-    except Exception:
+    except FileNotFoundError as e:
+        print(f"❌ Database schema file not found: {e}")
+        return False
+    except OSError as e:
+        print(f"❌ Error reading database schema file: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Database schema file test failed: {e}")
         return False
 
     # Test 10: System readiness check

@@ -129,6 +129,56 @@ class UnifiedLogger:
                 f"Database logging failed: {e}. Original message: {message}"
             )
 
+    def _handle_db_log_exception(self, task: asyncio.Task) -> None:
+        """
+        Handle exceptions from database logging tasks.
+
+        Following asyncio best practices (Python 3.14 guidelines):
+        1. Check if task is cancelled (not an error condition)
+        2. Check if task is done before calling exception()
+        3. Log exceptions with full context for debugging
+        4. Handle callback exceptions safely (safety net)
+
+        Args:
+            task: The completed asyncio Task
+        """
+        try:
+            # 1. Handle cancellation separately (not an error)
+            if task.cancelled():
+                self._console_logger.debug(
+                    "Database logging task was cancelled (expected during shutdown)"
+                )
+                return
+
+            # 2. Check if task is done before calling exception()
+            if not task.done():
+                self._console_logger.warning(
+                    "Callback fired on non-completed task (unexpected state)"
+                )
+                return
+
+            # 3. Check for exceptions and log with context
+            exc = task.exception()
+            if exc is not None:
+                # Log with full traceback and context for debugging
+                self._console_logger.error(
+                    f"Database logging task failed: {type(exc).__name__}: {exc}",
+                    exc_info=exc,
+                    extra={
+                        "exception_type": type(exc).__name__,
+                        "exception_message": str(exc),
+                        "logger_name": self.name,
+                    },
+                )
+
+        except Exception as callback_exc:
+            # 4. Safety net: callback itself shouldn't crash
+            # This protects against bugs in the callback code
+            self._console_logger.critical(
+                f"Critical: Exception in database logging callback: {callback_exc}",
+                exc_info=callback_exc,
+            )
+
     def _log_to_console(
         self, level: str, message: str, extra_data: dict[str, Any] | None = None
     ):
@@ -196,10 +246,8 @@ class UnifiedLogger:
             task = loop.create_task(
                 self._log_to_database_async(level, message, error, extra_data)
             )
-            # Add done callback to handle exceptions
-            task.add_done_callback(
-                lambda t: t.exception() if not t.cancelled() else None
-            )
+            # Add done callback to handle exceptions properly
+            task.add_done_callback(self._handle_db_log_exception)
         except RuntimeError:
             # Not in async context - can't write to database
             # This is expected in sync contexts (startup, tests, etc.)

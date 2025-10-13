@@ -49,7 +49,17 @@ def test_core_functionality():
         # Generate JSON Schema
         json_schema = schema_validator.generate_json_schema(test_schema)
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Schema validator import failed: {e}")
+        return False
+    except ValueError as e:
+        print(f"❌ Schema validation error: {e}")
+        return False
+    except KeyError as e:
+        print(f"❌ Schema structure error (missing required key): {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Schema validator test failed: {e}")
         return False
 
     # Test 2: Scoring Engines
@@ -71,14 +81,28 @@ def test_core_functionality():
 
             clingen_engine.calculate_scores(test_evidence, {})
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Scoring engine import failed: {e}")
+        return False
+    except AttributeError as e:
+        print(f"❌ Scoring engine method error: {e}")
+        return False
+    except ValueError as e:
+        print(f"❌ Scoring calculation error: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Scoring engine test failed: {e}")
         return False
 
     # Test 3: Models and Enums
     try:
         pass
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Models/enums import failed: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Models/enums test failed: {e}")
         return False
 
     # Test 4: File Existence Check
@@ -197,7 +221,20 @@ def test_core_functionality():
         json_schema = schema_validator.generate_json_schema(methodology_schema)
         "properties" in json_schema and len(json_schema["properties"]) > 0
 
-    except Exception:
+    except ImportError as e:
+        print(f"❌ Integration test import failed: {e}")
+        return False
+    except ValueError as e:
+        print(f"❌ Integration test validation error: {e}")
+        return False
+    except KeyError as e:
+        print(f"❌ Integration test structure error: {e}")
+        return False
+    except AttributeError as e:
+        print(f"❌ Integration test attribute error: {e}")
+        return False
+    except Exception as e:
+        print(f"❌ Integration test failed: {e}")
         return False
 
     return True
