@@ -1,19 +1,25 @@
 # Gene Curator - Open Issues Roadmap
 
 **Generated**: 2025-10-13
-**Total Open Issues**: 21 (3 completed)
+**Total Open Issues**: 23 (4 completed, 3 new created from TODO analysis)
 **Analysis Basis**: v2.0.0 architecture, implementation status, milestone alignment
 
 ---
 
 ## Executive Summary
 
-**Total Estimated Effort**: 167-234 hours (4-6 months with 1 FTE)
+**Total Estimated Effort**: 183-254 hours (4.5-6.5 months with 1 FTE)
 **Recommended Timeline**: 3 phases over 3-4 months with 2 developers
 **Completed Issues**:
 - #34 (Feedback System - GitHub-based implementation)
 - #39 (Disclaimer Popup - phentrieve-inspired implementation)
 - #42 (SEO Metadata - Comprehensive structured data & OG tags)
+- #109 (Transform TODOs - 1 bug fixed, 3 tracking issues created)
+
+**New Issues Created** (from TODO analysis #109):
+- #118 (Workflow Management Detail/Edit Views - Low priority, UX enhancement)
+- #119 (Gene Assignment Edit/Reassign Dialogs - Medium priority, v0.3.0)
+- #120 (Schema Read-Only Detail View - Low priority, UX enhancement)
 
 ### Key Findings
 - **10 issues** are critical for v0.3.0 curation readiness
@@ -37,11 +43,12 @@
 | #87 | Prevent precuration deletion | 8.0 | Low | 3-4h | DB ready, needs logic |
 | #77 | Prefill logic | 8.0 | Low-Med | 4-6h | Backend 100% ready |
 | #105 | ClinGen import | 8.0 | High | 16-20h | Infrastructure ready |
+| #119 | Gene assignment edit/reassign | 7.5 | Medium | 6-8h | Backend ready, UI needed |
 | #54 | OMIM selector | 7.5 | Medium | 8-10h | DB ready, needs API |
 | #53 | MONDO selector | 7.5 | Medium | 8-10h | DB ready, needs API |
 | #102 | Validate clinical groups | 7.5 | Medium | 6-8h | Validation needed |
 
-**Total**: 92-128 hours (~2-3 months, 1 developer)
+**Total**: 98-136 hours (~2.5-3.5 months, 1 developer)
 
 ---
 
@@ -56,10 +63,12 @@
 | #86 | Backup system | 7.0 | Med-High | 8-12h | Manual backups exist |
 | #66 | Lazy loading optimization | 6.5 | Medium | 6-8h | Backend excellent |
 | #115 | Transcript selector | 6.5 | Medium | 6-8h | DB ready |
+| #118 | Workflow management views | 6.0 | Medium | 8-10h | Backend ready, UI needed |
 | #30 | Customizable dashboard | 6.0 | Medium | 8-12h | Basic dashboard exists |
 | #116 | Multi-user approval | 6.0 | Med-High | 12-16h | 4-eyes exists |
+| #120 | Schema read-only view | 5.5 | Low | 2-3h | Backend ready, modal needed |
 
-**Total**: 54-76 hours (~1.5-2 months, 1 developer)
+**Total**: 64-89 hours (~1.5-2.5 months, 1 developer)
 
 ---
 
@@ -70,12 +79,12 @@
 |-------|-------|----------|------------|--------|--------|
 | #55 | Initial setup wizard | 5.5 | High | 12-16h | Not implemented |
 | #46 | File uploads (JSON/CSV) | 5.0 | Medium | 8-10h | Bulk API exists |
-| #109 | Transform TODOs | 4.0 | Low | 2-4h | Manual task |
+| ~~#109~~ | ~~Transform TODOs~~ | ~~4.0~~ | ~~Low~~ | ~~2-4h~~ | ✅ **Complete** (1 bug fixed, 3 issues created) |
 | ~~#39~~ | ~~Disclaimer popup~~ | ~~4.0~~ | ~~Low~~ | ~~2-3h~~ | ✅ **Complete** (phentrieve-inspired) |
 | ~~#34~~ | ~~Feedback system~~ | ~~4.0~~ | ~~Medium~~ | ~~6-8h~~ | ✅ **Complete** (GitHub-based) |
 | ~~#42~~ | ~~SEO metadata~~ | ~~3.0~~ | ~~Low~~ | ~~3-4h~~ | ✅ **Complete** (comprehensive implementation) |
 
-**Total**: 20-30 hours (~2.5-4 weeks, 1 developer)
+**Total**: 20-26 hours (~2.5-3.5 weeks, 1 developer)
 
 ---
 
@@ -164,7 +173,7 @@ Production readiness
 
 - ~~**#42** SEO - ✅ **Complete** (30+ meta tags, dual JSON-LD schemas, 400+ line docs)~~
 - ~~**#34** Feedback - ✅ **Complete** (GitHub issue forms implemented)~~
-- **#109** TODOs - Technical debt cleanup
+- ~~**#109** TODOs - ✅ **Complete** (1 bug fixed, 3 tracking issues created: #118, #119, #120)~~
 
 ---
 

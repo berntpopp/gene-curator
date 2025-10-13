@@ -37,7 +37,7 @@ def get_scopes(
     # Check if user has admin access or is assigned to view scopes
     if current_user.role.value not in ["admin", "scope_admin"]:
         # Regular users can only see scopes they're assigned to
-        user_scope_ids = []  # TODO: Implement scope assignments for regular users
+        user_scope_ids = current_user.assigned_scopes or []
         scopes = scope_crud.get_user_scopes(
             db, user_scope_ids=user_scope_ids, active_only=active_only
         )
