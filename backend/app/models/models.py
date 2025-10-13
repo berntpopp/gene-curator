@@ -26,6 +26,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+from app.core.enums import ApplicationRole as ApplicationRoleEnum, ScopeRole as ScopeRoleEnum
 
 # ========================================
 # ENHANCED ENUM DEFINITIONS
@@ -114,6 +115,7 @@ class Scope(Base):
         "WorkflowPair", foreign_keys=[default_workflow_pair_id]
     )
     gene_assignments = relationship("GeneScopeAssignment", back_populates="scope")
+    scope_memberships = relationship("ScopeMembership", back_populates="scope")
     precurations = relationship("PrecurationNew", back_populates="scope")
     curations = relationship("CurationNew", back_populates="scope")
     active_curations = relationship("ActiveCuration", back_populates="scope")
@@ -177,6 +179,92 @@ class UserNew(Base):
     reviews_assigned = relationship("Review", foreign_keys="[Review.reviewer_id]")
     approved_curations = relationship(
         "CurationNew", foreign_keys="[CurationNew.approved_by]"
+    )
+    scope_memberships = relationship(
+        "ScopeMembership", foreign_keys="[ScopeMembership.user_id]", back_populates="user"
+    )
+
+
+class ScopeMembership(Base):
+    """
+    Scope membership table for multi-tenant user-scope relationships.
+
+    This is the core table for multi-tenancy. It defines which users belong to
+    which scopes and what role they have within each scope.
+
+    Key Features:
+    - Many-to-many relationship between users and scopes with roles
+    - Invitation workflow support (invited_at, accepted_at)
+    - Soft delete support (is_active)
+    - Team support for future group-based permissions
+    """
+
+    __tablename__ = "scope_memberships"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    scope_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("scopes.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users_new.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    # Role within scope (uses scope_role enum from database)
+    role = Column(String(50), nullable=False, index=True)  # admin, curator, reviewer, viewer
+
+    # Invitation workflow
+    invited_by = Column(
+        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+    )
+    invited_at = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    accepted_at = Column(
+        DateTime(timezone=True)
+    )  # NULL = pending invitation
+
+    # Status
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
+
+    # Team support (future feature for group-based permissions)
+    team_id = Column(UUID(as_uuid=True))
+
+    # Notes
+    notes = Column(Text)
+
+    # Metadata
+    updated_at = Column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+
+    # Relationships
+    scope = relationship("Scope", back_populates="scope_memberships")
+    user = relationship("UserNew", foreign_keys=[user_id], back_populates="scope_memberships")
+    inviter = relationship("UserNew", foreign_keys=[invited_by])
+
+    __table_args__ = (
+        UniqueConstraint("scope_id", "user_id", name="uq_scope_membership_scope_user"),
+        Index(
+            "idx_scope_memberships_user_scope_active",
+            "user_id",
+            "scope_id",
+            "role",
+            postgresql_where="is_active = TRUE AND accepted_at IS NOT NULL",
+        ),
+        Index(
+            "idx_scope_memberships_pending",
+            "user_id",
+            postgresql_where="accepted_at IS NULL",
+        ),
     )
 
 

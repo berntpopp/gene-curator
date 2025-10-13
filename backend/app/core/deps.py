@@ -2,8 +2,12 @@
 FastAPI dependencies for authentication and database access.
 """
 
+from typing import Annotated, Callable
+from uuid import UUID
+
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -12,8 +16,12 @@ from app.core.security import (
     inactive_user_exception,
     verify_token,
 )
+from app.core.enums import ApplicationRole, ScopeRole
+from app.core.logging import get_logger
 from app.crud.user import user_crud
 from app.models import User, UserRole
+
+logger = get_logger(__name__)
 
 # Security scheme
 security = HTTPBearer()
@@ -155,3 +163,221 @@ def get_current_user_optional(
         return user
     except Exception:
         return None
+
+
+# =============================================================================
+# RLS Context Manager (SECURITY: Parameterized queries only)
+# =============================================================================
+
+
+def set_rls_context(db: Session, current_user: User) -> None:
+    """
+    Set PostgreSQL RLS context for current user.
+
+    SECURITY: Uses parameterized queries to prevent SQL injection.
+    DO NOT use f-strings with text() - this is a SQL injection vector.
+
+    Args:
+        db: Database session
+        current_user: Current authenticated user
+
+    Example:
+        set_rls_context(db, current_user)
+        # Now all queries respect RLS policies for this user
+    """
+    try:
+        # ✅ SECURE: Parameterized query (NOT f-string)
+        db.execute(
+            text("SET LOCAL app.current_user_id = :user_id"),
+            {"user_id": str(current_user.id)},
+        )
+        logger.debug(
+            "RLS context set",
+            user_id=str(current_user.id),
+            username=current_user.username,
+        )
+    except Exception as e:
+        logger.error("Failed to set RLS context", error=str(e), user_id=str(current_user.id))
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to set security context",
+        )
+
+
+# =============================================================================
+# Scope Permission Dependencies (SECURITY: TOCTOU prevention with FOR SHARE)
+# =============================================================================
+
+
+def get_scope(
+    scope_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """
+    Get scope by ID with permission check.
+
+    SECURITY: Uses SELECT FOR SHARE to prevent TOCTOU race conditions.
+
+    Args:
+        scope_id: UUID of scope to retrieve
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Scope object if user has access
+
+    Raises:
+        HTTPException: 404 if scope not found or user lacks access
+    """
+    from app.models import Scope  # Import here to avoid circular dependency
+
+    # Set RLS context for current user
+    set_rls_context(db, current_user)
+
+    # Query with SELECT FOR SHARE (prevents TOCTOU)
+    scope = (
+        db.query(Scope)
+        .filter(Scope.id == scope_id)
+        .with_for_update(read=True)  # SELECT FOR SHARE
+        .first()
+    )
+
+    if not scope:
+        logger.warning(
+            "Scope not found or access denied",
+            scope_id=str(scope_id),
+            user_id=str(current_user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scope not found or access denied",
+        )
+
+    logger.debug(
+        "Scope access granted",
+        scope_id=str(scope_id),
+        scope_name=scope.name,
+        user_id=str(current_user.id),
+    )
+
+    return scope
+
+
+def require_scope_role(required_role: ScopeRole) -> Callable:
+    """
+    Factory function to create scope role requirement dependencies.
+
+    Creates a dependency that verifies user has required role in scope.
+    Uses SELECT FOR SHARE to prevent TOCTOU race conditions.
+
+    Args:
+        required_role: Minimum required ScopeRole
+
+    Returns:
+        Dependency function that checks scope membership and role
+
+    Example:
+        @router.post("/scopes/{scope_id}/curations")
+        def create_curation(
+            scope: Scope = Depends(require_scope_role(ScopeRole.CURATOR))
+        ):
+            # User is guaranteed to be at least curator in this scope
+            pass
+    """
+
+    def _check_scope_role(
+        scope_id: UUID,
+        db: Session = Depends(get_db),
+        current_user: User = Depends(get_current_active_user),
+    ):
+        """Check if user has required role in scope."""
+        from app.models import ScopeMembership  # Import here to avoid circular dependency
+
+        # Application admins bypass scope role checks
+        if user_crud.is_admin(current_user):
+            logger.debug(
+                "Application admin bypassing scope role check",
+                user_id=str(current_user.id),
+                scope_id=str(scope_id),
+                required_role=required_role.value,
+            )
+            return get_scope(scope_id, db, current_user)
+
+        # Set RLS context
+        set_rls_context(db, current_user)
+
+        # Query membership with SELECT FOR SHARE (TOCTOU prevention)
+        membership = (
+            db.query(ScopeMembership)
+            .filter(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.user_id == current_user.id,
+                ScopeMembership.is_active == True,  # noqa: E712
+                ScopeMembership.accepted_at.isnot(None),
+            )
+            .with_for_update(read=True)  # SELECT FOR SHARE
+            .first()
+        )
+
+        if not membership:
+            logger.warning(
+                "User not a member of scope",
+                user_id=str(current_user.id),
+                scope_id=str(scope_id),
+                required_role=required_role.value,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not a member of this scope",
+            )
+
+        # Check role permissions using ScopeRole enum methods
+        user_role = ScopeRole.from_string(membership.role)
+
+        # Role-specific permission checks
+        has_permission = False
+        if required_role == ScopeRole.VIEWER:
+            has_permission = user_role.can_view()
+        elif required_role == ScopeRole.REVIEWER:
+            has_permission = user_role.can_review()
+        elif required_role == ScopeRole.CURATOR:
+            has_permission = user_role.can_curate()
+        elif required_role == ScopeRole.ADMIN:
+            has_permission = user_role.can_manage_scope()
+
+        if not has_permission:
+            logger.warning(
+                "Insufficient scope permissions",
+                user_id=str(current_user.id),
+                scope_id=str(scope_id),
+                user_role=user_role.value,
+                required_role=required_role.value,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Requires {required_role.value} role or higher",
+            )
+
+        logger.debug(
+            "Scope role check passed",
+            user_id=str(current_user.id),
+            scope_id=str(scope_id),
+            user_role=user_role.value,
+            required_role=required_role.value,
+        )
+
+        return get_scope(scope_id, db, current_user)
+
+    return _check_scope_role
+
+
+# =============================================================================
+# Convenience Typed Dependencies
+# =============================================================================
+
+# Type-annotated dependencies for clean endpoint signatures
+RequireScopeMember = Annotated[User, Depends(require_scope_role(ScopeRole.VIEWER))]
+RequireScopeReviewer = Annotated[User, Depends(require_scope_role(ScopeRole.REVIEWER))]
+RequireScopeCurator = Annotated[User, Depends(require_scope_role(ScopeRole.CURATOR))]
+RequireScopeAdmin = Annotated[User, Depends(require_scope_role(ScopeRole.ADMIN))]

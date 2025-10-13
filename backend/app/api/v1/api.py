@@ -12,7 +12,9 @@ from app.api.v1.endpoints import (
     logs,
     schema_validation,
     schemas,
+    scope_memberships,
     scopes,
+    scopes_new,
     users,
     workflow,
 )
@@ -26,6 +28,10 @@ api_router.include_router(auth.router, prefix="/auth", tags=["authentication"])
 
 # Methodology-agnostic system endpoints
 api_router.include_router(scopes.router, prefix="/scopes", tags=["scopes"])
+api_router.include_router(scopes_new.router, prefix="/scopes-rls", tags=["scopes-rls"])
+api_router.include_router(
+    scope_memberships.router, prefix="/scopes", tags=["scope-memberships"]
+)
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
