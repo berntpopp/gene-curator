@@ -280,12 +280,16 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
-  import { useAssignmentsStore, useScopesStore, useUsersStore } from '@/stores'
+  import { ref, computed, onMounted, onErrorCaptured } from 'vue'
+  import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
+  import { useLogger } from '@/composables/useLogger'
+  import { showError, showSuccess } from '@/composables/useNotifications'
 
   const assignmentsStore = useAssignmentsStore()
   const scopesStore = useScopesStore()
   const usersStore = useUsersStore()
+  const authStore = useAuthStore()
+  const logger = useLogger()
 
   // Reactive data
   const selectedAssignments = ref([])
@@ -302,12 +306,27 @@
   const exporting = ref(false)
   const bulkAssigning = ref(false)
 
-  // Computed properties
+  // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
-  const assignments = computed(() => assignmentsStore.assignments)
-  const availableScopes = computed(() => scopesStore.scopes)
-  const availableUsers = computed(() => usersStore.users.filter(user => user.role !== 'viewer'))
-  const workloadSummary = computed(() => assignmentsStore.workloadSummary)
+  const assignments = computed(() => assignmentsStore.assignments || [])
+  const availableScopes = computed(() => scopesStore.scopes || [])
+  const availableUsers = computed(() => (usersStore.users || []).filter(user => user.role !== 'viewer'))
+  const workloadSummary = computed(() => assignmentsStore.workloadSummary || [])
+
+  // Error boundary for component-level errors
+  onErrorCaptured((err, instance, info) => {
+    logger.error('GeneAssignmentManager error', {
+      error: err.message,
+      stack: err.stack,
+      component: instance?.$options?.name || 'GeneAssignmentManager',
+      errorInfo: info
+    })
+
+    showError('An error occurred in the assignment manager')
+
+    // Don't propagate error up - handle it here
+    return false
+  })
 
   const statusOptions = [
     { title: 'Unassigned', value: 'unassigned' },
@@ -463,10 +482,21 @@
         comment: bulkComment.value || null
       })
 
+      logger.info('Bulk assignment successful', {
+        count: selectedAssignments.value.length,
+        assignedTo: bulkAssignee.value.full_name
+      })
+      showSuccess(`Successfully assigned ${selectedAssignments.value.length} items`)
+
       bulkAssignDialog.value = false
       selectedAssignments.value = []
     } catch (error) {
-      console.error('Bulk assignment failed:', error)
+      logger.error('Bulk assignment failed', {
+        count: selectedAssignments.value.length,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Bulk assignment failed')
     } finally {
       bulkAssigning.value = false
     }
@@ -478,8 +508,15 @@
       await assignmentsStore.rebalanceWorkload({
         scope_id: selectedScope.value
       })
+      logger.info('Workload rebalanced', { scopeId: selectedScope.value })
+      showSuccess('Workload rebalanced successfully')
     } catch (error) {
-      console.error('Workload rebalancing failed:', error)
+      logger.error('Workload rebalancing failed', {
+        scopeId: selectedScope.value,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Workload rebalancing failed')
     } finally {
       rebalancing.value = false
     }
@@ -493,8 +530,17 @@
         status: selectedStatus.value,
         assigned_to: selectedAssignee.value
       })
+      logger.info('Assignments exported', {
+        scopeId: selectedScope.value,
+        status: selectedStatus.value
+      })
+      showSuccess('Assignments exported successfully')
     } catch (error) {
-      console.error('Export failed:', error)
+      logger.error('Export failed', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Export failed')
     } finally {
       exporting.value = false
     }
@@ -503,36 +549,66 @@
   const refreshAssignments = async () => {
     try {
       await assignmentsStore.fetchAssignments()
+      logger.info('Assignments refreshed', { count: assignments.value.length })
+      showSuccess('Assignments refreshed')
     } catch (error) {
-      console.error('Refresh failed:', error)
+      logger.error('Refresh failed', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Refresh failed')
     }
   }
 
   const editAssignment = assignment => {
-    // Emit event or navigate to edit page
-    console.log('Edit assignment:', assignment)
+    logger.info('Edit assignment requested', { assignmentId: assignment.id })
+    // TODO: Implement assignment edit when available
   }
 
   const reassignGene = assignment => {
-    // Open reassignment dialog or navigate
-    console.log('Reassign gene:', assignment)
+    logger.info('Reassign gene requested', {
+      assignmentId: assignment.id,
+      geneSymbol: assignment.gene_symbol
+    })
+    // TODO: Implement gene reassignment when available
   }
 
   const viewAssignment = assignment => {
-    // Navigate to assignment details
-    console.log('View assignment:', assignment)
+    logger.info('View assignment requested', { assignmentId: assignment.id })
+    // TODO: Implement assignment detail view when available
   }
 
   onMounted(async () => {
     try {
-      await Promise.all([
+      const curatorId = authStore.user?.id
+
+      // Call existing methods with proper parameters
+      const promises = [
         assignmentsStore.fetchAssignments(),
-        assignmentsStore.fetchWorkloadSummary(),
         scopesStore.fetchScopes(),
         usersStore.fetchUsers()
-      ])
+      ]
+
+      // Only fetch curator workload if user is logged in
+      if (curatorId) {
+        promises.push(assignmentsStore.fetchCuratorWorkload(curatorId))
+      } else {
+        logger.warn('No curator ID available for workload fetch')
+      }
+
+      await Promise.all(promises)
+
+      logger.info('GeneAssignmentManager mounted', {
+        assignmentsCount: assignments.value.length,
+        scopesCount: availableScopes.value.length,
+        usersCount: availableUsers.value.length
+      })
     } catch (error) {
-      console.error('Failed to load assignment data:', error)
+      logger.error('Failed to load assignment data', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to load assignment data. Please refresh.')
     }
   })
 </script>

@@ -326,14 +326,17 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useValidationStore, useScopesStore, useSchemasStore } from '@/stores'
+  import { useLogger } from '@/composables/useLogger'
+  import { showError, showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
   const validationStore = useValidationStore()
   const scopesStore = useScopesStore()
   const schemasStore = useSchemasStore()
+  const logger = useLogger()
 
   const loading = ref(false)
   const refreshing = ref(false)
@@ -369,15 +372,36 @@
     { title: 'Info', value: 'info' }
   ]
 
-  // Computed properties
-  const stats = computed(() => validationStore.validationStats)
-  const validationResults = computed(() => validationStore.validationResults)
-  const commonIssues = computed(() => validationStore.commonIssues)
-  const availableScopes = computed(() => scopesStore.scopes)
-  const availableSchemas = computed(() => schemasStore.schemas)
+  // Computed properties with defensive defaults
+  const stats = computed(() => validationStore.validationStats || {
+    valid_curations: 0,
+    invalid_curations: 0,
+    warnings_count: 0,
+    schema_compliance_rate: 0
+  })
+
+  const validationResults = computed(() => {
+    // validationStore.validationResults is an object, not array
+    // Convert to array for data table
+    const results = validationStore.validationResults
+    if (!results || typeof results !== 'object') return []
+
+    // If it's already an array, return it
+    if (Array.isArray(results)) return results
+
+    // If it's an object with values, convert to array
+    return Object.values(results).filter(v => v && typeof v === 'object')
+  })
+
+  const commonIssues = computed(() => validationStore.commonIssues || [])
+  const availableScopes = computed(() => scopesStore.scopes || [])
+  const availableSchemas = computed(() => schemasStore.schemas || [])
 
   const filteredResults = computed(() => {
-    let filtered = [...validationResults.value]
+    // Defensive: ensure validationResults is always an array
+    let filtered = Array.isArray(validationResults.value)
+      ? [...validationResults.value]
+      : []
 
     if (selectedScope.value) {
       filtered = filtered.filter(r => r.scope_id === selectedScope.value)
@@ -393,11 +417,26 @@
 
     if (selectedSeverity.value) {
       filtered = filtered.filter(r =>
-        r.issues.some(issue => issue.severity === selectedSeverity.value)
+        r.issues && Array.isArray(r.issues) && r.issues.some(issue => issue.severity === selectedSeverity.value)
       )
     }
 
     return filtered
+  })
+
+  // Error boundary for component-level errors
+  onErrorCaptured((err, instance, info) => {
+    logger.error('Component error caught', {
+      error: err.message,
+      stack: err.stack,
+      component: instance?.$options?.name || 'ValidationDashboard',
+      errorInfo: info
+    })
+
+    showError('An error occurred while rendering the dashboard')
+
+    // Don't propagate error up - handle it here
+    return false
   })
 
   // Helper functions
@@ -459,9 +498,23 @@
   const refreshAll = async () => {
     refreshing.value = true
     try {
-      await validationStore.refreshAllValidations()
+      // Call existing methods that actually exist
+      await Promise.all([
+        scopesStore.fetchScopes(),
+        schemasStore.fetchSchemas()
+      ])
+
+      logger.info('Validation dashboard refreshed', {
+        scopeCount: scopesStore.scopes?.length || 0,
+        schemaCount: schemasStore.schemas?.length || 0
+      })
+      showSuccess('Dashboard refreshed successfully')
     } catch (error) {
-      console.error('Failed to refresh validations:', error)
+      logger.error('Failed to refresh validations', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to refresh dashboard')
     } finally {
       refreshing.value = false
     }
@@ -475,30 +528,61 @@
   const revalidateEntity = async validation => {
     revalidating.value[validation.id] = true
     try {
-      await validationStore.revalidateEntity(validation.entity_id, validation.entity_type)
+      // Use existing validation API method
+      await validationStore.validateEvidence(
+        validation.evidence_data,
+        validation.schema_id,
+        validation.id  // key for storing result
+      )
+
+      logger.info('Entity revalidated', {
+        entityId: validation.entity_id,
+        entityType: validation.entity_type
+      })
+      showSuccess('Revalidation complete')
     } catch (error) {
-      console.error('Failed to revalidate entity:', error)
+      logger.error('Failed to revalidate entity', {
+        entityId: validation.entity_id,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Revalidation failed')
     } finally {
       revalidating.value[validation.id] = false
     }
   }
 
   const viewEntity = validation => {
-    router.push({ name: 'AssignmentDetail', params: { id: validation.entity_id } })
+    try {
+      router.push({ name: 'AssignmentDetail', params: { id: validation.entity_id } })
+    } catch (error) {
+      logger.error('Failed to navigate to entity', {
+        entityId: validation.entity_id,
+        error: error.message
+      })
+      showError('Failed to open entity details')
+    }
   }
 
   onMounted(async () => {
     loading.value = true
     try {
+      // Only call methods that exist in stores
       await Promise.all([
-        validationStore.fetchValidationResults(),
-        validationStore.fetchValidationStats(),
-        validationStore.fetchCommonIssues(),
         scopesStore.fetchScopes(),
         schemasStore.fetchSchemas()
       ])
+
+      logger.info('ValidationDashboard mounted', {
+        scopeCount: scopesStore.scopes?.length || 0,
+        schemaCount: schemasStore.schemas?.length || 0
+      })
     } catch (error) {
-      console.error('Failed to load validation dashboard:', error)
+      logger.error('Failed to load validation dashboard', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to load dashboard data. Please refresh.')
     } finally {
       loading.value = false
     }

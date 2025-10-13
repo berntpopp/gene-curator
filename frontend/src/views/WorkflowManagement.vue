@@ -173,11 +173,14 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
+  import { useLogger } from '@/composables/useLogger'
+  import { showError, showSuccess, showInfo } from '@/composables/useNotifications'
 
   const schemasStore = useSchemasStore()
   const workflowStore = useWorkflowStore()
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)
@@ -200,10 +203,26 @@
     { title: 'Actions', key: 'actions', sortable: false }
   ]
 
-  const workflowPairs = computed(() => workflowStore.workflowPairs)
-  const workflowStages = computed(() => workflowStore.workflowStages)
-  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas)
-  const curationSchemas = computed(() => schemasStore.getCurationSchemas)
+  // Defensive computed properties with defaults
+  const workflowPairs = computed(() => workflowStore.workflowPairs || [])
+  const workflowStages = computed(() => workflowStore.workflowStages || [])
+  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas || [])
+  const curationSchemas = computed(() => schemasStore.getCurationSchemas || [])
+
+  // Error boundary for component-level errors
+  onErrorCaptured((err, instance, info) => {
+    logger.error('WorkflowManagement error', {
+      error: err.message,
+      stack: err.stack,
+      component: instance?.$options?.name || 'WorkflowManagement',
+      errorInfo: info
+    })
+
+    showError('An error occurred while rendering the workflow management')
+
+    // Don't propagate error up - handle it here
+    return false
+  })
 
   const getStatusColor = status => {
     const colorMap = {
@@ -245,25 +264,38 @@
   }
 
   const viewWorkflow = workflow => {
-    console.log('View workflow:', workflow)
+    logger.info('View workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
+    // TODO: Implement workflow detail view when available
+    showInfo('Workflow detail view coming soon')
   }
 
   const editWorkflow = workflow => {
-    console.log('Edit workflow:', workflow)
+    logger.info('Edit workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
+    // TODO: Implement workflow edit when available
+    showInfo('Workflow editing coming soon')
   }
 
   const deleteWorkflow = async workflow => {
     if (confirm(`Are you sure you want to delete "${workflow.name}"?`)) {
       try {
         await workflowStore.deleteWorkflowPair(workflow.id)
+        logger.info('Workflow deleted', { workflowId: workflow.id, workflowName: workflow.name })
+        showSuccess('Workflow deleted successfully')
       } catch (error) {
-        console.error('Failed to delete workflow:', error)
+        logger.error('Failed to delete workflow', {
+          workflowId: workflow.id,
+          error: error.message,
+          stack: error.stack
+        })
+        showError('Failed to delete workflow')
       }
     }
   }
 
   const editStage = stage => {
-    console.log('Edit stage:', stage)
+    logger.info('Edit stage requested', { stageId: stage.id, stageName: stage.name })
+    // TODO: Implement stage edit when available
+    showInfo('Stage editing coming soon')
   }
 
   const createWorkflow = async () => {
@@ -273,6 +305,9 @@
     creating.value = true
     try {
       await workflowStore.createWorkflowPair(newWorkflow.value)
+      logger.info('Workflow created', { workflowName: newWorkflow.value.name })
+      showSuccess('Workflow created successfully')
+
       createWorkflowDialog.value = false
       newWorkflow.value = {
         name: '',
@@ -281,7 +316,12 @@
         curation_schema_id: null
       }
     } catch (error) {
-      console.error('Failed to create workflow:', error)
+      logger.error('Failed to create workflow', {
+        workflowName: newWorkflow.value.name,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to create workflow')
     } finally {
       creating.value = false
     }
@@ -290,13 +330,24 @@
   onMounted(async () => {
     loading.value = true
     try {
+      // Call existing methods
       await Promise.all([
-        workflowStore.fetchWorkflowPairs(),
-        workflowStore.fetchWorkflowStages(),
+        workflowStore.fetchWorkflowAnalytics(),
+        workflowStore.fetchPeerReviewers(),
         schemasStore.fetchSchemas()
       ])
+
+      logger.info('WorkflowManagement mounted', {
+        analyticsLoaded: !!workflowStore.analytics,
+        reviewersCount: workflowStore.peerReviewers?.length || 0,
+        schemasCount: schemasStore.schemas?.length || 0
+      })
     } catch (error) {
-      console.error('Failed to load workflow data:', error)
+      logger.error('Failed to load workflow data', {
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to load workflow data. Please refresh.')
     } finally {
       loading.value = false
     }

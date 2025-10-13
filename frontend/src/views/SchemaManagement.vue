@@ -171,12 +171,15 @@
 </template>
 
 <script setup>
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
+  import { useLogger } from '@/composables/useLogger'
+  import { showError, showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)
@@ -185,6 +188,21 @@
   const selectedStatus = ref(null)
   const createSchemaDialog = ref(false)
   const createForm = ref(null)
+
+  // Error boundary for component-level errors
+  onErrorCaptured((err, instance, info) => {
+    logger.error('SchemaManagement error', {
+      error: err.message,
+      stack: err.stack,
+      component: instance?.$options?.name || 'SchemaManagement',
+      errorInfo: info
+    })
+
+    showError('An error occurred in schema management')
+
+    // Don't propagate error up - handle it here
+    return false
+  })
 
   const newSchema = ref({
     name: '',
@@ -214,10 +232,12 @@
     { title: 'Actions', key: 'actions', sortable: false }
   ]
 
-  const schemas = computed(() => schemasStore.schemas)
+  // Defensive computed properties with defaults
+  const schemas = computed(() => schemasStore.schemas || [])
 
   const filteredSchemas = computed(() => {
-    let filtered = [...schemas.value]
+    // Defensive: ensure schemas is always an array
+    let filtered = Array.isArray(schemas.value) ? [...schemas.value] : []
 
     if (selectedType.value) {
       filtered = filtered.filter(s => s.type === selectedType.value)
@@ -261,20 +281,40 @@
   }
 
   const viewSchema = schema => {
-    // Navigate to schema detail view
-    console.log('View schema:', schema)
+    logger.info('View schema requested', { schemaId: schema.id, schemaName: schema.name })
+    // TODO: Implement schema detail view when available
   }
 
   const editSchema = schema => {
-    router.push({ name: 'SchemaEditor', params: { id: schema.id } })
+    try {
+      router.push({ name: 'SchemaEditor', params: { id: schema.id } })
+      logger.info('Navigate to schema editor', { schemaId: schema.id, schemaName: schema.name })
+    } catch (error) {
+      logger.error('Failed to navigate to schema editor', {
+        schemaId: schema.id,
+        error: error.message
+      })
+      showError('Failed to open schema editor')
+    }
   }
 
   const duplicateSchema = async schema => {
     try {
       const duplicated = await schemasStore.duplicateSchema(schema.id)
-      console.log('Schema duplicated:', duplicated)
+      logger.info('Schema duplicated', {
+        originalId: schema.id,
+        duplicatedId: duplicated.id,
+        schemaName: schema.name
+      })
+      showSuccess(`Schema "${schema.name}" duplicated successfully`)
     } catch (error) {
-      console.error('Failed to duplicate schema:', error)
+      logger.error('Failed to duplicate schema', {
+        schemaId: schema.id,
+        schemaName: schema.name,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to duplicate schema')
     }
   }
 
@@ -282,8 +322,16 @@
     if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
       try {
         await schemasStore.deleteSchema(schema.id)
+        logger.info('Schema deleted', { schemaId: schema.id, schemaName: schema.name })
+        showSuccess(`Schema "${schema.name}" deleted successfully`)
       } catch (error) {
-        console.error('Failed to delete schema:', error)
+        logger.error('Failed to delete schema', {
+          schemaId: schema.id,
+          schemaName: schema.name,
+          error: error.message,
+          stack: error.stack
+        })
+        showError('Failed to delete schema')
       }
     }
   }
@@ -295,6 +343,9 @@
     creating.value = true
     try {
       await schemasStore.createSchema(newSchema.value)
+      logger.info('Schema created', { schemaName: newSchema.value.name })
+      showSuccess(`Schema "${newSchema.value.name}" created successfully`)
+
       createSchemaDialog.value = false
       newSchema.value = {
         name: '',
@@ -303,7 +354,12 @@
         version: '1.0.0'
       }
     } catch (error) {
-      console.error('Failed to create schema:', error)
+      logger.error('Failed to create schema', {
+        schemaName: newSchema.value.name,
+        error: error.message,
+        stack: error.stack
+      })
+      showError('Failed to create schema')
     } finally {
       creating.value = false
     }
@@ -313,8 +369,21 @@
     loading.value = true
     try {
       await schemasStore.fetchSchemas()
+      logger.info('SchemaManagement mounted', { schemasCount: schemas.value.length })
     } catch (error) {
-      console.error('Failed to load schemas:', error)
+      logger.error('Failed to load schemas', {
+        error: error.message,
+        status: error.response?.status,
+        endpoint: '/api/v1/schemas',
+        stack: error.stack
+      })
+
+      // Check if 404 (endpoint doesn't exist yet)
+      if (error.response?.status === 404) {
+        showError('Schema management is not yet available. This feature is under development.')
+      } else {
+        showError('Failed to load schemas. Please refresh.')
+      }
     } finally {
       loading.value = false
     }
