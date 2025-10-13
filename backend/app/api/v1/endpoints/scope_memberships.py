@@ -82,7 +82,9 @@ def invite_member(
             "Scope membership invitation created",
             scope_id=str(scope_id),
             scope_name=scope.name,
-            invited_user_id=str(invitation_in.user_id) if invitation_in.user_id else None,
+            invited_user_id=str(invitation_in.user_id)
+            if invitation_in.user_id
+            else None,
             invited_email=invitation_in.email,
             role=invitation_in.role.value,
             invited_by=str(current_user.id),
@@ -120,7 +122,7 @@ def invite_member(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.post(
@@ -202,7 +204,7 @@ def accept_invitation(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
-        )
+        ) from e
 
 
 @router.get("/{scope_id}/members", response_model=ScopeMemberListResponse)

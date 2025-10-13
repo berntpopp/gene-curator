@@ -10,13 +10,11 @@ Author: Claude Code (Automated Implementation)
 
 import re
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.core.enums import ScopeRole
-
 
 # Email validation regex (for cases where EmailStr isn't sufficient)
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$")
@@ -33,7 +31,7 @@ class ScopeMembershipBase(BaseModel):
         ...,
         description="User's role within the scope (admin, curator, reviewer, viewer)",
     )
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         None,
         description="Optional notes about this membership (e.g., specialty, responsibilities)",
         max_length=500,
@@ -60,22 +58,22 @@ class ScopeMembershipCreate(ScopeMembershipBase):
     At least one of user_id or email must be provided.
     """
 
-    user_id: Optional[UUID] = Field(
+    user_id: UUID | None = Field(
         None,
         description="UUID of existing user to invite (direct invitation)",
     )
-    email: Optional[EmailStr] = Field(
+    email: EmailStr | None = Field(
         None,
         description="Email address for external invitation (future feature)",
     )
-    team_id: Optional[UUID] = Field(
+    team_id: UUID | None = Field(
         None,
         description="Optional team ID for group-based memberships (future feature)",
     )
 
     @field_validator("email")
     @classmethod
-    def validate_email_format(cls, v: Optional[str]) -> Optional[str]:
+    def validate_email_format(cls, v: str | None) -> str | None:
         """Validate email format using regex (additional validation)."""
         if v is not None and not EMAIL_REGEX.match(v):
             raise ValueError("Invalid email format")
@@ -125,15 +123,15 @@ class ScopeMembershipUpdate(BaseModel):
     Team ID and invitation fields cannot be updated.
     """
 
-    role: Optional[ScopeRole] = Field(
+    role: ScopeRole | None = Field(
         None,
         description="New role for the user in this scope",
     )
-    is_active: Optional[bool] = Field(
+    is_active: bool | None = Field(
         None,
         description="Whether membership is active (false = suspended)",
     )
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         None,
         description="Updated notes about this membership",
         max_length=500,
@@ -166,17 +164,17 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     id: UUID = Field(..., description="Unique membership ID")
     scope_id: UUID = Field(..., description="Scope UUID")
     user_id: UUID = Field(..., description="User UUID")
-    invited_by: Optional[UUID] = Field(None, description="UUID of user who sent invitation")
+    invited_by: UUID | None = Field(None, description="UUID of user who sent invitation")
     invited_at: datetime = Field(..., description="When invitation was sent")
-    accepted_at: Optional[datetime] = Field(None, description="When invitation was accepted (NULL = pending)")
+    accepted_at: datetime | None = Field(None, description="When invitation was accepted (NULL = pending)")
     is_active: bool = Field(..., description="Whether membership is active")
-    team_id: Optional[UUID] = Field(None, description="Optional team ID")
+    team_id: UUID | None = Field(None, description="Optional team ID")
 
     # User details (joined from users_new table)
-    user_username: Optional[str] = Field(None, description="User's username")
-    user_email: Optional[str] = Field(None, description="User's email")
-    user_full_name: Optional[str] = Field(None, description="User's full name")
-    user_orcid: Optional[str] = Field(None, description="User's ORCID")
+    user_username: str | None = Field(None, description="User's username")
+    user_email: str | None = Field(None, description="User's email")
+    user_full_name: str | None = Field(None, description="User's full name")
+    user_orcid: str | None = Field(None, description="User's ORCID")
 
     # Computed fields
     is_pending: bool = Field(..., description="Whether invitation is pending acceptance")
@@ -265,7 +263,7 @@ class ScopeMembershipAccept(BaseModel):
     Simple confirmation schema - no additional data needed beyond authentication.
     """
 
-    notes: Optional[str] = Field(
+    notes: str | None = Field(
         None,
         description="Optional message when accepting invitation",
         max_length=200,

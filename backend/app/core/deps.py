@@ -2,7 +2,8 @@
 FastAPI dependencies for authentication and database access.
 """
 
-from typing import Annotated, Callable
+from collections.abc import Callable
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -11,13 +12,13 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.enums import ScopeRole
+from app.core.logging import get_logger
 from app.core.security import (
     credentials_exception,
     inactive_user_exception,
     verify_token,
 )
-from app.core.enums import ApplicationRole, ScopeRole
-from app.core.logging import get_logger
 from app.crud.user import user_crud
 from app.models import User, UserRole
 
@@ -197,11 +198,13 @@ def set_rls_context(db: Session, current_user: User) -> None:
             username=current_user.username,
         )
     except Exception as e:
-        logger.error("Failed to set RLS context", error=str(e), user_id=str(current_user.id))
+        logger.error(
+            "Failed to set RLS context", error=str(e), user_id=str(current_user.id)
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to set security context",
-        )
+        ) from e
 
 
 # =============================================================================
@@ -292,7 +295,9 @@ def require_scope_role(required_role: ScopeRole) -> Callable:
         current_user: User = Depends(get_current_active_user),
     ):
         """Check if user has required role in scope."""
-        from app.models import ScopeMembership  # Import here to avoid circular dependency
+        from app.models import (
+            ScopeMembership,
+        )  # Import here to avoid circular dependency
 
         # Application admins bypass scope role checks
         if user_crud.is_admin(current_user):

@@ -9,21 +9,19 @@ Author: Claude Code (Automated Implementation)
 """
 
 from datetime import datetime
-from typing import Optional
 from uuid import UUID
 
-from sqlalchemy import and_, func
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session
 
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.models import ScopeMembership, Scope, UserNew
+from app.models import Scope, ScopeMembership, UserNew
 from app.schemas.scope_membership import (
-    ScopeMembershipCreate,
-    ScopeMembershipUpdate,
-    ScopeMembershipResponse,
     ScopeMemberListResponse,
+    ScopeMembershipCreate,
+    ScopeMembershipResponse,
+    ScopeMembershipUpdate,
 )
 
 logger = get_logger(__name__)
@@ -393,7 +391,7 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
         db: Session,
         *,
         user_id: UUID,
-        role_filter: Optional[ScopeRole] = None,
+        role_filter: ScopeRole | None = None,
     ) -> list[tuple[Scope, ScopeMembership]]:
         """
         Get all scopes a user is a member of, with membership details.
@@ -436,7 +434,7 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
         *,
         user_id: UUID,
         scope_id: UUID,
-    ) -> Optional[ScopeRole]:
+    ) -> ScopeRole | None:
         """
         Get a user's role in a specific scope.
 

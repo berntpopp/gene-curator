@@ -20,18 +20,18 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
-from app.core.enums import ApplicationRole, ScopeRole
+from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.scope import scope_crud
 from app.crud.scope_membership import scope_membership_crud
 from app.models import Scope, User
 from app.schemas.scope import (
+    Scope as ScopeResponse,
     ScopeCreate,
     ScopeStatistics,
     ScopeUpdate,
     ScopeWithStats,
 )
-from app.schemas.scope import Scope as ScopeResponse
 from app.schemas.scope_membership import ScopeMembershipCreate
 
 logger = get_logger(__name__)
@@ -113,7 +113,9 @@ def list_scopes(
     db: Session = Depends(deps.get_db),
     current_user: User = Depends(deps.get_current_active_user),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(50, ge=1, le=1000, description="Maximum number of records to return"),
+    limit: int = Query(
+        50, ge=1, le=1000, description="Maximum number of records to return"
+    ),
     active_only: bool = Query(True, description="Filter for active scopes only"),
     include_public: bool = Query(True, description="Include public scopes"),
 ) -> list[Scope]:

@@ -26,7 +26,6 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
-from app.core.enums import ApplicationRole as ApplicationRoleEnum, ScopeRole as ScopeRoleEnum
 
 # ========================================
 # ENHANCED ENUM DEFINITIONS
