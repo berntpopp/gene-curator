@@ -1,16 +1,18 @@
 # Gene Curator - Open Issues Roadmap
 
 **Generated**: 2025-10-13
-**Total Open Issues**: 23 (1 completed)
+**Total Open Issues**: 22 (2 completed)
 **Analysis Basis**: v2.0.0 architecture, implementation status, milestone alignment
 
 ---
 
 ## Executive Summary
 
-**Total Estimated Effort**: 173-241 hours (4-6 months with 1 FTE)
+**Total Estimated Effort**: 171-238 hours (4-6 months with 1 FTE)
 **Recommended Timeline**: 3 phases over 3-4 months with 2 developers
-**Completed Issues**: #34 (Feedback System - GitHub-based implementation)
+**Completed Issues**:
+- #34 (Feedback System - GitHub-based implementation)
+- #39 (Disclaimer Popup - phentrieve-inspired implementation)
 
 ### Key Findings
 - **10 issues** are critical for v0.3.0 curation readiness
@@ -68,11 +70,11 @@
 | #55 | Initial setup wizard | 5.5 | High | 12-16h | Not implemented |
 | #46 | File uploads (JSON/CSV) | 5.0 | Medium | 8-10h | Bulk API exists |
 | #109 | Transform TODOs | 4.0 | Low | 2-4h | Manual task |
-| #39 | Disclaimer popup | 4.0 | Low | 2-3h | Not implemented |
+| ~~#39~~ | ~~Disclaimer popup~~ | ~~4.0~~ | ~~Low~~ | ~~2-3h~~ | ✅ **Complete** (phentrieve-inspired) |
 | ~~#34~~ | ~~Feedback system~~ | ~~4.0~~ | ~~Medium~~ | ~~6-8h~~ | ✅ **Complete** (GitHub-based) |
 | #42 | SEO metadata | 3.0 | Low | 3-4h | Not implemented |
 
-**Total**: 27-37 hours (~3-4 weeks, 1 developer)
+**Total**: 24-34 hours (~3-4 weeks, 1 developer)
 
 ---
 
@@ -144,7 +146,7 @@ Documentation and guidance
 
 - **#104** Instructions - Tooltips, help modals, FAQ expansion
 - **#30** Dashboard - Customizable widgets (vue-grid-layout)
-- **#39** Disclaimer - Legal compliance modal
+- ~~**#39** Disclaimer - ✅ **Complete** (research use disclaimer with localStorage)~~
 
 ---
 
@@ -231,7 +233,7 @@ Production readiness
 - #55 ✅ In milestone
 
 **Unassigned (Need Milestones)**
-- #116, #115, #109, #77, #54, #53, #46, #42, #39, #30, #19
+- #116, #115, #109, #77, #54, #53, #46, #42, #30, #19
 
 ---
 
