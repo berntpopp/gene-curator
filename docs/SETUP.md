@@ -71,7 +71,7 @@ Once running, access the services at:
 
 - **API Documentation**: http://localhost:8000/docs
 - **API Root**: http://localhost:8000/
-- **Database**: localhost:5433 (PostgreSQL)
+- **Database**: localhost:5454 (PostgreSQL)
 - **Redis Cache**: localhost:6379 (optional)
 
 ## Development Workflow
@@ -203,7 +203,7 @@ open http://localhost:8000/docs
 ### Common Issues
 
 #### Port Conflicts
-If ports 5433, 8000, or 3000 are in use:
+If ports 5454, 8000, or 3000 are in use:
 1. Stop conflicting services
 2. Modify ports in `docker-compose.dev.yml`
 3. Update documentation URLs accordingly
@@ -262,7 +262,7 @@ Workspace settings (`.vscode/settings.json`):
             "name": "Gene Curator Dev",
             "driver": "PostgreSQL",
             "server": "localhost",
-            "port": 5433,
+            "port": 5454,
             "database": "gene_curator_dev",
             "username": "dev_user",
             "password": "dev_password"
@@ -275,7 +275,7 @@ Workspace settings (`.vscode/settings.json`):
 
 **DBeaver Configuration**:
 - Host: `localhost`
-- Port: `5433`
+- Port: `5454`
 - Database: `gene_curator_dev`
 - Username: `dev_user`
 - Password: `dev_password`

@@ -8,8 +8,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-gene_curator}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
       POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
-    ports:
-      - "5432:5432"
+    # ports:
+    #   - "5432:5432"  # Port mapping defined in docker-compose.dev.yml for development
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/sql:/docker-entrypoint-initdb.d
@@ -49,8 +49,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: gene_curator_cache
-    ports:
-      - "6379:6379"
+    # ports:
+    #   - "6379:6379"  # Port mapping defined in docker-compose.dev.yml for development
     volumes:
       - redis_data:/data
     networks:

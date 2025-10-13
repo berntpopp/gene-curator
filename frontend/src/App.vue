@@ -14,23 +14,46 @@
       :color="snackbarState.color"
       :timeout="snackbarState.timeout"
     />
+
+    <!-- Log Viewer Component -->
+    <LogViewer />
+
     <FooterBar />
   </v-app>
 </template>
 
 <script setup>
-  import { onMounted } from 'vue'
+  import { onMounted, onUnmounted } from 'vue'
   import { useAuthStore } from '@/stores/auth.js'
+  import { useLogStore } from '@/stores/logStore'
   import { snackbarState } from '@/composables/useNotifications.js'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
+  import LogViewer from '@/components/logging/LogViewer.vue'
 
   const authStore = useAuthStore()
+  const logStore = useLogStore()
+
+  // Keyboard shortcut for log viewer (Ctrl+Shift+L)
+  const handleKeyPress = event => {
+    if (event.ctrlKey && event.shiftKey && event.key === 'L') {
+      event.preventDefault()
+      logStore.toggleViewer()
+    }
+  }
 
   onMounted(async () => {
     // Initialize authentication state on app startup
     await authStore.initialize()
+
+    // Add keyboard listener for log viewer
+    window.addEventListener('keydown', handleKeyPress)
+  })
+
+  onUnmounted(() => {
+    // Clean up keyboard listener
+    window.removeEventListener('keydown', handleKeyPress)
   })
 </script>
 

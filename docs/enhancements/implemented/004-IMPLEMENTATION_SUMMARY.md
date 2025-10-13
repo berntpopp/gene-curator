@@ -31,7 +31,7 @@ All ports configured in `.env.dev` to avoid conflicts:
 | Backend API | 8001/8000 | **8051** | FastAPI backend |
 | Frontend (Docker) | 3001 | **3051** | Vue 3 container |
 | Frontend (Vite) | 5173 | **5193** | Local dev server |
-| PostgreSQL | 5433 | **5453** | Database |
+| PostgreSQL | 5433 | **5454** | Database |
 | Redis | 6379 | **6399** | Cache |
 
 **Benefits**:
@@ -175,7 +175,7 @@ watch -n 5 make status
 **Access Points:**
 - Frontend: http://localhost:5193 (Vite dev server)
 - Backend API: http://localhost:8051/docs (Swagger UI)
-- Database: localhost:5453 (PostgreSQL)
+- Database: localhost:5454 (PostgreSQL)
 
 ---
 
@@ -202,7 +202,7 @@ watch -n 5 make status
 📊 DOCKER SERVICES:
 NAMES                   STATUS                    PORTS
 gene_curator_redis      Up 11 seconds             0.0.0.0:6399->6379/tcp
-gene_curator_postgres   Up 11 seconds (healthy)   0.0.0.0:5453->5432/tcp
+gene_curator_postgres   Up 11 seconds (healthy)   0.0.0.0:5454->5432/tcp
 
 🗄️  DATABASE STATISTICS:
  scopes | genes | curations | precurations | schemas | users
@@ -294,7 +294,7 @@ make status        # Check system status
 ### From Old Makefile to New
 
 **Breaking Changes:**
-- Port numbers changed (8001→8051, 3001→3051, 5433→5453, etc.)
+- Port numbers changed (8001→8051, 3001→3051, 5433→5454, etc.)
 - Must use `.env.dev` for environment configuration
 - `docker-compose` changed to `docker compose` (integrated command)
 

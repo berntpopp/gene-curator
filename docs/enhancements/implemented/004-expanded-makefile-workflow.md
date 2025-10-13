@@ -38,7 +38,7 @@ hybrid-up: services-up
 	@echo "🌐 Access points:"
 	@echo "   Frontend: http://localhost:5173 (Vite)"
 	@echo "   Backend:  http://localhost:8001/docs"
-	@echo "   Database: localhost:5433"
+	@echo "   Database: localhost:5454"
 
 hybrid-down:
 	@echo "Stopping hybrid development environment..."
@@ -130,7 +130,7 @@ prod-test-up:
 	@echo "🌐 Test Mode Access Points:"
 	@echo "   Frontend: http://localhost:8080"
 	@echo "   Backend:  http://localhost:8001/docs"
-	@echo "   Database: localhost:5433"
+	@echo "   Database: localhost:5454"
 	@$(MAKE) prod-test-health
 
 prod-test-health:
@@ -341,7 +341,7 @@ help:
          - "8080:80"
      db:
        ports:
-         - "5433:5432"
+         - "5454:5432"
    ```
 
 ## Benefits

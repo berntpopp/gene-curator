@@ -47,7 +47,7 @@ Gene Curator is a containerized schema-agnostic platform that supports multiple 
 2. **Access the applications:**
    - **Frontend Application**: http://localhost:3001
    - **API Documentation**: http://localhost:8001/docs
-   - **Database**: localhost:5433 (credentials in docker-compose.dev.yml)
+   - **Database**: localhost:5454 (credentials in docker-compose.dev.yml)
 
 3. **Check service health:**
    ```bash

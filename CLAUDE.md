@@ -39,7 +39,7 @@ make help          # Show all 50+ commands
 **Hybrid Mode (RECOMMENDED for fast iteration)**
 ```bash
 # Fastest development workflow - no Docker rebuild needed
-make hybrid-up     # Start DB services only (ports: DB=5453, Redis=6399)
+make hybrid-up     # Start DB services only (ports: DB=5454, Redis=6399)
 make backend       # Start backend API locally (port 8051)
 make frontend      # Start frontend locally (port 5193)
 make hybrid-down   # Stop all services
@@ -47,13 +47,13 @@ make hybrid-down   # Stop all services
 # Access points in hybrid mode:
 # - Frontend (Vite):  http://localhost:5193
 # - Backend API:      http://localhost:8051/docs
-# - Database:         localhost:5453
+# - Database:         localhost:5454
 ```
 
 **Full Docker Mode (all services in containers)**
 ```bash
 # All services in Docker
-make dev           # Start full stack (backend:8051, frontend:3051, db:5453)
+make dev           # Start full stack (backend:8051, frontend:3051, db:5454)
 make dev-build     # Rebuild and start
 make dev-down      # Stop environment
 make dev-logs      # View logs
@@ -61,12 +61,38 @@ make dev-restart   # Restart all services
 ```
 
 ### Port Configuration (Non-Standard - No Conflicts)
+
+**⚠️ IMPORTANT: Gene Curator uses NON-STANDARD PORTS to avoid conflicts with other applications.**
+
 All ports are configured in `.env.dev` to avoid conflicts with other applications:
 - **Backend API**: 8051 (instead of 8001/8000)
 - **Frontend Docker**: 3051 (instead of 3001)
 - **Frontend Vite Dev**: 5193 (instead of 5173)
-- **PostgreSQL**: 5453 (instead of 5433)
+- **PostgreSQL**: 5454 (instead of 5433 standard, or 5453 old dev port)
 - **Redis**: 6399 (instead of 6379)
+
+**Why Non-Standard Ports?**
+- Allows running Gene Curator alongside other projects (like kidney-genetics-db) without port conflicts
+- Consistent development experience across team members
+- Easy to identify Gene Curator services by port numbers
+
+**If You See Port Confusion:**
+- ✅ **CORRECT PostgreSQL port**: `5454` (current configuration)
+- ❌ **OLD port**: `5453` (deprecated, do not use)
+- ❌ **STANDARD port**: `5433` (conflicts with other projects)
+- 📍 **Source of truth**: Check `.env.dev` for current port configuration
+
+**Database Connection Examples:**
+```bash
+# Correct - use port 5454
+psql -h localhost -p 5454 -U dev_user -d gene_curator_dev
+
+# Correct - DATABASE_URL format
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5454/gene_curator_dev
+
+# Correct - Docker healthcheck
+docker exec gene_curator_postgres pg_isready -U dev_user -d gene_curator_dev
+```
 
 ### Database Management
 ```bash
@@ -369,7 +395,7 @@ deleteItem(id)                // Delete
 # Non-standard ports to avoid conflicts
 BACKEND_PORT=8051
 FRONTEND_PORT=3051
-POSTGRES_PORT=5453
+POSTGRES_PORT=5454
 VITE_DEV_PORT=5193
 REDIS_PORT=6399
 
@@ -377,7 +403,7 @@ REDIS_PORT=6399
 POSTGRES_DB=gene_curator_dev
 POSTGRES_USER=dev_user
 POSTGRES_PASSWORD=dev_password
-DATABASE_URL=postgresql://dev_user:dev_password@localhost:5453/gene_curator_dev
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5454/gene_curator_dev
 
 # Backend
 ENVIRONMENT=development
@@ -393,7 +419,7 @@ VITE_APP_TITLE=Gene Curator (Dev)
 
 **Backend (.env in backend/)** - For local development:
 ```bash
-DATABASE_URL=postgresql://dev_user:dev_password@localhost:5453/gene_curator_dev
+DATABASE_URL=postgresql://dev_user:dev_password@localhost:5454/gene_curator_dev
 SECRET_KEY=your-secret-key-here
 ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=30
@@ -416,13 +442,13 @@ VITE_ENVIRONMENT=development
 - **Backend API**: http://localhost:8051 (internal port 8000)
 - **Frontend Docker**: http://localhost:3051 (internal port 3000)
 - **Frontend Vite**: http://localhost:5193 (local development)
-- **Database**: localhost:5453 (PostgreSQL 15)
+- **Database**: localhost:5454 (PostgreSQL 15)
 - **Redis**: localhost:6399
 - **API Docs**: http://localhost:8051/docs (Swagger)
 - **Credentials**: dev_user / dev_password / gene_curator_dev
 
 **Hybrid Mode (RECOMMENDED)**:
-- **Database**: Docker container on port 5453
+- **Database**: Docker container on port 5454
 - **Redis**: Docker container on port 6399
 - **Backend API**: Local process on port 8051
 - **Frontend**: Local Vite dev server on port 5193
@@ -686,6 +712,177 @@ The logging system automatically protects sensitive data:
   SELECT * FROM system_logs WHERE user_id = 'user-uuid';
   ```
 
+### Frontend Logging System (ALWAYS USE)
+
+Gene Curator's frontend uses a unified logging system with privacy protection, browser compatibility, and request correlation with the backend.
+
+**Basic Usage**:
+```javascript
+// In components (Options API)
+this.$logger.info('Message', { key: 'value' })
+this.$logger.error('Error occurred', { error: error.message })
+
+// In components (Composition API)
+import { useLogger } from '@/composables/useLogger'
+const logger = useLogger()
+logger.info('Message', { key: 'value' })
+
+// In stores and utilities
+import { logService } from '@/services/logService'
+logService.info('Message', { key: 'value' })
+```
+
+**NEVER Use These**:
+- ❌ `console.log()` - Always use logger instead
+- ❌ `console.error()` - Use logger.error() instead
+- ❌ `alert()` - Use proper UI notifications + logging
+- ❌ Direct console methods - Use logger for all output
+
+**Privacy Protection**:
+- Automatic sanitization of sensitive data (tokens, emails, genetic variants)
+- Safe to log objects without manual redaction
+- Performance-optimized with quick pre-checks before expensive regex tests
+- Supports HGVS notation, genomic coordinates, and medical data redaction
+
+**Request Correlation**:
+- All API calls automatically include correlation ID (`X-Request-ID` header)
+- Frontend logs match backend logs via same correlation ID
+- Query backend: `SELECT * FROM system_logs WHERE request_id = 'correlation-id'`
+- Enables end-to-end request tracking across frontend and backend
+
+**API Call Logging**:
+- Automatic logging of all API requests/responses via axios interceptors
+- Performance tracking (duration in milliseconds)
+- Error logging with full context (status, response data)
+- Token refresh attempts logged automatically
+
+**Performance Tracking**:
+```javascript
+const startTime = performance.now()
+// ... operation ...
+logger.logPerformance('operation_name', startTime, { data: 'value' })
+```
+
+**Component Context**:
+```javascript
+// Component name automatically included in logs
+const logger = useLogger()  // Auto-detects component name
+logger.info('Button clicked')  // Logs include component: 'MyComponent'
+
+// Or override component name
+const logger = useLogger('CustomName')
+```
+
+**Browser Compatibility**:
+- UUID generation works in all browsers (polyfill included for Safari < 15.4)
+- Tested in Safari 14+, Chrome 88+, Firefox 85+
+- No crypto.randomUUID() dependency issues
+
+**Log Levels**:
+- **DEBUG**: Detailed operation flow (default in dev, disabled in production)
+- **INFO**: User actions, navigation, state changes
+- **WARN**: Unexpected situations, deprecated usage, slow operations
+- **ERROR**: Failed operations, API errors, caught exceptions
+- **CRITICAL**: Severe errors affecting app stability
+
+**Configuration**:
+```javascript
+// Settings persisted in LocalStorage
+logService.setMinLogLevel('INFO')       // Set minimum level
+logService.setMaxEntries(100)           // Set max stored logs
+logService.setConsoleEcho(true)         // Enable/disable console echo
+logService.clearLogs()                   // Clear all logs
+```
+
+**Log Viewer UI** (In-Browser Development Tool):
+- **Keyboard Shortcut**: `Ctrl+L` (Windows/Linux) or `Cmd+L` (Mac) to toggle log viewer
+- **Features**:
+  - Real-time log updates with automatic scrolling
+  - Search and filter logs by message, level, or correlation ID
+  - Filter by log level (DEBUG, INFO, WARN, ERROR, CRITICAL)
+  - View detailed log entry data (timestamp, message, data, context)
+  - Export logs for bug reports (JSON or CSV format)
+  - Clear logs button for fresh start
+  - Persistent settings (log level, max entries, console echo)
+- **Why Use It**:
+  - See all frontend logs without opening browser console
+  - Search across all logged events easily
+  - Match frontend logs to backend logs via correlation ID
+  - Export logs for sharing with team or bug reports
+  - Persistente settings across browser sessions
+
+**Export Functionality**:
+```javascript
+// Export logs programmatically
+const exportData = logService.exportLogs()  // Returns JSON with metadata
+
+// From Log Viewer UI:
+// 1. Open log viewer (Ctrl+L / Cmd+L)
+// 2. Click "Export" button
+// 3. Choose format: JSON (full detail) or CSV (spreadsheet-friendly)
+// 4. File automatically downloads with timestamp
+```
+
+**Best Practices**:
+- Use logger in ALL components (not just for errors)
+- Log user actions for debugging: clicks, navigations, form submissions
+- Log API calls (automatic via interceptors)
+- Log component lifecycle events: mounted, unmounted, data loaded
+- Include relevant context in data parameter
+- Use appropriate log levels
+- Don't worry about sensitive data - automatic sanitization protects it
+
+**When to Log (Frontend)**:
+- User interactions (button clicks, form submissions)
+- Navigation events (route changes)
+- API calls (automatic via interceptors)
+- Component lifecycle (mounting, data loading)
+- State changes (Pinia store mutations)
+- Errors and exceptions (automatic via error handler)
+- Performance issues (slow operations > 1s)
+
+**Memory Management**:
+- Logs automatically trimmed to max entries (100 dev, 50 production)
+- Statistics tracked (total received, dropped)
+- Memory usage computed
+
+**Architecture**:
+- **Singleton Service** (`logService.js`): Centralized logging
+- **Pinia Store** (`logStore.js`): Reactive log state
+- **Vue Plugin** (`logger.js`): Global `$logger` property
+- **Composable** (`useLogger.js`): Component-scoped loggers
+- **Sanitizer** (`logSanitizer.js`): Privacy protection
+- **UUID Polyfill** (`uuidPolyfill.js`): Browser compatibility
+
+**Critical Fixes Applied**:
+- ✅ Memory leak fix: Scoped logger functions (no global pollution)
+- ✅ Race condition fix: Synchronous updates in Pinia store
+- ✅ Browser compatibility: UUID polyfill for older browsers
+- ✅ Performance: Quick pre-check before expensive regex tests
+- ✅ Initialization: Store initialized once during plugin install
+
+**Implementation Files**:
+```
+frontend/src/
+├── services/logService.js           # Singleton logging service
+├── utils/
+│   ├── logSanitizer.js              # Privacy protection utility
+│   └── uuidPolyfill.js              # Browser compatibility
+├── stores/logStore.js               # Pinia reactive log state
+├── components/logging/              # Log Viewer UI components
+│   ├── LogViewer.vue                # Main log viewer interface
+│   ├── LogEntry.vue                 # Individual log entry display
+│   ├── LogFilters.vue               # Filtering controls
+│   └── LogSettings.vue              # Settings dialog
+├── plugins/logger.js                # Vue plugin ($logger)
+└── composables/useLogger.js         # Component-scoped loggers
+```
+
+**Reference Documentation**:
+- Full specification: `docs/enhancements/003-frontend-unified-logging-system-CORRECTED.md`
+- All 6 critical bugs fixed (memory leak, race condition, browser compatibility, etc.)
+- Production-ready with comprehensive testing
+
 ### Package Management
 - **Backend**: Use `uv` (modern Python package manager) - faster than pip/poetry
 - **Frontend**: Use `npm` (standard Node.js package manager)
@@ -746,7 +943,7 @@ make frontend                  # Terminal 2: Frontend
 # Access points:
 # - Frontend: http://localhost:5193
 # - API Docs: http://localhost:8051/docs
-# - Database: localhost:5453
+# - Database: localhost:5454
 # - Default credentials: admin@gene-curator.dev / admin123
 ```
 

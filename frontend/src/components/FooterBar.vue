@@ -19,6 +19,25 @@
             <v-icon start size="small">{{ link.icon }}</v-icon>
             {{ link.title }}
           </v-btn>
+
+          <!-- Log Viewer Button with Error Count Badge -->
+          <v-btn
+            variant="text"
+            size="small"
+            class="text-caption"
+            :title="`Open Log Viewer (Ctrl+Shift+L) - ${logStore.errorCount} errors`"
+            @click="logStore.showViewer"
+          >
+            <v-badge
+              :content="logStore.errorCount"
+              :model-value="logStore.errorCount > 0"
+              color="error"
+              overlap
+            >
+              <v-icon size="small">mdi-text-box-search-outline</v-icon>
+            </v-badge>
+            <span class="ml-1">Logs</span>
+          </v-btn>
         </v-col>
       </v-row>
     </v-container>
@@ -27,7 +46,9 @@
 
 <script setup>
   import { computed } from 'vue'
+  import { useLogStore } from '@/stores/logStore'
 
+  const logStore = useLogStore()
   const currentYear = computed(() => new Date().getFullYear())
 
   const footerLinks = [

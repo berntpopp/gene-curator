@@ -322,7 +322,11 @@ class SchemaValidator:
 
         # Decimal places validation
         decimal_places = config.get("decimal_places")
-        if decimal_places is not None and "." in str(value) and len(str(value).split(".")[1]) > decimal_places:
+        if (
+            decimal_places is not None
+            and "." in str(value)
+            and len(str(value).split(".")[1]) > decimal_places
+        ):
             result.add_error(
                 field_name,
                 f"Value cannot have more than {decimal_places} decimal places",
@@ -685,8 +689,14 @@ class SchemaValidator:
             f"Field {required_field} is required when {depends_on} is provided",
         )
 
-        if (depends_on in evidence_data and evidence_data[depends_on] is not None
-            and (required_field not in evidence_data or evidence_data[required_field] is None)):
+        if (
+            depends_on in evidence_data
+            and evidence_data[depends_on] is not None
+            and (
+                required_field not in evidence_data
+                or evidence_data[required_field] is None
+            )
+        ):
             result.add_error(required_field, message, "dependency")
 
     def _apply_calculation_rule(
@@ -781,7 +791,9 @@ class SchemaValidator:
         """Validate ClinGen contradictory evidence business rules."""
         contradictory = evidence_data.get("contradictory_evidence", {})
 
-        if contradictory.get("has_contradictory", False) and not contradictory.get("description"):
+        if contradictory.get("has_contradictory", False) and not contradictory.get(
+            "description"
+        ):
             result.add_business_rule_violation(
                 "clingen_contradictory_description",
                 "Contradictory evidence must include a detailed description",
@@ -906,8 +918,14 @@ class SchemaValidator:
         for field_name, _field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
 
-            if (field_value is not None and field_value != ""
-                and ((isinstance(field_value, str) and field_value.strip()) or not isinstance(field_value, str))):
+            if (
+                field_value is not None
+                and field_value != ""
+                and (
+                    (isinstance(field_value, str) and field_value.strip())
+                    or not isinstance(field_value, str)
+                )
+            ):
                 completed_fields += 1
 
         result.completeness_score = (

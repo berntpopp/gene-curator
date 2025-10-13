@@ -31,17 +31,21 @@ app = FastAPI(
     openapi_url="/openapi.json" if settings.ENVIRONMENT == "development" else None,
 )
 
-# Add logging middleware (first, to capture all requests)
-app.add_middleware(LoggingMiddleware)
-
-# Add CORS middleware
+# Add CORS middleware (first, so it wraps all responses including errors)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
     allow_credentials=False,  # Changed to False to fix CORS
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=[
+        "X-Request-ID",
+        "X-Process-Time",
+    ],  # Expose correlation ID and timing headers
 )
+
+# Add logging middleware (second, to capture all requests after CORS)
+app.add_middleware(LoggingMiddleware)
 
 
 # Include API routes

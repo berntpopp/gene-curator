@@ -809,3 +809,45 @@ class SchemaSelection(Base):
         Index("idx_schema_selections_user_scope", "user_id", "scope_id"),
         Index("idx_schema_selections_institution_scope", "institution", "scope_id"),
     )
+
+
+class SystemLog(Base):
+    """Persistent log storage with request correlation and monthly partitioning."""
+
+    __tablename__ = "system_logs"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    timestamp = Column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    level = Column(Text, nullable=False, index=True)
+    logger = Column(Text, nullable=False, index=True)
+    message = Column(Text, nullable=False)
+    context = Column(JSONB, default={}, nullable=False)
+
+    # Request correlation
+    request_id = Column(Text, index=True)
+
+    # User context
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL"))
+    ip_address = Column(Text)
+    user_agent = Column(Text)
+
+    # HTTP context
+    path = Column(Text, index=True)
+    method = Column(Text)
+    status_code = Column(Integer)
+    duration_ms = Column(BigInteger)
+
+    # Error context
+    error_type = Column(Text)
+    error_message = Column(Text)
+    stack_trace = Column(Text)
+
+    # Relationships
+    user = relationship("UserNew")
+
+    __table_args__ = (
+        Index("idx_system_logs_level_timestamp", "level", timestamp.desc()),
+        Index("idx_system_logs_context_gin", "context", postgresql_using="gin"),
+    )

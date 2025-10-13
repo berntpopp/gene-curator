@@ -9,6 +9,7 @@ from app.api.v1.endpoints import (
     gene_assignments,
     genes_new,
     health,
+    logs,
     schema_validation,
     schemas,
     scopes,
@@ -37,3 +38,6 @@ api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"]
 # Core entity endpoints
 api_router.include_router(genes_new.router, prefix="/genes", tags=["genes"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+
+# System monitoring endpoints
+api_router.include_router(logs.router, prefix="/logs", tags=["logs"])

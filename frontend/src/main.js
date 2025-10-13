@@ -3,6 +3,9 @@ import { createPinia } from 'pinia'
 import App from './App.vue'
 import router from './router'
 
+// Logging system
+import loggerPlugin from './plugins/logger'
+
 // Vuetify
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
@@ -36,7 +39,13 @@ const vuetify = createVuetify({
 const app = createApp(App)
 const pinia = createPinia()
 
+// Install plugins in order:
+// 1. Pinia (state management) - must be first
+// 2. Logger (requires Pinia)
+// 3. Router
+// 4. Vuetify
 app.use(pinia)
+app.use(loggerPlugin)
 app.use(router)
 app.use(vuetify)
 
