@@ -13,9 +13,8 @@ import pytest
 from app.crud.schema_validators import (
     FieldDefinitionsValidator,
     RequiredFieldsValidator,
-    ScoringConfigurationValidator,
-    SchemaValidator,
     SchemaValidatorChain,
+    ScoringConfigurationValidator,
     UIConfigurationValidator,
     ValidationMessage,
     ValidationRulesValidator,

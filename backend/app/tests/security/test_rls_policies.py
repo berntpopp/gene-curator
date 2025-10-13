@@ -30,60 +30,62 @@ class TestRLSPolicies:
     """Test suite for PostgreSQL Row-Level Security policies."""
 
     @pytest.fixture
-    def admin_user(self, db):
-        """Create an application admin user."""
+    def test_run_id(self):
+        """Generate a unique ID for this test run to ensure unique emails."""
+        return str(uuid4())[:8]
+
+    @pytest.fixture
+    def admin_user(self, db, test_run_id):
+        """Create an application admin user with unique email."""
         user = UserNew(
             id=uuid4(),
-            email="admin@rls-test.org",
+            email=f"admin-{test_run_id}@rls-test.org",
             hashed_password="hashed",
             name="Admin User",
             role="admin",
             is_active=True,
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        db.flush()
         return user
 
     @pytest.fixture
-    def user1(self, db):
-        """Create first regular user."""
+    def user1(self, db, test_run_id):
+        """Create first regular user with unique email."""
         user = UserNew(
             id=uuid4(),
-            email="user1@rls-test.org",
+            email=f"user1-{test_run_id}@rls-test.org",
             hashed_password="hashed",
             name="User One",
             role="curator",
             is_active=True,
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        db.flush()
         return user
 
     @pytest.fixture
-    def user2(self, db):
-        """Create second regular user (for isolation testing)."""
+    def user2(self, db, test_run_id):
+        """Create second regular user with unique email."""
         user = UserNew(
             id=uuid4(),
-            email="user2@rls-test.org",
+            email=f"user2-{test_run_id}@rls-test.org",
             hashed_password="hashed",
             name="User Two",
             role="curator",
             is_active=True,
         )
         db.add(user)
-        db.commit()
-        db.refresh(user)
+        db.flush()
         return user
 
     @pytest.fixture
-    def scope1(self, db, user1):
-        """Create scope owned by user1."""
+    def scope1(self, db, user1, test_run_id):
+        """Create scope owned by user1 with unique name."""
         set_rls_context(db, user1)
         scope_data = ScopeCreate(
-            name="scope1-rls-test",
-            display_name="Scope 1 RLS Test",
+            name=f"scope1-rls-test-{test_run_id}",
+            display_name=f"Scope 1 RLS Test {test_run_id}",
             description="Test scope for RLS",
             institution="Test Inst",
         )
@@ -102,12 +104,12 @@ class TestRLSPolicies:
         return scope
 
     @pytest.fixture
-    def scope2(self, db, user2):
-        """Create scope owned by user2."""
+    def scope2(self, db, user2, test_run_id):
+        """Create scope owned by user2 with unique name."""
         set_rls_context(db, user2)
         scope_data = ScopeCreate(
-            name="scope2-rls-test",
-            display_name="Scope 2 RLS Test",
+            name=f"scope2-rls-test-{test_run_id}",
+            display_name=f"Scope 2 RLS Test {test_run_id}",
             description="Test scope for RLS isolation",
             institution="Test Inst",
         )
@@ -218,13 +220,13 @@ class TestRLSPolicies:
         assert len(memberships) == 1
         assert memberships[0].user_id == user1.id
 
-    def test_public_scope_visibility(self, db, user1, user2):
+    def test_public_scope_visibility(self, db, user1, user2, test_run_id):
         """Test that public scopes are visible to all users."""
         # Create a public scope
         set_rls_context(db, user1)
         public_scope_data = ScopeCreate(
-            name="public-scope-rls-test",
-            display_name="Public Scope RLS Test",
+            name=f"public-scope-rls-test-{test_run_id}",
+            display_name=f"Public Scope RLS Test {test_run_id}",
             description="Public test scope",
             institution="Test Inst",
         )
@@ -237,7 +239,7 @@ class TestRLSPolicies:
             text("UPDATE scopes SET is_public = true WHERE id = :scope_id"),
             {"scope_id": str(public_scope.id)},
         )
-        db.commit()
+        db.flush()  # Flush instead of commit
 
         # User2 (not a member) should be able to see public scope
         set_rls_context(db, user2)
@@ -310,7 +312,7 @@ class TestRLSPolicies:
             accepted_at=None,  # Pending
         )
         db.add(pending_membership)
-        db.commit()
+        db.flush()  # Flush instead of commit
 
         # User2 should NOT see scope1 (invitation not accepted)
         set_rls_context(db, user2)
