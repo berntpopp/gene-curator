@@ -1,0 +1,175 @@
+name: 💬 General Feedback
+description: Share general feedback, suggestions, or questions
+title: "[Feedback]: "
+labels: ["feedback", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for taking the time to provide feedback! Your input helps us improve Gene Curator.
+
+        **Note**: For bugs, please use the Bug Report template. For feature requests, use the Feature Request template.
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Feedback Type
+      description: What kind of feedback are you providing?
+      options:
+        - User Experience
+        - Documentation
+        - Performance
+        - Usability
+        - Design/UI
+        - Workflow
+        - General Suggestion
+        - Question
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: role
+    attributes:
+      label: Your Role
+      description: How do you use Gene Curator?
+      options:
+        - Curator
+        - Reviewer
+        - Administrator
+        - Developer
+        - Evaluating for adoption
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: feedback
+    attributes:
+      label: Feedback
+      description: Share your thoughts, suggestions, or questions
+      placeholder: |
+        I've been using Gene Curator for [duration] and I wanted to share...
+
+        What works well: ...
+
+        What could be improved: ...
+
+        Suggestions: ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: experience
+    attributes:
+      label: Overall Experience
+      description: How would you rate your experience with Gene Curator?
+      options:
+        - Excellent
+        - Good
+        - Fair
+        - Needs Improvement
+        - Not Applicable
+
+  - type: textarea
+    id: pain-points
+    attributes:
+      label: Pain Points
+      description: What are the biggest challenges or frustrations you face?
+      placeholder: |
+        The most challenging aspect is...
+
+        It would be much easier if...
+
+  - type: textarea
+    id: strengths
+    attributes:
+      label: Strengths
+      description: What do you like most about Gene Curator?
+      placeholder: |
+        The features I find most valuable are...
+
+        What sets Gene Curator apart is...
+
+  - type: textarea
+    id: comparison
+    attributes:
+      label: Comparison to Other Tools
+      description: If you've used other curation tools, how does Gene Curator compare?
+      placeholder: |
+        Compared to [other tool], Gene Curator...
+
+        Features I miss from other tools: ...
+
+        Features that are better in Gene Curator: ...
+
+  - type: dropdown
+    id: methodology
+    attributes:
+      label: Curation Methodology
+      description: Which methodology do you primarily use?
+      options:
+        - ClinGen SOP v11
+        - GenCC
+        - Institutional/Custom
+        - Multiple
+        - Not Applicable
+
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use Case Description
+      description: Tell us about your specific use case or clinical specialty
+      placeholder: |
+        Clinical specialty: [kidney genetics, cardio genetics, etc.]
+
+        Number of genes curated: [approximate]
+
+        Team size: [number of curators/reviewers]
+
+        Typical workflow: [brief description]
+
+  - type: textarea
+    id: improvement
+    attributes:
+      label: One Thing to Improve
+      description: If you could change one thing about Gene Curator, what would it be?
+      placeholder: |
+        The single most impactful improvement would be...
+
+  - type: textarea
+    id: missing
+    attributes:
+      label: Missing Features
+      description: Are there any features you expected but didn't find?
+      placeholder: |
+        I expected to find...
+
+        Similar tools have...
+
+  - type: textarea
+    id: documentation
+    attributes:
+      label: Documentation Feedback
+      description: Is the documentation helpful? What's missing?
+      placeholder: |
+        Documentation that helped me: ...
+
+        Documentation I couldn't find: ...
+
+        Areas that need better examples: ...
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Comments
+      description: Anything else you'd like to share?
+
+  - type: checkboxes
+    id: follow-up
+    attributes:
+      label: Follow-up
+      options:
+        - label: I'm willing to participate in user interviews or surveys
+        - label: I'd like to beta test new features
+        - label: I can provide example workflows or data (anonymized)
