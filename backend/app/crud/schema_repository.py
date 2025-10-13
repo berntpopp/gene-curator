@@ -9,6 +9,7 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
+from app.crud.schema_validators import validate_schema_structure
 from app.models import (
     CurationNew,
     CurationSchema,
@@ -115,98 +116,23 @@ class CRUDCurationSchema(
             or (curation_count or 0) > 0
         )
 
-    def validate_schema_structure(  # noqa: C901
+    def validate_schema_structure(
         self, schema_data: dict[str, Any]
     ) -> SchemaValidationResult:
-        """Validate schema structure and configuration."""
-        errors = []
-        warnings = []
+        """
+        Validate schema structure and configuration.
 
-        # Required fields validation
-        required_fields = ["field_definitions", "workflow_states", "ui_configuration"]
-        for field in required_fields:
-            if field not in schema_data or not schema_data[field]:
-                errors.append(f"Missing required field: {field}")
+        Delegates to SchemaValidatorChain for complexity management.
+        Complexity: 2 (delegation + result construction)
 
-        # Validate field definitions
-        if "field_definitions" in schema_data:
-            field_defs = schema_data["field_definitions"]
-            if not isinstance(field_defs, dict):
-                errors.append("field_definitions must be a dictionary")
-            else:
-                for field_name, field_config in field_defs.items():
-                    if not isinstance(field_config, dict):
-                        errors.append(
-                            f"Field configuration for '{field_name}' must be a dictionary"
-                        )
-                        continue
+        Args:
+            schema_data: The schema dictionary to validate
 
-                    # Required field properties
-                    required_props = ["type", "label"]
-                    for prop in required_props:
-                        if prop not in field_config:
-                            errors.append(
-                                f"Field '{field_name}' missing required property: {prop}"
-                            )
-
-                    # Validate field type
-                    valid_types = [
-                        "text",
-                        "number",
-                        "boolean",
-                        "array",
-                        "object",
-                        "date",
-                        "select",
-                        "multiselect",
-                    ]
-                    if (
-                        "type" in field_config
-                        and field_config["type"] not in valid_types
-                    ):
-                        errors.append(
-                            f"Field '{field_name}' has invalid type: {field_config['type']}"
-                        )
-
-        # Validate workflow states
-        if "workflow_states" in schema_data:
-            workflow_states = schema_data["workflow_states"]
-            if not isinstance(workflow_states, list):
-                errors.append("workflow_states must be a list")
-            else:
-                required_states = ["draft", "submitted"]
-                for state in required_states:
-                    if state not in workflow_states:
-                        errors.append(f"Missing required workflow state: {state}")
-
-        # Validate UI configuration
-        if "ui_configuration" in schema_data:
-            ui_config = schema_data["ui_configuration"]
-            if not isinstance(ui_config, dict):
-                errors.append("ui_configuration must be a dictionary")
-            else:
-                # Check for required UI sections
-                if "sections" not in ui_config:
-                    warnings.append(
-                        "UI configuration missing 'sections' - form may not render properly"
-                    )
-
-        # Validate scoring configuration if present
-        if "scoring_configuration" in schema_data:
-            scoring_config = schema_data["scoring_configuration"]
-            if not isinstance(scoring_config, dict):
-                errors.append("scoring_configuration must be a dictionary")
-            else:
-                if "engine" not in scoring_config:
-                    warnings.append(
-                        "Scoring configuration missing 'engine' specification"
-                    )
-
-        # Validate validation rules if present
-        if "validation_rules" in schema_data:
-            validation_rules = schema_data["validation_rules"]
-            if not isinstance(validation_rules, dict):
-                errors.append("validation_rules must be a dictionary")
+        Returns:
+            SchemaValidationResult with validation outcome
+        """
+        # Delegate validation to schema_validators module
+        errors, warnings = validate_schema_structure(schema_data)
 
         return SchemaValidationResult(
             is_valid=len(errors) == 0,

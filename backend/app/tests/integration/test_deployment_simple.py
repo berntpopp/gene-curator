@@ -10,7 +10,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 
-def test_core_functionality():
+def test_core_functionality():  # noqa: C901
     """Test core functionality independently."""
 
     # Test 1: Schema Validator
