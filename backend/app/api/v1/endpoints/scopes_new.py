@@ -101,7 +101,7 @@ def create_scope(
         scope_id=str(scope.id),
         scope_name=scope.name,
         creator_id=str(current_user.id),
-        creator_username=current_user.username,
+        creator_username=current_user.name,
     )
 
     return scope
@@ -302,7 +302,7 @@ def delete_scope(
         scope_id=str(scope_id),
         scope_name=scope.name,
         deleted_by=str(current_user.id),
-        deleted_by_username=current_user.username,
+        deleted_by_username=current_user.name,
     )
 
 

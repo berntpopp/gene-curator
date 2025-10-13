@@ -175,8 +175,9 @@ def set_rls_context(db: Session, current_user: User) -> None:
     """
     Set PostgreSQL RLS context for current user.
 
-    SECURITY: Uses parameterized queries to prevent SQL injection.
-    DO NOT use f-strings with text() - this is a SQL injection vector.
+    SECURITY: Uses validated UUID from User model. SET LOCAL doesn't support
+    bind parameters, but since user_id is a UUID from a validated User object,
+    it's safe from SQL injection (UUID format is strictly validated).
 
     Args:
         db: Database session
@@ -187,23 +188,27 @@ def set_rls_context(db: Session, current_user: User) -> None:
         # Now all queries respect RLS policies for this user
     """
     try:
-        # ✅ SECURE: Parameterized query (NOT f-string)
-        db.execute(
-            text("SET LOCAL app.current_user_id = :user_id"),
-            {"user_id": str(current_user.id)},
-        )
+        # ✅ SECURE: user_id is a validated UUID from User model
+        # SET LOCAL doesn't support bind parameters, but UUID is safe
+        user_id_str = str(current_user.id)
+        db.execute(text(f"SET LOCAL app.current_user_id = '{user_id_str}'"))
         logger.debug(
             "RLS context set",
-            user_id=str(current_user.id),
-            username=current_user.username,
+            user_id=user_id_str,
+            user_name=current_user.name,
+            user_email=current_user.email,
         )
     except Exception as e:
+        error_msg = f"{type(e).__name__}: {e!s}"
         logger.error(
-            "Failed to set RLS context", error=str(e), user_id=str(current_user.id)
+            "Failed to set RLS context",
+            error=error_msg,
+            error_type=type(e).__name__,
+            user_id=str(current_user.id),
         )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to set security context",
+            detail=f"Failed to set security context: {error_msg}",
         ) from e
 
 

@@ -34,10 +34,10 @@ class ApplicationRole(str, Enum):
         role_upper = role.upper()
         try:
             return cls[role_upper]
-        except KeyError:
+        except KeyError as e:
             raise ValueError(
                 f"Invalid application role: {role}. Must be one of: {', '.join([r.value for r in cls])}"
-            )
+            ) from e
 
 
 class ScopeRole(str, Enum):
@@ -66,10 +66,10 @@ class ScopeRole(str, Enum):
         role_upper = role.upper()
         try:
             return cls[role_upper]
-        except KeyError:
+        except KeyError as e:
             raise ValueError(
                 f"Invalid scope role: {role}. Must be one of: {', '.join([r.value for r in cls])}"
-            )
+            ) from e
 
     def can_curate(self) -> bool:
         """

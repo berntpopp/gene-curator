@@ -212,10 +212,9 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
         query = (
             db.query(
                 ScopeMembership,
-                UserNew.username,
+                UserNew.name,
                 UserNew.email,
-                UserNew.full_name,
-                UserNew.orcid,
+                UserNew.orcid_id,
             )
             .join(UserNew, ScopeMembership.user_id == UserNew.id)
             .filter(ScopeMembership.scope_id == scope_id)
@@ -230,7 +229,7 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
 
         # Build response objects
         members = []
-        for membership, username, email, full_name, orcid in results:
+        for membership, user_name, user_email, orcid_id in results:
             member_response = ScopeMembershipResponse(
                 id=membership.id,
                 scope_id=membership.scope_id,
@@ -243,10 +242,10 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
                 is_pending=membership.accepted_at is None,
                 team_id=membership.team_id,
                 notes=membership.notes,
-                user_username=username,
-                user_email=email,
-                user_full_name=full_name,
-                user_orcid=orcid,
+                user_username=user_name,
+                user_email=user_email,
+                user_full_name=user_name,
+                user_orcid=orcid_id,
             )
             members.append(member_response)
 

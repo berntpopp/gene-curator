@@ -88,7 +88,7 @@ def invite_member(
             invited_email=invitation_in.email,
             role=invitation_in.role.value,
             invited_by=str(current_user.id),
-            invited_by_username=current_user.username,
+            invited_by_username=current_user.name,
         )
 
         # Build response with user details
@@ -168,7 +168,7 @@ def accept_invitation(
             scope_id=str(scope_id),
             membership_id=str(membership_id),
             user_id=str(current_user.id),
-            user_username=current_user.username,
+            user_username=current_user.name,
             role=membership.role,
         )
 
@@ -185,7 +185,7 @@ def accept_invitation(
             is_pending=False,
             team_id=membership.team_id,
             notes=membership.notes,
-            user_username=current_user.username,
+            user_username=current_user.name,
             user_email=current_user.email,
             user_full_name=current_user.name,
             user_orcid=current_user.orcid_id,
@@ -328,7 +328,7 @@ def update_member_role(
         user_id=str(user_id),
         new_role=update_data.role.value if update_data.role else None,
         updated_by=str(current_user.id),
-        updated_by_username=current_user.username,
+        updated_by_username=current_user.name,
     )
 
     # Build response
@@ -439,5 +439,5 @@ def remove_member(
         membership_id=str(membership.id),
         user_id=str(user_id),
         removed_by=str(current_user.id),
-        removed_by_username=current_user.username,
+        removed_by_username=current_user.name,
     )
