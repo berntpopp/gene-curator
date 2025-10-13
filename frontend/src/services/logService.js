@@ -373,8 +373,8 @@ class LogService {
     } catch (error) {
       console.error('Failed to load console echo setting:', error)
     }
-    // Default: true in development, false in production
-    return import.meta.env.DEV
+    // Default: console echo disabled - all logs only appear in UI Log Viewer
+    return false
   }
 
   /**
