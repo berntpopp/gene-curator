@@ -8,10 +8,13 @@ from uuid import UUID
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.core.security import get_password_hash, verify_password
 from app.crud.base import CRUDBase
 from app.models import UserNew as User, UserRoleNew as UserRole
 from app.schemas.auth import UserCreate, UserUpdate
+
+logger = get_logger(__name__)
 
 
 class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
@@ -74,11 +77,37 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def authenticate(self, db: Session, *, email: str, password: str) -> User | None:
         """Authenticate user by email and password."""
+        logger.debug("Attempting to authenticate user", email=email)
+
         user = self.get_by_email(db, email=email)
         if not user:
+            logger.warning("User not found in database", email=email)
             return None
-        if not verify_password(password, user.hashed_password):
+
+        logger.debug(
+            "User found, verifying password",
+            email=email,
+            user_id=str(user.id),
+            has_hashed_password=bool(user.hashed_password),
+            hashed_password_length=len(user.hashed_password) if user.hashed_password else 0,
+        )
+
+        password_valid = verify_password(password, user.hashed_password)
+
+        if not password_valid:
+            logger.warning(
+                "Password verification failed",
+                email=email,
+                user_id=str(user.id),
+            )
             return None
+
+        logger.info(
+            "User authenticated successfully",
+            email=email,
+            user_id=str(user.id),
+            role=user.role.value,
+        )
         return user
 
     def is_active(self, user: User) -> bool:

@@ -212,9 +212,14 @@
     const creds = devCredentials[role]
     if (!creds) return
 
+    // Fill credentials
     credentials.email = creds.email
     credentials.password = creds.password
 
+    // Force form validation to run (Vuetify needs this for programmatic input)
+    await loginForm.value.validate()
+
+    // Now submit the form
     await handleLogin()
   }
 </script>

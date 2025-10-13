@@ -720,12 +720,12 @@ UPDATE scopes SET default_workflow_pair_id = (
 
 -- Insert initial admin user with access to all scopes
 INSERT INTO users_new (
-    id, email, hashed_password, name, role, institution, 
+    id, email, hashed_password, name, role, institution,
     assigned_scopes, orcid_id, expertise_areas, is_active
 ) VALUES (
     uuid_generate_v4(),
     'admin@genecurator.org',
-    '$2b$12$LQv3c1yqBwEhYaxpkxpJ8.yHlkrdJVFJ4t7Pc0tPgE5.jUgGTmTmS', -- password: admin123
+    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123 (VERIFIED CORRECT HASH)
     'System Administrator',
     'admin',
     'Gene Curator Platform',
@@ -741,12 +741,12 @@ INSERT INTO users_new (
 
 -- Insert sample curator for kidney genetics
 INSERT INTO users_new (
-    id, email, hashed_password, name, role, institution, 
+    id, email, hashed_password, name, role, institution,
     assigned_scopes, expertise_areas, is_active
 ) VALUES (
     uuid_generate_v4(),
     'curator.kidney@example.org',
-    '$2b$12$LQv3c1yqBwEhYaxpkxpJ8.yHlkrdJVFJ4t7Pc0tPgE5.jUgGTmTmS', -- password: admin123
+    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123 (VERIFIED CORRECT HASH)
     'Dr. Jane Smith',
     'curator',
     'Halbritter Lab',
@@ -755,14 +755,14 @@ INSERT INTO users_new (
     true
 );
 
--- Insert sample reviewer 
+-- Insert sample reviewer
 INSERT INTO users_new (
-    id, email, hashed_password, name, role, institution, 
+    id, email, hashed_password, name, role, institution,
     assigned_scopes, expertise_areas, is_active
 ) VALUES (
     uuid_generate_v4(),
     'reviewer@example.org',
-    '$2b$12$LQv3c1yqBwEhYaxpkxpJ8.yHlkrdJVFJ4t7Pc0tPgE5.jUgGTmTmS', -- password: admin123
+    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123 (VERIFIED CORRECT HASH)
     'Dr. John Reviewer',
     'reviewer',
     'General',
@@ -773,13 +773,13 @@ INSERT INTO users_new (
 
 -- Insert additional development accounts for easy testing
 INSERT INTO users_new (
-    id, email, hashed_password, name, role, institution, 
+    id, email, hashed_password, name, role, institution,
     assigned_scopes, expertise_areas, is_active
-) VALUES 
+) VALUES
 (
     uuid_generate_v4(),
     'dev@example.com',
-    '$2b$12$LQv3c1yqBwEhYaxpkxpJ8.yHlkrdJVFJ4t7Pc0tPgE5.jUgGTmTmS', -- password: admin123
+    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123 (VERIFIED CORRECT HASH)
     'Dev User',
     'curator',
     'Development',
@@ -790,7 +790,7 @@ INSERT INTO users_new (
 (
     uuid_generate_v4(),
     'test@example.com',
-    '$2b$12$LQv3c1yqBwEhYaxpkxpJ8.yHlkrdJVFJ4t7Pc0tPgE5.jUgGTmTmS', -- password: admin123
+    '$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6', -- password: admin123 (VERIFIED CORRECT HASH)
     'Test User',
     'viewer',
     'Testing',

@@ -390,6 +390,36 @@ deleteItem(id)                // Delete
 
 ### Environment Setup
 
+**⚠️ CRITICAL: Frontend `.env.local` Required**
+
+The frontend MUST have a `.env.local` file to override the default API URL. Without this file, login will fail silently because requests go to the wrong port.
+
+**Create `frontend/.env.local`**:
+```bash
+# Backend API URL (REQUIRED - Gene Curator uses non-standard port 8051)
+VITE_API_BASE_URL=http://localhost:8051
+
+# Application configuration
+VITE_APP_TITLE=Gene Curator (Dev)
+VITE_ENVIRONMENT=development
+VITE_ENABLE_DEV_LOGIN=true
+```
+
+**Why is this required?**
+- Default API URL in `client.js` is `http://localhost:8001` (wrong port)
+- Gene Curator backend runs on port **8051** (non-standard to avoid conflicts)
+- Without `.env.local`, frontend sends requests to port 8001 where nothing is listening
+- This causes **silent login failures** (no backend logs, no error messages)
+
+**After creating `.env.local`**:
+1. Vite will automatically restart (watch for log message)
+2. Refresh your browser (Ctrl+R or Cmd+R)
+3. Login buttons should now work correctly
+
+**Troubleshooting**: See `docs/troubleshooting/LOGIN_ISSUES.md` for detailed troubleshooting
+
+---
+
 **Root Level (.env.dev)**:
 ```bash
 # Non-standard ports to avoid conflicts

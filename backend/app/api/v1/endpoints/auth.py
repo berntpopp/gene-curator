@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.deps import get_current_active_user, get_current_user
+from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
     create_refresh_token,
@@ -28,6 +29,8 @@ from app.schemas.auth import (
     UserResponse,
 )
 
+logger = get_logger(__name__)
+
 router = APIRouter()
 
 
@@ -36,21 +39,45 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> A
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
+    logger.info(
+        "Login attempt",
+        email=user_credentials.email,
+        email_length=len(user_credentials.email),
+    )
+
     user = user_crud.authenticate(
         db, email=user_credentials.email, password=user_credentials.password
     )
+
     if not user:
+        logger.warning(
+            "Authentication failed - invalid credentials",
+            email=user_credentials.email,
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email or password",
         )
     elif not user_crud.is_active(user):
+        logger.warning(
+            "Authentication failed - inactive user",
+            email=user_credentials.email,
+            user_id=str(user.id),
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Inactive user"
         )
 
     # Update last login
     user_crud.update_last_login(db, str(user.id))
+
+    logger.info(
+        "Login successful",
+        user_id=str(user.id),
+        email=user.email,
+        role=user.role.value,
+        name=user.name,
+    )
 
     # Create tokens
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
