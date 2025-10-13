@@ -373,12 +373,15 @@
   ]
 
   // Computed properties with defensive defaults
-  const stats = computed(() => validationStore.validationStats || {
-    valid_curations: 0,
-    invalid_curations: 0,
-    warnings_count: 0,
-    schema_compliance_rate: 0
-  })
+  const stats = computed(
+    () =>
+      validationStore.validationStats || {
+        valid_curations: 0,
+        invalid_curations: 0,
+        warnings_count: 0,
+        schema_compliance_rate: 0
+      }
+  )
 
   const validationResults = computed(() => {
     // validationStore.validationResults is an object, not array
@@ -399,9 +402,7 @@
 
   const filteredResults = computed(() => {
     // Defensive: ensure validationResults is always an array
-    let filtered = Array.isArray(validationResults.value)
-      ? [...validationResults.value]
-      : []
+    let filtered = Array.isArray(validationResults.value) ? [...validationResults.value] : []
 
     if (selectedScope.value) {
       filtered = filtered.filter(r => r.scope_id === selectedScope.value)
@@ -416,8 +417,11 @@
     }
 
     if (selectedSeverity.value) {
-      filtered = filtered.filter(r =>
-        r.issues && Array.isArray(r.issues) && r.issues.some(issue => issue.severity === selectedSeverity.value)
+      filtered = filtered.filter(
+        r =>
+          r.issues &&
+          Array.isArray(r.issues) &&
+          r.issues.some(issue => issue.severity === selectedSeverity.value)
       )
     }
 
@@ -499,10 +503,7 @@
     refreshing.value = true
     try {
       // Call existing methods that actually exist
-      await Promise.all([
-        scopesStore.fetchScopes(),
-        schemasStore.fetchSchemas()
-      ])
+      await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
 
       logger.info('Validation dashboard refreshed', {
         scopeCount: scopesStore.scopes?.length || 0,
@@ -532,7 +533,7 @@
       await validationStore.validateEvidence(
         validation.evidence_data,
         validation.schema_id,
-        validation.id  // key for storing result
+        validation.id // key for storing result
       )
 
       logger.info('Entity revalidated', {
@@ -568,10 +569,7 @@
     loading.value = true
     try {
       // Only call methods that exist in stores
-      await Promise.all([
-        scopesStore.fetchScopes(),
-        schemasStore.fetchSchemas()
-      ])
+      await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
 
       logger.info('ValidationDashboard mounted', {
         scopeCount: scopesStore.scopes?.length || 0,

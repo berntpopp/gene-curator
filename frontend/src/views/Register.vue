@@ -88,9 +88,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth.js'

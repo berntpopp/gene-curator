@@ -208,9 +208,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, onMounted, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth.js'
   import { useUsersStore } from '@/stores/users.js'

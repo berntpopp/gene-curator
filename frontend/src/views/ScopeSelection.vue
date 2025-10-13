@@ -207,9 +207,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, computed, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGenesStore, useAssignmentsStore } from '@/stores'

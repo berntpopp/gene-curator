@@ -187,9 +187,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore, useScopesStore } from '@/stores'
 
@@ -289,7 +289,10 @@ const logger = useLogger()
         await scopesStore.fetchScopes()
         stats.value.active_scopes = scopesStore.getActiveScopesCount || 0
       } catch (scopeError) {
-        logger.warn('Failed to load scopes:', { error: scopeError.message, stack: scopeError.stack })
+        logger.warn('Failed to load scopes:', {
+          error: scopeError.message,
+          stack: scopeError.stack
+        })
         stats.value.active_scopes = 0
       }
 

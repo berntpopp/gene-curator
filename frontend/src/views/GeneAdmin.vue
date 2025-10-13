@@ -95,9 +95,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGenesStore } from '@/stores/genes.js'

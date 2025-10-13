@@ -199,9 +199,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useAssignmentsStore } from '@/stores'

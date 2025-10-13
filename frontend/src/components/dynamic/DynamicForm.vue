@@ -127,9 +127,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
@@ -258,7 +258,10 @@ const logger = useLogger()
         try {
           await validationStore.generateJsonSchema(newSchemaId)
         } catch (error) {
-          logger.error('Failed to generate JSON schema:', { error: error.message, stack: error.stack })
+          logger.error('Failed to generate JSON schema:', {
+            error: error.message,
+            stack: error.stack
+          })
         }
       }
     },

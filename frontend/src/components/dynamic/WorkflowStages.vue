@@ -210,9 +210,9 @@
 </template>
 
 <script setup>
-import { useLogger } from '@/composables/useLogger'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useWorkflowStore } from '@/stores'
 
@@ -418,7 +418,10 @@ const logger = useLogger()
         try {
           await workflowStore.fetchWorkflowStages(newPairId)
         } catch (error) {
-          logger.error('Failed to load workflow stages:', { error: error.message, stack: error.stack })
+          logger.error('Failed to load workflow stages:', {
+            error: error.message,
+            stack: error.stack
+          })
         }
       }
     },
@@ -436,7 +439,10 @@ const logger = useLogger()
             workflowStore.fetchStageHistory(newEntityId)
           ])
         } catch (error) {
-          logger.error('Failed to load entity workflow data:', { error: error.message, stack: error.stack })
+          logger.error('Failed to load entity workflow data:', {
+            error: error.message,
+            stack: error.stack
+          })
         }
       }
     },
@@ -452,7 +458,10 @@ const logger = useLogger()
           workflowStore.fetchStageHistory(props.entityId)
         ])
       } catch (error) {
-        logger.error('Failed to initialize workflow stages:', { error: error.message, stack: error.stack })
+        logger.error('Failed to initialize workflow stages:', {
+          error: error.message,
+          stack: error.stack
+        })
       }
     }
   })

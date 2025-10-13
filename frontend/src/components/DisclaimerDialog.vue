@@ -21,12 +21,11 @@
 
         <p class="mb-3 text-body-1">
           This platform is designed to facilitate systematic curation and evaluation of gene-disease
-          relationships to support research, knowledge discovery, and evidence-based clinical genetics.
+          relationships to support research, knowledge discovery, and evidence-based clinical
+          genetics.
         </p>
 
-        <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">
-          Important Limitations:
-        </h3>
+        <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">Important Limitations:</h3>
 
         <ul class="mb-4 text-body-1" role="list">
           <li class="mb-2">
@@ -38,8 +37,8 @@
             may contain inaccuracies, errors, or limitations and require expert review.
           </li>
           <li class="mb-2">
-            All curations should be independently validated by qualified medical genetics professionals
-            and domain experts before being used in any clinical context.
+            All curations should be independently validated by qualified medical genetics
+            professionals and domain experts before being used in any clinical context.
           </li>
           <li class="mb-2">
             Gene Curator does not establish a doctor-patient relationship and is not a substitute
@@ -51,13 +50,9 @@
           </li>
         </ul>
 
-        <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">
-          Data Responsibility:
-        </h3>
+        <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">Data Responsibility:</h3>
 
-        <p class="mb-4 text-body-1">
-          By using Gene Curator, you acknowledge that:
-        </p>
+        <p class="mb-4 text-body-1">By using Gene Curator, you acknowledge that:</p>
 
         <ul class="mb-4 text-body-1" role="list">
           <li class="mb-2">
@@ -66,13 +61,13 @@
           </li>
           <li class="mb-2">
             You are responsible for ensuring proper data governance, privacy compliance, and
-            institutional review board (IRB) approval when handling patient data or protected
-            health information (PHI).
+            institutional review board (IRB) approval when handling patient data or protected health
+            information (PHI).
           </li>
           <li class="mb-2">
-            Gene Curator is schema-agnostic and supports multiple curation methodologies
-            (ClinGen, GenCC, institutional). You are responsible for selecting and applying
-            appropriate standards for your use case.
+            Gene Curator is schema-agnostic and supports multiple curation methodologies (ClinGen,
+            GenCC, institutional). You are responsible for selecting and applying appropriate
+            standards for your use case.
           </li>
         </ul>
 
@@ -91,10 +86,10 @@
           color="primary"
           variant="elevated"
           size="large"
-          @click="acknowledgeDisclaimer"
           :loading="loading"
           :disabled="loading"
           aria-label="Accept disclaimer and continue to application"
+          @click="acknowledgeDisclaimer"
         >
           <v-icon left class="mr-2">mdi-check-circle</v-icon>
           I Understand and Agree
@@ -105,78 +100,78 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
-import { useLogger } from '@/composables/useLogger'
+  import { ref, computed } from 'vue'
+  import { useLogger } from '@/composables/useLogger'
 
-const logger = useLogger()
+  const logger = useLogger()
 
-// Props
-const props = defineProps({
-  modelValue: {
-    type: Boolean,
-    default: false
+  // Props
+  const props = defineProps({
+    modelValue: {
+      type: Boolean,
+      default: false
+    }
+  })
+
+  // Emits
+  const emit = defineEmits(['update:modelValue', 'acknowledged'])
+
+  // State
+  const loading = ref(false)
+
+  // Computed
+  const dialogVisible = computed({
+    get() {
+      return props.modelValue
+    },
+    set(value) {
+      emit('update:modelValue', value)
+    }
+  })
+
+  // Methods
+  const acknowledgeDisclaimer = () => {
+    logger.info('User acknowledging disclaimer')
+    loading.value = true
+
+    // Simulate a slight delay for better UX and to ensure state updates properly
+    setTimeout(() => {
+      loading.value = false
+      emit('acknowledged')
+      dialogVisible.value = false
+      logger.info('Disclaimer acknowledged successfully')
+    }, 300)
   }
-})
-
-// Emits
-const emit = defineEmits(['update:modelValue', 'acknowledged'])
-
-// State
-const loading = ref(false)
-
-// Computed
-const dialogVisible = computed({
-  get() {
-    return props.modelValue
-  },
-  set(value) {
-    emit('update:modelValue', value)
-  }
-})
-
-// Methods
-const acknowledgeDisclaimer = () => {
-  logger.info('User acknowledging disclaimer')
-  loading.value = true
-
-  // Simulate a slight delay for better UX and to ensure state updates properly
-  setTimeout(() => {
-    loading.value = false
-    emit('acknowledged')
-    dialogVisible.value = false
-    logger.info('Disclaimer acknowledged successfully')
-  }, 300)
-}
 </script>
 
 <style scoped>
-.disclaimer-dialog {
-  z-index: 2000;
-}
+  .disclaimer-dialog {
+    z-index: 2000;
+  }
 
-.v-card-text ul {
-  padding-left: 1.5rem;
-}
+  .v-card-text ul {
+    padding-left: 1.5rem;
+  }
 
-.v-card-text ul li {
-  line-height: 1.6;
-}
+  .v-card-text ul li {
+    line-height: 1.6;
+  }
 
-.v-card-text p {
-  line-height: 1.6;
-}
+  .v-card-text p {
+    line-height: 1.6;
+  }
 
-/* Ensure text is readable */
-.v-card-text {
-  color: rgba(0, 0, 0, 0.87);
-}
+  /* Ensure text is readable */
+  .v-card-text {
+    color: rgba(0, 0, 0, 0.87);
+  }
 
-/* Dark mode support */
-.v-theme--dark .v-card-text {
-  color: rgba(255, 255, 255, 0.87);
-}
+  /* Dark mode support */
+  .v-theme--dark .v-card-text {
+    color: rgba(255, 255, 255, 0.87);
+  }
 
-.v-theme--dark .text-medium-emphasis {
-  color: rgba(255, 255, 255, 0.6) !important;
-}
+  .v-theme--dark .text-medium-emphasis {
+    color: rgba(255, 255, 255, 0.6) !important;
+  }
 </style>

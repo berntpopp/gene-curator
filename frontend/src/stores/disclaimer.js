@@ -30,7 +30,7 @@ export const useDisclaimerStore = defineStore('disclaimer', {
      * Get the formatted acknowledgment date
      * @returns {string} Formatted date string (e.g., "Jan 15, 2025") or empty string
      */
-    formattedAcknowledgmentDate: (state) => {
+    formattedAcknowledgmentDate: state => {
       if (!state.acknowledgmentTimestamp) {
         return ''
       }
@@ -54,7 +54,7 @@ export const useDisclaimerStore = defineStore('disclaimer', {
      * Check if the current disclaimer version has been acknowledged
      * @returns {boolean} True if current version acknowledged, false otherwise
      */
-    isCurrentVersionAcknowledged: (state) => {
+    isCurrentVersionAcknowledged: state => {
       return state.isAcknowledged && state.disclaimerVersion === CURRENT_DISCLAIMER_VERSION
     },
 
@@ -62,7 +62,7 @@ export const useDisclaimerStore = defineStore('disclaimer', {
      * Check if disclaimer should be shown
      * @returns {boolean} True if disclaimer should be shown, false otherwise
      */
-    shouldShowDisclaimer: (state) => {
+    shouldShowDisclaimer: state => {
       return !state.isAcknowledged || state.disclaimerVersion !== CURRENT_DISCLAIMER_VERSION
     }
   },

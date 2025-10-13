@@ -22,7 +22,7 @@
 
           <!-- Disclaimer Button with Acknowledgment Indicator -->
           <v-tooltip location="top">
-            <template v-slot:activator="{ props }">
+            <template #activator="{ props }">
               <v-btn
                 v-bind="props"
                 variant="text"

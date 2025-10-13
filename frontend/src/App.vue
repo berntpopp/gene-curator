@@ -52,7 +52,7 @@
   // Watch for manual disclaimer requests from footer
   watch(
     () => disclaimerStore.showManually,
-    (shouldShow) => {
+    shouldShow => {
       if (shouldShow) {
         logger.debug('Showing disclaimer dialog (manual request)')
         disclaimerDialogVisible.value = true

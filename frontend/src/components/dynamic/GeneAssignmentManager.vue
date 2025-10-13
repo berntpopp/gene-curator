@@ -310,7 +310,9 @@
   const loading = computed(() => assignmentsStore.loading)
   const assignments = computed(() => assignmentsStore.assignments || [])
   const availableScopes = computed(() => scopesStore.scopes || [])
-  const availableUsers = computed(() => (usersStore.users || []).filter(user => user.role !== 'viewer'))
+  const availableUsers = computed(() =>
+    (usersStore.users || []).filter(user => user.role !== 'viewer')
+  )
   const workloadSummary = computed(() => assignmentsStore.workloadSummary || [])
 
   // Error boundary for component-level errors
