@@ -86,7 +86,8 @@ def extract_context_from_request(request: Request) -> dict[str, Any]:
         user = request.state.current_user
         if user:
             context["user_id"] = getattr(user, "id", None)
-            context["username"] = getattr(user, "username", None) or getattr(
+            # UserNew model uses 'name', not 'username'
+            context["username"] = getattr(user, "name", None) or getattr(
                 user, "email", None
             )
 
