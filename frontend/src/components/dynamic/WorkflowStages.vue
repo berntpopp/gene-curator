@@ -210,6 +210,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useWorkflowStore } from '@/stores'
 
@@ -352,7 +355,7 @@
       emit('stage-changed', 'advanced')
       emit('action-completed', 'advance')
     } catch (error) {
-      console.error('Failed to advance stage:', error)
+      logger.error('Failed to advance stage:', { error: error.message, stack: error.stack })
     } finally {
       advancing.value = false
     }
@@ -369,7 +372,7 @@
       emit('stage-changed', 'rejected')
       emit('action-completed', 'reject')
     } catch (error) {
-      console.error('Failed to reject stage:', error)
+      logger.error('Failed to reject stage:', { error: error.message, stack: error.stack })
     } finally {
       rejecting.value = false
     }
@@ -386,7 +389,7 @@
       emit('stage-changed', 'revision_requested')
       emit('action-completed', 'request_revision')
     } catch (error) {
-      console.error('Failed to request revision:', error)
+      logger.error('Failed to request revision:', { error: error.message, stack: error.stack })
     } finally {
       requesting.value = false
     }
@@ -401,7 +404,7 @@
       })
       emit('action-completed', 'save_draft')
     } catch (error) {
-      console.error('Failed to save draft:', error)
+      logger.error('Failed to save draft:', { error: error.message, stack: error.stack })
     } finally {
       saving.value = false
     }
@@ -415,7 +418,7 @@
         try {
           await workflowStore.fetchWorkflowStages(newPairId)
         } catch (error) {
-          console.error('Failed to load workflow stages:', error)
+          logger.error('Failed to load workflow stages:', { error: error.message, stack: error.stack })
         }
       }
     },
@@ -433,7 +436,7 @@
             workflowStore.fetchStageHistory(newEntityId)
           ])
         } catch (error) {
-          console.error('Failed to load entity workflow data:', error)
+          logger.error('Failed to load entity workflow data:', { error: error.message, stack: error.stack })
         }
       }
     },
@@ -449,7 +452,7 @@
           workflowStore.fetchStageHistory(props.entityId)
         ])
       } catch (error) {
-        console.error('Failed to initialize workflow stages:', error)
+        logger.error('Failed to initialize workflow stages:', { error: error.message, stack: error.stack })
       }
     }
   })

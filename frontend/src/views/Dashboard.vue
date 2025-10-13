@@ -187,6 +187,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore, useScopesStore } from '@/stores'
 
@@ -286,14 +289,14 @@
         await scopesStore.fetchScopes()
         stats.value.active_scopes = scopesStore.getActiveScopesCount || 0
       } catch (scopeError) {
-        console.warn('Failed to load scopes:', scopeError)
+        logger.warn('Failed to load scopes:', { error: scopeError.message, stack: scopeError.stack })
         stats.value.active_scopes = 0
       }
 
       // Clear recent activity for now (can be implemented later)
       recentActivity.value = []
     } catch (error) {
-      console.error('Failed to load dashboard data:', error)
+      logger.error('Failed to load dashboard data:', { error: error.message, stack: error.stack })
       // Set default values on error
       stats.value = {
         active_assignments: 0,

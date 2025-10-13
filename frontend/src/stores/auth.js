@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
+import { logService } from '@/services/logService'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -95,7 +96,10 @@ export const useAuthStore = defineStore('auth', {
           await authAPI.logout()
         }
       } catch (error) {
-        console.warn('Logout API call failed:', error)
+        logService.warn('Logout API call failed', {
+          error: error.message,
+          stack: error.stack
+        })
       } finally {
         this.clearAuth()
       }
@@ -159,7 +163,10 @@ export const useAuthStore = defineStore('auth', {
         // This method can be extended when user-scope relationships are added
         return []
       } catch (error) {
-        console.warn('Failed to fetch user scopes:', error)
+        logService.warn('Failed to fetch user scopes', {
+          error: error.message,
+          stack: error.stack
+        })
         return []
       }
     },

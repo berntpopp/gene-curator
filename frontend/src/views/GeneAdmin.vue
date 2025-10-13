@@ -95,6 +95,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGenesStore } from '@/stores/genes.js'
@@ -117,7 +120,7 @@
       deleteDialog.value = false
       geneToDelete.value = null
     } catch (error) {
-      console.error('Delete failed:', error)
+      logger.error('Delete failed:', { error: error.message, stack: error.stack })
       showError('Failed to delete gene. Please try again.')
     } finally {
       loading.value = false

@@ -258,6 +258,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, watch } from 'vue'
   import { useValidationStore } from '@/stores'
 
@@ -367,7 +370,7 @@
       await validationStore.validateEvidence(props.evidenceData, props.schemaId, 'scoring')
       emit('score-updated', validationResult.value)
     } catch (error) {
-      console.error('Failed to refresh scores:', error)
+      logger.error('Failed to refresh scores:', { error: error.message, stack: error.stack })
     } finally {
       refreshing.value = false
     }
@@ -395,7 +398,7 @@
       a.click()
       URL.revokeObjectURL(url)
     } catch (error) {
-      console.error('Failed to export scores:', error)
+      logger.error('Failed to export scores:', { error: error.message, stack: error.stack })
     } finally {
       exporting.value = false
     }
@@ -414,7 +417,7 @@
             emit('classification-changed', classification.value)
           }
         } catch (error) {
-          console.error('Auto-refresh scoring failed:', error)
+          logger.error('Auto-refresh scoring failed:', { error: error.message, stack: error.stack })
         }
       }
     },

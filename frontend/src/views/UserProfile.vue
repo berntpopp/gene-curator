@@ -208,6 +208,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, onMounted, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth.js'
   import { useUsersStore } from '@/stores/users.js'
@@ -281,7 +284,7 @@
       const activity = await usersStore.fetchUserActivity(authStore.user.id)
       userActivity.value = activity
     } catch (error) {
-      console.error('Failed to load user profile:', error)
+      logger.error('Failed to load user profile:', { error: error.message, stack: error.stack })
       // Fallback to auth store data
       userProfile.value = authStore.user
       showSnackbar('Failed to load complete profile information', 'warning')

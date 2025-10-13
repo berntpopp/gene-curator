@@ -436,6 +436,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useCurationsStore, useAuthStore } from '@/stores'
@@ -635,7 +638,7 @@
       curation.value = await curationsStore.fetchCuration(props.id)
     } catch (err) {
       error.value = 'Failed to load curation details'
-      console.error('Error loading curation:', err)
+      logger.error('Error loading curation:', { error: err.message, stack: err.stack })
     } finally {
       loading.value = false
     }

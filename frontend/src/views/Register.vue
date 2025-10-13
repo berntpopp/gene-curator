@@ -88,6 +88,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth.js'
@@ -138,7 +141,7 @@
       showSuccess('Account created successfully! You are now logged in.')
       router.push({ name: 'Home' })
     } catch (error) {
-      console.error('Registration error:', error)
+      logger.error('Registration error:', { error: error.message, stack: error.stack })
       showError('Registration failed. Please try again.')
     }
   }

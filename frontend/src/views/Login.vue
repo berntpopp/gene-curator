@@ -123,6 +123,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, reactive, computed } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth.js'
@@ -192,7 +195,7 @@
       const redirectTo = route.query.redirect || { name: 'Home' }
       router.push(redirectTo)
     } catch (error) {
-      console.error('Login error:', error)
+      logger.error('Login error:', { error: error.message, stack: error.stack })
 
       // Handle specific field errors
       if (error.response?.data?.detail) {

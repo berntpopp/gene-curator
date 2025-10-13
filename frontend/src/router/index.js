@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth.js'
+import { logService } from '@/services/logService'
 
 // Lazy-loaded components
 const Home = () => import('@/views/Home.vue')
@@ -235,7 +236,10 @@ router.beforeEach(async (to, from, next) => {
     try {
       await authStore.initialize()
     } catch (error) {
-      console.warn('Auth initialization failed:', error)
+      logService.warn('Auth initialization failed', {
+        error: error.message,
+        stack: error.stack
+      })
     }
   }
 

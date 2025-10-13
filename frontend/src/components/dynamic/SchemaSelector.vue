@@ -106,6 +106,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useSchemasStore } from '@/stores'
 
@@ -157,7 +160,7 @@
       const newPair = await schemasStore.createWorkflowPair(pairData)
       existingWorkflowPair.value = newPair
     } catch (error) {
-      console.error('Failed to create workflow pair:', error)
+      logger.error('Failed to create workflow pair:', { error: error.message, stack: error.stack })
     } finally {
       creating.value = false
     }
@@ -176,7 +179,7 @@
     try {
       await Promise.all([schemasStore.fetchSchemas(), schemasStore.fetchWorkflowPairs()])
     } catch (error) {
-      console.error('Failed to load schemas:', error)
+      logger.error('Failed to load schemas:', { error: error.message, stack: error.stack })
     }
   })
 </script>

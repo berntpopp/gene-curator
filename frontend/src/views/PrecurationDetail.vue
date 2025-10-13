@@ -311,6 +311,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { usePrecurationsStore, useAuthStore } from '@/stores'
@@ -507,7 +510,7 @@
       precuration.value = await precurationsStore.fetchPrecurationById(props.id)
     } catch (err) {
       error.value = 'Failed to load pre-curation details'
-      console.error('Error loading precuration:', err)
+      logger.error('Error loading precuration:', { error: err.message, stack: err.stack })
     } finally {
       loading.value = false
     }

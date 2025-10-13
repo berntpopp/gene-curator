@@ -190,6 +190,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, onMounted, computed } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth.js'
@@ -240,7 +243,7 @@
         error.value = 'Gene not found'
       }
     } catch (err) {
-      console.error('Failed to load gene:', err)
+      logger.error('Failed to load gene:', { error: err.message, stack: err.stack })
       error.value = 'Failed to load gene details'
       showError('Failed to load gene details')
     } finally {

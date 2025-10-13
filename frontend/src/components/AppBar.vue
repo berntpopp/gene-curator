@@ -91,6 +91,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useTheme } from 'vuetify'
@@ -257,7 +260,7 @@
       await authStore.logout()
       router.push({ name: 'Home' })
     } catch (error) {
-      console.error('Logout error:', error)
+      logger.error('Logout error:', { error: error.message, stack: error.stack })
     }
   }
 

@@ -127,6 +127,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
@@ -184,7 +187,7 @@
         schema_id: props.schemaId
       })
     } catch (error) {
-      console.error('Field validation error:', error)
+      logger.error('Field validation error:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -192,7 +195,7 @@
     try {
       await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
     } catch (error) {
-      console.error('Form validation error:', error)
+      logger.error('Form validation error:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -230,7 +233,7 @@
         emit('submit', formData.value)
       }
     } catch (error) {
-      console.error('Submit error:', error)
+      logger.error('Submit error:', { error: error.message, stack: error.stack })
     } finally {
       submitting.value = false
     }
@@ -241,7 +244,7 @@
     try {
       emit('save-draft', formData.value)
     } catch (error) {
-      console.error('Save draft error:', error)
+      logger.error('Save draft error:', { error: error.message, stack: error.stack })
     } finally {
       saving.value = false
     }
@@ -255,7 +258,7 @@
         try {
           await validationStore.generateJsonSchema(newSchemaId)
         } catch (error) {
-          console.error('Failed to generate JSON schema:', error)
+          logger.error('Failed to generate JSON schema:', { error: error.message, stack: error.stack })
         }
       }
     },
@@ -281,7 +284,7 @@
           await validateForm()
         }
       } catch (error) {
-        console.error('Failed to initialize form:', error)
+        logger.error('Failed to initialize form:', { error: error.message, stack: error.stack })
       }
     }
   })

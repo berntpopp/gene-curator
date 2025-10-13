@@ -207,6 +207,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGenesStore, useAssignmentsStore } from '@/stores'
@@ -277,7 +280,7 @@
       })
       availableGenes.value = results
     } catch (error) {
-      console.error('Gene search failed:', error)
+      logger.error('Gene search failed:', { error: error.message, stack: error.stack })
       availableGenes.value = []
     } finally {
       searchingGenes.value = false
@@ -308,7 +311,7 @@
         d => d.name.toLowerCase().includes(query.toLowerCase()) || d.omim_id.includes(query)
       )
     } catch (error) {
-      console.error('Disease search failed:', error)
+      logger.error('Disease search failed:', { error: error.message, stack: error.stack })
       availableDiseases.value = []
     } finally {
       searchingDiseases.value = false
@@ -353,7 +356,7 @@
       // Navigate to the new assignment
       router.push({ name: 'AssignmentDetail', params: { id: assignment.id } })
     } catch (error) {
-      console.error('Failed to create assignment:', error)
+      logger.error('Failed to create assignment:', { error: error.message, stack: error.stack })
     } finally {
       creating.value = false
     }

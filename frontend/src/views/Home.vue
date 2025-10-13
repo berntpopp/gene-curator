@@ -123,6 +123,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, onMounted, computed } from 'vue'
   import { useAuthStore } from '@/stores/auth.js'
   import { useGenesStore } from '@/stores/genes.js'
@@ -221,7 +224,7 @@
     try {
       statistics.value = await genesStore.fetchStatistics()
     } catch (error) {
-      console.warn('Failed to load statistics:', error)
+      logger.warn('Failed to load statistics:', { error: error.message, stack: error.stack })
     }
   })
 </script>

@@ -199,6 +199,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useAssignmentsStore } from '@/stores'
@@ -312,12 +315,12 @@
 
   // Event handlers
   const handleStageChanged = action => {
-    console.log('Stage changed:', action)
+    logger.info('Stage changed:', action)
     loadAssignmentData()
   }
 
   const handleActionCompleted = action => {
-    console.log('Action completed:', action)
+    logger.info('Action completed:', action)
     loadAssignmentData()
   }
 
@@ -331,7 +334,7 @@
         activeTab.value = 'curation'
       }
     } catch (error) {
-      console.error('Precuration submission failed:', error)
+      logger.error('Precuration submission failed:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -340,7 +343,7 @@
       await assignmentsStore.savePrecurationDraft(assignmentId.value, data)
       precurationData.value = data
     } catch (error) {
-      console.error('Precuration draft save failed:', error)
+      logger.error('Precuration draft save failed:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -352,7 +355,7 @@
       // Switch to scoring tab
       activeTab.value = 'scoring'
     } catch (error) {
-      console.error('Curation submission failed:', error)
+      logger.error('Curation submission failed:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -361,16 +364,16 @@
       await assignmentsStore.saveCurationDraft(assignmentId.value, data)
       curationData.value = data
     } catch (error) {
-      console.error('Curation draft save failed:', error)
+      logger.error('Curation draft save failed:', { error: error.message, stack: error.stack })
     }
   }
 
   const handleScoreUpdated = scoreResult => {
-    console.log('Scores updated:', scoreResult)
+    logger.info('Scores updated:', scoreResult)
   }
 
   const handleClassificationChanged = classification => {
-    console.log('Classification changed:', classification)
+    logger.info('Classification changed:', classification)
   }
 
   // Data loading
@@ -397,7 +400,7 @@
       }
     } catch (err) {
       error.value = err.message || 'Failed to load assignment'
-      console.error('Failed to load assignment:', err)
+      logger.error('Failed to load assignment:', { error: err.message, stack: err.stack })
     } finally {
       loading.value = false
     }

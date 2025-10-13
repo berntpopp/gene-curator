@@ -68,6 +68,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores'
 
@@ -94,7 +97,7 @@
     try {
       await scopesStore.fetchScopes()
     } catch (error) {
-      console.error('Failed to load scopes:', error)
+      logger.error('Failed to load scopes:', { error: error.message, stack: error.stack })
     }
   })
 </script>

@@ -226,6 +226,9 @@
 </template>
 
 <script setup>
+import { useLogger } from '@/composables/useLogger'
+
+const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
@@ -294,7 +297,7 @@
     try {
       JSON.parse(scoringConfigText.value)
     } catch (e) {
-      console.error('Invalid scoring config JSON:', e)
+      logger.error('Invalid scoring config JSON:', { error: e.message, stack: e.stack })
     }
   }
 
@@ -314,7 +317,7 @@
       schema.value = { ...editableSchema.value }
       isEditing.value = false
     } catch (error) {
-      console.error('Failed to save schema:', error)
+      logger.error('Failed to save schema:', { error: error.message, stack: error.stack })
     } finally {
       saving.value = false
     }
@@ -333,10 +336,10 @@
     validating.value = true
     try {
       const result = await schemasStore.validateSchema(schemaId.value)
-      console.log('Schema validation result:', result)
+      logger.info('Schema validation result:', result)
       // Show validation results to user
     } catch (error) {
-      console.error('Schema validation failed:', error)
+      logger.error('Schema validation failed:', { error: error.message, stack: error.stack })
     } finally {
       validating.value = false
     }
@@ -357,7 +360,7 @@
       const duplicated = await schemasStore.duplicateSchema(schemaId.value)
       router.push({ name: 'SchemaEditor', params: { id: duplicated.id } })
     } catch (error) {
-      console.error('Failed to duplicate schema:', error)
+      logger.error('Failed to duplicate schema:', { error: error.message, stack: error.stack })
     }
   }
 
@@ -367,7 +370,7 @@
         await schemasStore.deleteSchema(schemaId.value)
         router.push({ name: 'SchemaManagement' })
       } catch (error) {
-        console.error('Failed to delete schema:', error)
+        logger.error('Failed to delete schema:', { error: error.message, stack: error.stack })
       }
     }
   }
@@ -386,7 +389,7 @@
         : ''
     } catch (err) {
       error.value = err.message || 'Failed to load schema'
-      console.error('Failed to load schema:', err)
+      logger.error('Failed to load schema:', { error: err.message, stack: err.stack })
     } finally {
       loading.value = false
     }
