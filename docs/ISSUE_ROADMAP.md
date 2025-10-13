@@ -1,18 +1,19 @@
 # Gene Curator - Open Issues Roadmap
 
 **Generated**: 2025-10-13
-**Total Open Issues**: 22 (2 completed)
+**Total Open Issues**: 21 (3 completed)
 **Analysis Basis**: v2.0.0 architecture, implementation status, milestone alignment
 
 ---
 
 ## Executive Summary
 
-**Total Estimated Effort**: 171-238 hours (4-6 months with 1 FTE)
+**Total Estimated Effort**: 167-234 hours (4-6 months with 1 FTE)
 **Recommended Timeline**: 3 phases over 3-4 months with 2 developers
 **Completed Issues**:
 - #34 (Feedback System - GitHub-based implementation)
 - #39 (Disclaimer Popup - phentrieve-inspired implementation)
+- #42 (SEO Metadata - Comprehensive structured data & OG tags)
 
 ### Key Findings
 - **10 issues** are critical for v0.3.0 curation readiness
@@ -72,9 +73,9 @@
 | #109 | Transform TODOs | 4.0 | Low | 2-4h | Manual task |
 | ~~#39~~ | ~~Disclaimer popup~~ | ~~4.0~~ | ~~Low~~ | ~~2-3h~~ | ✅ **Complete** (phentrieve-inspired) |
 | ~~#34~~ | ~~Feedback system~~ | ~~4.0~~ | ~~Medium~~ | ~~6-8h~~ | ✅ **Complete** (GitHub-based) |
-| #42 | SEO metadata | 3.0 | Low | 3-4h | Not implemented |
+| ~~#42~~ | ~~SEO metadata~~ | ~~3.0~~ | ~~Low~~ | ~~3-4h~~ | ✅ **Complete** (comprehensive implementation) |
 
-**Total**: 24-34 hours (~3-4 weeks, 1 developer)
+**Total**: 20-30 hours (~2.5-4 weeks, 1 developer)
 
 ---
 
@@ -161,7 +162,7 @@ Future-proofing
 ### 🔧 Operations (3 issues)
 Production readiness
 
-- **#42** SEO - Meta tags, Open Graph, JSON-LD
+- ~~**#42** SEO - ✅ **Complete** (30+ meta tags, dual JSON-LD schemas, 400+ line docs)~~
 - ~~**#34** Feedback - ✅ **Complete** (GitHub issue forms implemented)~~
 - **#109** TODOs - Technical debt cleanup
 
@@ -233,7 +234,7 @@ Production readiness
 - #55 ✅ In milestone
 
 **Unassigned (Need Milestones)**
-- #116, #115, #109, #77, #54, #53, #46, #42, #30, #19
+- #116, #115, #109, #77, #54, #53, #46, #30, #19
 
 ---
 
