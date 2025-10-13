@@ -26,5 +26,25 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist'
+  },
+  test: {
+    globals: true,
+    environment: 'happy-dom',
+    setupFiles: ['./src/test/setup.js'],
+    css: true,
+    server: {
+      deps: {
+        inline: ['vuetify']
+      }
+    },
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      exclude: [
+        'node_modules/',
+        'src/test/',
+        '**/*.spec.js'
+      ]
+    }
   }
 })

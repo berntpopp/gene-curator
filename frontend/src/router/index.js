@@ -30,7 +30,10 @@ const routes = [
     path: '/',
     name: 'Home',
     component: Home,
-    meta: { title: 'Gene Curator' }
+    meta: {
+      title: 'Gene Curator'
+      // No showInMainMenu - logo already navigates to home
+    }
   },
   {
     path: '/login',
@@ -56,7 +59,11 @@ const routes = [
     component: Dashboard,
     meta: {
       title: 'Dashboard',
-      requiresAuth: true
+      requiresAuth: true,
+      showInUserMenu: true,
+      icon: 'mdi-view-dashboard',
+      label: 'Dashboard',
+      order: 1
     }
   },
   {
@@ -74,8 +81,12 @@ const routes = [
     name: 'Genes',
     component: GenesTable,
     meta: {
-      title: 'Genes',
-      requiresAuth: false
+      title: 'Gene Catalog',
+      requiresAuth: false,
+      showInMainMenu: true,
+      icon: 'mdi-dna',
+      label: 'Gene Catalog',
+      order: 2
     }
   },
   {
@@ -103,9 +114,13 @@ const routes = [
     name: 'GeneAssignments',
     component: GeneAssignments,
     meta: {
-      title: 'Gene Assignments',
+      title: 'My Work',
       requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiredRoles: ['curator', 'admin'],
+      showInDropdown: 'curation',
+      icon: 'mdi-clipboard-list',
+      label: 'My Work',
+      order: 1
     }
   },
   {
@@ -136,7 +151,11 @@ const routes = [
     meta: {
       title: 'Schema Management',
       requiresAuth: true,
-      requiredRoles: ['admin']
+      requiredRoles: ['admin'],
+      showInDropdown: 'curationSetup',
+      icon: 'mdi-file-document-outline',
+      label: 'Templates',
+      order: 1
     }
   },
   {
@@ -157,7 +176,11 @@ const routes = [
     meta: {
       title: 'Workflow Management',
       requiresAuth: true,
-      requiredRoles: ['admin']
+      requiredRoles: ['admin'],
+      showInDropdown: 'curationSetup',
+      icon: 'mdi-workflow',
+      label: 'Workflows',
+      order: 2
     }
   },
   {
@@ -167,7 +190,11 @@ const routes = [
     meta: {
       title: 'Validation Dashboard',
       requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiredRoles: ['curator', 'admin'],
+      showInDropdown: 'curation',
+      icon: 'mdi-check-decagram',
+      label: 'Validation',
+      order: 3
     }
   },
   {
@@ -176,7 +203,11 @@ const routes = [
     component: UserProfile,
     meta: {
       title: 'User Profile',
-      requiresAuth: true
+      requiresAuth: true,
+      showInUserMenu: true,
+      icon: 'mdi-account',
+      label: 'Profile',
+      order: 2
     }
   },
   {
