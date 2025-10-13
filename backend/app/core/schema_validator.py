@@ -11,7 +11,7 @@ from typing import Any
 class SchemaValidationResult:
     """Result of schema validation."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.is_valid: bool = True
         self.errors: list[dict[str, Any]] = []
         self.warnings: list[dict[str, Any]] = []
@@ -22,7 +22,9 @@ class SchemaValidationResult:
         self.required_fields_missing: list[str] = []
         self.suggested_improvements: list[str] = []
 
-    def add_error(self, field: str, message: str, error_type: str = "validation"):
+    def add_error(
+        self, field: str, message: str, error_type: str = "validation"
+    ) -> None:
         """Add a validation error."""
         self.is_valid = False
         error = {
@@ -37,7 +39,9 @@ class SchemaValidationResult:
             self.field_validations[field] = {"errors": [], "warnings": []}
         self.field_validations[field]["errors"].append(error)
 
-    def add_warning(self, field: str, message: str, warning_type: str = "quality"):
+    def add_warning(
+        self, field: str, message: str, warning_type: str = "quality"
+    ) -> None:
         """Add a validation warning."""
         warning = {
             "field": field,
@@ -53,7 +57,7 @@ class SchemaValidationResult:
 
     def add_business_rule_violation(
         self, rule: str, message: str, severity: str = "error"
-    ):
+    ) -> None:
         """Add a business rule violation."""
         violation = {"rule": rule, "message": message, "severity": severity}
         self.business_rule_violations.append(violation)
@@ -68,7 +72,7 @@ class SchemaValidator:
     Validates evidence data against schema definitions and enforces business rules.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.field_validators = {
             "text": self._validate_text_field,
             "number": self._validate_number_field,
@@ -197,7 +201,7 @@ class SchemaValidator:
         """
         field_definitions = schema_definition.get("field_definitions", {})
 
-        json_schema = {
+        json_schema: dict[str, Any] = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
             "properties": {},
@@ -221,7 +225,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         field_definitions: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate individual fields against their definitions."""
         for field_name, field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
@@ -255,7 +259,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate text field."""
         if not isinstance(value, str):
             result.add_error(field_name, "Value must be a string", "type")
@@ -302,7 +306,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate number field."""
         try:
             num_value = float(value)
@@ -339,7 +343,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate boolean field."""
         if not isinstance(value, bool):
             result.add_error(field_name, "Value must be true or false", "type")
@@ -350,7 +354,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate array field."""
         if not isinstance(value, list):
             result.add_error(field_name, "Value must be an array", "type")
@@ -387,7 +391,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate object field."""
         if not isinstance(value, dict):
             result.add_error(field_name, "Value must be an object", "type")
@@ -418,7 +422,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate date field."""
         if isinstance(value, datetime):
             return  # Already a datetime object
@@ -451,7 +455,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate select field."""
         options = config.get("options", [])
         if not options:
@@ -477,7 +481,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate multiselect field."""
         if not isinstance(value, list):
             result.add_error(field_name, "Value must be an array", "type")
@@ -508,7 +512,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate email field."""
         if not isinstance(value, str):
             result.add_error(field_name, "Email must be a string", "type")
@@ -524,7 +528,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate URL field."""
         if not isinstance(value, str):
             result.add_error(field_name, "URL must be a string", "type")
@@ -540,7 +544,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate PubMed ID field."""
         if isinstance(value, int):
             value = str(value)
@@ -563,7 +567,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate HGNC ID field."""
         if not isinstance(value, str):
             result.add_error(field_name, "HGNC ID must be a string", "type")
@@ -582,7 +586,7 @@ class SchemaValidator:
         value: Any,
         config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Validate score field with special scoring rules."""
         # First do basic number validation
         self._validate_number_field(field_name, value, config, result)
@@ -622,7 +626,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         validation_rules: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Apply custom validation rules."""
         for rule_name, rule_config in validation_rules.items():
             try:
@@ -654,7 +658,7 @@ class SchemaValidator:
         rule_name: str,
         rule_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Apply conditional validation rule."""
         condition = rule_config.get("condition", "")
         message = rule_config.get("message", f"Condition rule {rule_name} failed")
@@ -680,7 +684,7 @@ class SchemaValidator:
         rule_name: str,
         rule_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Apply field dependency rule."""
         depends_on = rule_config.get("depends_on", "")
         required_field = rule_config.get("field", "")
@@ -705,7 +709,7 @@ class SchemaValidator:
         rule_name: str,
         rule_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Apply calculation validation rule."""
         # This would implement calculation validation (e.g., totals, sums)
         result.add_warning(
@@ -720,7 +724,7 @@ class SchemaValidator:
         business_rules: list[str],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Apply business-specific validation rules."""
         for rule_name in business_rules:
             if rule_name in self.business_rules:
@@ -738,7 +742,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Validate ClinGen genetic evidence business rules."""
         genetic_evidence = evidence_data.get("genetic_evidence", {})
 
@@ -769,7 +773,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Validate ClinGen experimental evidence business rules."""
         experimental_evidence = evidence_data.get("experimental_evidence", {})
 
@@ -787,7 +791,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Validate ClinGen contradictory evidence business rules."""
         contradictory = evidence_data.get("contradictory_evidence", {})
 
@@ -805,7 +809,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Validate GenCC classification business rules."""
         classification = evidence_data.get("classification", "")
         evidence_data.get("confidence_level", "")
@@ -831,7 +835,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         result: SchemaValidationResult,
         context: dict[str, Any] | None,
-    ):
+    ) -> None:
         """Validate institutional review business rules."""
         # Institutional-specific validation rules would go here
         pass
@@ -841,7 +845,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         scoring_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Calculate scores based on scoring configuration."""
         engine_type = scoring_config.get("engine", "")
 
@@ -857,7 +861,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         scoring_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Calculate ClinGen SOP v11 scores."""
         genetic_evidence = evidence_data.get("genetic_evidence", {})
         experimental_evidence = evidence_data.get("experimental_evidence", {})
@@ -890,7 +894,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         scoring_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Calculate GenCC-based scores."""
         # GenCC scoring logic would go here
         result.score_calculations = {"gencc_score": 0.0}
@@ -900,7 +904,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         scoring_config: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Calculate qualitative assessment scores."""
         # Qualitative scoring logic would go here
         result.score_calculations = {"qualitative_score": 0.0}
@@ -910,7 +914,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         field_definitions: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Calculate data completeness score."""
         total_fields = len(field_definitions)
         completed_fields = 0
@@ -937,7 +941,7 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         schema_definition: dict[str, Any],
         result: SchemaValidationResult,
-    ):
+    ) -> None:
         """Generate improvement suggestions."""
         field_definitions = schema_definition.get("field_definitions", {})
 
@@ -967,10 +971,10 @@ class SchemaValidator:
 
     def _validate_field_definitions(
         self, field_definitions: dict[str, Any], result: SchemaValidationResult
-    ):
+    ) -> None:
         """Validate field definitions in schema."""
         if not isinstance(field_definitions, dict):
-            result.add_error(
+            result.add_error(  # type: ignore[unreachable]
                 "field_definitions",
                 "field_definitions must be a dictionary",
                 "structure",
@@ -1003,10 +1007,10 @@ class SchemaValidator:
 
     def _validate_workflow_states(
         self, workflow_states: list[str], result: SchemaValidationResult
-    ):
+    ) -> None:
         """Validate workflow states."""
         if not isinstance(workflow_states, list):
-            result.add_error(
+            result.add_error(  # type: ignore[unreachable]
                 "workflow_states", "Workflow states must be an array", "structure"
             )
             return
@@ -1022,7 +1026,7 @@ class SchemaValidator:
 
     def _validate_ui_configuration(
         self, ui_configuration: dict[str, Any], result: SchemaValidationResult
-    ):
+    ) -> None:
         """Validate UI configuration."""
         if "sections" not in ui_configuration:
             result.add_warning(
@@ -1033,7 +1037,7 @@ class SchemaValidator:
 
     def _validate_scoring_configuration(
         self, scoring_configuration: dict[str, Any], result: SchemaValidationResult
-    ):
+    ) -> None:
         """Validate scoring configuration."""
         if "engine" not in scoring_configuration:
             result.add_warning(
@@ -1048,7 +1052,7 @@ class SchemaValidator:
         """Convert field configuration to JSON Schema property."""
         field_type = field_config.get("type", "text")
 
-        json_schema_prop = {}
+        json_schema_prop: dict[str, Any] = {}
 
         # Map field types to JSON Schema types
         type_mapping = {

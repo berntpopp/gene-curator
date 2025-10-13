@@ -829,7 +829,9 @@ class SystemLog(Base):
     request_id = Column(Text, index=True)
 
     # User context
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL"))
+    user_id = Column(
+        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+    )
     ip_address = Column(Text)
     user_agent = Column(Text)
 

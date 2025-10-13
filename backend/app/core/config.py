@@ -21,6 +21,8 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "production"
     DEBUG: bool = False
     LOG_LEVEL: str = "info"
+    HOST: str = "0.0.0.0"  # nosec B104 - Default for Docker, override with HOST=127.0.0.1 for local-only
+    PORT: int = 8000  # Override with BACKEND_PORT in .env
 
     # ClinGen settings
     CLINGEN_SOP_VERSION: str = "v11"
@@ -42,6 +44,23 @@ class Settings(BaseSettings):
     SMTP_USERNAME: str | None = None
     SMTP_PASSWORD: str | None = None
     EMAIL_FROM: str = "noreply@gene-curator.org"
+
+    @validator("PORT", pre=True)
+    def get_port(cls, v: int | str | None) -> int:
+        """Support both PORT and BACKEND_PORT environment variables."""
+        import os
+
+        # If PORT is provided, use it
+        if v is not None:
+            return int(v)
+
+        # Otherwise, check for BACKEND_PORT (for backward compatibility)
+        backend_port = os.getenv("BACKEND_PORT")
+        if backend_port:
+            return int(backend_port)
+
+        # Default to 8000
+        return 8000
 
     @validator("ALLOWED_ORIGINS", pre=True)
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:

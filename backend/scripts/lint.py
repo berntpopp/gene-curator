@@ -51,7 +51,7 @@ def main() -> int:
         (["uv", "run", "ruff", "check", "app/"], "Ruff linting"),
         (["uv", "run", "ruff", "format", "--check", "app/"], "Ruff formatting check"),
         (["uv", "run", "mypy", "app/"], "MyPy type checking"),
-        (["uv", "run", "bandit", "-r", "app/"], "Bandit security check"),
+        (["uv", "run", "bandit", "-c", ".bandit", "-r", "app/"], "Bandit security check"),
     ]
 
     failed_checks = []
@@ -71,7 +71,7 @@ def main() -> int:
         print("   - uv run ruff check app/ tests/")
         print("   - uv run ruff format --diff app/ tests/")
         print("   - uv run mypy app/")
-        print("   - uv run bandit -r app/")
+        print("   - uv run bandit -c .bandit -r app/")
         return 1
     else:
         print("✅ All linting checks passed!")

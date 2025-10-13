@@ -19,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_active_user, get_db
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
-from app.schemas.logs import LogEntry, LogExportParams, LogSearchParams, LogStatsSummary
+from app.schemas.logs import LogEntry, LogStatsSummary
 
 router = APIRouter()
 
@@ -69,17 +69,25 @@ def require_admin(current_user: UserNew = Depends(get_current_active_user)):
 @router.get("/", response_model=list[LogEntry])
 async def search_logs(
     level: str | None = Query(None, description="Filter by log level"),
-    logger_name: str | None = Query(None, description="Filter by logger name (partial match)"),
+    logger_name: str | None = Query(
+        None, description="Filter by logger name (partial match)"
+    ),
     message: str | None = Query(None, description="Search in message (partial match)"),
     request_id: str | None = Query(None, description="Filter by request ID"),
     user_id: str | None = Query(None, description="Filter by user ID"),
-    endpoint: str | None = Query(None, description="Filter by endpoint (partial match)"),
+    endpoint: str | None = Query(
+        None, description="Filter by endpoint (partial match)"
+    ),
     method: str | None = Query(None, description="Filter by HTTP method"),
     start_date: datetime | None = Query(None, description="Start date (inclusive)"),
     end_date: datetime | None = Query(None, description="End date (inclusive)"),
-    min_duration_ms: float | None = Query(None, description="Minimum duration in milliseconds"),
+    min_duration_ms: float | None = Query(
+        None, description="Minimum duration in milliseconds"
+    ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
+    limit: int = Query(
+        100, ge=1, le=1000, description="Maximum number of records to return"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
@@ -188,7 +196,9 @@ async def get_log_statistics(
 
 @router.get("/recent-errors", response_model=list[LogEntry])
 async def get_recent_errors(
-    limit: int = Query(20, ge=1, le=100, description="Maximum number of errors to return"),
+    limit: int = Query(
+        20, ge=1, le=100, description="Maximum number of errors to return"
+    ),
     hours: int = Query(24, ge=1, le=168, description="Time window in hours"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
@@ -209,7 +219,9 @@ async def get_recent_errors(
 
 @router.get("/export")
 async def export_logs(
-    format: str = Query("json", regex="^(json|csv)$", description="Export format (json or csv)"),
+    format: str = Query(
+        "json", regex="^(json|csv)$", description="Export format (json or csv)"
+    ),
     level: str | None = Query(None, description="Filter by log level"),
     start_date: datetime | None = Query(None, description="Start date (inclusive)"),
     end_date: datetime | None = Query(None, description="End date (inclusive)"),

@@ -6,7 +6,7 @@ supporting request correlation, filtering, and statistics.
 """
 
 from datetime import datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from sqlalchemy import and_, func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,16 +19,16 @@ async def get_logs(
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
-    level: Optional[str] = None,
-    logger_name: Optional[str] = None,
-    message: Optional[str] = None,
-    request_id: Optional[str] = None,
-    user_id: Optional[str] = None,
-    endpoint: Optional[str] = None,
-    method: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
-    min_duration_ms: Optional[float] = None,
+    level: str | None = None,
+    logger_name: str | None = None,
+    message: str | None = None,
+    request_id: str | None = None,
+    user_id: str | None = None,
+    endpoint: str | None = None,
+    method: str | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    min_duration_ms: float | None = None,
 ) -> list[SystemLog]:
     """
     Get system logs with optional filtering.
@@ -89,7 +89,7 @@ async def get_logs(
     return result.scalars().all()
 
 
-async def get_log_by_id(db: AsyncSession, log_id: int) -> Optional[SystemLog]:
+async def get_log_by_id(db: AsyncSession, log_id: int) -> SystemLog | None:
     """
     Get a specific log entry by ID.
 
@@ -105,9 +105,7 @@ async def get_log_by_id(db: AsyncSession, log_id: int) -> Optional[SystemLog]:
     return result.scalar_one_or_none()
 
 
-async def get_logs_by_request_id(
-    db: AsyncSession, request_id: str
-) -> list[SystemLog]:
+async def get_logs_by_request_id(db: AsyncSession, request_id: str) -> list[SystemLog]:
     """
     Get all logs for a specific request (request correlation).
 
@@ -169,8 +167,7 @@ async def get_log_statistics(db: AsyncSession) -> dict[str, Any]:
     )
     hour_result = await db.execute(hour_query)
     logs_by_hour = {
-        row[0].isoformat() if row[0] else "unknown": row[1]
-        for row in hour_result.all()
+        row[0].isoformat() if row[0] else "unknown": row[1] for row in hour_result.all()
     }
 
     # Average duration (only for requests with duration)
@@ -276,9 +273,9 @@ async def get_recent_errors(
 
 async def get_logs_for_export(
     db: AsyncSession,
-    level: Optional[str] = None,
-    start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None,
+    level: str | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
     limit: int = 10000,
 ) -> list[SystemLog]:
     """

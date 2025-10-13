@@ -3,7 +3,7 @@ Pydantic schemas for system log API endpoints.
 """
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -13,17 +13,23 @@ class LogEntry(BaseModel):
 
     id: int = Field(..., description="Log entry ID")
     timestamp: datetime = Field(..., description="Log timestamp")
-    level: str = Field(..., description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)")
+    level: str = Field(
+        ..., description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
+    )
     logger_name: str = Field(..., description="Logger name (module path)")
     message: str = Field(..., description="Log message")
-    request_id: Optional[str] = Field(None, description="Request correlation ID")
-    user_id: Optional[str] = Field(None, description="User UUID")
-    scope_id: Optional[int] = Field(None, description="Scope ID")
-    duration_ms: Optional[float] = Field(None, description="Operation duration in milliseconds")
-    context: Optional[dict[str, Any]] = Field(None, description="Additional context (JSONB)")
-    endpoint: Optional[str] = Field(None, description="API endpoint")
-    method: Optional[str] = Field(None, description="HTTP method")
-    status_code: Optional[int] = Field(None, description="HTTP status code")
+    request_id: str | None = Field(None, description="Request correlation ID")
+    user_id: str | None = Field(None, description="User UUID")
+    scope_id: int | None = Field(None, description="Scope ID")
+    duration_ms: float | None = Field(
+        None, description="Operation duration in milliseconds"
+    )
+    context: dict[str, Any] | None = Field(
+        None, description="Additional context (JSONB)"
+    )
+    endpoint: str | None = Field(None, description="API endpoint")
+    method: str | None = Field(None, description="HTTP method")
+    status_code: int | None = Field(None, description="HTTP status code")
 
     class Config:
         from_attributes = True
@@ -49,19 +55,25 @@ class LogEntry(BaseModel):
 class LogSearchParams(BaseModel):
     """Search parameters for log queries."""
 
-    level: Optional[str] = Field(None, description="Filter by log level")
-    logger_name: Optional[str] = Field(None, description="Filter by logger name (partial match)")
-    message: Optional[str] = Field(None, description="Search in message (partial match)")
-    request_id: Optional[str] = Field(None, description="Filter by request ID")
-    user_id: Optional[str] = Field(None, description="Filter by user ID")
-    scope_id: Optional[int] = Field(None, description="Filter by scope ID")
-    endpoint: Optional[str] = Field(None, description="Filter by endpoint (partial match)")
-    method: Optional[str] = Field(None, description="Filter by HTTP method")
-    start_date: Optional[datetime] = Field(None, description="Start date (inclusive)")
-    end_date: Optional[datetime] = Field(None, description="End date (inclusive)")
-    min_duration_ms: Optional[float] = Field(None, description="Minimum duration in milliseconds")
+    level: str | None = Field(None, description="Filter by log level")
+    logger_name: str | None = Field(
+        None, description="Filter by logger name (partial match)"
+    )
+    message: str | None = Field(None, description="Search in message (partial match)")
+    request_id: str | None = Field(None, description="Filter by request ID")
+    user_id: str | None = Field(None, description="Filter by user ID")
+    scope_id: int | None = Field(None, description="Filter by scope ID")
+    endpoint: str | None = Field(None, description="Filter by endpoint (partial match)")
+    method: str | None = Field(None, description="Filter by HTTP method")
+    start_date: datetime | None = Field(None, description="Start date (inclusive)")
+    end_date: datetime | None = Field(None, description="End date (inclusive)")
+    min_duration_ms: float | None = Field(
+        None, description="Minimum duration in milliseconds"
+    )
     skip: int = Field(0, ge=0, description="Number of records to skip")
-    limit: int = Field(100, ge=1, le=1000, description="Maximum number of records to return")
+    limit: int = Field(
+        100, ge=1, le=1000, description="Maximum number of records to return"
+    )
 
     class Config:
         json_schema_extra = {
@@ -80,8 +92,12 @@ class LogStatsSummary(BaseModel):
 
     total_logs: int = Field(..., description="Total number of log entries")
     logs_by_level: dict[str, int] = Field(..., description="Count of logs by level")
-    logs_by_hour: dict[str, int] = Field(..., description="Count of logs by hour (last 24h)")
-    avg_duration_ms: Optional[float] = Field(None, description="Average operation duration")
+    logs_by_hour: dict[str, int] = Field(
+        ..., description="Count of logs by hour (last 24h)"
+    )
+    avg_duration_ms: float | None = Field(
+        None, description="Average operation duration"
+    )
     slow_endpoints: list[dict[str, Any]] = Field(
         ..., description="Top 5 slowest endpoints with avg duration"
     )
@@ -104,7 +120,11 @@ class LogStatsSummary(BaseModel):
                 "logs_by_hour": {"2025-01-15T10:00": 2500, "2025-01-15T11:00": 3200},
                 "avg_duration_ms": 125.5,
                 "slow_endpoints": [
-                    {"endpoint": "/api/v1/curations", "avg_duration_ms": 450.2, "count": 100}
+                    {
+                        "endpoint": "/api/v1/curations",
+                        "avg_duration_ms": 450.2,
+                        "count": 100,
+                    }
                 ],
                 "error_rate": 0.04,
                 "top_errors": [
@@ -122,9 +142,9 @@ class LogExportParams(BaseModel):
     """Parameters for log export."""
 
     format: str = Field("json", description="Export format (json or csv)")
-    level: Optional[str] = Field(None, description="Filter by log level")
-    start_date: Optional[datetime] = Field(None, description="Start date (inclusive)")
-    end_date: Optional[datetime] = Field(None, description="End date (inclusive)")
+    level: str | None = Field(None, description="Filter by log level")
+    start_date: datetime | None = Field(None, description="Start date (inclusive)")
+    end_date: datetime | None = Field(None, description="End date (inclusive)")
     limit: int = Field(10000, ge=1, le=100000, description="Maximum records to export")
 
     class Config:
