@@ -1,0 +1,87 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: gene_curator_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gene_curator}
+      POSTGRES_USER: ${POSTGRES_USER:-gene_curator}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change_me_in_production}
+      POSTGRES_HOST_AUTH_METHOD: ${POSTGRES_HOST_AUTH_METHOD:-md5}
+    # ports:
+    #   - "5432:5432"  # Port mapping defined in docker-compose.dev.yml for development
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/sql:/docker-entrypoint-initdb.d
+    networks:
+      - gene_curator_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-gene_curator} -d ${POSTGRES_DB:-gene_curator}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # FastAPI Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    container_name: gene_curator_api
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://gene_curator:change_me_in_production@postgres:5432/gene_curator}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
+    ports:
+      - "8001:8000"
+    volumes:
+      - ./backend:/app
+      - backend_logs:/app/logs
+      - backend_venv:/app/.venv
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - gene_curator_network
+    command: ["/app/.venv/bin/python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # Redis for caching (optional for production)
+  redis:
+    image: redis:7-alpine
+    container_name: gene_curator_cache
+    # ports:
+    #   - "6379:6379"  # Port mapping defined in docker-compose.dev.yml for development
+    volumes:
+      - redis_data:/data
+    networks:
+      - gene_curator_network
+    command: redis-server --appendonly yes
+
+  # Vue 3 + Vite Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: gene_curator_ui
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8001}
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - gene_curator_network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  backend_logs:
+    driver: local
+  backend_venv:
+    driver: local
+
+networks:
+  gene_curator_network:
+    driver: bridge

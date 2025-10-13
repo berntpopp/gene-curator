@@ -1,0 +1,35 @@
+# Dependencies
+node_modules/
+package-lock.json
+yarn.lock
+
+# Build outputs
+dist/
+.output/
+.nuxt/
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+coverage/
+
+# Config files
+*.config.js
+*.config.ts
+
+# Auto-generated files
+.eslintcache
+*.tsbuildinfo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+
+# Git
+.git/

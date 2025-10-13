@@ -1,0 +1,9 @@
+# ClinGen Document Downloader Dependencies
+
+# Web scraping and HTTP
+requests>=2.31.0
+beautifulsoup4>=4.12.0
+
+# PDF processing
+PyPDF2>=3.0.0
+pdfplumber>=0.9.0

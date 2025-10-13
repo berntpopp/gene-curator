@@ -21,11 +21,4 @@ pnpm-debug.log*
 *.njsproj
 *.sln
 *.sw?
-
-# claude files and folders
-.claude/
-CLAUDE.md
-
-# planning files
-plan/
-PLAN.md
+backups/

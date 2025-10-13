@@ -1,0 +1,105 @@
+# ═══════════════════════════════════════════════════════════════
+# Gene Curator - Development Environment Overrides
+# ═══════════════════════════════════════════════════════════════
+#
+# This file extends docker-compose.yml with development-specific
+# configurations including non-standard ports to avoid conflicts.
+#
+# Usage:
+#   docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Or use Makefile:
+#   make dev        # Full Docker mode
+#   make hybrid-up  # Hybrid mode (DB in Docker, API/Frontend local)
+#
+# ═══════════════════════════════════════════════════════════════
+
+services:
+  # ───────────────────────────────────────────────────────────────
+  # PostgreSQL Database (Development)
+  # ───────────────────────────────────────────────────────────────
+  postgres:
+    container_name: ${POSTGRES_CONTAINER:-gene_curator_postgres}
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-gene_curator_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-dev_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
+      POSTGRES_HOST_AUTH_METHOD: md5
+    ports:
+      - "${POSTGRES_PORT:-5454}:5432"  # Non-standard external port
+    volumes:
+      - ./database/sql:/docker-entrypoint-initdb.d
+      - ./database/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      - dev_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dev_user} -d ${POSTGRES_DB:-gene_curator_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ───────────────────────────────────────────────────────────────
+  # FastAPI Backend (Development)
+  # ───────────────────────────────────────────────────────────────
+  backend:
+    container_name: ${BACKEND_CONTAINER:-gene_curator_backend}
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://dev_user:dev_password@postgres:5432/gene_curator_dev}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      DEBUG: ${DEBUG:-true}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+      SECRET_KEY: ${SECRET_KEY:-dev_secret_key_change_in_production}
+      ALGORITHM: ${ALGORITHM:-HS256}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["http://localhost:3051","http://localhost:5193"]}
+    ports:
+      - "${BACKEND_PORT:-8051}:8000"  # Non-standard external port
+    volumes:
+      - ./backend:/app
+      - backend_uv_cache:/root/.cache/uv
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+  # ───────────────────────────────────────────────────────────────
+  # Vue 3 + Vite Frontend (Development)
+  # ───────────────────────────────────────────────────────────────
+  frontend:
+    container_name: ${FRONTEND_CONTAINER:-gene_curator_frontend}
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "${FRONTEND_PORT:-3051}:3000"  # Non-standard external port
+    environment:
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8051}
+      VITE_APP_TITLE: ${VITE_APP_TITLE:-Gene Curator (Dev)}
+      VITE_ENVIRONMENT: ${VITE_ENVIRONMENT:-development}
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules  # Anonymous volume for node_modules
+    depends_on:
+      - backend
+    command: npm run dev -- --host 0.0.0.0 --port 3000
+
+  # ───────────────────────────────────────────────────────────────
+  # Redis Cache (Development - Optional)
+  # ───────────────────────────────────────────────────────────────
+  redis:
+    container_name: ${REDIS_CONTAINER:-gene_curator_redis}
+    ports:
+      - "${REDIS_PORT:-6399}:6379"  # Non-standard external port
+
+# ───────────────────────────────────────────────────────────────
+# Development Volumes
+# ───────────────────────────────────────────────────────────────
+volumes:
+  dev_postgres_data:
+    driver: local
+  backend_uv_cache:
+    driver: local
