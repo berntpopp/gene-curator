@@ -1,5 +1,7 @@
 """
 FastAPI main application entry point.
+
+Enhanced with YAML-based configuration and constants for better maintainability.
 """
 
 import time
@@ -9,7 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.v1.api import api_router
+from app.core.api_config import get_cors_config, get_feature_flags
 from app.core.config import settings
+from app.core.constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
 from app.core.logging import configure_logging, get_logger
 from app.middleware import LoggingMiddleware
 
@@ -21,27 +25,46 @@ configure_logging(
 )
 logger = get_logger(__name__)
 
-# Create FastAPI application
+# Load feature flags
+feature_flags = get_feature_flags()
+
+# Create FastAPI application with configurable documentation URLs
 app = FastAPI(
-    title="Gene Curator API",
-    description="ClinGen-compliant genetic curation platform backend",
-    version="2.0.0",
-    docs_url="/docs" if settings.ENVIRONMENT == "development" else None,
-    redoc_url="/redoc" if settings.ENVIRONMENT == "development" else None,
-    openapi_url="/openapi.json" if settings.ENVIRONMENT == "development" else None,
+    title=APP_NAME,
+    description=APP_DESCRIPTION,
+    version=APP_VERSION,
+    docs_url=(
+        "/docs"
+        if settings.ENVIRONMENT == "development"
+        or feature_flags.enable_docs_in_production
+        else None
+    ),
+    redoc_url=(
+        "/redoc"
+        if settings.ENVIRONMENT == "development"
+        or feature_flags.enable_docs_in_production
+        else None
+    ),
+    openapi_url=(
+        "/openapi.json"
+        if settings.ENVIRONMENT == "development"
+        or feature_flags.enable_docs_in_production
+        else None
+    ),
 )
 
+# Load CORS configuration from YAML
+cors_config = get_cors_config()
+
 # Add CORS middleware (first, so it wraps all responses including errors)
+# Configuration is now loaded from config/api.yaml
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
-    allow_credentials=False,  # Changed to False to fix CORS
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-    allow_headers=["*"],
-    expose_headers=[
-        "X-Request-ID",
-        "X-Process-Time",
-    ],  # Expose correlation ID and timing headers
+    allow_origins=cors_config.allow_origins,
+    allow_credentials=cors_config.allow_credentials,
+    allow_methods=cors_config.allow_methods,
+    allow_headers=cors_config.allow_headers,
+    expose_headers=cors_config.expose_headers,
 )
 
 # Add logging middleware (second, to capture all requests after CORS)
@@ -57,12 +80,17 @@ app.include_router(api_router, prefix="/api/v1")
 async def root():
     """Root endpoint providing API information."""
     return {
-        "name": "Gene Curator API",
-        "version": "2.0.0",
-        "description": "ClinGen-compliant genetic curation platform backend",
+        "name": APP_NAME,
+        "version": APP_VERSION,
+        "description": APP_DESCRIPTION,
         "environment": settings.ENVIRONMENT,
         "clingen_sop_version": settings.CLINGEN_SOP_VERSION,
-        "docs_url": "/docs" if settings.ENVIRONMENT == "development" else None,
+        "docs_url": (
+            "/docs"
+            if settings.ENVIRONMENT == "development"
+            or feature_flags.enable_docs_in_production
+            else None
+        ),
     }
 
 
@@ -88,7 +116,7 @@ async def health_check():
         "timestamp": time.time(),
         "database": db_status,
         "environment": settings.ENVIRONMENT,
-        "version": "2.0.0",
+        "version": APP_VERSION,
     }
 
 

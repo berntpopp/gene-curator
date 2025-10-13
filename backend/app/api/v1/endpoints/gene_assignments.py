@@ -5,10 +5,16 @@ Manages the assignment of genes to clinical specialties and curators.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.constants import (
+    ASSIGNMENTS_DEFAULT_LIMIT,
+    ASSIGNMENTS_MAX_LIMIT,
+    DEFAULT_SKIP,
+    MAX_OVERVIEW_LIMIT,
+)
 from app.crud.gene_assignment import gene_assignment_crud
 from app.models import UserNew
 from app.schemas.gene_assignment import (
@@ -39,8 +45,10 @@ router = APIRouter()
 @router.get("/", response_model=GeneScopeAssignmentListResponse)
 def get_gene_assignments(
     db: Session = Depends(deps.get_db),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of records"),
+    skip: int = Query(DEFAULT_SKIP, ge=0, description="Number of records to skip"),
+    limit: int = Query(
+        ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT, description="Maximum number of records"
+    ),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
     gene_id: UUID | None = Query(None, description="Filter by gene"),
@@ -54,13 +62,17 @@ def get_gene_assignments(
     """
     # Check user permissions
     if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Regular users can only see assignments in their scopes
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
 
     # Get assignments with filtering
     if is_active:
@@ -123,14 +135,16 @@ def create_gene_assignment(
     Create new gene-scope assignment. Requires curator or admin privileges.
     """
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Check if user has access to the target scope
     if current_user.role not in ["admin"]:
         user_scope_ids = current_user.assigned_scopes or []
         if assignment_in.scope_id not in user_scope_ids:
             raise HTTPException(
-                status_code=403, detail="Not enough permissions for this scope"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions for this scope"
             )
 
     try:
@@ -139,7 +153,7 @@ def create_gene_assignment(
         )
         return assignment
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/{assignment_id}", response_model=GeneScopeAssignmentWithDetails)
@@ -154,13 +168,13 @@ def get_gene_assignment(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     # Check user permissions
     if current_user.role not in ["admin"] and assignment.scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Convert to detailed format (would need JOIN queries in real implementation)
     detailed_assignment = GeneScopeAssignmentWithDetails(
@@ -190,16 +204,16 @@ def update_gene_assignment(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Check scope access
     if current_user.role not in ["admin"] and assignment.scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     assignment = gene_assignment_crud.update(
         db, db_obj=assignment, obj_in=assignment_in
@@ -220,10 +234,10 @@ def deactivate_gene_assignment(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     try:
         gene_assignment_crud.deactivate_assignment(
@@ -234,7 +248,7 @@ def deactivate_gene_assignment(
         )
         return {"message": "Assignment deactivated successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post("/{assignment_id}/reactivate")
@@ -249,10 +263,10 @@ def reactivate_gene_assignment(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     gene_assignment_crud.reactivate_assignment(
         db, assignment_id=assignment_id, reactivated_by=current_user.id
@@ -272,13 +286,13 @@ def get_assignment_statistics(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     # Check permissions
     if current_user.role not in ["admin"] and assignment.scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     statistics = gene_assignment_crud.get_assignment_statistics(
         db, assignment_id=assignment_id
@@ -302,14 +316,14 @@ def bulk_create_gene_assignments(
     Bulk create gene-scope assignments. Requires curator or admin privileges.
     """
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Check scope access
     if current_user.role not in ["admin"]:
         user_scope_ids = current_user.assigned_scopes or []
         if bulk_request.scope_id not in user_scope_ids:
             raise HTTPException(
-                status_code=403, detail="Not enough permissions for this scope"
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions for this scope"
             )
 
     result = gene_assignment_crud.bulk_assign_genes(
@@ -341,16 +355,16 @@ def assign_curator_to_gene(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Check scope access
     if current_user.role not in ["admin"] and assignment.scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     try:
         gene_assignment_crud.assign_curator(
@@ -361,7 +375,7 @@ def assign_curator_to_gene(
         )
         return {"message": "Curator assigned successfully"}
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.post("/{assignment_id}/unassign-curator")
@@ -376,16 +390,16 @@ def unassign_curator_from_gene(
     """
     assignment = gene_assignment_crud.get(db, id=assignment_id)
     if not assignment:
-        raise HTTPException(status_code=404, detail="Assignment not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found")
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     # Check scope access
     if current_user.role not in ["admin"] and assignment.scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     gene_assignment_crud.unassign_curator(
         db, assignment_id=assignment_id, unassigned_by=current_user.id
@@ -409,7 +423,7 @@ def get_curator_workload(
         current_user.role not in ["admin", "scope_admin"]
         and current_user.id != curator_id
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     workload = gene_assignment_crud.get_curator_workload(
         db, curator_id=curator_id, scope_id=scope_id
@@ -424,8 +438,8 @@ def get_curator_assignments(
     *,
     db: Session = Depends(deps.get_db),
     curator_id: UUID,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    skip: int = Query(DEFAULT_SKIP, ge=0),
+    limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
     scope_id: UUID | None = Query(None, description="Filter by specific scope"),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> list[GeneScopeAssignmentSummary]:
@@ -437,7 +451,7 @@ def get_curator_assignments(
         current_user.role not in ["admin", "scope_admin"]
         and current_user.id != curator_id
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     assignments = gene_assignment_crud.get_curator_assignments(
         db, curator_id=curator_id, skip=skip, limit=limit, scope_id=scope_id
@@ -477,8 +491,8 @@ def get_scope_assignments(
     *,
     db: Session = Depends(deps.get_db),
     scope_id: UUID,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    skip: int = Query(DEFAULT_SKIP, ge=0),
+    limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
     include_inactive: bool = Query(False, description="Include inactive assignments"),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> list[GeneScopeAssignmentSummary]:
@@ -489,7 +503,7 @@ def get_scope_assignments(
     if current_user.role not in ["admin"] and scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     assignments = gene_assignment_crud.get_scope_assignments(
         db, scope_id=scope_id, skip=skip, limit=limit, include_inactive=include_inactive
@@ -524,8 +538,8 @@ def get_available_genes_for_scope(
     *,
     db: Session = Depends(deps.get_db),
     scope_id: UUID,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    skip: int = Query(DEFAULT_SKIP, ge=0),
+    limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> list[AvailableGene]:
     """
@@ -535,7 +549,7 @@ def get_available_genes_for_scope(
     if current_user.role not in ["admin"] and scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     available_genes_data = gene_assignment_crud.get_unassigned_genes(
         db, scope_id=scope_id, skip=skip, limit=limit
@@ -569,10 +583,10 @@ def get_scope_assignment_overview(
     if current_user.role not in ["admin"] and scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions")
 
     assignments = gene_assignment_crud.get_scope_assignments(
-        db, scope_id=scope_id, skip=0, limit=10000, include_inactive=False
+        db, scope_id=scope_id, skip=DEFAULT_SKIP, limit=MAX_OVERVIEW_LIMIT, include_inactive=False
     )
 
     # Calculate overview statistics

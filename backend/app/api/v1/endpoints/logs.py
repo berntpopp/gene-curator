@@ -4,6 +4,8 @@ System logs API endpoints for monitoring and debugging.
 These endpoints provide access to system logs with request correlation,
 statistics, and export capabilities. Access is restricted to admin and
 reviewer roles.
+
+Enhanced with configuration management to eliminate hardcoded values.
 """
 
 import csv
@@ -16,6 +18,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.api_config import get_logging_config
+from app.core.constants import (
+    EXPORT_FORMAT_CSV,
+    EXPORT_FORMAT_JSON,
+    VALID_EXPORT_FORMATS,
+)
 from app.core.deps import get_current_active_user, get_db
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
@@ -86,7 +94,7 @@ async def search_logs(
     ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
-        100, ge=1, le=1000, description="Maximum number of records to return"
+        None, ge=1, description="Maximum number of records to return"
     ),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
@@ -105,10 +113,20 @@ async def search_logs(
     - Specific user's activity: `?user_id=uuid`
     - Time range: `?start_date=2025-01-15T00:00:00Z&end_date=2025-01-15T23:59:59Z`
     """
+    # Load pagination config from YAML
+    logging_config = get_logging_config()
+
+    # Use configured default if limit not specified
+    effective_limit = limit if limit is not None else logging_config.max_export_limit
+
+    # Enforce maximum limit
+    if effective_limit > logging_config.max_export_limit:
+        effective_limit = logging_config.max_export_limit
+
     logs = await crud_logs.get_logs(
         db=db,
         skip=skip,
-        limit=limit,
+        limit=effective_limit,
         level=level,
         logger_name=logger_name,
         message=message,
@@ -196,10 +214,8 @@ async def get_log_statistics(
 
 @router.get("/recent-errors", response_model=list[LogEntry])
 async def get_recent_errors(
-    limit: int = Query(
-        20, ge=1, le=100, description="Maximum number of errors to return"
-    ),
-    hours: int = Query(24, ge=1, le=168, description="Time window in hours"),
+    limit: int | None = Query(None, ge=1, description="Maximum number of errors to return"),
+    hours: int | None = Query(None, ge=1, description="Time window in hours"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
@@ -213,19 +229,36 @@ async def get_recent_errors(
 
     **Use case:** Quick triage of recent system errors.
     """
-    logs = await crud_logs.get_recent_errors(db=db, limit=limit, hours=hours)
+    # Load configuration
+    logging_config = get_logging_config()
+
+    # Use configured defaults if not specified
+    effective_limit = limit if limit is not None else logging_config.recent_errors_default_limit
+    effective_hours = hours if hours is not None else logging_config.default_time_window_hours
+
+    # Enforce maximum limits
+    if effective_limit > logging_config.recent_errors_max_limit:
+        effective_limit = logging_config.recent_errors_max_limit
+
+    if effective_hours > logging_config.max_time_window_hours:
+        effective_hours = logging_config.max_time_window_hours
+
+    logs = await crud_logs.get_recent_errors(
+        db=db, limit=effective_limit, hours=effective_hours
+    )
     return logs
 
 
 @router.get("/export")
 async def export_logs(
     format: str = Query(
-        "json", regex="^(json|csv)$", description="Export format (json or csv)"
+        EXPORT_FORMAT_JSON,
+        description=f"Export format ({', '.join(VALID_EXPORT_FORMATS)})",
     ),
     level: str | None = Query(None, description="Filter by log level"),
     start_date: datetime | None = Query(None, description="Start date (inclusive)"),
     end_date: datetime | None = Query(None, description="End date (inclusive)"),
-    limit: int = Query(10000, ge=1, le=100000, description="Maximum records to export"),
+    limit: int | None = Query(None, ge=1, description="Maximum records to export"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin),
 ) -> Any:
@@ -240,15 +273,32 @@ async def export_logs(
 
     **Use case:** Export logs for external analysis, archival, or reporting.
     """
+    # Validate export format
+    if format not in VALID_EXPORT_FORMATS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid format. Must be one of: {', '.join(VALID_EXPORT_FORMATS)}",
+        )
+
+    # Load configuration
+    logging_config = get_logging_config()
+
+    # Use configured default if limit not specified
+    effective_limit = limit if limit is not None else logging_config.max_export_limit
+
+    # Enforce maximum limit
+    if effective_limit > logging_config.max_export_limit:
+        effective_limit = logging_config.max_export_limit
+
     logs = await crud_logs.get_logs_for_export(
         db=db,
         level=level,
         start_date=start_date,
         end_date=end_date,
-        limit=limit,
+        limit=effective_limit,
     )
 
-    if format == "json":
+    if format == EXPORT_FORMAT_JSON:
         # Export as JSON
         log_dicts = []
         for log in logs:
@@ -281,7 +331,7 @@ async def export_logs(
             },
         )
 
-    elif format == "csv":
+    elif format == EXPORT_FORMAT_CSV:
         # Export as CSV
         output = io.StringIO()
         fieldnames = [
@@ -334,7 +384,7 @@ async def export_logs(
 
 @router.delete("/cleanup")
 async def cleanup_old_logs(
-    days: int = Query(90, ge=30, le=365, description="Retention period in days"),
+    days: int | None = Query(None, description="Retention period in days"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin),
 ) -> Any:
@@ -346,12 +396,31 @@ async def cleanup_old_logs(
 
     **Required Role:** Admin only
 
-    **Default retention:** 90 days (configurable 30-365 days)
+    **Default retention:** Configured in api.yaml (default: 90 days)
 
     **Use case:** Periodic maintenance to manage database size.
 
     **Warning:** This operation is irreversible and will permanently
     delete old log partitions.
     """
-    result = await crud_logs.cleanup_old_partitions(db=db, days=days)
+    # Load configuration
+    logging_config = get_logging_config()
+
+    # Use configured default if not specified
+    effective_days = days if days is not None else logging_config.retention_days
+
+    # Enforce retention limits
+    if effective_days < logging_config.min_retention_days:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Retention period must be at least {logging_config.min_retention_days} days",
+        )
+
+    if effective_days > logging_config.max_retention_days:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Retention period cannot exceed {logging_config.max_retention_days} days",
+        )
+
+    result = await crud_logs.cleanup_old_partitions(db=db, days=effective_days)
     return result

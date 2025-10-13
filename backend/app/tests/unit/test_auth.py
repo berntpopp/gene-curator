@@ -4,15 +4,16 @@ Unit tests for authentication functionality.
 Tests password hashing, verification, token generation, and authentication logic.
 """
 
-import pytest
 from datetime import timedelta
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from app.core.security import (
-    get_password_hash,
-    verify_password,
     create_access_token,
     create_refresh_token,
+    get_password_hash,
+    verify_password,
     verify_token,
 )
 from app.crud.user import user_crud

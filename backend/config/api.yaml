@@ -1,0 +1,277 @@
+# Gene Curator API Configuration
+#
+# This YAML file contains API-level configuration for deployment-specific settings.
+# Override values with environment variables: GENE_CURATOR_API__<key>
+#
+# NOTE: This file handles ONLY API/deployment configuration.
+# DO NOT put workflow/schema configuration here - that belongs in the schema repository!
+#
+# For more information, see: docs/enhancements/006-simple-api-configuration.md
+
+api:
+  # ========================================
+  # CORS Configuration
+  # ========================================
+  # Cross-Origin Resource Sharing settings for frontend access
+  cors:
+    # Allowed origins (frontend URLs)
+    # Non-standard ports used to avoid conflicts with other applications
+    allow_origins:
+      - "http://localhost:3051"   # Frontend Docker container
+      - "http://localhost:5193"   # Vite dev server (non-standard port)
+      - "http://localhost:8051"   # Backend API (non-standard port)
+
+    # Allow credentials (cookies, authorization headers)
+    allow_credentials: false
+
+    # Allowed HTTP methods
+    allow_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+      - "PATCH"
+      - "OPTIONS"
+
+    # Allowed headers
+    allow_headers:
+      - "*"
+
+    # Exposed headers (visible to frontend)
+    expose_headers:
+      - "X-Request-ID"
+      - "X-Process-Time"
+
+  # ========================================
+  # Rate Limiting Configuration
+  # ========================================
+  # Control API usage to prevent abuse and ensure fair access
+  rate_limits:
+    # Default rate limit for unauthenticated users
+    default:
+      requests_per_minute: 60
+      burst_size: 10
+
+    # Rate limit for authenticated users
+    authenticated:
+      requests_per_minute: 300
+      burst_size: 50
+
+    # Rate limit for curator/reviewer users
+    curator:
+      requests_per_minute: 500
+      burst_size: 75
+
+    # Rate limit for admin users
+    admin:
+      requests_per_minute: 1000
+      burst_size: 100
+
+  # ========================================
+  # Timeout Configuration
+  # ========================================
+  # Request and operation timeout settings
+  timeouts:
+    # Default timeout for standard API requests (seconds)
+    default_seconds: 30
+
+    # Timeout for long-running operations like bulk imports (seconds)
+    long_running_seconds: 300
+
+    # Timeout for external API calls (HGNC lookups, etc.) (seconds)
+    external_api_seconds: 10
+
+    # Database query timeout (seconds)
+    database_query_seconds: 30
+
+    # File upload timeout (seconds)
+    file_upload_seconds: 60
+
+  # ========================================
+  # Pagination Configuration
+  # ========================================
+  # Control how list endpoints return data
+  pagination:
+    # Default number of items per page
+    default_page_size: 50
+
+    # Maximum items that can be requested per page
+    max_page_size: 1000
+
+    # Minimum items per page
+    min_page_size: 1
+
+    # Resource-specific defaults
+    genes:
+      default: 100
+      max: 500
+
+    logs:
+      default: 100
+      max: 1000
+
+    search:
+      default: 50
+      max: 500
+
+  # ========================================
+  # File Upload Configuration
+  # ========================================
+  # Settings for file upload endpoints
+  uploads:
+    # Maximum file size in megabytes
+    max_file_size_mb: 10
+
+    # Allowed file extensions
+    allowed_extensions:
+      - ".xlsx"
+      - ".csv"
+      - ".json"
+
+    # Upload directory (relative to backend root)
+    upload_dir: "./uploads"
+
+    # Whether to validate file content (not just extension)
+    validate_content: true
+
+    # Maximum filename length
+    max_filename_length: 255
+
+  # ========================================
+  # Logging Configuration
+  # ========================================
+  # System logging settings
+  logging:
+    # Log retention period (days)
+    retention_days: 90
+
+    # Minimum retention (days)
+    min_retention_days: 30
+
+    # Maximum retention (days)
+    max_retention_days: 365
+
+    # Default time window for log queries (hours)
+    default_time_window_hours: 24
+
+    # Maximum time window for log queries (hours)
+    max_time_window_hours: 168
+
+    # Maximum logs to export
+    max_export_limit: 100000
+
+    # Recent errors default limit
+    recent_errors_default_limit: 20
+
+    # Recent errors max limit
+    recent_errors_max_limit: 100
+
+  # ========================================
+  # Database Configuration
+  # ========================================
+  # Database connection pool and performance settings
+  database:
+    # Connection pool size
+    pool_size: 5
+
+    # Maximum overflow connections
+    max_overflow: 10
+
+    # Pool timeout (seconds)
+    pool_timeout: 30
+
+    # Pool recycle time (seconds) - 1 hour
+    pool_recycle: 3600
+
+    # Echo SQL queries (debug only)
+    echo: false
+
+  # ========================================
+  # Security Configuration
+  # ========================================
+  # Security-related settings
+  security:
+    # JWT token expiration times
+    access_token_expire_minutes: 30
+    refresh_token_expire_days: 7
+
+    # Password requirements
+    min_password_length: 8
+    max_password_length: 128
+
+    # Session settings
+    session_timeout_minutes: 60
+    max_concurrent_sessions: 5
+
+  # ========================================
+  # Bulk Operations Configuration
+  # ========================================
+  # Settings for bulk data operations
+  bulk_operations:
+    # Maximum genes in a single bulk create
+    max_genes_create: 1000
+
+    # Default batch size for bulk operations
+    default_batch_size: 100
+
+    # Enable parallel processing
+    enable_parallel: true
+
+    # Number of parallel workers
+    parallel_workers: 4
+
+  # ========================================
+  # External API Configuration
+  # ========================================
+  # Settings for external service integrations
+  external_apis:
+    # HGNC API settings
+    hgnc:
+      base_url: "https://rest.genenames.org"
+      timeout_seconds: 10
+      retry_attempts: 3
+      retry_delay_seconds: 1
+
+    # Enable external API calls
+    enabled: true
+
+    # Cache external API responses
+    cache_enabled: true
+    cache_ttl_seconds: 3600
+
+  # ========================================
+  # Performance Monitoring
+  # ========================================
+  # Performance tracking and monitoring
+  performance:
+    # Enable performance monitoring
+    enabled: true
+
+    # Slow operation warning threshold (milliseconds)
+    slow_operation_threshold_ms: 1000
+
+    # Track database query performance
+    track_db_queries: true
+
+    # Track external API call performance
+    track_external_apis: true
+
+  # ========================================
+  # Feature Flags
+  # ========================================
+  # Toggle features on/off without code changes
+  features:
+    # Enable API documentation in production
+    enable_docs_in_production: false
+
+    # Enable debug endpoints
+    enable_debug_endpoints: false
+
+    # Enable experimental features
+    enable_experimental: false
+
+    # Enable rate limiting
+    enable_rate_limiting: false
+
+    # Enable request correlation tracking
+    enable_request_correlation: true

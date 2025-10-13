@@ -5,10 +5,19 @@ Manages genes within the new scope-based architecture.
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.constants import (
+    DEFAULT_GENE_SORT_FIELD,
+    DEFAULT_SEARCH_LIMIT,
+    DEFAULT_SKIP,
+    DEFAULT_SORT_ORDER,
+    GENES_DEFAULT_LIMIT,
+    GENES_MAX_LIMIT,
+    VALID_CHROMOSOMES,
+)
 from app.core.logging import api_endpoint
 from app.crud.gene_new import gene_new_crud
 from app.models import UserNew
@@ -43,15 +52,17 @@ router = APIRouter()
 @api_endpoint()
 def get_genes(
     db: Session = Depends(deps.get_db),
-    skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(100, ge=1, le=500, description="Maximum number of records"),
+    skip: int = Query(DEFAULT_SKIP, ge=0, description="Number of records to skip"),
+    limit: int = Query(
+        GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT, description="Maximum number of records"
+    ),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     assigned_only: bool = Query(False, description="Only show assigned genes"),
     has_active_work: bool | None = Query(
         None, description="Filter by active work status"
     ),
-    sort_by: str = Query("approved_symbol", description="Field to sort by"),
-    sort_order: str = Query("asc", description="Sort order"),
+    sort_by: str = Query(DEFAULT_GENE_SORT_FIELD, description="Field to sort by"),
+    sort_order: str = Query(DEFAULT_SORT_ORDER, description="Sort order"),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneNewListResponse:
     """
@@ -59,13 +70,17 @@ def get_genes(
     """
     # Check user permissions
     if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Regular users can only see genes in their scopes
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
 
     if scope_id:
         genes = gene_new_crud.get_genes_for_scope(
@@ -121,7 +136,9 @@ def create_gene(
     Create new gene. Requires curator or admin privileges.
     """
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     try:
         gene = gene_new_crud.create_with_owner(
@@ -129,7 +146,7 @@ def create_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.get("/search", response_model=list[GeneNewSummary])
@@ -143,10 +160,10 @@ def search_genes(
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     assigned_only: bool = Query(False, description="Only assigned genes"),
     has_active_work: bool | None = Query(None, description="Filter by active work"),
-    skip: int = Query(0, ge=0),
-    limit: int = Query(50, ge=1, le=500),
-    sort_by: str = Query("approved_symbol"),
-    sort_order: str = Query("asc"),
+    skip: int = Query(DEFAULT_SKIP, ge=0),
+    limit: int = Query(GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT),
+    sort_by: str = Query(DEFAULT_GENE_SORT_FIELD),
+    sort_order: str = Query(DEFAULT_SORT_ORDER),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> list[GeneNewSummary]:
     """
@@ -156,7 +173,9 @@ def search_genes(
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
 
     search_params = GeneSearchQuery(
         query=query,
@@ -213,7 +232,9 @@ def get_gene_statistics(
         if current_user.role not in ["admin"]:
             user_scope_ids = current_user.assigned_scopes or []
             if scope_id not in user_scope_ids:
-                raise HTTPException(status_code=403, detail="Not enough permissions")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+                )
     elif scope_id and not current_user:
         # If scope is specified but user is not authenticated, ignore scope filter
         scope_id = None
@@ -234,7 +255,7 @@ def get_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     # Get assignment status
     assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
@@ -263,10 +284,12 @@ def update_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     try:
         gene = gene_new_crud.update_with_owner(
@@ -274,7 +297,7 @@ def update_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
 
 
 @router.delete("/{gene_id}")
@@ -289,22 +312,26 @@ def delete_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     if current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Check if gene has assignments or active work
     assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
     if assignment_status["is_assigned_to_any_scope"]:
         raise HTTPException(
-            status_code=400, detail="Cannot delete gene with active assignments"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete gene with active assignments",
         )
 
     progress = gene_new_crud.get_gene_curation_progress(db, gene_id=gene_id)
     if progress["has_active_work"]:
         raise HTTPException(
-            status_code=400, detail="Cannot delete gene with active curation work"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete gene with active curation work",
         )
 
     gene_new_crud.remove(db, id=gene_id)
@@ -328,7 +355,7 @@ def get_gene_assignments(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
     return GeneAssignmentStatus(**assignment_status)
@@ -347,13 +374,15 @@ def get_gene_curation_progress(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     # Check scope permissions
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            )
 
     progress = gene_new_crud.get_gene_curation_progress(
         db, gene_id=gene_id, scope_id=scope_id
@@ -378,7 +407,9 @@ def bulk_create_genes(
     Bulk create genes. Requires curator or admin privileges.
     """
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     result = gene_new_crud.bulk_create(
         db,
@@ -400,8 +431,8 @@ def get_scope_genes(
     *,
     db: Session = Depends(deps.get_db),
     scope_id: UUID,
-    skip: int = Query(0, ge=0),
-    limit: int = Query(100, ge=1, le=500),
+    skip: int = Query(DEFAULT_SKIP, ge=0),
+    limit: int = Query(GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT),
     assigned_only: bool = Query(False, description="Only show assigned genes"),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ScopeGeneListResponse:
@@ -412,7 +443,9 @@ def get_scope_genes(
     if current_user.role not in ["admin"] and scope_id not in (
         current_user.assigned_scopes or []
     ):
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Get scope information (would need proper scope lookup in real implementation)
     scope_name = "Unknown Scope"  # Would be populated from scope lookup
@@ -481,10 +514,12 @@ def validate_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Basic validation implementation
     # In a real system, this would validate against HGNC API
@@ -500,11 +535,7 @@ def validate_gene(
         errors.append("Missing approved symbol")
 
     # Check for common issues
-    if gene.chromosome and gene.chromosome not in [str(i) for i in range(1, 23)] + [
-        "X",
-        "Y",
-        "M",
-    ]:
+    if gene.chromosome and gene.chromosome not in VALID_CHROMOSOMES:
         warnings.append(f"Unusual chromosome designation: {gene.chromosome}")
 
     if not gene.location:
@@ -532,7 +563,7 @@ def get_gene_by_hgnc_id(
     """
     gene = gene_new_crud.get_by_hgnc_id(db, hgnc_id=hgnc_id)
     if not gene:
-        raise HTTPException(status_code=404, detail="Gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
 
     return gene
 
@@ -549,7 +580,7 @@ def get_genes_by_symbol(
     """
     # In a real implementation, this would do a more sophisticated search
     genes = gene_new_crud.search(
-        db, search_params=GeneSearchQuery(query=symbol, limit=10)
+        db, search_params=GeneSearchQuery(query=symbol, limit=DEFAULT_SEARCH_LIMIT)
     )
     return genes
 
@@ -570,12 +601,14 @@ def merge_genes(
     Merge duplicate genes. Requires admin privileges.
     """
     if current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Basic implementation - in a real system this would be much more sophisticated
     primary_gene = gene_new_crud.get(db, id=merge_request.primary_gene_id)
     if not primary_gene:
-        raise HTTPException(status_code=404, detail="Primary gene not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Primary gene not found")
 
     # This would need a comprehensive merge implementation
     warnings = ["Gene merge functionality is not fully implemented"]

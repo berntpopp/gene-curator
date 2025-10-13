@@ -913,6 +913,236 @@ frontend/src/
 - All 6 critical bugs fixed (memory leak, race condition, browser compatibility, etc.)
 - Production-ready with comprehensive testing
 
+### Configuration Management (ALWAYS USE)
+
+Gene Curator uses a modern, three-tier configuration system that eliminates hardcoded values and follows DRY, KISS, and SOLID principles.
+
+**Three-Tier Architecture**:
+1. **Constants** (`app/core/constants.py`): Immutable application-wide values
+2. **Environment Settings** (`app/core/config.py`): Environment-specific config from `.env`
+3. **API Configuration** (`backend/config/api.yaml`): Deployment-specific API settings
+
+**✅ Design Principles**:
+- **DRY** (Don't Repeat Yourself): Single source of truth for all configuration
+- **KISS** (Keep It Simple): Simple YAML format, no complex logic
+- **SOLID**: Separation of concerns, modular design
+- **Type Safety**: Pydantic validation for all configuration values
+- **Environment Overrides**: YAML defaults can be overridden via env vars
+- **Immutability**: Configuration loaded once and cached
+
+#### Using Constants (Most Common)
+
+For application-wide magic numbers and strings:
+
+```python
+from app.core.constants import (
+    DEFAULT_PAGE_SIZE,
+    MAX_PAGE_SIZE,
+    LOGS_DEFAULT_LIMIT,
+    LOGS_MAX_LIMIT,
+    HTTP_200_OK,
+    HTTP_404_NOT_FOUND,
+    APP_NAME,
+    APP_VERSION,
+)
+
+# Pagination in endpoints
+@router.get("/items")
+def list_items(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)
+):
+    ...
+
+# HTTP status codes
+return JSONResponse(status_code=HTTP_200_OK, content=data)
+```
+
+**Available Constants**:
+- Pagination: `DEFAULT_PAGE_SIZE`, `MAX_PAGE_SIZE`, `GENES_DEFAULT_LIMIT`
+- HTTP status codes: `HTTP_200_OK`, `HTTP_404_NOT_FOUND`, etc.
+- Timeouts: `DEFAULT_REQUEST_TIMEOUT_SECONDS`, `LONG_RUNNING_OPERATION_TIMEOUT_SECONDS`
+- File uploads: `MAX_FILE_SIZE_BYTES`, `ALLOWED_FILE_EXTENSIONS`
+- Logging: `LOG_RETENTION_DEFAULT_DAYS`, `LOGS_MAX_EXPORT_LIMIT`
+- Security: `ACCESS_TOKEN_EXPIRE_MINUTES`, `MIN_PASSWORD_LENGTH`
+- Application metadata: `APP_NAME`, `APP_VERSION`, `APP_DESCRIPTION`
+
+See full list: `backend/app/core/constants.py`
+
+#### Using API Configuration
+
+For deployment-specific settings that may vary per environment:
+
+```python
+from app.core.api_config import (
+    get_cors_config,
+    get_pagination_config,
+    get_logging_config,
+    get_rate_limit,
+    get_timeout_config,
+)
+
+# CORS configuration
+cors_config = get_cors_config()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_config.allow_origins,
+    allow_credentials=cors_config.allow_credentials,
+)
+
+# Pagination with configured limits
+@router.get("/logs")
+async def get_logs(limit: int | None = None):
+    logging_config = get_logging_config()
+    effective_limit = limit or logging_config.max_export_limit
+
+    # Enforce maximum
+    if effective_limit > logging_config.max_export_limit:
+        effective_limit = logging_config.max_export_limit
+    ...
+
+# Rate limiting
+rate_limit = get_rate_limit("admin")  # or "authenticated", "curator"
+apply_rate_limit(rate_limit.requests_per_minute, rate_limit.burst_size)
+```
+
+#### Configuration File Structure
+
+**`backend/config/api.yaml`** (see full file for details):
+
+```yaml
+api:
+  cors:
+    allow_origins:
+      - "http://localhost:3051"   # Frontend Docker
+      - "http://localhost:5193"   # Vite dev server
+    allow_credentials: false
+
+  rate_limits:
+    default: {requests_per_minute: 60, burst_size: 10}
+    authenticated: {requests_per_minute: 300, burst_size: 50}
+    curator: {requests_per_minute: 500, burst_size: 75}
+    admin: {requests_per_minute: 1000, burst_size: 100}
+
+  pagination:
+    default_page_size: 50
+    max_page_size: 1000
+    genes: {default: 100, max: 500}
+    logs: {default: 100, max: 1000}
+
+  logging:
+    retention_days: 90
+    max_export_limit: 100000
+
+  features:
+    enable_docs_in_production: false
+    enable_rate_limiting: false
+    enable_experimental: false
+```
+
+#### Environment Variable Overrides
+
+Override YAML values with environment variables:
+
+```bash
+# Format: GENE_CURATOR_API__<section>__<key>
+export GENE_CURATOR_API__CORS__ALLOW_ORIGINS='["https://production.example.com"]'
+export GENE_CURATOR_API__PAGINATION__DEFAULT_PAGE_SIZE=100
+export GENE_CURATOR_API__LOGGING__RETENTION_DAYS=120
+export GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING=true
+```
+
+#### When to Use Each Tier
+
+**Use Constants when:**
+- Value is truly application-wide and never changes
+- It's a magic number that needs a name (50, 100, 1000)
+- It's a standard value (HTTP status codes, algorithm names)
+- Example: `HTTP_404_NOT_FOUND`, `DEFAULT_PAGE_SIZE`
+
+**Use Environment Settings when:**
+- Value contains secrets (SECRET_KEY, DATABASE_URL)
+- Value changes per environment (ENVIRONMENT, DEBUG, LOG_LEVEL)
+- Core application configuration (not API-level)
+- Example: Database connection strings, JWT secrets
+
+**Use API Configuration when:**
+- Value is deployment-specific (CORS origins, rate limits)
+- Operations team needs to adjust without code changes
+- Multiple related values that form a logical group
+- Example: Pagination limits, timeout settings, feature flags
+
+#### Best Practices
+
+**DO:**
+- ✅ Import specific constants: `from app.core.constants import DEFAULT_PAGE_SIZE`
+- ✅ Use config accessors: `get_pagination_config()`, `get_cors_config()`
+- ✅ Validate configuration: All config uses Pydantic models
+- ✅ Document why a value is set: Add comments to YAML file
+- ✅ Use feature flags: Enable/disable features without deployment
+
+**DON'T:**
+- ❌ Hardcode magic numbers: Use constants instead
+- ❌ Import entire modules: `from app.core.constants import *`
+- ❌ Bypass config system: No `allow_origins=["http://localhost:3000"]`
+- ❌ Store secrets in YAML: Use environment variables
+- ❌ Put workflow/schema config in YAML: That's for the schema repository
+
+#### Migration Pattern
+
+When refactoring code to use configuration:
+
+```python
+# ❌ Before: Hardcoded values
+@router.get("/items")
+def list_items(limit: int = Query(100, ge=1, le=1000)):
+    ...
+
+# ✅ After: Using constants
+from app.core.constants import DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE
+
+@router.get("/items")
+def list_items(limit: int = Query(DEFAULT_PAGE_SIZE, ge=1, le=MAX_PAGE_SIZE)):
+    ...
+
+# ✅ After: Using API config (for configurable limits)
+from app.core.api_config import get_pagination_config
+
+@router.get("/items")
+def list_items(limit: int | None = Query(None)):
+    config = get_pagination_config()
+    effective_limit = limit or config.default_page_size
+    if effective_limit > config.max_page_size:
+        effective_limit = config.max_page_size
+    ...
+```
+
+#### Configuration Files Reference
+
+- **Constants**: `backend/app/core/constants.py` (~300 lines, immutable values)
+- **Settings**: `backend/app/core/config.py` (env-based settings with Pydantic)
+- **API Config Module**: `backend/app/core/api_config.py` (YAML loader + accessors)
+- **API Config File**: `backend/config/api.yaml` (deployment-specific settings)
+- **Tests**: `backend/app/tests/unit/test_api_config.py` (26 unit tests, all passing)
+- **Enhancement Doc**: `docs/enhancements/006-simple-api-configuration.md`
+
+#### Testing Configuration
+
+```bash
+# Run configuration unit tests
+cd backend
+uv run pytest app/tests/unit/test_api_config.py -v
+
+# Test with custom config file
+GENE_CURATOR_API__PAGINATION__DEFAULT_PAGE_SIZE=25 uv run pytest
+
+# Reload configuration in tests (clears cache)
+from app.core.api_config import reload_config
+config = reload_config()
+```
+
+**Key Architectural Decision**: This configuration system handles **API-level settings only**. Workflow, schema, and methodology configuration belongs in the **schema repository** (database). This maintains Gene Curator's schema-agnostic design.
+
 ### Package Management
 - **Backend**: Use `uv` (modern Python package manager) - faster than pip/poetry
 - **Frontend**: Use `npm` (standard Node.js package manager)
