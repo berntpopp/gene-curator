@@ -205,7 +205,7 @@ class UserNew(Base):
 
     # Relationships
     created_scopes: Mapped[list["Scope"]] = relationship(
-        "Scope", foreign_keys="[Scope.created_by]"
+        "Scope", foreign_keys="[Scope.created_by]", overlaps="creator"
     )
     created_schemas: Mapped[list["CurationSchema"]] = relationship(
         "CurationSchema", foreign_keys="[CurationSchema.created_by]"
@@ -387,7 +387,7 @@ class CurationSchema(Base):
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[created_by]
+        "UserNew", foreign_keys=[created_by], overlaps="created_schemas"
     )
     based_on_schema: Mapped["CurationSchema | None"] = relationship(
         "CurationSchema", remote_side=[id]
@@ -461,16 +461,16 @@ class WorkflowPair(Base):
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[created_by]
+        "UserNew", foreign_keys=[created_by], overlaps="created_workflow_pairs"
     )
     precuration_schema: Mapped["CurationSchema | None"] = relationship(
-        "CurationSchema", foreign_keys=[precuration_schema_id]
+        "CurationSchema", foreign_keys=[precuration_schema_id], overlaps="precuration_workflow_pairs"
     )
     curation_schema: Mapped["CurationSchema | None"] = relationship(
-        "CurationSchema", foreign_keys=[curation_schema_id]
+        "CurationSchema", foreign_keys=[curation_schema_id], overlaps="curation_workflow_pairs"
     )
     scope_defaults: Mapped[list["Scope"]] = relationship(
-        "Scope", foreign_keys="[Scope.default_workflow_pair_id]"
+        "Scope", foreign_keys="[Scope.default_workflow_pair_id]", overlaps="default_workflow_pair"
     )
     gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
         "GeneScopeAssignment", back_populates="workflow_pair"
@@ -534,7 +534,7 @@ class Gene(Base):
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[created_by]
+        "UserNew", foreign_keys=[created_by], overlaps="created_genes"
     )
     updater: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[updated_by]
@@ -615,7 +615,7 @@ class GeneScopeAssignment(Base):
     gene: Mapped["Gene"] = relationship("Gene", back_populates="scope_assignments")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="gene_assignments")
     assigned_curator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[assigned_curator_id]
+        "UserNew", foreign_keys=[assigned_curator_id], overlaps="curator_assignments"
     )
     assigner: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[assigned_by]
@@ -720,7 +720,7 @@ class PrecurationNew(Base):
         "CurationSchema", back_populates="precurations"
     )
     creator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[created_by]
+        "UserNew", foreign_keys=[created_by], overlaps="created_precurations"
     )
     updater: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[updated_by]
@@ -838,7 +838,7 @@ class CurationNew(Base):
         "WorkflowPair", back_populates="curations"
     )
     creator: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[created_by]
+        "UserNew", foreign_keys=[created_by], overlaps="created_curations"
     )
     updater: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[updated_by]
@@ -847,7 +847,7 @@ class CurationNew(Base):
         "UserNew", foreign_keys=[submitted_by]
     )
     approver: Mapped["UserNew | None"] = relationship(
-        "UserNew", foreign_keys=[approved_by]
+        "UserNew", foreign_keys=[approved_by], overlaps="approved_curations"
     )
     reviews: Mapped[list["Review"]] = relationship("Review", back_populates="curation")
     active_curation: Mapped["ActiveCuration | None"] = relationship(
@@ -920,7 +920,7 @@ class Review(Base):
     curation: Mapped["CurationNew"] = relationship(
         "CurationNew", back_populates="reviews"
     )
-    reviewer: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[reviewer_id])
+    reviewer: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[reviewer_id], overlaps="reviews_assigned")
     assigner: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[assigned_by]
     )

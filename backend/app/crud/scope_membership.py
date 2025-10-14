@@ -8,7 +8,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -103,8 +103,8 @@ class ScopeMembershipCRUD(
             user_id=obj_in.user_id,  # May be None for email invitations
             role=obj_in.role.value,
             invited_by=invited_by_id,
-            invited_at=datetime.utcnow(),
-            accepted_at=datetime.utcnow()
+            invited_at=datetime.now(UTC),
+            accepted_at=datetime.now(UTC)
             if obj_in.user_id
             else None,  # Auto-accept for existing users
             is_active=True,
@@ -187,7 +187,7 @@ class ScopeMembershipCRUD(
             raise ValueError("Invitation already accepted")
 
         # Accept invitation
-        membership.accepted_at = datetime.utcnow()
+        membership.accepted_at = datetime.now(UTC)
         db.commit()
         db.refresh(membership)
 

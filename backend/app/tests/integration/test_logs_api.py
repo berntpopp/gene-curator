@@ -10,7 +10,7 @@ Tests cover:
 - Error handling
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -194,7 +194,7 @@ def test_log_search_params_validation() -> None:
     assert params_default.limit == 100
 
     # Test with datetime
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     params_time = LogSearchParams(
         level=None,
         logger_name=None,

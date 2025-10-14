@@ -3,7 +3,7 @@ ClinGen Standard Operating Procedure v11 scoring engine.
 Implements evidence scoring per ClinGen SOP v11 requirements.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from .base import ScoringEngine, ScoringResult
@@ -86,7 +86,7 @@ class ClinGenEngine(ScoringEngine):
             metadata={
                 "sop_version": "v11",
                 "engine_version": self.version,
-                "calculated_at": datetime.utcnow().isoformat(),
+                "calculated_at": datetime.now(UTC).isoformat(),
                 "scope_context": scope_context or {},
             },
         )

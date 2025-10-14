@@ -3,7 +3,7 @@ GenCC-based gene-disease validity classification scoring engine.
 Implements GenCC framework for gene-disease association scoring.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from .base import ScoringEngine, ScoringResult
@@ -81,7 +81,7 @@ class GenCCEngine(ScoringEngine):
             metadata={
                 "guidelines": "GenCC_Based",
                 "engine_version": self.version,
-                "calculated_at": datetime.utcnow().isoformat(),
+                "calculated_at": datetime.now(UTC).isoformat(),
                 "scope_context": scope_context or {},
             },
         )

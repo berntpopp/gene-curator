@@ -3,7 +3,7 @@ Qualitative assessment engine for institution-specific curation methodologies.
 Provides qualitative scoring based on clinical and literature assessments.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from .base import ScoringEngine, ScoringResult
@@ -69,7 +69,7 @@ class QualitativeEngine(ScoringEngine):
             metadata={
                 "assessment_type": "qualitative",
                 "engine_version": self.version,
-                "calculated_at": datetime.utcnow().isoformat(),
+                "calculated_at": datetime.now(UTC).isoformat(),
                 "scope_context": scope_context or {},
             },
         )
