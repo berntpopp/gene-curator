@@ -150,7 +150,7 @@ Gene Curator uses a **schema-agnostic, scope-based architecture**:
 - **Multi-Stage Workflow**: Entry → Precuration → Curation → Review (4-eyes) → Active
 - **Pluggable Scoring**: ClinGen SOP v11, GenCC, Qualitative engines
 
-See `PLAN.md` for complete architecture details.
+See `docs/ARCHITECTURE.md` for complete architecture details.
 
 ## Common Tasks
 

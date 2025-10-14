@@ -95,7 +95,7 @@ Based on research of Anthropic's guidelines and Claude Code best practices:
 ## Files Modified
 
 1. `/CLAUDE.md` - Streamlined (53% smaller)
-2. `/PLAN.md` - Status updates
+2. `/PLAN.md` - Moved to `docs/archive/INITIAL_PLANNING_VISION.md` with historical note
 3. `/docs/README.md` - Date corrections
 4. `/docs/enhancements/README.md` - Status realignment
 5. `/CONTRIBUTING.md` - Created (new)

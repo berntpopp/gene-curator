@@ -1,6 +1,16 @@
-# Gene Curator: Schema-Agnostic Curation Platform
+# Gene Curator: Initial Planning Vision
 
-## Vision Statement
+> **⚠️ HISTORICAL DOCUMENT**
+>
+> This document represents the original architectural vision and planning from the project's inception. It has been archived for historical reference.
+>
+> **For current architecture**: See [docs/ARCHITECTURE.md](../ARCHITECTURE.md)
+>
+> **Status**: Most features described here are now implemented. See implementation notes below.
+
+---
+
+## Vision Statement (Original)
 
 Transform Gene Curator into a **methodology-agnostic** curation platform that supports any scientific approach to gene-disease association curation across clinical specialties. Whether using ClinGen SOP v11, GenCC based classification, institutional custom methods, or future methodologies not yet developed, the platform adapts through configurable schemas and scope-based workflows rather than hard-coded implementations.
 
@@ -372,3 +382,35 @@ gene-curator/
 This architectural transformation positions Gene Curator as a universal platform for scope-based gene-disease curation that can adapt to any scientific methodology through configuration rather than code changes. The schema-driven approach combined with multi-stage workflow management ensures the system remains relevant and useful as scientific practices evolve, while maintaining the highest standards of quality through the 4-eyes principle.
 
 The platform becomes truly methodology-agnostic and workflow-comprehensive: **as flexible as science itself, as rigorous as clinical practice demands**.
+
+---
+
+## Implementation Status (Added 2025-10-14)
+
+### ✅ Implemented
+- Schema-agnostic foundation (schema repository, dynamic validation)
+- Multi-stage workflow engine (5 stages, 4-eyes principle)
+- Scope-based organization (clinical specialties)
+- Pluggable scoring engines (ClinGen SOP v11, GenCC, Qualitative)
+- Unified logging system (backend + frontend)
+- API configuration management (three-tier system)
+- Authentication & RBAC (JWT, 5 roles)
+- Complete API implementation (10 modules, 30+ routes)
+- Frontend integration (13 Pinia stores)
+
+### 🔄 Partially Implemented
+- Dynamic UI form generation (backend complete, frontend pending)
+- Draft auto-save functionality (design complete, implementation pending)
+
+### 📚 Current Documentation
+- **Architecture**: [docs/ARCHITECTURE.md](../ARCHITECTURE.md)
+- **Database Schema**: [docs/DATABASE_SCHEMA.md](../DATABASE_SCHEMA.md)
+- **Workflow**: [docs/WORKFLOW.md](../WORKFLOW.md)
+- **API Reference**: [docs/API_REFERENCE.md](../API_REFERENCE.md)
+- **Contributing**: [CONTRIBUTING.md](../../CONTRIBUTING.md)
+- **Developer Guide**: [CLAUDE.md](../../CLAUDE.md)
+
+---
+
+**Archived**: 2025-10-14
+**Original Creation**: 2024-2025 (planning phase)

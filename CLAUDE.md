@@ -244,10 +244,12 @@ database/sql/          # PostgreSQL schema & seed data
 ## Important Files
 
 - `CLAUDE.md` (this file): Development guide for AI
-- `PLAN.md`: Architecture vision
 - `README.md`: Project overview
+- `CONTRIBUTING.md`: Developer onboarding
 - `Makefile`: 50+ commands
 - `.env.dev`: Environment config
+- `docs/ARCHITECTURE.md`: System architecture
+- `docs/archive/INITIAL_PLANNING_VISION.md`: Original vision (archived)
 - `backend/config/api.yaml`: API config
 - `database/sql/`: Schema definitions
 
