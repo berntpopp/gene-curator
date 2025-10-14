@@ -190,7 +190,9 @@ class TestQualitativeWarningChecker:
         warnings = self.checker._check_low_confidence_indicators(evidence)
 
         assert len(warnings) >= 1
-        inconsistent_warnings = [w for w in warnings if "inconsistent" in w.message.lower()]
+        inconsistent_warnings = [
+            w for w in warnings if "inconsistent" in w.message.lower()
+        ]
         assert len(inconsistent_warnings) == 1
 
     def test_check_low_confidence_low_quality_evidence(self):

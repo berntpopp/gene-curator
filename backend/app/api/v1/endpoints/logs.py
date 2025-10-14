@@ -93,9 +93,7 @@ async def search_logs(
         None, description="Minimum duration in milliseconds"
     ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(
-        None, ge=1, description="Maximum number of records to return"
-    ),
+    limit: int = Query(None, ge=1, description="Maximum number of records to return"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
@@ -214,7 +212,9 @@ async def get_log_statistics(
 
 @router.get("/recent-errors", response_model=list[LogEntry])
 async def get_recent_errors(
-    limit: int | None = Query(None, ge=1, description="Maximum number of errors to return"),
+    limit: int | None = Query(
+        None, ge=1, description="Maximum number of errors to return"
+    ),
     hours: int | None = Query(None, ge=1, description="Time window in hours"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
@@ -233,8 +233,12 @@ async def get_recent_errors(
     logging_config = get_logging_config()
 
     # Use configured defaults if not specified
-    effective_limit = limit if limit is not None else logging_config.recent_errors_default_limit
-    effective_hours = hours if hours is not None else logging_config.default_time_window_hours
+    effective_limit = (
+        limit if limit is not None else logging_config.recent_errors_default_limit
+    )
+    effective_hours = (
+        hours if hours is not None else logging_config.default_time_window_hours
+    )
 
     # Enforce maximum limits
     if effective_limit > logging_config.recent_errors_max_limit:

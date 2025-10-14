@@ -450,7 +450,9 @@ class SchemaValidatorChain:
         return all_messages
 
 
-def validate_schema_structure(schema_data: dict[str, Any]) -> tuple[list[str], list[str]]:
+def validate_schema_structure(
+    schema_data: dict[str, Any],
+) -> tuple[list[str], list[str]]:
     """
     Convenience function for backward compatibility.
 

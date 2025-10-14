@@ -285,7 +285,12 @@ class TestEnumIntegration:
     def test_permission_matrix(self):
         """Test complete permission matrix for all roles."""
         permission_matrix = {
-            "view": [ScopeRole.ADMIN, ScopeRole.CURATOR, ScopeRole.REVIEWER, ScopeRole.VIEWER],
+            "view": [
+                ScopeRole.ADMIN,
+                ScopeRole.CURATOR,
+                ScopeRole.REVIEWER,
+                ScopeRole.VIEWER,
+            ],
             "curate": [ScopeRole.ADMIN, ScopeRole.CURATOR],
             "review": [ScopeRole.ADMIN, ScopeRole.REVIEWER],
             "manage": [ScopeRole.ADMIN],

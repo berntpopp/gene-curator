@@ -54,7 +54,10 @@ def get_genes(
     db: Session = Depends(deps.get_db),
     skip: int = Query(DEFAULT_SKIP, ge=0, description="Number of records to skip"),
     limit: int = Query(
-        GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT, description="Maximum number of records"
+        GENES_DEFAULT_LIMIT,
+        ge=1,
+        le=GENES_MAX_LIMIT,
+        description="Maximum number of records",
     ),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     assigned_only: bool = Query(False, description="Only show assigned genes"),
@@ -146,7 +149,9 @@ def create_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 @router.get("/search", response_model=list[GeneNewSummary])
@@ -233,7 +238,8 @@ def get_gene_statistics(
             user_scope_ids = current_user.assigned_scopes or []
             if scope_id not in user_scope_ids:
                 raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Not enough permissions",
                 )
     elif scope_id and not current_user:
         # If scope is specified but user is not authenticated, ignore scope filter
@@ -255,7 +261,9 @@ def get_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     # Get assignment status
     assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
@@ -284,7 +292,9 @@ def update_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
         raise HTTPException(
@@ -297,7 +307,9 @@ def update_gene(
         )
         return gene
     except ValueError as e:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
 
 @router.delete("/{gene_id}")
@@ -312,7 +324,9 @@ def delete_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     if current_user.role not in ["admin"]:
         raise HTTPException(
@@ -355,7 +369,9 @@ def get_gene_assignments(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
     return GeneAssignmentStatus(**assignment_status)
@@ -374,7 +390,9 @@ def get_gene_curation_progress(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     # Check scope permissions
     if current_user.role not in ["admin"] and scope_id:
@@ -514,7 +532,9 @@ def validate_gene(
     """
     gene = gene_new_crud.get(db, id=gene_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     if current_user.role not in ["curator", "admin", "scope_admin"]:
         raise HTTPException(
@@ -563,7 +583,9 @@ def get_gene_by_hgnc_id(
     """
     gene = gene_new_crud.get_by_hgnc_id(db, hgnc_id=hgnc_id)
     if not gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
+        )
 
     return gene
 
@@ -608,7 +630,9 @@ def merge_genes(
     # Basic implementation - in a real system this would be much more sophisticated
     primary_gene = gene_new_crud.get(db, id=merge_request.primary_gene_id)
     if not primary_gene:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Primary gene not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Primary gene not found"
+        )
 
     # This would need a comprehensive merge implementation
     warnings = ["Gene merge functionality is not fully implemented"]

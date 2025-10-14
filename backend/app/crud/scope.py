@@ -25,6 +25,80 @@ from app.schemas.scope import ScopeCreate, ScopeUpdate
 class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     """CRUD operations for scopes."""
 
+    # Convenience methods for tests and simpler API
+    def create_scope(self, db: Session, obj_in: ScopeCreate, owner_id: UUID) -> Scope:
+        """Create scope (convenience wrapper for create_with_owner)."""
+        return self.create_with_owner(db, obj_in=obj_in, owner_id=owner_id)
+
+    def get_scope(self, db: Session, scope_id: UUID) -> Scope | None:
+        """Get scope by ID (convenience wrapper for get)."""
+        return self.get(db, id=scope_id)
+
+    def get_scope_by_name(self, db: Session, name: str) -> Scope | None:
+        """Get scope by name (convenience wrapper for get_by_name)."""
+        return self.get_by_name(db, name=name)
+
+    def get_scopes(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        active_only: bool = True,
+        institution: str | None = None,
+    ) -> list[Scope]:
+        """Get multiple scopes (convenience wrapper for get_multi)."""
+        return self.get_multi(
+            db, skip=skip, limit=limit, active_only=active_only, institution=institution
+        )
+
+    def get_scope_statistics(self, db: Session, scope_id: UUID) -> dict[str, Any]:
+        """Get detailed statistics for a scope (convenience wrapper)."""
+        return self.get_detailed_statistics(db, scope_id=scope_id)
+
+    def get_scopes_by_institution(
+        self, db: Session, institution: str, *, active_only: bool = True
+    ) -> list[Scope]:
+        """Get scopes filtered by institution."""
+        return self.get_multi(
+            db, skip=0, limit=1000, active_only=active_only, institution=institution
+        )
+
+    def update_scope(
+        self, db: Session, scope_id: UUID, obj_in: ScopeUpdate | dict[str, Any]
+    ) -> Scope | None:
+        """Update scope by ID (convenience wrapper for update)."""
+        scope = self.get(db, id=scope_id)
+        if not scope:
+            return None
+        return self.update(db, db_obj=scope, obj_in=obj_in)
+
+    def delete_scope(
+        self, db: Session, scope_id: UUID, *, soft_delete: bool = True
+    ) -> bool:
+        """
+        Delete scope (soft or hard delete).
+
+        Args:
+            db: Database session
+            scope_id: Scope UUID
+            soft_delete: If True, soft delete (set is_active=False); if False, hard delete (remove from DB)
+
+        Returns:
+            True if deleted successfully, False if not found
+        """
+        scope = self.get(db, id=scope_id)
+        if not scope:
+            return False
+
+        if soft_delete:
+            scope.is_active = False
+            db.commit()
+        else:
+            self.remove(db, id=scope_id)
+
+        return True
+
     def get_by_name(self, db: Session, *, name: str) -> Scope | None:
         """Get scope by name."""
         return db.query(Scope).filter(Scope.name == name).first()
@@ -271,7 +345,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     ) -> list[dict[str, Any]]:
         """Get available workflow pairs for a scope."""
         workflow_pairs = (
-            db.query(WorkflowPair).filter(WorkflowPair.is_active).all()  # Fixed: use == instead of is
+            db.query(WorkflowPair)
+            .filter(WorkflowPair.is_active)
+            .all()  # Fixed: use == instead of is
         )
 
         result = []
@@ -328,7 +404,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         """Get users assigned to a scope."""
         users = (
             db.query(UserNew)
-            .filter(UserNew.assigned_scopes.any(scope_id), UserNew.is_active)  # Fixed: use == instead of is
+            .filter(
+                UserNew.assigned_scopes.any(scope_id), UserNew.is_active
+            )  # Fixed: use == instead of is
             .all()
         )
 

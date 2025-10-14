@@ -26,9 +26,10 @@ class ScopeBase(BaseModel):
 
     @validator("name")
     def validate_name(cls, v):
-        if not v.replace("-", "").replace("_", "").isalnum():
+        # Match database constraint: only alphanumeric and hyphens (no underscores)
+        if not v.replace("-", "").isalnum():
             raise ValueError(
-                "Scope name must contain only alphanumeric characters, hyphens, and underscores"
+                "Scope name must contain only alphanumeric characters and hyphens"
             )
         return v.lower()
 
@@ -49,6 +50,7 @@ class ScopeUpdate(BaseModel):
     display_name: str | None = Field(None, description="Human-readable scope name")
     description: str | None = Field(None, description="Scope description")
     institution: str | None = Field(None, description="Owning institution")
+    is_public: bool | None = Field(None, description="Public scope visibility")
     scope_config: dict[str, Any] | None = Field(
         None, description="Scope-specific configuration"
     )

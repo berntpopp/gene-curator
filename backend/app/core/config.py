@@ -5,7 +5,6 @@ Enhanced with YAML-based configuration and constants module for better
 maintainability and deployment flexibility.
 """
 
-
 from pydantic import validator
 from pydantic_settings import BaseSettings
 

@@ -266,9 +266,7 @@ class TestRLSPolicies:
         # The lock should prevent concurrent modifications
         # (this is tested more thoroughly in concurrency tests)
 
-    def test_rls_enforcement_after_membership_removal(
-        self, db, user1, user2, scope1
-    ):
+    def test_rls_enforcement_after_membership_removal(self, db, user1, user2, scope1):
         """Test that RLS is enforced after membership is removed."""
         # Add user2 to scope1
         set_rls_context(db, user1)

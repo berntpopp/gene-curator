@@ -45,7 +45,9 @@ class TestCORSConfig:
 
     def test_cors_config_trailing_slash_removal(self):
         """Test that trailing slashes are removed from origins."""
-        config = CORSConfig(allow_origins=["http://localhost:3000/", "https://example.com/"])
+        config = CORSConfig(
+            allow_origins=["http://localhost:3000/", "https://example.com/"]
+        )
 
         assert config.allow_origins == ["http://localhost:3000", "https://example.com"]
 
@@ -176,12 +178,14 @@ class TestAPIConfig:
         assert "admin" in config.rate_limits
 
         # Verify rates increase with privilege
-        assert config.rate_limits["admin"].requests_per_minute > config.rate_limits[
-            "authenticated"
-        ].requests_per_minute
-        assert config.rate_limits["authenticated"].requests_per_minute > config.rate_limits[
-            "default"
-        ].requests_per_minute
+        assert (
+            config.rate_limits["admin"].requests_per_minute
+            > config.rate_limits["authenticated"].requests_per_minute
+        )
+        assert (
+            config.rate_limits["authenticated"].requests_per_minute
+            > config.rate_limits["default"].requests_per_minute
+        )
 
 
 class TestConfigLoading:

@@ -88,7 +88,12 @@ class ScopeMembershipCreate(ScopeMembershipBase):
         Note: Scope admin role assignment may require additional checks
         at the service layer to prevent privilege escalation.
         """
-        if v not in [ScopeRole.ADMIN, ScopeRole.CURATOR, ScopeRole.REVIEWER, ScopeRole.VIEWER]:
+        if v not in [
+            ScopeRole.ADMIN,
+            ScopeRole.CURATOR,
+            ScopeRole.REVIEWER,
+            ScopeRole.VIEWER,
+        ]:
             raise ValueError(f"Invalid role for invitation: {v}")
         return v
 
@@ -164,9 +169,13 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     id: UUID = Field(..., description="Unique membership ID")
     scope_id: UUID = Field(..., description="Scope UUID")
     user_id: UUID = Field(..., description="User UUID")
-    invited_by: UUID | None = Field(None, description="UUID of user who sent invitation")
+    invited_by: UUID | None = Field(
+        None, description="UUID of user who sent invitation"
+    )
     invited_at: datetime = Field(..., description="When invitation was sent")
-    accepted_at: datetime | None = Field(None, description="When invitation was accepted (NULL = pending)")
+    accepted_at: datetime | None = Field(
+        None, description="When invitation was accepted (NULL = pending)"
+    )
     is_active: bool = Field(..., description="Whether membership is active")
     team_id: UUID | None = Field(None, description="Optional team ID")
 
@@ -177,7 +186,9 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     user_orcid: str | None = Field(None, description="User's ORCID")
 
     # Computed fields
-    is_pending: bool = Field(..., description="Whether invitation is pending acceptance")
+    is_pending: bool = Field(
+        ..., description="Whether invitation is pending acceptance"
+    )
 
     model_config = {
         "from_attributes": True,

@@ -33,11 +33,18 @@ from app.core.database import Base
 
 
 class UserRoleNew(str, enum.Enum):
-    VIEWER = "viewer"
-    CURATOR = "curator"
-    REVIEWER = "reviewer"
+    """
+    Application-level user roles (NOT scope-specific).
+
+    - ADMIN: Platform administrator with full access
+    - USER: Standard user (scope-specific roles assigned via scope_memberships)
+
+    Note: Scope-specific roles (curator, reviewer, viewer, admin) are managed
+    in the scope_memberships table, not at the application level.
+    """
+
     ADMIN = "admin"
-    SCOPE_ADMIN = "scope_admin"
+    USER = "user"
 
 
 class WorkflowStage(str, enum.Enum):
@@ -181,7 +188,9 @@ class UserNew(Base):
         "CurationNew", foreign_keys="[CurationNew.approved_by]"
     )
     scope_memberships = relationship(
-        "ScopeMembership", foreign_keys="[ScopeMembership.user_id]", back_populates="user"
+        "ScopeMembership",
+        foreign_keys="[ScopeMembership.user_id]",
+        back_populates="user",
     )
 
 
@@ -216,7 +225,9 @@ class ScopeMembership(Base):
     )
 
     # Role within scope (uses scope_role enum from database)
-    role = Column(String(50), nullable=False, index=True)  # admin, curator, reviewer, viewer
+    role = Column(
+        String(50), nullable=False, index=True
+    )  # admin, curator, reviewer, viewer
 
     # Invitation workflow
     invited_by = Column(
@@ -225,9 +236,7 @@ class ScopeMembership(Base):
     invited_at = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    accepted_at = Column(
-        DateTime(timezone=True)
-    )  # NULL = pending invitation
+    accepted_at = Column(DateTime(timezone=True))  # NULL = pending invitation
 
     # Status
     is_active = Column(Boolean, default=True, nullable=False, index=True)
@@ -248,7 +257,9 @@ class ScopeMembership(Base):
 
     # Relationships
     scope = relationship("Scope", back_populates="scope_memberships")
-    user = relationship("UserNew", foreign_keys=[user_id], back_populates="scope_memberships")
+    user = relationship(
+        "UserNew", foreign_keys=[user_id], back_populates="scope_memberships"
+    )
     inviter = relationship("UserNew", foreign_keys=[invited_by])
 
     __table_args__ = (

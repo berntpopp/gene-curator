@@ -96,7 +96,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('curator')"
               >
-                Login as Curator
+                Login as Alice Smith
               </v-btn>
               <v-btn
                 size="small"
@@ -104,7 +104,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('reviewer')"
               >
-                Login as Reviewer
+                Login as Bob Jones
               </v-btn>
               <v-btn
                 size="small"
@@ -112,7 +112,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('viewer')"
               >
-                Login as Viewer
+                Login as Carol Williams
               </v-btn>
             </div>
           </v-card-text>
@@ -171,11 +171,12 @@
   ]
 
   // Development quick login credentials
+  // Note: admin is application-level, others are standard users with scope-specific roles
   const devCredentials = {
-    admin: { email: 'admin@genecurator.org', password: 'admin123' },
-    curator: { email: 'dev@example.com', password: 'admin123' },
-    reviewer: { email: 'reviewer@example.org', password: 'admin123' },
-    viewer: { email: 'test@example.com', password: 'admin123' }
+    admin: { email: 'admin@genecurator.org', password: 'admin123' },              // Application admin
+    curator: { email: 'alice.smith@genecurator.org', password: 'admin123' },      // User (curator role in kidney-genetics scope)
+    reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' },       // User (reviewer role in cardio-genetics scope)
+    viewer: { email: 'carol.williams@genecurator.org', password: 'admin123' }     // User (viewer role in neuro-genetics scope)
   }
 
   const handleLogin = async () => {

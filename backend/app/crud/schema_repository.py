@@ -56,7 +56,9 @@ class CRUDCurationSchema(
         query = db.query(CurationSchema)
 
         if active_only:
-            query = query.filter(CurationSchema.is_active)  # Fixed: use == instead of is
+            query = query.filter(
+                CurationSchema.is_active
+            )  # Fixed: use == instead of is
 
         if schema_type:
             query = query.filter(CurationSchema.schema_type == schema_type)

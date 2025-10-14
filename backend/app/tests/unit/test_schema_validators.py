@@ -356,7 +356,9 @@ class TestUIConfigurationValidator:
 
     def test_missing_sections_warning(self):
         """Test warning when sections are missing."""
-        schema = {"ui_configuration": {"layout": "default"}}  # Has content but no sections
+        schema = {
+            "ui_configuration": {"layout": "default"}
+        }  # Has content but no sections
 
         messages = self.validator.validate(schema)
 
@@ -515,7 +517,9 @@ class TestSchemaValidatorChain:
                 "bad_field": "not a dict"  # Invalid structure
             },
             "workflow_states": "not a list",  # Invalid type
-            "ui_configuration": {"layout": "default"},  # Has content but missing sections (warning)
+            "ui_configuration": {
+                "layout": "default"
+            },  # Has content but missing sections (warning)
         }
 
         messages = self.chain.validate(schema)
@@ -573,7 +577,9 @@ class TestConvenienceFunction:
                 "gene_symbol": {"type": "text", "label": "Gene Symbol"}
             },
             "workflow_states": ["draft", "submitted"],
-            "ui_configuration": {"layout": "default"},  # Has content but missing sections
+            "ui_configuration": {
+                "layout": "default"
+            },  # Has content but missing sections
         }
 
         errors, warnings = validate_schema_structure(schema)
@@ -594,13 +600,25 @@ class TestIntegrationScenarios:
         """Test ClinGen SOP v11 compatible schema."""
         schema = {
             "field_definitions": {
-                "gene_symbol": {"type": "text", "label": "Gene Symbol", "required": True},
+                "gene_symbol": {
+                    "type": "text",
+                    "label": "Gene Symbol",
+                    "required": True,
+                },
                 "genetic_evidence": {
                     "type": "object",
                     "label": "Genetic Evidence",
                     "properties": {
-                        "case_level_score": {"type": "number", "min_value": 0, "max_value": 12},
-                        "segregation_score": {"type": "number", "min_value": 0, "max_value": 3},
+                        "case_level_score": {
+                            "type": "number",
+                            "min_value": 0,
+                            "max_value": 12,
+                        },
+                        "segregation_score": {
+                            "type": "number",
+                            "min_value": 0,
+                            "max_value": 3,
+                        },
                     },
                 },
             },
@@ -612,7 +630,9 @@ class TestIntegrationScenarios:
                 ]
             },
             "scoring_configuration": {"engine": "clingen_sop_v11"},
-            "validation_rules": {"gene_symbol": {"required": True, "pattern": "^[A-Z0-9]+$"}},
+            "validation_rules": {
+                "gene_symbol": {"required": True, "pattern": "^[A-Z0-9]+$"}
+            },
         }
 
         messages = self.chain.validate(schema)

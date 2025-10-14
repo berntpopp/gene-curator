@@ -27,7 +27,9 @@ from app.schemas.scope_membership import (
 logger = get_logger(__name__)
 
 
-class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, ScopeMembershipUpdate]):
+class ScopeMembershipCRUD(
+    CRUDBase[ScopeMembership, ScopeMembershipCreate, ScopeMembershipUpdate]
+):
     """
     CRUD operations for scope memberships.
 
@@ -95,7 +97,9 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
             role=obj_in.role.value,
             invited_by=invited_by_id,
             invited_at=datetime.utcnow(),
-            accepted_at=datetime.utcnow() if obj_in.user_id else None,  # Auto-accept for existing users
+            accepted_at=datetime.utcnow()
+            if obj_in.user_id
+            else None,  # Auto-accept for existing users
             is_active=True,
             team_id=obj_in.team_id,
             notes=obj_in.notes,
@@ -258,7 +262,9 @@ class ScopeMembershipCRUD(CRUDBase[ScopeMembership, ScopeMembershipCreate, Scope
         role_counts: dict[str, int] = {}
         for role in ScopeRole:
             role_counts[role.value] = sum(
-                1 for m in members if m.role == role and m.is_active and not m.is_pending
+                1
+                for m in members
+                if m.role == role and m.is_active and not m.is_pending
             )
 
         logger.debug(

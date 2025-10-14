@@ -139,7 +139,9 @@ class QualitativeWarningChecker:
         for field, message in required_fields.items():
             # Check if field is missing, None, or empty string
             field_value = clinical.get(field)
-            if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+            if not field_value or (
+                isinstance(field_value, str) and not field_value.strip()
+            ):
                 warnings.append(
                     AssessmentWarning(
                         severity="warning",
@@ -181,7 +183,9 @@ class QualitativeWarningChecker:
         for field, message in required_fields.items():
             # Check if field is missing, None, or empty string
             field_value = literature.get(field)
-            if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+            if not field_value or (
+                isinstance(field_value, str) and not field_value.strip()
+            ):
                 warnings.append(
                     AssessmentWarning(
                         severity="warning",

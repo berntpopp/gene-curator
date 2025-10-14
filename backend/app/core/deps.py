@@ -20,7 +20,7 @@ from app.core.security import (
     verify_token,
 )
 from app.crud.user import user_crud
-from app.models import User, UserRole
+from app.models import UserNew
 
 logger = get_logger(__name__)
 
@@ -32,7 +32,7 @@ security_optional = HTTPBearer(auto_error=False)
 def get_current_user(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-) -> User:
+) -> UserNew:
     """
     Get current authenticated user from JWT token.
 
@@ -64,7 +64,9 @@ def get_current_user(
     return user
 
 
-def get_current_active_user(current_user: User = Depends(get_current_user)) -> User:
+def get_current_active_user(
+    current_user: UserNew = Depends(get_current_user),
+) -> UserNew:
     """
     Get current active user.
 
@@ -83,8 +85,8 @@ def get_current_active_user(current_user: User = Depends(get_current_user)) -> U
 
 
 def get_current_admin_user(
-    current_user: User = Depends(get_current_active_user),
-) -> User:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> UserNew:
     """
     Get current admin user.
 
@@ -104,34 +106,11 @@ def get_current_admin_user(
     return current_user
 
 
-def get_current_curator_or_admin(
-    current_user: User = Depends(get_current_active_user),
-) -> User:
-    """
-    Get current user if they are curator or admin.
-
-    Args:
-        current_user: Current active user
-
-    Returns:
-        Curator or admin user object
-
-    Raises:
-        HTTPException: If user is not curator or admin
-    """
-    if current_user.role not in [UserRole.CURATOR, UserRole.ADMIN]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Curator or admin privileges required",
-        )
-    return current_user
-
-
 # Optional authentication (for public endpoints that can benefit from user context)
 def get_current_user_optional(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
-) -> User | None:
+) -> UserNew | None:
     """
     Get current user optionally (doesn't raise exception if no token).
 
@@ -171,7 +150,7 @@ def get_current_user_optional(
 # =============================================================================
 
 
-def set_rls_context(db: Session, current_user: User) -> None:
+def set_rls_context(db: Session, current_user: UserNew) -> None:
     """
     Set PostgreSQL RLS context for current user.
 
@@ -243,7 +222,7 @@ def set_rls_context(db: Session, current_user: User) -> None:
 def get_scope(
     scope_id: UUID,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ):
     """
     Get scope by ID with permission check.
@@ -320,7 +299,7 @@ def require_scope_role(required_role: ScopeRole) -> Callable:
     def _check_scope_role(
         scope_id: UUID,
         db: Session = Depends(get_db),
-        current_user: User = Depends(get_current_active_user),
+        current_user: UserNew = Depends(get_current_active_user),
     ):
         """Check if user has required role in scope."""
         from app.models import (
@@ -410,7 +389,9 @@ def require_scope_role(required_role: ScopeRole) -> Callable:
 # =============================================================================
 
 # Type-annotated dependencies for clean endpoint signatures
-RequireScopeMember = Annotated[User, Depends(require_scope_role(ScopeRole.VIEWER))]
-RequireScopeReviewer = Annotated[User, Depends(require_scope_role(ScopeRole.REVIEWER))]
-RequireScopeCurator = Annotated[User, Depends(require_scope_role(ScopeRole.CURATOR))]
-RequireScopeAdmin = Annotated[User, Depends(require_scope_role(ScopeRole.ADMIN))]
+RequireScopeMember = Annotated[UserNew, Depends(require_scope_role(ScopeRole.VIEWER))]
+RequireScopeReviewer = Annotated[
+    UserNew, Depends(require_scope_role(ScopeRole.REVIEWER))
+]
+RequireScopeCurator = Annotated[UserNew, Depends(require_scope_role(ScopeRole.CURATOR))]
+RequireScopeAdmin = Annotated[UserNew, Depends(require_scope_role(ScopeRole.ADMIN))]

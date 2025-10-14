@@ -89,7 +89,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             email=email,
             user_id=str(user.id),
             has_hashed_password=bool(user.hashed_password),
-            hashed_password_length=len(user.hashed_password) if user.hashed_password else 0,
+            hashed_password_length=len(user.hashed_password)
+            if user.hashed_password
+            else 0,
         )
 
         password_valid = verify_password(password, user.hashed_password)

@@ -156,13 +156,17 @@ class TestUserAuthentication:
         mock_user.id = "user-123"
         mock_user.email = "test@example.com"
         mock_user.hashed_password = get_password_hash("password123")
-        mock_user.role = UserRole.CURATOR
+        mock_user.role = (
+            UserRole.USER
+        )  # Standard user (scope roles assigned via scope_memberships)
         mock_user.is_active = True
 
         # Mock the get_by_email method
         with patch.object(user_crud, "get_by_email", return_value=mock_user):
             result = user_crud.authenticate(
-                self.mock_db, email="test@example.com", password="password123"  # noqa: S106
+                self.mock_db,
+                email="test@example.com",
+                password="password123",  # noqa: S106
             )
 
         assert result is not None
@@ -177,7 +181,9 @@ class TestUserAuthentication:
         # Mock the get_by_email method
         with patch.object(user_crud, "get_by_email", return_value=mock_user):
             result = user_crud.authenticate(
-                self.mock_db, email="test@example.com", password="wrong_password"  # noqa: S106
+                self.mock_db,
+                email="test@example.com",
+                password="wrong_password",  # noqa: S106
             )
 
         assert result is None
@@ -187,7 +193,9 @@ class TestUserAuthentication:
         # Mock get_by_email to return None (user not found)
         with patch.object(user_crud, "get_by_email", return_value=None):
             result = user_crud.authenticate(
-                self.mock_db, email="nonexistent@example.com", password="password123"  # noqa: S106
+                self.mock_db,
+                email="nonexistent@example.com",
+                password="password123",  # noqa: S106
             )
 
         assert result is None

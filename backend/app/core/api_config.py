@@ -310,10 +310,10 @@ class BulkOperationsConfig(BaseModel):
     max_genes_create: int = Field(
         default=1000, ge=1, description="Max genes in bulk create"
     )
-    default_batch_size: int = Field(
-        default=100, ge=1, description="Default batch size"
+    default_batch_size: int = Field(default=100, ge=1, description="Default batch size")
+    enable_parallel: bool = Field(
+        default=True, description="Enable parallel processing"
     )
-    enable_parallel: bool = Field(default=True, description="Enable parallel processing")
     parallel_workers: int = Field(
         default=4, ge=1, le=16, description="Number of parallel workers"
     )
@@ -416,9 +416,7 @@ class APIConfig(BaseModel):
     logging: LoggingConfig = Field(default_factory=LoggingConfig)
     database: DatabaseConfig = Field(default_factory=DatabaseConfig)
     security: SecurityConfig = Field(default_factory=SecurityConfig)
-    bulk_operations: BulkOperationsConfig = Field(
-        default_factory=BulkOperationsConfig
-    )
+    bulk_operations: BulkOperationsConfig = Field(default_factory=BulkOperationsConfig)
     external_apis: ExternalAPIsConfig = Field(default_factory=ExternalAPIsConfig)
     performance: PerformanceConfig = Field(default_factory=PerformanceConfig)
     features: FeatureFlagsConfig = Field(default_factory=FeatureFlagsConfig)

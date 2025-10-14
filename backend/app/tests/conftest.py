@@ -50,8 +50,7 @@ def db() -> Session:
     # Create engine with non-superuser role for RLS testing
     # Replace dev_user with test_rls_user in the DATABASE_URL
     test_db_url = settings.DATABASE_URL.replace(
-        "dev_user:dev_password",
-        "test_rls_user:test_password"
+        "dev_user:dev_password", "test_rls_user:test_password"
     )
 
     test_engine = create_engine(test_db_url, echo=True)
@@ -104,3 +103,35 @@ def db_session(db: Session) -> Session:
     Some tests may use db_session instead of db.
     """
     return db
+
+
+def set_test_user_context(db: Session, user_id: str) -> None:
+    """
+    Set RLS context for test user.
+
+    This function sets the app.current_user_id session variable that is used by RLS
+    policies to identify the current user. Must be called before creating any objects
+    that are protected by RLS policies.
+
+    Args:
+        db: Database session
+        user_id: UUID of the user (as string)
+
+    Example:
+        from app.tests.conftest import set_test_user_context
+        from uuid import UUID
+
+        # In test fixture or test function:
+        admin = UserNew(id=uuid4(), ...)
+        db.add(admin)
+        db.commit()
+
+        # Set RLS context before creating scopes
+        set_test_user_context(db, str(admin.id))
+
+        # Now scope creation will work with RLS
+        scope = scope_crud.create_scope(db, scope_data, admin.id)
+    """
+    from sqlalchemy import text
+
+    db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))

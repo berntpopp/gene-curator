@@ -107,7 +107,9 @@ def test_complete_system():  # noqa: C901
         else:
             missing_routes = sorted(set(expected_routes) - set(found_routes))
             # Log missing routes for debugging
-            print(f"❌ Missing {len(missing_routes)} API routes: {', '.join(missing_routes)}")
+            print(
+                f"❌ Missing {len(missing_routes)} API routes: {', '.join(missing_routes)}"
+            )
             return False
 
     except ImportError as e:

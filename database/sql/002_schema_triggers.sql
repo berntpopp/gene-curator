@@ -87,8 +87,11 @@ ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_replaced_curatio
 ALTER TABLE audit_log_new ADD CONSTRAINT fk_audit_log_new_user 
     FOREIGN KEY (user_id) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE schema_selections ADD CONSTRAINT fk_schema_selections_user 
+ALTER TABLE schema_selections ADD CONSTRAINT fk_schema_selections_user
     FOREIGN KEY (user_id) REFERENCES users_new(id) ON DELETE CASCADE;
+
+ALTER TABLE scope_memberships ADD CONSTRAINT fk_scope_memberships_invited_by
+    FOREIGN KEY (invited_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
 -- ========================================
 -- BUSINESS LOGIC CONSTRAINTS
@@ -326,6 +329,41 @@ CREATE TRIGGER trigger_auto_save_precurations
     BEFORE UPDATE ON precurations_new
     FOR EACH ROW
     EXECUTE FUNCTION update_auto_save_timestamp();
+
+-- ========================================
+-- SCOPE MEMBERSHIPS TRIGGERS
+-- ========================================
+
+-- Function to update updated_at timestamp for scope_memberships
+CREATE OR REPLACE FUNCTION update_scope_memberships_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER scope_memberships_updated_at
+    BEFORE UPDATE ON scope_memberships
+    FOR EACH ROW
+    EXECUTE FUNCTION update_scope_memberships_updated_at();
+
+-- Function to update invitation_status based on accepted_at
+CREATE OR REPLACE FUNCTION update_invitation_status()
+RETURNS TRIGGER AS $$
+BEGIN
+    -- When accepted_at is set, update invitation_status to 'accepted'
+    IF NEW.accepted_at IS NOT NULL AND OLD.accepted_at IS NULL THEN
+        NEW.invitation_status = 'accepted';
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_invitation_status_trigger
+    BEFORE UPDATE ON scope_memberships
+    FOR EACH ROW
+    EXECUTE FUNCTION update_invitation_status();
 
 -- ========================================
 -- WORKFLOW STATE MANAGEMENT

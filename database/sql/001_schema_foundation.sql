@@ -13,8 +13,21 @@ SET search_path TO public;
 -- ENUM TYPES FOR METHODOLOGY-AGNOSTIC ARCHITECTURE
 -- ========================================
 
--- Enhanced user roles for scope-based RBAC
-CREATE TYPE user_role_new AS ENUM ('viewer', 'curator', 'reviewer', 'admin', 'scope_admin');
+-- Application-level roles (2 values: admin, user)
+-- admin: Full platform access
+-- user: Scope-based access via scope_memberships
+CREATE TYPE application_role AS ENUM ('admin', 'user');
+
+COMMENT ON TYPE application_role IS 'Application-level roles: admin (full platform access) and user (scope-based access)';
+
+-- Scope-level roles (4 values: admin, curator, reviewer, viewer)
+-- admin: Manage scope (invite/remove members, assign genes)
+-- curator: Create/edit curations
+-- reviewer: Review curations (4-eyes principle)
+-- viewer: Read-only access
+CREATE TYPE scope_role AS ENUM ('admin', 'curator', 'reviewer', 'viewer');
+
+COMMENT ON TYPE scope_role IS 'Scope-level roles: admin (manage scope), curator (create/edit), reviewer (review only), viewer (read-only)';
 
 -- Workflow stage tracking for multi-stage pipeline
 CREATE TYPE workflow_stage AS ENUM ('entry', 'precuration', 'curation', 'review', 'active');
@@ -40,8 +53,9 @@ CREATE TABLE scopes (
     description TEXT,
     institution VARCHAR(255),                       -- Owning institution
     is_active BOOLEAN DEFAULT true,
+    is_public BOOLEAN DEFAULT false,                -- Public scopes visible to all authenticated users
     default_workflow_pair_id UUID,                  -- Will reference workflow_pairs(id)
-    
+
     -- Configuration
     scope_config JSONB DEFAULT '{}',                -- Scope-specific configuration
     
@@ -59,9 +73,9 @@ CREATE TABLE users_new (
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    role user_role_new NOT NULL DEFAULT 'viewer',
+    role application_role NOT NULL DEFAULT 'user',
     institution VARCHAR(255),
-    assigned_scopes UUID[],                         -- Array of scope IDs user can access
+    assigned_scopes UUID[],                         -- DEPRECATED: Use scope_memberships table instead
     
     -- Enhanced profile
     orcid_id VARCHAR(50),                          -- ORCID for scientific attribution
@@ -180,6 +194,50 @@ CREATE TABLE gene_scope_assignments (
     
     UNIQUE(gene_id, scope_id) -- One assignment per gene-scope combination
 );
+
+-- ========================================
+-- SCOPE MEMBERSHIPS (CORE MULTI-TENANCY)
+-- ========================================
+
+-- Core multi-tenancy table: user roles within scopes
+CREATE TABLE scope_memberships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    -- Scope and user relationship
+    scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users_new(id) ON DELETE CASCADE,
+
+    -- Scope-specific role (NOT application role)
+    role scope_role NOT NULL,
+
+    -- Invitation tracking
+    invited_by UUID REFERENCES users_new(id),
+    invited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    accepted_at TIMESTAMPTZ,  -- NULL = pending invitation
+    invitation_status VARCHAR(20) DEFAULT 'pending',  -- pending, accepted, rejected
+
+    -- Team membership (for future team-based collaboration)
+    team_id UUID,  -- Will reference teams(id) when teams table is created
+
+    -- Metadata
+    notes TEXT,
+    is_active BOOLEAN DEFAULT true NOT NULL,
+
+    -- Audit fields
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Constraints
+    UNIQUE(scope_id, user_id),
+    CHECK (invitation_status IN ('pending', 'accepted', 'rejected'))
+);
+
+COMMENT ON TABLE scope_memberships IS 'Core multi-tenancy table: user roles within scopes';
+COMMENT ON COLUMN scope_memberships.role IS 'Scope-specific role: admin, curator, reviewer, or viewer';
+COMMENT ON COLUMN scope_memberships.accepted_at IS 'NULL indicates pending invitation, non-NULL indicates accepted membership';
+COMMENT ON COLUMN scope_memberships.invitation_status IS 'Invitation status: pending, accepted, or rejected';
+COMMENT ON COLUMN scope_memberships.is_active IS 'Allow soft deletion of memberships';
+COMMENT ON COLUMN scope_memberships.team_id IS 'Future: team-based collaboration within scopes';
 
 -- ========================================
 -- MULTI-STAGE WORKFLOW TABLES
@@ -371,6 +429,7 @@ CREATE TABLE schema_selections (
 CREATE INDEX idx_scopes_name ON scopes(name);
 CREATE INDEX idx_scopes_institution ON scopes(institution);
 CREATE INDEX idx_scopes_active ON scopes(is_active) WHERE is_active = true;
+CREATE INDEX idx_scopes_public ON scopes(is_public) WHERE is_public = true;
 
 -- Users indexes
 CREATE INDEX idx_users_new_email ON users_new(email);
@@ -406,6 +465,21 @@ CREATE INDEX idx_gene_scope_assignments_scope ON gene_scope_assignments(scope_id
 CREATE INDEX idx_gene_scope_assignments_curator ON gene_scope_assignments(assigned_curator_id);
 CREATE INDEX idx_gene_scope_assignments_active ON gene_scope_assignments(is_active) WHERE is_active = true;
 CREATE INDEX idx_gene_scope_assignments_workflow_pair ON gene_scope_assignments(workflow_pair_id);
+
+-- Scope memberships indexes (CRITICAL for RLS performance)
+CREATE INDEX idx_scope_memberships_scope ON scope_memberships(scope_id);
+CREATE INDEX idx_scope_memberships_user ON scope_memberships(user_id);
+CREATE INDEX idx_scope_memberships_role ON scope_memberships(role);
+CREATE INDEX idx_scope_memberships_active ON scope_memberships(is_active) WHERE is_active = true;
+CREATE INDEX idx_scope_memberships_pending ON scope_memberships(accepted_at) WHERE accepted_at IS NULL;
+
+-- CRITICAL: Composite index for permission checks (prevents N+1 queries)
+-- This index is used by RLS policies and permission check functions
+CREATE INDEX idx_scope_memberships_user_scope_active
+ON scope_memberships(user_id, scope_id, role)
+WHERE is_active = true AND accepted_at IS NOT NULL;
+
+COMMENT ON INDEX idx_scope_memberships_user_scope_active IS 'CRITICAL: Composite index for RLS permission checks (prevents N+1 queries)';
 
 -- Precurations indexes
 CREATE INDEX idx_precurations_new_gene_scope ON precurations_new(gene_id, scope_id);
@@ -463,7 +537,9 @@ CREATE INDEX idx_schema_selections_workflow_pair ON schema_selections(preferred_
 -- ========================================
 
 COMMENT ON TABLE scopes IS 'Clinical specialties as first-class entities (kidney-genetics, cardio-genetics, etc.)';
-COMMENT ON TABLE users_new IS 'Enhanced users with scope assignments and ORCID integration';
+COMMENT ON TABLE users_new IS 'Enhanced users with application roles (admin/user) and scope-based access via scope_memberships';
+COMMENT ON COLUMN users_new.role IS 'Application-level role: admin (platform access) or user (scope-based access)';
+COMMENT ON COLUMN users_new.assigned_scopes IS 'DEPRECATED: Use scope_memberships table for scope assignments';
 COMMENT ON TABLE curation_schemas IS 'Repository of methodology definitions (ClinGen, GenCC, custom)';
 COMMENT ON TABLE workflow_pairs IS 'Precuration + curation schema combinations for complete workflows';
 COMMENT ON TABLE gene_scope_assignments IS 'Many-to-many relationship between genes and clinical scopes';
