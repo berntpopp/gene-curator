@@ -40,6 +40,7 @@
                 v-model="scopeData.name"
                 label="Scope Name (machine-readable)"
                 :rules="nameRules"
+                :error="nameExists"
                 hint="lowercase-with-dashes, e.g., kidney-genetics"
                 persistent-hint
                 prepend-icon="mdi-identifier"
@@ -47,12 +48,28 @@
                 @blur="validateName"
               >
                 <template #append-inner>
+                  <v-progress-circular
+                    v-if="checkingName"
+                    indeterminate
+                    size="20"
+                    width="2"
+                    color="primary"
+                  ></v-progress-circular>
                   <v-icon
-                    v-if="scopeData.name && isValidScopeName(scopeData.name)"
+                    v-else-if="scopeData.name && !nameExists && isValidScopeName(scopeData.name)"
                     icon="mdi-check-circle"
                     color="success"
                   ></v-icon>
-                  <v-icon v-else-if="scopeData.name" icon="mdi-alert-circle" color="error"></v-icon>
+                  <v-icon
+                    v-else-if="nameExists"
+                    icon="mdi-alert-circle-outline"
+                    color="error"
+                  ></v-icon>
+                  <v-icon
+                    v-else-if="scopeData.name"
+                    icon="mdi-alert-circle"
+                    color="warning"
+                  ></v-icon>
                 </template>
               </v-text-field>
 
@@ -211,7 +228,7 @@
 </template>
 
 <script setup>
-  import { ref } from 'vue'
+  import { ref, computed, watch, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useScopeUtils } from '@/composables/useScopeUtils'
@@ -227,12 +244,33 @@
   const logger = useLogger()
 
   // ============================================
+  // LIFECYCLE
+  // ============================================
+
+  /**
+   * Load existing scopes on mount for name validation
+   */
+  onMounted(async () => {
+    try {
+      if (scopeStore.scopes.length === 0) {
+        logger.debug('Loading existing scopes for name validation')
+        await scopeStore.fetchUserScopes()
+      }
+    } catch (error) {
+      logger.error('Failed to load existing scopes', { error: error.message })
+      // Don't block the user from creating a scope if we can't load existing ones
+    }
+  })
+
+  // ============================================
   // STATE
   // ============================================
 
   const formRef = ref(null)
   const valid = ref(false)
   const loading = ref(false)
+  const checkingName = ref(false)
+  const nameExists = ref(false)
 
   const scopeData = ref({
     name: '',
@@ -250,6 +288,46 @@
   const snackbarColor = ref('success')
 
   // ============================================
+  // COMPUTED
+  // ============================================
+
+  /**
+   * Check if scope name already exists in the store
+   */
+  const scopeNameExists = computed(() => {
+    if (!scopeData.value.name) return false
+    return scopeStore.scopes.some(s => s.name === scopeData.value.name.toLowerCase())
+  })
+
+  // ============================================
+  // WATCHERS
+  // ============================================
+
+  /**
+   * Watch for scope name changes and validate in real-time
+   */
+  watch(
+    () => scopeData.value.name,
+    newName => {
+      if (newName && isValidScopeName(newName)) {
+        // Check if name exists
+        nameExists.value = scopeNameExists.value
+
+        if (nameExists.value) {
+          logger.warn('Scope name already exists', { name: newName })
+          showNotification(
+            `Scope "${newName}" already exists. Please choose a different name.`,
+            'warning'
+          )
+        }
+      } else {
+        nameExists.value = false
+      }
+    },
+    { immediate: false }
+  )
+
+  // ============================================
   // VALIDATION RULES
   // ============================================
 
@@ -258,7 +336,8 @@
     v => isValidScopeName(v) || 'Must be 4-64 chars, lowercase letters and dashes only',
     v => !v.includes('--') || 'No consecutive dashes allowed',
     v => /^[a-z]/.test(v) || 'Must start with a lowercase letter',
-    v => /[a-z0-9]$/.test(v) || 'Must end with a letter or number'
+    v => /[a-z0-9]$/.test(v) || 'Must end with a letter or number',
+    () => !scopeNameExists.value || 'This scope name already exists. Please choose a different name.'
   ]
 
   const displayNameRules = [

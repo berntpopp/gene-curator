@@ -74,11 +74,13 @@ def create_scope(
         logger.warning(
             "Scope creation failed: name already exists",
             scope_name=scope_in.name,
+            existing_scope_id=str(existing.id),
             user_id=str(current_user.id),
+            user_email=current_user.email,
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Scope with this name already exists",
+            detail=f"Scope with name '{scope_in.name}' already exists. Please choose a different name.",
         )
 
     # Create scope
