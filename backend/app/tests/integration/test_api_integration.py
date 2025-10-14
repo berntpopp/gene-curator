@@ -11,7 +11,7 @@ import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
 
 
-def test_imports():
+def test_imports() -> None:
     """Test that all API modules can be imported."""
 
     with contextlib.suppress(Exception):
@@ -33,7 +33,7 @@ def test_imports():
         pass
 
 
-def test_crud_imports():
+def test_crud_imports() -> None:
     """Test that all CRUD modules can be imported."""
 
     with contextlib.suppress(Exception):
@@ -52,7 +52,7 @@ def test_crud_imports():
         pass
 
 
-def test_schema_imports():
+def test_schema_imports() -> None:
     """Test that all schema modules can be imported."""
 
     with contextlib.suppress(Exception):
@@ -71,14 +71,14 @@ def test_schema_imports():
         pass
 
 
-def test_model_imports():
+def test_model_imports() -> None:
     """Test that model imports work."""
 
     with contextlib.suppress(Exception):
         pass
 
 
-def test_api_router():
+def test_api_router() -> None:
     """Test that the main API router can be imported."""
 
     try:
@@ -108,7 +108,7 @@ def test_api_router():
         pass
 
 
-def run_integration_tests():
+def run_integration_tests() -> None:
     """Run all integration tests."""
 
     try:

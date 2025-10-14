@@ -69,9 +69,9 @@ class WorkflowEngine:
         item_type: str,
     ) -> WorkflowValidationResult:
         """Validate if a workflow transition is allowed."""
-        errors = []
-        warnings = []
-        requirements = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        requirements: list[str] = []
 
         # Check if transition is valid
         if target_stage not in self.valid_transitions.get(current_stage, []):
@@ -565,7 +565,7 @@ class WorkflowEngine:
 
         # User must have access to the item's scope
         if hasattr(item, "scope_id"):
-            user_scopes = user.assigned_scopes or []
+            user_scopes: list[UUID] = user.assigned_scopes or []
             if user.role != "admin" and item.scope_id not in user_scopes:
                 return False
 
@@ -615,9 +615,9 @@ class WorkflowEngine:
         item_type: str,
     ) -> dict[str, list[str]]:
         """Validate stage-specific requirements."""
-        errors = []
-        warnings = []
-        requirements = []
+        errors: list[str] = []
+        warnings: list[str] = []
+        requirements: list[str] = []
 
         # Add specific validation logic based on stages
         if target_stage == WorkflowStage.review and item_type == "curation":

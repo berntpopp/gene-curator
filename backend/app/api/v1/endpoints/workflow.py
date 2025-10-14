@@ -4,6 +4,7 @@ Handles workflow transitions, peer reviews, and workflow monitoring.
 """
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -253,7 +254,7 @@ def get_workflow_statistics(
 
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -276,7 +277,7 @@ def get_workflow_dashboard(
 
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -382,9 +383,9 @@ def bulk_workflow_transition(
     if current_user.role not in ["admin", "scope_admin"]:
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
-    successful_transitions = []
-    failed_transitions = []
-    warnings = []
+    successful_transitions: list[UUID] = []
+    failed_transitions: list[dict[str, Any]] = []
+    warnings: list[str] = []
 
     for item_id in bulk_request.item_ids:
         try:
@@ -431,7 +432,7 @@ def get_workflow_configuration(
 
     # Check scope access
     if current_user.role != "admin":
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -491,7 +492,7 @@ def get_workflow_analytics(
 
     # Check scope access
     if current_user.role != "admin" and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 

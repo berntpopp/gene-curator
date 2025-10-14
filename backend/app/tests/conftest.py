@@ -72,7 +72,7 @@ def db() -> Session:
     # commit the savepoint, not the outer transaction. This keeps SET LOCAL
     # variables alive.
     @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(session, transaction):
+    def restart_savepoint(session, transaction) -> None:  # type: ignore[no-untyped-def]
         """Automatically restart savepoint after each commit."""
         if transaction.nested and not transaction._parent.nested:
             # We're ending a savepoint - start a new one

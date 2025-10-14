@@ -137,18 +137,18 @@ class UserNew(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     hashed_password = Column(String(255), nullable=False)
     name = Column(String(255), nullable=False)
-    role = Column(
+    role: UserRoleNew = Column(
         Enum(UserRoleNew, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="viewer",
         index=True,
     )
     institution = Column(String(255), index=True)
-    assigned_scopes = Column(ARRAY(UUID(as_uuid=True)), default=[])
+    assigned_scopes: list[UUID] = Column(ARRAY(UUID(as_uuid=True)), default=[])
 
     # Enhanced profile
     orcid_id = Column(String(50))
-    expertise_areas = Column(ARRAY(Text), default=[])
+    expertise_areas: list[str] = Column(ARRAY(Text), default=[])
 
     # Status
     is_active = Column(Boolean, default=True, index=True)
@@ -287,7 +287,7 @@ class CurationSchema(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     version = Column(String(50), nullable=False)
-    schema_type = Column(
+    schema_type: SchemaType = Column(
         Enum(SchemaType, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         index=True,
@@ -392,8 +392,8 @@ class GeneNew(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     hgnc_id = Column(String(50), unique=True, nullable=False, index=True)
     approved_symbol = Column(String(100), nullable=False, index=True)
-    previous_symbols = Column(ARRAY(Text))
-    alias_symbols = Column(ARRAY(Text))
+    previous_symbols: list[str] = Column(ARRAY(Text))
+    alias_symbols: list[str] = Column(ARRAY(Text))
     chromosome = Column(String(10), index=True)
     location = Column(String(50))
 
@@ -522,13 +522,13 @@ class PrecurationNew(Base):
     )
 
     # Status and workflow
-    status = Column(
+    status: CurationStatus = Column(
         Enum(CurationStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="draft",
         index=True,
     )
-    workflow_stage = Column(
+    workflow_stage: WorkflowStage = Column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="precuration",
@@ -610,13 +610,13 @@ class CurationNew(Base):
     )
 
     # Status and workflow
-    status = Column(
+    status: CurationStatus = Column(
         Enum(CurationStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="draft",
         index=True,
     )
-    workflow_stage = Column(
+    workflow_stage: WorkflowStage = Column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="curation",
@@ -714,7 +714,7 @@ class Review(Base):
         index=True,
     )
 
-    status = Column(
+    status: ReviewStatus = Column(
         Enum(ReviewStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="pending",
@@ -842,11 +842,11 @@ class AuditLogNew(Base):
     session_id = Column(UUID(as_uuid=True))
 
     # Multi-stage workflow context
-    workflow_stage = Column(
+    workflow_stage: WorkflowStage = Column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         index=True,
     )
-    review_action = Column(
+    review_action: ReviewStatus = Column(
         Enum(ReviewStatus, values_callable=lambda obj: [e.value for e in obj])
     )
     previous_status = Column(Text)

@@ -54,7 +54,7 @@ def get_scopes(
     # Check if user has admin access or is assigned to view scopes
     if current_user.role.value not in ["admin", "scope_admin"]:
         # Regular users can only see scopes they're assigned to
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         logger.debug(
             "Non-admin user, fetching assigned scopes only",
             user_id=str(current_user.id),

@@ -79,7 +79,7 @@ def get_genes(
 
     # Regular users can only see genes in their scopes
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -176,7 +176,7 @@ def search_genes(
     """
     # Check scope permissions
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -235,7 +235,7 @@ def get_gene_statistics(
     # Check scope permissions (only if user is authenticated and scope is specified)
     if current_user and scope_id:
         if current_user.role not in ["admin"]:
-            user_scope_ids = current_user.assigned_scopes or []
+            user_scope_ids: list[UUID] = current_user.assigned_scopes or []
             if scope_id not in user_scope_ids:
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -396,7 +396,7 @@ def get_gene_curation_progress(
 
     # Check scope permissions
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -543,9 +543,9 @@ def validate_gene(
 
     # Basic validation implementation
     # In a real system, this would validate against HGNC API
-    warnings = []
-    errors = []
-    suggestions = []
+    warnings: list[str] = []
+    errors: list[str] = []
+    suggestions: list[str] = []
 
     # Basic format validation
     if not gene.hgnc_id.startswith("HGNC:"):
@@ -635,8 +635,8 @@ def merge_genes(
         )
 
     # This would need a comprehensive merge implementation
-    warnings = ["Gene merge functionality is not fully implemented"]
-    errors = []
+    warnings: list[str] = ["Gene merge functionality is not fully implemented"]
+    errors: list[str] = []
 
     return GeneMergeResponse(
         merged_gene=primary_gene,

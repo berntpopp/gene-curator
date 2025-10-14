@@ -71,7 +71,7 @@ def get_gene_assignments(
 
     # Regular users can only see assignments in their scopes
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -144,7 +144,7 @@ def create_gene_assignment(
 
     # Check if user has access to the target scope
     if current_user.role not in ["admin"]:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if assignment_in.scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -352,7 +352,7 @@ def bulk_create_gene_assignments(
 
     # Check scope access
     if current_user.role not in ["admin"]:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if bulk_request.scope_id not in user_scope_ids:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,

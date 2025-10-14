@@ -374,7 +374,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             user = db.query(UserNew).filter(UserNew.id == user_id).first()
             if user:
                 # Add scope to user's assigned_scopes if not already there
-                current_scopes = user.assigned_scopes or []
+                current_scopes: list[UUID] = user.assigned_scopes or []
                 if scope_id not in current_scopes:
                     current_scopes.append(scope_id)
                     user.assigned_scopes = current_scopes

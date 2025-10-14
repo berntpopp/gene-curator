@@ -325,7 +325,7 @@ VALID_EXPORT_FORMATS = [EXPORT_FORMAT_JSON, EXPORT_FORMAT_CSV]
 JWT_ALGORITHM = "HS256"
 """JWT token signing algorithm."""
 
-PASSWORD_HASH_ALGORITHM = "bcrypt"  # noqa: S105
+PASSWORD_HASH_ALGORITHM = "bcrypt"  # noqa: S105  # nosec B105 - Algorithm name, not a password
 """Password hashing algorithm."""
 
 # ========================================

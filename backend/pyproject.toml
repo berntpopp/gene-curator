@@ -174,6 +174,23 @@ module = "app.core.logging.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 
+[[tool.mypy.overrides]]
+module = "app.models.*"
+# SQLAlchemy models have complex typing that's difficult to fully satisfy
+warn_return_any = false
+disallow_any_generics = false
+
+[[tool.mypy.overrides]]
+module = "app.crud.*"
+# CRUD modules interact heavily with SQLAlchemy models
+warn_return_any = false
+disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = "app.api.*"
+# API modules have complex FastAPI dependencies
+disallow_untyped_calls = false
+
 [tool.pytest.ini_options]
 minversion = "6.0"
 addopts = "-ra -q --strict-markers --strict-config"

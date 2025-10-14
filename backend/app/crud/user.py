@@ -212,7 +212,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return False
 
         scope_id_str = str(scope_id)
-        current_scopes = user.assigned_scopes or []
+        current_scopes: list[UUID] = user.assigned_scopes or []
 
         if scope_id_str not in current_scopes:
             current_scopes.append(scope_id_str)
@@ -228,7 +228,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return False
 
         scope_id_str = str(scope_id)
-        current_scopes = user.assigned_scopes or []
+        current_scopes: list[UUID] = user.assigned_scopes or []
 
         if scope_id_str in current_scopes:
             current_scopes.remove(scope_id_str)

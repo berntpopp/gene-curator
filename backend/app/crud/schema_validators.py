@@ -77,7 +77,7 @@ class RequiredFieldsValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         # Data-driven approach - easy to add/remove required fields
         required_fields = ["field_definitions", "workflow_states", "ui_configuration"]
@@ -126,7 +126,7 @@ class FieldDefinitionsValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         if "field_definitions" not in schema_data:
             return messages  # Already caught by RequiredFieldsValidator
@@ -165,7 +165,7 @@ class FieldDefinitionsValidator(SchemaValidator):
         Returns:
             List of validation messages for this field
         """
-        messages = []
+        messages: list[ValidationMessage] = []
         field_path = f"field_definitions.{field_name}"
 
         # Check if field_config is a dict
@@ -226,7 +226,7 @@ class WorkflowStatesValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         if "workflow_states" not in schema_data:
             return messages  # Already caught by RequiredFieldsValidator
@@ -279,7 +279,7 @@ class UIConfigurationValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         if "ui_configuration" not in schema_data:
             return messages  # Already caught by RequiredFieldsValidator
@@ -329,7 +329,7 @@ class ScoringConfigurationValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         if "scoring_configuration" not in schema_data:
             return messages  # Optional field
@@ -379,7 +379,7 @@ class ValidationRulesValidator(SchemaValidator):
         Returns:
             List of validation messages
         """
-        messages = []
+        messages: list[ValidationMessage] = []
 
         if "validation_rules" not in schema_data:
             return messages  # Optional field

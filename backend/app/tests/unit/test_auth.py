@@ -23,7 +23,7 @@ from app.models import UserNew as User, UserRoleNew as UserRole
 class TestPasswordHashing:
     """Test password hashing and verification."""
 
-    def test_hash_password(self):
+    def test_hash_password(self) -> None:
         """Test that password hashing produces a bcrypt hash."""
         password = "test_password_123"  # noqa: S105
         hashed = get_password_hash(password)
@@ -32,21 +32,21 @@ class TestPasswordHashing:
         assert hashed.startswith("$2b$")
         assert len(hashed) == 60
 
-    def test_verify_correct_password(self):
+    def test_verify_correct_password(self) -> None:
         """Test that correct password verification succeeds."""
         password = "admin123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(password, hashed) is True
 
-    def test_verify_incorrect_password(self):
+    def test_verify_incorrect_password(self) -> None:
         """Test that incorrect password verification fails."""
         password = "admin123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password("wrong_password", hashed) is False
 
-    def test_different_passwords_produce_different_hashes(self):
+    def test_different_passwords_produce_different_hashes(self) -> None:
         """Test that different passwords produce different hashes."""
         password1 = "password1"
         password2 = "password2"
@@ -56,7 +56,7 @@ class TestPasswordHashing:
 
         assert hash1 != hash2
 
-    def test_same_password_produces_different_hashes(self):
+    def test_same_password_produces_different_hashes(self) -> None:
         """Test that hashing the same password twice produces different hashes (salt)."""
         password = "admin123"  # noqa: S105
 
@@ -70,7 +70,7 @@ class TestPasswordHashing:
         assert verify_password(password, hash1) is True
         assert verify_password(password, hash2) is True
 
-    def test_seed_data_password_hash_verification(self):
+    def test_seed_data_password_hash_verification(self) -> None:
         """Test that the seed data password hash is correct."""
         # This is the hash from 004_seed_data.sql
         seed_hash = "$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6"
@@ -83,7 +83,7 @@ class TestPasswordHashing:
 class TestTokenGeneration:
     """Test JWT token generation and verification."""
 
-    def test_create_access_token(self):
+    def test_create_access_token(self) -> None:
         """Test access token creation."""
         data = {"sub": "user-123", "email": "test@example.com", "role": "admin"}
         token = create_access_token(data)
@@ -92,7 +92,7 @@ class TestTokenGeneration:
         assert isinstance(token, str)
         assert len(token) > 0
 
-    def test_create_access_token_with_custom_expiration(self):
+    def test_create_access_token_with_custom_expiration(self) -> None:
         """Test access token creation with custom expiration."""
         data = {"sub": "user-123", "email": "test@example.com"}
         expires_delta = timedelta(minutes=15)
@@ -101,7 +101,7 @@ class TestTokenGeneration:
         assert isinstance(token, str)
         assert len(token) > 0
 
-    def test_create_refresh_token(self):
+    def test_create_refresh_token(self) -> None:
         """Test refresh token creation."""
         data = {"sub": "user-123", "email": "test@example.com", "role": "admin"}
         token = create_refresh_token(data)
@@ -110,7 +110,7 @@ class TestTokenGeneration:
         assert isinstance(token, str)
         assert len(token) > 0
 
-    def test_verify_valid_token(self):
+    def test_verify_valid_token(self) -> None:
         """Test verification of valid token."""
         data = {"sub": "user-123", "email": "test@example.com", "role": "admin"}
         token = create_access_token(data)
@@ -123,7 +123,7 @@ class TestTokenGeneration:
         assert payload["role"] == "admin"
         assert "exp" in payload
 
-    def test_verify_invalid_token(self):
+    def test_verify_invalid_token(self) -> None:
         """Test verification of invalid token."""
         invalid_token = "invalid.jwt.token"  # noqa: S105
 
@@ -131,7 +131,7 @@ class TestTokenGeneration:
 
         assert payload is None
 
-    def test_refresh_token_has_type_field(self):
+    def test_refresh_token_has_type_field(self) -> None:
         """Test that refresh token includes type field."""
         data = {"sub": "user-123", "email": "test@example.com"}
         token = create_refresh_token(data)
@@ -149,7 +149,7 @@ class TestUserAuthentication:
         """Set up test fixtures."""
         self.mock_db = MagicMock()
 
-    def test_authenticate_with_correct_credentials(self):
+    def test_authenticate_with_correct_credentials(self) -> None:
         """Test authentication succeeds with correct credentials."""
         # Create a mock user
         mock_user = MagicMock(spec=User)
@@ -172,7 +172,7 @@ class TestUserAuthentication:
         assert result is not None
         assert result.email == "test@example.com"
 
-    def test_authenticate_with_incorrect_password(self):
+    def test_authenticate_with_incorrect_password(self) -> None:
         """Test authentication fails with incorrect password."""
         # Create a mock user
         mock_user = MagicMock(spec=User)
@@ -188,7 +188,7 @@ class TestUserAuthentication:
 
         assert result is None
 
-    def test_authenticate_with_nonexistent_user(self):
+    def test_authenticate_with_nonexistent_user(self) -> None:
         """Test authentication fails with nonexistent user."""
         # Mock get_by_email to return None (user not found)
         with patch.object(user_crud, "get_by_email", return_value=None):
@@ -200,14 +200,14 @@ class TestUserAuthentication:
 
         assert result is None
 
-    def test_is_active_returns_true_for_active_user(self):
+    def test_is_active_returns_true_for_active_user(self) -> None:
         """Test is_active returns True for active users."""
         mock_user = MagicMock(spec=User)
         mock_user.is_active = True
 
         assert user_crud.is_active(mock_user) is True
 
-    def test_is_active_returns_false_for_inactive_user(self):
+    def test_is_active_returns_false_for_inactive_user(self) -> None:
         """Test is_active returns False for inactive users."""
         mock_user = MagicMock(spec=User)
         mock_user.is_active = False
@@ -227,7 +227,7 @@ class TestDevelopmentCredentials:
             ("test@example.com", "viewer"),
         ],
     )
-    def test_development_user_credentials(self, email, expected_role):
+    def test_development_user_credentials(self, email, expected_role) -> None:
         """Test that development user credentials are correctly set up."""
         # This tests the known password hash from seed data
         seed_hash = "$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6"

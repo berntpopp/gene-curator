@@ -79,7 +79,7 @@ def test_scope(db: Session, admin_user: UserNew) -> Scope:
 class TestScopeCRUD:
     """Test scope CRUD operations."""
 
-    def test_create_scope_success(self, db: Session, admin_user: UserNew):
+    def test_create_scope_success(self, db: Session, admin_user: UserNew) -> None:
         """Test successful scope creation."""
         scope_data = ScopeCreate(
             name="new-scope",
@@ -106,7 +106,7 @@ class TestScopeCRUD:
 
     def test_create_scope_duplicate_name_fails(
         self, db: Session, admin_user: UserNew, test_scope: Scope
-    ):
+    ) -> None:
         """Test that creating a scope with duplicate name fails."""
         from sqlalchemy.exc import IntegrityError
 
@@ -119,7 +119,7 @@ class TestScopeCRUD:
         with pytest.raises(IntegrityError):
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
-    def test_create_scope_invalid_name_format(self, db: Session, admin_user: UserNew):
+    def test_create_scope_invalid_name_format(self, db: Session, admin_user: UserNew) -> None:
         """Test that invalid scope name format fails."""
         from pydantic import ValidationError
 
@@ -131,7 +131,7 @@ class TestScopeCRUD:
                 description="Should fail",
             )
 
-    def test_get_scope_by_id(self, db: Session, test_scope: Scope):
+    def test_get_scope_by_id(self, db: Session, test_scope: Scope) -> None:
         """Test retrieving a scope by ID."""
         scope = scope_crud.get_scope(db, test_scope.id)
 
@@ -140,14 +140,14 @@ class TestScopeCRUD:
         assert scope.name == test_scope.name
         assert scope.display_name == test_scope.display_name
 
-    def test_get_scope_by_id_not_found(self, db: Session):
+    def test_get_scope_by_id_not_found(self, db: Session) -> None:
         """Test retrieving a non-existent scope returns None."""
         fake_id = uuid4()
         scope = scope_crud.get_scope(db, fake_id)
 
         assert scope is None
 
-    def test_get_scope_by_name(self, db: Session, test_scope: Scope):
+    def test_get_scope_by_name(self, db: Session, test_scope: Scope) -> None:
         """Test retrieving a scope by name."""
         scope = scope_crud.get_scope_by_name(db, test_scope.name)
 
@@ -155,13 +155,13 @@ class TestScopeCRUD:
         assert scope.id == test_scope.id
         assert scope.name == test_scope.name
 
-    def test_get_scope_by_name_not_found(self, db: Session):
+    def test_get_scope_by_name_not_found(self, db: Session) -> None:
         """Test retrieving a non-existent scope by name returns None."""
         scope = scope_crud.get_scope_by_name(db, "non-existent-scope")
 
         assert scope is None
 
-    def test_get_scopes_list(self, db: Session, test_scope: Scope, admin_user: UserNew):
+    def test_get_scopes_list(self, db: Session, test_scope: Scope, admin_user: UserNew) -> None:
         """Test listing scopes."""
         # Create additional scopes
         for i in range(3):
@@ -182,7 +182,7 @@ class TestScopeCRUD:
         scope_names = [s.name for s in scopes]
         assert test_scope.name in scope_names
 
-    def test_get_scopes_pagination(self, db: Session, admin_user: UserNew):
+    def test_get_scopes_pagination(self, db: Session, admin_user: UserNew) -> None:
         """Test scope listing with pagination."""
         # Create 10 scopes
         for i in range(10):
@@ -208,7 +208,7 @@ class TestScopeCRUD:
 
     def test_get_active_scopes_only(
         self, db: Session, test_scope: Scope, admin_user: UserNew
-    ):
+    ) -> None:
         """Test filtering active scopes only."""
         # Create an inactive scope
         inactive_scope_data = ScopeCreate(
@@ -230,7 +230,7 @@ class TestScopeCRUD:
         assert inactive_scope.id not in active_scope_ids
         assert test_scope.id in active_scope_ids
 
-    def test_update_scope_success(self, db: Session, test_scope: Scope):
+    def test_update_scope_success(self, db: Session, test_scope: Scope) -> None:
         """Test updating a scope."""
         # Store original updated_at before update
         original_updated_at = test_scope.updated_at
@@ -254,7 +254,7 @@ class TestScopeCRUD:
         assert updated_scope.scope_config == {"updated": "config"}
         assert updated_scope.updated_at >= original_updated_at
 
-    def test_update_scope_partial(self, db: Session, test_scope: Scope):
+    def test_update_scope_partial(self, db: Session, test_scope: Scope) -> None:
         """Test partial update of a scope."""
         original_description = test_scope.description
         original_institution = test_scope.institution
@@ -267,7 +267,7 @@ class TestScopeCRUD:
         assert updated_scope.description == original_description  # Unchanged
         assert updated_scope.institution == original_institution  # Unchanged
 
-    def test_update_scope_not_found(self, db: Session):
+    def test_update_scope_not_found(self, db: Session) -> None:
         """Test updating a non-existent scope returns None."""
         fake_id = uuid4()
         update_data = ScopeUpdate(display_name="Should Fail")
@@ -276,7 +276,7 @@ class TestScopeCRUD:
 
         assert updated_scope is None
 
-    def test_update_scope_name_not_allowed(self, db: Session, test_scope: Scope):
+    def test_update_scope_name_not_allowed(self, db: Session, test_scope: Scope) -> None:
         """Test that scope name cannot be changed via update."""
         # Attempt to update name (should be ignored by ScopeUpdate schema)
         update_data = ScopeUpdate(
@@ -289,7 +289,7 @@ class TestScopeCRUD:
         # Name should remain unchanged
         assert updated_scope.name == test_scope.name
 
-    def test_delete_scope_soft_delete(self, db: Session, test_scope: Scope):
+    def test_delete_scope_soft_delete(self, db: Session, test_scope: Scope) -> None:
         """Test soft deleting a scope (mark as inactive)."""
         # Soft delete (set is_active = False)
         result = scope_crud.delete_scope(db, test_scope.id, soft_delete=True)
@@ -301,7 +301,7 @@ class TestScopeCRUD:
         assert scope is not None
         assert scope.is_active is False
 
-    def test_delete_scope_hard_delete(self, db: Session, admin_user: UserNew):
+    def test_delete_scope_hard_delete(self, db: Session, admin_user: UserNew) -> None:
         """Test hard deleting a scope (remove from database)."""
         # Create a scope to delete
         scope_data = ScopeCreate(
@@ -321,7 +321,7 @@ class TestScopeCRUD:
         deleted_scope = scope_crud.get_scope(db, scope_id)
         assert deleted_scope is None
 
-    def test_delete_scope_not_found(self, db: Session):
+    def test_delete_scope_not_found(self, db: Session) -> None:
         """Test deleting a non-existent scope returns False."""
         fake_id = uuid4()
 
@@ -331,7 +331,7 @@ class TestScopeCRUD:
 
     def test_get_scope_statistics(
         self, db: Session, test_scope: Scope, admin_user: UserNew
-    ):
+    ) -> None:
         """Test retrieving scope statistics."""
         # This tests that the function exists and returns data
         # Actual statistics calculations would require more setup (genes, curations, etc.)
@@ -355,7 +355,7 @@ class TestScopeCRUD:
 
     def test_scope_name_validation_lowercase_only(
         self, db: Session, admin_user: UserNew
-    ):
+    ) -> None:
         """Test that scope names are validated and normalized."""
         # Use unique names to avoid conflicts with seed data
         # Database constraint allows alphanumeric and hyphens ONLY (no underscores)
@@ -408,7 +408,7 @@ class TestScopeCRUD:
                     name=name, display_name=f"Display {name}", description="Test"
                 )
 
-    def test_scope_config_jsonb_storage(self, db: Session, admin_user: UserNew):
+    def test_scope_config_jsonb_storage(self, db: Session, admin_user: UserNew) -> None:
         """Test that scope_config JSONB field stores and retrieves correctly."""
         complex_config = {
             "primary_inheritance_modes": ["Autosomal Recessive", "X-linked"],
@@ -433,7 +433,7 @@ class TestScopeCRUD:
         retrieved_scope = scope_crud.get_scope(db, scope.id)
         assert retrieved_scope.scope_config == complex_config
 
-    def test_scope_created_by_tracking(self, db: Session, admin_user: UserNew):
+    def test_scope_created_by_tracking(self, db: Session, admin_user: UserNew) -> None:
         """Test that scope creator is tracked correctly."""
         scope_data = ScopeCreate(
             name="creator-test",
@@ -452,7 +452,7 @@ class TestScopeCRUD:
 
     def test_get_scopes_by_institution(
         self, db: Session, admin_user: UserNew, test_scope: Scope
-    ):
+    ) -> None:
         """Test filtering scopes by institution."""
         # Create scopes with different institutions
         for i, institution in enumerate(
@@ -477,7 +477,7 @@ class TestScopeCRUD:
 class TestScopeEdgeCases:
     """Test edge cases and error conditions."""
 
-    def test_scope_with_minimal_data(self, db: Session, admin_user: UserNew):
+    def test_scope_with_minimal_data(self, db: Session, admin_user: UserNew) -> None:
         """Test creating a scope with only required fields."""
         from app.models.models import Scope
 
@@ -499,7 +499,7 @@ class TestScopeEdgeCases:
         assert minimal_scope.scope_config == {}  # Default
         assert minimal_scope.created_by == admin_user.id
 
-    def test_scope_with_unicode_characters(self, db: Session, admin_user: UserNew):
+    def test_scope_with_unicode_characters(self, db: Session, admin_user: UserNew) -> None:
         """Test scope with unicode characters in display_name and description."""
         scope_data = ScopeCreate(
             name="unicode-scope",
@@ -513,7 +513,7 @@ class TestScopeEdgeCases:
         assert "腎臓遺伝学" in scope.display_name
         assert "日本語" in scope.description
 
-    def test_scope_with_very_long_description(self, db: Session, admin_user: UserNew):
+    def test_scope_with_very_long_description(self, db: Session, admin_user: UserNew) -> None:
         """Test scope with very long description (TEXT field)."""
         long_description = "A" * 10000  # 10,000 characters
 
@@ -528,7 +528,7 @@ class TestScopeEdgeCases:
         assert len(scope.description) == 10000
         assert scope.description == long_description
 
-    def test_scope_timestamps_auto_update(self, db: Session, test_scope: Scope):
+    def test_scope_timestamps_auto_update(self, db: Session, test_scope: Scope) -> None:
         """Test that updated_at timestamp is automatically updated."""
         original_updated_at = test_scope.updated_at
 
@@ -542,7 +542,7 @@ class TestScopeEdgeCases:
 
         assert updated_scope.updated_at >= original_updated_at
 
-    def test_concurrent_scope_updates(self, db: Session, test_scope: Scope):
+    def test_concurrent_scope_updates(self, db: Session, test_scope: Scope) -> None:
         """Test that concurrent updates don't cause data corruption."""
         # This is a basic test - full concurrency testing would require more setup
         update_data_1 = ScopeUpdate(display_name="Update 1")

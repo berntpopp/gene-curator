@@ -16,17 +16,17 @@ from app.core.enums import ApplicationRole, ScopeRole
 class TestApplicationRole:
     """Test suite for ApplicationRole enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test that enum values are correct."""
         assert ApplicationRole.ADMIN.value == "admin"
         assert ApplicationRole.USER.value == "user"
 
-    def test_string_representation(self):
+    def test_string_representation(self) -> None:
         """Test __str__ returns the value."""
         assert str(ApplicationRole.ADMIN) == "admin"
         assert str(ApplicationRole.USER) == "user"
 
-    def test_from_string_lowercase(self):
+    def test_from_string_lowercase(self) -> None:
         """Test from_string with lowercase input."""
         role = ApplicationRole.from_string("admin")
         assert role == ApplicationRole.ADMIN
@@ -34,7 +34,7 @@ class TestApplicationRole:
         role = ApplicationRole.from_string("user")
         assert role == ApplicationRole.USER
 
-    def test_from_string_uppercase(self):
+    def test_from_string_uppercase(self) -> None:
         """Test from_string with uppercase input."""
         role = ApplicationRole.from_string("ADMIN")
         assert role == ApplicationRole.ADMIN
@@ -42,7 +42,7 @@ class TestApplicationRole:
         role = ApplicationRole.from_string("USER")
         assert role == ApplicationRole.USER
 
-    def test_from_string_mixed_case(self):
+    def test_from_string_mixed_case(self) -> None:
         """Test from_string with mixed case input."""
         role = ApplicationRole.from_string("Admin")
         assert role == ApplicationRole.ADMIN
@@ -50,7 +50,7 @@ class TestApplicationRole:
         role = ApplicationRole.from_string("UsEr")
         assert role == ApplicationRole.USER
 
-    def test_from_string_invalid(self):
+    def test_from_string_invalid(self) -> None:
         """Test from_string with invalid input raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             ApplicationRole.from_string("invalid")
@@ -59,19 +59,19 @@ class TestApplicationRole:
         assert "admin" in str(exc_info.value)
         assert "user" in str(exc_info.value)
 
-    def test_from_string_empty(self):
+    def test_from_string_empty(self) -> None:
         """Test from_string with empty string raises ValueError."""
         with pytest.raises(ValueError):
             ApplicationRole.from_string("")
 
-    def test_enum_iteration(self):
+    def test_enum_iteration(self) -> None:
         """Test iterating over all enum values."""
         all_roles = list(ApplicationRole)
         assert len(all_roles) == 2
         assert ApplicationRole.ADMIN in all_roles
         assert ApplicationRole.USER in all_roles
 
-    def test_enum_comparison(self):
+    def test_enum_comparison(self) -> None:
         """Test enum equality comparison."""
         assert ApplicationRole.ADMIN == ApplicationRole.ADMIN
         assert ApplicationRole.USER == ApplicationRole.USER
@@ -81,33 +81,33 @@ class TestApplicationRole:
 class TestScopeRole:
     """Test suite for ScopeRole enum."""
 
-    def test_enum_values(self):
+    def test_enum_values(self) -> None:
         """Test that enum values are correct."""
         assert ScopeRole.ADMIN.value == "admin"
         assert ScopeRole.CURATOR.value == "curator"
         assert ScopeRole.REVIEWER.value == "reviewer"
         assert ScopeRole.VIEWER.value == "viewer"
 
-    def test_string_representation(self):
+    def test_string_representation(self) -> None:
         """Test __str__ returns the value."""
         assert str(ScopeRole.ADMIN) == "admin"
         assert str(ScopeRole.CURATOR) == "curator"
         assert str(ScopeRole.REVIEWER) == "reviewer"
         assert str(ScopeRole.VIEWER) == "viewer"
 
-    def test_from_string_lowercase(self):
+    def test_from_string_lowercase(self) -> None:
         """Test from_string with lowercase input."""
         assert ScopeRole.from_string("admin") == ScopeRole.ADMIN
         assert ScopeRole.from_string("curator") == ScopeRole.CURATOR
         assert ScopeRole.from_string("reviewer") == ScopeRole.REVIEWER
         assert ScopeRole.from_string("viewer") == ScopeRole.VIEWER
 
-    def test_from_string_uppercase(self):
+    def test_from_string_uppercase(self) -> None:
         """Test from_string with uppercase input."""
         assert ScopeRole.from_string("ADMIN") == ScopeRole.ADMIN
         assert ScopeRole.from_string("CURATOR") == ScopeRole.CURATOR
 
-    def test_from_string_invalid(self):
+    def test_from_string_invalid(self) -> None:
         """Test from_string with invalid input raises ValueError."""
         with pytest.raises(ValueError) as exc_info:
             ScopeRole.from_string("invalid")
@@ -117,59 +117,59 @@ class TestScopeRole:
 
     # Permission checking tests
 
-    def test_can_curate_admin(self):
+    def test_can_curate_admin(self) -> None:
         """Test that admin can curate."""
         assert ScopeRole.ADMIN.can_curate() is True
 
-    def test_can_curate_curator(self):
+    def test_can_curate_curator(self) -> None:
         """Test that curator can curate."""
         assert ScopeRole.CURATOR.can_curate() is True
 
-    def test_can_curate_reviewer(self):
+    def test_can_curate_reviewer(self) -> None:
         """Test that reviewer CANNOT curate."""
         assert ScopeRole.REVIEWER.can_curate() is False
 
-    def test_can_curate_viewer(self):
+    def test_can_curate_viewer(self) -> None:
         """Test that viewer CANNOT curate."""
         assert ScopeRole.VIEWER.can_curate() is False
 
-    def test_can_review_admin(self):
+    def test_can_review_admin(self) -> None:
         """Test that admin can review."""
         assert ScopeRole.ADMIN.can_review() is True
 
-    def test_can_review_reviewer(self):
+    def test_can_review_reviewer(self) -> None:
         """Test that reviewer can review."""
         assert ScopeRole.REVIEWER.can_review() is True
 
-    def test_can_review_curator(self):
+    def test_can_review_curator(self) -> None:
         """Test that curator CANNOT review."""
         assert ScopeRole.CURATOR.can_review() is False
 
-    def test_can_review_viewer(self):
+    def test_can_review_viewer(self) -> None:
         """Test that viewer CANNOT review."""
         assert ScopeRole.VIEWER.can_review() is False
 
-    def test_can_manage_scope_admin(self):
+    def test_can_manage_scope_admin(self) -> None:
         """Test that admin can manage scope."""
         assert ScopeRole.ADMIN.can_manage_scope() is True
 
-    def test_can_manage_scope_others(self):
+    def test_can_manage_scope_others(self) -> None:
         """Test that non-admin roles CANNOT manage scope."""
         assert ScopeRole.CURATOR.can_manage_scope() is False
         assert ScopeRole.REVIEWER.can_manage_scope() is False
         assert ScopeRole.VIEWER.can_manage_scope() is False
 
-    def test_can_invite_members_admin(self):
+    def test_can_invite_members_admin(self) -> None:
         """Test that admin can invite members."""
         assert ScopeRole.ADMIN.can_invite_members() is True
 
-    def test_can_invite_members_others(self):
+    def test_can_invite_members_others(self) -> None:
         """Test that non-admin roles CANNOT invite members."""
         assert ScopeRole.CURATOR.can_invite_members() is False
         assert ScopeRole.REVIEWER.can_invite_members() is False
         assert ScopeRole.VIEWER.can_invite_members() is False
 
-    def test_can_view_all_roles(self):
+    def test_can_view_all_roles(self) -> None:
         """Test that all roles can view (minimum permission)."""
         assert ScopeRole.ADMIN.can_view() is True
         assert ScopeRole.CURATOR.can_view() is True
@@ -178,14 +178,14 @@ class TestScopeRole:
 
     # Display properties tests
 
-    def test_display_name(self):
+    def test_display_name(self) -> None:
         """Test display_name property."""
         assert ScopeRole.ADMIN.display_name == "Admin"
         assert ScopeRole.CURATOR.display_name == "Curator"
         assert ScopeRole.REVIEWER.display_name == "Reviewer"
         assert ScopeRole.VIEWER.display_name == "Viewer"
 
-    def test_description(self):
+    def test_description(self) -> None:
         """Test description property."""
         admin_desc = ScopeRole.ADMIN.description
         assert "Full access" in admin_desc
@@ -203,7 +203,7 @@ class TestScopeRole:
 
     # Role hierarchy tests
 
-    def test_role_hierarchy_permissions(self):
+    def test_role_hierarchy_permissions(self) -> None:
         """Test that role permissions follow a logical hierarchy."""
         # Admin has all permissions
         assert ScopeRole.ADMIN.can_view()
@@ -230,7 +230,7 @@ class TestScopeRole:
         assert not ScopeRole.VIEWER.can_review()
         assert not ScopeRole.VIEWER.can_manage_scope()
 
-    def test_enum_iteration(self):
+    def test_enum_iteration(self) -> None:
         """Test iterating over all enum values."""
         all_roles = list(ScopeRole)
         assert len(all_roles) == 4
@@ -239,7 +239,7 @@ class TestScopeRole:
         assert ScopeRole.REVIEWER in all_roles
         assert ScopeRole.VIEWER in all_roles
 
-    def test_enum_comparison(self):
+    def test_enum_comparison(self) -> None:
         """Test enum equality comparison."""
         assert ScopeRole.ADMIN == ScopeRole.ADMIN
         assert ScopeRole.CURATOR == ScopeRole.CURATOR
@@ -249,7 +249,7 @@ class TestScopeRole:
 class TestEnumIntegration:
     """Integration tests for enum usage patterns."""
 
-    def test_enum_in_dict_keys(self):
+    def test_enum_in_dict_keys(self) -> None:
         """Test using enums as dictionary keys."""
         permissions = {
             ScopeRole.ADMIN: ["all"],
@@ -261,7 +261,7 @@ class TestEnumIntegration:
         assert permissions[ScopeRole.ADMIN] == ["all"]
         assert permissions[ScopeRole.CURATOR] == ["create", "edit"]
 
-    def test_enum_in_sets(self):
+    def test_enum_in_sets(self) -> None:
         """Test using enums in sets."""
         curation_roles = {ScopeRole.ADMIN, ScopeRole.CURATOR}
 
@@ -270,7 +270,7 @@ class TestEnumIntegration:
         assert ScopeRole.REVIEWER not in curation_roles
         assert ScopeRole.VIEWER not in curation_roles
 
-    def test_enum_serialization(self):
+    def test_enum_serialization(self) -> None:
         """Test that enums can be serialized to strings."""
         role = ScopeRole.CURATOR
         serialized = role.value
@@ -282,7 +282,7 @@ class TestEnumIntegration:
         deserialized = ScopeRole.from_string(serialized)
         assert deserialized == role
 
-    def test_permission_matrix(self):
+    def test_permission_matrix(self) -> None:
         """Test complete permission matrix for all roles."""
         permission_matrix = {
             "view": [

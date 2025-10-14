@@ -121,7 +121,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for incomplete clinical fields
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         clinical = evidence_data.get("clinical_assessment")
 
         # If clinical_assessment key doesn't exist at all, skip (caught by missing check)
@@ -167,7 +167,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for incomplete literature fields
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         literature = evidence_data.get("literature_review")
 
         # If literature_review key doesn't exist at all, skip (caught by missing check)
@@ -211,7 +211,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for low confidence indicators
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         clinical = evidence_data.get("clinical_assessment", {})
         literature = evidence_data.get("literature_review", {})
 

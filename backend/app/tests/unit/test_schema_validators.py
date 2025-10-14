@@ -26,7 +26,7 @@ from app.crud.schema_validators import (
 class TestValidationMessage:
     """Test ValidationMessage dataclass."""
 
-    def test_message_creation(self):
+    def test_message_creation(self) -> None:
         """Test creating a ValidationMessage."""
         message = ValidationMessage(
             severity="error",
@@ -40,7 +40,7 @@ class TestValidationMessage:
         assert message.field_path == "test.field"
         assert message.context == {"key": "value"}
 
-    def test_message_equality(self):
+    def test_message_equality(self) -> None:
         """Test that messages with same values are equal."""
         message1 = ValidationMessage(
             severity="warning", message="Test", field_path="field"
@@ -51,7 +51,7 @@ class TestValidationMessage:
 
         assert message1 == message2
 
-    def test_message_default_context(self):
+    def test_message_default_context(self) -> None:
         """Test that context defaults to empty dict."""
         message = ValidationMessage(
             severity="error", message="Test", field_path="field"
@@ -63,15 +63,15 @@ class TestValidationMessage:
 class TestRequiredFieldsValidator:
     """Test RequiredFieldsValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = RequiredFieldsValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "RequiredFields"
 
-    def test_valid_schema_with_all_required_fields(self):
+    def test_valid_schema_with_all_required_fields(self) -> None:
         """Test that schema with all required fields passes."""
         schema = {
             "field_definitions": {"gene": {"type": "text", "label": "Gene"}},
@@ -83,7 +83,7 @@ class TestRequiredFieldsValidator:
 
         assert len(messages) == 0
 
-    def test_missing_field_definitions(self):
+    def test_missing_field_definitions(self) -> None:
         """Test detection of missing field_definitions."""
         schema = {
             "workflow_states": ["draft", "submitted"],
@@ -97,7 +97,7 @@ class TestRequiredFieldsValidator:
         assert "field_definitions" in messages[0].message
         assert messages[0].field_path == "field_definitions"
 
-    def test_missing_workflow_states(self):
+    def test_missing_workflow_states(self) -> None:
         """Test detection of missing workflow_states."""
         schema = {
             "field_definitions": {"gene": {"type": "text", "label": "Gene"}},
@@ -110,7 +110,7 @@ class TestRequiredFieldsValidator:
         assert messages[0].severity == "error"
         assert "workflow_states" in messages[0].message
 
-    def test_missing_ui_configuration(self):
+    def test_missing_ui_configuration(self) -> None:
         """Test detection of missing ui_configuration."""
         schema = {
             "field_definitions": {"gene": {"type": "text", "label": "Gene"}},
@@ -123,7 +123,7 @@ class TestRequiredFieldsValidator:
         assert messages[0].severity == "error"
         assert "ui_configuration" in messages[0].message
 
-    def test_missing_all_required_fields(self):
+    def test_missing_all_required_fields(self) -> None:
         """Test detection when all required fields are missing."""
         schema = {}
 
@@ -135,7 +135,7 @@ class TestRequiredFieldsValidator:
         assert "workflow_states" in field_paths
         assert "ui_configuration" in field_paths
 
-    def test_empty_required_fields_detected(self):
+    def test_empty_required_fields_detected(self) -> None:
         """Test that empty required fields are detected."""
         schema = {
             "field_definitions": {},  # Empty
@@ -151,15 +151,15 @@ class TestRequiredFieldsValidator:
 class TestFieldDefinitionsValidator:
     """Test FieldDefinitionsValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = FieldDefinitionsValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "FieldDefinitions"
 
-    def test_valid_field_definitions(self):
+    def test_valid_field_definitions(self) -> None:
         """Test valid field definitions pass."""
         schema = {
             "field_definitions": {
@@ -172,7 +172,7 @@ class TestFieldDefinitionsValidator:
 
         assert len(messages) == 0
 
-    def test_field_definitions_not_dict(self):
+    def test_field_definitions_not_dict(self) -> None:
         """Test error when field_definitions is not a dict."""
         schema = {"field_definitions": "not a dict"}
 
@@ -182,7 +182,7 @@ class TestFieldDefinitionsValidator:
         assert messages[0].severity == "error"
         assert "must be a dictionary" in messages[0].message
 
-    def test_field_config_not_dict(self):
+    def test_field_config_not_dict(self) -> None:
         """Test error when field config is not a dict."""
         schema = {"field_definitions": {"gene": "not a dict"}}
 
@@ -192,7 +192,7 @@ class TestFieldDefinitionsValidator:
         assert "must be a dictionary" in messages[0].message
         assert "gene" in messages[0].message
 
-    def test_missing_field_type(self):
+    def test_missing_field_type(self) -> None:
         """Test error when field is missing type."""
         schema = {"field_definitions": {"gene": {"label": "Gene Symbol"}}}
 
@@ -202,7 +202,7 @@ class TestFieldDefinitionsValidator:
         assert "missing required property" in messages[0].message
         assert "type" in messages[0].message
 
-    def test_missing_field_label(self):
+    def test_missing_field_label(self) -> None:
         """Test error when field is missing label."""
         schema = {"field_definitions": {"gene": {"type": "text"}}}
 
@@ -212,7 +212,7 @@ class TestFieldDefinitionsValidator:
         assert "missing required property" in messages[0].message
         assert "label" in messages[0].message
 
-    def test_invalid_field_type(self):
+    def test_invalid_field_type(self) -> None:
         """Test error when field has invalid type."""
         schema = {
             "field_definitions": {
@@ -227,7 +227,7 @@ class TestFieldDefinitionsValidator:
         assert "invalid_type" in messages[0].message
         assert "valid_types" in messages[0].context
 
-    def test_multiple_field_errors(self):
+    def test_multiple_field_errors(self) -> None:
         """Test detection of errors across multiple fields."""
         schema = {
             "field_definitions": {
@@ -241,7 +241,7 @@ class TestFieldDefinitionsValidator:
 
         assert len(messages) == 3
 
-    def test_all_valid_field_types(self):
+    def test_all_valid_field_types(self) -> None:
         """Test that all valid field types are accepted."""
         valid_types = [
             "text",
@@ -268,15 +268,15 @@ class TestFieldDefinitionsValidator:
 class TestWorkflowStatesValidator:
     """Test WorkflowStatesValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = WorkflowStatesValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "WorkflowStates"
 
-    def test_valid_workflow_states(self):
+    def test_valid_workflow_states(self) -> None:
         """Test valid workflow states pass."""
         schema = {"workflow_states": ["draft", "submitted", "approved", "rejected"]}
 
@@ -284,7 +284,7 @@ class TestWorkflowStatesValidator:
 
         assert len(messages) == 0
 
-    def test_workflow_states_not_list(self):
+    def test_workflow_states_not_list(self) -> None:
         """Test error when workflow_states is not a list."""
         schema = {"workflow_states": "not a list"}
 
@@ -294,7 +294,7 @@ class TestWorkflowStatesValidator:
         assert messages[0].severity == "error"
         assert "must be a list" in messages[0].message
 
-    def test_missing_draft_state(self):
+    def test_missing_draft_state(self) -> None:
         """Test error when draft state is missing."""
         schema = {"workflow_states": ["submitted", "approved"]}
 
@@ -304,7 +304,7 @@ class TestWorkflowStatesValidator:
         assert "draft" in messages[0].message
         assert "missing_state" in messages[0].context
 
-    def test_missing_submitted_state(self):
+    def test_missing_submitted_state(self) -> None:
         """Test error when submitted state is missing."""
         schema = {"workflow_states": ["draft", "approved"]}
 
@@ -313,7 +313,7 @@ class TestWorkflowStatesValidator:
         assert len(messages) == 1
         assert "submitted" in messages[0].message
 
-    def test_missing_both_required_states(self):
+    def test_missing_both_required_states(self) -> None:
         """Test error when both required states are missing."""
         schema = {"workflow_states": ["approved", "rejected"]}
 
@@ -328,15 +328,15 @@ class TestWorkflowStatesValidator:
 class TestUIConfigurationValidator:
     """Test UIConfigurationValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = UIConfigurationValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "UIConfiguration"
 
-    def test_valid_ui_configuration(self):
+    def test_valid_ui_configuration(self) -> None:
         """Test valid UI configuration passes."""
         schema = {"ui_configuration": {"sections": [{"title": "General"}]}}
 
@@ -344,7 +344,7 @@ class TestUIConfigurationValidator:
 
         assert len(messages) == 0
 
-    def test_ui_configuration_not_dict(self):
+    def test_ui_configuration_not_dict(self) -> None:
         """Test error when ui_configuration is not a dict."""
         schema = {"ui_configuration": "not a dict"}
 
@@ -354,7 +354,7 @@ class TestUIConfigurationValidator:
         assert messages[0].severity == "error"
         assert "must be a dictionary" in messages[0].message
 
-    def test_missing_sections_warning(self):
+    def test_missing_sections_warning(self) -> None:
         """Test warning when sections are missing."""
         schema = {
             "ui_configuration": {"layout": "default"}
@@ -370,15 +370,15 @@ class TestUIConfigurationValidator:
 class TestScoringConfigurationValidator:
     """Test ScoringConfigurationValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = ScoringConfigurationValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "ScoringConfiguration"
 
-    def test_valid_scoring_configuration(self):
+    def test_valid_scoring_configuration(self) -> None:
         """Test valid scoring configuration passes."""
         schema = {"scoring_configuration": {"engine": "clingen_sop_v11"}}
 
@@ -386,7 +386,7 @@ class TestScoringConfigurationValidator:
 
         assert len(messages) == 0
 
-    def test_missing_scoring_configuration(self):
+    def test_missing_scoring_configuration(self) -> None:
         """Test no messages when scoring_configuration is optional and missing."""
         schema = {}
 
@@ -394,7 +394,7 @@ class TestScoringConfigurationValidator:
 
         assert len(messages) == 0
 
-    def test_scoring_configuration_not_dict(self):
+    def test_scoring_configuration_not_dict(self) -> None:
         """Test error when scoring_configuration is not a dict."""
         schema = {"scoring_configuration": "not a dict"}
 
@@ -404,7 +404,7 @@ class TestScoringConfigurationValidator:
         assert messages[0].severity == "error"
         assert "must be a dictionary" in messages[0].message
 
-    def test_missing_engine_warning(self):
+    def test_missing_engine_warning(self) -> None:
         """Test warning when engine is missing."""
         schema = {"scoring_configuration": {"some_other_field": "value"}}
 
@@ -418,15 +418,15 @@ class TestScoringConfigurationValidator:
 class TestValidationRulesValidator:
     """Test ValidationRulesValidator."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.validator = ValidationRulesValidator()
 
-    def test_validator_name(self):
+    def test_validator_name(self) -> None:
         """Test validator name property."""
         assert self.validator.validator_name == "ValidationRules"
 
-    def test_valid_validation_rules(self):
+    def test_valid_validation_rules(self) -> None:
         """Test valid validation rules pass."""
         schema = {"validation_rules": {"gene_symbol": {"required": True}}}
 
@@ -434,7 +434,7 @@ class TestValidationRulesValidator:
 
         assert len(messages) == 0
 
-    def test_missing_validation_rules(self):
+    def test_missing_validation_rules(self) -> None:
         """Test no messages when validation_rules is optional and missing."""
         schema = {}
 
@@ -442,7 +442,7 @@ class TestValidationRulesValidator:
 
         assert len(messages) == 0
 
-    def test_validation_rules_not_dict(self):
+    def test_validation_rules_not_dict(self) -> None:
         """Test error when validation_rules is not a dict."""
         schema = {"validation_rules": "not a dict"}
 
@@ -456,11 +456,11 @@ class TestValidationRulesValidator:
 class TestSchemaValidatorChain:
     """Test SchemaValidatorChain."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.chain = SchemaValidatorChain()
 
-    def test_default_validators_loaded(self):
+    def test_default_validators_loaded(self) -> None:
         """Test that default validators are loaded."""
         assert len(self.chain.validators) == 6
         validator_names = {v.validator_name for v in self.chain.validators}
@@ -474,7 +474,7 @@ class TestSchemaValidatorChain:
         }
         assert validator_names == expected_names
 
-    def test_custom_validators(self):
+    def test_custom_validators(self) -> None:
         """Test using custom validators."""
         custom_validator = RequiredFieldsValidator()
         chain = SchemaValidatorChain(validators=[custom_validator])
@@ -482,7 +482,7 @@ class TestSchemaValidatorChain:
         assert len(chain.validators) == 1
         assert chain.validators[0] is custom_validator
 
-    def test_complete_valid_schema(self):
+    def test_complete_valid_schema(self) -> None:
         """Test that complete valid schema passes."""
         schema = {
             "field_definitions": {
@@ -500,7 +500,7 @@ class TestSchemaValidatorChain:
         errors = [m for m in messages if m.severity == "error"]
         assert len(errors) == 0
 
-    def test_empty_schema_catches_all_errors(self):
+    def test_empty_schema_catches_all_errors(self) -> None:
         """Test that empty schema triggers all required field errors."""
         schema = {}
 
@@ -510,7 +510,7 @@ class TestSchemaValidatorChain:
         errors = [m for m in messages if m.severity == "error"]
         assert len(errors) == 3
 
-    def test_partial_schema_with_errors(self):
+    def test_partial_schema_with_errors(self) -> None:
         """Test schema with some fields triggers appropriate errors."""
         schema = {
             "field_definitions": {
@@ -534,7 +534,7 @@ class TestSchemaValidatorChain:
 class TestConvenienceFunction:
     """Test the convenience function validate_schema_structure."""
 
-    def test_convenience_function_returns_tuples(self):
+    def test_convenience_function_returns_tuples(self) -> None:
         """Test that convenience function returns (errors, warnings) tuple."""
         schema = {}
 
@@ -546,7 +546,7 @@ class TestConvenienceFunction:
         assert isinstance(errors, list)
         assert isinstance(warnings, list)
 
-    def test_convenience_function_with_valid_schema(self):
+    def test_convenience_function_with_valid_schema(self) -> None:
         """Test convenience function with valid schema."""
         schema = {
             "field_definitions": {
@@ -561,7 +561,7 @@ class TestConvenienceFunction:
         assert len(errors) == 0
         # May have warnings (e.g., missing sections is OK if sections is present)
 
-    def test_convenience_function_with_errors(self):
+    def test_convenience_function_with_errors(self) -> None:
         """Test convenience function with errors."""
         schema = {}
 
@@ -570,7 +570,7 @@ class TestConvenienceFunction:
         assert len(errors) >= 3  # Missing 3 required fields
         assert all(isinstance(e, str) for e in errors)
 
-    def test_convenience_function_with_warnings(self):
+    def test_convenience_function_with_warnings(self) -> None:
         """Test convenience function with warnings."""
         schema = {
             "field_definitions": {
@@ -592,11 +592,11 @@ class TestConvenienceFunction:
 class TestIntegrationScenarios:
     """Test real-world integration scenarios."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.chain = SchemaValidatorChain()
 
-    def test_clingen_sop_v11_schema(self):
+    def test_clingen_sop_v11_schema(self) -> None:
         """Test ClinGen SOP v11 compatible schema."""
         schema = {
             "field_definitions": {
@@ -640,7 +640,7 @@ class TestIntegrationScenarios:
         errors = [m for m in messages if m.severity == "error"]
         assert len(errors) == 0
 
-    def test_gencc_schema(self):
+    def test_gencc_schema(self) -> None:
         """Test GenCC compatible schema."""
         schema = {
             "field_definitions": {
@@ -662,7 +662,7 @@ class TestIntegrationScenarios:
         errors = [m for m in messages if m.severity == "error"]
         assert len(errors) == 0
 
-    def test_minimal_valid_schema(self):
+    def test_minimal_valid_schema(self) -> None:
         """Test minimal valid schema with only required fields."""
         schema = {
             "field_definitions": {"gene": {"type": "text", "label": "Gene"}},
@@ -675,7 +675,7 @@ class TestIntegrationScenarios:
         errors = [m for m in messages if m.severity == "error"]
         assert len(errors) == 0
 
-    def test_schema_with_multiple_errors_and_warnings(self):
+    def test_schema_with_multiple_errors_and_warnings(self) -> None:
         """Test schema with multiple errors and warnings."""
         schema = {
             "field_definitions": {
