@@ -54,11 +54,14 @@
           </template>
 
           <v-list-item-title>
-            {{ member.user_name || member.user_email }}
+            {{ member.user_full_name || member.user_username || member.user_email }}
           </v-list-item-title>
 
           <v-list-item-subtitle>
             {{ member.user_email }}
+            <span v-if="member.user_orcid" class="text-caption ml-2">
+              (ORCID: {{ member.user_orcid }})
+            </span>
           </v-list-item-subtitle>
 
           <template #append>
@@ -187,8 +190,12 @@
 
         <v-card-text>
           Are you sure you want to remove
-          <strong>{{ memberToRemove?.user_name || memberToRemove?.user_email }}</strong> from this
-          scope?
+          <strong>{{
+            memberToRemove?.user_full_name ||
+            memberToRemove?.user_username ||
+            memberToRemove?.user_email
+          }}</strong>
+          from this scope?
         </v-card-text>
 
         <v-card-actions>

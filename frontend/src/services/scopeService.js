@@ -148,7 +148,9 @@ export const scopeService = {
    */
   async fetchMembers(scopeId) {
     const response = await apiClient.get(`/scopes/${scopeId}/members`)
-    return response.data
+    // Extract members array from response
+    // API returns: { scope_id, total, members, active_count, pending_count, role_counts }
+    return response.data.members || response.data
   },
 
   /**
