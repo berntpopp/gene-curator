@@ -1,16 +1,20 @@
 """
 SQLAlchemy models for schema-agnostic Gene Curator architecture.
 Supports scope-based organization, multi-stage workflow, and pluggable methodologies.
+
+Modern SQLAlchemy 2.0 patterns with full type safety.
 """
 
 import enum
 import uuid
+from datetime import datetime as dt
+from typing import Any
+from uuid import UUID as PyUUID  # noqa: N811
 
 from sqlalchemy import (
     ARRAY,
     BigInteger,
     Boolean,
-    Column,
     Date,
     DateTime,
     Enum,
@@ -22,7 +26,7 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
@@ -88,44 +92,59 @@ class Scope(Base):
 
     __tablename__ = "scopes"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), unique=True, nullable=False, index=True)
-    display_name = Column(String(255), nullable=False)
-    description = Column(Text)
-    institution = Column(String(255), index=True)
-    is_public = Column(Boolean, default=False, nullable=False)
-    is_active = Column(Boolean, default=True, index=True)
-    default_workflow_pair_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    name: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    display_name: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    # Nullable fields
+    description: Mapped[str | None] = mapped_column(Text)
+    institution: Mapped[str | None] = mapped_column(String(255), index=True)
+    default_workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
     )
 
+    # Status
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+
     # Configuration
-    scope_config = Column(JSONB, default={})
+    scope_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     # Metadata
-    created_at = Column(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
-    created_by = Column(
+    created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Relationships
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    default_workflow_pair = relationship(
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    default_workflow_pair: Mapped["WorkflowPair | None"] = relationship(
         "WorkflowPair", foreign_keys=[default_workflow_pair_id]
     )
-    gene_assignments = relationship("GeneScopeAssignment", back_populates="scope")
-    scope_memberships = relationship("ScopeMembership", back_populates="scope")
-    precurations = relationship("PrecurationNew", back_populates="scope")
-    curations = relationship("CurationNew", back_populates="scope")
-    active_curations = relationship("ActiveCuration", back_populates="scope")
+    gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
+        "GeneScopeAssignment", back_populates="scope"
+    )
+    scope_memberships: Mapped[list["ScopeMembership"]] = relationship(
+        "ScopeMembership", back_populates="scope"
+    )
+    precurations: Mapped[list["PrecurationNew"]] = relationship(
+        "PrecurationNew", back_populates="scope"
+    )
+    curations: Mapped[list["CurationNew"]] = relationship("CurationNew", back_populates="scope")
+    active_curations: Mapped[list["ActiveCuration"]] = relationship(
+        "ActiveCuration", back_populates="scope"
+    )
 
 
 class UserNew(Base):
@@ -133,32 +152,39 @@ class UserNew(Base):
 
     __tablename__ = "users_new"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email = Column(String(255), unique=True, nullable=False, index=True)
-    hashed_password = Column(String(255), nullable=False)
-    name = Column(String(255), nullable=False)
-    role: UserRoleNew = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[UserRoleNew] = mapped_column(
         Enum(UserRoleNew, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="viewer",
         index=True,
     )
-    institution = Column(String(255), index=True)
-    assigned_scopes: list[UUID] = Column(ARRAY(UUID(as_uuid=True)), default=[])
 
-    # Enhanced profile
-    orcid_id = Column(String(50))
-    expertise_areas: list[str] = Column(ARRAY(Text), default=[])
+    # Nullable fields
+    institution: Mapped[str | None] = mapped_column(String(255), index=True)
+    assigned_scopes: Mapped[list[PyUUID]] = mapped_column(
+        ARRAY(UUID(as_uuid=True)), default=[]
+    )
+
+    # Enhanced profile (nullable)
+    orcid_id: Mapped[str | None] = mapped_column(String(50))
+    expertise_areas: Mapped[list[str]] = mapped_column(ARRAY(Text), default=[])
 
     # Status
-    is_active = Column(Boolean, default=True, index=True)
-    last_login = Column(DateTime(timezone=True))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    last_login: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
     # Metadata
-    created_at = Column(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -166,28 +192,34 @@ class UserNew(Base):
     )
 
     # Relationships
-    created_scopes = relationship("Scope", foreign_keys="[Scope.created_by]")
-    created_schemas = relationship(
+    created_scopes: Mapped[list["Scope"]] = relationship(
+        "Scope", foreign_keys="[Scope.created_by]"
+    )
+    created_schemas: Mapped[list["CurationSchema"]] = relationship(
         "CurationSchema", foreign_keys="[CurationSchema.created_by]"
     )
-    created_workflow_pairs = relationship(
+    created_workflow_pairs: Mapped[list["WorkflowPair"]] = relationship(
         "WorkflowPair", foreign_keys="[WorkflowPair.created_by]"
     )
-    curator_assignments = relationship(
+    curator_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
         "GeneScopeAssignment", foreign_keys="[GeneScopeAssignment.assigned_curator_id]"
     )
-    created_genes = relationship("GeneNew", foreign_keys="[GeneNew.created_by]")
-    created_precurations = relationship(
+    created_genes: Mapped[list["GeneNew"]] = relationship(
+        "GeneNew", foreign_keys="[GeneNew.created_by]"
+    )
+    created_precurations: Mapped[list["PrecurationNew"]] = relationship(
         "PrecurationNew", foreign_keys="[PrecurationNew.created_by]"
     )
-    created_curations = relationship(
+    created_curations: Mapped[list["CurationNew"]] = relationship(
         "CurationNew", foreign_keys="[CurationNew.created_by]"
     )
-    reviews_assigned = relationship("Review", foreign_keys="[Review.reviewer_id]")
-    approved_curations = relationship(
+    reviews_assigned: Mapped[list["Review"]] = relationship(
+        "Review", foreign_keys="[Review.reviewer_id]"
+    )
+    approved_curations: Mapped[list["CurationNew"]] = relationship(
         "CurationNew", foreign_keys="[CurationNew.approved_by]"
     )
-    scope_memberships = relationship(
+    scope_memberships: Mapped[list["ScopeMembership"]] = relationship(
         "ScopeMembership",
         foreign_keys="[ScopeMembership.user_id]",
         back_populates="user",
@@ -210,14 +242,17 @@ class ScopeMembership(Base):
 
     __tablename__ = "scope_memberships"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    scope_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    scope_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    user_id = Column(
+    user_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users_new.id", ondelete="CASCADE"),
         nullable=False,
@@ -225,30 +260,32 @@ class ScopeMembership(Base):
     )
 
     # Role within scope (uses scope_role enum from database)
-    role = Column(
+    role: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True
     )  # admin, curator, reviewer, viewer
 
-    # Invitation workflow
-    invited_by = Column(
+    # Invitation workflow (nullable fields)
+    invited_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    invited_at = Column(
+    invited_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    accepted_at = Column(DateTime(timezone=True))  # NULL = pending invitation
+    accepted_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True)
+    )  # NULL = pending invitation
 
     # Status
-    is_active = Column(Boolean, default=True, nullable=False, index=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False, index=True)
 
     # Team support (future feature for group-based permissions)
-    team_id = Column(UUID(as_uuid=True))
+    team_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
 
-    # Notes
-    notes = Column(Text)
+    # Notes (nullable)
+    notes: Mapped[str | None] = mapped_column(Text)
 
     # Metadata
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -256,11 +293,11 @@ class ScopeMembership(Base):
     )
 
     # Relationships
-    scope = relationship("Scope", back_populates="scope_memberships")
-    user = relationship(
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="scope_memberships")
+    user: Mapped["UserNew"] = relationship(
         "UserNew", foreign_keys=[user_id], back_populates="scope_memberships"
     )
-    inviter = relationship("UserNew", foreign_keys=[invited_by])
+    inviter: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[invited_by])
 
     __table_args__ = (
         UniqueConstraint("scope_id", "user_id", name="uq_scope_membership_scope_user"),
@@ -284,45 +321,62 @@ class CurationSchema(Base):
 
     __tablename__ = "curation_schemas"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    version = Column(String(50), nullable=False)
-    schema_type: SchemaType = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    version: Mapped[str] = mapped_column(String(50), nullable=False)
+    schema_type: Mapped[SchemaType] = mapped_column(
         Enum(SchemaType, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         index=True,
     )
 
-    # Complete schema definition
-    field_definitions = Column(JSONB, nullable=False)
-    validation_rules = Column(JSONB, nullable=False, default={})
-    scoring_configuration = Column(JSONB)
-    workflow_states = Column(JSONB, nullable=False)
-    ui_configuration = Column(JSONB, nullable=False)
+    # Complete schema definition (required)
+    field_definitions: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    validation_rules: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
+    workflow_states: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    ui_configuration: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
 
-    # Inheritance support
-    based_on_schema_id = Column(UUID(as_uuid=True), ForeignKey("curation_schemas.id"))
+    # Complete schema definition (nullable)
+    scoring_configuration: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
-    # Metadata
-    description = Column(Text)
-    institution = Column(String(255), index=True)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users_new.id"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_active = Column(Boolean, default=True, index=True)
+    # Inheritance support (nullable)
+    based_on_schema_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+    )
+
+    # Metadata (nullable)
+    description: Mapped[str | None] = mapped_column(Text)
+    institution: Mapped[str | None] = mapped_column(String(255), index=True)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users_new.id")
+    )
+    created_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Schema validation checksum
-    schema_hash = Column(String(64), nullable=False)
+    schema_hash: Mapped[str] = mapped_column(String(64), nullable=False)
 
     # Relationships
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    based_on_schema = relationship("CurationSchema", remote_side=[id])
-    precuration_workflow_pairs = relationship(
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    based_on_schema: Mapped["CurationSchema | None"] = relationship(
+        "CurationSchema", remote_side=[id]
+    )
+    precuration_workflow_pairs: Mapped[list["WorkflowPair"]] = relationship(
         "WorkflowPair", foreign_keys="[WorkflowPair.precuration_schema_id]"
     )
-    curation_workflow_pairs = relationship(
+    curation_workflow_pairs: Mapped[list["WorkflowPair"]] = relationship(
         "WorkflowPair", foreign_keys="[WorkflowPair.curation_schema_id]"
     )
-    precurations = relationship("PrecurationNew", back_populates="precuration_schema")
+    precurations: Mapped[list["PrecurationNew"]] = relationship(
+        "PrecurationNew", back_populates="precuration_schema"
+    )
 
     __table_args__ = (
         UniqueConstraint("name", "version", name="uq_schema_name_version"),
@@ -344,40 +398,56 @@ class WorkflowPair(Base):
 
     __tablename__ = "workflow_pairs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name = Column(String(255), nullable=False)
-    version = Column(String(50), nullable=False)
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    precuration_schema_id = Column(
+    # Required fields
+    name: Mapped[str] = mapped_column(String(255), nullable=False)
+    version: Mapped[str] = mapped_column(String(50), nullable=False)
+
+    # Schema references (nullable)
+    precuration_schema_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("curation_schemas.id")
     )
-    curation_schema_id = Column(UUID(as_uuid=True), ForeignKey("curation_schemas.id"))
+    curation_schema_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+    )
 
     # How data flows between stages
-    data_mapping = Column(JSONB, nullable=False, default={})
+    data_mapping: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
 
     # Workflow configuration
-    workflow_config = Column(JSONB, default={})
+    workflow_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
-    # Metadata
-    description = Column(Text)
-    created_by = Column(UUID(as_uuid=True), ForeignKey("users_new.id"))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    is_active = Column(Boolean, default=True, index=True)
+    # Metadata (nullable)
+    description: Mapped[str | None] = mapped_column(Text)
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users_new.id")
+    )
+    created_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    # Status
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Relationships
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    precuration_schema = relationship(
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    precuration_schema: Mapped["CurationSchema | None"] = relationship(
         "CurationSchema", foreign_keys=[precuration_schema_id]
     )
-    curation_schema = relationship("CurationSchema", foreign_keys=[curation_schema_id])
-    scope_defaults = relationship(
+    curation_schema: Mapped["CurationSchema | None"] = relationship(
+        "CurationSchema", foreign_keys=[curation_schema_id]
+    )
+    scope_defaults: Mapped[list["Scope"]] = relationship(
         "Scope", foreign_keys="[Scope.default_workflow_pair_id]"
     )
-    gene_assignments = relationship(
+    gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
         "GeneScopeAssignment", back_populates="workflow_pair"
     )
-    curations = relationship("CurationNew", back_populates="workflow_pair")
+    curations: Mapped[list["CurationNew"]] = relationship(
+        "CurationNew", back_populates="workflow_pair"
+    )
 
     __table_args__ = (
         UniqueConstraint("name", "version", name="uq_workflow_pair_name_version"),
@@ -389,45 +459,56 @@ class GeneNew(Base):
 
     __tablename__ = "genes_new"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    hgnc_id = Column(String(50), unique=True, nullable=False, index=True)
-    approved_symbol = Column(String(100), nullable=False, index=True)
-    previous_symbols: list[str] = Column(ARRAY(Text))
-    alias_symbols: list[str] = Column(ARRAY(Text))
-    chromosome = Column(String(10), index=True)
-    location = Column(String(50))
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    hgnc_id: Mapped[str] = mapped_column(String(50), unique=True, nullable=False, index=True)
+    approved_symbol: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    record_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+
+    # Nullable fields
+    previous_symbols: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    alias_symbols: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    chromosome: Mapped[str | None] = mapped_column(String(10), index=True)
+    location: Mapped[str | None] = mapped_column(String(50))
 
     # Gene details (preserves current flexibility)
-    details = Column(JSONB, default={})
+    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
     # Provenance tracking
-    record_hash = Column(String(64), nullable=False, unique=True)
-    previous_hash = Column(String(64))
+    previous_hash: Mapped[str | None] = mapped_column(String(64))
 
     # Metadata
-    created_at = Column(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
-    created_by = Column(
+    created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    updated_by = Column(
+    updated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Relationships
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    updater = relationship("UserNew", foreign_keys=[updated_by])
-    scope_assignments = relationship("GeneScopeAssignment", back_populates="gene")
-    precurations = relationship("PrecurationNew", back_populates="gene")
-    curations = relationship("CurationNew", back_populates="gene")
-    active_curations = relationship("ActiveCuration", back_populates="gene")
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    updater: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[updated_by])
+    scope_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
+        "GeneScopeAssignment", back_populates="gene"
+    )
+    precurations: Mapped[list["PrecurationNew"]] = relationship(
+        "PrecurationNew", back_populates="gene"
+    )
+    curations: Mapped[list["CurationNew"]] = relationship("CurationNew", back_populates="gene")
+    active_curations: Mapped[list["ActiveCuration"]] = relationship(
+        "ActiveCuration", back_populates="gene"
+    )
 
     __table_args__ = (
         Index("idx_genes_new_details_gin", "details", postgresql_using="gin"),
@@ -439,40 +520,45 @@ class GeneScopeAssignment(Base):
 
     __tablename__ = "gene_scope_assignments"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    gene_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("genes_new.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    scope_id = Column(
+    scope_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    assigned_curator_id = Column(
+
+    # Nullable fields
+    assigned_curator_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL"), index=True
     )
-    workflow_pair_id = Column(
+    workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id"), index=True
     )
 
     # Assignment details
-    is_active = Column(Boolean, default=True, index=True)
-    priority = Column(String(20), default="normal")  # high, normal, low
-    due_date = Column(Date)
-    assignment_notes = Column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    priority: Mapped[str] = mapped_column(String(20), default="normal")  # high, normal, low
+    due_date: Mapped[dt | None] = mapped_column(Date)
+    assignment_notes: Mapped[str | None] = mapped_column(Text)
 
     # Metadata
-    assigned_by = Column(
+    assigned_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    assigned_at = Column(
+    assigned_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
@@ -480,11 +566,15 @@ class GeneScopeAssignment(Base):
     )
 
     # Relationships
-    gene = relationship("GeneNew", back_populates="scope_assignments")
-    scope = relationship("Scope", back_populates="gene_assignments")
-    assigned_curator = relationship("UserNew", foreign_keys=[assigned_curator_id])
-    assigner = relationship("UserNew", foreign_keys=[assigned_by])
-    workflow_pair = relationship("WorkflowPair", back_populates="gene_assignments")
+    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="scope_assignments")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="gene_assignments")
+    assigned_curator: Mapped["UserNew | None"] = relationship(
+        "UserNew", foreign_keys=[assigned_curator_id]
+    )
+    assigner: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[assigned_by])
+    workflow_pair: Mapped["WorkflowPair | None"] = relationship(
+        "WorkflowPair", back_populates="gene_assignments"
+    )
 
     __table_args__ = (
         UniqueConstraint("gene_id", "scope_id", name="uq_gene_scope_assignment"),
@@ -501,20 +591,23 @@ class PrecurationNew(Base):
 
     __tablename__ = "precurations_new"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    gene_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("genes_new.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    scope_id = Column(
+    scope_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    precuration_schema_id = Column(
+    precuration_schema_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("curation_schemas.id"),
         nullable=False,
@@ -522,59 +615,63 @@ class PrecurationNew(Base):
     )
 
     # Status and workflow
-    status: CurationStatus = Column(
+    status: Mapped[CurationStatus] = mapped_column(
         Enum(CurationStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="draft",
         index=True,
     )
-    workflow_stage: WorkflowStage = Column(
+    workflow_stage: Mapped[WorkflowStage] = mapped_column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="precuration",
         index=True,
     )
-    is_draft = Column(Boolean, default=True, index=True)
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Evidence data (schema-agnostic)
-    evidence_data = Column(JSONB, nullable=False, default={})
+    evidence_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
 
     # Computed results from schema
-    computed_scores = Column(JSONB, default={})
-    computed_fields = Column(JSONB, default={})
+    computed_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    computed_fields: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
-    # Auto-save functionality
-    auto_saved_at = Column(DateTime(timezone=True))
+    # Auto-save functionality (nullable)
+    auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
     # Metadata
-    created_at = Column(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
-    created_by = Column(
+    created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    updated_by = Column(
+    updated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
-    version_number = Column(Integer, default=1)
-    record_hash = Column(String(64), unique=True)
-    previous_hash = Column(String(64))
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+    record_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    previous_hash: Mapped[str | None] = mapped_column(String(64))
 
     # Relationships
-    gene = relationship("GeneNew", back_populates="precurations")
-    scope = relationship("Scope", back_populates="precurations")
-    precuration_schema = relationship("CurationSchema", back_populates="precurations")
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    updater = relationship("UserNew", foreign_keys=[updated_by])
-    curations = relationship("CurationNew", back_populates="precuration")
+    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="precurations")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="precurations")
+    precuration_schema: Mapped["CurationSchema"] = relationship(
+        "CurationSchema", back_populates="precurations"
+    )
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    updater: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[updated_by])
+    curations: Mapped[list["CurationNew"]] = relationship(
+        "CurationNew", back_populates="precuration"
+    )
 
     __table_args__ = (
         Index("idx_precurations_new_gene_scope", "gene_id", "scope_id"),
@@ -589,96 +686,105 @@ class CurationNew(Base):
 
     __tablename__ = "curations_new"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    gene_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("genes_new.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    scope_id = Column(
+    scope_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    precuration_id = Column(
-        UUID(as_uuid=True), ForeignKey("precurations_new.id", ondelete="SET NULL")
-    )
-    workflow_pair_id = Column(
+    workflow_pair_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id"), nullable=False, index=True
     )
 
+    # Nullable fields
+    precuration_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("precurations_new.id", ondelete="SET NULL")
+    )
+
     # Status and workflow
-    status: CurationStatus = Column(
+    status: Mapped[CurationStatus] = mapped_column(
         Enum(CurationStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="draft",
         index=True,
     )
-    workflow_stage: WorkflowStage = Column(
+    workflow_stage: Mapped[WorkflowStage] = mapped_column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="curation",
         index=True,
     )
-    is_draft = Column(Boolean, default=True, index=True)
+    is_draft: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Evidence data (schema-agnostic)
-    evidence_data = Column(JSONB, nullable=False, default={})
+    evidence_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default={})
 
     # Computed results (updated by scoring engines)
-    computed_scores = Column(JSONB, default={})
-    computed_verdict = Column(String(100), index=True)
-    computed_summary = Column(Text)
-    computed_fields = Column(JSONB, default={})
+    computed_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    computed_verdict: Mapped[str | None] = mapped_column(String(100), index=True)
+    computed_summary: Mapped[str | None] = mapped_column(Text)
+    computed_fields: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
-    # Auto-save functionality
-    auto_saved_at = Column(DateTime(timezone=True))
+    # Auto-save functionality (nullable)
+    auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
-    # Submission and approval
-    submitted_at = Column(DateTime(timezone=True))
-    submitted_by = Column(
+    # Submission and approval (nullable)
+    submitted_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+    submitted_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    approved_at = Column(DateTime(timezone=True), index=True)
-    approved_by = Column(
+    approved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
+    approved_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Metadata
-    created_at = Column(
+    created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
-    updated_at = Column(
+    updated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
-    created_by = Column(
+    created_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    updated_by = Column(
+    updated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
-    version_number = Column(Integer, default=1)
-    record_hash = Column(String(64), unique=True)
-    previous_hash = Column(String(64))
+    version_number: Mapped[int] = mapped_column(Integer, default=1)
+    record_hash: Mapped[str | None] = mapped_column(String(64), unique=True)
+    previous_hash: Mapped[str | None] = mapped_column(String(64))
 
     # Relationships
-    gene = relationship("GeneNew", back_populates="curations")
-    scope = relationship("Scope", back_populates="curations")
-    precuration = relationship("PrecurationNew", back_populates="curations")
-    workflow_pair = relationship("WorkflowPair", back_populates="curations")
-    creator = relationship("UserNew", foreign_keys=[created_by])
-    updater = relationship("UserNew", foreign_keys=[updated_by])
-    submitter = relationship("UserNew", foreign_keys=[submitted_by])
-    approver = relationship("UserNew", foreign_keys=[approved_by])
-    reviews = relationship("Review", back_populates="curation")
-    active_curation = relationship(
+    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="curations")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="curations")
+    precuration: Mapped["PrecurationNew | None"] = relationship(
+        "PrecurationNew", back_populates="curations"
+    )
+    workflow_pair: Mapped["WorkflowPair"] = relationship(
+        "WorkflowPair", back_populates="curations"
+    )
+    creator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[created_by])
+    updater: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[updated_by])
+    submitter: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[submitted_by])
+    approver: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[approved_by])
+    reviews: Mapped[list["Review"]] = relationship("Review", back_populates="curation")
+    active_curation: Mapped["ActiveCuration | None"] = relationship(
         "ActiveCuration",
         back_populates="curation",
         foreign_keys="[ActiveCuration.curation_id]",
@@ -700,51 +806,56 @@ class Review(Base):
 
     __tablename__ = "reviews"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    curation_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    curation_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("curations_new.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    reviewer_id = Column(
+    reviewer_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users_new.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
     )
 
-    status: ReviewStatus = Column(
+    status: Mapped[ReviewStatus] = mapped_column(
         Enum(ReviewStatus, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
         default="pending",
         index=True,
     )
 
-    # Review content
-    comments = Column(Text)
-    feedback_data = Column(JSONB, default={})
-    recommendation = Column(String(50))  # approve, reject, needs_revision
+    # Review content (nullable)
+    comments: Mapped[str | None] = mapped_column(Text)
+    feedback_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    recommendation: Mapped[str | None] = mapped_column(
+        String(50)
+    )  # approve, reject, needs_revision
 
-    # Review actions
-    reviewed_at = Column(DateTime(timezone=True), index=True)
+    # Review actions (nullable)
+    reviewed_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
 
     # Metadata
-    assigned_at = Column(
+    assigned_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
-    assigned_by = Column(
+    assigned_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    due_date = Column(Date)
+    due_date: Mapped[dt | None] = mapped_column(Date)
 
     # Version tracking for iterative reviews
-    review_round = Column(Integer, default=1)
+    review_round: Mapped[int] = mapped_column(Integer, default=1)
 
     # Relationships
-    curation = relationship("CurationNew", back_populates="reviews")
-    reviewer = relationship("UserNew", foreign_keys=[reviewer_id])
-    assigner = relationship("UserNew", foreign_keys=[assigned_by])
+    curation: Mapped["CurationNew"] = relationship("CurationNew", back_populates="reviews")
+    reviewer: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[reviewer_id])
+    assigner: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[assigned_by])
 
 
 class ActiveCuration(Base):
@@ -752,20 +863,23 @@ class ActiveCuration(Base):
 
     __tablename__ = "active_curations"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    gene_id = Column(
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # Required fields
+    gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("genes_new.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    scope_id = Column(
+    scope_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
-    curation_id = Column(
+    curation_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("curations_new.id", ondelete="CASCADE"),
         nullable=False,
@@ -773,34 +887,36 @@ class ActiveCuration(Base):
     )
 
     # Activation details
-    activated_at = Column(
+    activated_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
-    activated_by = Column(
+    activated_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
 
     # Previous active curation (for audit trail)
-    replaced_curation_id = Column(
+    replaced_curation_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("curations_new.id", ondelete="SET NULL")
     )
 
-    # Archive information
-    archived_at = Column(DateTime(timezone=True), index=True)
-    archived_by = Column(
+    # Archive information (nullable)
+    archived_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
+    archived_by: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    archive_reason = Column(Text)
+    archive_reason: Mapped[str | None] = mapped_column(Text)
 
     # Relationships
-    gene = relationship("GeneNew", back_populates="active_curations")
-    scope = relationship("Scope", back_populates="active_curations")
-    curation = relationship(
+    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="active_curations")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="active_curations")
+    curation: Mapped["CurationNew"] = relationship(
         "CurationNew", back_populates="active_curation", foreign_keys=[curation_id]
     )
-    activator = relationship("UserNew", foreign_keys=[activated_by])
-    archiver = relationship("UserNew", foreign_keys=[archived_by])
-    replaced_curation = relationship("CurationNew", foreign_keys=[replaced_curation_id])
+    activator: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[activated_by])
+    archiver: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[archived_by])
+    replaced_curation: Mapped["CurationNew | None"] = relationship(
+        "CurationNew", foreign_keys=[replaced_curation_id]
+    )
 
     __table_args__ = (
         UniqueConstraint("gene_id", "scope_id", name="uq_active_curation_gene_scope"),
@@ -823,44 +939,55 @@ class AuditLogNew(Base):
 
     __tablename__ = "audit_log_new"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    entity_type = Column(Text, nullable=False, index=True)
-    entity_id = Column(UUID(as_uuid=True), nullable=False)
-    scope_id = Column(UUID(as_uuid=True), ForeignKey("scopes.id"))
-    operation = Column(Text, nullable=False, index=True)
-    changes = Column(JSONB)
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
-    )
-    timestamp = Column(
+    # Primary key
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+    # Required fields
+    entity_type: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    operation: Mapped[str] = mapped_column(Text, nullable=False, index=True)
+    timestamp: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
 
-    # Additional context
-    ip_address = Column(INET)
-    user_agent = Column(Text)
-    session_id = Column(UUID(as_uuid=True))
+    # Nullable fields
+    scope_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scopes.id")
+    )
+    changes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+    )
 
-    # Multi-stage workflow context
-    workflow_stage: WorkflowStage = Column(
+    # Additional context (nullable)
+    ip_address: Mapped[str | None] = mapped_column(INET)
+    user_agent: Mapped[str | None] = mapped_column(Text)
+    session_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
+
+    # Multi-stage workflow context (nullable)
+    workflow_stage: Mapped[WorkflowStage | None] = mapped_column(
         Enum(WorkflowStage, values_callable=lambda obj: [e.value for e in obj]),
         index=True,
     )
-    review_action: ReviewStatus = Column(
+    review_action: Mapped[ReviewStatus | None] = mapped_column(
         Enum(ReviewStatus, values_callable=lambda obj: [e.value for e in obj])
     )
-    previous_status = Column(Text)
-    new_status = Column(Text)
+    previous_status: Mapped[str | None] = mapped_column(Text)
+    new_status: Mapped[str | None] = mapped_column(Text)
 
-    # Schema context
-    schema_id = Column(UUID(as_uuid=True), ForeignKey("curation_schemas.id"))
-    workflow_pair_id = Column(UUID(as_uuid=True), ForeignKey("workflow_pairs.id"))
+    # Schema context (nullable)
+    schema_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+    )
+    workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
+    )
 
     # Relationships
-    scope = relationship("Scope")
-    user = relationship("UserNew")
-    schema = relationship("CurationSchema")
-    workflow_pair = relationship("WorkflowPair")
+    scope: Mapped["Scope | None"] = relationship("Scope")
+    user: Mapped["UserNew | None"] = relationship("UserNew")
+    schema: Mapped["CurationSchema | None"] = relationship("CurationSchema")
+    workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
 
     __table_args__ = (Index("idx_audit_log_new_entity", "entity_type", "entity_id"),)
 
@@ -870,37 +997,48 @@ class SchemaSelection(Base):
 
     __tablename__ = "schema_selections"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="CASCADE"))
-    scope_id = Column(UUID(as_uuid=True), ForeignKey("scopes.id"), nullable=False)
-    institution = Column(String(255))
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
-    # Preferred schemas
-    preferred_workflow_pair_id = Column(
+    # Required fields
+    scope_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scopes.id"), nullable=False
+    )
+
+    # Nullable fields
+    user_id: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="CASCADE")
+    )
+    institution: Mapped[str | None] = mapped_column(String(255))
+
+    # Preferred schemas (nullable)
+    preferred_workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
     )
-    preferred_precuration_schema_id = Column(
+    preferred_precuration_schema_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("curation_schemas.id")
     )
-    preferred_curation_schema_id = Column(
+    preferred_curation_schema_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("curation_schemas.id")
     )
 
     # Selection metadata
-    is_default = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
     # Relationships
-    user = relationship("UserNew")
-    scope = relationship("Scope")
-    preferred_workflow_pair = relationship("WorkflowPair")
-    preferred_precuration_schema = relationship(
+    user: Mapped["UserNew | None"] = relationship("UserNew")
+    scope: Mapped["Scope"] = relationship("Scope")
+    preferred_workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
+    preferred_precuration_schema: Mapped["CurationSchema | None"] = relationship(
         "CurationSchema", foreign_keys=[preferred_precuration_schema_id]
     )
-    preferred_curation_schema = relationship(
+    preferred_curation_schema: Mapped["CurationSchema | None"] = relationship(
         "CurationSchema", foreign_keys=[preferred_curation_schema_id]
     )
 
@@ -915,38 +1053,41 @@ class SystemLog(Base):
 
     __tablename__ = "system_logs"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    timestamp = Column(
-        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    # Primary key
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+
+    # Required fields
+    timestamp: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
     )
-    level = Column(Text, nullable=False, index=True)
-    logger = Column(Text, nullable=False, index=True)
-    message = Column(Text, nullable=False)
-    context = Column(JSONB, default={}, nullable=False)
+    level: Mapped[str] = mapped_column(Text, index=True)
+    logger: Mapped[str] = mapped_column(Text, index=True)
+    message: Mapped[str] = mapped_column(Text)
+    context: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
 
-    # Request correlation
-    request_id = Column(Text, index=True)
+    # Request correlation (nullable)
+    request_id: Mapped[str | None] = mapped_column(Text, index=True)
 
-    # User context
-    user_id = Column(
+    # User context (nullable)
+    user_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
     )
-    ip_address = Column(Text)
-    user_agent = Column(Text)
+    ip_address: Mapped[str | None] = mapped_column(Text)
+    user_agent: Mapped[str | None] = mapped_column(Text)
 
-    # HTTP context
-    path = Column(Text, index=True)
-    method = Column(Text)
-    status_code = Column(Integer)
-    duration_ms = Column(BigInteger)
+    # HTTP context (nullable)
+    path: Mapped[str | None] = mapped_column(Text, index=True)
+    method: Mapped[str | None] = mapped_column(Text)
+    status_code: Mapped[int | None] = mapped_column(Integer)
+    duration_ms: Mapped[int | None] = mapped_column(BigInteger)
 
-    # Error context
-    error_type = Column(Text)
-    error_message = Column(Text)
-    stack_trace = Column(Text)
+    # Error context (nullable)
+    error_type: Mapped[str | None] = mapped_column(Text)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    stack_trace: Mapped[str | None] = mapped_column(Text)
 
     # Relationships
-    user = relationship("UserNew")
+    user: Mapped["UserNew | None"] = relationship("UserNew")
 
     __table_args__ = (
         Index("idx_system_logs_level_timestamp", "level", timestamp.desc()),
