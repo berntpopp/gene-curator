@@ -173,10 +173,10 @@
   // Development quick login credentials
   // Note: admin is application-level, others are standard users with scope-specific roles
   const devCredentials = {
-    admin: { email: 'admin@genecurator.org', password: 'admin123' },              // Application admin
-    curator: { email: 'alice.smith@genecurator.org', password: 'admin123' },      // User (curator role in kidney-genetics scope)
-    reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' },       // User (reviewer role in cardio-genetics scope)
-    viewer: { email: 'carol.williams@genecurator.org', password: 'admin123' }     // User (viewer role in neuro-genetics scope)
+    admin: { email: 'admin@genecurator.org', password: 'admin123' }, // Application admin
+    curator: { email: 'alice.smith@genecurator.org', password: 'admin123' }, // User (curator role in kidney-genetics scope)
+    reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' }, // User (reviewer role in cardio-genetics scope)
+    viewer: { email: 'carol.williams@genecurator.org', password: 'admin123' } // User (viewer role in neuro-genetics scope)
   }
 
   const handleLogin = async () => {

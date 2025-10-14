@@ -98,8 +98,8 @@ const routes = [
     component: ScopeCreate,
     meta: {
       title: 'Create Scope',
-      requiresAuth: true,
-      requiredRoles: ['admin']
+      requiresAuth: true
+      // Any authenticated user can create a scope
     }
   },
   {
