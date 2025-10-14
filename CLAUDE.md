@@ -241,6 +241,20 @@ database/sql/          # PostgreSQL schema & seed data
 
 ---
 
+## Documentation vs Planning
+
+**docs/** = Documentation (current system)
+- API references, architecture docs, setup guides
+- Describes existing features and how to use them
+- Examples: `docs/API_REFERENCE.md`, `docs/SETUP.md`
+
+**plan/** = Planning & Tracking (future work)
+- Enhancement proposals, implementation plans, roadmaps
+- Issue tracking, progress summaries, refactoring strategies
+- Examples: `plan/ISSUE_ROADMAP.md`, `plan/enhancements/`, `plan/refactoring/`
+
+---
+
 ## Important Files
 
 - `CLAUDE.md` (this file): Development guide for AI
@@ -248,8 +262,8 @@ database/sql/          # PostgreSQL schema & seed data
 - `CONTRIBUTING.md`: Developer onboarding
 - `Makefile`: 50+ commands
 - `.env.dev`: Environment config
-- `docs/ARCHITECTURE.md`: System architecture
-- `docs/archive/INITIAL_PLANNING_VISION.md`: Original vision (archived)
+- `docs/`: All user-facing documentation
+- `plan/`: All planning, tracking, and implementation guides
 - `backend/config/api.yaml`: API config
 - `database/sql/`: Schema definitions
 

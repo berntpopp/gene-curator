@@ -1,6 +1,41 @@
-# Gene Curator: Schema-Agnostic Architecture Implementation Plan
+# Gene Curator: Planning & Implementation
 
-This directory contains the complete implementation plan for transforming Gene Curator into a flexible, methodology-agnostic curation platform that supports any scientific approach through configurable schemas.
+This directory contains all planning, tracking, and implementation guides for Gene Curator development.
+
+---
+
+## Quick Navigation
+
+### 📋 Active Planning & Tracking
+- **[Issue Roadmap](./ISSUE_ROADMAP.md)** - 23 open issues, priority matrices, implementation phases
+- **[Implementation Status](./IMPLEMENTATION_STATUS.md)** - Overall project status and achievements
+- **[Deployment Plan](./DEPLOYMENT.md)** - Production deployment guide
+
+### 🎯 Enhancement Proposals
+- **[Enhancements Overview](./enhancements/README.md)** - Enhancement tracking system
+  - **Active Proposals** (5): retry-utils (003), endpoint-alignment (006), autosave (008), dynamic-forms (009), review-workflow (010)
+  - **[Tracking](./enhancements/tracking/)** - GitHub issue mapping, approved enhancements, action plans
+  - **[Deferred](./enhancements/deferred/)** - Postponed enhancements (cache L1/L2, realtime progress, view management)
+
+### 🚀 Feature Implementation
+- **[Navigation Restructure](./features/navigation/)** - 7-phase navigation restructure project
+  - 📋 Master plan (2363 lines) | 📊 Status tracking | ✅ Phase 0 & 1 complete
+
+### 🔧 Refactoring Plans
+- **[Refactoring Overview](./refactoring/)** - Scope-centric architecture refactoring
+  - Backend implementation plan | Frontend implementation plan | Testing strategy
+  - Migration plans (database squashing, SQLAlchemy 2.0)
+  - Live progress tracking
+
+### 📚 Technical Specifications
+- **[Schema Specifications](./SCHEMA_SPECIFICATIONS.md)** - Technical schema format
+- **[Scoring Engine Guide](./SCORING_ENGINE_GUIDE.md)** - How to create scoring plugins
+
+### 📦 Archive
+- **[Documentation Refactoring Summary (2025-10-14)](./archive/DOCUMENTATION_REFACTORING_SUMMARY_2025-10-14.md)**
+- **[SEO Implementation Plan (2025-10-13)](./archive/SEO_IMPLEMENTATION_2025-10-13.md)**
+
+---
 
 ## Architecture Overview
 
