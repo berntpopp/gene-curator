@@ -58,15 +58,15 @@ SELECT
     ) as last_activity_at
     
 FROM gene_scope_assignments gsa
-JOIN genes_new g ON gsa.gene_id = g.id
+JOIN genes g ON gsa.gene_id = g.id
 JOIN scopes s ON gsa.scope_id = s.id
 LEFT JOIN users_new curator ON gsa.assigned_curator_id = curator.id
 LEFT JOIN workflow_pairs wp ON gsa.workflow_pair_id = wp.id
-LEFT JOIN precurations_new p ON p.gene_id = gsa.gene_id AND p.scope_id = gsa.scope_id
-LEFT JOIN curations_new c ON c.gene_id = gsa.gene_id AND c.scope_id = gsa.scope_id
+LEFT JOIN precurations p ON p.gene_id = gsa.gene_id AND p.scope_id = gsa.scope_id
+LEFT JOIN curations c ON c.gene_id = gsa.gene_id AND c.scope_id = gsa.scope_id
 LEFT JOIN reviews r ON r.curation_id = c.id
 LEFT JOIN active_curations ac ON ac.gene_id = gsa.gene_id AND ac.scope_id = gsa.scope_id AND ac.archived_at IS NULL
-LEFT JOIN curations_new active_curation ON ac.curation_id = active_curation.id
+LEFT JOIN curations active_curation ON ac.curation_id = active_curation.id
 WHERE gsa.is_active = true
 GROUP BY 
     gsa.gene_id, g.approved_symbol, g.hgnc_id, gsa.scope_id, s.name, s.display_name, s.institution,
@@ -120,11 +120,11 @@ SELECT
     
 FROM scopes s
 LEFT JOIN gene_scope_assignments gsa ON s.id = gsa.scope_id AND gsa.is_active = true
-LEFT JOIN precurations_new p ON p.scope_id = s.id
-LEFT JOIN curations_new c ON c.scope_id = s.id
+LEFT JOIN precurations p ON p.scope_id = s.id
+LEFT JOIN curations c ON c.scope_id = s.id
 LEFT JOIN reviews r ON r.curation_id = c.id
 LEFT JOIN active_curations ac ON ac.scope_id = s.id AND ac.archived_at IS NULL
-LEFT JOIN curations_new active_c ON ac.curation_id = active_c.id
+LEFT JOIN curations active_c ON ac.curation_id = active_c.id
 WHERE s.is_active = true
 GROUP BY s.id, s.name, s.display_name, s.institution, s.is_active;
 
@@ -184,8 +184,8 @@ SELECT
         ELSE 'On Track'
     END as urgency_status
     
-FROM curations_new c
-JOIN genes_new g ON c.gene_id = g.id
+FROM curations c
+JOIN genes g ON c.gene_id = g.id
 JOIN scopes s ON c.scope_id = s.id
 LEFT JOIN users_new curator ON c.created_by = curator.id
 LEFT JOIN reviews r ON r.curation_id = c.id
@@ -229,8 +229,8 @@ SELECT
     
 FROM curation_schemas cs
 LEFT JOIN workflow_pairs wp ON (wp.precuration_schema_id = cs.id OR wp.curation_schema_id = cs.id)
-LEFT JOIN precurations_new p ON p.precuration_schema_id = cs.id
-LEFT JOIN curations_new c ON c.workflow_pair_id = wp.id
+LEFT JOIN precurations p ON p.precuration_schema_id = cs.id
+LEFT JOIN curations c ON c.workflow_pair_id = wp.id
 GROUP BY 
     cs.id, cs.name, cs.version, cs.schema_type, cs.institution, cs.is_active,
     cs.scoring_configuration->>'engine'
@@ -279,7 +279,7 @@ SELECT
     
 FROM users_new u
 LEFT JOIN gene_scope_assignments gsa ON gsa.assigned_curator_id = u.id AND gsa.is_active = true
-LEFT JOIN curations_new c ON c.created_by = u.id
+LEFT JOIN curations c ON c.created_by = u.id
 LEFT JOIN reviews r ON r.reviewer_id = u.id
 WHERE u.is_active = true
 GROUP BY u.id, u.name, u.email, u.role, u.institution, u.assigned_scopes, u.last_login
@@ -327,9 +327,9 @@ SELECT
     ac.activated_at as last_updated
     
 FROM active_curations ac
-JOIN genes_new g ON ac.gene_id = g.id
+JOIN genes g ON ac.gene_id = g.id
 JOIN scopes s ON ac.scope_id = s.id
-JOIN curations_new c ON ac.curation_id = c.id
+JOIN curations c ON ac.curation_id = c.id
 JOIN workflow_pairs wp ON c.workflow_pair_id = wp.id
 JOIN curation_schemas cs ON wp.curation_schema_id = cs.id
 LEFT JOIN users_new creator ON c.created_by = creator.id
@@ -393,7 +393,7 @@ SELECT
     'Curations without Reviews' as check_name,
     COUNT(*) as issue_count,
     'Curations in review status without assigned reviewer' as description
-FROM curations_new c
+FROM curations c
 WHERE c.status = 'in_review' 
 AND NOT EXISTS (SELECT 1 FROM reviews r WHERE r.curation_id = c.id AND r.status = 'pending')
 
@@ -404,7 +404,7 @@ SELECT
     COUNT(*) as issue_count,
     'Reviews assigned to same person who created the curation (4-eyes violation)' as description
 FROM reviews r
-JOIN curations_new c ON r.curation_id = c.id
+JOIN curations c ON r.curation_id = c.id
 WHERE r.reviewer_id = c.created_by
 
 UNION ALL
@@ -423,7 +423,7 @@ SELECT
     COUNT(*) as issue_count,
     'Active curations pointing to non-approved curations' as description
 FROM active_curations ac
-JOIN curations_new c ON ac.curation_id = c.id
+JOIN curations c ON ac.curation_id = c.id
 WHERE c.status != 'approved'
 
 UNION ALL
@@ -432,7 +432,7 @@ SELECT
     'Scope Access Violations' as check_name,
     COUNT(*) as issue_count,
     'Users working in scopes they are not assigned to' as description
-FROM curations_new c
+FROM curations c
 JOIN users_new u ON c.created_by = u.id
 WHERE NOT (c.scope_id = ANY(u.assigned_scopes));
 

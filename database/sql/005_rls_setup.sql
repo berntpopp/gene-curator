@@ -7,6 +7,31 @@
 -- Date: 2025-10-14
 -- Security: All functions use STABLE SECURITY DEFINER for safety and performance
 -- =============================================================================
+--
+-- CRITICAL DESIGN DECISIONS:
+--
+-- 1. Function Ownership (BYPASSRLS required):
+--    All RLS helper functions MUST be owned by a role with BYPASSRLS privilege
+--    (e.g., dev_user). This prevents infinite recursion when policies call
+--    functions that query tables with RLS policies. SECURITY DEFINER functions
+--    run with owner's privileges, so BYPASSRLS allows them to query without
+--    triggering RLS recursion. This is the standard PostgreSQL pattern.
+--
+-- 2. SELECT Policy Creator Check:
+--    The scope SELECT policy includes `created_by = get_current_user_uuid()`
+--    because INSERT with RETURNING triggers SELECT policy evaluation. Without
+--    the creator check, INSERT...RETURNING fails since membership doesn't exist
+--    yet at creation time. This allows users to immediately see scopes they
+--    create before the membership record is established.
+--
+-- 3. Membership INSERT Policy:
+--    Allows scope creators to add themselves as initial admin by checking if
+--    they're the scope creator. This breaks the chicken-and-egg problem where
+--    scope creation requires admin membership, but admin membership requires
+--    scope existence. Creator check: (user_id = get_current_user_uuid() AND
+--    EXISTS (SELECT 1 FROM scopes WHERE created_by = get_current_user_uuid()))
+--
+-- =============================================================================
 
 -- =============================================================================
 -- PART 1: RLS HELPER FUNCTIONS (from 004_rls_functions.sql)
@@ -153,12 +178,12 @@ ALTER TABLE gene_scope_assignments FORCE ROW LEVEL SECURITY;  -- Prevents superu
 -- Enable RLS on Curation Workflow Tables
 
 -- Precurations: Pre-curation work within scopes
-ALTER TABLE precurations_new ENABLE ROW LEVEL SECURITY;
-ALTER TABLE precurations_new FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE precurations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE precurations FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
 
 -- Curations: Curation work within scopes
-ALTER TABLE curations_new ENABLE ROW LEVEL SECURITY;
-ALTER TABLE curations_new FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE curations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE curations FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
 
 -- Reviews: Review workflow within scopes
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
@@ -177,15 +202,17 @@ ALTER TABLE active_curations FORCE ROW LEVEL SECURITY;  -- Prevents superuser by
 -- =====================
 
 -- Policy: SELECT scopes - Users can see scopes they're members of or public scopes
+-- IMPORTANT: Must include created_by check for RETURNING clause to work in INSERT statements
 CREATE POLICY scope_select_policy ON scopes
     FOR SELECT
     USING (
-        is_application_admin()      -- App admins see all scopes
-        OR is_public = true          -- Public scopes visible to all authenticated users
-        OR is_scope_member(id)       -- Members see their scopes (STABLE function)
+        is_application_admin()              -- App admins see all scopes
+        OR is_public = true                  -- Public scopes visible to all authenticated users
+        OR is_scope_member(id)               -- Members see their scopes (STABLE function)
+        OR created_by = get_current_user_uuid()  -- Creators see their own scopes (required for RETURNING)
     );
 
-COMMENT ON POLICY scope_select_policy ON scopes IS 'Users can see scopes they are members of, public scopes, or all scopes if application admin';
+COMMENT ON POLICY scope_select_policy ON scopes IS 'Users can see scopes they created, are members of, public scopes, or all if admin. Creator check required for INSERT...RETURNING to work.';
 
 -- Policy: INSERT scopes - Any authenticated user can create a scope
 CREATE POLICY scope_insert_policy ON scopes
@@ -230,15 +257,20 @@ CREATE POLICY membership_select_policy ON scope_memberships
 
 COMMENT ON POLICY membership_select_policy ON scope_memberships IS 'Users can see memberships for scopes they belong to, or their own memberships';
 
--- Policy: INSERT memberships - Only scope admins can invite
+-- Policy: INSERT memberships - Scope admins can invite, creators can add themselves
 CREATE POLICY membership_insert_policy ON scope_memberships
     FOR INSERT
     WITH CHECK (
         is_application_admin()      -- Application admins can add anyone
         OR is_scope_admin(scope_id) -- Scope admins can invite to their scope
+        OR (user_id = get_current_user_uuid() AND EXISTS (
+            SELECT 1 FROM scopes s
+            WHERE s.id = scope_id
+            AND s.created_by = get_current_user_uuid()
+        ))  -- Scope creators can add themselves as initial admin
     );
 
-COMMENT ON POLICY membership_insert_policy ON scope_memberships IS 'Only scope admins can invite members';
+COMMENT ON POLICY membership_insert_policy ON scope_memberships IS 'Scope admins can invite members, scope creators can add themselves as initial admin';
 
 -- Policy: UPDATE memberships - Scope admins and users (for accepting invitations)
 CREATE POLICY membership_update_policy ON scope_memberships
@@ -310,30 +342,30 @@ COMMENT ON POLICY gene_assignment_delete_policy ON gene_scope_assignments IS 'On
 -- =====================
 
 -- Policy: SELECT precurations - Members can see precurations for their scopes
-CREATE POLICY precuration_select_policy ON precurations_new
+CREATE POLICY precuration_select_policy ON precurations
     FOR SELECT
     USING (
         is_application_admin()
         OR is_scope_member(scope_id)
         OR EXISTS (
             SELECT 1 FROM scopes s
-            WHERE s.id = precurations_new.scope_id AND s.is_public = true
+            WHERE s.id = precurations.scope_id AND s.is_public = true
         )
     );
 
-COMMENT ON POLICY precuration_select_policy ON precurations_new IS 'Users can see precurations for their scopes or public scopes';
+COMMENT ON POLICY precuration_select_policy ON precurations IS 'Users can see precurations for their scopes or public scopes';
 
 -- Policy: INSERT precurations - Only curators and admins
-CREATE POLICY precuration_insert_policy ON precurations_new
+CREATE POLICY precuration_insert_policy ON precurations
     FOR INSERT
     WITH CHECK (
         can_curate_in_scope(scope_id)
     );
 
-COMMENT ON POLICY precuration_insert_policy ON precurations_new IS 'Only curators and admins can create precurations';
+COMMENT ON POLICY precuration_insert_policy ON precurations IS 'Only curators and admins can create precurations';
 
 -- Policy: UPDATE precurations - Creators, curators, and admins
-CREATE POLICY precuration_update_policy ON precurations_new
+CREATE POLICY precuration_update_policy ON precurations
     FOR UPDATE
     USING (
         is_application_admin()
@@ -341,37 +373,37 @@ CREATE POLICY precuration_update_policy ON precurations_new
         OR can_curate_in_scope(scope_id)
     );
 
-COMMENT ON POLICY precuration_update_policy ON precurations_new IS 'Creators and curators can update precurations';
+COMMENT ON POLICY precuration_update_policy ON precurations IS 'Creators and curators can update precurations';
 
 -- =====================
 -- CURATION POLICIES
 -- =====================
 
 -- Policy: SELECT curations - Members can see curations for their scopes
-CREATE POLICY curation_select_policy ON curations_new
+CREATE POLICY curation_select_policy ON curations
     FOR SELECT
     USING (
         is_application_admin()
         OR is_scope_member(scope_id)
         OR EXISTS (
             SELECT 1 FROM scopes s
-            WHERE s.id = curations_new.scope_id AND s.is_public = true
+            WHERE s.id = curations.scope_id AND s.is_public = true
         )
     );
 
-COMMENT ON POLICY curation_select_policy ON curations_new IS 'Users can see curations for their scopes or public scopes';
+COMMENT ON POLICY curation_select_policy ON curations IS 'Users can see curations for their scopes or public scopes';
 
 -- Policy: INSERT curations - Only curators and admins
-CREATE POLICY curation_insert_policy ON curations_new
+CREATE POLICY curation_insert_policy ON curations
     FOR INSERT
     WITH CHECK (
         can_curate_in_scope(scope_id)
     );
 
-COMMENT ON POLICY curation_insert_policy ON curations_new IS 'Only curators and admins can create curations';
+COMMENT ON POLICY curation_insert_policy ON curations IS 'Only curators and admins can create curations';
 
 -- Policy: UPDATE curations - Creators, curators, and admins
-CREATE POLICY curation_update_policy ON curations_new
+CREATE POLICY curation_update_policy ON curations
     FOR UPDATE
     USING (
         is_application_admin()
@@ -379,7 +411,7 @@ CREATE POLICY curation_update_policy ON curations_new
         OR can_curate_in_scope(scope_id)
     );
 
-COMMENT ON POLICY curation_update_policy ON curations_new IS 'Creators and curators can update curations';
+COMMENT ON POLICY curation_update_policy ON curations IS 'Creators and curators can update curations';
 
 -- =====================
 -- REVIEW POLICIES
@@ -391,7 +423,7 @@ CREATE POLICY review_select_policy ON reviews
     USING (
         is_application_admin()
         OR EXISTS (
-            SELECT 1 FROM curations_new c
+            SELECT 1 FROM curations c
             WHERE c.id = reviews.curation_id
             AND is_scope_member(c.scope_id)
         )
@@ -405,7 +437,7 @@ CREATE POLICY review_insert_policy ON reviews
     WITH CHECK (
         is_application_admin()
         OR EXISTS (
-            SELECT 1 FROM curations_new c
+            SELECT 1 FROM curations c
             WHERE c.id = curation_id
             AND can_review_in_scope(c.scope_id)
         )
@@ -451,7 +483,7 @@ COMMENT ON POLICY review_update_policy ON reviews IS 'Reviewers can update their
 -- FROM pg_tables
 -- WHERE schemaname = 'public'
 --   AND tablename IN ('scopes', 'scope_memberships', 'gene_scope_assignments',
---                     'precurations_new', 'curations_new', 'reviews', 'active_curations')
+--                     'precurations', 'curations', 'reviews', 'active_curations')
 -- ORDER BY tablename;
 --
 -- Verify RLS policies:
@@ -466,6 +498,6 @@ COMMENT ON POLICY review_update_policy ON reviews IS 'Reviewers can update their
 -- FROM pg_policies
 -- WHERE schemaname = 'public'
 -- AND tablename IN ('scopes', 'scope_memberships', 'gene_scope_assignments',
---                    'precurations_new', 'curations_new', 'reviews')
+--                    'precurations', 'curations', 'reviews')
 -- ORDER BY tablename, policyname;
 -- =============================================================================

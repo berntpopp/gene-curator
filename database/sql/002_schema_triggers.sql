@@ -18,14 +18,14 @@ ALTER TABLE curation_schemas ADD CONSTRAINT fk_curation_schemas_created_by
 ALTER TABLE workflow_pairs ADD CONSTRAINT fk_workflow_pairs_created_by 
     FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE genes_new ADD CONSTRAINT fk_genes_new_created_by 
+ALTER TABLE genes ADD CONSTRAINT fk_genes_created_by 
     FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE genes_new ADD CONSTRAINT fk_genes_new_updated_by 
+ALTER TABLE genes ADD CONSTRAINT fk_genes_updated_by 
     FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_gene 
-    FOREIGN KEY (gene_id) REFERENCES genes_new(id) ON DELETE CASCADE;
+    FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_curator 
     FOREIGN KEY (assigned_curator_id) REFERENCES users_new(id) ON DELETE SET NULL;
@@ -33,35 +33,35 @@ ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_cura
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_assigned_by 
     FOREIGN KEY (assigned_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE precurations_new ADD CONSTRAINT fk_precurations_new_gene 
-    FOREIGN KEY (gene_id) REFERENCES genes_new(id) ON DELETE CASCADE;
+ALTER TABLE precurations ADD CONSTRAINT fk_precurations_gene 
+    FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
-ALTER TABLE precurations_new ADD CONSTRAINT fk_precurations_new_created_by 
+ALTER TABLE precurations ADD CONSTRAINT fk_precurations_created_by 
     FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE precurations_new ADD CONSTRAINT fk_precurations_new_updated_by 
+ALTER TABLE precurations ADD CONSTRAINT fk_precurations_updated_by 
     FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_gene 
-    FOREIGN KEY (gene_id) REFERENCES genes_new(id) ON DELETE CASCADE;
+ALTER TABLE curations ADD CONSTRAINT fk_curations_gene 
+    FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_precuration 
-    FOREIGN KEY (precuration_id) REFERENCES precurations_new(id) ON DELETE SET NULL;
+ALTER TABLE curations ADD CONSTRAINT fk_curations_precuration 
+    FOREIGN KEY (precuration_id) REFERENCES precurations(id) ON DELETE SET NULL;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_created_by 
+ALTER TABLE curations ADD CONSTRAINT fk_curations_created_by 
     FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_updated_by 
+ALTER TABLE curations ADD CONSTRAINT fk_curations_updated_by 
     FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_submitted_by 
+ALTER TABLE curations ADD CONSTRAINT fk_curations_submitted_by 
     FOREIGN KEY (submitted_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
-ALTER TABLE curations_new ADD CONSTRAINT fk_curations_new_approved_by 
+ALTER TABLE curations ADD CONSTRAINT fk_curations_approved_by 
     FOREIGN KEY (approved_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_curation 
-    FOREIGN KEY (curation_id) REFERENCES curations_new(id) ON DELETE CASCADE;
+    FOREIGN KEY (curation_id) REFERENCES curations(id) ON DELETE CASCADE;
 
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_reviewer 
     FOREIGN KEY (reviewer_id) REFERENCES users_new(id) ON DELETE SET NULL;
@@ -70,10 +70,10 @@ ALTER TABLE reviews ADD CONSTRAINT fk_reviews_assigned_by
     FOREIGN KEY (assigned_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_gene 
-    FOREIGN KEY (gene_id) REFERENCES genes_new(id) ON DELETE CASCADE;
+    FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_curation 
-    FOREIGN KEY (curation_id) REFERENCES curations_new(id) ON DELETE CASCADE;
+    FOREIGN KEY (curation_id) REFERENCES curations(id) ON DELETE CASCADE;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_activated_by 
     FOREIGN KEY (activated_by) REFERENCES users_new(id) ON DELETE SET NULL;
@@ -82,9 +82,9 @@ ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_archived_by
     FOREIGN KEY (archived_by) REFERENCES users_new(id) ON DELETE SET NULL;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_replaced_curation 
-    FOREIGN KEY (replaced_curation_id) REFERENCES curations_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (replaced_curation_id) REFERENCES curations(id) ON DELETE SET NULL;
 
-ALTER TABLE audit_log_new ADD CONSTRAINT fk_audit_log_new_user 
+ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_user 
     FOREIGN KEY (user_id) REFERENCES users_new(id) ON DELETE SET NULL;
 
 ALTER TABLE schema_selections ADD CONSTRAINT fk_schema_selections_user
@@ -167,7 +167,7 @@ $$ LANGUAGE plpgsql;
 
 -- Apply scoring trigger to curations
 CREATE TRIGGER trigger_calculate_schema_scores
-    BEFORE INSERT OR UPDATE ON curations_new
+    BEFORE INSERT OR UPDATE ON curations
     FOR EACH ROW
     EXECUTE FUNCTION calculate_schema_scores();
 
@@ -196,12 +196,12 @@ $$ LANGUAGE plpgsql;
 
 -- Apply hash generation to curations and precurations
 CREATE TRIGGER trigger_generate_curation_hash
-    BEFORE INSERT ON curations_new
+    BEFORE INSERT ON curations
     FOR EACH ROW
     EXECUTE FUNCTION generate_content_hash();
 
 CREATE TRIGGER trigger_generate_precuration_hash
-    BEFORE INSERT ON precurations_new
+    BEFORE INSERT ON precurations
     FOR EACH ROW
     EXECUTE FUNCTION generate_content_hash();
 
@@ -231,13 +231,13 @@ BEGIN
     END IF;
     
     -- Extract context based on table
-    IF TG_TABLE_NAME = 'curations_new' THEN
+    IF TG_TABLE_NAME = 'curations' THEN
         entity_scope_id := COALESCE(NEW.scope_id, OLD.scope_id);
         current_workflow_stage := COALESCE(NEW.workflow_stage, OLD.workflow_stage);
         previous_status := OLD.status::text;
         new_status := NEW.status::text;
         workflow_pair_context := COALESCE(NEW.workflow_pair_id, OLD.workflow_pair_id);
-    ELSIF TG_TABLE_NAME = 'precurations_new' THEN
+    ELSIF TG_TABLE_NAME = 'precurations' THEN
         entity_scope_id := COALESCE(NEW.scope_id, OLD.scope_id);
         current_workflow_stage := COALESCE(NEW.workflow_stage, OLD.workflow_stage);
         previous_status := OLD.status::text;
@@ -246,13 +246,13 @@ BEGIN
     ELSIF TG_TABLE_NAME = 'reviews' THEN
         -- Get scope from curation
         SELECT c.scope_id INTO entity_scope_id 
-        FROM curations_new c 
+        FROM curations c 
         WHERE c.id = COALESCE(NEW.curation_id, OLD.curation_id);
         current_workflow_stage := 'review';
     END IF;
     
     -- Insert audit record
-    INSERT INTO audit_log_new (
+    INSERT INTO audit_log (
         entity_type,
         entity_id,
         scope_id,
@@ -286,12 +286,12 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Apply audit triggers to key tables
-CREATE TRIGGER trigger_audit_curations_new
-    AFTER INSERT OR UPDATE OR DELETE ON curations_new
+CREATE TRIGGER trigger_audit_curations
+    AFTER INSERT OR UPDATE OR DELETE ON curations
     FOR EACH ROW EXECUTE FUNCTION log_schema_audit_trail();
 
-CREATE TRIGGER trigger_audit_precurations_new
-    AFTER INSERT OR UPDATE OR DELETE ON precurations_new
+CREATE TRIGGER trigger_audit_precurations
+    AFTER INSERT OR UPDATE OR DELETE ON precurations
     FOR EACH ROW EXECUTE FUNCTION log_schema_audit_trail();
 
 CREATE TRIGGER trigger_audit_reviews
@@ -321,12 +321,12 @@ $$ LANGUAGE plpgsql;
 
 -- Apply auto-save triggers
 CREATE TRIGGER trigger_auto_save_curations
-    BEFORE UPDATE ON curations_new
+    BEFORE UPDATE ON curations
     FOR EACH ROW
     EXECUTE FUNCTION update_auto_save_timestamp();
 
 CREATE TRIGGER trigger_auto_save_precurations
-    BEFORE UPDATE ON precurations_new
+    BEFORE UPDATE ON precurations
     FOR EACH ROW
     EXECUTE FUNCTION update_auto_save_timestamp();
 
@@ -399,7 +399,7 @@ $$ LANGUAGE plpgsql;
 
 -- Apply workflow management trigger
 CREATE TRIGGER trigger_manage_workflow_transitions
-    BEFORE UPDATE ON curations_new
+    BEFORE UPDATE ON curations
     FOR EACH ROW
     EXECUTE FUNCTION manage_workflow_transitions();
 

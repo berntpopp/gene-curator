@@ -148,7 +148,7 @@ CREATE TABLE workflow_pairs (
 );
 
 -- Enhanced Genes Table (Scope Assignment Ready)
-CREATE TABLE genes_new (
+CREATE TABLE genes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     hgnc_id VARCHAR(50) UNIQUE NOT NULL,
     approved_symbol VARCHAR(100) NOT NULL,
@@ -176,7 +176,7 @@ CREATE TABLE genes_new (
 -- Gene-Scope Assignments (Many-to-Many with Curator Assignment)
 CREATE TABLE gene_scope_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    gene_id UUID NOT NULL,                         -- Will reference genes_new(id)
+    gene_id UUID NOT NULL,                         -- Will reference genes(id)
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
     assigned_curator_id UUID,                      -- Will reference users_new(id)
     workflow_pair_id UUID REFERENCES workflow_pairs(id),
@@ -244,9 +244,9 @@ COMMENT ON COLUMN scope_memberships.team_id IS 'Future: team-based collaboration
 -- ========================================
 
 -- Precurations Table (Multiple per Gene-Scope)
-CREATE TABLE precurations_new (
+CREATE TABLE precurations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    gene_id UUID NOT NULL,                         -- Will reference genes_new(id)
+    gene_id UUID NOT NULL,                         -- Will reference genes(id)
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
     precuration_schema_id UUID NOT NULL REFERENCES curation_schemas(id),
     
@@ -278,11 +278,11 @@ CREATE TABLE precurations_new (
 );
 
 -- Curations Table (Multiple per Gene-Scope, Requires Precuration)
-CREATE TABLE curations_new (
+CREATE TABLE curations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    gene_id UUID NOT NULL,                         -- Will reference genes_new(id)
+    gene_id UUID NOT NULL,                         -- Will reference genes(id)
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
-    precuration_id UUID,                           -- Will reference precurations_new(id)
+    precuration_id UUID,                           -- Will reference precurations(id)
     workflow_pair_id UUID NOT NULL REFERENCES workflow_pairs(id),
     
     -- Status and workflow
@@ -323,7 +323,7 @@ CREATE TABLE curations_new (
 -- Reviews Table (4-Eyes Principle Implementation)
 CREATE TABLE reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    curation_id UUID NOT NULL,                     -- Will reference curations_new(id)
+    curation_id UUID NOT NULL,                     -- Will reference curations(id)
     reviewer_id UUID NOT NULL,                     -- Will reference users_new(id)
     
     status review_status NOT NULL DEFAULT 'pending',
@@ -348,16 +348,16 @@ CREATE TABLE reviews (
 -- Active Curations Table (One Active per Gene-Scope)
 CREATE TABLE active_curations (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    gene_id UUID NOT NULL,                         -- Will reference genes_new(id)
+    gene_id UUID NOT NULL,                         -- Will reference genes(id)
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
-    curation_id UUID NOT NULL,                     -- Will reference curations_new(id)
+    curation_id UUID NOT NULL,                     -- Will reference curations(id)
     
     -- Activation details
     activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     activated_by UUID,                             -- Will reference users_new(id)
     
     -- Previous active curation (for audit trail)
-    replaced_curation_id UUID,                     -- Will reference curations_new(id)
+    replaced_curation_id UUID,                     -- Will reference curations(id)
     
     -- Archive information
     archived_at TIMESTAMPTZ,
@@ -373,7 +373,7 @@ CREATE TABLE active_curations (
 -- ========================================
 
 -- Enhanced Audit Log for Multi-Stage Workflow
-CREATE TABLE audit_log_new (
+CREATE TABLE audit_log (
     id BIGSERIAL PRIMARY KEY,
     entity_type TEXT NOT NULL,                     -- 'gene', 'precuration', 'curation', 'review', 'active_curation', 'scope'
     entity_id UUID NOT NULL,
@@ -453,11 +453,11 @@ CREATE INDEX idx_workflow_pairs_curation_schema ON workflow_pairs(curation_schem
 CREATE INDEX idx_workflow_pairs_active ON workflow_pairs(is_active) WHERE is_active = true;
 
 -- Genes indexes
-CREATE INDEX idx_genes_new_hgnc_id ON genes_new(hgnc_id);
-CREATE INDEX idx_genes_new_symbol ON genes_new(approved_symbol);
-CREATE INDEX idx_genes_new_chromosome ON genes_new(chromosome);
-CREATE INDEX idx_genes_new_details_gin ON genes_new USING GIN (details);
-CREATE INDEX idx_genes_new_created_by ON genes_new(created_by);
+CREATE INDEX idx_genes_hgnc_id ON genes(hgnc_id);
+CREATE INDEX idx_genes_symbol ON genes(approved_symbol);
+CREATE INDEX idx_genes_chromosome ON genes(chromosome);
+CREATE INDEX idx_genes_details_gin ON genes USING GIN (details);
+CREATE INDEX idx_genes_created_by ON genes(created_by);
 
 -- Gene-scope assignments indexes
 CREATE INDEX idx_gene_scope_assignments_gene ON gene_scope_assignments(gene_id);
@@ -482,27 +482,27 @@ WHERE is_active = true AND accepted_at IS NOT NULL;
 COMMENT ON INDEX idx_scope_memberships_user_scope_active IS 'CRITICAL: Composite index for RLS permission checks (prevents N+1 queries)';
 
 -- Precurations indexes
-CREATE INDEX idx_precurations_new_gene_scope ON precurations_new(gene_id, scope_id);
-CREATE INDEX idx_precurations_new_scope ON precurations_new(scope_id);
-CREATE INDEX idx_precurations_new_status ON precurations_new(status);
-CREATE INDEX idx_precurations_new_workflow_stage ON precurations_new(workflow_stage);
-CREATE INDEX idx_precurations_new_creator ON precurations_new(created_by);
-CREATE INDEX idx_precurations_new_draft ON precurations_new(is_draft) WHERE is_draft = true;
-CREATE INDEX idx_precurations_new_evidence_gin ON precurations_new USING GIN (evidence_data);
-CREATE INDEX idx_precurations_new_schema ON precurations_new(precuration_schema_id);
+CREATE INDEX idx_precurations_gene_scope ON precurations(gene_id, scope_id);
+CREATE INDEX idx_precurations_scope ON precurations(scope_id);
+CREATE INDEX idx_precurations_status ON precurations(status);
+CREATE INDEX idx_precurations_workflow_stage ON precurations(workflow_stage);
+CREATE INDEX idx_precurations_creator ON precurations(created_by);
+CREATE INDEX idx_precurations_draft ON precurations(is_draft) WHERE is_draft = true;
+CREATE INDEX idx_precurations_evidence_gin ON precurations USING GIN (evidence_data);
+CREATE INDEX idx_precurations_schema ON precurations(precuration_schema_id);
 
 -- Curations indexes
-CREATE INDEX idx_curations_new_gene_scope ON curations_new(gene_id, scope_id);
-CREATE INDEX idx_curations_new_scope ON curations_new(scope_id);
-CREATE INDEX idx_curations_new_precuration ON curations_new(precuration_id);
-CREATE INDEX idx_curations_new_status ON curations_new(status);
-CREATE INDEX idx_curations_new_workflow_stage ON curations_new(workflow_stage);
-CREATE INDEX idx_curations_new_creator ON curations_new(created_by);
-CREATE INDEX idx_curations_new_draft ON curations_new(is_draft) WHERE is_draft = true;
-CREATE INDEX idx_curations_new_workflow_pair ON curations_new(workflow_pair_id);
-CREATE INDEX idx_curations_new_verdict ON curations_new(computed_verdict) WHERE computed_verdict IS NOT NULL;
-CREATE INDEX idx_curations_new_evidence_gin ON curations_new USING GIN (evidence_data);
-CREATE INDEX idx_curations_new_scores_gin ON curations_new USING GIN (computed_scores);
+CREATE INDEX idx_curations_gene_scope ON curations(gene_id, scope_id);
+CREATE INDEX idx_curations_scope ON curations(scope_id);
+CREATE INDEX idx_curations_precuration ON curations(precuration_id);
+CREATE INDEX idx_curations_status ON curations(status);
+CREATE INDEX idx_curations_workflow_stage ON curations(workflow_stage);
+CREATE INDEX idx_curations_creator ON curations(created_by);
+CREATE INDEX idx_curations_draft ON curations(is_draft) WHERE is_draft = true;
+CREATE INDEX idx_curations_workflow_pair ON curations(workflow_pair_id);
+CREATE INDEX idx_curations_verdict ON curations(computed_verdict) WHERE computed_verdict IS NOT NULL;
+CREATE INDEX idx_curations_evidence_gin ON curations USING GIN (evidence_data);
+CREATE INDEX idx_curations_scores_gin ON curations USING GIN (computed_scores);
 
 -- Reviews indexes (4-eyes principle)
 CREATE INDEX idx_reviews_curation ON reviews(curation_id);
@@ -519,13 +519,13 @@ CREATE INDEX idx_active_curations_activated ON active_curations(activated_at);
 CREATE INDEX idx_active_curations_current ON active_curations(archived_at) WHERE archived_at IS NULL;
 
 -- Audit log indexes
-CREATE INDEX idx_audit_log_new_entity ON audit_log_new(entity_type, entity_id);
-CREATE INDEX idx_audit_log_new_scope ON audit_log_new(scope_id);
-CREATE INDEX idx_audit_log_new_user ON audit_log_new(user_id);
-CREATE INDEX idx_audit_log_new_timestamp ON audit_log_new(timestamp);
-CREATE INDEX idx_audit_log_new_operation ON audit_log_new(operation);
-CREATE INDEX idx_audit_log_new_workflow_stage ON audit_log_new(workflow_stage);
-CREATE INDEX idx_audit_log_new_schema ON audit_log_new(schema_id);
+CREATE INDEX idx_audit_log_entity ON audit_log(entity_type, entity_id);
+CREATE INDEX idx_audit_log_scope ON audit_log(scope_id);
+CREATE INDEX idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX idx_audit_log_timestamp ON audit_log(timestamp);
+CREATE INDEX idx_audit_log_operation ON audit_log(operation);
+CREATE INDEX idx_audit_log_workflow_stage ON audit_log(workflow_stage);
+CREATE INDEX idx_audit_log_schema ON audit_log(schema_id);
 
 -- Schema selections indexes
 CREATE INDEX idx_schema_selections_user_scope ON schema_selections(user_id, scope_id);
@@ -543,9 +543,9 @@ COMMENT ON COLUMN users_new.assigned_scopes IS 'DEPRECATED: Use scope_membership
 COMMENT ON TABLE curation_schemas IS 'Repository of methodology definitions (ClinGen, GenCC, custom)';
 COMMENT ON TABLE workflow_pairs IS 'Precuration + curation schema combinations for complete workflows';
 COMMENT ON TABLE gene_scope_assignments IS 'Many-to-many relationship between genes and clinical scopes';
-COMMENT ON TABLE precurations_new IS 'Multiple precurations per gene-scope with schema-driven fields';
-COMMENT ON TABLE curations_new IS 'Multiple curations per gene-scope with scoring engine integration';
+COMMENT ON TABLE precurations IS 'Multiple precurations per gene-scope with schema-driven fields';
+COMMENT ON TABLE curations IS 'Multiple curations per gene-scope with scoring engine integration';
 COMMENT ON TABLE reviews IS '4-eyes principle implementation with mandatory independent review';
 COMMENT ON TABLE active_curations IS 'One active curation per gene-scope with archive management';
-COMMENT ON TABLE audit_log_new IS 'Complete audit trail for multi-stage workflow with scope context';
+COMMENT ON TABLE audit_log IS 'Complete audit trail for multi-stage workflow with scope context';
 COMMENT ON TABLE schema_selections IS 'User and institutional preferences for schema selection';
