@@ -17,6 +17,7 @@ Author: Claude Code (Automated Implementation)
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import deps
@@ -279,14 +280,12 @@ def update_member_role(
         HTTPException 400: Invalid update (e.g., last admin)
     """
     # Get membership by scope_id and user_id
-    membership = (
-        db.query(deps.ScopeMembership)
-        .filter(
+    membership = db.execute(
+        select(deps.ScopeMembership).where(
             deps.ScopeMembership.scope_id == scope_id,
             deps.ScopeMembership.user_id == user_id,
         )
-        .first()
-    )
+    ).scalar_one_or_none()
 
     if not membership:
         logger.warning(
@@ -380,14 +379,12 @@ def remove_member(
         HTTPException 400: Cannot remove last admin
     """
     # Get membership
-    membership = (
-        db.query(deps.ScopeMembership)
-        .filter(
+    membership = db.execute(
+        select(deps.ScopeMembership).where(
             deps.ScopeMembership.scope_id == scope_id,
             deps.ScopeMembership.user_id == user_id,
         )
-        .first()
-    )
+    ).scalar_one_or_none()
 
     if not membership:
         logger.warning(
@@ -403,16 +400,14 @@ def remove_member(
 
     # Prevent removing last admin
     if membership.role == ScopeRole.ADMIN.value:
-        admin_count = (
-            db.query(deps.ScopeMembership)
-            .filter(
+        admin_count = db.execute(
+            select(func.count(deps.ScopeMembership.id)).where(
                 deps.ScopeMembership.scope_id == scope_id,
                 deps.ScopeMembership.role == ScopeRole.ADMIN.value,
                 deps.ScopeMembership.is_active == True,  # noqa: E712
                 deps.ScopeMembership.accepted_at.isnot(None),
             )
-            .count()
-        )
+        ).scalar()
 
         if admin_count <= 1:
             logger.warning(

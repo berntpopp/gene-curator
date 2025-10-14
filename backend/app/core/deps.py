@@ -8,7 +8,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -247,9 +247,12 @@ def get_scope(
 
     # Query with SELECT FOR SHARE (prevents TOCTOU)
     scope = (
-        db.query(Scope)
-        .filter(Scope.id == scope_id)
-        .with_for_update(read=True)  # SELECT FOR SHARE
+        db.execute(
+            select(Scope)
+            .where(Scope.id == scope_id)
+            .with_for_update(read=True)  # SELECT FOR SHARE
+        )
+        .scalars()
         .first()
     )
 
@@ -321,14 +324,17 @@ def require_scope_role(required_role: ScopeRole) -> Callable:
 
         # Query membership with SELECT FOR SHARE (TOCTOU prevention)
         membership = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.user_id == current_user.id,
-                ScopeMembership.is_active == True,  # noqa: E712
-                ScopeMembership.accepted_at.isnot(None),
+            db.execute(
+                select(ScopeMembership)
+                .where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.user_id == current_user.id,
+                    ScopeMembership.is_active == True,  # noqa: E712
+                    ScopeMembership.accepted_at.isnot(None),
+                )
+                .with_for_update(read=True)  # SELECT FOR SHARE
             )
-            .with_for_update(read=True)  # SELECT FOR SHARE
+            .scalars()
             .first()
         )
 

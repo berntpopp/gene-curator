@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core import deps
@@ -205,18 +206,22 @@ def get_my_review_assignments(
     """
     from app.models import Review, ReviewStatus
 
-    query = db.query(Review).filter(Review.reviewer_id == current_user.id)
+    query = select(Review).where(Review.reviewer_id == current_user.id)
 
     if status:
         try:
             status_enum = ReviewStatus(status)
-            query = query.filter(Review.status == status_enum)
+            query = query.where(Review.status == status_enum)
         except ValueError as e:
             raise HTTPException(
                 status_code=400, detail=f"Invalid status: {status}"
             ) from e
 
-    reviews = query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit).all()
+    reviews = (
+        db.execute(query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit))
+        .scalars()
+        .all()
+    )
 
     return [
         PeerReviewRequest(
@@ -289,35 +294,33 @@ def get_workflow_dashboard(
     )
 
     # Personal workload
-    my_assignments_query = db.query(GeneScopeAssignment).filter(
+    my_assignments_query = select(GeneScopeAssignment).where(
         GeneScopeAssignment.assigned_curator_id == current_user.id
     )
     if scope_id:
-        my_assignments_query = my_assignments_query.filter(
+        my_assignments_query = my_assignments_query.where(
             GeneScopeAssignment.scope_id == scope_id
         )
 
-    my_assignments_count = my_assignments_query.count()
+    my_assignments_count = db.execute(
+        select(func.count(GeneScopeAssignment.id)).select_from(my_assignments_query.subquery())
+    ).scalar()
 
     # My pending reviews
-    my_pending_reviews = (
-        db.query(Review)
-        .filter(
+    my_pending_reviews = db.execute(
+        select(func.count(Review.id)).where(
             Review.reviewer_id == current_user.id,
             Review.status == ReviewStatus.assigned,
         )
-        .count()
-    )
+    ).scalar()
 
     # My completed reviews
-    my_completed_reviews = (
-        db.query(Review)
-        .filter(
+    my_completed_reviews = db.execute(
+        select(func.count(Review.id)).where(
             Review.reviewer_id == current_user.id,
             Review.status == ReviewStatus.completed,
         )
-        .count()
-    )
+    ).scalar()
 
     # Basic dashboard structure
     dashboard = WorkflowDashboard(

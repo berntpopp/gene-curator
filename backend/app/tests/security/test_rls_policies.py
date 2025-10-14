@@ -15,7 +15,7 @@ Author: Claude Code (Automated Implementation)
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 
 from app.core.deps import set_rls_context
 from app.core.enums import ScopeRole
@@ -142,7 +142,7 @@ class TestRLSPolicies:
         set_rls_context(db, user1)
 
         # Query scopes
-        scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        scopes = db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
 
         assert len(scopes) == 1
         assert scopes[0].id == scope1.id
@@ -152,7 +152,7 @@ class TestRLSPolicies:
         set_rls_context(db, user1)
 
         # Try to query user2's scope
-        scopes = db.query(Scope).filter(Scope.id == scope2.id).all()
+        scopes = db.execute(select(Scope).where(Scope.id == scope2.id)).scalars().all()
 
         # Should return empty list (RLS prevents access)
         assert len(scopes) == 0
@@ -161,7 +161,7 @@ class TestRLSPolicies:
         """Test complete tenant isolation between users."""
         # User1 should only see their scope
         set_rls_context(db, user1)
-        user1_scopes = db.query(Scope).all()
+        user1_scopes = db.execute(select(Scope)).scalars().all()
         user1_scope_ids = [s.id for s in user1_scopes]
 
         assert scope1.id in user1_scope_ids
@@ -169,7 +169,7 @@ class TestRLSPolicies:
 
         # User2 should only see their scope
         set_rls_context(db, user2)
-        user2_scopes = db.query(Scope).all()
+        user2_scopes = db.execute(select(Scope)).scalars().all()
         user2_scope_ids = [s.id for s in user2_scopes]
 
         assert scope2.id in user2_scope_ids
@@ -182,7 +182,7 @@ class TestRLSPolicies:
         set_rls_context(db, admin_user)
 
         # Admin should see all scopes
-        all_scopes = db.query(Scope).all()
+        all_scopes = db.execute(select(Scope)).scalars().all()
         scope_ids = [s.id for s in all_scopes]
 
         # Admin should see both test scopes
@@ -195,8 +195,10 @@ class TestRLSPolicies:
 
         # Try to query user2's scope memberships
         memberships = (
-            db.query(ScopeMembership)
-            .filter(ScopeMembership.scope_id == scope2.id)
+            db.execute(
+                select(ScopeMembership).where(ScopeMembership.scope_id == scope2.id)
+            )
+            .scalars()
             .all()
         )
 
@@ -209,11 +211,13 @@ class TestRLSPolicies:
 
         # Query own memberships
         memberships = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.scope_id == scope1.id,
-                ScopeMembership.user_id == user1.id,
+            db.execute(
+                select(ScopeMembership).where(
+                    ScopeMembership.scope_id == scope1.id,
+                    ScopeMembership.user_id == user1.id,
+                )
             )
+            .scalars()
             .all()
         )
 
@@ -243,7 +247,9 @@ class TestRLSPolicies:
 
         # User2 (not a member) should be able to see public scope
         set_rls_context(db, user2)
-        visible_scopes = db.query(Scope).filter(Scope.id == public_scope.id).all()
+        visible_scopes = db.execute(
+            select(Scope).where(Scope.id == public_scope.id)
+        ).scalars().all()
 
         assert len(visible_scopes) == 1
         assert visible_scopes[0].id == public_scope.id
@@ -254,9 +260,12 @@ class TestRLSPolicies:
 
         # Query with SELECT FOR SHARE
         scope = (
-            db.query(Scope)
-            .filter(Scope.id == scope1.id)
-            .with_for_update(read=True)  # SELECT FOR SHARE
+            db.execute(
+                select(Scope)
+                .where(Scope.id == scope1.id)
+                .with_for_update(read=True)  # SELECT FOR SHARE
+            )
+            .scalars()
             .first()
         )
 
@@ -281,7 +290,9 @@ class TestRLSPolicies:
 
         # User2 should see scope1
         set_rls_context(db, user2)
-        visible_scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        visible_scopes = db.execute(
+            select(Scope).where(Scope.id == scope1.id)
+        ).scalars().all()
         assert len(visible_scopes) == 1
 
         # Remove user2's membership
@@ -292,7 +303,9 @@ class TestRLSPolicies:
 
         # User2 should no longer see scope1
         set_rls_context(db, user2)
-        visible_scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        visible_scopes = db.execute(
+            select(Scope).where(Scope.id == scope1.id)
+        ).scalars().all()
         assert len(visible_scopes) == 0
 
     def test_rls_with_pending_invitations(self, db, user1, user2, scope1) -> None:
@@ -314,7 +327,9 @@ class TestRLSPolicies:
 
         # User2 should NOT see scope1 (invitation not accepted)
         set_rls_context(db, user2)
-        visible_scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        visible_scopes = db.execute(
+            select(Scope).where(Scope.id == scope1.id)
+        ).scalars().all()
         assert len(visible_scopes) == 0
 
     def test_rls_function_is_scope_member(self, db, user1, user2, scope1) -> None:
@@ -361,7 +376,7 @@ class TestRLSPolicies:
         # Try to query without setting RLS context
         # This should still respect RLS policies due to FORCE RLS
         try:
-            scopes = db.query(Scope).all()
+            scopes = db.execute(select(Scope)).scalars().all()
             # If FORCE RLS is working, this should return limited results or error
             # Exact behavior depends on RLS policy configuration
             assert isinstance(scopes, list)
@@ -373,12 +388,16 @@ class TestRLSPolicies:
         """Test that RLS context is properly isolated between different users."""
         # Set context for user1
         set_rls_context(db, user1)
-        user1_scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        user1_scopes = db.execute(
+            select(Scope).where(Scope.id == scope1.id)
+        ).scalars().all()
         assert len(user1_scopes) == 1
 
         # Change context to user2
         set_rls_context(db, user2)
-        user2_scopes = db.query(Scope).filter(Scope.id == scope1.id).all()
+        user2_scopes = db.execute(
+            select(Scope).where(Scope.id == scope1.id)
+        ).scalars().all()
         assert len(user2_scopes) == 0
 
         # Context should be completely isolated
