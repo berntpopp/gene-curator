@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Base Schema
@@ -33,7 +33,8 @@ class GeneBase(BaseModel):
         default_factory=dict, description="Additional gene metadata"
     )
 
-    @validator("hgnc_id")
+    @field_validator("hgnc_id")
+    @classmethod
     def validate_hgnc_id(cls, v: str) -> str:
         """Validate HGNC ID format."""
         if not v.startswith("HGNC:") or not v[5:].isdigit():
@@ -62,7 +63,8 @@ class GeneUpdate(BaseModel):
     location: str | None = Field(None, max_length=50)
     details: dict[str, Any] | None = None
 
-    @validator("hgnc_id")
+    @field_validator("hgnc_id")
+    @classmethod
     def validate_hgnc_id(cls, v: str | None) -> str | None:
         """Validate HGNC ID format if provided."""
         if v is not None and (not v.startswith("HGNC:") or not v[5:].isdigit()):
@@ -84,8 +86,7 @@ class GeneInDBBase(GeneBase):
     created_by: UUID
     updated_by: UUID
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Public Response Schema
@@ -109,8 +110,7 @@ class GeneWithAssignments(Gene):
         default=False, description="Has any scope assignments"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Gene with Curation Progress
@@ -127,8 +127,7 @@ class GeneWithProgress(Gene):
     )
     has_active_work: bool = Field(default=False, description="Has active work")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Gene Summary for Lists
@@ -143,8 +142,7 @@ class GeneSummary(BaseModel):
     is_assigned: bool = Field(default=False, description="Has scope assignments")
     has_active_work: bool = Field(default=False, description="Has active curation work")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Search Query Schema
@@ -231,8 +229,7 @@ class GeneAssignmentStatus(BaseModel):
     scope_assignments: dict[str, Any]
     is_assigned_to_any_scope: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Gene Curation Progress
@@ -247,8 +244,7 @@ class GeneCurationProgress(BaseModel):
     curation_status_counts: dict[str, int]
     has_active_work: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope-specific Gene List

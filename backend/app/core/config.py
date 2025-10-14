@@ -5,7 +5,7 @@ Enhanced with YAML-based configuration and constants module for better
 maintainability and deployment flexibility.
 """
 
-from pydantic import validator
+from pydantic import ConfigDict, field_validator
 from pydantic_settings import BaseSettings
 
 from app.core.constants import (
@@ -102,7 +102,8 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     EMAIL_FROM: str = DEFAULT_EMAIL_FROM
 
-    @validator("PORT", pre=True)
+    @field_validator("PORT", mode="before")
+    @classmethod
     def get_port(cls, v: int | str | None) -> int:
         """Support both PORT and BACKEND_PORT environment variables."""
         import os
@@ -119,7 +120,8 @@ class Settings(BaseSettings):
         # Default to 8000
         return 8000
 
-    @validator("ALLOWED_ORIGINS", pre=True)
+    @field_validator("ALLOWED_ORIGINS", mode="before")
+    @classmethod
     def assemble_cors_origins(cls, v: str | list[str]) -> list[str]:
         """Parse CORS origins from string or list."""
         if isinstance(v, str) and not v.startswith("["):
@@ -139,17 +141,19 @@ class Settings(BaseSettings):
             return [v]
         raise ValueError(v)
 
-    @validator("DATABASE_URL", pre=True)
+    @field_validator("DATABASE_URL", mode="before")
+    @classmethod
     def validate_database_url(cls, v: str) -> str:
         """Validate database URL format."""
         if not v.startswith("postgresql://"):
             raise ValueError("DATABASE_URL must start with 'postgresql://'")
         return v
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        env_file_encoding="utf-8",
+        case_sensitive=True,
+    )
 
 
 # Create global settings instance

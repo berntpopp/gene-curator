@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Base Schema
@@ -19,7 +19,8 @@ class GeneScopeAssignmentBase(BaseModel):
     priority_level: str = Field("medium", description="Assignment priority level")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
-    @validator("priority_level")
+    @field_validator("priority_level")
+    @classmethod
     def validate_priority_level(cls, v: str) -> str:
         valid_priorities = ["high", "medium", "low"]
         if v not in valid_priorities:
@@ -42,7 +43,8 @@ class GeneScopeAssignmentUpdate(BaseModel):
     priority_level: str | None = Field(None, description="Assignment priority level")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
-    @validator("priority_level")
+    @field_validator("priority_level")
+    @classmethod
     def validate_priority_level(cls, v: str | None) -> str | None:
         if v is not None:
             valid_priorities = ["high", "medium", "low"]
@@ -68,8 +70,7 @@ class GeneScopeAssignmentInDBBase(GeneScopeAssignmentBase):
     updated_at: datetime
     last_updated_by: UUID | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Public Response Schema
@@ -91,8 +92,7 @@ class GeneScopeAssignmentWithDetails(GeneScopeAssignment):
     curator_name: str | None = Field(None, description="Assigned curator name")
     curator_email: str | None = Field(None, description="Assigned curator email")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Assignment Statistics
@@ -123,8 +123,7 @@ class GeneScopeAssignmentStatistics(BaseModel):
         default=False, description="Has active work in progress"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Curator Workload Schema
@@ -152,8 +151,7 @@ class CuratorWorkload(BaseModel):
         default=0, description="Low priority assignments"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Gene Assignment Summary for Lists
@@ -173,8 +171,7 @@ class GeneScopeAssignmentSummary(BaseModel):
     assigned_at: datetime
     has_active_work: bool = Field(default=False, description="Has active work")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Bulk Assignment Request
@@ -193,7 +190,8 @@ class BulkGeneScopeAssignmentCreate(BaseModel):
     )
     assignment_notes: str | None = Field(None, description="Notes for all assignments")
 
-    @validator("priority_level")
+    @field_validator("priority_level")
+    @classmethod
     def validate_priority_level(cls, v: str) -> str:
         valid_priorities = ["high", "medium", "low"]
         if v not in valid_priorities:
@@ -224,8 +222,7 @@ class AvailableGene(BaseModel):
     chromosome: str | None
     location: str | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Curator Assignment Request
@@ -251,7 +248,8 @@ class AssignmentFilters(BaseModel):
     skip: int = Field(0, ge=0, description="Number of records to skip")
     limit: int = Field(100, ge=1, le=500, description="Maximum number of records")
 
-    @validator("priority_level")
+    @field_validator("priority_level")
+    @classmethod
     def validate_priority_level(cls, v: str | None) -> str | None:
         if v is not None:
             valid_priorities = ["high", "medium", "low"]
@@ -299,8 +297,7 @@ class AssignmentActivity(BaseModel):
     )
     last_activity: datetime | None = Field(None, description="Last assignment activity")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Assignment Overview
@@ -334,5 +331,4 @@ class ScopeAssignmentOverview(BaseModel):
         None, description="Average assignments per curator"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import ReviewStatus, WorkflowStage
 
@@ -36,8 +36,7 @@ class WorkflowTransition(BaseModel):
     success: bool = Field(default=True, description="Transition success status")
     message: str | None = Field(None, description="Transition result message")
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # Workflow Validation Schemas
@@ -66,8 +65,7 @@ class WorkflowStateInfo(BaseModel):
     last_updated: datetime
     last_updated_by: UUID | None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # Peer Review Schemas
@@ -91,8 +89,7 @@ class PeerReviewRequest(BaseModel):
     assigned_at: datetime
     status: ReviewStatus
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class PeerReviewSubmission(BaseModel):
@@ -106,7 +103,8 @@ class PeerReviewSubmission(BaseModel):
         default_factory=dict, description="Suggested changes"
     )
 
-    @validator("decision")
+    @field_validator("decision")
+    @classmethod
     def validate_decision(cls, v: str) -> str:
         valid_decisions = ["approve", "request_changes", "reject"]
         if v not in valid_decisions:
@@ -127,8 +125,7 @@ class PeerReviewResult(BaseModel):
         None, description="Next workflow stage if transitioned"
     )
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 # Workflow Statistics
@@ -215,8 +212,7 @@ class WorkflowAuditEntry(BaseModel):
     notes: str | None
     metadata: dict[str, Any]
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class WorkflowAuditTrail(BaseModel):
@@ -337,8 +333,7 @@ class WorkflowNotification(BaseModel):
     created_at: datetime
     read_at: datetime | None
 
-    class Config:
-        use_enum_values = True
+    model_config = ConfigDict(use_enum_values=True)
 
 
 class WorkflowNotificationPreferences(BaseModel):

@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Base Scope Schema
@@ -24,7 +24,8 @@ class ScopeBase(BaseModel):
         default_factory=dict, description="Scope-specific configuration"
     )
 
-    @validator("name")
+    @field_validator("name")
+    @classmethod
     def validate_name(cls, v: str) -> str:
         # Match database constraint: only alphanumeric and hyphens (no underscores)
         if not v.replace("-", "").isalnum():
@@ -71,8 +72,7 @@ class ScopeInDBBase(ScopeBase):
     updated_at: datetime
     created_by: UUID | None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Public Scope Schema
@@ -130,8 +130,7 @@ class ScopeStatistics(BaseModel):
         ..., description="Curations activated in last 30 days"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ScopeWithStats(Scope):
@@ -150,8 +149,7 @@ class ScopeUserAssignment(BaseModel):
     user_role: str
     assigned_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Workflow Pair Information for Scope
@@ -166,8 +164,7 @@ class ScopeWorkflowPair(BaseModel):
     curation_schema_name: str
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Configuration Schemas
@@ -200,8 +197,7 @@ class ScopeActivity(BaseModel):
     overdue_reviews: int = Field(..., description="Overdue reviews")
     last_activity: datetime | None = Field(None, description="Last activity timestamp")
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Performance Metrics
@@ -243,8 +239,7 @@ class ScopePerformance(BaseModel):
         None, description="Monthly activation growth rate"
     )
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Comparison Schema
@@ -255,5 +250,4 @@ class ScopeComparison(BaseModel):
     comparison_period_days: int
     generated_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
