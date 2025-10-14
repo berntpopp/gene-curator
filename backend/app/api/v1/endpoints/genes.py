@@ -133,7 +133,7 @@ def create_gene(
     db: Session = Depends(get_db),
     gene_in: GeneCreate,
     current_user: UserNew = Depends(deps.get_current_active_user),
-)  -> Gene:
+) -> Gene:
     """
     Create new gene. Available to all authenticated users.
     """

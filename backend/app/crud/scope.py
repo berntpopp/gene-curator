@@ -264,6 +264,20 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             review_stats = review_stats_row
 
         # Team metrics
+        # Total scope members (from scope_memberships table)
+        from app.models import ScopeMembership
+
+        member_count = (
+            db.execute(
+                select(func.count(ScopeMembership.id)).where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
+                )
+            ).scalar()
+            or 0
+        )
+
         curator_count = (
             db.execute(
                 select(
@@ -346,8 +360,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 else None
             ),
             # Team metrics
-            "active_curators": curator_count,
-            "active_reviewers": reviewer_count,
+            "member_count": member_count,  # Total accepted members
+            "active_curators": curator_count,  # Curators with assignments
+            "active_reviewers": reviewer_count,  # Reviewers with reviews
             # Verdict distribution
             "definitive_verdicts": verdict_dict.get("Definitive", 0),
             "strong_verdicts": verdict_dict.get("Strong", 0),

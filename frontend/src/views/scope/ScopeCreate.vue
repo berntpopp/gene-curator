@@ -337,7 +337,8 @@
     v => !v.includes('--') || 'No consecutive dashes allowed',
     v => /^[a-z]/.test(v) || 'Must start with a lowercase letter',
     v => /[a-z0-9]$/.test(v) || 'Must end with a letter or number',
-    () => !scopeNameExists.value || 'This scope name already exists. Please choose a different name.'
+    () =>
+      !scopeNameExists.value || 'This scope name already exists. Please choose a different name.'
   ]
 
   const displayNameRules = [

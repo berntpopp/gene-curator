@@ -731,9 +731,7 @@ class PrecurationNew(Base):
 
     __table_args__ = (
         Index("idx_precurations_gene_scope", "gene_id", "scope_id"),
-        Index(
-            "idx_precurations_evidence_gin", "evidence_data", postgresql_using="gin"
-        ),
+        Index("idx_precurations_evidence_gin", "evidence_data", postgresql_using="gin"),
     )
 
 
@@ -860,12 +858,8 @@ class CurationNew(Base):
 
     __table_args__ = (
         Index("idx_curations_gene_scope", "gene_id", "scope_id"),
-        Index(
-            "idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"
-        ),
-        Index(
-            "idx_curations_scores_gin", "computed_scores", postgresql_using="gin"
-        ),
+        Index("idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"),
+        Index("idx_curations_scores_gin", "computed_scores", postgresql_using="gin"),
     )
 
 
