@@ -72,8 +72,7 @@ def validate_evidence_data(
     """
     Validate evidence data against a schema definition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate evidence data
 
     # Get schema definition
     schema_definition = validation_request.schema_definition
@@ -127,8 +126,7 @@ def validate_schema_definition(
     """
     Validate a schema definition for correctness and completeness.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate schema definitions
 
     try:
         result = schema_validator.validate_schema_definition(
@@ -163,8 +161,7 @@ def generate_json_schema(
     """
     Generate JSON Schema from a curation schema definition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can generate JSON schemas
 
     try:
         json_schema = schema_validator.generate_json_schema(
@@ -198,8 +195,7 @@ def get_json_schema_for_schema(
     """
     Get JSON Schema for an existing curation schema.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can get JSON schemas
 
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
@@ -260,8 +256,7 @@ def validate_single_field(
     """
     Validate a single field value against its configuration.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate fields
 
     try:
         # Create a minimal schema for field validation
@@ -308,8 +303,7 @@ def get_supported_field_types(
     """
     Get list of supported field types and their configurations.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view supported field types
 
     field_types = {
         "text": {
@@ -458,8 +452,7 @@ def get_supported_business_rules(
     """
     Get list of supported business rules and their descriptions.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view business rules
 
     business_rules = {
         "clingen_genetic_evidence": {
@@ -517,8 +510,9 @@ def test_validation_with_examples(
     """
     Test validation system with example data.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # Only admins can run validation tests
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
 
     # Example schema definition
     test_schema = {
@@ -607,9 +601,7 @@ def test_validation_with_examples(
         try:
             # Type cast to dict[str, Any] for mypy
             test_data: dict[str, Any] = test_case["data"]  # type: ignore[assignment]
-            result = schema_validator.validate_evidence_data(
-                test_data, test_schema
-            )
+            result = schema_validator.validate_evidence_data(test_data, test_schema)
 
             results[test_case["name"]] = {
                 "is_valid": result.is_valid,

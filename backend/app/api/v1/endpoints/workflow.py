@@ -3,8 +3,9 @@ Multi-stage workflow management API endpoints.
 Handles workflow transitions, peer reviews, and workflow monitoring.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
-from typing import Any, Sequence
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -52,8 +53,8 @@ def get_workflow_state(
     """
     Get current workflow state and available transitions for an item.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view workflow states
+    # RLS policies handle scope-based access
 
     try:
         state_info = workflow_engine.get_workflow_state(db, item_id, item_type)
@@ -77,8 +78,8 @@ def validate_workflow_transition(
     """
     Validate a proposed workflow transition without executing it.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate transitions
+    # RLS policies handle scope-based access
 
     try:
         # Get current stage first
@@ -113,8 +114,8 @@ def execute_workflow_transition(
     """
     Execute a workflow state transition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can execute transitions
+    # RLS policies + workflow engine handle scope-based access
 
     try:
         transition = workflow_engine.execute_transition(
@@ -148,8 +149,8 @@ def assign_peer_reviewer(
     """
     Assign a peer reviewer to an item in review stage.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can assign reviewers in their scopes
+    # Workflow engine enforces 4-eyes principle and scope access
 
     try:
         review_request = workflow_engine.assign_peer_reviewer(
@@ -176,8 +177,8 @@ def submit_peer_review(
     """
     Submit a peer review decision.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can submit reviews they're assigned to
+    # Workflow engine validates reviewer assignment
 
     try:
         result = workflow_engine.submit_peer_review(
@@ -259,9 +260,7 @@ def get_workflow_statistics(
     """
     Get workflow performance statistics.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view workflow statistics
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids: list[UUID] = current_user.assigned_scopes or []
@@ -282,9 +281,7 @@ def get_workflow_dashboard(
     """
     Get comprehensive workflow dashboard data for the current user.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view their workflow dashboard
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
         user_scope_ids: list[UUID] = current_user.assigned_scopes or []
@@ -308,7 +305,9 @@ def get_workflow_dashboard(
         )
 
     my_assignments_count = db.execute(
-        select(func.count(GeneScopeAssignment.id)).select_from(my_assignments_query.subquery())
+        select(func.count(GeneScopeAssignment.id)).select_from(
+            my_assignments_query.subquery()
+        )
     ).scalar()
 
     # My pending reviews
@@ -356,8 +355,8 @@ def get_workflow_audit_trail(
     """
     Get complete workflow audit trail for an item.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view audit trails for items in their scopes
+    # RLS policies handle scope-based access
 
     # Basic audit trail structure (would need full implementation)
     audit_trail = WorkflowAuditTrail(
@@ -388,8 +387,9 @@ def bulk_workflow_transition(
     """
     Execute bulk workflow transitions. Requires admin privileges.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # Only admins can execute bulk transitions
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
 
     successful_transitions: list[UUID] = []
     failed_transitions: list[dict[str, Any]] = []
@@ -435,9 +435,7 @@ def get_workflow_configuration(
     """
     Get workflow configuration for a scope.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view workflow configuration for their scopes
     # Check scope access
     if current_user.role != "admin":
         user_scope_ids: list[UUID] = current_user.assigned_scopes or []
@@ -495,9 +493,7 @@ def get_workflow_analytics(
     """
     Get advanced workflow analytics and performance insights.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view analytics for their scopes
     # Check scope access
     if current_user.role != "admin" and scope_id:
         user_scope_ids: list[UUID] = current_user.assigned_scopes or []

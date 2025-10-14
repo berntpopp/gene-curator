@@ -65,10 +65,9 @@ def create_curation_schema(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Create new curation schema. Requires curator or admin privileges.
+    Create new curation schema. Available to all authenticated users.
     """
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can create schemas
 
     # Check if schema name/version already exists
     existing_schema = schema_crud.get_by_name_and_version(
@@ -119,15 +118,13 @@ def update_curation_schema(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Update curation schema. Requires curator or admin privileges.
+    Update curation schema. Available to schema creator or admins.
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
 
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can update schemas they created, admins can update any
     # Only creator or admin can update
     if schema.created_by != current_user.id and current_user.role not in ["admin"]:
         raise HTTPException(status_code=403, detail="Can only update own schemas")
@@ -248,10 +245,9 @@ def create_workflow_pair(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> WorkflowPair:
     """
-    Create new workflow pair. Requires curator or admin privileges.
+    Create new workflow pair. Available to all authenticated users.
     """
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can create workflow pairs
 
     # Check if workflow pair name/version already exists
     existing_pair = workflow_pair_crud.get_by_name_and_version(
@@ -323,9 +319,7 @@ def update_workflow_pair(
     if not workflow_pair:
         raise HTTPException(status_code=404, detail="Workflow pair not found")
 
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can update workflow pairs they created, admins can update any
     # Only creator or admin can update
     if workflow_pair.created_by != current_user.id and current_user.role not in [
         "admin"

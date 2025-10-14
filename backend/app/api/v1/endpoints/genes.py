@@ -4,14 +4,12 @@ Manages genes within the scope-based architecture.
 """
 
 from collections.abc import Sequence
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
-from app.core.database import get_db
 from app.core.constants import (
     DEFAULT_GENE_SORT_FIELD,
     DEFAULT_SEARCH_LIMIT,
@@ -21,25 +19,26 @@ from app.core.constants import (
     GENES_MAX_LIMIT,
     VALID_CHROMOSOMES,
 )
+from app.core.database import get_db
 from app.core.logging import api_endpoint
 from app.crud.gene import gene_crud
 from app.models import UserNew
 from app.schemas.gene import (
+    Gene,
     GeneAssignmentStatus,
     GeneBulkCreate,
     GeneBulkCreateResponse,
+    GeneCreate,
     GeneCurationProgress,
+    GeneListResponse,
     GeneMergeRequest,
     GeneMergeResponse,
-    Gene,
-    GeneCreate,
-    GeneListResponse,
+    GeneSearchQuery,
     GeneStatistics,
     GeneSummary,
     GeneUpdate,
-    GeneWithAssignments,
-    GeneSearchQuery,
     GeneValidationResult,
+    GeneWithAssignments,
     ScopeGeneListResponse,
 )
 
@@ -74,11 +73,8 @@ def get_genes(
     """
     Retrieve genes with filtering and pagination.
     """
-    # Check user permissions
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    # All authenticated users can access genes (permission filtering happens at scope level)
+    # No need for role check here - authentication is sufficient
 
     # Regular users can only see genes in their scopes
     if current_user.role not in ["admin"] and scope_id:
@@ -137,19 +133,15 @@ def create_gene(
     db: Session = Depends(get_db),
     gene_in: GeneCreate,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> Gene:
+)  -> Gene:
     """
-    Create new gene. Requires curator or admin privileges.
+    Create new gene. Available to all authenticated users.
     """
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    # All authenticated users can create genes
+    # RLS policies handle scope-based access control
 
     try:
-        gene = gene_crud.create_with_owner(
-            db, obj_in=gene_in, owner_id=current_user.id
-        )
+        gene = gene_crud.create_with_owner(db, obj_in=gene_in, owner_id=current_user.id)
         return gene  # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(
@@ -291,7 +283,7 @@ def update_gene(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Gene:
     """
-    Update gene information. Requires curator or admin privileges.
+    Update gene information. Available to all authenticated users.
     """
     gene = gene_crud.get(db, id=gene_id)
     if not gene:
@@ -299,10 +291,8 @@ def update_gene(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    # All authenticated users can update genes
+    # RLS policies handle scope-based access control
 
     try:
         gene = gene_crud.update_with_owner(
@@ -425,12 +415,10 @@ def bulk_create_genes(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneBulkCreateResponse:
     """
-    Bulk create genes. Requires curator or admin privileges.
+    Bulk create genes. Available to all authenticated users.
     """
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    # All authenticated users can bulk create genes
+    # RLS policies handle scope-based access control
 
     result = gene_crud.bulk_create(
         db,
@@ -539,10 +527,7 @@ def validate_gene(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
-    if current_user.role not in ["curator", "admin", "scope_admin"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-        )
+    # All authenticated users can validate genes
 
     # Basic validation implementation
     # In a real system, this would validate against HGNC API
