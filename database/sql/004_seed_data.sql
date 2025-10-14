@@ -727,7 +727,7 @@ UPDATE scopes SET default_workflow_pair_id = (
 -- - 3 test users with scope-level roles (no global curator/reviewer/viewer roles)
 
 -- Insert application admin user
-INSERT INTO users_new (
+INSERT INTO users (
     id, email, hashed_password, name, role, institution,
     assigned_scopes, orcid_id, expertise_areas, is_active
 ) VALUES (
@@ -748,7 +748,7 @@ INSERT INTO users_new (
 -- ========================================
 
 -- Test User 1: Alice Smith (curator in kidney-genetics scope)
-INSERT INTO users_new (
+INSERT INTO users (
     id, email, hashed_password, name, role, institution,
     assigned_scopes, orcid_id, expertise_areas, is_active
 ) VALUES (
@@ -765,7 +765,7 @@ INSERT INTO users_new (
 );
 
 -- Test User 2: Bob Jones (reviewer in cardio-genetics scope)
-INSERT INTO users_new (
+INSERT INTO users (
     id, email, hashed_password, name, role, institution,
     assigned_scopes, orcid_id, expertise_areas, is_active
 ) VALUES (
@@ -782,7 +782,7 @@ INSERT INTO users_new (
 );
 
 -- Test User 3: Carol Williams (viewer in neuro-genetics scope)
-INSERT INTO users_new (
+INSERT INTO users (
     id, email, hashed_password, name, role, institution,
     assigned_scopes, orcid_id, expertise_areas, is_active
 ) VALUES (
@@ -809,7 +809,7 @@ INSERT INTO users_new (
 INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status)
 SELECT
     s.id as scope_id,
-    (SELECT id FROM users_new WHERE email = 'admin@genecurator.org') as user_id,
+    (SELECT id FROM users WHERE email = 'admin@genecurator.org') as user_id,
     'admin' as role,
     true as is_active,
     'accepted' as invitation_status
@@ -820,7 +820,7 @@ WHERE s.is_active = true;
 INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'kidney-genetics'),
-    (SELECT id FROM users_new WHERE email = 'alice.smith@genecurator.org'),
+    (SELECT id FROM users WHERE email = 'alice.smith@genecurator.org'),
     'curator',  -- Scope-level curator role
     true,
     'accepted'
@@ -830,7 +830,7 @@ INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_st
 INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'cardio-genetics'),
-    (SELECT id FROM users_new WHERE email = 'bob.jones@genecurator.org'),
+    (SELECT id FROM users WHERE email = 'bob.jones@genecurator.org'),
     'reviewer',  -- Scope-level reviewer role
     true,
     'accepted'
@@ -840,7 +840,7 @@ INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_st
 INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'neuro-genetics'),
-    (SELECT id FROM users_new WHERE email = 'carol.williams@genecurator.org'),
+    (SELECT id FROM users WHERE email = 'carol.williams@genecurator.org'),
     'viewer',  -- Scope-level viewer role
     true,
     'accepted'
@@ -865,7 +865,7 @@ FROM (
     UNION ALL 
     SELECT 'Workflow Pairs' as component, COUNT(*) as count, string_agg(name || ' v' || version, ', ') as name FROM workflow_pairs
     UNION ALL
-    SELECT 'Users' as component, COUNT(*) as count, string_agg(name, ', ') as name FROM users_new
+    SELECT 'Users' as component, COUNT(*) as count, string_agg(name, ', ') as name FROM users
 ) summary
 GROUP BY component
 ORDER BY component;

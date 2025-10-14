@@ -211,7 +211,7 @@ class ScopeMembershipCRUD(
         """
         List all members of a scope with user details.
 
-        Performs JOIN with users_new table to include user information.
+        Performs JOIN with users table to include user information.
         Computes statistics (active count, pending count, role counts).
 
         Args:
@@ -222,7 +222,7 @@ class ScopeMembershipCRUD(
         Returns:
             ScopeMemberListResponse with members and statistics
         """
-        # Base query with JOIN to users_new
+        # Base query with JOIN to users
         stmt = (
             select(
                 ScopeMembership,

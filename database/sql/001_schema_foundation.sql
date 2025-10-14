@@ -68,7 +68,7 @@ CREATE TABLE scopes (
 );
 
 -- Enhanced Users Table with Scope Assignment
-CREATE TABLE users_new (
+CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
@@ -113,7 +113,7 @@ CREATE TABLE curation_schemas (
     -- Metadata
     description TEXT,
     institution VARCHAR(255),
-    created_by UUID,                               -- Will reference users_new(id)
+    created_by UUID,                               -- Will reference users(id)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     is_active BOOLEAN DEFAULT true,
     
@@ -140,7 +140,7 @@ CREATE TABLE workflow_pairs (
     
     -- Metadata
     description TEXT,
-    created_by UUID,                               -- Will reference users_new(id)
+    created_by UUID,                               -- Will reference users(id)
     created_at TIMESTAMPTZ DEFAULT NOW(),
     is_active BOOLEAN DEFAULT true,
     
@@ -167,8 +167,8 @@ CREATE TABLE genes (
     -- Metadata
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID,                               -- Will reference users_new(id)
-    updated_by UUID,                               -- Will reference users_new(id)
+    created_by UUID,                               -- Will reference users(id)
+    updated_by UUID,                               -- Will reference users(id)
     
     CONSTRAINT valid_hgnc_id CHECK (hgnc_id ~* '^HGNC:[0-9]+$')
 );
@@ -178,7 +178,7 @@ CREATE TABLE gene_scope_assignments (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     gene_id UUID NOT NULL,                         -- Will reference genes(id)
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
-    assigned_curator_id UUID,                      -- Will reference users_new(id)
+    assigned_curator_id UUID,                      -- Will reference users(id)
     workflow_pair_id UUID REFERENCES workflow_pairs(id),
     
     -- Assignment details
@@ -188,7 +188,7 @@ CREATE TABLE gene_scope_assignments (
     assignment_notes TEXT,
     
     -- Metadata
-    assigned_by UUID,                              -- Will reference users_new(id)
+    assigned_by UUID,                              -- Will reference users(id)
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
@@ -205,13 +205,13 @@ CREATE TABLE scope_memberships (
 
     -- Scope and user relationship
     scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
-    user_id UUID NOT NULL REFERENCES users_new(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
 
     -- Scope-specific role (NOT application role)
     role scope_role NOT NULL,
 
     -- Invitation tracking
-    invited_by UUID REFERENCES users_new(id),
+    invited_by UUID REFERENCES users(id),
     invited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     accepted_at TIMESTAMPTZ,  -- NULL = pending invitation
     invitation_status VARCHAR(20) DEFAULT 'pending',  -- pending, accepted, rejected
@@ -268,8 +268,8 @@ CREATE TABLE precurations (
     -- Metadata
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID,                               -- Will reference users_new(id)
-    updated_by UUID,                               -- Will reference users_new(id)
+    created_by UUID,                               -- Will reference users(id)
+    updated_by UUID,                               -- Will reference users(id)
     
     -- Provenance tracking
     version_number INTEGER DEFAULT 1,
@@ -304,15 +304,15 @@ CREATE TABLE curations (
     
     -- Submission and approval
     submitted_at TIMESTAMPTZ,
-    submitted_by UUID,                             -- Will reference users_new(id)
+    submitted_by UUID,                             -- Will reference users(id)
     approved_at TIMESTAMPTZ,
-    approved_by UUID,                              -- Will reference users_new(id)
+    approved_by UUID,                              -- Will reference users(id)
     
     -- Metadata
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_by UUID,                               -- Will reference users_new(id)
-    updated_by UUID,                               -- Will reference users_new(id)
+    created_by UUID,                               -- Will reference users(id)
+    updated_by UUID,                               -- Will reference users(id)
     
     -- Provenance tracking
     version_number INTEGER DEFAULT 1,
@@ -324,7 +324,7 @@ CREATE TABLE curations (
 CREATE TABLE reviews (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     curation_id UUID NOT NULL,                     -- Will reference curations(id)
-    reviewer_id UUID NOT NULL,                     -- Will reference users_new(id)
+    reviewer_id UUID NOT NULL,                     -- Will reference users(id)
     
     status review_status NOT NULL DEFAULT 'pending',
     
@@ -338,7 +338,7 @@ CREATE TABLE reviews (
     
     -- Metadata
     assigned_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    assigned_by UUID,                              -- Will reference users_new(id)
+    assigned_by UUID,                              -- Will reference users(id)
     due_date DATE,
     
     -- Version tracking for iterative reviews
@@ -354,14 +354,14 @@ CREATE TABLE active_curations (
     
     -- Activation details
     activated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    activated_by UUID,                             -- Will reference users_new(id)
+    activated_by UUID,                             -- Will reference users(id)
     
     -- Previous active curation (for audit trail)
     replaced_curation_id UUID,                     -- Will reference curations(id)
     
     -- Archive information
     archived_at TIMESTAMPTZ,
-    archived_by UUID,                              -- Will reference users_new(id)
+    archived_by UUID,                              -- Will reference users(id)
     archive_reason TEXT,
     
     -- Ensure only one active curation per gene-scope
@@ -380,7 +380,7 @@ CREATE TABLE audit_log (
     scope_id UUID REFERENCES scopes(id),
     operation TEXT NOT NULL,                       -- 'CREATE', 'UPDATE', 'SUBMIT', 'APPROVE', 'REJECT', 'ACTIVATE', 'ARCHIVE'
     changes JSONB,                                 -- Detailed change information
-    user_id UUID,                                  -- Will reference users_new(id)
+    user_id UUID,                                  -- Will reference users(id)
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     
     -- Additional context
@@ -402,7 +402,7 @@ CREATE TABLE audit_log (
 -- Schema Selection Preferences (User/Institution Schema Choices)
 CREATE TABLE schema_selections (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID,                                  -- Will reference users_new(id) - NULL for institutional defaults
+    user_id UUID,                                  -- Will reference users(id) - NULL for institutional defaults
     scope_id UUID REFERENCES scopes(id),
     institution VARCHAR(255),                      -- For institutional defaults
     
@@ -432,11 +432,11 @@ CREATE INDEX idx_scopes_active ON scopes(is_active) WHERE is_active = true;
 CREATE INDEX idx_scopes_public ON scopes(is_public) WHERE is_public = true;
 
 -- Users indexes
-CREATE INDEX idx_users_new_email ON users_new(email);
-CREATE INDEX idx_users_new_role ON users_new(role);
-CREATE INDEX idx_users_new_institution ON users_new(institution);
-CREATE INDEX idx_users_new_assigned_scopes ON users_new USING GIN (assigned_scopes);
-CREATE INDEX idx_users_new_active ON users_new(is_active) WHERE is_active = true;
+CREATE INDEX idx_users_email ON users(email);
+CREATE INDEX idx_users_role ON users(role);
+CREATE INDEX idx_users_institution ON users(institution);
+CREATE INDEX idx_users_assigned_scopes ON users USING GIN (assigned_scopes);
+CREATE INDEX idx_users_active ON users(is_active) WHERE is_active = true;
 
 -- Schema repository indexes
 CREATE INDEX idx_curation_schemas_name_version ON curation_schemas(name, version);
@@ -537,9 +537,9 @@ CREATE INDEX idx_schema_selections_workflow_pair ON schema_selections(preferred_
 -- ========================================
 
 COMMENT ON TABLE scopes IS 'Clinical specialties as first-class entities (kidney-genetics, cardio-genetics, etc.)';
-COMMENT ON TABLE users_new IS 'Enhanced users with application roles (admin/user) and scope-based access via scope_memberships';
-COMMENT ON COLUMN users_new.role IS 'Application-level role: admin (platform access) or user (scope-based access)';
-COMMENT ON COLUMN users_new.assigned_scopes IS 'DEPRECATED: Use scope_memberships table for scope assignments';
+COMMENT ON TABLE users IS 'Enhanced users with application roles (admin/user) and scope-based access via scope_memberships';
+COMMENT ON COLUMN users.role IS 'Application-level role: admin (platform access) or user (scope-based access)';
+COMMENT ON COLUMN users.assigned_scopes IS 'DEPRECATED: Use scope_memberships table for scope assignments';
 COMMENT ON TABLE curation_schemas IS 'Repository of methodology definitions (ClinGen, GenCC, custom)';
 COMMENT ON TABLE workflow_pairs IS 'Precuration + curation schema combinations for complete workflows';
 COMMENT ON TABLE gene_scope_assignments IS 'Many-to-many relationship between genes and clinical scopes';

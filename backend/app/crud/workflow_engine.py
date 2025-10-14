@@ -792,7 +792,7 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> None:
         """Log workflow transition in audit trail."""
-        # This would log to the audit_log_new table
+        # This would log to the audit_log table
         pass
 
     def _get_workflow_history(

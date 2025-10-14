@@ -65,7 +65,7 @@ COMMENT ON FUNCTION get_current_user_uuid() IS 'Safely retrieve current user UUI
 CREATE OR REPLACE FUNCTION is_application_admin()
 RETURNS BOOLEAN AS $$
     SELECT EXISTS (
-        SELECT 1 FROM users_new
+        SELECT 1 FROM users
         WHERE id = get_current_user_uuid()
         AND role = 'admin'
         AND is_active = true

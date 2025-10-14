@@ -268,7 +268,7 @@ db-reset: ## Complete database reset (structure + data)
 db-clean: ## Remove all data (keep structure)
 	@echo "$(YELLOW)Cleaning database data...$(NC)"
 	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\
-		TRUNCATE TABLE users_new, genes_new, precurations_new, curations_new, reviews CASCADE; \
+		TRUNCATE TABLE users, genes, precurations, curations, reviews CASCADE; \
 	"
 	@echo "$(GREEN)✅ Database data cleaned$(NC)"
 
@@ -322,11 +322,11 @@ status: ## Show comprehensive system status
 	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\
 		SELECT \
 			(SELECT COUNT(*) FROM scopes) as scopes, \
-			(SELECT COUNT(*) FROM genes_new) as genes, \
-			(SELECT COUNT(*) FROM curations_new) as curations, \
-			(SELECT COUNT(*) FROM precurations_new) as precurations, \
+			(SELECT COUNT(*) FROM genes) as genes, \
+			(SELECT COUNT(*) FROM curations) as curations, \
+			(SELECT COUNT(*) FROM precurations) as precurations, \
 			(SELECT COUNT(*) FROM curation_schemas) as schemas, \
-			(SELECT COUNT(*) FROM users_new) as users; \
+			(SELECT COUNT(*) FROM users) as users; \
 	" 2>/dev/null || echo "$(RED)❌ Database not accessible$(NC)"
 	@echo ""
 	@echo "$(BLUE)💾 DISK USAGE:$(NC)"

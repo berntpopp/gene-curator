@@ -164,7 +164,7 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     Schema for scope membership response (includes user details).
 
     This schema is used when returning membership information to clients.
-    It includes user details joined from the users_new table.
+    It includes user details joined from the users table.
     """
 
     id: UUID = Field(..., description="Unique membership ID")
@@ -180,7 +180,7 @@ class ScopeMembershipResponse(ScopeMembershipBase):
     is_active: bool = Field(..., description="Whether membership is active")
     team_id: UUID | None = Field(None, description="Optional team ID")
 
-    # User details (joined from users_new table)
+    # User details (joined from users table)
     user_username: str | None = Field(None, description="User's username")
     user_email: str | None = Field(None, description="User's email")
     user_full_name: str | None = Field(None, description="User's full name")

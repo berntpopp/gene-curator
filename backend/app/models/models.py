@@ -128,7 +128,7 @@ class Scope(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Relationships
@@ -158,7 +158,7 @@ class Scope(Base):
 class UserNew(Base):
     """Enhanced users with scope assignments and scientific attribution."""
 
-    __tablename__ = "users_new"
+    __tablename__ = "users"
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
@@ -268,7 +268,7 @@ class ScopeMembership(Base):
     )
     user_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users_new.id", ondelete="CASCADE"),
+        ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -280,7 +280,7 @@ class ScopeMembership(Base):
 
     # Invitation workflow (nullable fields)
     invited_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     invited_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -373,7 +373,7 @@ class CurationSchema(Base):
     description: Mapped[str | None] = mapped_column(Text)
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id")
+        UUID(as_uuid=True), ForeignKey("users.id")
     )
     created_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -450,7 +450,7 @@ class WorkflowPair(Base):
     # Metadata (nullable)
     description: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id")
+        UUID(as_uuid=True), ForeignKey("users.id")
     )
     created_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -526,10 +526,10 @@ class Gene(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Relationships
@@ -583,7 +583,7 @@ class GeneScopeAssignment(Base):
 
     # Nullable fields
     assigned_curator_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL"), index=True
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
     workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id"), index=True
@@ -599,7 +599,7 @@ class GeneScopeAssignment(Base):
 
     # Metadata
     assigned_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     assigned_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -702,10 +702,10 @@ class PrecurationNew(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
@@ -730,9 +730,9 @@ class PrecurationNew(Base):
     )
 
     __table_args__ = (
-        Index("idx_precurations_new_gene_scope", "gene_id", "scope_id"),
+        Index("idx_precurations_gene_scope", "gene_id", "scope_id"),
         Index(
-            "idx_precurations_new_evidence_gin", "evidence_data", postgresql_using="gin"
+            "idx_precurations_evidence_gin", "evidence_data", postgresql_using="gin"
         ),
     )
 
@@ -801,11 +801,11 @@ class CurationNew(Base):
     # Submission and approval (nullable)
     submitted_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
     submitted_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     approved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
     approved_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Metadata
@@ -819,10 +819,10 @@ class CurationNew(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
@@ -859,12 +859,12 @@ class CurationNew(Base):
     )
 
     __table_args__ = (
-        Index("idx_curations_new_gene_scope", "gene_id", "scope_id"),
+        Index("idx_curations_gene_scope", "gene_id", "scope_id"),
         Index(
-            "idx_curations_new_evidence_gin", "evidence_data", postgresql_using="gin"
+            "idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"
         ),
         Index(
-            "idx_curations_new_scores_gin", "computed_scores", postgresql_using="gin"
+            "idx_curations_scores_gin", "computed_scores", postgresql_using="gin"
         ),
     )
 
@@ -888,7 +888,7 @@ class Review(Base):
     )
     reviewer_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("users_new.id", ondelete="SET NULL"),
+        ForeignKey("users.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
     )
@@ -915,7 +915,7 @@ class Review(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     assigned_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     due_date: Mapped[dt | None] = mapped_column(Date)
 
@@ -967,7 +967,7 @@ class ActiveCuration(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     activated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Previous active curation (for audit trail)
@@ -978,7 +978,7 @@ class ActiveCuration(Base):
     # Archive information (nullable)
     archived_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
     archived_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     archive_reason: Mapped[str | None] = mapped_column(Text)
 
@@ -1036,7 +1036,7 @@ class AuditLogNew(Base):
     )
     changes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Additional context (nullable)
@@ -1069,7 +1069,7 @@ class AuditLogNew(Base):
     schema: Mapped["CurationSchema | None"] = relationship("CurationSchema")
     workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
 
-    __table_args__ = (Index("idx_audit_log_new_entity", "entity_type", "entity_id"),)
+    __table_args__ = (Index("idx_audit_log_entity", "entity_type", "entity_id"),)
 
 
 class SchemaSelection(Base):
@@ -1089,7 +1089,7 @@ class SchemaSelection(Base):
 
     # Nullable fields
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="CASCADE")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
     )
     institution: Mapped[str | None] = mapped_column(String(255))
 
@@ -1154,7 +1154,7 @@ class SystemLog(Base):
 
     # User context (nullable)
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users_new.id", ondelete="SET NULL")
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
     ip_address: Mapped[str | None] = mapped_column(Text)
     user_agent: Mapped[str | None] = mapped_column(Text)

@@ -60,7 +60,7 @@ SELECT
 FROM gene_scope_assignments gsa
 JOIN genes g ON gsa.gene_id = g.id
 JOIN scopes s ON gsa.scope_id = s.id
-LEFT JOIN users_new curator ON gsa.assigned_curator_id = curator.id
+LEFT JOIN users curator ON gsa.assigned_curator_id = curator.id
 LEFT JOIN workflow_pairs wp ON gsa.workflow_pair_id = wp.id
 LEFT JOIN precurations p ON p.gene_id = gsa.gene_id AND p.scope_id = gsa.scope_id
 LEFT JOIN curations c ON c.gene_id = gsa.gene_id AND c.scope_id = gsa.scope_id
@@ -187,9 +187,9 @@ SELECT
 FROM curations c
 JOIN genes g ON c.gene_id = g.id
 JOIN scopes s ON c.scope_id = s.id
-LEFT JOIN users_new curator ON c.created_by = curator.id
+LEFT JOIN users curator ON c.created_by = curator.id
 LEFT JOIN reviews r ON r.curation_id = c.id
-LEFT JOIN users_new reviewer ON r.reviewer_id = reviewer.id
+LEFT JOIN users reviewer ON r.reviewer_id = reviewer.id
 WHERE c.status IN ('submitted', 'in_review', 'approved', 'rejected')
 ORDER BY 
     CASE 
@@ -277,7 +277,7 @@ SELECT
     u.last_login,
     GREATEST(MAX(c.updated_at), MAX(r.reviewed_at)) as last_activity_date
     
-FROM users_new u
+FROM users u
 LEFT JOIN gene_scope_assignments gsa ON gsa.assigned_curator_id = u.id AND gsa.is_active = true
 LEFT JOIN curations c ON c.created_by = u.id
 LEFT JOIN reviews r ON r.reviewer_id = u.id
@@ -332,9 +332,9 @@ JOIN scopes s ON ac.scope_id = s.id
 JOIN curations c ON ac.curation_id = c.id
 JOIN workflow_pairs wp ON c.workflow_pair_id = wp.id
 JOIN curation_schemas cs ON wp.curation_schema_id = cs.id
-LEFT JOIN users_new creator ON c.created_by = creator.id
-LEFT JOIN users_new approver ON c.approved_by = approver.id
-LEFT JOIN users_new activator ON ac.activated_by = activator.id
+LEFT JOIN users creator ON c.created_by = creator.id
+LEFT JOIN users approver ON c.approved_by = approver.id
+LEFT JOIN users activator ON ac.activated_by = activator.id
 WHERE ac.archived_at IS NULL
 ORDER BY ac.activated_at DESC;
 
@@ -385,7 +385,7 @@ SELECT
     COUNT(*) as total_count,
     COUNT(*) FILTER (WHERE is_active = true) as active_count,
     MAX(last_login) as last_activity
-FROM users_new;
+FROM users;
 
 -- Data Quality and Integrity Checks
 CREATE VIEW data_integrity_checks AS
@@ -433,7 +433,7 @@ SELECT
     COUNT(*) as issue_count,
     'Users working in scopes they are not assigned to' as description
 FROM curations c
-JOIN users_new u ON c.created_by = u.id
+JOIN users u ON c.created_by = u.id
 WHERE NOT (c.scope_id = ANY(u.assigned_scopes));
 
 -- Comments for documentation

@@ -7,40 +7,40 @@
 
 -- Add foreign key constraints after all tables are created
 ALTER TABLE scopes ADD CONSTRAINT fk_scopes_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE scopes ADD CONSTRAINT fk_scopes_default_workflow_pair 
     FOREIGN KEY (default_workflow_pair_id) REFERENCES workflow_pairs(id) ON DELETE SET NULL;
 
 ALTER TABLE curation_schemas ADD CONSTRAINT fk_curation_schemas_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE workflow_pairs ADD CONSTRAINT fk_workflow_pairs_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE genes ADD CONSTRAINT fk_genes_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE genes ADD CONSTRAINT fk_genes_updated_by 
-    FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_gene 
     FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_curator 
-    FOREIGN KEY (assigned_curator_id) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (assigned_curator_id) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE gene_scope_assignments ADD CONSTRAINT fk_gene_scope_assignments_assigned_by 
-    FOREIGN KEY (assigned_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE precurations ADD CONSTRAINT fk_precurations_gene 
     FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
 
 ALTER TABLE precurations ADD CONSTRAINT fk_precurations_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE precurations ADD CONSTRAINT fk_precurations_updated_by 
-    FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE curations ADD CONSTRAINT fk_curations_gene 
     FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
@@ -49,25 +49,25 @@ ALTER TABLE curations ADD CONSTRAINT fk_curations_precuration
     FOREIGN KEY (precuration_id) REFERENCES precurations(id) ON DELETE SET NULL;
 
 ALTER TABLE curations ADD CONSTRAINT fk_curations_created_by 
-    FOREIGN KEY (created_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE curations ADD CONSTRAINT fk_curations_updated_by 
-    FOREIGN KEY (updated_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (updated_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE curations ADD CONSTRAINT fk_curations_submitted_by 
-    FOREIGN KEY (submitted_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (submitted_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE curations ADD CONSTRAINT fk_curations_approved_by 
-    FOREIGN KEY (approved_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (approved_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_curation 
     FOREIGN KEY (curation_id) REFERENCES curations(id) ON DELETE CASCADE;
 
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_reviewer 
-    FOREIGN KEY (reviewer_id) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (reviewer_id) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE reviews ADD CONSTRAINT fk_reviews_assigned_by 
-    FOREIGN KEY (assigned_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_gene 
     FOREIGN KEY (gene_id) REFERENCES genes(id) ON DELETE CASCADE;
@@ -76,22 +76,22 @@ ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_curation
     FOREIGN KEY (curation_id) REFERENCES curations(id) ON DELETE CASCADE;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_activated_by 
-    FOREIGN KEY (activated_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (activated_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_archived_by 
-    FOREIGN KEY (archived_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (archived_by) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE active_curations ADD CONSTRAINT fk_active_curations_replaced_curation 
     FOREIGN KEY (replaced_curation_id) REFERENCES curations(id) ON DELETE SET NULL;
 
 ALTER TABLE audit_log ADD CONSTRAINT fk_audit_log_user 
-    FOREIGN KEY (user_id) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE schema_selections ADD CONSTRAINT fk_schema_selections_user
-    FOREIGN KEY (user_id) REFERENCES users_new(id) ON DELETE CASCADE;
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
 
 ALTER TABLE scope_memberships ADD CONSTRAINT fk_scope_memberships_invited_by
-    FOREIGN KEY (invited_by) REFERENCES users_new(id) ON DELETE SET NULL;
+    FOREIGN KEY (invited_by) REFERENCES users(id) ON DELETE SET NULL;
 
 -- ========================================
 -- BUSINESS LOGIC CONSTRAINTS

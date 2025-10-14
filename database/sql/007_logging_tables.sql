@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS system_logs (
     request_id TEXT,
 
     -- User context
-    user_id UUID REFERENCES users_new(id) ON DELETE SET NULL,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
     ip_address TEXT,
     user_agent TEXT,
 
