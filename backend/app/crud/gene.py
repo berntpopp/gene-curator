@@ -21,8 +21,8 @@ from app.models import (
 )
 from app.schemas.gene import (
     GeneCreate,
-    GeneUpdate,
     GeneSearchQuery,
+    GeneUpdate,
 )
 
 
@@ -47,9 +47,11 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
 
     def get_by_symbol(self, db: Session, *, symbol: str) -> Gene | None:
         """Get gene by approved symbol."""
-        return db.execute(
-            select(Gene).where(Gene.approved_symbol.ilike(f"%{symbol}%"))
-        ).scalars().first()
+        return (
+            db.execute(select(Gene).where(Gene.approved_symbol.ilike(f"%{symbol}%")))
+            .scalars()
+            .first()
+        )
 
     @database_query(query_type="SELECT")
     def get_multi(
@@ -108,7 +110,11 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
             else:
                 stmt = stmt.order_by(order_column.asc())
 
-        return db.execute(stmt.offset(search_params.skip).limit(search_params.limit)).scalars().all()
+        return (
+            db.execute(stmt.offset(search_params.skip).limit(search_params.limit))
+            .scalars()
+            .all()
+        )
 
     @database_query(query_type="INSERT")
     def create_with_owner(
@@ -363,46 +369,68 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
             )
 
         # Total genes
-        total_genes = db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar() or 0
+        total_genes = (
+            db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar()
+            or 0
+        )
 
         # Recent additions (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_additions = db.execute(
-            select(func.count()).select_from(
-                base_stmt.where(Gene.created_at >= thirty_days_ago).subquery()
-            )
-        ).scalar() or 0
+        recent_additions = (
+            db.execute(
+                select(func.count()).select_from(
+                    base_stmt.where(Gene.created_at >= thirty_days_ago).subquery()
+                )
+            ).scalar()
+            or 0
+        )
 
         # Updated last week
         week_ago = datetime.utcnow() - timedelta(days=7)
-        updated_last_week = db.execute(
-            select(func.count()).select_from(
-                base_stmt.where(Gene.updated_at >= week_ago).subquery()
-            )
-        ).scalar() or 0
+        updated_last_week = (
+            db.execute(
+                select(func.count()).select_from(
+                    base_stmt.where(Gene.updated_at >= week_ago).subquery()
+                )
+            ).scalar()
+            or 0
+        )
 
         # Genes with detailed information
-        genes_with_details = db.execute(
-            select(func.count()).select_from(
-                base_stmt.where(
-                    Gene.details.isnot(None),
-                    func.jsonb_typeof(Gene.details) == "object"
-                ).subquery()
-            )
-        ).scalar() or 0
+        genes_with_details = (
+            db.execute(
+                select(func.count()).select_from(
+                    base_stmt.where(
+                        Gene.details.isnot(None),
+                        func.jsonb_typeof(Gene.details) == "object",
+                    ).subquery()
+                )
+            ).scalar()
+            or 0
+        )
 
         # Assignment statistics (if scope not specified)
         assignment_stats: dict[str, int] = {}
         if not scope_id:
-            total_assignments = db.execute(
-                select(func.count(GeneScopeAssignment.id))
-                .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-            ).scalar() or 0
+            total_assignments = (
+                db.execute(
+                    select(func.count(GeneScopeAssignment.id)).where(
+                        GeneScopeAssignment.is_active
+                    )  # Fixed: use == instead of is
+                ).scalar()
+                or 0
+            )
 
-            assigned_genes = db.execute(
-                select(func.count(func.distinct(GeneScopeAssignment.gene_id)))
-                .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-            ).scalar() or 0
+            assigned_genes = (
+                db.execute(
+                    select(
+                        func.count(func.distinct(GeneScopeAssignment.gene_id))
+                    ).where(
+                        GeneScopeAssignment.is_active
+                    )  # Fixed: use == instead of is
+                ).scalar()
+                or 0
+            )
 
             unassigned_genes = total_genes - assigned_genes
 

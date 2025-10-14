@@ -55,7 +55,9 @@ class DatabaseLogger:
         """
         self.session_factory = session_factory
         self.enabled = True
-        self._pending_tasks: set[asyncio.Task[None]] = set()  # FIX #2: Store task references
+        self._pending_tasks: set[asyncio.Task[None]] = (
+            set()
+        )  # FIX #2: Store task references
 
     async def log(
         self,

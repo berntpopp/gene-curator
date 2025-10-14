@@ -163,15 +163,18 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def get_statistics(self, db: Session) -> dict[str, Any]:
         """Get user statistics."""
         total_users = db.execute(select(func.count(User.id))).scalar() or 0
-        active_users = db.execute(
-            select(func.count(User.id)).where(User.is_active)
-        ).scalar() or 0
+        active_users = (
+            db.execute(select(func.count(User.id)).where(User.is_active)).scalar() or 0
+        )
 
         role_counts: dict[str, int] = {}
         for role in UserRole:
-            count = db.execute(
-                select(func.count(User.id)).where(User.role == role)
-            ).scalar() or 0
+            count = (
+                db.execute(
+                    select(func.count(User.id)).where(User.role == role)
+                ).scalar()
+                or 0
+            )
             role_counts[role.value] = count
 
         return {

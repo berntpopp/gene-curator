@@ -83,7 +83,7 @@ def test_logs_router_registered() -> None:
     try:
         from app.api.v1.api import api_router
 
-        routes = [getattr(route, 'path', '') for route in api_router.routes]
+        routes = [getattr(route, "path", "") for route in api_router.routes]
 
         # Check for logs endpoints (routes may have /logs prefix or not depending on how they're mounted)
         expected_logs_keywords = [
@@ -168,7 +168,7 @@ def test_log_search_params_validation() -> None:
         end_date=None,
         min_duration_ms=None,
         skip=0,
-        limit=100
+        limit=100,
     )
     assert params.level == "ERROR"
     assert params.skip == 0
@@ -188,7 +188,7 @@ def test_log_search_params_validation() -> None:
         end_date=None,
         min_duration_ms=None,
         skip=0,
-        limit=100
+        limit=100,
     )
     assert params_default.skip == 0
     assert params_default.limit == 100
@@ -208,7 +208,7 @@ def test_log_search_params_validation() -> None:
         end_date=now,
         min_duration_ms=None,
         skip=0,
-        limit=100
+        limit=100,
     )
     assert params_time.start_date is not None
     assert params_time.end_date is not None
@@ -221,22 +221,14 @@ def test_log_export_params_validation() -> None:
 
     # Test JSON export
     params_json = LogExportParams(
-        format="json",
-        level=None,
-        start_date=None,
-        end_date=None,
-        limit=5000
+        format="json", level=None, start_date=None, end_date=None, limit=5000
     )
     assert params_json.format == "json"
     assert params_json.limit == 5000
 
     # Test CSV export
     params_csv = LogExportParams(
-        format="csv",
-        level="ERROR",
-        start_date=None,
-        end_date=None,
-        limit=1000
+        format="csv", level="ERROR", start_date=None, end_date=None, limit=1000
     )
     assert params_csv.format == "csv"
     assert params_csv.level == "ERROR"
@@ -370,7 +362,7 @@ def test_crud_functions_are_async() -> None:
 def test_endpoint_dependencies() -> None:
     """Test that endpoints have proper authentication dependencies."""
     import inspect
-    from typing import Callable
+    from collections.abc import Callable
 
     from app.api.v1.endpoints import logs
 
@@ -468,7 +460,7 @@ def test_statistics_endpoint_structure() -> None:
 
 def run_logs_api_tests() -> bool:
     """Run all logs API tests."""
-    from typing import Callable
+    from collections.abc import Callable
 
     test_functions: list[Callable[[], None]] = [
         test_logs_endpoint_imports,

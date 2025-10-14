@@ -167,7 +167,9 @@ async def activate_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user_crud.update_user(db=db, user_id=user_id, user_update=UserUpdate(is_active=True))
+    user_crud.update_user(
+        db=db, user_id=user_id, user_update=UserUpdate(is_active=True)
+    )
     return {"message": "User activated successfully"}
 
 
@@ -193,7 +195,9 @@ async def deactivate_user(
             detail="You cannot deactivate your own account",
         )
 
-    user_crud.update_user(db=db, user_id=user_id, user_update=UserUpdate(is_active=False))
+    user_crud.update_user(
+        db=db, user_id=user_id, user_update=UserUpdate(is_active=False)
+    )
     return {"message": "User deactivated successfully"}
 
 

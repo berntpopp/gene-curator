@@ -127,7 +127,9 @@ class TestScopeCRUD:
         with pytest.raises(IntegrityError):
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
-    def test_create_scope_invalid_name_format(self, db: Session, admin_user: UserNew) -> None:
+    def test_create_scope_invalid_name_format(
+        self, db: Session, admin_user: UserNew
+    ) -> None:
         """Test that invalid scope name format fails."""
         from pydantic import ValidationError
 
@@ -173,7 +175,9 @@ class TestScopeCRUD:
 
         assert scope is None
 
-    def test_get_scopes_list(self, db: Session, test_scope: Scope, admin_user: UserNew) -> None:
+    def test_get_scopes_list(
+        self, db: Session, test_scope: Scope, admin_user: UserNew
+    ) -> None:
         """Test listing scopes."""
         # Create additional scopes
         for i in range(3):
@@ -306,7 +310,9 @@ class TestScopeCRUD:
 
         assert updated_scope is None
 
-    def test_update_scope_name_not_allowed(self, db: Session, test_scope: Scope) -> None:
+    def test_update_scope_name_not_allowed(
+        self, db: Session, test_scope: Scope
+    ) -> None:
         """Test that scope name cannot be changed via update."""
         # Attempt to update name (should be ignored by ScopeUpdate schema)
         # name cannot be in ScopeUpdate
@@ -525,7 +531,9 @@ class TestScopeCRUD:
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
         # Get scopes by institution
-        inst_a_scopes: Sequence[Scope] = scope_crud.get_scopes_by_institution(db, "Institution A")
+        inst_a_scopes: Sequence[Scope] = scope_crud.get_scopes_by_institution(
+            db, "Institution A"
+        )
 
         assert len(inst_a_scopes) >= 2  # At least the 2 we created
         for scope in inst_a_scopes:
@@ -557,7 +565,9 @@ class TestScopeEdgeCases:
         assert minimal_scope.scope_config == {}  # Default
         assert minimal_scope.created_by == admin_user.id
 
-    def test_scope_with_unicode_characters(self, db: Session, admin_user: UserNew) -> None:
+    def test_scope_with_unicode_characters(
+        self, db: Session, admin_user: UserNew
+    ) -> None:
         """Test scope with unicode characters in display_name and description."""
         scope_data = ScopeCreate(
             name="unicode-scope",
@@ -576,7 +586,9 @@ class TestScopeEdgeCases:
         assert scope.description is not None
         assert "日本語" in scope.description
 
-    def test_scope_with_very_long_description(self, db: Session, admin_user: UserNew) -> None:
+    def test_scope_with_very_long_description(
+        self, db: Session, admin_user: UserNew
+    ) -> None:
         """Test scope with very long description (TEXT field)."""
         long_description = "A" * 10000  # 10,000 characters
 

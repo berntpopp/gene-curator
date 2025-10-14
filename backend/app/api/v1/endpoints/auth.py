@@ -35,7 +35,9 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> dict[str, Any]:
+async def login(
+    user_credentials: UserLogin, db: Session = Depends(get_db)
+) -> dict[str, Any]:
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
@@ -98,7 +100,9 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> d
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)) -> dict[str, Any]:
+async def refresh_token(
+    token_data: TokenRefresh, db: Session = Depends(get_db)
+) -> dict[str, Any]:
     """
     Refresh an access token using a refresh token.
     """
@@ -160,7 +164,9 @@ async def change_password(
         )
 
     # Update password
-    user_crud.update_password(db=db, user_id=str(current_user.id), new_password=password_data.new_password)
+    user_crud.update_password(
+        db=db, user_id=str(current_user.id), new_password=password_data.new_password
+    )
 
     return {"message": "Password updated successfully"}
 
@@ -183,7 +189,9 @@ async def change_password_alt(
         )
 
     # Update password
-    user_crud.update_password(db=db, user_id=str(current_user.id), new_password=password_data.new_password)
+    user_crud.update_password(
+        db=db, user_id=str(current_user.id), new_password=password_data.new_password
+    )
 
     return {"message": "Password updated successfully"}
 

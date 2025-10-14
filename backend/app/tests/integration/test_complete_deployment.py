@@ -16,7 +16,6 @@ def test_complete_system() -> bool:  # noqa: C901
     # Test 1: Core module imports
     try:
         from app.core.schema_validator import schema_validator
-        from app.crud.workflow_engine import workflow_engine
         from app.scoring.registry import scoring_registry
 
     except ImportError as e:
@@ -80,7 +79,6 @@ def test_complete_system() -> bool:  # noqa: C901
     # Test 7: Main API router
     try:
         from app.api.v1.api import api_router
-        from starlette.routing import BaseRoute
 
         # Check that all routes are properly included
         routes = [getattr(route, "path", "") for route in api_router.routes]
@@ -123,8 +121,6 @@ def test_complete_system() -> bool:  # noqa: C901
 
     # Test 8: End-to-end workflow simulation
     try:
-        from uuid import uuid4
-
         # Test schema validation with ClinGen methodology
         test_schema = {
             "field_definitions": {

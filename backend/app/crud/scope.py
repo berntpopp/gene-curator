@@ -147,7 +147,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_with_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any] | None:
+    def get_with_statistics(
+        self, db: Session, *, scope_id: UUID
+    ) -> dict[str, Any] | None:
         """Get scope with detailed statistics."""
         scope = self.get(db, id=scope_id)
         if not scope:
@@ -175,7 +177,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         # Handle None case
         if not gene_stats_row:
-            gene_stats = type('obj', (), {'total_genes_assigned': 0, 'genes_with_curator': 0})()
+            gene_stats = type(
+                "obj", (), {"total_genes_assigned": 0, "genes_with_curator": 0}
+            )()
         else:
             gene_stats = gene_stats_row
 
@@ -224,7 +228,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             .group_by(CurationNew.status)
         ).all()
 
-        status_dict: dict[str, int] = {str(status): int(count) for status, count in status_counts}
+        status_dict: dict[str, int] = {
+            str(status): int(count) for status, count in status_counts
+        }
 
         # Review metrics
         review_stats_row = db.execute(
@@ -245,15 +251,24 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         # Handle None case
         if not review_stats_row:
-            review_stats = type('obj', (), {'pending_reviews': 0, 'approved_reviews': 0, 'avg_review_time_days': None})()
+            review_stats = type(
+                "obj",
+                (),
+                {
+                    "pending_reviews": 0,
+                    "approved_reviews": 0,
+                    "avg_review_time_days": None,
+                },
+            )()
         else:
             review_stats = review_stats_row
 
         # Team metrics
         curator_count = (
             db.execute(
-                select(func.count(func.distinct(GeneScopeAssignment.assigned_curator_id)))
-                .where(
+                select(
+                    func.count(func.distinct(GeneScopeAssignment.assigned_curator_id))
+                ).where(
                     GeneScopeAssignment.scope_id == scope_id,
                     GeneScopeAssignment.is_active,  # Fixed: use == instead of is
                     GeneScopeAssignment.assigned_curator_id.isnot(None),
@@ -357,9 +372,15 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         self, db: Session, *, scope_id: UUID
     ) -> list[dict[str, Any]]:
         """Get available workflow pairs for a scope."""
-        workflow_pairs = db.execute(
-            select(WorkflowPair).where(WorkflowPair.is_active)  # Fixed: use == instead of is
-        ).scalars().all()
+        workflow_pairs = (
+            db.execute(
+                select(WorkflowPair).where(
+                    WorkflowPair.is_active
+                )  # Fixed: use == instead of is
+            )
+            .scalars()
+            .all()
+        )
 
         result = []
         for wp in workflow_pairs:
@@ -382,7 +403,11 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         assigned_count = 0
 
         for user_id in user_ids:
-            user = db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
+            user = (
+                db.execute(select(UserNew).where(UserNew.id == user_id))
+                .scalars()
+                .first()
+            )
             if user:
                 # Add scope to user's assigned_scopes if not already there
                 current_scopes: list[UUID] = user.assigned_scopes or []
@@ -399,7 +424,11 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         removed_count = 0
 
         for user_id in user_ids:
-            user = db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
+            user = (
+                db.execute(select(UserNew).where(UserNew.id == user_id))
+                .scalars()
+                .first()
+            )
             if user and user.assigned_scopes:
                 # Remove scope from user's assigned_scopes
                 current_scopes = user.assigned_scopes
@@ -413,11 +442,15 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def get_scope_users(self, db: Session, *, scope_id: UUID) -> list[dict[str, Any]]:
         """Get users assigned to a scope."""
-        users = db.execute(
-            select(UserNew).where(
-                UserNew.assigned_scopes.contains([str(scope_id)]), UserNew.is_active
-            )  # Fixed: use == instead of is
-        ).scalars().all()
+        users = (
+            db.execute(
+                select(UserNew).where(
+                    UserNew.assigned_scopes.contains([str(scope_id)]), UserNew.is_active
+                )  # Fixed: use == instead of is
+            )
+            .scalars()
+            .all()
+        )
 
         result = []
         for user in users:

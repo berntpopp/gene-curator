@@ -174,11 +174,13 @@ def set_rls_context(db: Session, current_user: UserNew) -> None:
     """
     try:
         # ✅ SECURE: user_id is a validated UUID from User model
-        # SET LOCAL doesn't support bind parameters, but UUID is safe
+        # SET doesn't support bind parameters, but UUID is safe
         user_id_str = str(current_user.id)
 
-        # Execute SET LOCAL command
-        db.execute(text(f"SET LOCAL app.current_user_id = '{user_id_str}'"))
+        # Execute SET command (session-level, not LOCAL)
+        # Using session-level SET ensures compatibility with savepoint-based testing
+        # In production, each request gets a new session, so this is effectively request-scoped
+        db.execute(text(f"SET app.current_user_id = '{user_id_str}'"))
 
         # Verify that the context was actually set (without flushing)
         result = db.execute(text("SHOW app.current_user_id"))

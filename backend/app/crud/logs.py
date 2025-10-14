@@ -106,7 +106,9 @@ async def get_log_by_id(db: AsyncSession, log_id: int) -> SystemLog | None:
     return result.scalar_one_or_none()
 
 
-async def get_logs_by_request_id(db: AsyncSession, request_id: str) -> Sequence[SystemLog]:
+async def get_logs_by_request_id(
+    db: AsyncSession, request_id: str
+) -> Sequence[SystemLog]:
     """
     Get all logs for a specific request (request correlation).
 

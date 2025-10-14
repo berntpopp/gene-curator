@@ -35,11 +35,15 @@ class CRUDCurationSchema(
         self, db: Session, *, name: str, version: str
     ) -> CurationSchema | None:
         """Get schema by name and version."""
-        return db.execute(
-            select(CurationSchema).where(
-                and_(CurationSchema.name == name, CurationSchema.version == version)
+        return (
+            db.execute(
+                select(CurationSchema).where(
+                    and_(CurationSchema.name == name, CurationSchema.version == version)
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
     def get_multi(
         self,
@@ -55,9 +59,7 @@ class CRUDCurationSchema(
         stmt = select(CurationSchema)
 
         if active_only:
-            stmt = stmt.where(
-                CurationSchema.is_active
-            )  # Fixed: use == instead of is
+            stmt = stmt.where(CurationSchema.is_active)  # Fixed: use == instead of is
 
         if schema_type:
             stmt = stmt.where(CurationSchema.schema_type == schema_type)
@@ -65,11 +67,15 @@ class CRUDCurationSchema(
         if institution:
             stmt = stmt.where(CurationSchema.institution == institution)
 
-        return db.execute(
-            stmt.order_by(CurationSchema.name, CurationSchema.version.desc())
-            .offset(skip)
-            .limit(limit)
-        ).scalars().all()
+        return (
+            db.execute(
+                stmt.order_by(CurationSchema.name, CurationSchema.version.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
 
     def create_with_owner(
         self, db: Session, *, obj_in: CurationSchemaCreate, owner_id: UUID
@@ -156,11 +162,15 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         self, db: Session, *, name: str, version: str
     ) -> WorkflowPair | None:
         """Get workflow pair by name and version."""
-        return db.execute(
-            select(WorkflowPair).where(
-                and_(WorkflowPair.name == name, WorkflowPair.version == version)
+        return (
+            db.execute(
+                select(WorkflowPair).where(
+                    and_(WorkflowPair.name == name, WorkflowPair.version == version)
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100, active_only: bool = True
@@ -171,11 +181,15 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         if active_only:
             stmt = stmt.where(WorkflowPair.is_active)  # Fixed: use == instead of is
 
-        return db.execute(
-            stmt.order_by(WorkflowPair.name, WorkflowPair.version.desc())
-            .offset(skip)
-            .limit(limit)
-        ).scalars().all()
+        return (
+            db.execute(
+                stmt.order_by(WorkflowPair.name, WorkflowPair.version.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
+            .all()
+        )
 
     def create_with_owner(
         self, db: Session, *, obj_in: WorkflowPairCreate, owner_id: UUID
@@ -208,7 +222,8 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         # Check precurations using the precuration_schema
         precuration_count = db.execute(
             select(func.count(PrecurationNew.id)).where(
-                PrecurationNew.precuration_schema_id == workflow_pair.precuration_schema_id
+                PrecurationNew.precuration_schema_id
+                == workflow_pair.precuration_schema_id
             )
         ).scalar()
 
@@ -253,7 +268,8 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         # Count active precurations and curations using the schemas
         precuration_count = db.execute(
             select(func.count(PrecurationNew.id)).where(
-                PrecurationNew.precuration_schema_id == workflow_pair.precuration_schema_id
+                PrecurationNew.precuration_schema_id
+                == workflow_pair.precuration_schema_id
             )
         ).scalar()
 

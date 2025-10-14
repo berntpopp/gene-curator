@@ -2,23 +2,24 @@
 Pytest configuration and shared fixtures for Gene Curator tests.
 
 Provides database session fixtures with proper transaction isolation using
-nested transactions (savepoints). This allows tests to call commit() freely
-while maintaining complete isolation and automatic rollback.
+SQLAlchemy 2.0's join_transaction_mode="create_savepoint" pattern. This allows
+tests to call commit() freely while maintaining complete isolation and automatic
+rollback. FORCE ROW LEVEL SECURITY on tables ensures RLS policies apply even to
+superuser connections.
 
-Key Features:
-- Nested transactions via SAVEPOINT
+Key Features (SQLAlchemy 2.0 Pattern):
+- Automatic savepoint management via join_transaction_mode="create_savepoint"
 - commit() calls only commit the savepoint, not the outer transaction
 - SET LOCAL variables persist across savepoints within the transaction
 - Complete rollback after each test for isolation
 - No test data pollution between tests
-- Uses non-superuser role for RLS testing (bypasses RLS bypass privilege)
+- RLS policies enforced via FORCE ROW LEVEL SECURITY
 """
 
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
-from sqlalchemy import create_engine, event
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
 from app.core.config import settings
 
@@ -28,58 +29,50 @@ def db() -> Generator[Session, None, None]:
     """
     Provide a database session with proper nested transaction support.
 
-    This fixture creates a connection using a NON-SUPERUSER role to ensure
-    RLS policies are properly enforced. The dev_user is a superuser with
-    BYPASSRLS privilege, which causes RLS to be bypassed even with FORCE RLS.
+    Uses SQLAlchemy 2.0's join_transaction_mode="create_savepoint" pattern for
+    clean transaction management in tests. Uses test_user (non-BYPASSRLS) to
+    ensure RLS policies are properly enforced.
 
     Benefits:
     1. Tests can call db.commit() freely - it only commits the savepoint
     2. SET LOCAL variables persist throughout the test (not cleared by commit)
     3. All changes are rolled back at the end of the test
     4. Complete test isolation with no data pollution
-    5. RLS policies are properly enforced (non-superuser connection)
+    5. RLS policies properly enforced (test_user lacks BYPASSRLS privilege)
 
-    Technical Details:
-    - Uses test_rls_user (non-superuser, no BYPASSRLS privilege)
+    Technical Details (SQLAlchemy 2.0 Pattern):
+    - Uses test_user (no BYPASSRLS privilege)
+    - FORCE RLS + non-BYPASSRLS user = RLS fully enforced
     - Outer transaction: Never committed, always rolled back
-    - Nested transaction: Created via SAVEPOINT, can be committed/rolled back
-    - commit() override: Commits savepoint and creates a new one
+    - join_transaction_mode="create_savepoint": Automatic savepoint management
+    - Session.commit(): Only commits savepoint, not outer transaction
     - SET LOCAL scope: Persists within outer transaction across savepoints
+
+    Reference:
+        https://docs.sqlalchemy.org/en/20/orm/session_transaction.html
+        Section: "Joining a Session into an External Transaction"
 
     Yields:
         Session: SQLAlchemy database session with nested transaction support
     """
-    # Create engine with non-superuser role for RLS testing
-    # Replace dev_user with test_rls_user in the DATABASE_URL
-    test_db_url = settings.DATABASE_URL.replace(
-        "dev_user:dev_password", "test_rls_user:test_password"
-    )
+    # Create engine using test_user (no BYPASSRLS privilege)
+    # This ensures RLS policies are properly enforced in tests
+    from sqlalchemy import create_engine
 
-    test_engine = create_engine(test_db_url, echo=True)
-    TestSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)  # noqa: N806
+    test_db_url = settings.DATABASE_URL.replace(
+        "dev_user:dev_password", "test_user:test_password"
+    )
+    test_engine = create_engine(test_db_url, pool_pre_ping=True)
 
     # Create a connection from the test engine
     connection = test_engine.connect()
 
-    # Begin an outer transaction (never committed)
+    # Begin an outer transaction (never committed, always rolled back)
     transaction = connection.begin()
 
-    # Bind the session to this connection
-    session = TestSessionLocal(bind=connection)
-
-    # Begin a nested transaction (SAVEPOINT)
-    connection.begin_nested()
-
-    # When the application code calls session.commit(), we want it to only
-    # commit the savepoint, not the outer transaction. This keeps SET LOCAL
-    # variables alive.
-    @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(session: Session, transaction: object) -> None:
-        """Automatically restart savepoint after each commit."""
-        if transaction.nested and not transaction._parent.nested:  # type: ignore[attr-defined]
-            # We're ending a savepoint - start a new one
-            session.expire_all()
-            connection.begin_nested()
+    # Create session bound to this connection with create_savepoint mode
+    # This automatically manages savepoints on commit/rollback
+    session = Session(bind=connection, join_transaction_mode="create_savepoint")
 
     try:
         yield session
@@ -109,7 +102,11 @@ def db_session(db: Session) -> Session:
 
 def set_test_user_context(db: Session, user_id: str) -> None:
     """
-    Set RLS context for test user.
+    Set RLS context for test user using session-level SET (not LOCAL).
+
+    In test fixtures with savepoints, SET LOCAL can be unreliable across
+    savepoint boundaries. Using session-level SET ensures the context persists
+    throughout the test transaction.
 
     This function sets the app.current_user_id session variable that is used by RLS
     policies to identify the current user. Must be called before creating any objects
@@ -136,4 +133,6 @@ def set_test_user_context(db: Session, user_id: str) -> None:
     """
     from sqlalchemy import text
 
-    db.execute(text(f"SET LOCAL app.current_user_id = '{user_id}'"))
+    # Use SET (session-level) instead of SET LOCAL for tests
+    # This persists across savepoint boundaries
+    db.execute(text(f"SET app.current_user_id = '{user_id}'"))

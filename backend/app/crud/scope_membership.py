@@ -8,7 +8,6 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -65,7 +64,11 @@ class ScopeMembershipCRUD(
         """
         # Validate user exists if user_id provided
         if obj_in.user_id:
-            user = db.execute(select(UserNew).where(UserNew.id == obj_in.user_id)).scalars().first()
+            user = (
+                db.execute(select(UserNew).where(UserNew.id == obj_in.user_id))
+                .scalars()
+                .first()
+            )
             if not user:
                 logger.warning(
                     "Invitation creation failed: user not found",
@@ -75,12 +78,16 @@ class ScopeMembershipCRUD(
                 raise ValueError("User not found")
 
             # Check if user is already a member
-            existing = db.execute(
-                select(ScopeMembership).where(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.user_id == obj_in.user_id,
+            existing = (
+                db.execute(
+                    select(ScopeMembership).where(
+                        ScopeMembership.scope_id == scope_id,
+                        ScopeMembership.user_id == obj_in.user_id,
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
             if existing:
                 logger.warning(
                     "Invitation creation failed: user already a member",
@@ -144,11 +151,15 @@ class ScopeMembershipCRUD(
             ValueError: If user_id doesn't match membership
         """
         # Query with SELECT FOR SHARE (TOCTOU prevention)
-        membership = db.execute(
-            select(ScopeMembership)
-            .where(ScopeMembership.id == membership_id)
-            .with_for_update(read=True)
-        ).scalars().first()
+        membership = (
+            db.execute(
+                select(ScopeMembership)
+                .where(ScopeMembership.id == membership_id)
+                .with_for_update(read=True)
+            )
+            .scalars()
+            .first()
+        )
 
         if not membership:
             logger.warning(
@@ -308,11 +319,15 @@ class ScopeMembershipCRUD(
             ValueError: If membership not found
         """
         # Query with SELECT FOR SHARE (TOCTOU prevention)
-        membership = db.execute(
-            select(ScopeMembership)
-            .where(ScopeMembership.id == membership_id)
-            .with_for_update(read=True)
-        ).scalars().first()
+        membership = (
+            db.execute(
+                select(ScopeMembership)
+                .where(ScopeMembership.id == membership_id)
+                .with_for_update(read=True)
+            )
+            .scalars()
+            .first()
+        )
 
         if not membership:
             logger.warning(
@@ -360,11 +375,15 @@ class ScopeMembershipCRUD(
             ValueError: If membership not found
         """
         # Query with SELECT FOR SHARE (TOCTOU prevention)
-        membership = db.execute(
-            select(ScopeMembership)
-            .where(ScopeMembership.id == membership_id)
-            .with_for_update(read=True)
-        ).scalars().first()
+        membership = (
+            db.execute(
+                select(ScopeMembership)
+                .where(ScopeMembership.id == membership_id)
+                .with_for_update(read=True)
+            )
+            .scalars()
+            .first()
+        )
 
         if not membership:
             logger.warning(
@@ -449,14 +468,18 @@ class ScopeMembershipCRUD(
         Returns:
             ScopeRole if user is an active member, None otherwise
         """
-        membership = db.execute(
-            select(ScopeMembership).where(
-                ScopeMembership.user_id == user_id,
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.is_active == True,  # noqa: E712
-                ScopeMembership.accepted_at.isnot(None),
+        membership = (
+            db.execute(
+                select(ScopeMembership).where(
+                    ScopeMembership.user_id == user_id,
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active == True,  # noqa: E712
+                    ScopeMembership.accepted_at.isnot(None),
+                )
             )
-        ).scalars().first()
+            .scalars()
+            .first()
+        )
 
         if membership:
             return ScopeRole(membership.role)

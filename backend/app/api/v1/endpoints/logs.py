@@ -33,7 +33,9 @@ from app.schemas.logs import LogEntry, LogStatsSummary
 router = APIRouter()
 
 
-def require_admin_or_reviewer(current_user: UserNew = Depends(get_current_active_user)) -> UserNew:
+def require_admin_or_reviewer(
+    current_user: UserNew = Depends(get_current_active_user),
+) -> UserNew:
     """
     Dependency to check if user is admin.
 

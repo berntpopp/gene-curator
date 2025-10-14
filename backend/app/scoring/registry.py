@@ -70,7 +70,10 @@ class ScoringEngineRegistry:
         return engine.calculate_scores(evidence_data, schema_config, scope_context)
 
     def validate_evidence(
-        self, engine_name: str, evidence_data: dict[str, Any], schema_config: dict[str, Any]
+        self,
+        engine_name: str,
+        evidence_data: dict[str, Any],
+        schema_config: dict[str, Any],
     ) -> list[str]:
         """Validate evidence using the specified engine."""
         engine = self.get_engine(engine_name)

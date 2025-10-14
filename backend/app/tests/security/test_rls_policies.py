@@ -12,8 +12,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from typing import Any
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import select, text
@@ -59,7 +58,7 @@ class TestRLSPolicies:
             email=f"user1-{test_run_id}@rls-test.org",
             hashed_password="hashed",  # noqa: S106
             name="User One",
-            role="curator",
+            role="user",  # Application role (not scope role)
             is_active=True,
         )
         db.add(user)
@@ -74,7 +73,7 @@ class TestRLSPolicies:
             email=f"user2-{test_run_id}@rls-test.org",
             hashed_password="hashed",  # noqa: S106
             name="User Two",
-            role="curator",
+            role="user",  # Application role (not scope role)
             is_active=True,
         )
         db.add(user)
@@ -147,7 +146,9 @@ class TestRLSPolicies:
 
         assert context_user_id == str(user1.id)
 
-    def test_user_can_see_own_scope(self, db: Session, user1: UserNew, scope1: Scope) -> None:
+    def test_user_can_see_own_scope(
+        self, db: Session, user1: UserNew, scope1: Scope
+    ) -> None:
         """Test that a user can see scopes they're a member of."""
         set_rls_context(db, user1)
 
@@ -271,9 +272,9 @@ class TestRLSPolicies:
 
         # User2 (not a member) should be able to see public scope
         set_rls_context(db, user2)
-        visible_scopes = db.execute(
-            select(Scope).where(Scope.id == public_scope.id)
-        ).scalars().all()
+        visible_scopes = (
+            db.execute(select(Scope).where(Scope.id == public_scope.id)).scalars().all()
+        )
 
         assert len(visible_scopes) == 1
         assert visible_scopes[0].id == public_scope.id
@@ -320,9 +321,9 @@ class TestRLSPolicies:
 
         # User2 should see scope1
         set_rls_context(db, user2)
-        visible_scopes = db.execute(
-            select(Scope).where(Scope.id == scope1.id)
-        ).scalars().all()
+        visible_scopes = (
+            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+        )
         assert len(visible_scopes) == 1
 
         # Remove user2's membership
@@ -333,9 +334,9 @@ class TestRLSPolicies:
 
         # User2 should no longer see scope1
         set_rls_context(db, user2)
-        visible_scopes = db.execute(
-            select(Scope).where(Scope.id == scope1.id)
-        ).scalars().all()
+        visible_scopes = (
+            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+        )
         assert len(visible_scopes) == 0
 
     def test_rls_with_pending_invitations(
@@ -359,9 +360,9 @@ class TestRLSPolicies:
 
         # User2 should NOT see scope1 (invitation not accepted)
         set_rls_context(db, user2)
-        visible_scopes = db.execute(
-            select(Scope).where(Scope.id == scope1.id)
-        ).scalars().all()
+        visible_scopes = (
+            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+        )
         assert len(visible_scopes) == 0
 
     def test_rls_function_is_scope_member(
@@ -426,16 +427,16 @@ class TestRLSPolicies:
         """Test that RLS context is properly isolated between different users."""
         # Set context for user1
         set_rls_context(db, user1)
-        user1_scopes = db.execute(
-            select(Scope).where(Scope.id == scope1.id)
-        ).scalars().all()
+        user1_scopes = (
+            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+        )
         assert len(user1_scopes) == 1
 
         # Change context to user2
         set_rls_context(db, user2)
-        user2_scopes = db.execute(
-            select(Scope).where(Scope.id == scope1.id)
-        ).scalars().all()
+        user2_scopes = (
+            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+        )
         assert len(user2_scopes) == 0
 
         # Context should be completely isolated

@@ -129,6 +129,7 @@ class Settings(BaseSettings):
         elif isinstance(v, str):
             # Handle JSON-like string format
             import json
+
             try:
                 parsed = json.loads(v)
                 if isinstance(parsed, list):
