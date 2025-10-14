@@ -22,3 +22,6 @@ pnpm-debug.log*
 *.sln
 *.sw?
 backups/
+
+# Test artifacts and browser automation
+.playwright-mcp/
