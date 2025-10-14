@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.database import get_db
 from app.core.schema_validator import schema_validator
 from app.crud.schema_repository import schema_crud
 from app.models import UserNew
@@ -64,7 +65,7 @@ class JSONSchemaResponse(BaseModel):
 @router.post("/validate-evidence", response_model=ValidationResponse)
 def validate_evidence_data(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     validation_request: ValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ValidationResponse:
@@ -81,7 +82,10 @@ def validate_evidence_data(
         schema = schema_crud.get(db, id=validation_request.schema_id)
         if not schema:
             raise HTTPException(status_code=404, detail="Schema not found")
-        schema_definition = schema.schema_data
+        schema_definition = {
+            "field_definitions": schema.field_definitions,
+            "validation_rules": schema.validation_rules,
+        }
 
     if not schema_definition:
         raise HTTPException(
@@ -116,7 +120,7 @@ def validate_evidence_data(
 @router.post("/validate-schema", response_model=ValidationResponse)
 def validate_schema_definition(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_request: SchemaValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ValidationResponse:
@@ -152,7 +156,7 @@ def validate_schema_definition(
 @router.post("/generate-json-schema", response_model=JSONSchemaResponse)
 def generate_json_schema(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_request: SchemaValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> JSONSchemaResponse:
@@ -187,7 +191,7 @@ def generate_json_schema(
 @router.get("/schema/{schema_id}/json-schema", response_model=JSONSchemaResponse)
 def get_json_schema_for_schema(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> JSONSchemaResponse:
@@ -202,10 +206,14 @@ def get_json_schema_for_schema(
         raise HTTPException(status_code=404, detail="Schema not found")
 
     try:
-        json_schema = schema_validator.generate_json_schema(schema.schema_data)
+        schema_definition = {
+            "field_definitions": schema.field_definitions,
+            "validation_rules": schema.validation_rules,
+        }
+        json_schema = schema_validator.generate_json_schema(schema_definition)
 
-        field_count = len(schema.schema_data.get("field_definitions", {}))
-        validation_rules_count = len(schema.schema_data.get("validation_rules", {}))
+        field_count = len(schema.field_definitions)
+        validation_rules_count = len(schema.validation_rules)
 
         return JSONSchemaResponse(
             json_schema=json_schema,
@@ -245,7 +253,7 @@ class FieldValidationResponse(BaseModel):
 @router.post("/validate-field", response_model=FieldValidationResponse)
 def validate_single_field(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     field_request: FieldValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> FieldValidationResponse:
@@ -503,7 +511,7 @@ def get_supported_business_rules(
 @router.post("/test-validation")
 def test_validation_with_examples(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> dict[str, Any]:
     """
@@ -597,8 +605,10 @@ def test_validation_with_examples(
 
     for test_case in test_cases:
         try:
+            # Type cast to dict[str, Any] for mypy
+            test_data: dict[str, Any] = test_case["data"]  # type: ignore[assignment]
             result = schema_validator.validate_evidence_data(
-                test_case["data"], test_schema
+                test_data, test_schema
             )
 
             results[test_case["name"]] = {

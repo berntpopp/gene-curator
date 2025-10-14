@@ -2,6 +2,7 @@
 CRUD operations for scope management.
 """
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -46,7 +47,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         limit: int = 100,
         active_only: bool = True,
         institution: str | None = None,
-    ) -> list[Scope]:
+    ) -> Sequence[Scope]:
         """Get multiple scopes (convenience wrapper for get_multi)."""
         return self.get_multi(
             db, skip=skip, limit=limit, active_only=active_only, institution=institution
@@ -58,7 +59,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def get_scopes_by_institution(
         self, db: Session, institution: str, *, active_only: bool = True
-    ) -> list[Scope]:
+    ) -> Sequence[Scope]:
         """Get scopes filtered by institution."""
         return self.get_multi(
             db, skip=0, limit=1000, active_only=active_only, institution=institution
@@ -111,7 +112,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         limit: int = 100,
         active_only: bool = True,
         institution: str | None = None,
-    ) -> list[Scope]:
+    ) -> Sequence[Scope]:
         """Get multiple scopes with filtering."""
         stmt = select(Scope)
 
@@ -125,7 +126,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def get_user_scopes(
         self, db: Session, *, user_scope_ids: list[UUID], active_only: bool = True
-    ) -> list[Scope]:
+    ) -> Sequence[Scope]:
         """Get scopes assigned to a specific user."""
         stmt = select(Scope).where(Scope.id.in_(user_scope_ids))
 
@@ -146,7 +147,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def get_with_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
+    def get_with_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any] | None:
         """Get scope with detailed statistics."""
         scope = self.get(db, id=scope_id)
         if not scope:
@@ -160,7 +161,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
         # Gene assignment counts
-        gene_stats = db.execute(
+        gene_stats_row = db.execute(
             select(
                 func.count(GeneScopeAssignment.id).label("total_genes_assigned"),
                 func.count(GeneScopeAssignment.assigned_curator_id).label(
@@ -171,6 +172,12 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
         ).first()
+
+        # Handle None case
+        if not gene_stats_row:
+            gene_stats = type('obj', (), {'total_genes_assigned': 0, 'genes_with_curator': 0})()
+        else:
+            gene_stats = gene_stats_row
 
         # Curation stage counts
         precuration_count = (
@@ -217,10 +224,10 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             .group_by(CurationNew.status)
         ).all()
 
-        status_dict = dict(status_counts)
+        status_dict: dict[str, int] = {str(status): int(count) for status, count in status_counts}
 
         # Review metrics
-        review_stats = db.execute(
+        review_stats_row = db.execute(
             select(
                 func.count(Review.id)
                 .filter(Review.status == "pending")
@@ -235,6 +242,12 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             .join(CurationNew, Review.curation_id == CurationNew.id)
             .where(CurationNew.scope_id == scope_id)
         ).first()
+
+        # Handle None case
+        if not review_stats_row:
+            review_stats = type('obj', (), {'pending_reviews': 0, 'approved_reviews': 0, 'avg_review_time_days': None})()
+        else:
+            review_stats = review_stats_row
 
         # Team metrics
         curator_count = (
@@ -338,7 +351,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
         ).scalar()
-        return count > 0
+        return (count or 0) > 0
 
     def get_available_workflow_pairs(
         self, db: Session, *, scope_id: UUID
@@ -402,7 +415,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         """Get users assigned to a scope."""
         users = db.execute(
             select(UserNew).where(
-                UserNew.assigned_scopes.any(scope_id), UserNew.is_active
+                UserNew.assigned_scopes.contains([str(scope_id)]), UserNew.is_active
             )  # Fixed: use == instead of is
         ).scalars().all()
 
@@ -422,7 +435,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def set_default_workflow_pair(
         self, db: Session, *, scope_id: UUID, workflow_pair_id: UUID
-    ) -> Scope:
+    ) -> Scope | None:
         """Set default workflow pair for a scope."""
         scope = self.get(db, id=scope_id)
         if scope:

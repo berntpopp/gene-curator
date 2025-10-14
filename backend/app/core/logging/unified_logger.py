@@ -129,7 +129,7 @@ class UnifiedLogger:
                 f"Database logging failed: {e}. Original message: {message}"
             )
 
-    def _handle_db_log_exception(self, task: asyncio.Task) -> None:
+    def _handle_db_log_exception(self, task: asyncio.Task[None]) -> None:
         """
         Handle exceptions from database logging tasks.
 

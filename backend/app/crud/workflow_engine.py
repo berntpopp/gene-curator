@@ -35,7 +35,7 @@ class WorkflowEngine:
     Enforces business rules, state transitions, and 4-eyes principle.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.valid_transitions = {
             # Precuration workflow
             WorkflowStage.ENTRY: [WorkflowStage.PRECURATION],
@@ -156,7 +156,7 @@ class WorkflowEngine:
 
         # Get current item and stage
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
-        if not item:
+        if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
 
         # Validate transition
@@ -169,27 +169,27 @@ class WorkflowEngine:
         # Execute the transition based on target stage
         transition_result = None
 
-        if target_stage == WorkflowStage.precuration:
+        if target_stage == WorkflowStage.PRECURATION:
             transition_result = self._transition_to_precuration(
                 db, item, user_id, notes, metadata
             )
 
-        elif target_stage == WorkflowStage.curation:
+        elif target_stage == WorkflowStage.CURATION:
             transition_result = self._transition_to_curation(
                 db, item, user_id, notes, metadata
             )
 
-        elif target_stage == WorkflowStage.review:
+        elif target_stage == WorkflowStage.REVIEW:
             transition_result = self._transition_to_review(
                 db, item, user_id, notes, metadata
             )
 
-        elif target_stage == WorkflowStage.active:
+        elif target_stage == WorkflowStage.ACTIVE:
             transition_result = self._transition_to_active(
                 db, item, user_id, notes, metadata
             )
 
-        elif target_stage == WorkflowStage.entry:
+        elif target_stage == WorkflowStage.ENTRY:
             transition_result = self._transition_to_entry(
                 db, item, user_id, notes, metadata
             )
@@ -227,7 +227,7 @@ class WorkflowEngine:
         """Get current workflow state information for an item."""
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
 
-        if not item:
+        if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
 
         # Get available transitions
@@ -238,7 +238,7 @@ class WorkflowEngine:
 
         # Get pending reviews if in review stage
         pending_reviews = []
-        if current_stage == WorkflowStage.review:
+        if current_stage == WorkflowStage.REVIEW:
             pending_reviews = self._get_pending_reviews(db, item_id, item_type)
 
         # Calculate progress metrics
@@ -271,18 +271,24 @@ class WorkflowEngine:
 
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
 
-        if current_stage != WorkflowStage.review:
+        if current_stage != WorkflowStage.REVIEW:
             raise ValueError("Item must be in review stage to assign peer reviewer")
 
         # Validate reviewer is different from creator
         if item_type == "curation":
-            original_creator = db.execute(
+            curation_result = db.execute(
                 select(CurationNew).where(CurationNew.id == item_id)
-            ).scalars().first().created_by
+            ).scalars().first()
+            if not curation_result:
+                raise ValueError("Curation not found")
+            original_creator = curation_result.created_by
         else:
-            original_creator = db.execute(
+            precuration_result = db.execute(
                 select(PrecurationNew).where(PrecurationNew.id == item_id)
-            ).scalars().first().created_by
+            ).scalars().first()
+            if not precuration_result:
+                raise ValueError("Precuration not found")
+            original_creator = precuration_result.created_by
 
         if reviewer_id == original_creator:
             raise ValueError(
@@ -291,12 +297,10 @@ class WorkflowEngine:
 
         # Create review assignment
         review = Review(
-            item_id=item_id,
-            item_type=item_type,
+            curation_id=item_id,
             reviewer_id=reviewer_id,
             assigned_by=assigned_by,
-            review_type=review_type,
-            status=ReviewStatus.assigned,
+            status=ReviewStatus.PENDING,
             assigned_at=datetime.utcnow(),
         )
 
@@ -333,7 +337,7 @@ class WorkflowEngine:
         if review.reviewer_id != reviewer_id:
             raise ValueError("Only assigned reviewer can submit this review")
 
-        if review.status != ReviewStatus.assigned:
+        if review.status != ReviewStatus.PENDING:
             raise ValueError("Review has already been completed")
 
         # Valid decisions
@@ -342,26 +346,26 @@ class WorkflowEngine:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
 
         # Update review
-        review.status = ReviewStatus.completed
-        review.decision = decision
+        review.status = ReviewStatus.APPROVED
+        review.recommendation = decision
         review.comments = comments
-        review.suggested_changes = suggested_changes or {}
-        review.completed_at = datetime.utcnow()
+        review.feedback_data = suggested_changes or {}
+        review.reviewed_at = datetime.utcnow()
 
         db.commit()
 
         # If approved, check if all required reviews are complete
         if decision == "approve":
             all_reviews_complete = self._check_all_reviews_complete(
-                db, review.item_id, review.item_type
+                db, review.curation_id, item_type="curation"
             )
             if all_reviews_complete:
                 # Automatically transition to active if all reviews approved
                 self.execute_transition(
                     db,
-                    review.item_id,
-                    review.item_type,
-                    WorkflowStage.active,
+                    review.curation_id,
+                    "curation",
+                    WorkflowStage.ACTIVE,
                     reviewer_id,
                     notes="All peer reviews approved - automatically activated",
                 )
@@ -402,33 +406,33 @@ class WorkflowEngine:
 
         # Stage counts
         from sqlalchemy import func as sqlalchemy_func
-        stage_counts = {
+        stage_counts: dict[str, int] = {
             "entry": 0,  # Would need to be calculated based on unstarted assignments
             "precuration": db.execute(
                 select(sqlalchemy_func.count()).select_from(
-                    precuration_stmt.where(PrecurationNew.status == CurationStatus.draft).subquery()
+                    precuration_stmt.where(PrecurationNew.status == CurationStatus.DRAFT).subquery()
                 )
-            ).scalar(),
+            ).scalar() or 0,
             "curation": db.execute(
                 select(sqlalchemy_func.count()).select_from(
-                    curation_stmt.where(CurationNew.status == CurationStatus.draft).subquery()
+                    curation_stmt.where(CurationNew.status == CurationStatus.DRAFT).subquery()
                 )
-            ).scalar(),
+            ).scalar() or 0,
             "review": db.execute(
                 select(sqlalchemy_func.count()).select_from(
-                    review_stmt.where(Review.status == ReviewStatus.assigned).subquery()
+                    review_stmt.where(Review.status == ReviewStatus.PENDING).subquery()
                 )
-            ).scalar(),
+            ).scalar() or 0,
             "active": db.execute(
                 select(sqlalchemy_func.count()).select_from(active_stmt.subquery())
-            ).scalar(),
+            ).scalar() or 0,
         }
 
         # Transition metrics
         total_transitions = sum(stage_counts.values())
         completed_workflows = db.execute(
             select(sqlalchemy_func.count()).select_from(active_stmt.subquery())
-        ).scalar()
+        ).scalar() or 0
 
         # Time-based metrics
         avg_precuration_time = self._calculate_average_stage_time(
@@ -444,12 +448,12 @@ class WorkflowEngine:
         # Review metrics
         total_reviews = db.execute(
             select(sqlalchemy_func.count()).select_from(review_stmt.subquery())
-        ).scalar()
+        ).scalar() or 0
         completed_reviews = db.execute(
             select(sqlalchemy_func.count()).select_from(
-                review_stmt.where(Review.status == ReviewStatus.completed).subquery()
+                review_stmt.where(Review.status == ReviewStatus.APPROVED).subquery()
             )
-        ).scalar()
+        ).scalar() or 0
         pending_reviews = total_reviews - completed_reviews
 
         # Quality metrics
@@ -459,12 +463,12 @@ class WorkflowEngine:
                 select(sqlalchemy_func.count()).select_from(
                     review_stmt.where(
                         and_(
-                            Review.status == ReviewStatus.completed,
-                            Review.decision == "approve",
+                            Review.status == ReviewStatus.APPROVED,
+                            Review.recommendation == "approve",
                         )
                     ).subquery()
                 )
-            ).scalar()
+            ).scalar() or 0
             approval_rate = approved_reviews / completed_reviews
 
         return WorkflowStatistics(
@@ -481,37 +485,39 @@ class WorkflowEngine:
             pending_reviews=pending_reviews,
             approval_rate=approval_rate,
             bottleneck_stage=(
-                max(stage_counts, key=stage_counts.get) if stage_counts else None
+                max(stage_counts, key=lambda k: stage_counts[k]) if stage_counts else None
             ),
         )
 
     # Private helper methods
 
-    def _get_current_stage_and_item(self, db: Session, item_id: UUID, item_type: str):
+    def _get_current_stage_and_item(
+        self, db: Session, item_id: UUID, item_type: str
+    ) -> tuple[WorkflowStage | None, Any]:
         """Get current workflow stage and item object."""
         if item_type == "precuration":
-            item = db.execute(
+            precuration_item = db.execute(
                 select(PrecurationNew).where(PrecurationNew.id == item_id)
             ).scalars().first()
-            if item:
-                return WorkflowStage.precuration, item
+            if precuration_item:
+                return WorkflowStage.PRECURATION, precuration_item
 
         elif item_type == "curation":
-            item = db.execute(
+            curation_item = db.execute(
                 select(CurationNew).where(CurationNew.id == item_id)
             ).scalars().first()
-            if item:
-                if item.status in [CurationStatus.draft, CurationStatus.submitted]:
-                    return WorkflowStage.curation, item
-                elif item.status == CurationStatus.in_review:
-                    return WorkflowStage.review, item
+            if curation_item:
+                if curation_item.status in [CurationStatus.DRAFT, CurationStatus.SUBMITTED]:
+                    return WorkflowStage.CURATION, curation_item
+                elif curation_item.status == CurationStatus.IN_REVIEW:
+                    return WorkflowStage.REVIEW, curation_item
 
         elif item_type == "active":
-            item = db.execute(
+            active_item = db.execute(
                 select(ActiveCuration).where(ActiveCuration.id == item_id)
             ).scalars().first()
-            if item:
-                return WorkflowStage.active, item
+            if active_item:
+                return WorkflowStage.ACTIVE, active_item
 
         return None, None
 
@@ -520,43 +526,43 @@ class WorkflowEngine:
     ) -> list[str]:
         """Get required user roles for a transition."""
         role_matrix = {
-            (WorkflowStage.entry, WorkflowStage.precuration): [
+            (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.precuration, WorkflowStage.curation): [
+            (WorkflowStage.PRECURATION, WorkflowStage.CURATION): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.curation, WorkflowStage.review): [
+            (WorkflowStage.CURATION, WorkflowStage.REVIEW): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.review, WorkflowStage.active): [
+            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
             # Backwards transitions (less restrictive)
-            (WorkflowStage.precuration, WorkflowStage.entry): [
+            (WorkflowStage.PRECURATION, WorkflowStage.ENTRY): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.curation, WorkflowStage.precuration): [
+            (WorkflowStage.CURATION, WorkflowStage.PRECURATION): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.review, WorkflowStage.curation): [
+            (WorkflowStage.REVIEW, WorkflowStage.CURATION): [
                 "curator",
                 "admin",
                 "scope_admin",
             ],
-            (WorkflowStage.active, WorkflowStage.review): [
+            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): [
                 "admin",
                 "scope_admin",
             ],  # More restrictive
@@ -569,12 +575,12 @@ class WorkflowEngine:
     ) -> bool:
         """Check if transition requires peer review (4-eyes principle)."""
         peer_review_transitions = [
-            (WorkflowStage.curation, WorkflowStage.review),
-            (WorkflowStage.review, WorkflowStage.active),
+            (WorkflowStage.CURATION, WorkflowStage.REVIEW),
+            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE),
         ]
         return (current_stage, target_stage) in peer_review_transitions
 
-    def _has_review_permissions(self, user: UserNew, item) -> bool:
+    def _has_review_permissions(self, user: UserNew, item: Any) -> bool:
         """Check if user has permissions to review this item."""
         # User must have curator+ role
         if user.role not in ["curator", "admin", "scope_admin"]:
@@ -594,7 +600,7 @@ class WorkflowEngine:
         """Get content requirements for a transition."""
         requirements = []
 
-        if target_stage == WorkflowStage.curation:
+        if target_stage == WorkflowStage.CURATION:
             requirements.extend(
                 [
                     "Precuration must be completed",
@@ -603,7 +609,7 @@ class WorkflowEngine:
                 ]
             )
 
-        elif target_stage == WorkflowStage.review:
+        elif target_stage == WorkflowStage.REVIEW:
             requirements.extend(
                 [
                     "All evidence fields must be completed",
@@ -612,7 +618,7 @@ class WorkflowEngine:
                 ]
             )
 
-        elif target_stage == WorkflowStage.active:
+        elif target_stage == WorkflowStage.ACTIVE:
             requirements.extend(
                 [
                     "All peer reviews must be completed",
@@ -637,7 +643,7 @@ class WorkflowEngine:
         requirements: list[str] = []
 
         # Add specific validation logic based on stages
-        if target_stage == WorkflowStage.review and item_type == "curation":
+        if target_stage == WorkflowStage.REVIEW and item_type == "curation":
             curation = db.execute(
                 select(CurationNew).where(CurationNew.id == item_id)
             ).scalars().first()
@@ -649,7 +655,7 @@ class WorkflowEngine:
                     errors.append("Evidence summary is required before review")
 
                 # Check if scoring is complete
-                if not curation.final_score:
+                if not curation.computed_scores:
                     warnings.append("Final score not calculated")
 
         return {"errors": errors, "warnings": warnings, "requirements": requirements}
@@ -657,11 +663,11 @@ class WorkflowEngine:
     def _transition_to_precuration(
         self,
         db: Session,
-        item,
+        item: Any,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ) -> dict:
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Handle transition to precuration stage."""
         # Implementation would depend on specific business logic
         return {"success": True, "message": "Transitioned to precuration"}
@@ -669,36 +675,36 @@ class WorkflowEngine:
     def _transition_to_curation(
         self,
         db: Session,
-        item,
+        item: Any,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ) -> dict:
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Handle transition to curation stage."""
         return {"success": True, "message": "Transitioned to curation"}
 
     def _transition_to_review(
         self,
         db: Session,
-        item,
+        item: Any,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ) -> dict:
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Handle transition to review stage."""
         if hasattr(item, "status"):
-            item.status = CurationStatus.in_review
+            item.status = CurationStatus.IN_REVIEW
             db.commit()
         return {"success": True, "message": "Transitioned to review"}
 
     def _transition_to_active(
         self,
         db: Session,
-        item,
+        item: Any,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ) -> dict:
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Handle transition to active stage."""
         # Create active curation record
         if hasattr(item, "gene_id") and hasattr(item, "scope_id"):
@@ -720,11 +726,11 @@ class WorkflowEngine:
     def _transition_to_entry(
         self,
         db: Session,
-        item,
+        item: Any,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ) -> dict:
+        metadata: dict[str, Any] | None,
+    ) -> dict[str, Any]:
         """Handle transition back to entry stage."""
         return {"success": True, "message": "Transitioned back to entry"}
 
@@ -737,29 +743,28 @@ class WorkflowEngine:
         to_stage: WorkflowStage,
         user_id: UUID,
         notes: str | None,
-        metadata: dict | None,
-    ):
+        metadata: dict[str, Any] | None,
+    ) -> None:
         """Log workflow transition in audit trail."""
         # This would log to the audit_log_new table
         pass
 
     def _get_workflow_history(
         self, db: Session, item_id: UUID, item_type: str
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get workflow transition history."""
         # This would query the audit log for workflow transitions
         return []
 
     def _get_pending_reviews(
         self, db: Session, item_id: UUID, item_type: str
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """Get pending peer reviews for an item."""
         reviews = db.execute(
             select(Review).where(
                 and_(
-                    Review.item_id == item_id,
-                    Review.item_type == item_type,
-                    Review.status == ReviewStatus.assigned,
+                    Review.curation_id == item_id,
+                    Review.status == ReviewStatus.PENDING,
                 )
             )
         ).scalars().all()
@@ -769,21 +774,20 @@ class WorkflowEngine:
                 "review_id": review.id,
                 "reviewer_id": review.reviewer_id,
                 "assigned_at": review.assigned_at,
-                "review_type": review.review_type,
             }
             for review in reviews
         ]
 
     def _calculate_progress_metrics(
-        self, current_stage: WorkflowStage, history: list[dict]
+        self, current_stage: WorkflowStage, history: list[dict[str, Any]]
     ) -> dict[str, Any]:
         """Calculate workflow progress metrics."""
         stage_order = [
-            WorkflowStage.entry,
-            WorkflowStage.precuration,
-            WorkflowStage.curation,
-            WorkflowStage.review,
-            WorkflowStage.active,
+            WorkflowStage.ENTRY,
+            WorkflowStage.PRECURATION,
+            WorkflowStage.CURATION,
+            WorkflowStage.REVIEW,
+            WorkflowStage.ACTIVE,
         ]
 
         current_index = (
@@ -809,16 +813,15 @@ class WorkflowEngine:
             select(sqlalchemy_func.count()).select_from(
                 select(Review).where(
                     and_(
-                        Review.item_id == item_id,
-                        Review.item_type == item_type,
-                        Review.status == ReviewStatus.assigned,
+                        Review.curation_id == item_id,
+                        Review.status == ReviewStatus.PENDING,
                     )
                 ).subquery()
             )
         ).scalar()
 
         # All reviews must be completed
-        if pending_reviews > 0:
+        if pending_reviews and pending_reviews > 0:
             return False
 
         # All completed reviews must be approved
@@ -826,16 +829,15 @@ class WorkflowEngine:
             select(sqlalchemy_func.count()).select_from(
                 select(Review).where(
                     and_(
-                        Review.item_id == item_id,
-                        Review.item_type == item_type,
-                        Review.status == ReviewStatus.completed,
-                        Review.decision != "approve",
+                        Review.curation_id == item_id,
+                        Review.status == ReviewStatus.APPROVED,
+                        Review.recommendation != "approve",
                     )
                 ).subquery()
             )
         ).scalar()
 
-        return rejected_reviews == 0
+        return rejected_reviews == 0 if rejected_reviews is not None else True
 
     def _calculate_average_stage_time(
         self, db: Session, stage: str, cutoff_date: datetime, scope_id: UUID | None

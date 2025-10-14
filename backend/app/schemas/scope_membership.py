@@ -10,6 +10,7 @@ Author: Claude Code (Automated Implementation)
 
 import re
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
@@ -97,7 +98,7 @@ class ScopeMembershipCreate(ScopeMembershipBase):
             raise ValueError(f"Invalid role for invitation: {v}")
         return v
 
-    def model_post_init(self, __context) -> None:
+    def model_post_init(self, __context: Any) -> None:
         """Validate that at least one of user_id or email is provided."""
         if self.user_id is None and self.email is None:
             raise ValueError("Either user_id or email must be provided")

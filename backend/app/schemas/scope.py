@@ -25,7 +25,7 @@ class ScopeBase(BaseModel):
     )
 
     @validator("name")
-    def validate_name(cls, v):
+    def validate_name(cls, v: str) -> str:
         # Match database constraint: only alphanumeric and hyphens (no underscores)
         if not v.replace("-", "").isalnum():
             raise ValueError(

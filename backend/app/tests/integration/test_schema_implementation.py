@@ -321,7 +321,7 @@ def test_error_handling() -> None:
         schema_validator.validate_evidence_data(bad_data, schema)
 
 
-def run_all_tests() -> None:
+def run_all_tests() -> bool:
     """Run all test suites."""
 
     try:

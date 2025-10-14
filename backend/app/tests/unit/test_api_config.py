@@ -5,6 +5,7 @@ Tests YAML loading, validation, defaults, and environment variable overrides.
 """
 
 import os
+from typing import Generator
 from unittest.mock import mock_open, patch
 
 import pytest
@@ -396,7 +397,7 @@ class TestEnvironmentVariableOverrides:
 
 
 @pytest.fixture(autouse=True)
-def clear_cache_after_test() -> None:
+def clear_cache_after_test() -> Generator[None, None, None]:
     """Clear configuration cache after each test."""
     yield
     load_api_config.cache_clear()

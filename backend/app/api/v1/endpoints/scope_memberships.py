@@ -20,11 +20,12 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import deps
+from app.core.database import get_db
+from app.core.deps import get_current_active_user, require_scope_role
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.scope_membership import scope_membership_crud
-from app.models import Scope, User
+from app.models import Scope, ScopeMembership, User
 from app.schemas.scope_membership import (
     ScopeMemberListResponse,
     ScopeMembershipAccept,
@@ -45,11 +46,11 @@ router = APIRouter()
 )
 def invite_member(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     invitation_in: ScopeMembershipCreate,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
-    current_user: User = Depends(deps.get_current_active_user),
+    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
     Invite a member to a scope (scope admin only).
@@ -132,11 +133,11 @@ def invite_member(
 )
 def accept_invitation(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     membership_id: UUID,
     accept_data: ScopeMembershipAccept | None = None,
-    current_user: User = Depends(deps.get_current_active_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
     Accept a scope membership invitation.
@@ -211,10 +212,10 @@ def accept_invitation(
 @router.get("/{scope_id}/members", response_model=ScopeMemberListResponse)
 def list_members(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     include_pending: bool = False,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.VIEWER)),
+    scope: Scope = Depends(require_scope_role(ScopeRole.VIEWER)),
 ) -> ScopeMemberListResponse:
     """
     List all members of a scope with statistics.
@@ -251,12 +252,12 @@ def list_members(
 @router.patch("/{scope_id}/members/{user_id}", response_model=ScopeMembershipResponse)
 def update_member_role(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     user_id: UUID,
     update_data: ScopeMembershipUpdate,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
-    current_user: User = Depends(deps.get_current_active_user),
+    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
     Update a member's role in a scope (scope admin only).
@@ -281,9 +282,9 @@ def update_member_role(
     """
     # Get membership by scope_id and user_id
     membership = db.execute(
-        select(deps.ScopeMembership).where(
-            deps.ScopeMembership.scope_id == scope_id,
-            deps.ScopeMembership.user_id == user_id,
+        select(ScopeMembership).where(
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.user_id == user_id,
         )
     ).scalar_one_or_none()
 
@@ -355,11 +356,11 @@ def update_member_role(
 @router.delete("/{scope_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 def remove_member(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     user_id: UUID,
-    scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
-    current_user: User = Depends(deps.get_current_active_user),
+    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    current_user: User = Depends(get_current_active_user),
 ) -> None:
     """
     Remove a member from a scope (scope admin only).
@@ -380,9 +381,9 @@ def remove_member(
     """
     # Get membership
     membership = db.execute(
-        select(deps.ScopeMembership).where(
-            deps.ScopeMembership.scope_id == scope_id,
-            deps.ScopeMembership.user_id == user_id,
+        select(ScopeMembership).where(
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.user_id == user_id,
         )
     ).scalar_one_or_none()
 
@@ -401,15 +402,15 @@ def remove_member(
     # Prevent removing last admin
     if membership.role == ScopeRole.ADMIN.value:
         admin_count = db.execute(
-            select(func.count(deps.ScopeMembership.id)).where(
-                deps.ScopeMembership.scope_id == scope_id,
-                deps.ScopeMembership.role == ScopeRole.ADMIN.value,
-                deps.ScopeMembership.is_active == True,  # noqa: E712
-                deps.ScopeMembership.accepted_at.isnot(None),
+            select(func.count(ScopeMembership.id)).where(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.role == ScopeRole.ADMIN.value,
+                ScopeMembership.is_active == True,  # noqa: E712
+                ScopeMembership.accepted_at.isnot(None),
             )
         ).scalar()
 
-        if admin_count <= 1:
+        if admin_count is not None and admin_count <= 1:
             logger.warning(
                 "Remove member failed: cannot remove last admin",
                 scope_id=str(scope_id),

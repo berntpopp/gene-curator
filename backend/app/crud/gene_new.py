@@ -4,6 +4,7 @@ CRUD operations for the new Gene model in schema-agnostic system.
 
 import hashlib
 import json
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -59,7 +60,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         limit: int = 100,
         sort_by: str = "approved_symbol",
         sort_order: str = "asc",
-    ) -> list[GeneNew]:
+    ) -> Sequence[GeneNew]:
         """Get multiple genes with pagination and sorting."""
         stmt = select(GeneNew)
 
@@ -74,7 +75,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     @timed_operation("gene_search", warning_threshold_ms=500)
-    def search(self, db: Session, *, search_params: GeneSearchQuery) -> list[GeneNew]:
+    def search(self, db: Session, *, search_params: GeneSearchQuery) -> Sequence[GeneNew]:
         """Advanced gene search with multiple filters."""
         stmt = select(GeneNew)
 
@@ -242,7 +243,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         skip: int = 0,
         limit: int = 100,
         assigned_only: bool = False,
-    ) -> list[GeneNew]:
+    ) -> Sequence[GeneNew]:
         """Get genes available or assigned to a specific scope."""
         if assigned_only:
             # Get only genes assigned to this scope
@@ -277,14 +278,12 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         assignments = db.execute(stmt).scalars().all()
 
         # Group by scope
-        scope_assignments = {}
+        scope_assignments: dict[str, dict[str, Any]] = {}
         for assignment in assignments:
             scope_assignments[str(assignment.scope_id)] = {
                 "assignment_id": assignment.id,
                 "assigned_curator_id": assignment.assigned_curator_id,
-                "priority_level": assignment.priority_level,
                 "assigned_at": assignment.assigned_at,
-                "curator_assigned_at": assignment.curator_assigned_at,
             }
 
         return {
@@ -313,7 +312,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         curations = db.execute(curation_stmt).scalars().all()
 
         # Count by status
-        precuration_status_counts = {}
+        precuration_status_counts: dict[str, int] = {}
         for precuration in precurations:
             status = (
                 precuration.status.value
@@ -324,7 +323,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
                 precuration_status_counts.get(status, 0) + 1
             )
 
-        curation_status_counts = {}
+        curation_status_counts: dict[str, int] = {}
         for curation in curations:
             status = (
                 curation.status.value
@@ -364,7 +363,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             )
 
         # Total genes
-        total_genes = db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar()
+        total_genes = db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar() or 0
 
         # Recent additions (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
@@ -372,7 +371,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             select(func.count()).select_from(
                 base_stmt.where(GeneNew.created_at >= thirty_days_ago).subquery()
             )
-        ).scalar()
+        ).scalar() or 0
 
         # Updated last week
         week_ago = datetime.utcnow() - timedelta(days=7)
@@ -380,7 +379,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             select(func.count()).select_from(
                 base_stmt.where(GeneNew.updated_at >= week_ago).subquery()
             )
-        ).scalar()
+        ).scalar() or 0
 
         # Genes with detailed information
         genes_with_details = db.execute(
@@ -390,22 +389,22 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
                     func.jsonb_typeof(GeneNew.details) == "object"
                 ).subquery()
             )
-        ).scalar()
+        ).scalar() or 0
 
         # Assignment statistics (if scope not specified)
-        assignment_stats = {}
+        assignment_stats: dict[str, int] = {}
         if not scope_id:
             total_assignments = db.execute(
                 select(func.count(GeneScopeAssignment.id))
                 .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-            ).scalar()
+            ).scalar() or 0
 
             assigned_genes = db.execute(
                 select(func.count(func.distinct(GeneScopeAssignment.gene_id)))
                 .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-            ).scalar()
+            ).scalar() or 0
 
-            unassigned_genes = total_genes - (assigned_genes or 0)
+            unassigned_genes = total_genes - assigned_genes
 
             assignment_stats = {
                 "total_assignments": total_assignments or 0,

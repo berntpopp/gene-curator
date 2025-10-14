@@ -3,7 +3,7 @@ FastAPI dependencies for authentication and database access.
 """
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -52,9 +52,10 @@ def get_current_user(
         raise credentials_exception
 
     # Extract user ID from token
-    user_id: str = payload.get("sub")
-    if user_id is None:
+    user_id_value: Any = payload.get("sub")
+    if user_id_value is None or not isinstance(user_id_value, str):
         raise credentials_exception
+    user_id: str = user_id_value
 
     # Get user from database
     user = user_crud.get(db, id=user_id)
@@ -131,9 +132,10 @@ def get_current_user_optional(
             return None
 
         # Extract user ID from token
-        user_id: str = payload.get("sub")
-        if user_id is None:
+        user_id_value: Any = payload.get("sub")
+        if user_id_value is None or not isinstance(user_id_value, str):
             return None
+        user_id: str = user_id_value
 
         # Get user from database
         user = user_crud.get(db, id=user_id)
@@ -204,7 +206,7 @@ def set_rls_context(db: Session, current_user: UserNew) -> None:
         error_msg = f"{type(e).__name__}: {e!s}"
         logger.error(
             "Failed to set RLS context",
-            error=error_msg,
+            error=e,
             error_type=type(e).__name__,
             user_id=str(current_user.id),
         )
@@ -223,7 +225,7 @@ def get_scope(
     scope_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-):
+) -> Any:
     """
     Get scope by ID with permission check.
 
@@ -277,7 +279,7 @@ def get_scope(
     return scope
 
 
-def require_scope_role(required_role: ScopeRole) -> Callable:
+def require_scope_role(required_role: ScopeRole) -> Callable[..., Any]:
     """
     Factory function to create scope role requirement dependencies.
 
@@ -303,7 +305,7 @@ def require_scope_role(required_role: ScopeRole) -> Callable:
         scope_id: UUID,
         db: Session = Depends(get_db),
         current_user: UserNew = Depends(get_current_active_user),
-    ):
+    ) -> Any:
         """Check if user has required role in scope."""
         from app.models import (
             ScopeMembership,

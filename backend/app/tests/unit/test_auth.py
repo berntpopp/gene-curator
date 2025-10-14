@@ -145,7 +145,7 @@ class TestTokenGeneration:
 class TestUserAuthentication:
     """Test user authentication logic."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.mock_db = MagicMock()
 
@@ -227,7 +227,7 @@ class TestDevelopmentCredentials:
             ("test@example.com", "viewer"),
         ],
     )
-    def test_development_user_credentials(self, email, expected_role) -> None:
+    def test_development_user_credentials(self, email: str, expected_role: str) -> None:
         """Test that development user credentials are correctly set up."""
         # This tests the known password hash from seed data
         seed_hash = "$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6"

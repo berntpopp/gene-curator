@@ -3,12 +3,14 @@ Gene-scope assignment API endpoints.
 Manages the assignment of genes to clinical specialties and curators.
 """
 
+from typing import Any, Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core import deps
+from app.core.database import get_db
+from app.core.deps import get_current_active_user
 from app.core.constants import (
     ASSIGNMENTS_DEFAULT_LIMIT,
     ASSIGNMENTS_MAX_LIMIT,
@@ -17,6 +19,7 @@ from app.core.constants import (
 )
 from app.crud.gene_assignment import gene_assignment_crud
 from app.models import UserNew
+from app.models.models import GeneScopeAssignment as GeneScopeAssignmentModel
 from app.schemas.gene_assignment import (
     AvailableGene,
     BulkGeneScopeAssignmentCreate,
@@ -44,7 +47,7 @@ router = APIRouter()
 
 @router.get("/", response_model=GeneScopeAssignmentListResponse)
 def get_gene_assignments(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     skip: int = Query(DEFAULT_SKIP, ge=0, description="Number of records to skip"),
     limit: int = Query(
         ASSIGNMENTS_DEFAULT_LIMIT,
@@ -58,7 +61,7 @@ def get_gene_assignments(
     priority_level: str | None = Query(None, description="Filter by priority level"),
     is_active: bool = Query(True, description="Filter by active status"),
     has_curator: bool | None = Query(None, description="Filter by curator assignment"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignmentListResponse:
     """
     Retrieve gene-scope assignments with filtering.
@@ -104,7 +107,7 @@ def get_gene_assignments(
             scope_name="",  # Would be populated from JOIN
             assigned_curator_id=assignment.assigned_curator_id,
             curator_name="",  # Would be populated from JOIN
-            priority_level=assignment.priority_level,
+            priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
             has_active_work=gene_assignment_crud.has_active_work(
@@ -130,9 +133,9 @@ def get_gene_assignments(
 @router.post("/", response_model=GeneScopeAssignment)
 def create_gene_assignment(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_in: GeneScopeAssignmentCreate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignment:
     """
     Create new gene-scope assignment. Requires curator or admin privileges.
@@ -152,10 +155,11 @@ def create_gene_assignment(
             )
 
     try:
-        assignment = gene_assignment_crud.create_assignment(
+        assignment_model = gene_assignment_crud.create_assignment(
             db, obj_in=assignment_in, assigned_by=current_user.id
         )
-        return assignment
+        # Convert model to schema
+        return GeneScopeAssignment.model_validate(assignment_model)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -165,9 +169,9 @@ def create_gene_assignment(
 @router.get("/{assignment_id}", response_model=GeneScopeAssignmentWithDetails)
 def get_gene_assignment(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignmentWithDetails:
     """
     Get gene-scope assignment by ID with detailed information.
@@ -204,10 +208,10 @@ def get_gene_assignment(
 @router.put("/{assignment_id}", response_model=GeneScopeAssignment)
 def update_gene_assignment(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
     assignment_in: GeneScopeAssignmentUpdate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignment:
     """
     Update gene-scope assignment. Requires curator or admin privileges.
@@ -231,20 +235,21 @@ def update_gene_assignment(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    assignment = gene_assignment_crud.update(
+    assignment_model = gene_assignment_crud.update(
         db, db_obj=assignment, obj_in=assignment_in
     )
-    return assignment
+    # Convert model to schema
+    return GeneScopeAssignment.model_validate(assignment_model)
 
 
 @router.delete("/{assignment_id}")
 def deactivate_gene_assignment(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
     deactivation_request: DeactivateAssignmentRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> dict[str, str]:
     """
     Deactivate gene-scope assignment. Requires admin privileges.
     """
@@ -276,10 +281,10 @@ def deactivate_gene_assignment(
 @router.post("/{assignment_id}/reactivate")
 def reactivate_gene_assignment(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> dict[str, str]:
     """
     Reactivate gene-scope assignment. Requires admin privileges.
     """
@@ -303,9 +308,9 @@ def reactivate_gene_assignment(
 @router.get("/{assignment_id}/statistics", response_model=GeneScopeAssignmentStatistics)
 def get_assignment_statistics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignmentStatistics:
     """
     Get detailed statistics for a gene-scope assignment.
@@ -338,9 +343,9 @@ def get_assignment_statistics(
 @router.post("/bulk", response_model=BulkGeneScopeAssignmentResponse)
 def bulk_create_gene_assignments(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     bulk_request: BulkGeneScopeAssignmentCreate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkGeneScopeAssignmentResponse:
     """
     Bulk create gene-scope assignments. Requires curator or admin privileges.
@@ -378,11 +383,11 @@ def bulk_create_gene_assignments(
 @router.post("/{assignment_id}/assign-curator")
 def assign_curator_to_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
     curator_request: CuratorAssignmentRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> dict[str, str]:
     """
     Assign a curator to a gene-scope assignment.
     """
@@ -422,10 +427,10 @@ def assign_curator_to_gene(
 @router.post("/{assignment_id}/unassign-curator")
 def unassign_curator_from_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     assignment_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> dict[str, str]:
     """
     Remove curator from a gene-scope assignment.
     """
@@ -457,10 +462,10 @@ def unassign_curator_from_gene(
 @router.get("/curator/{curator_id}/workload", response_model=CuratorWorkload)
 def get_curator_workload(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     curator_id: UUID,
     scope_id: UUID | None = Query(None, description="Filter by specific scope"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> CuratorWorkload:
     """
     Get workload statistics for a curator.
@@ -485,13 +490,13 @@ def get_curator_workload(
 )
 def get_curator_assignments(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     curator_id: UUID,
     skip: int = Query(DEFAULT_SKIP, ge=0),
     limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
     scope_id: UUID | None = Query(None, description="Filter by specific scope"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[GeneScopeAssignmentSummary]:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> Sequence[GeneScopeAssignmentSummary]:
     """
     Get assignments for a specific curator.
     """
@@ -509,7 +514,7 @@ def get_curator_assignments(
     )
 
     # Convert to summary format (would need JOIN queries in real implementation)
-    summaries = []
+    summaries: list[GeneScopeAssignmentSummary] = []
     for assignment in assignments:
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
@@ -520,7 +525,7 @@ def get_curator_assignments(
             scope_name="",  # Would be populated from JOIN
             assigned_curator_id=assignment.assigned_curator_id,
             curator_name="",  # Would be populated from JOIN
-            priority_level=assignment.priority_level,
+            priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
             has_active_work=gene_assignment_crud.has_active_work(
@@ -540,13 +545,13 @@ def get_curator_assignments(
 @router.get("/scope/{scope_id}", response_model=list[GeneScopeAssignmentSummary])
 def get_scope_assignments(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     skip: int = Query(DEFAULT_SKIP, ge=0),
     limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
     include_inactive: bool = Query(False, description="Include inactive assignments"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[GeneScopeAssignmentSummary]:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> Sequence[GeneScopeAssignmentSummary]:
     """
     Get all assignments for a specific scope.
     """
@@ -563,7 +568,7 @@ def get_scope_assignments(
     )
 
     # Convert to summary format (would need JOIN queries in real implementation)
-    summaries = []
+    summaries: list[GeneScopeAssignmentSummary] = []
     for assignment in assignments:
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
@@ -574,7 +579,7 @@ def get_scope_assignments(
             scope_name="",  # Would be populated from JOIN
             assigned_curator_id=assignment.assigned_curator_id,
             curator_name="",  # Would be populated from JOIN
-            priority_level=assignment.priority_level,
+            priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
             has_active_work=gene_assignment_crud.has_active_work(
@@ -589,12 +594,12 @@ def get_scope_assignments(
 @router.get("/scope/{scope_id}/available-genes", response_model=list[AvailableGene])
 def get_available_genes_for_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     skip: int = Query(DEFAULT_SKIP, ge=0),
     limit: int = Query(ASSIGNMENTS_DEFAULT_LIMIT, ge=1, le=ASSIGNMENTS_MAX_LIMIT),
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[AvailableGene]:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> Sequence[AvailableGene]:
     """
     Get genes available for assignment to a scope.
     """
@@ -610,7 +615,7 @@ def get_available_genes_for_scope(
         db, scope_id=scope_id, skip=skip, limit=limit
     )
 
-    available_genes = []
+    available_genes: list[AvailableGene] = []
     for gene_data in available_genes_data:
         available_gene = AvailableGene(
             gene_id=gene_data["gene_id"],
@@ -627,9 +632,9 @@ def get_available_genes_for_scope(
 @router.get("/scope/{scope_id}/overview", response_model=ScopeAssignmentOverview)
 def get_scope_assignment_overview(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> ScopeAssignmentOverview:
     """
     Get assignment overview for a scope.
@@ -656,9 +661,9 @@ def get_scope_assignment_overview(
     unassigned_genes = total_assignments - assigned_genes
 
     # Priority distribution
-    priority_counts = {"high": 0, "medium": 0, "low": 0}
+    priority_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
     for assignment in assignments:
-        priority = assignment.priority_level or "medium"
+        priority = assignment.priority or "medium"
         priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
     # Work status

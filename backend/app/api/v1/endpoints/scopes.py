@@ -3,12 +3,15 @@ Scope management API endpoints.
 Handles clinical specialty scopes and their configurations.
 """
 
+from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.database import get_db
 from app.core.logging import get_logger
 from app.crud.scope import scope_crud
 from app.models import User
@@ -27,13 +30,13 @@ router = APIRouter()
 
 @router.get("/", response_model=list[Scope])
 def get_scopes(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     skip: int = 0,
     limit: int = 100,
     active_only: bool = Query(True, description="Filter for active scopes only"),
     institution: str | None = Query(None, description="Filter by institution"),
     current_user: User = Depends(deps.get_current_active_user),
-) -> list[Scope]:
+) -> Sequence[Scope]:
     """
     Retrieve scopes with optional filtering.
     """
@@ -68,7 +71,7 @@ def get_scopes(
             user_id=str(current_user.id),
             scope_count=len(scopes),
         )
-        return scopes[skip : skip + limit]
+        return scopes[skip : skip + limit]  # type: ignore[return-value]
 
     # Admin users can see all scopes
     logger.debug("Admin user, fetching all scopes", user_id=str(current_user.id))
@@ -82,13 +85,13 @@ def get_scopes(
         active_only=active_only,
         institution=institution,
     )
-    return scopes
+    return scopes  # type: ignore[return-value]
 
 
 @router.post("/", response_model=Scope)
 def create_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_in: ScopeCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Scope:
@@ -131,13 +134,13 @@ def create_scope(
         scope_name=scope.name,
         scope_display_name=scope.display_name,
     )
-    return scope
+    return scope  # type: ignore[return-value]
 
 
 @router.get("/{scope_id}", response_model=ScopeWithStats)
 def get_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> ScopeWithStats:
@@ -155,13 +158,13 @@ def get_scope(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     scope_with_stats = scope_crud.get_with_statistics(db, scope_id=scope_id)
-    return scope_with_stats
+    return scope_with_stats  # type: ignore[return-value]
 
 
 @router.put("/{scope_id}", response_model=Scope)
 def update_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     scope_in: ScopeUpdate,
     current_user: User = Depends(deps.get_current_active_user),
@@ -177,16 +180,16 @@ def update_scope(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     scope = scope_crud.update(db, db_obj=scope, obj_in=scope_in)
-    return scope
+    return scope  # type: ignore[return-value]
 
 
 @router.delete("/{scope_id}")
 def delete_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
-) -> dict:
+) -> dict[str, str]:
     """
     Delete scope. Requires admin privileges.
     """
@@ -210,7 +213,7 @@ def delete_scope(
 @router.get("/{scope_id}/statistics", response_model=ScopeStatistics)
 def get_scope_statistics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> ScopeStatistics:
@@ -228,16 +231,16 @@ def get_scope_statistics(
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     statistics = scope_crud.get_detailed_statistics(db, scope_id=scope_id)
-    return statistics
+    return statistics  # type: ignore[return-value]
 
 
-@router.get("/{scope_id}/workflow-pairs", response_model=list[dict])
+@router.get("/{scope_id}/workflow-pairs")
 def get_scope_workflow_pairs(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
-) -> list[dict]:
+) -> Sequence[dict[str, Any]]:
     """
     Get available workflow pairs for a scope.
     """
@@ -258,11 +261,11 @@ def get_scope_workflow_pairs(
 @router.post("/{scope_id}/assign-users")
 def assign_users_to_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     user_ids: list[UUID],
     current_user: User = Depends(deps.get_current_active_user),
-) -> dict:
+) -> dict[str, Any]:
     """
     Assign users to a scope. Requires admin privileges.
     """
@@ -286,11 +289,11 @@ def assign_users_to_scope(
 @router.post("/{scope_id}/remove-users")
 def remove_users_from_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     user_ids: list[UUID],
     current_user: User = Depends(deps.get_current_active_user),
-) -> dict:
+) -> dict[str, Any]:
     """
     Remove users from a scope. Requires admin privileges.
     """
@@ -311,13 +314,13 @@ def remove_users_from_scope(
     }
 
 
-@router.get("/{scope_id}/users", response_model=list[dict])
+@router.get("/{scope_id}/users")
 def get_scope_users(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
-) -> list[dict]:
+) -> Sequence[dict[str, Any]]:
     """
     Get users assigned to a scope.
     """
@@ -338,11 +341,11 @@ def get_scope_users(
 @router.put("/{scope_id}/default-workflow-pair")
 def set_default_workflow_pair(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     workflow_pair_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
-) -> dict:
+) -> dict[str, Any]:
     """
     Set default workflow pair for a scope. Requires admin privileges.
     """

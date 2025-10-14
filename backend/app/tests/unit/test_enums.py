@@ -75,7 +75,7 @@ class TestApplicationRole:
         """Test enum equality comparison."""
         assert ApplicationRole.ADMIN == ApplicationRole.ADMIN
         assert ApplicationRole.USER == ApplicationRole.USER
-        assert ApplicationRole.ADMIN != ApplicationRole.USER
+        assert ApplicationRole.ADMIN != ApplicationRole.USER  # type: ignore[comparison-overlap]
 
 
 class TestScopeRole:
@@ -243,7 +243,7 @@ class TestScopeRole:
         """Test enum equality comparison."""
         assert ScopeRole.ADMIN == ScopeRole.ADMIN
         assert ScopeRole.CURATOR == ScopeRole.CURATOR
-        assert ScopeRole.ADMIN != ScopeRole.CURATOR
+        assert ScopeRole.ADMIN != ScopeRole.CURATOR  # type: ignore[comparison-overlap]
 
 
 class TestEnumIntegration:

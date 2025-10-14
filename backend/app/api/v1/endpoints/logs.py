@@ -24,7 +24,8 @@ from app.core.constants import (
     EXPORT_FORMAT_JSON,
     VALID_EXPORT_FORMATS,
 )
-from app.core.deps import get_current_active_user, get_db
+from app.core.database import get_db
+from app.core.deps import get_current_active_user
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
 from app.schemas.logs import LogEntry, LogStatsSummary
@@ -32,28 +33,28 @@ from app.schemas.logs import LogEntry, LogStatsSummary
 router = APIRouter()
 
 
-def require_admin_or_reviewer(current_user: UserNew = Depends(get_current_active_user)):
+def require_admin_or_reviewer(current_user: UserNew = Depends(get_current_active_user)) -> UserNew:
     """
-    Dependency to check if user is admin or reviewer.
+    Dependency to check if user is admin.
 
     Args:
         current_user: Current authenticated user
 
     Returns:
-        User if they have admin or reviewer role
+        User if they have admin role
 
     Raises:
         HTTPException: If user doesn't have required permissions
     """
-    if current_user.role not in [UserRoleNew.ADMIN, UserRoleNew.REVIEWER]:
+    if current_user.role != UserRoleNew.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or Reviewer access required to view logs",
+            detail="Admin access required to view logs",
         )
     return current_user
 
 
-def require_admin(current_user: UserNew = Depends(get_current_active_user)):
+def require_admin(current_user: UserNew = Depends(get_current_active_user)) -> UserNew:
     """
     Dependency to check if user is admin.
 

@@ -8,6 +8,8 @@ Tests each checker method independently to verify:
 - SOLID principles compliance
 """
 
+from typing import Any
+
 import pytest
 
 from app.scoring.qualitative_checker import (
@@ -72,7 +74,7 @@ class TestQualitativeWarningChecker:
 
     def test_check_all_with_empty_data(self) -> None:
         """Test that empty data produces error warnings."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker.check_all(evidence)
 
@@ -104,7 +106,7 @@ class TestQualitativeWarningChecker:
 
     def test_check_missing_both_assessments(self) -> None:
         """Test detection when both assessments are missing."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_missing_assessments(evidence)
 
@@ -135,7 +137,7 @@ class TestQualitativeWarningChecker:
 
     def test_check_incomplete_clinical_missing_both_fields(self) -> None:
         """Test detection when both clinical fields are missing."""
-        evidence = {"clinical_assessment": {}}
+        evidence: dict[str, Any] = {"clinical_assessment": {}}
 
         warnings = self.checker._check_incomplete_clinical(evidence)
 
@@ -146,7 +148,7 @@ class TestQualitativeWarningChecker:
 
     def test_check_incomplete_clinical_returns_empty_when_no_clinical(self) -> None:
         """Test that incomplete check returns empty when clinical is missing."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_incomplete_clinical(evidence)
 
@@ -230,7 +232,7 @@ class TestQualitativeWarningChecker:
 
     def test_check_low_confidence_returns_empty_when_no_data(self) -> None:
         """Test that low confidence check returns empty when no data."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_low_confidence_indicators(evidence)
 
@@ -242,7 +244,7 @@ class TestConvenienceFunction:
 
     def test_convenience_function_returns_strings(self) -> None:
         """Test that convenience function returns string messages."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = check_qualitative_warnings(evidence)
 
@@ -268,7 +270,7 @@ class TestConvenienceFunction:
 
     def test_convenience_function_with_missing_data(self) -> None:
         """Test convenience function with missing data."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = check_qualitative_warnings(evidence)
 

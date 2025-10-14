@@ -3,6 +3,7 @@ Unit tests for the unified logging system.
 """
 
 import asyncio
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -168,7 +169,7 @@ class TestUnifiedLogger:
         assert logger1.name == logger2.name
 
     @patch("app.core.logging.unified_logger.logging.Logger")
-    def test_logger_info_logs_to_console(self, mock_logger) -> None:
+    def test_logger_info_logs_to_console(self, mock_logger: Any) -> None:
         """Test that logger.info() logs to console."""
         logger = get_logger("test.module")
         logger._console_logger = MagicMock()
@@ -179,12 +180,12 @@ class TestUnifiedLogger:
         logger._console_logger.info.assert_called_once()
 
     @patch("app.core.logging.unified_logger.logging.Logger")
-    def test_logger_error_logs_to_console(self, mock_logger) -> None:
+    def test_logger_error_logs_to_console(self, mock_logger: Any) -> None:
         """Test that logger.error() logs to console."""
         logger = get_logger("test.module")
         logger._console_logger = MagicMock()
 
-        logger.error("Error message", error="Test error")
+        logger.error("Error message", error=Exception("Test error"))
 
         # Should call console logger
         logger._console_logger.error.assert_called_once()
@@ -194,7 +195,7 @@ class TestUnifiedLogger:
 class TestAsyncLogging:
     """Test async logging functionality."""
 
-    async def test_logger_detects_async_context(self):
+    async def test_logger_detects_async_context(self) -> None:
         """Test that logger detects async context."""
         logger = get_logger("test.async")
         logger._console_logger = MagicMock()
@@ -209,10 +210,10 @@ class TestAsyncLogging:
         # Should have logged to console
         logger._console_logger.info.assert_called_once()
 
-    async def test_logger_handles_sync_context(self):
+    async def test_logger_handles_sync_context(self) -> None:
         """Test that logger handles sync context gracefully."""
 
-        def sync_function():
+        def sync_function() -> None:
             logger = get_logger("test.sync")
             logger._console_logger = MagicMock()
             logger._database_logger = None

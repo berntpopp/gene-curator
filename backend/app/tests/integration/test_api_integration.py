@@ -85,7 +85,7 @@ def test_api_router() -> None:
         from app.api.v1.api import api_router
 
         # Check that all routes are included
-        routes = [route.path for route in api_router.routes]
+        routes = [route.path for route in api_router.routes if hasattr(route, "path")]
         expected_prefixes = [
             "/health",
             "/auth",
@@ -108,7 +108,7 @@ def test_api_router() -> None:
         pass
 
 
-def run_integration_tests() -> None:
+def run_integration_tests() -> bool:
     """Run all integration tests."""
 
     try:

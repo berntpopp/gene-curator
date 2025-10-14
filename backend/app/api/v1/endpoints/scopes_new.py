@@ -14,12 +14,14 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
+from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.database import get_db
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.scope import scope_crud
@@ -42,7 +44,7 @@ router = APIRouter()
 @router.post("/", response_model=ScopeResponse, status_code=status.HTTP_201_CREATED)
 def create_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_in: ScopeCreate,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> Scope:
@@ -85,6 +87,8 @@ def create_scope(
     # Automatically create scope membership with admin role
     membership_data = ScopeMembershipCreate(
         user_id=current_user.id,
+        email=None,
+        team_id=None,
         role=ScopeRole.ADMIN,
         notes="Creator and initial scope administrator",
     )
@@ -110,7 +114,7 @@ def create_scope(
 @router.get("/", response_model=list[ScopeResponse])
 def list_scopes(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     current_user: User = Depends(deps.get_current_active_user),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(
@@ -118,7 +122,7 @@ def list_scopes(
     ),
     active_only: bool = Query(True, description="Filter for active scopes only"),
     include_public: bool = Query(True, description="Include public scopes"),
-) -> list[Scope]:
+) -> Sequence[Scope]:
     """
     List scopes the current user has access to.
 
@@ -170,7 +174,7 @@ def list_scopes(
 @router.get("/{scope_id}", response_model=ScopeWithStats)
 def get_scope_details(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_active_user),
 ) -> ScopeWithStats:
@@ -197,6 +201,12 @@ def get_scope_details(
     # Get statistics
     scope_with_stats = scope_crud.get_with_statistics(db, scope_id=scope_id)
 
+    if not scope_with_stats:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scope not found or access denied",
+        )
+
     logger.info(
         "Retrieved scope details",
         scope_id=str(scope_id),
@@ -204,13 +214,13 @@ def get_scope_details(
         user_id=str(current_user.id),
     )
 
-    return scope_with_stats
+    return ScopeWithStats(**scope_with_stats)
 
 
 @router.patch("/{scope_id}", response_model=ScopeResponse)
 def update_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     scope_in: ScopeUpdate,
     scope: Scope = Depends(deps.require_scope_role(ScopeRole.ADMIN)),
@@ -237,7 +247,6 @@ def update_scope(
         "Scope updated",
         scope_id=str(scope_id),
         scope_name=updated_scope.name,
-        user_id=str(deps.get_current_active_user(db=db).id),
     )
 
     return updated_scope
@@ -246,7 +255,7 @@ def update_scope(
 @router.delete("/{scope_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_scope(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     current_user: User = Depends(deps.get_current_admin_user),
 ) -> None:
@@ -309,7 +318,7 @@ def delete_scope(
 @router.get("/{scope_id}/statistics", response_model=ScopeStatistics)
 def get_scope_statistics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     scope: Scope = Depends(deps.require_scope_role(ScopeRole.VIEWER)),
 ) -> ScopeStatistics:
@@ -335,4 +344,4 @@ def get_scope_statistics(
         active_curations=statistics.get("active_curations", 0),
     )
 
-    return statistics
+    return ScopeStatistics(**statistics)

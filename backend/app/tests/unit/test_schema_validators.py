@@ -8,6 +8,8 @@ Tests each validator independently to verify:
 - SOLID principles compliance
 """
 
+from typing import Any
+
 import pytest
 
 from app.crud.schema_validators import (
@@ -125,7 +127,7 @@ class TestRequiredFieldsValidator:
 
     def test_missing_all_required_fields(self) -> None:
         """Test detection when all required fields are missing."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         messages = self.validator.validate(schema)
 
@@ -137,7 +139,7 @@ class TestRequiredFieldsValidator:
 
     def test_empty_required_fields_detected(self) -> None:
         """Test that empty required fields are detected."""
-        schema = {
+        schema: dict[str, Any] = {
             "field_definitions": {},  # Empty
             "workflow_states": [],  # Empty
             "ui_configuration": {},  # Empty
@@ -388,7 +390,7 @@ class TestScoringConfigurationValidator:
 
     def test_missing_scoring_configuration(self) -> None:
         """Test no messages when scoring_configuration is optional and missing."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         messages = self.validator.validate(schema)
 
@@ -436,7 +438,7 @@ class TestValidationRulesValidator:
 
     def test_missing_validation_rules(self) -> None:
         """Test no messages when validation_rules is optional and missing."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         messages = self.validator.validate(schema)
 
@@ -502,7 +504,7 @@ class TestSchemaValidatorChain:
 
     def test_empty_schema_catches_all_errors(self) -> None:
         """Test that empty schema triggers all required field errors."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         messages = self.chain.validate(schema)
 
@@ -536,7 +538,7 @@ class TestConvenienceFunction:
 
     def test_convenience_function_returns_tuples(self) -> None:
         """Test that convenience function returns (errors, warnings) tuple."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         result = validate_schema_structure(schema)
 
@@ -563,7 +565,7 @@ class TestConvenienceFunction:
 
     def test_convenience_function_with_errors(self) -> None:
         """Test convenience function with errors."""
-        schema = {}
+        schema: dict[str, Any] = {}
 
         errors, warnings = validate_schema_structure(schema)
 

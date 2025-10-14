@@ -2,6 +2,7 @@
 CRUD operations for schema repository management.
 """
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
@@ -49,7 +50,7 @@ class CRUDCurationSchema(
         schema_type: str | None = None,
         institution: str | None = None,
         active_only: bool = True,
-    ) -> list[CurationSchema]:
+    ) -> Sequence[CurationSchema]:
         """Get multiple schemas with filtering."""
         stmt = select(CurationSchema)
 
@@ -94,16 +95,23 @@ class CRUDCurationSchema(
             )
         ).scalar()
 
-        # Check direct usage in precurations/curations
+        # Check direct usage in precurations (precurations use precuration_schema_id)
         precuration_count = db.execute(
             select(func.count(PrecurationNew.id)).where(
-                PrecurationNew.schema_id == schema_id
+                PrecurationNew.precuration_schema_id == schema_id
             )
         ).scalar()
 
+        # Curations don't have a direct schema_id, they use workflow_pair_id
+        # So we check if any workflow pair using this schema is referenced by curations
         curation_count = db.execute(
-            select(func.count(CurationNew.id)).where(
-                CurationNew.schema_id == schema_id
+            select(func.count(CurationNew.id))
+            .join(WorkflowPair, CurationNew.workflow_pair_id == WorkflowPair.id)
+            .where(
+                or_(
+                    WorkflowPair.precuration_schema_id == schema_id,
+                    WorkflowPair.curation_schema_id == schema_id,
+                )
             )
         ).scalar()
 
@@ -156,7 +164,7 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100, active_only: bool = True
-    ) -> list[WorkflowPair]:
+    ) -> Sequence[WorkflowPair]:
         """Get multiple workflow pairs with filtering."""
         stmt = select(WorkflowPair)
 
@@ -197,25 +205,17 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         if not workflow_pair:
             return False
 
+        # Check precurations using the precuration_schema
         precuration_count = db.execute(
             select(func.count(PrecurationNew.id)).where(
-                PrecurationNew.schema_id.in_(
-                    [
-                        workflow_pair.precuration_schema_id,
-                        workflow_pair.curation_schema_id,
-                    ]
-                )
+                PrecurationNew.precuration_schema_id == workflow_pair.precuration_schema_id
             )
         ).scalar()
 
+        # Check curations using this workflow_pair
         curation_count = db.execute(
             select(func.count(CurationNew.id)).where(
-                CurationNew.schema_id.in_(
-                    [
-                        workflow_pair.precuration_schema_id,
-                        workflow_pair.curation_schema_id,
-                    ]
-                )
+                CurationNew.workflow_pair_id == workflow_pair_id
             )
         ).scalar()
 
@@ -227,7 +227,7 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
 
     def get_workflow_pairs_for_scope(
         self, db: Session, *, scope_id: UUID
-    ) -> list[WorkflowPair]:
+    ) -> Sequence[WorkflowPair]:
         """Get workflow pairs available for a specific scope."""
         # For now, return all active workflow pairs
         # In the future, this could be filtered based on scope-specific criteria
@@ -253,13 +253,13 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         # Count active precurations and curations using the schemas
         precuration_count = db.execute(
             select(func.count(PrecurationNew.id)).where(
-                PrecurationNew.schema_id == workflow_pair.precuration_schema_id
+                PrecurationNew.precuration_schema_id == workflow_pair.precuration_schema_id
             )
         ).scalar()
 
         curation_count = db.execute(
             select(func.count(CurationNew.id)).where(
-                CurationNew.schema_id == workflow_pair.curation_schema_id
+                CurationNew.workflow_pair_id == workflow_pair_id
             )
         ).scalar()
 

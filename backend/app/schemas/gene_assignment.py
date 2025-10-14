@@ -20,7 +20,7 @@ class GeneScopeAssignmentBase(BaseModel):
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
     @validator("priority_level")
-    def validate_priority_level(cls, v):
+    def validate_priority_level(cls, v: str) -> str:
         valid_priorities = ["high", "medium", "low"]
         if v not in valid_priorities:
             raise ValueError(f"Priority level must be one of: {valid_priorities}")
@@ -43,7 +43,7 @@ class GeneScopeAssignmentUpdate(BaseModel):
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
     @validator("priority_level")
-    def validate_priority_level(cls, v):
+    def validate_priority_level(cls, v: str | None) -> str | None:
         if v is not None:
             valid_priorities = ["high", "medium", "low"]
             if v not in valid_priorities:
@@ -194,7 +194,7 @@ class BulkGeneScopeAssignmentCreate(BaseModel):
     assignment_notes: str | None = Field(None, description="Notes for all assignments")
 
     @validator("priority_level")
-    def validate_priority_level(cls, v):
+    def validate_priority_level(cls, v: str) -> str:
         valid_priorities = ["high", "medium", "low"]
         if v not in valid_priorities:
             raise ValueError(f"Priority level must be one of: {valid_priorities}")
@@ -252,7 +252,7 @@ class AssignmentFilters(BaseModel):
     limit: int = Field(100, ge=1, le=500, description="Maximum number of records")
 
     @validator("priority_level")
-    def validate_priority_level(cls, v):
+    def validate_priority_level(cls, v: str | None) -> str | None:
         if v is not None:
             valid_priorities = ["high", "medium", "low"]
             if v not in valid_priorities:

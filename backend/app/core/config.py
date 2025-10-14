@@ -124,8 +124,18 @@ class Settings(BaseSettings):
         """Parse CORS origins from string or list."""
         if isinstance(v, str) and not v.startswith("["):
             return [i.strip() for i in v.split(",")]
-        elif isinstance(v, list | str):
+        elif isinstance(v, list):
             return v
+        elif isinstance(v, str):
+            # Handle JSON-like string format
+            import json
+            try:
+                parsed = json.loads(v)
+                if isinstance(parsed, list):
+                    return parsed
+            except json.JSONDecodeError:
+                pass
+            return [v]
         raise ValueError(v)
 
     @validator("DATABASE_URL", pre=True)
@@ -142,4 +152,4 @@ class Settings(BaseSettings):
 
 
 # Create global settings instance
-settings = Settings()
+settings = Settings()  # type: ignore[call-arg]

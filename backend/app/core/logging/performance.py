@@ -10,12 +10,16 @@ import contextlib
 import time
 from collections.abc import Callable
 from functools import wraps
+from typing import Any, Literal, ParamSpec, TypeVar, cast
+
+P = ParamSpec("P")
+R = TypeVar("R")
 
 # Lazy import to avoid circular dependency
 _logger = None
 
 
-def _get_logger():
+def _get_logger() -> Any:
     """Get logger instance lazily to avoid circular import."""
     global _logger
     if _logger is None:
@@ -30,7 +34,7 @@ def timed_operation(
     warning_threshold_ms: float = 1000,
     error_threshold_ms: float = 5000,
     include_args: bool = False,
-):
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator to time operations and log performance metrics.
 
@@ -41,17 +45,17 @@ def timed_operation(
         include_args: Whether to include function arguments in logs
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         name = operation_name or func.__name__
 
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 start_time = time.perf_counter()
 
                 # Build context for logging
-                context = {"operation": name}
+                context: dict[str, Any] = {"operation": name}
                 if include_args:
                     context["args"] = str(args)[:200]  # Limit arg length
                     context["kwargs"] = str(kwargs)[:200]
@@ -76,7 +80,7 @@ def timed_operation(
                     else:
                         _get_logger().info("Operation completed", **context)
 
-                    return result
+                    return cast(R, result)
 
                 except Exception as e:
                     # Log the error with timing
@@ -86,15 +90,15 @@ def timed_operation(
                     _get_logger().error("Operation failed", **context)
                     raise
 
-            return async_wrapper
+            return cast(Callable[P, R], async_wrapper)
         else:
 
             @wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 start_time = time.perf_counter()
 
                 # Build context for logging
-                context = {"operation": name}
+                context: dict[str, Any] = {"operation": name}
                 if include_args:
                     context["args"] = str(args)[:200]
                     context["kwargs"] = str(kwargs)[:200]
@@ -129,12 +133,14 @@ def timed_operation(
                     _get_logger().error("Operation failed", **context)
                     raise
 
-            return sync_wrapper
+            return cast(Callable[P, R], sync_wrapper)
 
     return decorator
 
 
-def database_query(query_type: str = "SELECT"):
+def database_query(
+    query_type: str = "SELECT",
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator specifically for database operations.
 
@@ -149,7 +155,9 @@ def database_query(query_type: str = "SELECT"):
     )
 
 
-def api_endpoint(endpoint_name: str | None = None):
+def api_endpoint(
+    endpoint_name: str | None = None,
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for API endpoint performance tracking.
 
@@ -164,7 +172,9 @@ def api_endpoint(endpoint_name: str | None = None):
     )
 
 
-def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
+def batch_operation(
+    batch_name: str, batch_size_getter: Callable[..., int] | None = None
+) -> Callable[[Callable[P, R]], Callable[P, R]]:
     """
     Decorator for batch processing operations with per-item metrics.
 
@@ -173,20 +183,23 @@ def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
         batch_size_getter: Function to extract batch size from arguments
     """
 
-    def decorator(func: Callable) -> Callable:
+    def decorator(func: Callable[P, R]) -> Callable[P, R]:
         if asyncio.iscoroutinefunction(func):
 
             @wraps(func)
-            async def async_wrapper(*args, **kwargs):
+            async def async_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 start_time = time.perf_counter()
 
                 # Get batch size if getter provided
-                batch_size = None
+                batch_size: int | None = None
                 if batch_size_getter:
                     with contextlib.suppress(Exception):
                         batch_size = batch_size_getter(*args, **kwargs)
 
-                context = {"operation": batch_name, "batch_size": batch_size}
+                context: dict[str, Any] = {
+                    "operation": batch_name,
+                    "batch_size": batch_size,
+                }
 
                 try:
                     _get_logger().info("Batch operation started", **context)
@@ -202,7 +215,7 @@ def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
                         )
 
                     _get_logger().info("Batch operation completed", **context)
-                    return result
+                    return cast(R, result)
 
                 except Exception as e:
                     duration_ms = (time.perf_counter() - start_time) * 1000
@@ -211,20 +224,23 @@ def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
                     _get_logger().error("Batch operation failed", **context)
                     raise
 
-            return async_wrapper
+            return cast(Callable[P, R], async_wrapper)
         else:
 
             @wraps(func)
-            def sync_wrapper(*args, **kwargs):
+            def sync_wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
                 start_time = time.perf_counter()
 
                 # Get batch size if getter provided
-                batch_size = None
+                batch_size: int | None = None
                 if batch_size_getter:
                     with contextlib.suppress(Exception):
                         batch_size = batch_size_getter(*args, **kwargs)
 
-                context = {"operation": batch_name, "batch_size": batch_size}
+                context: dict[str, Any] = {
+                    "operation": batch_name,
+                    "batch_size": batch_size,
+                }
 
                 try:
                     _get_logger().info("Batch operation started", **context)
@@ -249,7 +265,7 @@ def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
                     _get_logger().error("Batch operation failed", **context)
                     raise
 
-            return sync_wrapper
+            return cast(Callable[P, R], sync_wrapper)
 
     return decorator
 
@@ -257,12 +273,12 @@ def batch_operation(batch_name: str, batch_size_getter: Callable | None = None):
 class PerformanceMonitor:
     """Context manager for performance monitoring blocks of code."""
 
-    def __init__(self, operation_name: str, **extra_context):
+    def __init__(self, operation_name: str, **extra_context: Any) -> None:
         self.operation_name = operation_name
         self.extra_context = extra_context
-        self.start_time = None
+        self.start_time: float | None = None
 
-    def __enter__(self):
+    def __enter__(self) -> "PerformanceMonitor":
         self.start_time = time.perf_counter()
         _get_logger().debug(
             "Performance block started",
@@ -271,10 +287,11 @@ class PerformanceMonitor:
         )
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> Literal[False]:
+        assert self.start_time is not None
         duration_ms = (time.perf_counter() - self.start_time) * 1000
 
-        context = {
+        context: dict[str, Any] = {
             "operation": self.operation_name,
             "duration_ms": round(duration_ms, 2),
             **self.extra_context,
@@ -288,7 +305,7 @@ class PerformanceMonitor:
 
         return False  # Don't suppress exceptions
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> "PerformanceMonitor":
         self.start_time = time.perf_counter()
         _get_logger().debug(
             "Performance block started",
@@ -297,10 +314,13 @@ class PerformanceMonitor:
         )
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self, exc_type: Any, exc_val: Any, exc_tb: Any
+    ) -> Literal[False]:
+        assert self.start_time is not None
         duration_ms = (time.perf_counter() - self.start_time) * 1000
 
-        context = {
+        context: dict[str, Any] = {
             "operation": self.operation_name,
             "duration_ms": round(duration_ms, 2),
             **self.extra_context,

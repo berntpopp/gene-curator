@@ -107,7 +107,7 @@ class PeerReviewSubmission(BaseModel):
     )
 
     @validator("decision")
-    def validate_decision(cls, v):
+    def validate_decision(cls, v: str) -> str:
         valid_decisions = ["approve", "request_changes", "reject"]
         if v not in valid_decisions:
             raise ValueError(f"Decision must be one of: {valid_decisions}")

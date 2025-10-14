@@ -2,6 +2,7 @@
 CRUD operations for gene-scope assignments.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -50,7 +51,7 @@ class CRUDGeneScopeAssignment(
         scope_id: UUID | None = None,
         curator_id: UUID | None = None,
         gene_id: UUID | None = None,
-    ) -> list[GeneScopeAssignment]:
+    ) -> Sequence[GeneScopeAssignment]:
         """Get active gene-scope assignments with filtering."""
         stmt = select(GeneScopeAssignment).where(
             GeneScopeAssignment.is_active  # Fixed: use == instead of is
@@ -75,7 +76,7 @@ class CRUDGeneScopeAssignment(
         skip: int = 0,
         limit: int = 100,
         include_inactive: bool = False,
-    ) -> list[GeneScopeAssignment]:
+    ) -> Sequence[GeneScopeAssignment]:
         """Get all assignments for a specific scope."""
         stmt = select(GeneScopeAssignment).where(
             GeneScopeAssignment.scope_id == scope_id
@@ -87,7 +88,7 @@ class CRUDGeneScopeAssignment(
             )  # Fixed: use == instead of is
 
         return db.execute(
-            stmt.order_by(GeneScopeAssignment.created_at.desc())
+            stmt.order_by(GeneScopeAssignment.assigned_at.desc())
             .offset(skip)
             .limit(limit)
         ).scalars().all()
@@ -100,7 +101,7 @@ class CRUDGeneScopeAssignment(
         skip: int = 0,
         limit: int = 100,
         scope_id: UUID | None = None,
-    ) -> list[GeneScopeAssignment]:
+    ) -> Sequence[GeneScopeAssignment]:
         """Get all assignments for a specific curator."""
         stmt = select(GeneScopeAssignment).where(
             and_(
@@ -131,12 +132,12 @@ class CRUDGeneScopeAssignment(
                     GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
                 )
             )
-            .subquery()
+            .scalar_subquery()
         )
 
         available_genes = db.execute(
             select(GeneNew)
-            .where(~GeneNew.id.in_(subquery))
+            .where(~GeneNew.id.in_(select(subquery)))
             .offset(skip)
             .limit(limit)
         ).scalars().all()
@@ -190,8 +191,6 @@ class CRUDGeneScopeAssignment(
             raise ValueError("Curator does not have access to this scope")
 
         assignment.assigned_curator_id = curator_id
-        assignment.curator_assigned_by = assigned_by
-        assignment.curator_assigned_at = datetime.utcnow()
 
         db.commit()
         db.refresh(assignment)
@@ -206,10 +205,6 @@ class CRUDGeneScopeAssignment(
             return None
 
         assignment.assigned_curator_id = None
-        assignment.curator_assigned_by = None
-        assignment.curator_assigned_at = None
-        assignment.last_updated_by = unassigned_by
-        assignment.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(assignment)
@@ -235,11 +230,6 @@ class CRUDGeneScopeAssignment(
             )
 
         assignment.is_active = False
-        assignment.deactivated_at = datetime.utcnow()
-        assignment.deactivated_by = deactivated_by
-        assignment.deactivation_reason = reason
-        assignment.last_updated_by = deactivated_by
-        assignment.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(assignment)
@@ -254,11 +244,6 @@ class CRUDGeneScopeAssignment(
             return None
 
         assignment.is_active = True
-        assignment.deactivated_at = None
-        assignment.deactivated_by = None
-        assignment.deactivation_reason = None
-        assignment.last_updated_by = reactivated_by
-        assignment.updated_at = datetime.utcnow()
 
         db.commit()
         db.refresh(assignment)
@@ -271,7 +256,7 @@ class CRUDGeneScopeAssignment(
             return False
 
         # Check for active precurations
-        precuration_count = db.execute(
+        precuration_count: int = db.execute(
             select(func.count(PrecurationNew.id)).where(
                 and_(
                     PrecurationNew.gene_id == assignment.gene_id,
@@ -279,10 +264,10 @@ class CRUDGeneScopeAssignment(
                     PrecurationNew.status.in_(["draft", "submitted", "in_review"]),
                 )
             )
-        ).scalar()
+        ).scalar() or 0
 
         # Check for active curations
-        curation_count = db.execute(
+        curation_count: int = db.execute(
             select(func.count(CurationNew.id)).where(
                 and_(
                     CurationNew.gene_id == assignment.gene_id,
@@ -290,9 +275,9 @@ class CRUDGeneScopeAssignment(
                     CurationNew.status.in_(["draft", "submitted", "in_review"]),
                 )
             )
-        ).scalar()
+        ).scalar() or 0
 
-        return (precuration_count or 0) > 0 or (curation_count or 0) > 0
+        return precuration_count > 0 or curation_count > 0
 
     def get_assignment_statistics(
         self, db: Session, *, assignment_id: UUID
@@ -326,8 +311,8 @@ class CRUDGeneScopeAssignment(
             .group_by(CurationNew.status)
         ).all()
 
-        precuration_dict = dict(precuration_stats)
-        curation_dict = dict(curation_stats)
+        precuration_dict: dict[str, int] = {str(status): count for status, count in precuration_stats}
+        curation_dict: dict[str, int] = {str(status): count for status, count in curation_stats}
 
         return {
             "assignment_id": assignment_id,
@@ -336,7 +321,7 @@ class CRUDGeneScopeAssignment(
             "assigned_curator_id": assignment.assigned_curator_id,
             "is_active": assignment.is_active,
             "assigned_at": assignment.assigned_at,
-            "curator_assigned_at": assignment.curator_assigned_at,
+            "curator_assigned_at": None,  # Field doesn't exist in model
             # Work progress
             "total_precurations": sum(precuration_dict.values()),
             "draft_precurations": precuration_dict.get("draft", 0),
@@ -385,6 +370,7 @@ class CRUDGeneScopeAssignment(
                     scope_id=scope_id,
                     assigned_curator_id=curator_id,
                     priority_level="medium",
+                    assignment_notes=None,
                 )
 
                 assignment = self.create_assignment(
@@ -422,9 +408,9 @@ class CRUDGeneScopeAssignment(
         assignments = db.execute(stmt).scalars().all()
 
         # Count by priority level
-        priority_counts = {}
+        priority_counts: dict[str, int] = {}
         for assignment in assignments:
-            priority = assignment.priority_level or "medium"
+            priority = assignment.priority or "normal"
             priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
         # Count active work

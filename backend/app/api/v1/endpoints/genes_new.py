@@ -3,12 +3,15 @@ Gene management API endpoints for schema-agnostic system.
 Manages genes within the new scope-based architecture.
 """
 
+from collections.abc import Sequence
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.database import get_db
 from app.core.constants import (
     DEFAULT_GENE_SORT_FIELD,
     DEFAULT_SEARCH_LIMIT,
@@ -51,7 +54,7 @@ router = APIRouter()
 @router.get("/", response_model=GeneNewListResponse)
 @api_endpoint()
 def get_genes(
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     skip: int = Query(DEFAULT_SKIP, ge=0, description="Number of records to skip"),
     limit: int = Query(
         GENES_DEFAULT_LIMIT,
@@ -131,7 +134,7 @@ def get_genes(
 @api_endpoint()
 def create_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_in: GeneNewCreate,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneNew:
@@ -147,7 +150,7 @@ def create_gene(
         gene = gene_new_crud.create_with_owner(
             db, obj_in=gene_in, owner_id=current_user.id
         )
-        return gene
+        return gene  # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -158,7 +161,7 @@ def create_gene(
 @api_endpoint()
 def search_genes(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     query: str | None = Query(None, description="Search term"),
     chromosome: str | None = Query(None, description="Filter by chromosome"),
     hgnc_id: str | None = Query(None, description="Filter by HGNC ID"),
@@ -224,7 +227,7 @@ def search_genes(
 @router.get("/statistics", response_model=GeneNewStatistics)
 def get_gene_statistics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     current_user: UserNew | None = Depends(deps.get_current_user_optional),
 ) -> GeneNewStatistics:
@@ -252,7 +255,7 @@ def get_gene_statistics(
 @router.get("/{gene_id}", response_model=GeneNewWithAssignments)
 def get_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneNewWithAssignments:
@@ -282,7 +285,7 @@ def get_gene(
 @router.put("/{gene_id}", response_model=GeneNew)
 def update_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     gene_in: GeneNewUpdate,
     current_user: UserNew = Depends(deps.get_current_active_user),
@@ -305,7 +308,7 @@ def update_gene(
         gene = gene_new_crud.update_with_owner(
             db, db_obj=gene, obj_in=gene_in, owner_id=current_user.id
         )
-        return gene
+        return gene  # type: ignore[return-value]
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
@@ -315,10 +318,10 @@ def update_gene(
 @router.delete("/{gene_id}")
 def delete_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> dict:
+) -> dict[str, str]:
     """
     Delete gene. Requires admin privileges.
     """
@@ -360,7 +363,7 @@ def delete_gene(
 @router.get("/{gene_id}/assignments", response_model=GeneAssignmentStatus)
 def get_gene_assignments(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneAssignmentStatus:
@@ -380,7 +383,7 @@ def get_gene_assignments(
 @router.get("/{gene_id}/progress", response_model=GeneCurationProgress)
 def get_gene_curation_progress(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     current_user: UserNew = Depends(deps.get_current_active_user),
@@ -417,7 +420,7 @@ def get_gene_curation_progress(
 @api_endpoint()
 def bulk_create_genes(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     bulk_request: GeneBulkCreate,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneBulkCreateResponse:
@@ -447,7 +450,7 @@ def bulk_create_genes(
 @router.get("/scope/{scope_id}", response_model=ScopeGeneListResponse)
 def get_scope_genes(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     skip: int = Query(DEFAULT_SKIP, ge=0),
     limit: int = Query(GENES_DEFAULT_LIMIT, ge=1, le=GENES_MAX_LIMIT),
@@ -523,7 +526,7 @@ def get_scope_genes(
 @router.post("/{gene_id}/validate", response_model=GeneValidationResult)
 def validate_gene(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     gene_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneValidationResult:
@@ -568,13 +571,14 @@ def validate_gene(
         warnings=warnings,
         errors=errors,
         suggestions=suggestions,
+        external_data=None,
     )
 
 
 @router.get("/hgnc/{hgnc_id}", response_model=GeneNew)
 def get_gene_by_hgnc_id(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     hgnc_id: str,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneNew:
@@ -587,24 +591,38 @@ def get_gene_by_hgnc_id(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
-    return gene
+    return gene  # type: ignore[return-value]
 
 
 @router.get("/symbol/{symbol}", response_model=list[GeneNew])
 def get_genes_by_symbol(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     symbol: str,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[GeneNew]:
+) -> Sequence[GeneNew]:
     """
     Get genes by symbol (partial match).
     """
     # In a real implementation, this would do a more sophisticated search
+    from app.core.constants import DEFAULT_SORT_ORDER
+
     genes = gene_new_crud.search(
-        db, search_params=GeneSearchQuery(query=symbol, limit=DEFAULT_SEARCH_LIMIT)
+        db,
+        search_params=GeneSearchQuery(
+            query=symbol,
+            chromosome=None,
+            hgnc_id=None,
+            scope_id=None,
+            assigned_only=False,
+            has_active_work=None,
+            skip=0,
+            limit=DEFAULT_SEARCH_LIMIT,
+            sort_by="approved_symbol",
+            sort_order=DEFAULT_SORT_ORDER,
+        ),
     )
-    return genes
+    return genes  # type: ignore[return-value]
 
 
 # ========================================
@@ -615,7 +633,7 @@ def get_genes_by_symbol(
 @router.post("/merge", response_model=GeneMergeResponse)
 def merge_genes(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     merge_request: GeneMergeRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneMergeResponse:
@@ -639,7 +657,7 @@ def merge_genes(
     errors: list[str] = []
 
     return GeneMergeResponse(
-        merged_gene=primary_gene,
+        merged_gene=primary_gene,  # type: ignore[arg-type]
         duplicate_genes_processed=len(merge_request.duplicate_gene_ids),
         assignments_transferred=0,
         precurations_transferred=0,

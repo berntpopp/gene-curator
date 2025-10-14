@@ -35,7 +35,7 @@ router = APIRouter()
 
 
 @router.post("/login", response_model=Token)
-async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> Any:
+async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> dict[str, Any]:
     """
     OAuth2 compatible token login, get an access token for future requests.
     """
@@ -98,7 +98,7 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)) -> A
 
 
 @router.post("/refresh", response_model=Token)
-async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)) -> Any:
+async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db)) -> dict[str, Any]:
     """
     Refresh an access token using a refresh token.
     """
@@ -112,7 +112,7 @@ async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db))
     if user_id is None:
         raise credentials_exception
 
-    user = user_crud.get(db, user_id=user_id)
+    user = user_crud.get(db, id=user_id)
     if user is None or not user_crud.is_active(user):
         raise credentials_exception
 
@@ -135,7 +135,7 @@ async def refresh_token(token_data: TokenRefresh, db: Session = Depends(get_db))
 
 
 @router.get("/me", response_model=UserResponse)
-async def read_users_me(current_user: User = Depends(get_current_active_user)) -> Any:
+async def read_users_me(current_user: User = Depends(get_current_active_user)) -> User:
     """
     Get current user.
     """
@@ -147,20 +147,20 @@ async def change_password(
     password_data: PasswordChange,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Change current user's password.
     """
     # Verify current password
     if not user_crud.authenticate(
-        db, current_user.email, password_data.current_password
+        db, email=current_user.email, password=password_data.current_password
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password"
         )
 
     # Update password
-    user_crud.update_password(db, str(current_user.id), password_data.new_password)
+    user_crud.update_password(db=db, user_id=str(current_user.id), new_password=password_data.new_password)
 
     return {"message": "Password updated successfully"}
 
@@ -170,26 +170,26 @@ async def change_password_alt(
     password_data: PasswordChange,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Change current user's password (alternative endpoint).
     """
     # Verify current password
     if not user_crud.authenticate(
-        db, current_user.email, password_data.current_password
+        db, email=current_user.email, password=password_data.current_password
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="Incorrect current password"
         )
 
     # Update password
-    user_crud.update_password(db, str(current_user.id), password_data.new_password)
+    user_crud.update_password(db=db, user_id=str(current_user.id), new_password=password_data.new_password)
 
     return {"message": "Password updated successfully"}
 
 
 @router.post("/register", response_model=UserResponse)
-async def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> Any:
+async def register_user(user_data: UserCreate, db: Session = Depends(get_db)) -> User:
     """
     Register a new user (public endpoint for now - can be restricted later).
     """
@@ -201,12 +201,12 @@ async def register_user(user_data: UserCreate, db: Session = Depends(get_db)) ->
         )
 
     # Create new user
-    user = user_crud.create(db, user_create=user_data)
+    user = user_crud.create(db, obj_in=user_data)
     return user
 
 
 @router.post("/logout")
-async def logout(current_user: User = Depends(get_current_user)) -> Any:
+async def logout(current_user: User = Depends(get_current_user)) -> dict[str, str]:
     """
     Logout user (client should discard tokens).
     """
@@ -219,7 +219,7 @@ async def logout(current_user: User = Depends(get_current_user)) -> Any:
 
 
 @router.get("/")
-async def auth_info():
+async def auth_info() -> dict[str, Any]:
     """Authentication system information."""
     return {
         "message": "Gene Curator Authentication API",

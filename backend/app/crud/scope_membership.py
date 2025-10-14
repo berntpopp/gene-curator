@@ -8,6 +8,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
+from collections.abc import Sequence
 from datetime import datetime
 from uuid import UUID
 
@@ -427,7 +428,8 @@ class ScopeMembershipCRUD(
             count=len(results),
         )
 
-        return results
+        # Convert Row objects to tuples
+        return [(row[0], row[1]) for row in results]
 
     def get_user_role_in_scope(
         self,

@@ -3,6 +3,7 @@ Security utilities for authentication and authorization.
 """
 
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import HTTPException, status
 from jose import JWTError, jwt
@@ -16,15 +17,15 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bool(pwd_context.verify(plain_password, hashed_password))
 
 
 def get_password_hash(password: str) -> str:
     """Generate password hash."""
-    return pwd_context.hash(password)
+    return str(pwd_context.hash(password))
 
 
-def create_access_token(data: dict, expires_delta: timedelta | None = None) -> str:
+def create_access_token(data: dict[str, Any], expires_delta: timedelta | None = None) -> str:
     """
     Create a JWT access token.
 
@@ -48,10 +49,10 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None) -> s
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
-    return encoded_jwt
+    return str(encoded_jwt)
 
 
-def verify_token(token: str) -> dict | None:
+def verify_token(token: str) -> dict[str, Any] | None:
     """
     Verify and decode a JWT token.
 
@@ -65,12 +66,12 @@ def verify_token(token: str) -> dict | None:
         payload = jwt.decode(
             token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM]
         )
-        return payload
+        return dict(payload)
     except JWTError:
         return None
 
 
-def create_refresh_token(data: dict) -> str:
+def create_refresh_token(data: dict[str, Any]) -> str:
     """
     Create a JWT refresh token with longer expiration.
 
@@ -86,7 +87,7 @@ def create_refresh_token(data: dict) -> str:
     encoded_jwt = jwt.encode(
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
-    return encoded_jwt
+    return str(encoded_jwt)
 
 
 # Authentication exceptions
@@ -102,7 +103,7 @@ inactive_user_exception = HTTPException(
 )
 
 
-def verify_scopes(required_scopes: list, user_scopes: list) -> bool:
+def verify_scopes(required_scopes: list[str], user_scopes: list[str]) -> bool:
     """
     Verify that user has required scopes/permissions.
 

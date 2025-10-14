@@ -10,6 +10,8 @@ Tests the complete lifecycle of scopes including:
 - Scope statistics
 """
 
+from collections.abc import Sequence
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -71,6 +73,7 @@ def test_scope(db: Session, admin_user: UserNew) -> Scope:
         institution="Test Institution",
         is_public=False,
         scope_config={"test": "config"},
+        default_workflow_pair_id=None,
     )
     scope = scope_crud.create_scope(db, scope_data, admin_user.id)
     return scope
@@ -88,6 +91,7 @@ class TestScopeCRUD:
             institution="Test Institution",
             is_public=False,
             scope_config={"key": "value"},
+            default_workflow_pair_id=None,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -114,6 +118,10 @@ class TestScopeCRUD:
             name=test_scope.name,  # Duplicate name
             display_name="Another Display Name",
             description="Different description",
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
 
         with pytest.raises(IntegrityError):
@@ -129,6 +137,10 @@ class TestScopeCRUD:
                 name="Invalid Name With Spaces",  # Invalid: spaces not allowed
                 display_name="Invalid Scope",
                 description="Should fail",
+                institution=None,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
 
     def test_get_scope_by_id(self, db: Session, test_scope: Scope) -> None:
@@ -169,6 +181,10 @@ class TestScopeCRUD:
                 name=f"scope-{i}",
                 display_name=f"Scope {i}",
                 description=f"Test scope {i}",
+                institution=None,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
@@ -190,6 +206,10 @@ class TestScopeCRUD:
                 name=f"pagination-scope-{i}",
                 display_name=f"Pagination Scope {i}",
                 description=f"Test pagination {i}",
+                institution=None,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
@@ -215,11 +235,15 @@ class TestScopeCRUD:
             name="inactive-scope",
             display_name="Inactive Scope",
             description="Should be inactive",
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
         inactive_scope = scope_crud.create_scope(db, inactive_scope_data, admin_user.id)
 
         # Deactivate it
-        update_data = ScopeUpdate(is_active=False)
+        update_data = ScopeUpdate(is_active=False)  # type: ignore[call-arg]
         scope_crud.update_scope(db, inactive_scope.id, update_data)
 
         # Get only active scopes
@@ -241,10 +265,13 @@ class TestScopeCRUD:
             institution="Updated Institution",
             is_public=True,
             scope_config={"updated": "config"},
+            is_active=None,
+            default_workflow_pair_id=None,
         )
 
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
+        assert updated_scope is not None
         assert updated_scope.id == test_scope.id
         assert updated_scope.name == test_scope.name  # Name should not change
         assert updated_scope.display_name == "Updated Display Name"
@@ -259,10 +286,13 @@ class TestScopeCRUD:
         original_description = test_scope.description
         original_institution = test_scope.institution
 
-        update_data = ScopeUpdate(display_name="Partially Updated Name")
+        # For partial updates, construct dict and use **kwargs to avoid setting None values
+        update_dict: dict[str, Any] = {"display_name": "Partially Updated Name"}
+        update_data = ScopeUpdate(**update_dict)
 
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
+        assert updated_scope is not None
         assert updated_scope.display_name == "Partially Updated Name"
         assert updated_scope.description == original_description  # Unchanged
         assert updated_scope.institution == original_institution  # Unchanged
@@ -270,7 +300,7 @@ class TestScopeCRUD:
     def test_update_scope_not_found(self, db: Session) -> None:
         """Test updating a non-existent scope returns None."""
         fake_id = uuid4()
-        update_data = ScopeUpdate(display_name="Should Fail")
+        update_data = ScopeUpdate(display_name="Should Fail")  # type: ignore[call-arg]
 
         updated_scope = scope_crud.update_scope(db, fake_id, update_data)
 
@@ -279,14 +309,13 @@ class TestScopeCRUD:
     def test_update_scope_name_not_allowed(self, db: Session, test_scope: Scope) -> None:
         """Test that scope name cannot be changed via update."""
         # Attempt to update name (should be ignored by ScopeUpdate schema)
-        update_data = ScopeUpdate(
-            display_name="Updated",
-            # name cannot be in ScopeUpdate
-        )
+        # name cannot be in ScopeUpdate
+        update_data = ScopeUpdate(display_name="Updated")  # type: ignore[call-arg]
 
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
         # Name should remain unchanged
+        assert updated_scope is not None
         assert updated_scope.name == test_scope.name
 
     def test_delete_scope_soft_delete(self, db: Session, test_scope: Scope) -> None:
@@ -308,6 +337,10 @@ class TestScopeCRUD:
             name="to-be-deleted",
             display_name="To Be Deleted",
             description="This scope will be deleted",
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
         scope_id = scope.id
@@ -335,7 +368,7 @@ class TestScopeCRUD:
         """Test retrieving scope statistics."""
         # This tests that the function exists and returns data
         # Actual statistics calculations would require more setup (genes, curations, etc.)
-        stats = scope_crud.get_scope_statistics(db, test_scope.id)
+        stats: dict[str, Any] = scope_crud.get_scope_statistics(db, test_scope.id)
 
         assert stats is not None
         assert "total_genes_assigned" in stats
@@ -385,6 +418,10 @@ class TestScopeCRUD:
                 name=name,
                 display_name=f"Display {name}",
                 description="Test",
+                institution=None,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
             scope = scope_crud.create_scope(db, scope_data, admin_user.id)
             assert scope.name == name
@@ -395,6 +432,10 @@ class TestScopeCRUD:
                 name=input_name,
                 display_name=f"Display {input_name}",
                 description="Test",
+                institution=None,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
             scope = scope_crud.create_scope(db, scope_data, admin_user.id)
             assert scope.name == expected_name
@@ -405,12 +446,18 @@ class TestScopeCRUD:
         for name in invalid_names:
             with pytest.raises(ValidationError):
                 ScopeCreate(
-                    name=name, display_name=f"Display {name}", description="Test"
+                    name=name,
+                    display_name=f"Display {name}",
+                    description="Test",
+                    institution=None,
+                    is_public=False,
+                    scope_config={},
+                    default_workflow_pair_id=None,
                 )
 
     def test_scope_config_jsonb_storage(self, db: Session, admin_user: UserNew) -> None:
         """Test that scope_config JSONB field stores and retrieves correctly."""
-        complex_config = {
+        complex_config: dict[str, Any] = {
             "primary_inheritance_modes": ["Autosomal Recessive", "X-linked"],
             "focus_areas": ["Area 1", "Area 2"],
             "nested": {"key1": "value1", "key2": [1, 2, 3]},
@@ -420,7 +467,10 @@ class TestScopeCRUD:
             name="config-test-scope",
             display_name="Config Test Scope",
             description="Testing JSONB config",
+            institution=None,
+            is_public=False,
             scope_config=complex_config,
+            default_workflow_pair_id=None,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -431,6 +481,7 @@ class TestScopeCRUD:
 
         # Verify retrieval
         retrieved_scope = scope_crud.get_scope(db, scope.id)
+        assert retrieved_scope is not None
         assert retrieved_scope.scope_config == complex_config
 
     def test_scope_created_by_tracking(self, db: Session, admin_user: UserNew) -> None:
@@ -439,6 +490,10 @@ class TestScopeCRUD:
             name="creator-test",
             display_name="Creator Test",
             description="Test creator tracking",
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -463,11 +518,14 @@ class TestScopeCRUD:
                 display_name=f"Institution Scope {i}",
                 description=f"Scope {i}",
                 institution=institution,
+                is_public=False,
+                scope_config={},
+                default_workflow_pair_id=None,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
         # Get scopes by institution
-        inst_a_scopes = scope_crud.get_scopes_by_institution(db, "Institution A")
+        inst_a_scopes: Sequence[Scope] = scope_crud.get_scopes_by_institution(db, "Institution A")
 
         assert len(inst_a_scopes) >= 2  # At least the 2 we created
         for scope in inst_a_scopes:
@@ -505,12 +563,17 @@ class TestScopeEdgeCases:
             name="unicode-scope",
             display_name="Génétique Rénale 腎臓遺伝学",
             description="Testing unicode: Café, Zürich, 日本語, Ελληνικά",
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
 
         assert "Génétique" in scope.display_name
         assert "腎臓遺伝学" in scope.display_name
+        assert scope.description is not None
         assert "日本語" in scope.description
 
     def test_scope_with_very_long_description(self, db: Session, admin_user: UserNew) -> None:
@@ -521,10 +584,15 @@ class TestScopeEdgeCases:
             name="long-desc-scope",
             display_name="Long Description Scope",
             description=long_description,
+            institution=None,
+            is_public=False,
+            scope_config={},
+            default_workflow_pair_id=None,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
 
+        assert scope.description is not None
         assert len(scope.description) == 10000
         assert scope.description == long_description
 
@@ -537,21 +605,23 @@ class TestScopeEdgeCases:
 
         time.sleep(0.1)
 
-        update_data = ScopeUpdate(display_name="Updated Name")
+        update_data = ScopeUpdate(display_name="Updated Name")  # type: ignore[call-arg]
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
+        assert updated_scope is not None
         assert updated_scope.updated_at >= original_updated_at
 
     def test_concurrent_scope_updates(self, db: Session, test_scope: Scope) -> None:
         """Test that concurrent updates don't cause data corruption."""
         # This is a basic test - full concurrency testing would require more setup
-        update_data_1 = ScopeUpdate(display_name="Update 1")
-        update_data_2 = ScopeUpdate(description="Update 2 description")
+        update_data_1 = ScopeUpdate(display_name="Update 1")  # type: ignore[call-arg]
+        update_data_2 = ScopeUpdate(description="Update 2 description")  # type: ignore[call-arg]
 
         # Perform updates sequentially
         scope_crud.update_scope(db, test_scope.id, update_data_1)
         scope_2 = scope_crud.update_scope(db, test_scope.id, update_data_2)
 
         # Verify both updates were applied
+        assert scope_2 is not None
         assert scope_2.display_name == "Update 1"
         assert scope_2.description == "Update 2 description"

@@ -153,7 +153,7 @@ class ClinGenEngine(ScoringEngine):
         return min(total_experimental, 6.0)
 
     def _determine_verdict(
-        self, total_score: float, contradictory_evidence: list[dict]
+        self, total_score: float, contradictory_evidence: list[dict[str, Any]]
     ) -> str:
         """Determine ClinGen verdict based on total score and contradictory evidence."""
 
@@ -205,8 +205,8 @@ class ClinGenEngine(ScoringEngine):
 
     def _create_breakdown(
         self,
-        genetic_evidence: dict,
-        experimental_evidence: dict,
+        genetic_evidence: dict[str, Any],
+        experimental_evidence: dict[str, Any],
         genetic_score: float,
         experimental_score: float,
     ) -> dict[str, Any]:

@@ -18,7 +18,7 @@ import json
 import traceback
 from collections.abc import Callable
 from datetime import datetime, timezone
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import Request
 from sqlalchemy import text
@@ -29,7 +29,7 @@ from .sanitizer import sanitize_dict
 from .utils import extract_client_ip
 
 # Global database logger instance
-_db_logger: Optional["DatabaseLogger"] = None
+_db_logger: "DatabaseLogger | None" = None
 
 
 class DatabaseLogger:
@@ -55,7 +55,7 @@ class DatabaseLogger:
         """
         self.session_factory = session_factory
         self.enabled = True
-        self._pending_tasks: set[asyncio.Task] = set()  # FIX #2: Store task references
+        self._pending_tasks: set[asyncio.Task[None]] = set()  # FIX #2: Store task references
 
     async def log(
         self,
@@ -161,10 +161,10 @@ class DatabaseLogger:
                 if error:
                     if hasattr(error, "__traceback__"):
                         error_type = type(error).__name__
-                        error_traceback = traceback.format_exception(
+                        error_traceback_list = traceback.format_exception(
                             type(error), error, error.__traceback__
                         )
-                        error_traceback = "".join(error_traceback)
+                        error_traceback = "".join(error_traceback_list)
                     else:
                         error_type = "Error"
                         error_traceback = str(error)

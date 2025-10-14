@@ -2,12 +2,14 @@
 User management API endpoints for admin users.
 """
 
+from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
-from app.core.deps import get_current_admin_user, get_db
+from app.core.database import get_db
+from app.core.deps import get_current_admin_user
 from app.crud.user import user_crud
 from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
@@ -23,7 +25,7 @@ async def get_users(
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> Sequence[User]:
     """
     Get all users (admin only).
     """
@@ -40,7 +42,7 @@ async def search_users(
     ),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> Sequence[User]:
     """
     Search users by name or email (admin only).
     """
@@ -51,7 +53,7 @@ async def search_users(
 @router.get("/statistics")
 async def get_user_statistics(
     db: Session = Depends(get_db), current_user: User = Depends(get_current_admin_user)
-) -> Any:
+) -> dict[str, Any]:
     """
     Get user statistics (admin only).
     """
@@ -64,7 +66,7 @@ async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> User:
     """
     Get a specific user by ID (admin only).
     """
@@ -81,7 +83,7 @@ async def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> User:
     """
     Create a new user (admin only).
     """
@@ -93,7 +95,7 @@ async def create_user(
             detail="A user with this email already exists",
         )
 
-    user = user_crud.create(db=db, user_create=user_data)
+    user = user_crud.create(db=db, obj_in=user_data)
     return user
 
 
@@ -103,7 +105,7 @@ async def update_user(
     user_data: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> User:
     """
     Update a user (admin only).
     """
@@ -122,7 +124,11 @@ async def update_user(
                 detail="A user with this email already exists",
             )
 
-    updated_user = user_crud.update(db=db, user_id=user_id, user_update=user_data)
+    updated_user = user_crud.update_user(db=db, user_id=user_id, user_update=user_data)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+        )
     return updated_user
 
 
@@ -132,7 +138,7 @@ async def update_user_password(
     new_password: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Update a user's password (admin only).
     """
@@ -151,7 +157,7 @@ async def activate_user(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Activate a user account (admin only).
     """
@@ -161,7 +167,7 @@ async def activate_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user_crud.update(db=db, user_id=user_id, user_update=UserUpdate(is_active=True))
+    user_crud.update_user(db=db, user_id=user_id, user_update=UserUpdate(is_active=True))
     return {"message": "User activated successfully"}
 
 
@@ -170,7 +176,7 @@ async def deactivate_user(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Deactivate a user account (admin only).
     """
@@ -187,7 +193,7 @@ async def deactivate_user(
             detail="You cannot deactivate your own account",
         )
 
-    user_crud.update(db=db, user_id=user_id, user_update=UserUpdate(is_active=False))
+    user_crud.update_user(db=db, user_id=user_id, user_update=UserUpdate(is_active=False))
     return {"message": "User deactivated successfully"}
 
 
@@ -196,7 +202,7 @@ async def delete_user(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> dict[str, str]:
     """
     Delete a user (admin only).
     """
@@ -213,7 +219,7 @@ async def delete_user(
             detail="You cannot delete your own account",
         )
 
-    user_crud.delete(db=db, user_id=user_id)
+    user_crud.remove(db=db, id=user_id)
     return {"message": "User deleted successfully"}
 
 
@@ -222,7 +228,7 @@ async def get_user_activity(
     user_id: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
-) -> Any:
+) -> dict[str, Any]:
     """
     Get user activity summary (admin only).
     """

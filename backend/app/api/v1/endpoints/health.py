@@ -3,6 +3,7 @@ Health check endpoints.
 """
 
 import time
+from typing import Any
 
 from fastapi import APIRouter, Depends
 from sqlalchemy import text
@@ -15,7 +16,7 @@ router = APIRouter()
 
 
 @router.get("/")
-async def health_check():
+async def health_check() -> dict[str, Any]:
     """Basic health check endpoint."""
     return {
         "status": "healthy",
@@ -26,11 +27,12 @@ async def health_check():
 
 
 @router.get("/detailed")
-async def detailed_health_check(db: Session = Depends(get_db)):
+async def detailed_health_check(db: Session = Depends(get_db)) -> dict[str, Any]:
     """Detailed health check including database connectivity."""
     start_time = time.time()
 
     # Test database connection
+    db_response_time: float | None
     try:
         db.execute(text("SELECT 1"))
         db_status = "healthy"
@@ -49,9 +51,13 @@ async def detailed_health_check(db: Session = Depends(get_db)):
         """
             )
         )
-        clingen_test = result.fetchone()[0] == 0.0
-        if not clingen_test:
-            clingen_status = "unhealthy: scoring function error"
+        row = result.fetchone()
+        if row is not None:
+            clingen_test = row[0] == 0.0
+            if not clingen_test:
+                clingen_status = "unhealthy: scoring function error"
+        else:
+            clingen_status = "unhealthy: no result from scoring function"
     except Exception as e:
         clingen_status = f"unhealthy: {e!s}"
 

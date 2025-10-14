@@ -2,6 +2,7 @@
 Base CRUD class for common database operations.
 """
 
+from collections.abc import Sequence
 from typing import Any, Generic, TypeVar
 
 from fastapi.encoders import jsonable_encoder
@@ -30,12 +31,11 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     def get(self, db: Session, id: Any) -> ModelType | None:
         """Get a single record by id."""
-        stmt = select(self.model).where(self.model.id == id)
-        return db.execute(stmt).scalars().first()
+        return db.get(self.model, id)
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100
-    ) -> list[ModelType]:
+    ) -> Sequence[ModelType]:
         """Get multiple records with pagination."""
         stmt = select(self.model).offset(skip).limit(limit)
         return db.execute(stmt).scalars().all()
@@ -43,7 +43,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     def create(self, db: Session, *, obj_in: CreateSchemaType) -> ModelType:
         """Create a new record."""
         obj_in_data = jsonable_encoder(obj_in)
-        db_obj = self.model(**obj_in_data)  # type: ignore
+        db_obj = self.model(**obj_in_data)
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -73,6 +73,8 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
     def remove(self, db: Session, *, id: Any) -> ModelType:
         """Delete a record by id."""
         obj = db.get(self.model, id)
+        if obj is None:
+            raise ValueError(f"Record with id {id} not found")
         db.delete(obj)
         db.commit()
         return obj

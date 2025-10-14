@@ -14,6 +14,8 @@ Key Features:
 - Uses non-superuser role for RLS testing (bypasses RLS bypass privilege)
 """
 
+from typing import Generator
+
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
@@ -22,7 +24,7 @@ from app.core.config import settings
 
 
 @pytest.fixture(scope="function")
-def db() -> Session:
+def db() -> Generator[Session, None, None]:
     """
     Provide a database session with proper nested transaction support.
 
@@ -72,9 +74,9 @@ def db() -> Session:
     # commit the savepoint, not the outer transaction. This keeps SET LOCAL
     # variables alive.
     @event.listens_for(session, "after_transaction_end")
-    def restart_savepoint(session, transaction) -> None:  # type: ignore[no-untyped-def]
+    def restart_savepoint(session: Session, transaction: object) -> None:
         """Automatically restart savepoint after each commit."""
-        if transaction.nested and not transaction._parent.nested:
+        if transaction.nested and not transaction._parent.nested:  # type: ignore[attr-defined]
             # We're ending a savepoint - start a new one
             session.expire_all()
             connection.begin_nested()

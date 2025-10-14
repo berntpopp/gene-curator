@@ -32,7 +32,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from pydantic import BaseModel, Field, field_validator
 
 from app.core.constants import (
@@ -495,7 +495,7 @@ def load_api_config(config_file: str | None = None) -> APIConfig:
         logger.error(
             "Failed to load API configuration, using defaults",
             config_path=str(config_path),
-            error=str(e),
+            error=e,
         )
         return APIConfig()
 

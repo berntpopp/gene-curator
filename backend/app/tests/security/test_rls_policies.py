@@ -12,10 +12,12 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from uuid import uuid4
+from typing import Any
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select, text
+from sqlalchemy.orm import Session
 
 from app.core.deps import set_rls_context
 from app.core.enums import ScopeRole
@@ -30,12 +32,12 @@ class TestRLSPolicies:
     """Test suite for PostgreSQL Row-Level Security policies."""
 
     @pytest.fixture
-    def test_run_id(self) -> None:
+    def test_run_id(self) -> str:
         """Generate a unique ID for this test run to ensure unique emails."""
         return str(uuid4())[:8]
 
     @pytest.fixture
-    def admin_user(self, db, test_run_id):
+    def admin_user(self, db: Session, test_run_id: str) -> UserNew:
         """Create an application admin user with unique email."""
         user = UserNew(
             id=uuid4(),
@@ -50,7 +52,7 @@ class TestRLSPolicies:
         return user
 
     @pytest.fixture
-    def user1(self, db, test_run_id):
+    def user1(self, db: Session, test_run_id: str) -> UserNew:
         """Create first regular user with unique email."""
         user = UserNew(
             id=uuid4(),
@@ -65,7 +67,7 @@ class TestRLSPolicies:
         return user
 
     @pytest.fixture
-    def user2(self, db, test_run_id):
+    def user2(self, db: Session, test_run_id: str) -> UserNew:
         """Create second regular user with unique email."""
         user = UserNew(
             id=uuid4(),
@@ -80,7 +82,7 @@ class TestRLSPolicies:
         return user
 
     @pytest.fixture
-    def scope1(self, db, user1, test_run_id):
+    def scope1(self, db: Session, user1: UserNew, test_run_id: str) -> Scope:
         """Create scope owned by user1 with unique name."""
         set_rls_context(db, user1)
         scope_data = ScopeCreate(
@@ -88,14 +90,18 @@ class TestRLSPolicies:
             display_name=f"Scope 1 RLS Test {test_run_id}",
             description="Test scope for RLS",
             institution="Test Inst",
+            is_public=False,
+            default_workflow_pair_id=None,
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user1.id)
 
         # Create membership
         membership_data = ScopeMembershipCreate(
             user_id=user1.id,
+            email=None,
             role=ScopeRole.ADMIN,
             notes="Owner",
+            team_id=None,
         )
         scope_membership_crud.create_invitation(
             db, scope_id=scope.id, invited_by_id=user1.id, obj_in=membership_data
@@ -104,7 +110,7 @@ class TestRLSPolicies:
         return scope
 
     @pytest.fixture
-    def scope2(self, db, user2, test_run_id):
+    def scope2(self, db: Session, user2: UserNew, test_run_id: str) -> Scope:
         """Create scope owned by user2 with unique name."""
         set_rls_context(db, user2)
         scope_data = ScopeCreate(
@@ -112,14 +118,18 @@ class TestRLSPolicies:
             display_name=f"Scope 2 RLS Test {test_run_id}",
             description="Test scope for RLS isolation",
             institution="Test Inst",
+            is_public=False,
+            default_workflow_pair_id=None,
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user2.id)
 
         # Create membership
         membership_data = ScopeMembershipCreate(
             user_id=user2.id,
+            email=None,
             role=ScopeRole.ADMIN,
             notes="Owner",
+            team_id=None,
         )
         scope_membership_crud.create_invitation(
             db, scope_id=scope.id, invited_by_id=user2.id, obj_in=membership_data
@@ -127,7 +137,7 @@ class TestRLSPolicies:
 
         return scope
 
-    def test_rls_context_setting(self, db, user1) -> None:
+    def test_rls_context_setting(self, db: Session, user1: UserNew) -> None:
         """Test that RLS context can be set correctly."""
         set_rls_context(db, user1)
 
@@ -137,7 +147,7 @@ class TestRLSPolicies:
 
         assert context_user_id == str(user1.id)
 
-    def test_user_can_see_own_scope(self, db, user1, scope1) -> None:
+    def test_user_can_see_own_scope(self, db: Session, user1: UserNew, scope1: Scope) -> None:
         """Test that a user can see scopes they're a member of."""
         set_rls_context(db, user1)
 
@@ -147,7 +157,9 @@ class TestRLSPolicies:
         assert len(scopes) == 1
         assert scopes[0].id == scope1.id
 
-    def test_user_cannot_see_other_user_scope(self, db, user1, user2, scope2) -> None:
+    def test_user_cannot_see_other_user_scope(
+        self, db: Session, user1: UserNew, user2: UserNew, scope2: Scope
+    ) -> None:
         """Test that a user CANNOT see scopes they're NOT a member of."""
         set_rls_context(db, user1)
 
@@ -157,7 +169,9 @@ class TestRLSPolicies:
         # Should return empty list (RLS prevents access)
         assert len(scopes) == 0
 
-    def test_tenant_isolation_multiple_scopes(self, db, user1, user2, scope1, scope2) -> None:
+    def test_tenant_isolation_multiple_scopes(
+        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope, scope2: Scope
+    ) -> None:
         """Test complete tenant isolation between users."""
         # User1 should only see their scope
         set_rls_context(db, user1)
@@ -175,7 +189,9 @@ class TestRLSPolicies:
         assert scope2.id in user2_scope_ids
         assert scope1.id not in user2_scope_ids
 
-    def test_admin_can_bypass_rls(self, db, admin_user, scope1, scope2) -> None:
+    def test_admin_can_bypass_rls(
+        self, db: Session, admin_user: UserNew, scope1: Scope, scope2: Scope
+    ) -> None:
         """Test that application admins can see all scopes."""
         # Note: This test depends on the is_application_admin() RLS function
         # returning true for users with admin role
@@ -189,7 +205,9 @@ class TestRLSPolicies:
         assert scope1.id in scope_ids
         assert scope2.id in scope_ids
 
-    def test_rls_prevents_direct_membership_access(self, db, user1, user2, scope2) -> None:
+    def test_rls_prevents_direct_membership_access(
+        self, db: Session, user1: UserNew, user2: UserNew, scope2: Scope
+    ) -> None:
         """Test that users can't access membership records of scopes they're not in."""
         set_rls_context(db, user1)
 
@@ -205,7 +223,9 @@ class TestRLSPolicies:
         # Should return empty list (RLS prevents access)
         assert len(memberships) == 0
 
-    def test_user_can_access_own_memberships(self, db, user1, scope1) -> None:
+    def test_user_can_access_own_memberships(
+        self, db: Session, user1: UserNew, scope1: Scope
+    ) -> None:
         """Test that users can see their own scope memberships."""
         set_rls_context(db, user1)
 
@@ -224,7 +244,9 @@ class TestRLSPolicies:
         assert len(memberships) == 1
         assert memberships[0].user_id == user1.id
 
-    def test_public_scope_visibility(self, db, user1, user2, test_run_id) -> None:
+    def test_public_scope_visibility(
+        self, db: Session, user1: UserNew, user2: UserNew, test_run_id: str
+    ) -> None:
         """Test that public scopes are visible to all users."""
         # Create a public scope
         set_rls_context(db, user1)
@@ -233,6 +255,8 @@ class TestRLSPolicies:
             display_name=f"Public Scope RLS Test {test_run_id}",
             description="Public test scope",
             institution="Test Inst",
+            is_public=False,
+            default_workflow_pair_id=None,
         )
         public_scope = scope_crud.create_with_owner(
             db, obj_in=public_scope_data, owner_id=user1.id
@@ -254,7 +278,9 @@ class TestRLSPolicies:
         assert len(visible_scopes) == 1
         assert visible_scopes[0].id == public_scope.id
 
-    def test_select_for_share_prevents_toctou(self, db, user1, scope1) -> None:
+    def test_select_for_share_prevents_toctou(
+        self, db: Session, user1: UserNew, scope1: Scope
+    ) -> None:
         """Test that SELECT FOR SHARE prevents Time-Of-Check-Time-Of-Use races."""
         set_rls_context(db, user1)
 
@@ -275,14 +301,18 @@ class TestRLSPolicies:
         # The lock should prevent concurrent modifications
         # (this is tested more thoroughly in concurrency tests)
 
-    def test_rls_enforcement_after_membership_removal(self, db, user1, user2, scope1) -> None:
+    def test_rls_enforcement_after_membership_removal(
+        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope
+    ) -> None:
         """Test that RLS is enforced after membership is removed."""
         # Add user2 to scope1
         set_rls_context(db, user1)
         membership_data = ScopeMembershipCreate(
             user_id=user2.id,
+            email=None,
             role=ScopeRole.VIEWER,
             notes="Temporary member",
+            team_id=None,
         )
         membership = scope_membership_crud.create_invitation(
             db, scope_id=scope1.id, invited_by_id=user1.id, obj_in=membership_data
@@ -308,7 +338,9 @@ class TestRLSPolicies:
         ).scalars().all()
         assert len(visible_scopes) == 0
 
-    def test_rls_with_pending_invitations(self, db, user1, user2, scope1) -> None:
+    def test_rls_with_pending_invitations(
+        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope
+    ) -> None:
         """Test that pending invitations don't grant scope access."""
         # Create pending invitation for user2
         set_rls_context(db, user1)
@@ -332,7 +364,9 @@ class TestRLSPolicies:
         ).scalars().all()
         assert len(visible_scopes) == 0
 
-    def test_rls_function_is_scope_member(self, db, user1, user2, scope1) -> None:
+    def test_rls_function_is_scope_member(
+        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope
+    ) -> None:
         """Test the is_scope_member() PostgreSQL function."""
         set_rls_context(db, user1)
 
@@ -353,7 +387,9 @@ class TestRLSPolicies:
         is_member = result.scalar()
         assert is_member is False
 
-    def test_rls_function_is_application_admin(self, db, admin_user, user1) -> None:
+    def test_rls_function_is_application_admin(
+        self, db: Session, admin_user: UserNew, user1: UserNew
+    ) -> None:
         """Test the is_application_admin() PostgreSQL function."""
         # Admin user should return true
         set_rls_context(db, admin_user)
@@ -367,7 +403,7 @@ class TestRLSPolicies:
         is_admin = result.scalar()
         assert is_admin is False or is_admin is None
 
-    def test_force_rls_prevents_superuser_bypass(self, db) -> None:
+    def test_force_rls_prevents_superuser_bypass(self, db: Session) -> None:
         """
         Test that FORCE ROW LEVEL SECURITY prevents even database owner from bypassing.
 
@@ -384,7 +420,9 @@ class TestRLSPolicies:
             # Some configurations may raise an error
             pass
 
-    def test_rls_context_isolation_between_requests(self, db, user1, user2, scope1) -> None:
+    def test_rls_context_isolation_between_requests(
+        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope
+    ) -> None:
         """Test that RLS context is properly isolated between different users."""
         # Set context for user1
         set_rls_context(db, user1)
@@ -403,7 +441,9 @@ class TestRLSPolicies:
         # Context should be completely isolated
         # (no leakage between requests)
 
-    def test_rls_performance_with_composite_index(self, db, user1, scope1) -> None:
+    def test_rls_performance_with_composite_index(
+        self, db: Session, user1: UserNew, scope1: Scope
+    ) -> None:
         """Test that composite index (idx_scope_memberships_user_scope_active) is used."""
         set_rls_context(db, user1)
 
