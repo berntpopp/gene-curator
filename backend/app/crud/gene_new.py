@@ -7,7 +7,7 @@ import json
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, text
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.logging import batch_operation, database_query, timed_operation
@@ -42,15 +42,13 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
     @database_query(query_type="SELECT")
     def get_by_hgnc_id(self, db: Session, *, hgnc_id: str) -> GeneNew | None:
         """Get gene by HGNC ID."""
-        return db.query(GeneNew).filter(GeneNew.hgnc_id == hgnc_id).first()
+        return db.execute(select(GeneNew).where(GeneNew.hgnc_id == hgnc_id)).scalars().first()
 
     def get_by_symbol(self, db: Session, *, symbol: str) -> GeneNew | None:
         """Get gene by approved symbol."""
-        return (
-            db.query(GeneNew)
-            .filter(GeneNew.approved_symbol.ilike(f"%{symbol}%"))
-            .first()
-        )
+        return db.execute(
+            select(GeneNew).where(GeneNew.approved_symbol.ilike(f"%{symbol}%"))
+        ).scalars().first()
 
     @database_query(query_type="SELECT")
     def get_multi(
@@ -63,27 +61,27 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         sort_order: str = "asc",
     ) -> list[GeneNew]:
         """Get multiple genes with pagination and sorting."""
-        query = db.query(GeneNew)
+        stmt = select(GeneNew)
 
         # Apply sorting
         if hasattr(GeneNew, sort_by):
             order_column = getattr(GeneNew, sort_by)
             if sort_order.lower() == "desc":
-                query = query.order_by(order_column.desc())
+                stmt = stmt.order_by(order_column.desc())
             else:
-                query = query.order_by(order_column.asc())
+                stmt = stmt.order_by(order_column.asc())
 
-        return query.offset(skip).limit(limit).all()
+        return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     @timed_operation("gene_search", warning_threshold_ms=500)
     def search(self, db: Session, *, search_params: GeneSearchQuery) -> list[GeneNew]:
         """Advanced gene search with multiple filters."""
-        query = db.query(GeneNew)
+        stmt = select(GeneNew)
 
         # Text search across multiple fields
         if search_params.query:
             search_term = f"%{search_params.query}%"
-            query = query.filter(
+            stmt = stmt.where(
                 or_(
                     GeneNew.approved_symbol.ilike(search_term),
                     GeneNew.hgnc_id.ilike(search_term),
@@ -95,21 +93,21 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
 
         # Filter by chromosome
         if search_params.chromosome:
-            query = query.filter(GeneNew.chromosome == search_params.chromosome)
+            stmt = stmt.where(GeneNew.chromosome == search_params.chromosome)
 
         # Filter by HGNC ID
         if search_params.hgnc_id:
-            query = query.filter(GeneNew.hgnc_id == search_params.hgnc_id)
+            stmt = stmt.where(GeneNew.hgnc_id == search_params.hgnc_id)
 
         # Apply sorting
         if hasattr(GeneNew, search_params.sort_by):
             order_column = getattr(GeneNew, search_params.sort_by)
             if search_params.sort_order.lower() == "desc":
-                query = query.order_by(order_column.desc())
+                stmt = stmt.order_by(order_column.desc())
             else:
-                query = query.order_by(order_column.asc())
+                stmt = stmt.order_by(order_column.asc())
 
-        return query.offset(search_params.skip).limit(search_params.limit).all()
+        return db.execute(stmt.offset(search_params.skip).limit(search_params.limit)).scalars().all()
 
     @database_query(query_type="INSERT")
     def create_with_owner(
@@ -122,10 +120,10 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             raise ValueError(f"Gene with HGNC ID {obj_in.hgnc_id} already exists")
 
         # Prepare gene data
-        gene_data = obj_in.dict()
+        gene_data = obj_in.model_dump()
         record_hash = self.generate_record_hash(gene_data, owner_id)
 
-        obj_in_data = obj_in.dict()
+        obj_in_data = obj_in.model_dump()
         obj_in_data.update(
             {
                 "record_hash": record_hash,
@@ -148,7 +146,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         previous_hash = db_obj.record_hash
 
         # Update fields
-        update_data = obj_in.dict(exclude_unset=True)
+        update_data = obj_in.model_dump(exclude_unset=True)
 
         # Check for HGNC ID conflicts if being updated
         if "hgnc_id" in update_data and update_data["hgnc_id"] != db_obj.hgnc_id:
@@ -248,7 +246,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         """Get genes available or assigned to a specific scope."""
         if assigned_only:
             # Get only genes assigned to this scope
-            query = db.query(GeneNew).join(
+            stmt = select(GeneNew).join(
                 GeneScopeAssignment,
                 and_(
                     GeneScopeAssignment.gene_id == GeneNew.id,
@@ -258,15 +256,15 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             )
         else:
             # Get all genes (could be filtered by scope preferences in the future)
-            query = db.query(GeneNew)
+            stmt = select(GeneNew)
 
-        return query.offset(skip).limit(limit).all()
+        return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     def get_gene_assignment_status(
         self, db: Session, *, gene_id: UUID, scope_id: UUID | None = None
     ) -> dict[str, Any]:
         """Get assignment status for a gene across scopes."""
-        query = db.query(GeneScopeAssignment).filter(
+        stmt = select(GeneScopeAssignment).where(
             and_(
                 GeneScopeAssignment.gene_id == gene_id,
                 GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
@@ -274,9 +272,9 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         )
 
         if scope_id:
-            query = query.filter(GeneScopeAssignment.scope_id == scope_id)
+            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
 
-        assignments = query.all()
+        assignments = db.execute(stmt).scalars().all()
 
         # Group by scope
         scope_assignments = {}
@@ -300,19 +298,19 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         self, db: Session, *, gene_id: UUID, scope_id: UUID | None = None
     ) -> dict[str, Any]:
         """Get curation progress for a gene."""
-        precuration_query = db.query(PrecurationNew).filter(
+        precuration_stmt = select(PrecurationNew).where(
             PrecurationNew.gene_id == gene_id
         )
-        curation_query = db.query(CurationNew).filter(CurationNew.gene_id == gene_id)
+        curation_stmt = select(CurationNew).where(CurationNew.gene_id == gene_id)
 
         if scope_id:
-            precuration_query = precuration_query.filter(
+            precuration_stmt = precuration_stmt.where(
                 PrecurationNew.scope_id == scope_id
             )
-            curation_query = curation_query.filter(CurationNew.scope_id == scope_id)
+            curation_stmt = curation_stmt.where(CurationNew.scope_id == scope_id)
 
-        precurations = precuration_query.all()
-        curations = curation_query.all()
+        precurations = db.execute(precuration_stmt).scalars().all()
+        curations = db.execute(curation_stmt).scalars().all()
 
         # Count by status
         precuration_status_counts = {}
@@ -352,11 +350,11 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         """Get gene database statistics."""
         from datetime import datetime, timedelta
 
-        base_query = db.query(GeneNew)
+        base_stmt = select(GeneNew)
 
         # If scope specified, filter to genes assigned to that scope
         if scope_id:
-            base_query = base_query.join(
+            base_stmt = base_stmt.join(
                 GeneScopeAssignment,
                 and_(
                     GeneScopeAssignment.gene_id == GeneNew.id,
@@ -366,37 +364,46 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             )
 
         # Total genes
-        total_genes = base_query.count()
+        total_genes = db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar()
 
         # Recent additions (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_additions = base_query.filter(
-            GeneNew.created_at >= thirty_days_ago
-        ).count()
+        recent_additions = db.execute(
+            select(func.count()).select_from(
+                base_stmt.where(GeneNew.created_at >= thirty_days_ago).subquery()
+            )
+        ).scalar()
 
         # Updated last week
         week_ago = datetime.utcnow() - timedelta(days=7)
-        updated_last_week = base_query.filter(GeneNew.updated_at >= week_ago).count()
+        updated_last_week = db.execute(
+            select(func.count()).select_from(
+                base_stmt.where(GeneNew.updated_at >= week_ago).subquery()
+            )
+        ).scalar()
 
         # Genes with detailed information
-        genes_with_details = base_query.filter(
-            GeneNew.details.isnot(None), func.jsonb_typeof(GeneNew.details) == "object"
-        ).count()
+        genes_with_details = db.execute(
+            select(func.count()).select_from(
+                base_stmt.where(
+                    GeneNew.details.isnot(None),
+                    func.jsonb_typeof(GeneNew.details) == "object"
+                ).subquery()
+            )
+        ).scalar()
 
         # Assignment statistics (if scope not specified)
         assignment_stats = {}
         if not scope_id:
-            total_assignments = (
-                db.query(GeneScopeAssignment)
-                .filter(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-                .count()
-            )
+            total_assignments = db.execute(
+                select(func.count(GeneScopeAssignment.id))
+                .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
+            ).scalar()
 
-            assigned_genes = (
-                db.query(func.count(func.distinct(GeneScopeAssignment.gene_id)))
-                .filter(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
-                .scalar()
-            )
+            assigned_genes = db.execute(
+                select(func.count(func.distinct(GeneScopeAssignment.gene_id)))
+                .where(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
+            ).scalar()
 
             unassigned_genes = total_genes - (assigned_genes or 0)
 

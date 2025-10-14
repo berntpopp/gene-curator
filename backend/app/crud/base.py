@@ -6,6 +6,7 @@ from typing import Any, Generic, TypeVar
 
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.database import Base
@@ -29,13 +30,15 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     def get(self, db: Session, id: Any) -> ModelType | None:
         """Get a single record by id."""
-        return db.query(self.model).filter(self.model.id == id).first()
+        stmt = select(self.model).where(self.model.id == id)
+        return db.execute(stmt).scalars().first()
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100
     ) -> list[ModelType]:
         """Get multiple records with pagination."""
-        return db.query(self.model).offset(skip).limit(limit).all()
+        stmt = select(self.model).offset(skip).limit(limit)
+        return db.execute(stmt).scalars().all()
 
     def create(self, db: Session, *, obj_in: CreateSchemaType) -> ModelType:
         """Create a new record."""
@@ -58,7 +61,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
         if isinstance(obj_in, dict):
             update_data = obj_in
         else:
-            update_data = obj_in.dict(exclude_unset=True)
+            update_data = obj_in.model_dump(exclude_unset=True)
         for field in obj_data:
             if field in update_data:
                 setattr(db_obj, field, update_data[field])
@@ -69,7 +72,7 @@ class CRUDBase(Generic[ModelType, CreateSchemaType, UpdateSchemaType]):
 
     def remove(self, db: Session, *, id: Any) -> ModelType:
         """Delete a record by id."""
-        obj = db.query(self.model).get(id)
+        obj = db.get(self.model, id)
         db.delete(obj)
         db.commit()
         return obj

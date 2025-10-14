@@ -7,7 +7,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -80,7 +80,7 @@ class WorkflowEngine:
             )
 
         # Get user for permission checks
-        user = db.query(UserNew).filter(UserNew.id == user_id).first()
+        user = db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
         if not user:
             errors.append("User not found")
             return WorkflowValidationResult(
@@ -99,9 +99,9 @@ class WorkflowEngine:
         if self._requires_peer_review(current_stage, target_stage):
             if item_type == "curation":
                 # Check if different user created the curation
-                curation = (
-                    db.query(CurationNew).filter(CurationNew.id == item_id).first()
-                )
+                curation = db.execute(
+                    select(CurationNew).where(CurationNew.id == item_id)
+                ).scalars().first()
                 if curation and curation.created_by == user_id:
                     errors.append(
                         "4-eyes principle violation: Cannot review your own work"
@@ -113,11 +113,9 @@ class WorkflowEngine:
 
             elif item_type == "precuration":
                 # Similar checks for precuration
-                precuration = (
-                    db.query(PrecurationNew)
-                    .filter(PrecurationNew.id == item_id)
-                    .first()
-                )
+                precuration = db.execute(
+                    select(PrecurationNew).where(PrecurationNew.id == item_id)
+                ).scalars().first()
                 if precuration and precuration.created_by == user_id:
                     errors.append(
                         "4-eyes principle violation: Cannot review your own work"
@@ -278,19 +276,13 @@ class WorkflowEngine:
 
         # Validate reviewer is different from creator
         if item_type == "curation":
-            original_creator = (
-                db.query(CurationNew)
-                .filter(CurationNew.id == item_id)
-                .first()
-                .created_by
-            )
+            original_creator = db.execute(
+                select(CurationNew).where(CurationNew.id == item_id)
+            ).scalars().first().created_by
         else:
-            original_creator = (
-                db.query(PrecurationNew)
-                .filter(PrecurationNew.id == item_id)
-                .first()
-                .created_by
-            )
+            original_creator = db.execute(
+                select(PrecurationNew).where(PrecurationNew.id == item_id)
+            ).scalars().first().created_by
 
         if reviewer_id == original_creator:
             raise ValueError(
@@ -334,7 +326,7 @@ class WorkflowEngine:
     ) -> dict[str, Any]:
         """Submit a peer review decision."""
 
-        review = db.query(Review).filter(Review.id == review_id).first()
+        review = db.execute(select(Review).where(Review.id == review_id)).scalars().first()
         if not review:
             raise ValueError("Review not found")
 
@@ -390,42 +382,53 @@ class WorkflowEngine:
         cutoff_date = datetime.utcnow() - timedelta(days=days)
 
         # Base queries
-        precuration_query = db.query(PrecurationNew).filter(
+        precuration_stmt = select(PrecurationNew).where(
             PrecurationNew.created_at >= cutoff_date
         )
-        curation_query = db.query(CurationNew).filter(
+        curation_stmt = select(CurationNew).where(
             CurationNew.created_at >= cutoff_date
         )
-        review_query = db.query(Review).filter(Review.assigned_at >= cutoff_date)
-        active_query = db.query(ActiveCuration).filter(
+        review_stmt = select(Review).where(Review.assigned_at >= cutoff_date)
+        active_stmt = select(ActiveCuration).where(
             ActiveCuration.activated_at >= cutoff_date
         )
 
         if scope_id:
-            precuration_query = precuration_query.filter(
+            precuration_stmt = precuration_stmt.where(
                 PrecurationNew.scope_id == scope_id
             )
-            curation_query = curation_query.filter(CurationNew.scope_id == scope_id)
+            curation_stmt = curation_stmt.where(CurationNew.scope_id == scope_id)
             # Reviews and active curations would need JOIN to filter by scope
 
         # Stage counts
+        from sqlalchemy import func as sqlalchemy_func
         stage_counts = {
             "entry": 0,  # Would need to be calculated based on unstarted assignments
-            "precuration": precuration_query.filter(
-                PrecurationNew.status == CurationStatus.draft
-            ).count(),
-            "curation": curation_query.filter(
-                CurationNew.status == CurationStatus.draft
-            ).count(),
-            "review": review_query.filter(
-                Review.status == ReviewStatus.assigned
-            ).count(),
-            "active": active_query.count(),
+            "precuration": db.execute(
+                select(sqlalchemy_func.count()).select_from(
+                    precuration_stmt.where(PrecurationNew.status == CurationStatus.draft).subquery()
+                )
+            ).scalar(),
+            "curation": db.execute(
+                select(sqlalchemy_func.count()).select_from(
+                    curation_stmt.where(CurationNew.status == CurationStatus.draft).subquery()
+                )
+            ).scalar(),
+            "review": db.execute(
+                select(sqlalchemy_func.count()).select_from(
+                    review_stmt.where(Review.status == ReviewStatus.assigned).subquery()
+                )
+            ).scalar(),
+            "active": db.execute(
+                select(sqlalchemy_func.count()).select_from(active_stmt.subquery())
+            ).scalar(),
         }
 
         # Transition metrics
         total_transitions = sum(stage_counts.values())
-        completed_workflows = active_query.count()
+        completed_workflows = db.execute(
+            select(sqlalchemy_func.count()).select_from(active_stmt.subquery())
+        ).scalar()
 
         # Time-based metrics
         avg_precuration_time = self._calculate_average_stage_time(
@@ -439,21 +442,29 @@ class WorkflowEngine:
         )
 
         # Review metrics
-        total_reviews = review_query.count()
-        completed_reviews = review_query.filter(
-            Review.status == ReviewStatus.completed
-        ).count()
+        total_reviews = db.execute(
+            select(sqlalchemy_func.count()).select_from(review_stmt.subquery())
+        ).scalar()
+        completed_reviews = db.execute(
+            select(sqlalchemy_func.count()).select_from(
+                review_stmt.where(Review.status == ReviewStatus.completed).subquery()
+            )
+        ).scalar()
         pending_reviews = total_reviews - completed_reviews
 
         # Quality metrics
         approval_rate = 0.0
         if completed_reviews > 0:
-            approved_reviews = review_query.filter(
-                and_(
-                    Review.status == ReviewStatus.completed,
-                    Review.decision == "approve",
+            approved_reviews = db.execute(
+                select(sqlalchemy_func.count()).select_from(
+                    review_stmt.where(
+                        and_(
+                            Review.status == ReviewStatus.completed,
+                            Review.decision == "approve",
+                        )
+                    ).subquery()
                 )
-            ).count()
+            ).scalar()
             approval_rate = approved_reviews / completed_reviews
 
         return WorkflowStatistics(
@@ -479,12 +490,16 @@ class WorkflowEngine:
     def _get_current_stage_and_item(self, db: Session, item_id: UUID, item_type: str):
         """Get current workflow stage and item object."""
         if item_type == "precuration":
-            item = db.query(PrecurationNew).filter(PrecurationNew.id == item_id).first()
+            item = db.execute(
+                select(PrecurationNew).where(PrecurationNew.id == item_id)
+            ).scalars().first()
             if item:
                 return WorkflowStage.precuration, item
 
         elif item_type == "curation":
-            item = db.query(CurationNew).filter(CurationNew.id == item_id).first()
+            item = db.execute(
+                select(CurationNew).where(CurationNew.id == item_id)
+            ).scalars().first()
             if item:
                 if item.status in [CurationStatus.draft, CurationStatus.submitted]:
                     return WorkflowStage.curation, item
@@ -492,7 +507,9 @@ class WorkflowEngine:
                     return WorkflowStage.review, item
 
         elif item_type == "active":
-            item = db.query(ActiveCuration).filter(ActiveCuration.id == item_id).first()
+            item = db.execute(
+                select(ActiveCuration).where(ActiveCuration.id == item_id)
+            ).scalars().first()
             if item:
                 return WorkflowStage.active, item
 
@@ -621,7 +638,9 @@ class WorkflowEngine:
 
         # Add specific validation logic based on stages
         if target_stage == WorkflowStage.review and item_type == "curation":
-            curation = db.query(CurationNew).filter(CurationNew.id == item_id).first()
+            curation = db.execute(
+                select(CurationNew).where(CurationNew.id == item_id)
+            ).scalars().first()
             if curation:
                 # Check if evidence is complete
                 if not curation.evidence_data or not curation.evidence_data.get(
@@ -735,17 +754,15 @@ class WorkflowEngine:
         self, db: Session, item_id: UUID, item_type: str
     ) -> list[dict]:
         """Get pending peer reviews for an item."""
-        reviews = (
-            db.query(Review)
-            .filter(
+        reviews = db.execute(
+            select(Review).where(
                 and_(
                     Review.item_id == item_id,
                     Review.item_type == item_type,
                     Review.status == ReviewStatus.assigned,
                 )
             )
-            .all()
-        )
+        ).scalars().all()
 
         return [
             {
@@ -786,35 +803,37 @@ class WorkflowEngine:
         self, db: Session, item_id: UUID, item_type: str
     ) -> bool:
         """Check if all required reviews are complete and approved."""
-        pending_reviews = (
-            db.query(Review)
-            .filter(
-                and_(
-                    Review.item_id == item_id,
-                    Review.item_type == item_type,
-                    Review.status == ReviewStatus.assigned,
-                )
+        from sqlalchemy import func as sqlalchemy_func
+
+        pending_reviews = db.execute(
+            select(sqlalchemy_func.count()).select_from(
+                select(Review).where(
+                    and_(
+                        Review.item_id == item_id,
+                        Review.item_type == item_type,
+                        Review.status == ReviewStatus.assigned,
+                    )
+                ).subquery()
             )
-            .count()
-        )
+        ).scalar()
 
         # All reviews must be completed
         if pending_reviews > 0:
             return False
 
         # All completed reviews must be approved
-        rejected_reviews = (
-            db.query(Review)
-            .filter(
-                and_(
-                    Review.item_id == item_id,
-                    Review.item_type == item_type,
-                    Review.status == ReviewStatus.completed,
-                    Review.decision != "approve",
-                )
+        rejected_reviews = db.execute(
+            select(sqlalchemy_func.count()).select_from(
+                select(Review).where(
+                    and_(
+                        Review.item_id == item_id,
+                        Review.item_type == item_type,
+                        Review.status == ReviewStatus.completed,
+                        Review.decision != "approve",
+                    )
+                ).subquery()
             )
-            .count()
-        )
+        ).scalar()
 
         return rejected_reviews == 0
 

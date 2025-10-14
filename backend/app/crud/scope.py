@@ -5,7 +5,7 @@ CRUD operations for scope management.
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
@@ -101,7 +101,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def get_by_name(self, db: Session, *, name: str) -> Scope | None:
         """Get scope by name."""
-        return db.query(Scope).filter(Scope.name == name).first()
+        return db.execute(select(Scope).where(Scope.name == name)).scalars().first()
 
     def get_multi(
         self,
@@ -113,32 +113,32 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         institution: str | None = None,
     ) -> list[Scope]:
         """Get multiple scopes with filtering."""
-        query = db.query(Scope)
+        stmt = select(Scope)
 
         if active_only:
-            query = query.filter(Scope.is_active)  # Fixed: use == instead of is
+            stmt = stmt.where(Scope.is_active)  # Fixed: use == instead of is
 
         if institution:
-            query = query.filter(Scope.institution == institution)
+            stmt = stmt.where(Scope.institution == institution)
 
-        return query.offset(skip).limit(limit).all()
+        return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     def get_user_scopes(
         self, db: Session, *, user_scope_ids: list[UUID], active_only: bool = True
     ) -> list[Scope]:
         """Get scopes assigned to a specific user."""
-        query = db.query(Scope).filter(Scope.id.in_(user_scope_ids))
+        stmt = select(Scope).where(Scope.id.in_(user_scope_ids))
 
         if active_only:
-            query = query.filter(Scope.is_active)  # Fixed: use == instead of is
+            stmt = stmt.where(Scope.is_active)  # Fixed: use == instead of is
 
-        return query.all()
+        return db.execute(stmt).scalars().all()
 
     def create_with_owner(
         self, db: Session, *, obj_in: ScopeCreate, owner_id: UUID
     ) -> Scope:
         """Create scope with owner."""
-        obj_in_data = obj_in.dict()
+        obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
         db_obj = Scope(**obj_in_data)
         db.add(db_obj)
@@ -160,66 +160,68 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
         # Gene assignment counts
-        gene_stats = (
-            db.query(
+        gene_stats = db.execute(
+            select(
                 func.count(GeneScopeAssignment.id).label("total_genes_assigned"),
                 func.count(GeneScopeAssignment.assigned_curator_id).label(
                     "genes_with_curator"
                 ),
-            )
-            .filter(
+            ).where(
                 GeneScopeAssignment.scope_id == scope_id,
                 GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
-            .first()
-        )
+        ).first()
 
         # Curation stage counts
         precuration_count = (
-            db.query(func.count(PrecurationNew.id))
-            .filter(PrecurationNew.scope_id == scope_id)
-            .scalar()
+            db.execute(
+                select(func.count(PrecurationNew.id)).where(
+                    PrecurationNew.scope_id == scope_id
+                )
+            ).scalar()
             or 0
         )
 
         curation_count = (
-            db.query(func.count(CurationNew.id))
-            .filter(CurationNew.scope_id == scope_id)
-            .scalar()
+            db.execute(
+                select(func.count(CurationNew.id)).where(
+                    CurationNew.scope_id == scope_id
+                )
+            ).scalar()
             or 0
         )
 
         review_count = (
-            db.query(func.count(Review.id))
-            .join(CurationNew, Review.curation_id == CurationNew.id)
-            .filter(CurationNew.scope_id == scope_id)
-            .scalar()
+            db.execute(
+                select(func.count(Review.id))
+                .join(CurationNew, Review.curation_id == CurationNew.id)
+                .where(CurationNew.scope_id == scope_id)
+            ).scalar()
             or 0
         )
 
         active_curation_count = (
-            db.query(func.count(ActiveCuration.id))
-            .filter(
-                ActiveCuration.scope_id == scope_id,
-                ActiveCuration.archived_at.is_(None),
-            )
-            .scalar()
+            db.execute(
+                select(func.count(ActiveCuration.id)).where(
+                    ActiveCuration.scope_id == scope_id,
+                    ActiveCuration.archived_at.is_(None),
+                )
+            ).scalar()
             or 0
         )
 
         # Status breakdowns
-        status_counts = (
-            db.query(CurationNew.status, func.count(CurationNew.id))
-            .filter(CurationNew.scope_id == scope_id)
+        status_counts = db.execute(
+            select(CurationNew.status, func.count(CurationNew.id))
+            .where(CurationNew.scope_id == scope_id)
             .group_by(CurationNew.status)
-            .all()
-        )
+        ).all()
 
         status_dict = dict(status_counts)
 
         # Review metrics
-        review_stats = (
-            db.query(
+        review_stats = db.execute(
+            select(
                 func.count(Review.id)
                 .filter(Review.status == "pending")
                 .label("pending_reviews"),
@@ -231,41 +233,41 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 .label("avg_review_time_days"),
             )
             .join(CurationNew, Review.curation_id == CurationNew.id)
-            .filter(CurationNew.scope_id == scope_id)
-            .first()
-        )
+            .where(CurationNew.scope_id == scope_id)
+        ).first()
 
         # Team metrics
         curator_count = (
-            db.query(func.count(func.distinct(GeneScopeAssignment.assigned_curator_id)))
-            .filter(
-                GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
-                GeneScopeAssignment.assigned_curator_id.isnot(None),
-            )
-            .scalar()
+            db.execute(
+                select(func.count(func.distinct(GeneScopeAssignment.assigned_curator_id)))
+                .where(
+                    GeneScopeAssignment.scope_id == scope_id,
+                    GeneScopeAssignment.is_active,  # Fixed: use == instead of is
+                    GeneScopeAssignment.assigned_curator_id.isnot(None),
+                )
+            ).scalar()
             or 0
         )
 
         reviewer_count = (
-            db.query(func.count(func.distinct(Review.reviewer_id)))
-            .join(CurationNew, Review.curation_id == CurationNew.id)
-            .filter(CurationNew.scope_id == scope_id)
-            .scalar()
+            db.execute(
+                select(func.count(func.distinct(Review.reviewer_id)))
+                .join(CurationNew, Review.curation_id == CurationNew.id)
+                .where(CurationNew.scope_id == scope_id)
+            ).scalar()
             or 0
         )
 
         # Verdict distribution
-        verdict_counts = (
-            db.query(CurationNew.computed_verdict, func.count(CurationNew.id))
+        verdict_counts = db.execute(
+            select(CurationNew.computed_verdict, func.count(CurationNew.id))
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-            .filter(
+            .where(
                 ActiveCuration.scope_id == scope_id,
                 ActiveCuration.archived_at.is_(None),
             )
             .group_by(CurationNew.computed_verdict)
-            .all()
-        )
+        ).all()
 
         verdict_dict = {verdict: count for verdict, count in verdict_counts if verdict}
 
@@ -275,22 +277,22 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
 
         recent_curations = (
-            db.query(func.count(CurationNew.id))
-            .filter(
-                CurationNew.scope_id == scope_id,
-                CurationNew.created_at >= thirty_days_ago,
-            )
-            .scalar()
+            db.execute(
+                select(func.count(CurationNew.id)).where(
+                    CurationNew.scope_id == scope_id,
+                    CurationNew.created_at >= thirty_days_ago,
+                )
+            ).scalar()
             or 0
         )
 
         recent_activations = (
-            db.query(func.count(ActiveCuration.id))
-            .filter(
-                ActiveCuration.scope_id == scope_id,
-                ActiveCuration.activated_at >= thirty_days_ago,
-            )
-            .scalar()
+            db.execute(
+                select(func.count(ActiveCuration.id)).where(
+                    ActiveCuration.scope_id == scope_id,
+                    ActiveCuration.activated_at >= thirty_days_ago,
+                )
+            ).scalar()
             or 0
         )
 
@@ -330,25 +332,21 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def has_active_assignments(self, db: Session, *, scope_id: UUID) -> bool:
         """Check if scope has active gene assignments."""
-        count = (
-            db.query(func.count(GeneScopeAssignment.id))
-            .filter(
+        count = db.execute(
+            select(func.count(GeneScopeAssignment.id)).where(
                 GeneScopeAssignment.scope_id == scope_id,
                 GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
-            .scalar()
-        )
+        ).scalar()
         return count > 0
 
     def get_available_workflow_pairs(
         self, db: Session, *, scope_id: UUID
     ) -> list[dict[str, Any]]:
         """Get available workflow pairs for a scope."""
-        workflow_pairs = (
-            db.query(WorkflowPair)
-            .filter(WorkflowPair.is_active)
-            .all()  # Fixed: use == instead of is
-        )
+        workflow_pairs = db.execute(
+            select(WorkflowPair).where(WorkflowPair.is_active)  # Fixed: use == instead of is
+        ).scalars().all()
 
         result = []
         for wp in workflow_pairs:
@@ -371,7 +369,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         assigned_count = 0
 
         for user_id in user_ids:
-            user = db.query(UserNew).filter(UserNew.id == user_id).first()
+            user = db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
             if user:
                 # Add scope to user's assigned_scopes if not already there
                 current_scopes: list[UUID] = user.assigned_scopes or []
@@ -388,7 +386,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         removed_count = 0
 
         for user_id in user_ids:
-            user = db.query(UserNew).filter(UserNew.id == user_id).first()
+            user = db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
             if user and user.assigned_scopes:
                 # Remove scope from user's assigned_scopes
                 current_scopes = user.assigned_scopes
@@ -402,13 +400,11 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
     def get_scope_users(self, db: Session, *, scope_id: UUID) -> list[dict[str, Any]]:
         """Get users assigned to a scope."""
-        users = (
-            db.query(UserNew)
-            .filter(
+        users = db.execute(
+            select(UserNew).where(
                 UserNew.assigned_scopes.any(scope_id), UserNew.is_active
             )  # Fixed: use == instead of is
-            .all()
-        )
+        ).scalars().all()
 
         result = []
         for user in users:
@@ -438,44 +434,43 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     def get_performance_metrics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get performance metrics for a scope."""
         # Throughput metrics
-        avg_curation_time = (
-            db.query(
+        avg_curation_time = db.execute(
+            select(
                 func.avg(
                     func.extract(
                         "days", CurationNew.submitted_at - CurationNew.created_at
                     )
                 )
-            )
-            .filter(
+            ).where(
                 CurationNew.scope_id == scope_id, CurationNew.submitted_at.isnot(None)
             )
-            .scalar()
-        )
+        ).scalar()
 
-        avg_review_time = (
-            db.query(
+        avg_review_time = db.execute(
+            select(
                 func.avg(func.extract("days", Review.reviewed_at - Review.assigned_at))
             )
             .join(CurationNew, Review.curation_id == CurationNew.id)
-            .filter(CurationNew.scope_id == scope_id, Review.reviewed_at.isnot(None))
-            .scalar()
-        )
+            .where(CurationNew.scope_id == scope_id, Review.reviewed_at.isnot(None))
+        ).scalar()
 
         # Quality metrics
         total_curations = (
-            db.query(func.count(CurationNew.id))
-            .filter(
-                CurationNew.scope_id == scope_id,
-                CurationNew.status.in_(["approved", "rejected"]),
-            )
-            .scalar()
+            db.execute(
+                select(func.count(CurationNew.id)).where(
+                    CurationNew.scope_id == scope_id,
+                    CurationNew.status.in_(["approved", "rejected"]),
+                )
+            ).scalar()
             or 0
         )
 
         approved_curations = (
-            db.query(func.count(CurationNew.id))
-            .filter(CurationNew.scope_id == scope_id, CurationNew.status == "approved")
-            .scalar()
+            db.execute(
+                select(func.count(CurationNew.id)).where(
+                    CurationNew.scope_id == scope_id, CurationNew.status == "approved"
+                )
+            ).scalar()
             or 0
         )
 

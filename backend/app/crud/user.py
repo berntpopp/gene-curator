@@ -5,7 +5,7 @@ User CRUD operations.
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -22,7 +22,8 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def get_by_email(self, db: Session, *, email: str) -> User | None:
         """Get user by email address."""
-        return db.query(User).filter(User.email == email).first()
+        stmt = select(User).where(User.email == email)
+        return db.execute(stmt).scalars().first()
 
     def create(self, db: Session, *, user_create: UserCreate) -> User:
         """Create a new user with hashed password."""
@@ -132,14 +133,14 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         self, db: Session, *, role: UserRole, skip: int = 0, limit: int = 100
     ) -> list[User]:
         """Get users by role."""
-        return (
-            db.query(User)
-            .filter(User.role == role)
-            .filter(User.is_active)
+        stmt = (
+            select(User)
+            .where(User.role == role)
+            .where(User.is_active)
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return db.execute(stmt).scalars().all()
 
     def search(
         self, db: Session, *, query: str, skip: int = 0, limit: int = 100
@@ -155,16 +156,21 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             else True
         )
 
-        return db.query(User).filter(search_filter).offset(skip).limit(limit).all()
+        stmt = select(User).where(search_filter).offset(skip).limit(limit)
+        return db.execute(stmt).scalars().all()
 
     def get_statistics(self, db: Session) -> dict[str, Any]:
         """Get user statistics."""
-        total_users = db.query(func.count(User.id)).scalar()
-        active_users = db.query(func.count(User.id)).filter(User.is_active).scalar()
+        total_users = db.execute(select(func.count(User.id))).scalar()
+        active_users = db.execute(
+            select(func.count(User.id)).where(User.is_active)
+        ).scalar()
 
         role_counts = {}
         for role in UserRole:
-            count = db.query(func.count(User.id)).filter(User.role == role).scalar()
+            count = db.execute(
+                select(func.count(User.id)).where(User.role == role)
+            ).scalar()
             role_counts[role.value] = count
 
         return {
@@ -196,14 +202,14 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         self, db: Session, *, scope_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[User]:
         """Get users assigned to a specific scope."""
-        return (
-            db.query(User)
-            .filter(User.assigned_scopes.contains([str(scope_id)]))
-            .filter(User.is_active)
+        stmt = (
+            select(User)
+            .where(User.assigned_scopes.contains([str(scope_id)]))
+            .where(User.is_active)
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return db.execute(stmt).scalars().all()
 
     def assign_to_scope(self, db: Session, *, user_id: str, scope_id: UUID) -> bool:
         """Assign user to a scope."""
