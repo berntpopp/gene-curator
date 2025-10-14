@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.crud.base import CRUDBase
 from app.models import (
     CurationNew,
-    GeneNew,
+    Gene,
     GeneScopeAssignment,
     PrecurationNew,
     UserNew,
@@ -136,8 +136,8 @@ class CRUDGeneScopeAssignment(
         )
 
         available_genes = db.execute(
-            select(GeneNew)
-            .where(~GeneNew.id.in_(select(subquery)))
+            select(Gene)
+            .where(~Gene.id.in_(select(subquery)))
             .offset(skip)
             .limit(limit)
         ).scalars().all()

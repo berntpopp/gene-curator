@@ -1,5 +1,5 @@
 """
-CRUD operations for the new Gene model in schema-agnostic system.
+CRUD operations for the Gene model in schema-agnostic system.
 """
 
 import hashlib
@@ -15,19 +15,19 @@ from app.core.logging import batch_operation, database_query, timed_operation
 from app.crud.base import CRUDBase
 from app.models import (
     CurationNew,
-    GeneNew,
+    Gene,
     GeneScopeAssignment,
     PrecurationNew,
 )
-from app.schemas.gene_new import (
-    GeneNewCreate,
-    GeneNewUpdate,
+from app.schemas.gene import (
+    GeneCreate,
+    GeneUpdate,
     GeneSearchQuery,
 )
 
 
-class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
-    """CRUD operations for the new Gene model."""
+class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
+    """CRUD operations for the Gene model."""
 
     def generate_record_hash(self, gene_data: dict[str, Any], user_id: UUID) -> str:
         """Generate SHA-256 hash for record integrity."""
@@ -41,14 +41,14 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         return hashlib.sha256(content_string.encode()).hexdigest()
 
     @database_query(query_type="SELECT")
-    def get_by_hgnc_id(self, db: Session, *, hgnc_id: str) -> GeneNew | None:
+    def get_by_hgnc_id(self, db: Session, *, hgnc_id: str) -> Gene | None:
         """Get gene by HGNC ID."""
-        return db.execute(select(GeneNew).where(GeneNew.hgnc_id == hgnc_id)).scalars().first()
+        return db.execute(select(Gene).where(Gene.hgnc_id == hgnc_id)).scalars().first()
 
-    def get_by_symbol(self, db: Session, *, symbol: str) -> GeneNew | None:
+    def get_by_symbol(self, db: Session, *, symbol: str) -> Gene | None:
         """Get gene by approved symbol."""
         return db.execute(
-            select(GeneNew).where(GeneNew.approved_symbol.ilike(f"%{symbol}%"))
+            select(Gene).where(Gene.approved_symbol.ilike(f"%{symbol}%"))
         ).scalars().first()
 
     @database_query(query_type="SELECT")
@@ -60,13 +60,13 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         limit: int = 100,
         sort_by: str = "approved_symbol",
         sort_order: str = "asc",
-    ) -> Sequence[GeneNew]:
+    ) -> Sequence[Gene]:
         """Get multiple genes with pagination and sorting."""
-        stmt = select(GeneNew)
+        stmt = select(Gene)
 
         # Apply sorting
-        if hasattr(GeneNew, sort_by):
-            order_column = getattr(GeneNew, sort_by)
+        if hasattr(Gene, sort_by):
+            order_column = getattr(Gene, sort_by)
             if sort_order.lower() == "desc":
                 stmt = stmt.order_by(order_column.desc())
             else:
@@ -75,34 +75,34 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     @timed_operation("gene_search", warning_threshold_ms=500)
-    def search(self, db: Session, *, search_params: GeneSearchQuery) -> Sequence[GeneNew]:
+    def search(self, db: Session, *, search_params: GeneSearchQuery) -> Sequence[Gene]:
         """Advanced gene search with multiple filters."""
-        stmt = select(GeneNew)
+        stmt = select(Gene)
 
         # Text search across multiple fields
         if search_params.query:
             search_term = f"%{search_params.query}%"
             stmt = stmt.where(
                 or_(
-                    GeneNew.approved_symbol.ilike(search_term),
-                    GeneNew.hgnc_id.ilike(search_term),
-                    GeneNew.details.op("->>")("gene_description").ilike(search_term),
-                    text(f"'{search_params.query}' = ANY(genes_new.previous_symbols)"),
-                    text(f"'{search_params.query}' = ANY(genes_new.alias_symbols)"),
+                    Gene.approved_symbol.ilike(search_term),
+                    Gene.hgnc_id.ilike(search_term),
+                    Gene.details.op("->>")("gene_description").ilike(search_term),
+                    text(f"'{search_params.query}' = ANY(genes.previous_symbols)"),
+                    text(f"'{search_params.query}' = ANY(genes.alias_symbols)"),
                 )
             )
 
         # Filter by chromosome
         if search_params.chromosome:
-            stmt = stmt.where(GeneNew.chromosome == search_params.chromosome)
+            stmt = stmt.where(Gene.chromosome == search_params.chromosome)
 
         # Filter by HGNC ID
         if search_params.hgnc_id:
-            stmt = stmt.where(GeneNew.hgnc_id == search_params.hgnc_id)
+            stmt = stmt.where(Gene.hgnc_id == search_params.hgnc_id)
 
         # Apply sorting
-        if hasattr(GeneNew, search_params.sort_by):
-            order_column = getattr(GeneNew, search_params.sort_by)
+        if hasattr(Gene, search_params.sort_by):
+            order_column = getattr(Gene, search_params.sort_by)
             if search_params.sort_order.lower() == "desc":
                 stmt = stmt.order_by(order_column.desc())
             else:
@@ -112,8 +112,8 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
 
     @database_query(query_type="INSERT")
     def create_with_owner(
-        self, db: Session, *, obj_in: GeneNewCreate, owner_id: UUID
-    ) -> GeneNew:
+        self, db: Session, *, obj_in: GeneCreate, owner_id: UUID
+    ) -> Gene:
         """Create a new gene with owner."""
         # Check if gene with HGNC ID already exists
         existing_gene = self.get_by_hgnc_id(db, hgnc_id=obj_in.hgnc_id)
@@ -133,15 +133,15 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
             }
         )
 
-        db_obj = GeneNew(**obj_in_data)
+        db_obj = Gene(**obj_in_data)
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
     def update_with_owner(
-        self, db: Session, *, db_obj: GeneNew, obj_in: GeneNewUpdate, owner_id: UUID
-    ) -> GeneNew:
+        self, db: Session, *, db_obj: Gene, obj_in: GeneUpdate, owner_id: UUID
+    ) -> Gene:
         """Update gene with owner tracking."""
         # Store previous hash
         previous_hash = db_obj.record_hash
@@ -185,7 +185,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         self,
         db: Session,
         *,
-        genes_data: list[GeneNewCreate],
+        genes_data: list[GeneCreate],
         owner_id: UUID,
         skip_duplicates: bool = True,
     ) -> dict[str, Any]:
@@ -243,21 +243,21 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         skip: int = 0,
         limit: int = 100,
         assigned_only: bool = False,
-    ) -> Sequence[GeneNew]:
+    ) -> Sequence[Gene]:
         """Get genes available or assigned to a specific scope."""
         if assigned_only:
             # Get only genes assigned to this scope
-            stmt = select(GeneNew).join(
+            stmt = select(Gene).join(
                 GeneScopeAssignment,
                 and_(
-                    GeneScopeAssignment.gene_id == GeneNew.id,
+                    GeneScopeAssignment.gene_id == Gene.id,
                     GeneScopeAssignment.scope_id == scope_id,
                     GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
                 ),
             )
         else:
             # Get all genes (could be filtered by scope preferences in the future)
-            stmt = select(GeneNew)
+            stmt = select(Gene)
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
@@ -349,14 +349,14 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         """Get gene database statistics."""
         from datetime import datetime, timedelta
 
-        base_stmt = select(GeneNew)
+        base_stmt = select(Gene)
 
         # If scope specified, filter to genes assigned to that scope
         if scope_id:
             base_stmt = base_stmt.join(
                 GeneScopeAssignment,
                 and_(
-                    GeneScopeAssignment.gene_id == GeneNew.id,
+                    GeneScopeAssignment.gene_id == Gene.id,
                     GeneScopeAssignment.scope_id == scope_id,
                     GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
                 ),
@@ -369,7 +369,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
         recent_additions = db.execute(
             select(func.count()).select_from(
-                base_stmt.where(GeneNew.created_at >= thirty_days_ago).subquery()
+                base_stmt.where(Gene.created_at >= thirty_days_ago).subquery()
             )
         ).scalar() or 0
 
@@ -377,7 +377,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         week_ago = datetime.utcnow() - timedelta(days=7)
         updated_last_week = db.execute(
             select(func.count()).select_from(
-                base_stmt.where(GeneNew.updated_at >= week_ago).subquery()
+                base_stmt.where(Gene.updated_at >= week_ago).subquery()
             )
         ).scalar() or 0
 
@@ -385,8 +385,8 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         genes_with_details = db.execute(
             select(func.count()).select_from(
                 base_stmt.where(
-                    GeneNew.details.isnot(None),
-                    func.jsonb_typeof(GeneNew.details) == "object"
+                    Gene.details.isnot(None),
+                    func.jsonb_typeof(Gene.details) == "object"
                 ).subquery()
             )
         ).scalar() or 0
@@ -425,4 +425,4 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
 
 
 # Create instance
-gene_new_crud = CRUDGeneNew(GeneNew)
+gene_crud = CRUDGene(Gene)

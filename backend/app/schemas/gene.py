@@ -1,5 +1,5 @@
 """
-Pydantic schemas for the new Gene model in schema-agnostic system.
+Pydantic schemas for the Gene model in schema-agnostic system.
 """
 
 from datetime import datetime
@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field, validator
 
 
 # Base Schema
-class GeneNewBase(BaseModel):
+class GeneBase(BaseModel):
     """Base schema for genes."""
 
     hgnc_id: str = Field(..., description="HGNC identifier (e.g., HGNC:1234)")
@@ -44,14 +44,14 @@ class GeneNewBase(BaseModel):
 
 
 # Creation Schema
-class GeneNewCreate(GeneNewBase):
+class GeneCreate(GeneBase):
     """Schema for creating a new gene."""
 
     pass
 
 
 # Update Schema
-class GeneNewUpdate(BaseModel):
+class GeneUpdate(BaseModel):
     """Schema for updating gene information."""
 
     hgnc_id: str | None = Field(None, description="HGNC identifier")
@@ -73,7 +73,7 @@ class GeneNewUpdate(BaseModel):
 
 
 # Database Schema
-class GeneNewInDBBase(GeneNewBase):
+class GeneInDBBase(GeneBase):
     """Base schema with database fields."""
 
     id: UUID
@@ -89,14 +89,14 @@ class GeneNewInDBBase(GeneNewBase):
 
 
 # Public Response Schema
-class GeneNew(GeneNewInDBBase):
+class Gene(GeneInDBBase):
     """Public schema for genes."""
 
     pass
 
 
 # Gene with Assignment Information
-class GeneNewWithAssignments(GeneNew):
+class GeneWithAssignments(Gene):
     """Gene with assignment information."""
 
     total_scope_assignments: int = Field(
@@ -114,7 +114,7 @@ class GeneNewWithAssignments(GeneNew):
 
 
 # Gene with Curation Progress
-class GeneNewWithProgress(GeneNew):
+class GeneWithProgress(Gene):
     """Gene with curation progress information."""
 
     total_precurations: int = Field(default=0, description="Total precurations")
@@ -132,7 +132,7 @@ class GeneNewWithProgress(GeneNew):
 
 
 # Gene Summary for Lists
-class GeneNewSummary(BaseModel):
+class GeneSummary(BaseModel):
     """Minimal gene information for lists and dropdowns."""
 
     id: UUID
@@ -170,10 +170,10 @@ class GeneSearchQuery(BaseModel):
 
 
 # List Response Schema
-class GeneNewListResponse(BaseModel):
+class GeneListResponse(BaseModel):
     """Response for paginated gene lists."""
 
-    genes: list[GeneNewSummary]
+    genes: list[GeneSummary]
     total: int
     skip: int
     limit: int
@@ -182,7 +182,7 @@ class GeneNewListResponse(BaseModel):
 
 
 # Statistics Schema
-class GeneNewStatistics(BaseModel):
+class GeneStatistics(BaseModel):
     """Gene database statistics."""
 
     scope_id: UUID | None = Field(None, description="Scope filter applied")
@@ -201,7 +201,7 @@ class GeneNewStatistics(BaseModel):
 class GeneBulkCreate(BaseModel):
     """Schema for bulk gene creation."""
 
-    genes: list[GeneNewCreate] = Field(..., min_length=1, max_length=100)
+    genes: list[GeneCreate] = Field(..., min_length=1, max_length=100)
     validate_hgnc: bool = Field(
         True, description="Whether to validate HGNC IDs against external API"
     )
@@ -213,7 +213,7 @@ class GeneBulkCreate(BaseModel):
 class GeneBulkCreateResponse(BaseModel):
     """Response for bulk gene creation."""
 
-    created_genes: list[GeneNew]
+    created_genes: list[Gene]
     skipped_genes: list[dict[str, Any]]
     errors: list[dict[str, Any]]
     total_processed: int
@@ -257,7 +257,7 @@ class ScopeGeneListResponse(BaseModel):
 
     scope_id: UUID
     scope_name: str
-    genes: list[GeneNewSummary]
+    genes: list[GeneSummary]
     total: int
     assigned: int
     unassigned: int
@@ -324,7 +324,7 @@ class GeneMergeRequest(BaseModel):
 class GeneMergeResponse(BaseModel):
     """Response for gene merge operation."""
 
-    merged_gene: GeneNew
+    merged_gene: Gene
     duplicate_genes_processed: int
     assignments_transferred: int
     precurations_transferred: int

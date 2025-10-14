@@ -1,6 +1,6 @@
 """
 Gene management API endpoints for schema-agnostic system.
-Manages genes within the new scope-based architecture.
+Manages genes within the scope-based architecture.
 """
 
 from collections.abc import Sequence
@@ -22,22 +22,22 @@ from app.core.constants import (
     VALID_CHROMOSOMES,
 )
 from app.core.logging import api_endpoint
-from app.crud.gene_new import gene_new_crud
+from app.crud.gene import gene_crud
 from app.models import UserNew
-from app.schemas.gene_new import (
+from app.schemas.gene import (
     GeneAssignmentStatus,
     GeneBulkCreate,
     GeneBulkCreateResponse,
     GeneCurationProgress,
     GeneMergeRequest,
     GeneMergeResponse,
-    GeneNew,
-    GeneNewCreate,
-    GeneNewListResponse,
-    GeneNewStatistics,
-    GeneNewSummary,
-    GeneNewUpdate,
-    GeneNewWithAssignments,
+    Gene,
+    GeneCreate,
+    GeneListResponse,
+    GeneStatistics,
+    GeneSummary,
+    GeneUpdate,
+    GeneWithAssignments,
     GeneSearchQuery,
     GeneValidationResult,
     ScopeGeneListResponse,
@@ -51,7 +51,7 @@ router = APIRouter()
 # ========================================
 
 
-@router.get("/", response_model=GeneNewListResponse)
+@router.get("/", response_model=GeneListResponse)
 @api_endpoint()
 def get_genes(
     db: Session = Depends(get_db),
@@ -70,7 +70,7 @@ def get_genes(
     sort_by: str = Query(DEFAULT_GENE_SORT_FIELD, description="Field to sort by"),
     sort_order: str = Query(DEFAULT_SORT_ORDER, description="Sort order"),
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> GeneNewListResponse:
+) -> GeneListResponse:
     """
     Retrieve genes with filtering and pagination.
     """
@@ -89,25 +89,25 @@ def get_genes(
             )
 
     if scope_id:
-        genes = gene_new_crud.get_genes_for_scope(
+        genes = gene_crud.get_genes_for_scope(
             db, scope_id=scope_id, skip=skip, limit=limit, assigned_only=assigned_only
         )
     else:
-        genes = gene_new_crud.get_multi(
+        genes = gene_crud.get_multi(
             db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order
         )
 
     # Convert to summary format with assignment status
     gene_summaries = []
     for gene in genes:
-        assignment_status = gene_new_crud.get_gene_assignment_status(
+        assignment_status = gene_crud.get_gene_assignment_status(
             db, gene_id=gene.id, scope_id=scope_id
         )
-        progress = gene_new_crud.get_gene_curation_progress(
+        progress = gene_crud.get_gene_curation_progress(
             db, gene_id=gene.id, scope_id=scope_id
         )
 
-        summary = GeneNewSummary(
+        summary = GeneSummary(
             id=gene.id,
             hgnc_id=gene.hgnc_id,
             approved_symbol=gene.approved_symbol,
@@ -120,7 +120,7 @@ def get_genes(
 
     total = len(genes)  # This would be a proper count query in real implementation
 
-    return GeneNewListResponse(
+    return GeneListResponse(
         genes=gene_summaries,
         total=total,
         skip=skip,
@@ -130,14 +130,14 @@ def get_genes(
     )
 
 
-@router.post("/", response_model=GeneNew)
+@router.post("/", response_model=Gene)
 @api_endpoint()
 def create_gene(
     *,
     db: Session = Depends(get_db),
-    gene_in: GeneNewCreate,
+    gene_in: GeneCreate,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> GeneNew:
+) -> Gene:
     """
     Create new gene. Requires curator or admin privileges.
     """
@@ -147,7 +147,7 @@ def create_gene(
         )
 
     try:
-        gene = gene_new_crud.create_with_owner(
+        gene = gene_crud.create_with_owner(
             db, obj_in=gene_in, owner_id=current_user.id
         )
         return gene  # type: ignore[return-value]
@@ -157,7 +157,7 @@ def create_gene(
         ) from e
 
 
-@router.get("/search", response_model=list[GeneNewSummary])
+@router.get("/search", response_model=list[GeneSummary])
 @api_endpoint()
 def search_genes(
     *,
@@ -173,7 +173,7 @@ def search_genes(
     sort_by: str = Query(DEFAULT_GENE_SORT_FIELD),
     sort_order: str = Query(DEFAULT_SORT_ORDER),
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[GeneNewSummary]:
+) -> list[GeneSummary]:
     """
     Advanced gene search with multiple filters.
     """
@@ -198,19 +198,19 @@ def search_genes(
         sort_order=sort_order,
     )
 
-    genes = gene_new_crud.search(db, search_params=search_params)
+    genes = gene_crud.search(db, search_params=search_params)
 
     # Convert to summary format
     summaries = []
     for gene in genes:
-        assignment_status = gene_new_crud.get_gene_assignment_status(
+        assignment_status = gene_crud.get_gene_assignment_status(
             db, gene_id=gene.id, scope_id=scope_id
         )
-        progress = gene_new_crud.get_gene_curation_progress(
+        progress = gene_crud.get_gene_curation_progress(
             db, gene_id=gene.id, scope_id=scope_id
         )
 
-        summary = GeneNewSummary(
+        summary = GeneSummary(
             id=gene.id,
             hgnc_id=gene.hgnc_id,
             approved_symbol=gene.approved_symbol,
@@ -224,13 +224,13 @@ def search_genes(
     return summaries
 
 
-@router.get("/statistics", response_model=GeneNewStatistics)
+@router.get("/statistics", response_model=GeneStatistics)
 def get_gene_statistics(
     *,
     db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     current_user: UserNew | None = Depends(deps.get_current_user_optional),
-) -> GeneNewStatistics:
+) -> GeneStatistics:
     """
     Get gene database statistics.
     Public endpoint with optional authentication for scope filtering.
@@ -248,31 +248,31 @@ def get_gene_statistics(
         # If scope is specified but user is not authenticated, ignore scope filter
         scope_id = None
 
-    statistics = gene_new_crud.get_statistics(db, scope_id=scope_id)
-    return GeneNewStatistics(**statistics)
+    statistics = gene_crud.get_statistics(db, scope_id=scope_id)
+    return GeneStatistics(**statistics)
 
 
-@router.get("/{gene_id}", response_model=GeneNewWithAssignments)
+@router.get("/{gene_id}", response_model=GeneWithAssignments)
 def get_gene(
     *,
     db: Session = Depends(get_db),
     gene_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> GeneNewWithAssignments:
+) -> GeneWithAssignments:
     """
     Get gene by ID with assignment information.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
     # Get assignment status
-    assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
+    assignment_status = gene_crud.get_gene_assignment_status(db, gene_id=gene_id)
 
     # Create enhanced response
-    gene_with_assignments = GeneNewWithAssignments(
+    gene_with_assignments = GeneWithAssignments(
         **gene.__dict__,
         total_scope_assignments=assignment_status["total_scope_assignments"],
         scope_assignments=assignment_status["scope_assignments"],
@@ -282,18 +282,18 @@ def get_gene(
     return gene_with_assignments
 
 
-@router.put("/{gene_id}", response_model=GeneNew)
+@router.put("/{gene_id}", response_model=Gene)
 def update_gene(
     *,
     db: Session = Depends(get_db),
     gene_id: UUID,
-    gene_in: GeneNewUpdate,
+    gene_in: GeneUpdate,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> GeneNew:
+) -> Gene:
     """
     Update gene information. Requires curator or admin privileges.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
@@ -305,7 +305,7 @@ def update_gene(
         )
 
     try:
-        gene = gene_new_crud.update_with_owner(
+        gene = gene_crud.update_with_owner(
             db, db_obj=gene, obj_in=gene_in, owner_id=current_user.id
         )
         return gene  # type: ignore[return-value]
@@ -325,7 +325,7 @@ def delete_gene(
     """
     Delete gene. Requires admin privileges.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
@@ -337,21 +337,21 @@ def delete_gene(
         )
 
     # Check if gene has assignments or active work
-    assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
+    assignment_status = gene_crud.get_gene_assignment_status(db, gene_id=gene_id)
     if assignment_status["is_assigned_to_any_scope"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete gene with active assignments",
         )
 
-    progress = gene_new_crud.get_gene_curation_progress(db, gene_id=gene_id)
+    progress = gene_crud.get_gene_curation_progress(db, gene_id=gene_id)
     if progress["has_active_work"]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Cannot delete gene with active curation work",
         )
 
-    gene_new_crud.remove(db, id=gene_id)
+    gene_crud.remove(db, id=gene_id)
     return {"message": "Gene deleted successfully"}
 
 
@@ -370,13 +370,13 @@ def get_gene_assignments(
     """
     Get assignment status for a gene across all scopes.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
-    assignment_status = gene_new_crud.get_gene_assignment_status(db, gene_id=gene_id)
+    assignment_status = gene_crud.get_gene_assignment_status(db, gene_id=gene_id)
     return GeneAssignmentStatus(**assignment_status)
 
 
@@ -391,7 +391,7 @@ def get_gene_curation_progress(
     """
     Get curation progress for a gene.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
@@ -405,7 +405,7 @@ def get_gene_curation_progress(
                 status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
             )
 
-    progress = gene_new_crud.get_gene_curation_progress(
+    progress = gene_crud.get_gene_curation_progress(
         db, gene_id=gene_id, scope_id=scope_id
     )
     return GeneCurationProgress(**progress)
@@ -432,7 +432,7 @@ def bulk_create_genes(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    result = gene_new_crud.bulk_create(
+    result = gene_crud.bulk_create(
         db,
         genes_data=bulk_request.genes,
         owner_id=current_user.id,
@@ -471,7 +471,7 @@ def get_scope_genes(
     # Get scope information (would need proper scope lookup in real implementation)
     scope_name = "Unknown Scope"  # Would be populated from scope lookup
 
-    genes = gene_new_crud.get_genes_for_scope(
+    genes = gene_crud.get_genes_for_scope(
         db, scope_id=scope_id, skip=skip, limit=limit, assigned_only=assigned_only
     )
 
@@ -479,10 +479,10 @@ def get_scope_genes(
     gene_summaries = []
     assigned_count = 0
     for gene in genes:
-        assignment_status = gene_new_crud.get_gene_assignment_status(
+        assignment_status = gene_crud.get_gene_assignment_status(
             db, gene_id=gene.id, scope_id=scope_id
         )
-        progress = gene_new_crud.get_gene_curation_progress(
+        progress = gene_crud.get_gene_curation_progress(
             db, gene_id=gene.id, scope_id=scope_id
         )
 
@@ -490,7 +490,7 @@ def get_scope_genes(
         if is_assigned:
             assigned_count += 1
 
-        summary = GeneNewSummary(
+        summary = GeneSummary(
             id=gene.id,
             hgnc_id=gene.hgnc_id,
             approved_symbol=gene.approved_symbol,
@@ -533,7 +533,7 @@ def validate_gene(
     """
     Validate gene information against external sources.
     """
-    gene = gene_new_crud.get(db, id=gene_id)
+    gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
@@ -575,17 +575,17 @@ def validate_gene(
     )
 
 
-@router.get("/hgnc/{hgnc_id}", response_model=GeneNew)
+@router.get("/hgnc/{hgnc_id}", response_model=Gene)
 def get_gene_by_hgnc_id(
     *,
     db: Session = Depends(get_db),
     hgnc_id: str,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> GeneNew:
+) -> Gene:
     """
     Get gene by HGNC ID.
     """
-    gene = gene_new_crud.get_by_hgnc_id(db, hgnc_id=hgnc_id)
+    gene = gene_crud.get_by_hgnc_id(db, hgnc_id=hgnc_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
@@ -594,20 +594,20 @@ def get_gene_by_hgnc_id(
     return gene  # type: ignore[return-value]
 
 
-@router.get("/symbol/{symbol}", response_model=list[GeneNew])
+@router.get("/symbol/{symbol}", response_model=list[Gene])
 def get_genes_by_symbol(
     *,
     db: Session = Depends(get_db),
     symbol: str,
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> Sequence[GeneNew]:
+) -> Sequence[Gene]:
     """
     Get genes by symbol (partial match).
     """
     # In a real implementation, this would do a more sophisticated search
     from app.core.constants import DEFAULT_SORT_ORDER
 
-    genes = gene_new_crud.search(
+    genes = gene_crud.search(
         db,
         search_params=GeneSearchQuery(
             query=symbol,
@@ -646,7 +646,7 @@ def merge_genes(
         )
 
     # Basic implementation - in a real system this would be much more sophisticated
-    primary_gene = gene_new_crud.get(db, id=merge_request.primary_gene_id)
+    primary_gene = gene_crud.get(db, id=merge_request.primary_gene_id)
     if not primary_gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Primary gene not found"

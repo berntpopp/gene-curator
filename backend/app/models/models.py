@@ -204,8 +204,8 @@ class UserNew(Base):
     curator_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
         "GeneScopeAssignment", foreign_keys="[GeneScopeAssignment.assigned_curator_id]"
     )
-    created_genes: Mapped[list["GeneNew"]] = relationship(
-        "GeneNew", foreign_keys="[GeneNew.created_by]"
+    created_genes: Mapped[list["Gene"]] = relationship(
+        "Gene", foreign_keys="[Gene.created_by]"
     )
     created_precurations: Mapped[list["PrecurationNew"]] = relationship(
         "PrecurationNew", foreign_keys="[PrecurationNew.created_by]"
@@ -454,10 +454,10 @@ class WorkflowPair(Base):
     )
 
 
-class GeneNew(Base):
-    """Enhanced genes table for scope assignment."""
+class Gene(Base):
+    """Genes table for scope assignment."""
 
-    __tablename__ = "genes_new"
+    __tablename__ = "genes"
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
@@ -511,7 +511,7 @@ class GeneNew(Base):
     )
 
     __table_args__ = (
-        Index("idx_genes_new_details_gin", "details", postgresql_using="gin"),
+        Index("idx_genes_details_gin", "details", postgresql_using="gin"),
     )
 
 
@@ -526,7 +526,7 @@ class GeneScopeAssignment(Base):
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("genes_new.id", ondelete="CASCADE"),
+        ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -566,7 +566,7 @@ class GeneScopeAssignment(Base):
     )
 
     # Relationships
-    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="scope_assignments")
+    gene: Mapped["Gene"] = relationship("Gene", back_populates="scope_assignments")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="gene_assignments")
     assigned_curator: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[assigned_curator_id]
@@ -597,7 +597,7 @@ class PrecurationNew(Base):
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("genes_new.id", ondelete="CASCADE"),
+        ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -662,7 +662,7 @@ class PrecurationNew(Base):
     previous_hash: Mapped[str | None] = mapped_column(String(64))
 
     # Relationships
-    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="precurations")
+    gene: Mapped["Gene"] = relationship("Gene", back_populates="precurations")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="precurations")
     precuration_schema: Mapped["CurationSchema"] = relationship(
         "CurationSchema", back_populates="precurations"
@@ -692,7 +692,7 @@ class CurationNew(Base):
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("genes_new.id", ondelete="CASCADE"),
+        ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -771,7 +771,7 @@ class CurationNew(Base):
     previous_hash: Mapped[str | None] = mapped_column(String(64))
 
     # Relationships
-    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="curations")
+    gene: Mapped["Gene"] = relationship("Gene", back_populates="curations")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="curations")
     precuration: Mapped["PrecurationNew | None"] = relationship(
         "PrecurationNew", back_populates="curations"
@@ -869,7 +869,7 @@ class ActiveCuration(Base):
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
         UUID(as_uuid=True),
-        ForeignKey("genes_new.id", ondelete="CASCADE"),
+        ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -907,7 +907,7 @@ class ActiveCuration(Base):
     archive_reason: Mapped[str | None] = mapped_column(Text)
 
     # Relationships
-    gene: Mapped["GeneNew"] = relationship("GeneNew", back_populates="active_curations")
+    gene: Mapped["Gene"] = relationship("Gene", back_populates="active_curations")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="active_curations")
     curation: Mapped["CurationNew"] = relationship(
         "CurationNew", back_populates="active_curation", foreign_keys=[curation_id]
