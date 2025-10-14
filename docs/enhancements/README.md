@@ -1,89 +1,71 @@
-# Gene Curator - Enhancement Issues
+# Gene Curator - Enhancement Tracking
 
-This directory contains detailed enhancement proposals inspired by battle-tested patterns from the [kidney-genetics-db](https://github.com/halbritter-lab/kidney-genetics-db) project. Each enhancement is designed following **DRY**, **KISS**, **SOLID**, and **modularization** principles.
+This directory tracks enhancement proposals and implementations inspired by battle-tested patterns from the [kidney-genetics-db](https://github.com/halbritter-lab/kidney-genetics-db) project. Each enhancement follows **DRY**, **KISS**, **SOLID**, and **modularization** principles.
 
 ## Overview
 
-These enhancements address infrastructure gaps identified through comparative analysis of Gene Curator vs kidney-genetics-db. All proposals are **production-proven** with documented performance metrics and real-world usage.
+Enhancements identified through comparative analysis of Gene Curator vs kidney-genetics-db. All proposals are **production-proven** with documented performance metrics and real-world usage.
 
-## Enhancement Index
+## Enhancement Status
 
-| ID | Enhancement | Priority | Effort | Status |
-|----|-------------|----------|--------|--------|
-| [001](001-unified-logger-system.md) | Unified Logger System | High | 4-6h | 📋 Planned |
-| [002](002-cache-service-l1-l2.md) | CacheService with L1/L2 | High | 6-8h | 📋 Planned |
-| [003](003-retry-utils-exponential-backoff.md) | RetryUtils with Backoff | Medium | 3-4h | 📋 Planned |
-| [004](004-expanded-makefile-workflow.md) | Expanded Makefile | Medium | 2-3h | 📋 Planned |
-| [005](005-realtime-progress-tracking.md) | Real-Time Progress | Low-Medium | 6-8h | 📋 Planned |
-| [006](006-yaml-configuration-system.md) | YAML Configuration | Medium | 4-5h | 📋 Planned |
-| [007](007-view-management-topological-sort.md) | View Management | Low | 3-4h | 📋 Planned |
+| ID | Enhancement | Priority | Status | Location |
+|----|-------------|----------|--------|----------|
+| 002 | Unified Logger System (Backend) | High | ✅ Implemented | `implemented/` |
+| 003 | Unified Logger System (Frontend) | High | ✅ Implemented | `implemented/` |
+| 006 | API Configuration System | Medium | ✅ Implemented | `implemented/` |
+| 004 | Expanded Makefile Workflow | Medium | ✅ Implemented | `implemented/` |
+| 008 | Draft Autosave (Frontend) | Medium | 📋 Planned | Active |
+| 009 | Dynamic Form Generation | High | 🔄 Backend Complete | Active |
+| 010 | Review Workflow (4-Eyes) | High | ✅ Implemented | System |
+| 002 | CacheService with L1/L2 | High | 🔮 Deferred | `deferred/` |
+| 005 | Real-Time Progress Tracking | Medium | 🔮 Deferred | `deferred/` |
+| 007 | View Management (Topological) | Low | 🔮 Deferred | `deferred/` |
 
-**Total Estimated Effort**: 28-36 hours
+**Legend**: ✅ Implemented | 🔄 In Progress | 📋 Planned | 🔮 Deferred
 
-## Implementation Strategy
+## Implementation Summary
 
-### Phase 1: Core Infrastructure (High Priority)
-**Estimated: 13-18 hours**
+### ✅ Completed (Phase 1-2)
 
-Establish foundational systems that eliminate code duplication and improve observability:
+**Core Infrastructure:**
+- **Unified Logging System** (Backend + Frontend)
+  - Structured logging with request correlation
+  - Dual output (console + database persistence)
+  - Performance monitoring decorators
+  - Privacy-aware sanitization
+  - Location: `backend/app/core/logging/`, `frontend/src/services/logService.js`
 
-1. **[001 - Unified Logger System](001-unified-logger-system.md)** (4-6h)
-   - Structured logging with request correlation
-   - Dual output (console + database)
-   - Performance monitoring decorators
+- **API Configuration System**
+  - Three-tier configuration (Constants, Environment, YAML)
+  - Environment-based overrides
+  - Externalized deployment config
+  - Location: `backend/app/core/api_config.py`, `backend/config/api.yaml`
 
-2. **[002 - CacheService L1/L2](002-cache-service-l1-l2.md)** (6-8h)
-   - Multi-layer caching (memory + PostgreSQL)
-   - 75-95% hit rates (proven)
-   - TTL per namespace
+- **Expanded Makefile Workflow**
+  - Hybrid development mode (DB in Docker, local services)
+  - 50+ commands for all operations
+  - `make status`, `make help`, comprehensive tooling
+  - Location: `Makefile`
 
-3. **[003 - RetryUtils](003-retry-utils-exponential-backoff.md)** (3-4h)
-   - Exponential backoff with jitter
-   - Circuit breaker pattern
-   - 95%+ success rate for transient failures
+**Core Features:**
+- **Multi-Stage Workflow Engine** (5 stages with 4-eyes principle)
+- **Scope-Based Organization** (clinical specialties)
+- **Pluggable Scoring Engines** (ClinGen, GenCC, Qualitative)
+- **Schema Repository System** (methodology-agnostic)
 
-**Why Start Here?**
-- These are **dependency-free** and provide immediate value
-- Logger + Cache + Retry = foundation for all other features
-- Establishes DRY patterns early in development
+### 🔄 In Progress (Phase 3)
 
-### Phase 2: Developer Experience (Medium Priority)
-**Estimated: 6-8 hours**
+- **Dynamic Form Generation**: Backend complete, frontend integration pending
+- **Draft Autosave**: Design complete, implementation pending
 
-Improve daily development workflow and configuration management:
+### 🔮 Deferred (Performance Optimizations)
 
-4. **[004 - Expanded Makefile](004-expanded-makefile-workflow.md)** (2-3h)
-   - Hybrid development mode (DB in Docker, local API/Frontend)
-   - `make status` command with real-time statistics
-   - Comprehensive backup/restore commands
+Deferred for post-launch optimization:
+- **CacheService L1/L2**: Multi-layer caching (memory + PostgreSQL)
+- **Real-Time Progress Tracking**: WebSocket-based updates
+- **View Management**: Topological sort for DB view dependencies
 
-5. **[006 - YAML Configuration](006-yaml-configuration-system.md)** (4-5h)
-   - Externalized configuration
-   - Environment-based overrides
-   - No more hardcoded values
-
-**Why Second?**
-- Makefile improvements = instant productivity boost
-- YAML configuration enables deployment flexibility
-
-### Phase 3: Advanced Features (Optional)
-**Estimated: 9-12 hours**
-
-Add sophisticated features for production deployments:
-
-6. **[005 - Real-Time Progress](005-realtime-progress-tracking.md)** (6-8h)
-   - WebSocket-based progress updates
-   - Event bus architecture
-   - 100% WebSocket stability (proven)
-
-7. **[007 - View Management](007-view-management-topological-sort.md)** (3-4h)
-   - Topological sort for view dependencies
-   - Safe view refresh operations
-   - Dependency visualization
-
-**Why Last?**
-- Nice-to-have but not critical for core functionality
-- Can be implemented after production launch
+**Why Deferred**: Not critical for initial launch, can optimize based on real usage patterns.
 
 ## How to Use These Issues
 
