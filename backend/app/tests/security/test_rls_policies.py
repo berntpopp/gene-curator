@@ -12,7 +12,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from sqlalchemy import select, text
@@ -106,6 +106,12 @@ class TestRLSPolicies:
             db, scope_id=scope.id, invited_by_id=user1.id, obj_in=membership_data
         )
 
+        # CRITICAL: Flush and refresh to ensure ID is loaded in object's __dict__
+        db.flush()
+        db.refresh(scope)
+        # Access ID to ensure it's loaded while we have correct RLS context
+        assert scope.id is not None
+
         return scope
 
     @pytest.fixture
@@ -134,7 +140,25 @@ class TestRLSPolicies:
             db, scope_id=scope.id, invited_by_id=user2.id, obj_in=membership_data
         )
 
+        # CRITICAL: Flush and refresh to ensure ID is loaded in object's __dict__
+        db.flush()
+        db.refresh(scope)
+        # Access ID to ensure it's loaded while we have correct RLS context
+        assert scope.id is not None
+
         return scope
+
+    @pytest.fixture
+    def scope1_id(self, scope1: Scope, db: Session, user1: UserNew) -> UUID:
+        """Capture scope1 ID within correct RLS context."""
+        set_rls_context(db, user1)
+        return scope1.id
+
+    @pytest.fixture
+    def scope2_id(self, scope2: Scope, db: Session, user2: UserNew) -> UUID:
+        """Capture scope2 ID within correct RLS context."""
+        set_rls_context(db, user2)
+        return scope2.id
 
     def test_rls_context_setting(self, db: Session, user1: UserNew) -> None:
         """Test that RLS context can be set correctly."""
@@ -159,19 +183,24 @@ class TestRLSPolicies:
         assert scopes[0].id == scope1.id
 
     def test_user_cannot_see_other_user_scope(
-        self, db: Session, user1: UserNew, user2: UserNew, scope2: Scope
+        self, db: Session, user1: UserNew, user2: UserNew, scope2_id: UUID
     ) -> None:
         """Test that a user CANNOT see scopes they're NOT a member of."""
         set_rls_context(db, user1)
 
         # Try to query user2's scope
-        scopes = db.execute(select(Scope).where(Scope.id == scope2.id)).scalars().all()
+        scopes = db.execute(select(Scope).where(Scope.id == scope2_id)).scalars().all()
 
         # Should return empty list (RLS prevents access)
         assert len(scopes) == 0
 
     def test_tenant_isolation_multiple_scopes(
-        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope, scope2: Scope
+        self,
+        db: Session,
+        user1: UserNew,
+        user2: UserNew,
+        scope1_id: UUID,
+        scope2_id: UUID,
     ) -> None:
         """Test complete tenant isolation between users."""
         # User1 should only see their scope
@@ -179,19 +208,23 @@ class TestRLSPolicies:
         user1_scopes = db.execute(select(Scope)).scalars().all()
         user1_scope_ids = [s.id for s in user1_scopes]
 
-        assert scope1.id in user1_scope_ids
-        assert scope2.id not in user1_scope_ids
+        assert scope1_id in user1_scope_ids
+        assert scope2_id not in user1_scope_ids
 
         # User2 should only see their scope
         set_rls_context(db, user2)
         user2_scopes = db.execute(select(Scope)).scalars().all()
         user2_scope_ids = [s.id for s in user2_scopes]
 
-        assert scope2.id in user2_scope_ids
-        assert scope1.id not in user2_scope_ids
+        assert scope2_id in user2_scope_ids
+        assert scope1_id not in user2_scope_ids
 
     def test_admin_can_bypass_rls(
-        self, db: Session, admin_user: UserNew, scope1: Scope, scope2: Scope
+        self,
+        db: Session,
+        admin_user: UserNew,
+        scope1_id: UUID,
+        scope2_id: UUID,
     ) -> None:
         """Test that application admins can see all scopes."""
         # Note: This test depends on the is_application_admin() RLS function
@@ -203,11 +236,11 @@ class TestRLSPolicies:
         scope_ids = [s.id for s in all_scopes]
 
         # Admin should see both test scopes
-        assert scope1.id in scope_ids
-        assert scope2.id in scope_ids
+        assert scope1_id in scope_ids
+        assert scope2_id in scope_ids
 
     def test_rls_prevents_direct_membership_access(
-        self, db: Session, user1: UserNew, user2: UserNew, scope2: Scope
+        self, db: Session, user1: UserNew, user2: UserNew, scope2_id: UUID
     ) -> None:
         """Test that users can't access membership records of scopes they're not in."""
         set_rls_context(db, user1)
@@ -215,7 +248,7 @@ class TestRLSPolicies:
         # Try to query user2's scope memberships
         memberships = (
             db.execute(
-                select(ScopeMembership).where(ScopeMembership.scope_id == scope2.id)
+                select(ScopeMembership).where(ScopeMembership.scope_id == scope2_id)
             )
             .scalars()
             .all()
@@ -263,21 +296,49 @@ class TestRLSPolicies:
             db, obj_in=public_scope_data, owner_id=user1.id
         )
 
-        # Mark it as public
+        # Create membership so user1 can UPDATE the scope (RLS requirement)
+        membership_data = ScopeMembershipCreate(
+            user_id=user1.id,
+            email=None,
+            role=ScopeRole.ADMIN,
+            notes="Owner",
+            team_id=None,
+        )
+        scope_membership_crud.create_invitation(
+            db, scope_id=public_scope.id, invited_by_id=user1.id, obj_in=membership_data
+        )
+
+        # CRITICAL: Capture scope ID BEFORE marking as public
+        public_scope_id = public_scope.id
+
+        # Mark it as public (now user1 has admin rights to UPDATE)
         db.execute(
             text("UPDATE scopes SET is_public = true WHERE id = :scope_id"),
-            {"scope_id": str(public_scope.id)},
+            {"scope_id": str(public_scope_id)},
         )
-        db.flush()  # Flush instead of commit
+        db.commit()  # Commit the change to persist it across RLS context switches
+
+        # Verify UPDATE worked (as user1, the creator)
+        result = db.execute(
+            text("SELECT is_public FROM scopes WHERE id = :scope_id"),
+            {"scope_id": str(public_scope_id)},
+        )
+        is_public_check = result.scalar()
+        assert is_public_check is True, f"Scope should be public but is_public={is_public_check}"
 
         # User2 (not a member) should be able to see public scope
         set_rls_context(db, user2)
+
+        # Debug: Check what RLS context is set
+        context_check = db.execute(text("SHOW app.current_user_id")).scalar()
+        assert context_check == str(user2.id), f"RLS context not set correctly: {context_check} != {user2.id}"
+
         visible_scopes = (
-            db.execute(select(Scope).where(Scope.id == public_scope.id)).scalars().all()
+            db.execute(select(Scope).where(Scope.id == public_scope_id)).scalars().all()
         )
 
-        assert len(visible_scopes) == 1
-        assert visible_scopes[0].id == public_scope.id
+        assert len(visible_scopes) == 1, f"Public scope should be visible to user2, but found {len(visible_scopes)} scopes"
+        assert visible_scopes[0].id == public_scope_id
 
     def test_select_for_share_prevents_toctou(
         self, db: Session, user1: UserNew, scope1: Scope
@@ -303,7 +364,7 @@ class TestRLSPolicies:
         # (this is tested more thoroughly in concurrency tests)
 
     def test_rls_enforcement_after_membership_removal(
-        self, db: Session, user1: UserNew, user2: UserNew, scope1: Scope
+        self, db: Session, user1: UserNew, user2: UserNew, scope1_id: UUID
     ) -> None:
         """Test that RLS is enforced after membership is removed."""
         # Add user2 to scope1
@@ -316,13 +377,13 @@ class TestRLSPolicies:
             team_id=None,
         )
         membership = scope_membership_crud.create_invitation(
-            db, scope_id=scope1.id, invited_by_id=user1.id, obj_in=membership_data
+            db, scope_id=scope1_id, invited_by_id=user1.id, obj_in=membership_data
         )
 
         # User2 should see scope1
         set_rls_context(db, user2)
         visible_scopes = (
-            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+            db.execute(select(Scope).where(Scope.id == scope1_id)).scalars().all()
         )
         assert len(visible_scopes) == 1
 
@@ -335,7 +396,7 @@ class TestRLSPolicies:
         # User2 should no longer see scope1
         set_rls_context(db, user2)
         visible_scopes = (
-            db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()
+            db.execute(select(Scope).where(Scope.id == scope1_id)).scalars().all()
         )
         assert len(visible_scopes) == 0
 
