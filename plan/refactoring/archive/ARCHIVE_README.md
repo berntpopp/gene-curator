@@ -243,6 +243,87 @@ pytest app/tests/ -v
 
 ---
 
+## BACKEND_IMPLEMENTATION.md
+
+**Archived**: 2025-10-14
+**Status**: ✅ Completed - Reference Guide
+**Type**: Implementation Guide
+
+**Original Purpose**:
+- Comprehensive guide for backend refactoring patterns
+- SQLAlchemy 2.0 migration examples
+- CRUD operation patterns and best practices
+- Step-by-step implementation instructions
+
+**What Was Accomplished**:
+1. ✅ **All 14 Models Migrated**: Modern SQLAlchemy 2.0 patterns
+2. ✅ **CRUD Operations Updated**: `scope.py`, `scope_membership.py` fully verified
+3. ✅ **Core Infrastructure Complete**: Database, enums, configuration
+4. ✅ **Code Quality Achieved**: 90% warning reduction
+
+**Why Archived**:
+- All critical backend work complete (100%)
+- Document served its purpose as implementation guide
+- Work is done, document now serves as historical reference
+- Main status tracked in `README.md`
+- Only optional CRUD file reviews remain (cosmetic)
+
+**Contents Include**:
+- Database schema patterns
+- SQLAlchemy 2.0 examples
+- CRUD operation templates
+- RLS implementation patterns
+- Testing best practices
+
+**Remaining Work** (Optional):
+- 6 CRUD files (user.py, gene_new.py, gene_assignment.py, schema_repository.py, workflow_engine.py, logs.py)
+- All functional, just optional code style verification
+
+---
+
+## FRONTEND_IMPLEMENTATION.md
+
+**Archived**: 2025-10-14
+**Status**: ✅ Completed - Reference Guide
+**Type**: Implementation Guide
+
+**Original Purpose**:
+- Guide frontend refactoring for scope-centric architecture
+- Document composable patterns
+- Store refactoring strategies
+- Service layer implementation
+
+**What Was Accomplished**:
+1. ✅ **All 8 Composables Created**: 100% scope-centric compatible
+   - Core: `useScopePermissions`, `useScopeUtils`, `useRoleColors`
+   - Supporting: `useLogger`, `useNavigation`, `useNotifications`, `usePermissions`, `useResponsive`
+
+2. ✅ **All 11 Stores Verified**: 100% scope-centric compatible
+   - Core: `scopes.js` (360 lines), `assignments.js`, `genes.js`
+   - Supporting: `workflow`, `schemas`, `validation`, `auth`, `users`, `notifications`, `logStore`, `disclaimer`
+
+3. ✅ **Scope Integration Complete**:
+   - Central scope management with Composition API
+   - Scope-aware gene assignments
+   - Scope filtering throughout frontend
+   - Permission checking at scope level
+
+**Why Archived**:
+- All frontend work complete (100%)
+- Document served its purpose as implementation guide
+- Work is done, document now serves as historical reference
+- Main status tracked in `README.md`
+- No remaining work (all composables and stores complete)
+
+**Contents Include**:
+- Composable patterns and examples
+- Store refactoring strategies
+- Service layer patterns
+- Scope integration examples
+- Vue 3 Composition API best practices
+
+---
+
 ## When to Archive a Plan
 
 A refactoring plan should be archived when:

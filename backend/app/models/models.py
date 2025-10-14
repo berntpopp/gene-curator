@@ -464,13 +464,19 @@ class WorkflowPair(Base):
         "UserNew", foreign_keys=[created_by], overlaps="created_workflow_pairs"
     )
     precuration_schema: Mapped["CurationSchema | None"] = relationship(
-        "CurationSchema", foreign_keys=[precuration_schema_id], overlaps="precuration_workflow_pairs"
+        "CurationSchema",
+        foreign_keys=[precuration_schema_id],
+        overlaps="precuration_workflow_pairs",
     )
     curation_schema: Mapped["CurationSchema | None"] = relationship(
-        "CurationSchema", foreign_keys=[curation_schema_id], overlaps="curation_workflow_pairs"
+        "CurationSchema",
+        foreign_keys=[curation_schema_id],
+        overlaps="curation_workflow_pairs",
     )
     scope_defaults: Mapped[list["Scope"]] = relationship(
-        "Scope", foreign_keys="[Scope.default_workflow_pair_id]", overlaps="default_workflow_pair"
+        "Scope",
+        foreign_keys="[Scope.default_workflow_pair_id]",
+        overlaps="default_workflow_pair",
     )
     gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
         "GeneScopeAssignment", back_populates="workflow_pair"
@@ -920,7 +926,9 @@ class Review(Base):
     curation: Mapped["CurationNew"] = relationship(
         "CurationNew", back_populates="reviews"
     )
-    reviewer: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[reviewer_id], overlaps="reviews_assigned")
+    reviewer: Mapped["UserNew"] = relationship(
+        "UserNew", foreign_keys=[reviewer_id], overlaps="reviews_assigned"
+    )
     assigner: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[assigned_by]
     )

@@ -5,8 +5,8 @@ Enhanced with YAML-based configuration and constants module for better
 maintainability and deployment flexibility.
 """
 
-from pydantic import ConfigDict, field_validator
-from pydantic_settings import BaseSettings
+from pydantic import field_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.core.constants import (
     ACCESS_TOKEN_EXPIRE_MINUTES,
@@ -149,7 +149,7 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL must start with 'postgresql://'")
         return v
 
-    model_config = ConfigDict(
+    model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=True,

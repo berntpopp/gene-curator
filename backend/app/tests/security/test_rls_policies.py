@@ -324,20 +324,26 @@ class TestRLSPolicies:
             {"scope_id": str(public_scope_id)},
         )
         is_public_check = result.scalar()
-        assert is_public_check is True, f"Scope should be public but is_public={is_public_check}"
+        assert is_public_check is True, (
+            f"Scope should be public but is_public={is_public_check}"
+        )
 
         # User2 (not a member) should be able to see public scope
         set_rls_context(db, user2)
 
         # Debug: Check what RLS context is set
         context_check = db.execute(text("SHOW app.current_user_id")).scalar()
-        assert context_check == str(user2.id), f"RLS context not set correctly: {context_check} != {user2.id}"
+        assert context_check == str(user2.id), (
+            f"RLS context not set correctly: {context_check} != {user2.id}"
+        )
 
         visible_scopes = (
             db.execute(select(Scope).where(Scope.id == public_scope_id)).scalars().all()
         )
 
-        assert len(visible_scopes) == 1, f"Public scope should be visible to user2, but found {len(visible_scopes)} scopes"
+        assert len(visible_scopes) == 1, (
+            f"Public scope should be visible to user2, but found {len(visible_scopes)} scopes"
+        )
         assert visible_scopes[0].id == public_scope_id
 
     def test_select_for_share_prevents_toctou(
