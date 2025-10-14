@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_admin_user
+from app.core.deps import get_current_active_user, get_current_admin_user
 from app.crud.user import user_crud
 from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
@@ -65,11 +65,21 @@ async def get_user_statistics(
 async def get_user(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> User:
     """
-    Get a specific user by ID (admin only).
+    Get a specific user by ID.
+
+    - Admins can view any user's profile
+    - Regular users can only view their own profile
     """
+    # Check if user is trying to view their own profile OR is an admin
+    if str(current_user.id) != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own profile. Admin access required to view other users.",
+        )
+
     user = user_crud.get(db=db, id=user_id)
     if not user:
         raise HTTPException(
@@ -231,11 +241,21 @@ async def delete_user(
 async def get_user_activity(
     user_id: str,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_admin_user),
+    current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
     """
-    Get user activity summary (admin only).
+    Get user activity summary.
+
+    - Admins can view any user's activity
+    - Regular users can only view their own activity
     """
+    # Check if user is trying to view their own activity OR is an admin
+    if str(current_user.id) != user_id and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only view your own activity. Admin access required to view other users' activity.",
+        )
+
     user = user_crud.get(db=db, id=user_id)
     if not user:
         raise HTTPException(
