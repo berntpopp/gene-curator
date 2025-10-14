@@ -15,7 +15,7 @@ from sqlalchemy.future import select
 from app.models.models import SystemLog
 
 
-async def get_logs(
+async def get_logs(  # noqa: C901
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100,

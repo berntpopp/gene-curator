@@ -658,6 +658,127 @@ verdict = qualitative_engine.compute_verdict(evidence_data)
 - **Testing**: pytest for backend, comprehensive coverage expected
 - **Security**: Bandit security checks, no secrets in code
 
+### CRITICAL: SQLAlchemy Boolean Filters (ALWAYS FOLLOW)
+
+**⚠️ WARNING**: SQLAlchemy boolean filters MUST use Pythonic direct evaluation, NOT Python identity operators.
+
+**✅ CORRECT (Pythonic style)**:
+```python
+# Direct boolean evaluation - SQLAlchemy overloads __bool__()
+query.filter(Model.is_active)
+query.filter(~Model.is_active)  # negation
+
+# Or explicit comparison (less Pythonic)
+query.filter(Model.is_active == True)
+query.filter(Model.is_active == False)
+```
+
+**❌ WRONG (Python identity check)**:
+```python
+# Python 'is' operator checks object identity, not SQLAlchemy column value
+query.filter(Model.is_active is True)   # WILL FAIL
+query.filter(Model.is_active is False)  # WILL FAIL
+```
+
+**Why This Matters**:
+- SQLAlchemy columns have overloaded `__bool__()` methods
+- Python `is` operator performs identity check (checks if same object in memory)
+- `is True` will ALWAYS be False because SQLAlchemy column is not the literal `True` object
+- This bug caused API to return 0 results instead of 25 scopes (2025-10-14)
+
+**Detection**:
+```bash
+# Check for this anti-pattern in code
+grep -r "is True\|is False" app/crud/ app/api/
+```
+
+**References**:
+- Bug report: `docs/refactoring/CODE_QUALITY_LINTING_FIXES.md`
+- SQLAlchemy docs: https://docs.sqlalchemy.org/en/20/core/sqlelement.html
+
+### CRITICAL: Never Use Sed for Code Refactoring (ALWAYS FOLLOW)
+
+**⚠️ WARNING**: NEVER use `sed` command for code refactoring. Use IDE refactoring tools or Edit tool instead.
+
+**Why Sed Fails**:
+- Line-based text editor, doesn't understand syntax
+- Can't handle multi-line expressions correctly
+- Places comments in wrong locations
+- Breaks indentation and structure
+- No context awareness (function boundaries, class definitions)
+
+**Examples of Sed Failures** (2025-10-14):
+```python
+# Sed broke this by placing comment before closing paren
+.filter(Model.is_active is True  # Fixed: use == instead of is)
+# Should be:
+.filter(Model.is_active)  # Fixed: use == instead of is
+
+# Sed broke this naming convention fix
+TestSessionLocal =  # noqa: N806 sessionmaker(autocommit=False...)
+# Should be:
+TestSessionLocal = sessionmaker(autocommit=False...)  # noqa: N806
+```
+
+**✅ Use Instead**:
+- **Python**: PyCharm/VSCode refactoring, or Edit tool
+- **JavaScript**: VSCode refactoring, or Edit tool
+- **Multi-file**: Task tool with specific instructions
+
+**If You Must Use Sed** (rare cases):
+1. Test on ONE file first
+2. Check the diff carefully
+3. Run linting immediately after
+4. Test the code functionality
+5. Document what you changed and why
+
+**References**:
+- Bug report: `docs/refactoring/CODE_QUALITY_LINTING_FIXES.md`
+
+### CRITICAL: Always Run Linting Before Commits (REQUIRED)
+
+**⚠️ REQUIRED**: Linting MUST pass before committing code. No exceptions.
+
+**Commands**:
+```bash
+# Backend linting (MUST pass - zero errors, zero warnings)
+cd backend
+uv run ruff check app/          # Python linting
+uv run ruff format app/         # Auto-formatting
+uv run mypy app/                # Type checking
+uv run bandit -r app/           # Security analysis
+
+# Frontend linting (MUST have 0 errors, warnings OK if documented)
+cd frontend
+npm run lint                    # ESLint with auto-fix
+npm run format                  # Prettier formatting
+
+# Or use Makefile shortcuts
+make lint              # Backend only
+make lint-frontend     # Frontend only
+make format-all        # Auto-format everything
+make check             # Complete quality check (lint + tests)
+```
+
+**Why This Matters**:
+- Catches bugs before they reach production
+- Enforces consistent code style
+- Detects security issues early
+- Type checking prevents runtime errors
+- Saves time in code review
+
+**Git Pre-Commit Hook** (Recommended):
+```bash
+#!/bin/bash
+# .git/hooks/pre-commit (make executable with chmod +x)
+cd backend && uv run ruff check app/ || exit 1
+cd frontend && npm run lint || exit 1
+echo "✅ Linting passed"
+```
+
+**References**:
+- Bug report: `docs/refactoring/CODE_QUALITY_LINTING_FIXES.md`
+
 ### Unified Logging System (ALWAYS USE)
 
 Gene Curator uses a production-grade unified logging system with request correlation, database persistence, and performance monitoring.

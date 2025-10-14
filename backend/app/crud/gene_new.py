@@ -253,7 +253,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
                 and_(
                     GeneScopeAssignment.gene_id == GeneNew.id,
                     GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active is True,
+                    GeneScopeAssignment.is_active  # Fixed: use == instead of is,
                 ),
             )
         else:
@@ -269,7 +269,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         query = db.query(GeneScopeAssignment).filter(
             and_(
                 GeneScopeAssignment.gene_id == gene_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active  # Fixed: use == instead of is,
             )
         )
 
@@ -361,7 +361,7 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
                 and_(
                     GeneScopeAssignment.gene_id == GeneNew.id,
                     GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active is True,
+                    GeneScopeAssignment.is_active  # Fixed: use == instead of is,
                 ),
             )
 
@@ -388,13 +388,13 @@ class CRUDGeneNew(CRUDBase[GeneNew, GeneNewCreate, GeneNewUpdate]):
         if not scope_id:
             total_assignments = (
                 db.query(GeneScopeAssignment)
-                .filter(GeneScopeAssignment.is_active is True)
+                .filter(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
                 .count()
             )
 
             assigned_genes = (
                 db.query(func.count(func.distinct(GeneScopeAssignment.gene_id)))
-                .filter(GeneScopeAssignment.is_active is True)
+                .filter(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
                 .scalar()
             )
 

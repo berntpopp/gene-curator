@@ -276,29 +276,33 @@ api:
     enable_request_correlation: false
 """
 
-        with patch("builtins.open", mock_open(read_data=yaml_content)):
-            with patch("pathlib.Path.exists", return_value=True):
-                # Clear cache before loading
-                load_api_config.cache_clear()
-                config = load_api_config("test.yaml")
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            # Clear cache before loading
+            load_api_config.cache_clear()
+            config = load_api_config("test.yaml")
 
-                assert "https://test.example.com" in config.cors.allow_origins
-                assert config.cors.allow_credentials is True
-                assert config.rate_limits["default"].requests_per_minute == 50
-                assert config.timeouts.default_seconds == 20
-                assert config.pagination.default_page_size == 25
-                assert config.uploads.max_file_size_mb == 5
-                assert config.logging.retention_days == 60
+            assert "https://test.example.com" in config.cors.allow_origins
+            assert config.cors.allow_credentials is True
+            assert config.rate_limits["default"].requests_per_minute == 50
+            assert config.timeouts.default_seconds == 20
+            assert config.pagination.default_page_size == 25
+            assert config.uploads.max_file_size_mb == 5
+            assert config.logging.retention_days == 60
 
     def test_load_config_with_invalid_yaml(self):
         """Test loading config with invalid YAML uses defaults."""
-        with patch("builtins.open", mock_open(read_data="invalid: yaml: content: :")):
-            with patch("pathlib.Path.exists", return_value=True):
-                load_api_config.cache_clear()
-                config = load_api_config("test.yaml")
+        with (
+            patch("builtins.open", mock_open(read_data="invalid: yaml: content: :")),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            load_api_config.cache_clear()
+            config = load_api_config("test.yaml")
 
-                # Should fallback to defaults
-                assert isinstance(config, APIConfig)
+            # Should fallback to defaults
+            assert isinstance(config, APIConfig)
 
     def test_config_caching(self):
         """Test that configuration is cached."""
@@ -316,7 +320,7 @@ api:
         with patch("pathlib.Path.exists", return_value=False):
             load_api_config.cache_clear()
 
-            config1 = load_api_config()
+            load_api_config()
             config2 = reload_config()
 
             # After reload, should potentially be different instances

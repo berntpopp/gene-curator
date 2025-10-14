@@ -56,7 +56,7 @@ class CRUDCurationSchema(
         query = db.query(CurationSchema)
 
         if active_only:
-            query = query.filter(CurationSchema.is_active is True)
+            query = query.filter(CurationSchema.is_active)  # Fixed: use == instead of is
 
         if schema_type:
             query = query.filter(CurationSchema.schema_type == schema_type)
@@ -164,7 +164,7 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         query = db.query(WorkflowPair)
 
         if active_only:
-            query = query.filter(WorkflowPair.is_active is True)
+            query = query.filter(WorkflowPair.is_active)  # Fixed: use == instead of is
 
         return (
             query.order_by(WorkflowPair.name, WorkflowPair.version.desc())

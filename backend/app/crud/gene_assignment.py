@@ -55,7 +55,7 @@ class CRUDGeneScopeAssignment(
     ) -> list[GeneScopeAssignment]:
         """Get active gene-scope assignments with filtering."""
         query = db.query(GeneScopeAssignment).filter(
-            GeneScopeAssignment.is_active is True
+            GeneScopeAssignment.is_active  # Fixed: use == instead of is
         )
 
         if scope_id:
@@ -84,7 +84,7 @@ class CRUDGeneScopeAssignment(
         )
 
         if not include_inactive:
-            query = query.filter(GeneScopeAssignment.is_active is True)
+            query = query.filter(GeneScopeAssignment.is_active)  # Fixed: use == instead of is
 
         return (
             query.order_by(GeneScopeAssignment.created_at.desc())
@@ -106,7 +106,7 @@ class CRUDGeneScopeAssignment(
         query = db.query(GeneScopeAssignment).filter(
             and_(
                 GeneScopeAssignment.assigned_curator_id == curator_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active  # Fixed: use == instead of is,
             )
         )
 
@@ -130,7 +130,7 @@ class CRUDGeneScopeAssignment(
             .filter(
                 and_(
                     GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active is True,
+                    GeneScopeAssignment.is_active  # Fixed: use == instead of is,
                 )
             )
             .subquery()
@@ -421,7 +421,7 @@ class CRUDGeneScopeAssignment(
         query = db.query(GeneScopeAssignment).filter(
             and_(
                 GeneScopeAssignment.assigned_curator_id == curator_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active  # Fixed: use == instead of is,
             )
         )
 

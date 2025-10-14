@@ -25,7 +25,7 @@ class TestPasswordHashing:
 
     def test_hash_password(self):
         """Test that password hashing produces a bcrypt hash."""
-        password = "test_password_123"
+        password = "test_password_123"  # noqa: S105
         hashed = get_password_hash(password)
 
         # Bcrypt hashes start with $2b$ and are 60 characters long
@@ -34,14 +34,14 @@ class TestPasswordHashing:
 
     def test_verify_correct_password(self):
         """Test that correct password verification succeeds."""
-        password = "admin123"
+        password = "admin123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password(password, hashed) is True
 
     def test_verify_incorrect_password(self):
         """Test that incorrect password verification fails."""
-        password = "admin123"
+        password = "admin123"  # noqa: S105
         hashed = get_password_hash(password)
 
         assert verify_password("wrong_password", hashed) is False
@@ -58,7 +58,7 @@ class TestPasswordHashing:
 
     def test_same_password_produces_different_hashes(self):
         """Test that hashing the same password twice produces different hashes (salt)."""
-        password = "admin123"
+        password = "admin123"  # noqa: S105
 
         hash1 = get_password_hash(password)
         hash2 = get_password_hash(password)
@@ -74,7 +74,7 @@ class TestPasswordHashing:
         """Test that the seed data password hash is correct."""
         # This is the hash from 004_seed_data.sql
         seed_hash = "$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6"
-        password = "admin123"
+        password = "admin123"  # noqa: S105
 
         # This should verify successfully
         assert verify_password(password, seed_hash) is True
@@ -125,7 +125,7 @@ class TestTokenGeneration:
 
     def test_verify_invalid_token(self):
         """Test verification of invalid token."""
-        invalid_token = "invalid.jwt.token"
+        invalid_token = "invalid.jwt.token"  # noqa: S105
 
         payload = verify_token(invalid_token)
 
@@ -162,7 +162,7 @@ class TestUserAuthentication:
         # Mock the get_by_email method
         with patch.object(user_crud, "get_by_email", return_value=mock_user):
             result = user_crud.authenticate(
-                self.mock_db, email="test@example.com", password="password123"
+                self.mock_db, email="test@example.com", password="password123"  # noqa: S106
             )
 
         assert result is not None
@@ -177,7 +177,7 @@ class TestUserAuthentication:
         # Mock the get_by_email method
         with patch.object(user_crud, "get_by_email", return_value=mock_user):
             result = user_crud.authenticate(
-                self.mock_db, email="test@example.com", password="wrong_password"
+                self.mock_db, email="test@example.com", password="wrong_password"  # noqa: S106
             )
 
         assert result is None
@@ -187,7 +187,7 @@ class TestUserAuthentication:
         # Mock get_by_email to return None (user not found)
         with patch.object(user_crud, "get_by_email", return_value=None):
             result = user_crud.authenticate(
-                self.mock_db, email="nonexistent@example.com", password="password123"
+                self.mock_db, email="nonexistent@example.com", password="password123"  # noqa: S106
             )
 
         assert result is None
@@ -223,7 +223,7 @@ class TestDevelopmentCredentials:
         """Test that development user credentials are correctly set up."""
         # This tests the known password hash from seed data
         seed_hash = "$2b$12$bs7kTc5txFs0.0F3AtguTuzOTQ6fWItSmWPQmWgI7GMyhiscyNZd6"
-        password = "admin123"
+        password = "admin123"  # noqa: S105
 
         # All development users should have the same password
         assert verify_password(password, seed_hash) is True

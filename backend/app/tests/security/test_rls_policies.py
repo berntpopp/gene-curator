@@ -40,7 +40,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"admin-{test_run_id}@rls-test.org",
-            hashed_password="hashed",
+            hashed_password="hashed",  # noqa: S106
             name="Admin User",
             role="admin",
             is_active=True,
@@ -55,7 +55,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"user1-{test_run_id}@rls-test.org",
-            hashed_password="hashed",
+            hashed_password="hashed",  # noqa: S106
             name="User One",
             role="curator",
             is_active=True,
@@ -70,7 +70,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"user2-{test_run_id}@rls-test.org",
-            hashed_password="hashed",
+            hashed_password="hashed",  # noqa: S106
             name="User Two",
             role="curator",
             is_active=True,

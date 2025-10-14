@@ -42,7 +42,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         query = db.query(Scope)
 
         if active_only:
-            query = query.filter(Scope.is_active is True)
+            query = query.filter(Scope.is_active)  # Fixed: use == instead of is
 
         if institution:
             query = query.filter(Scope.institution == institution)
@@ -56,7 +56,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         query = db.query(Scope).filter(Scope.id.in_(user_scope_ids))
 
         if active_only:
-            query = query.filter(Scope.is_active is True)
+            query = query.filter(Scope.is_active)  # Fixed: use == instead of is
 
         return query.all()
 
@@ -95,7 +95,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             )
             .filter(
                 GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
             .first()
         )
@@ -166,7 +166,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             db.query(func.count(func.distinct(GeneScopeAssignment.assigned_curator_id)))
             .filter(
                 GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
                 GeneScopeAssignment.assigned_curator_id.isnot(None),
             )
             .scalar()
@@ -260,7 +260,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             db.query(func.count(GeneScopeAssignment.id))
             .filter(
                 GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active is True,
+                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
             )
             .scalar()
         )
@@ -271,7 +271,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     ) -> list[dict[str, Any]]:
         """Get available workflow pairs for a scope."""
         workflow_pairs = (
-            db.query(WorkflowPair).filter(WorkflowPair.is_active is True).all()
+            db.query(WorkflowPair).filter(WorkflowPair.is_active).all()  # Fixed: use == instead of is
         )
 
         result = []
@@ -328,7 +328,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         """Get users assigned to a scope."""
         users = (
             db.query(UserNew)
-            .filter(UserNew.assigned_scopes.any(scope_id), UserNew.is_active is True)
+            .filter(UserNew.assigned_scopes.any(scope_id), UserNew.is_active)  # Fixed: use == instead of is
             .all()
         )
 

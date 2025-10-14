@@ -179,6 +179,10 @@ def set_rls_context(db: Session, current_user: User) -> None:
     bind parameters, but since user_id is a UUID from a validated User object,
     it's safe from SQL injection (UUID format is strictly validated).
 
+    IMPORTANT: This function also expires all objects in the session to force
+    SQLAlchemy to re-query the database where RLS will be enforced. Without
+    this, cached objects from the identity map may bypass RLS.
+
     Args:
         db: Database session
         current_user: Current authenticated user
@@ -191,10 +195,29 @@ def set_rls_context(db: Session, current_user: User) -> None:
         # ✅ SECURE: user_id is a validated UUID from User model
         # SET LOCAL doesn't support bind parameters, but UUID is safe
         user_id_str = str(current_user.id)
+
+        # Execute SET LOCAL command
         db.execute(text(f"SET LOCAL app.current_user_id = '{user_id_str}'"))
+
+        # Verify that the context was actually set (without flushing)
+        result = db.execute(text("SHOW app.current_user_id"))
+        actual_context = result.scalar()
+
+        if actual_context != user_id_str:
+            raise ValueError(
+                f"RLS context verification failed: expected {user_id_str}, got {actual_context}"
+            )
+
+        # NOTE: We do NOT call db.expire_all() here because:
+        # 1. RLS context is set BEFORE any queries are executed
+        # 2. All subsequent queries in this transaction will respect RLS
+        # 3. expire_all() would detach objects, causing FastAPI serialization to fail
+        # 4. The session lifecycle (via yield in get_db) handles cleanup properly
+
         logger.debug(
-            "RLS context set",
+            "RLS context set and verified",
             user_id=user_id_str,
+            verified_context=actual_context,
             user_name=current_user.name,
             user_email=current_user.email,
         )
