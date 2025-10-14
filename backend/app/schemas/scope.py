@@ -114,6 +114,7 @@ class ScopeStatistics(BaseModel):
     # Team metrics
     active_curators: int = Field(..., description="Active curators in this scope")
     active_reviewers: int = Field(..., description="Active reviewers in this scope")
+    member_count: int = Field(..., description="Total active members in this scope")
 
     # Verdict distribution
     definitive_verdicts: int = Field(default=0, description="Definitive verdicts")
