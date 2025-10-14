@@ -8,6 +8,9 @@ const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
 const Dashboard = () => import('@/views/Dashboard.vue')
 const ScopeSelection = () => import('@/views/ScopeSelection.vue')
+const ScopeList = () => import('@/views/scope/ScopeList.vue')
+const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
+const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
 const GenesTable = () => import('@/views/GenesTable.vue')
 const GeneDetail = () => import('@/views/GeneDetail.vue')
 const GeneAdmin = () => import('@/views/GeneAdmin.vue')
@@ -74,6 +77,39 @@ const routes = [
       title: 'Select Clinical Scope',
       requiresAuth: true,
       requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes',
+    name: 'scopes',
+    component: ScopeList,
+    meta: {
+      title: 'Clinical Scopes',
+      requiresAuth: true,
+      showInMainMenu: true,
+      icon: 'mdi-folder-multiple',
+      label: 'Scopes',
+      order: 1
+    }
+  },
+  {
+    path: '/scopes/create',
+    name: 'scope-create',
+    component: ScopeCreate,
+    meta: {
+      title: 'Create Scope',
+      requiresAuth: true,
+      requiredRoles: ['admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId',
+    name: 'scope-dashboard',
+    component: ScopeDashboard,
+    props: true,
+    meta: {
+      title: 'Scope Dashboard',
+      requiresAuth: true
     }
   },
   {

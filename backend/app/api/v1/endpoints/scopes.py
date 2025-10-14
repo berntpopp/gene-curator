@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.logging import get_logger
 from app.crud.scope import scope_crud
 from app.models import User
 from app.schemas.scope import (
@@ -18,6 +19,8 @@ from app.schemas.scope import (
     ScopeUpdate,
     ScopeWithStats,
 )
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -34,18 +37,50 @@ def get_scopes(
     """
     Retrieve scopes with optional filtering.
     """
+    logger.debug(
+        "GET /scopes/ endpoint called",
+        user_id=str(current_user.id),
+        user_role=current_user.role.value,
+        skip=skip,
+        limit=limit,
+        active_only=active_only,
+        institution=institution,
+    )
+
+    # CRITICAL: Set RLS context so database policies can evaluate user permissions
+    deps.set_rls_context(db, current_user)
+    logger.debug("RLS context set successfully", user_id=str(current_user.id))
+
     # Check if user has admin access or is assigned to view scopes
     if current_user.role.value not in ["admin", "scope_admin"]:
         # Regular users can only see scopes they're assigned to
         user_scope_ids = current_user.assigned_scopes or []
+        logger.debug(
+            "Non-admin user, fetching assigned scopes only",
+            user_id=str(current_user.id),
+            assigned_scope_count=len(user_scope_ids),
+        )
         scopes = scope_crud.get_user_scopes(
             db, user_scope_ids=user_scope_ids, active_only=active_only
+        )
+        logger.info(
+            "Scopes retrieved for non-admin user",
+            user_id=str(current_user.id),
+            scope_count=len(scopes),
         )
         return scopes[skip : skip + limit]
 
     # Admin users can see all scopes
+    logger.debug("Admin user, fetching all scopes", user_id=str(current_user.id))
     scopes = scope_crud.get_multi(
         db, skip=skip, limit=limit, active_only=active_only, institution=institution
+    )
+    logger.info(
+        "Scopes retrieved for admin user",
+        user_id=str(current_user.id),
+        scope_count=len(scopes),
+        active_only=active_only,
+        institution=institution,
     )
     return scopes
 
@@ -60,16 +95,42 @@ def create_scope(
     """
     Create new scope. Requires admin privileges.
     """
+    logger.debug(
+        "POST /scopes/ endpoint called",
+        user_id=str(current_user.id),
+        user_role=current_user.role.value,
+        scope_name=scope_in.name,
+        scope_display_name=scope_in.display_name,
+    )
+
     if current_user.role.value not in ["admin", "scope_admin"]:
+        logger.warning(
+            "Scope creation denied: insufficient permissions",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+        )
         raise HTTPException(status_code=403, detail="Not enough permissions")
 
     # Check if scope name already exists
-    if scope_crud.get_by_name(db, name=scope_in.name):
+    existing_scope = scope_crud.get_by_name(db, name=scope_in.name)
+    if existing_scope:
+        logger.warning(
+            "Scope creation failed: duplicate name",
+            user_id=str(current_user.id),
+            scope_name=scope_in.name,
+        )
         raise HTTPException(
             status_code=400, detail="Scope with this name already exists"
         )
 
     scope = scope_crud.create_with_owner(db, obj_in=scope_in, owner_id=current_user.id)
+    logger.info(
+        "Scope created successfully",
+        user_id=str(current_user.id),
+        scope_id=str(scope.id),
+        scope_name=scope.name,
+        scope_display_name=scope.display_name,
+    )
     return scope
 
 

@@ -86,6 +86,7 @@ class Scope(Base):
     display_name = Column(String(255), nullable=False)
     description = Column(Text)
     institution = Column(String(255), index=True)
+    is_public = Column(Boolean, default=False, nullable=False)
     is_active = Column(Boolean, default=True, index=True)
     default_workflow_pair_id = Column(
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id")

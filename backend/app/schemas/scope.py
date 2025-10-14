@@ -19,6 +19,7 @@ class ScopeBase(BaseModel):
     display_name: str = Field(..., description="Human-readable scope name")
     description: str | None = Field(None, description="Scope description")
     institution: str | None = Field(None, description="Owning institution")
+    is_public: bool = Field(False, description="Whether scope is publicly visible")
     scope_config: dict[str, Any] = Field(
         default_factory=dict, description="Scope-specific configuration"
     )

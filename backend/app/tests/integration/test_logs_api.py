@@ -359,7 +359,7 @@ def test_export_formats_supported():
     assert "format" in params, "Export endpoint is missing format parameter"
 
     # Check format parameter has regex validation
-    format_param = params["format"]
+    params["format"]
     # The parameter should have Query dependency with regex validation
 
 
