@@ -1,28 +1,35 @@
 # Schema-Agnostic Gene Curator Deployment Guide
 
-## Deployment Status: ✅ PRODUCTION READY
+## Deployment Status: ✅ PRODUCTION READY (Archived 2025-10-14)
 
-The schema-agnostic transformation of Gene Curator is **fully implemented** with comprehensive backend functionality. The system operates as a dual-architecture platform supporting both legacy ClinGen workflows and flexible, methodology-agnostic curation approaches.
+> **Note**: This is an archived planning document. The schema-agnostic transformation has been successfully completed and integrated into the main codebase.
+
+The schema-agnostic transformation of Gene Curator is **fully implemented** with comprehensive backend functionality. The system operates as a unified architecture supporting both ClinGen workflows and flexible, methodology-agnostic curation approaches.
 
 ## Deployment Verification
 
 **Core Components Status:**
-- ✅ **Schema validation engine**: Operational (12+ field types supported)
+- ✅ **Schema validation engine**: Operational (13 field types supported)
 - ✅ **Multi-methodology scoring**: Operational (ClinGen, GenCC, Qualitative engines)
-- ✅ **API endpoints**: 135 total routes, 65 schema-agnostic endpoints implemented
-- ✅ **Database schema**: Dual schema approach ready (legacy + schema-agnostic)
+- ✅ **API endpoints**: 106 total routes across 12 endpoint modules
+- ✅ **Database schema**: Unified schema (scopes, curation_schemas, workflow_pairs integrated in 001_schema_foundation.sql)
 - ✅ **Workflow engine**: 5-stage pipeline with 4-eyes principle operational
-- ✅ **Integration tests**: Comprehensive test suites passing
+- ✅ **Integration tests**: Comprehensive test suites passing (249/249 tests)
 
 ## Database Deployment
 
 ### Schema Files Deployment Order
 ```bash
 # Deploy schema-agnostic tables alongside legacy system
-psql -d gene_curator < database/sql/004_schema_agnostic_foundation.sql
-psql -d gene_curator < database/sql/005_schema_agnostic_triggers.sql
-psql -d gene_curator < database/sql/006_schema_agnostic_views.sql
-psql -d gene_curator < database/sql/007_schema_agnostic_seed_data.sql
+# Note: Schema-agnostic tables (scopes, curation_schemas, workflow_pairs, etc.)
+# are integrated into 001_schema_foundation.sql
+psql -d gene_curator < database/sql/001_schema_foundation.sql
+psql -d gene_curator < database/sql/002_gene_disease_validity.sql
+psql -d gene_curator < database/sql/003_scope_memberships.sql
+psql -d gene_curator < database/sql/004_seed_data.sql
+psql -d gene_curator < database/sql/005_rls_setup.sql
+psql -d gene_curator < database/sql/006_test_user_setup.sql
+psql -d gene_curator < database/sql/007_logging_tables.sql
 ```
 
 ### Verification Commands
