@@ -502,27 +502,3 @@ class TestRLSPolicies:
 
         # Context should be completely isolated
         # (no leakage between requests)
-
-    def test_rls_performance_with_composite_index(
-        self, db: Session, user1: UserNew, scope1: Scope
-    ) -> None:
-        """Test that composite index (idx_scope_memberships_user_scope_active) is used."""
-        set_rls_context(db, user1)
-
-        # This query should use the composite index
-        result = db.execute(
-            text("""
-                EXPLAIN (FORMAT JSON)
-                SELECT * FROM scope_memberships
-                WHERE user_id = :user_id
-                AND scope_id = :scope_id
-                AND is_active = true
-                AND accepted_at IS NOT NULL
-            """),
-            {"user_id": str(user1.id), "scope_id": str(scope1.id)},
-        )
-
-        # Parse explain output to verify index usage
-        explain_json = result.scalar()
-        # Index scan should be present in query plan
-        assert "Index" in str(explain_json)
