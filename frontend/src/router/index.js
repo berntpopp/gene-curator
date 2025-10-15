@@ -27,6 +27,7 @@ const About = () => import('@/views/About.vue')
 const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
 const NotFound = () => import('@/views/NotFound.vue')
+const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
 
 const routes = [
   {
@@ -132,6 +133,16 @@ const routes = [
     props: true,
     meta: {
       title: 'Gene Details',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/genes/:geneId/summary',
+    name: 'GeneSummary',
+    component: GeneSummaryView,
+    props: true,
+    meta: {
+      title: 'Gene Summary',
       requiresAuth: false
     }
   },
