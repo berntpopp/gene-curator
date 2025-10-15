@@ -182,14 +182,14 @@
           <!-- Genes Tab -->
           <v-window-item value="genes">
             <v-card-text>
-              <GeneList v-if="scope" :scope-id="scope.id" />
+              <GeneList v-if="scope" :scope-id="scopeId" />
             </v-card-text>
           </v-window-item>
 
           <!-- Curations Tab -->
           <v-window-item value="curations">
             <v-card-text>
-              <CurationList v-if="scope" :scope-id="scope.id" />
+              <CurationList v-if="scope" :scope-id="scopeId" />
             </v-card-text>
           </v-window-item>
 

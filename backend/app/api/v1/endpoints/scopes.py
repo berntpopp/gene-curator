@@ -86,6 +86,13 @@ def create_scope(
     # Create scope
     scope = scope_crud.create_with_owner(db, obj_in=scope_in, owner_id=current_user.id)
 
+    logger.debug(
+        "Scope entity created, now creating admin membership",
+        scope_id=str(scope.id),
+        scope_name=scope.name,
+        creator_id=str(current_user.id),
+    )
+
     # Automatically create scope membership with admin role
     membership_data = ScopeMembershipCreate(
         user_id=current_user.id,
@@ -95,15 +102,36 @@ def create_scope(
         notes="Creator and initial scope administrator",
     )
 
-    scope_membership_crud.create_invitation(
-        db,
-        scope_id=scope.id,
-        invited_by_id=current_user.id,
-        obj_in=membership_data,
-    )
+    try:
+        membership = scope_membership_crud.create_invitation(
+            db,
+            scope_id=scope.id,
+            invited_by_id=current_user.id,
+            obj_in=membership_data,
+        )
+
+        logger.info(
+            "Scope membership created",
+            membership_id=str(membership.id),
+            scope_id=str(scope.id),
+            user_id=str(current_user.id),
+            role=membership.role,
+            is_active=membership.is_active,
+            accepted_at=str(membership.accepted_at) if membership.accepted_at else "NULL",
+        )
+    except Exception as e:
+        logger.error(
+            "Failed to create scope membership",
+            scope_id=str(scope.id),
+            user_id=str(current_user.id),
+            error=str(e),
+            error_type=type(e).__name__,
+        )
+        # Don't fail scope creation if membership fails - log and continue
+        # The user can be added manually later
 
     logger.info(
-        "Scope created",
+        "Scope created successfully",
         scope_id=str(scope.id),
         scope_name=scope.name,
         creator_id=str(current_user.id),
@@ -147,8 +175,24 @@ def list_scopes(
     # Set RLS context - this will filter scopes automatically
     deps.set_rls_context(db, current_user)
 
-    # Get user's scopes via scope_memberships
-    # RLS policies will automatically filter to only scopes user has access to
+    # Application admins see ALL scopes
+    if current_user.role.value == "admin":
+        scopes = scope_crud.get_multi(
+            db, skip=skip, limit=limit, active_only=active_only
+        )
+
+        logger.debug(
+            "Listed all scopes for admin user",
+            user_id=str(current_user.id),
+            user_role=current_user.role.value,
+            total_scopes=len(scopes),
+            skip=skip,
+            limit=limit,
+        )
+
+        return scopes
+
+    # Regular users see scopes they are members of
     user_scopes = scope_membership_crud.get_user_scopes(db, user_id=current_user.id)
 
     # Extract scope objects
@@ -164,6 +208,7 @@ def list_scopes(
     logger.debug(
         "Listed scopes for user",
         user_id=str(current_user.id),
+        user_role=current_user.role.value,
         total_scopes=len(scopes),
         returned_scopes=len(paginated_scopes),
         skip=skip,

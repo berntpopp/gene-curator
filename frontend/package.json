@@ -11,6 +11,10 @@
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:debug": "playwright test --debug",
+    "test:e2e:report": "playwright show-report",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore",
     "lint:check": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --ignore-path .gitignore",
     "format": "prettier --write \"src/**/*.{js,vue,json,css,scss,md}\"",
@@ -28,6 +32,7 @@
     "vuetify": "^3.9.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.0",
     "@vitejs/plugin-vue": "^5.0.4",
     "@vitest/ui": "^3.2.4",
     "@vue/eslint-config-prettier": "^9.0.0",

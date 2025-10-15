@@ -33,10 +33,7 @@ export function useScoring(evidenceItems) {
       .filter(e => e.evidence_category === 'case_control')
       .reduce((sum, e) => sum + (e.computed_score || 0), 0)
 
-    const genetic_total = Math.min(
-      case_level_score + segregation_score + case_control_score,
-      12.0
-    )
+    const genetic_total = Math.min(case_level_score + segregation_score + case_control_score, 12.0)
 
     // Experimental scores by category
     const expression_score = experimental

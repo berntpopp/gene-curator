@@ -38,7 +38,7 @@ export function useValidation(validator) {
   /**
    * Validate a value with debouncing
    */
-  const validateDebounced = debounce(async (val) => {
+  const validateDebounced = debounce(async val => {
     if (!val || val.length < 2) {
       result.value = null
       return
@@ -59,7 +59,11 @@ export function useValidation(validator) {
       }
 
       result.value = validationResult
-      logService.debug('Validation complete', { validator, value: val, isValid: validationResult.is_valid })
+      logService.debug('Validation complete', {
+        validator,
+        value: val,
+        isValid: validationResult.is_valid
+      })
     } catch (e) {
       error.value = e.message || 'Validation failed'
       logService.error('Validation error', { validator, value: val, error: e.message })
@@ -69,7 +73,7 @@ export function useValidation(validator) {
   }, 500)
 
   // Watch value changes for automatic validation
-  watch(value, (newVal) => {
+  watch(value, newVal => {
     validateDebounced(newVal)
   })
 
@@ -101,11 +105,19 @@ export function useValidation(validator) {
       }
 
       result.value = validationResult
-      logService.info('Manual validation complete', { validator, value: valueToValidate, isValid: validationResult.is_valid })
+      logService.info('Manual validation complete', {
+        validator,
+        value: valueToValidate,
+        isValid: validationResult.is_valid
+      })
       return validationResult
     } catch (e) {
       error.value = e.message || 'Validation failed'
-      logService.error('Manual validation error', { validator, value: valueToValidate, error: e.message })
+      logService.error('Manual validation error', {
+        validator,
+        value: valueToValidate,
+        error: e.message
+      })
       return null
     } finally {
       isValidating.value = false

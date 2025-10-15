@@ -50,7 +50,9 @@
                     <v-card-text>
                       <div class="text-caption">Agreement</div>
                       <div class="text-h6">
-                        <v-icon>{{ summary.has_conflicts ? 'mdi-alert' : 'mdi-check-circle' }}</v-icon>
+                        <v-icon>{{
+                          summary.has_conflicts ? 'mdi-alert' : 'mdi-check-circle'
+                        }}</v-icon>
                         {{ summary.has_conflicts ? 'Conflicting' : 'Consensus' }}
                       </div>
                     </v-card-text>
@@ -59,18 +61,13 @@
               </v-row>
 
               <!-- Conflicts Alert -->
-              <v-alert
-                v-if="summary.has_conflicts"
-                type="warning"
-                variant="tonal"
-                class="mt-4"
-              >
+              <v-alert v-if="summary.has_conflicts" type="warning" variant="tonal" class="mt-4">
                 <v-alert-title>
                   <v-icon>mdi-alert</v-icon>
                   Conflicting Classifications
                 </v-alert-title>
-                Multiple scopes have assigned different classifications to this gene.
-                Review individual scope curations below.
+                Multiple scopes have assigned different classifications to this gene. Review
+                individual scope curations below.
               </v-alert>
 
               <!-- Classification Distribution -->
@@ -101,7 +98,7 @@
                     md="6"
                     lg="4"
                   >
-                    <scope-summary-card :scope-summary="scope" />
+                    <ScopeSummaryCard :scope-summary="scope" />
                   </v-col>
                 </v-row>
               </div>
@@ -110,9 +107,7 @@
               <div class="text-caption text-grey mt-4">
                 <v-icon size="x-small">mdi-clock-outline</v-icon>
                 Last updated: {{ formatDate(summary.last_updated) }}
-                <v-chip size="x-small" class="ml-2">
-                  ClinGen SOP v11
-                </v-chip>
+                <v-chip size="x-small" class="ml-2"> ClinGen SOP v11 </v-chip>
               </div>
             </div>
           </v-card-text>
@@ -123,91 +118,91 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
-import { useGeneSummaryStore } from '@/stores/geneSummary.js'
-import { useGenesStore } from '@/stores/genes.js'
-import { useLogger } from '@/composables/useLogger'
-import ScopeSummaryCard from '@/components/clingen/ScopeSummaryCard.vue'
+  import { ref, computed, onMounted } from 'vue'
+  import { useRoute } from 'vue-router'
+  import { useGeneSummaryStore } from '@/stores/geneSummary.js'
+  import { useGenesStore } from '@/stores/genes.js'
+  import { useLogger } from '@/composables/useLogger'
+  import ScopeSummaryCard from '@/components/clingen/ScopeSummaryCard.vue'
 
-const route = useRoute()
-const geneSummaryStore = useGeneSummaryStore()
-const genesStore = useGenesStore()
-const logger = useLogger()
+  const route = useRoute()
+  const geneSummaryStore = useGeneSummaryStore()
+  const genesStore = useGenesStore()
+  const logger = useLogger()
 
-const geneId = route.params.geneId
-const geneSymbol = ref('')
-const loading = ref(false)
-const error = ref(null)
+  const geneId = route.params.geneId
+  const geneSymbol = ref('')
+  const loading = ref(false)
+  const error = ref(null)
 
-// Computed summary
-const summary = computed(() => {
-  return geneSummaryStore.getPublicSummary(geneId)
-})
-
-// Consensus color
-const consensusColor = computed(() => {
-  const cls = summary.value?.consensus_classification?.toLowerCase()
-  if (cls === 'definitive') return 'success'
-  if (cls === 'strong') return 'info'
-  if (cls === 'moderate') return 'warning'
-  if (cls === 'limited') return 'grey'
-  return 'error'
-})
-
-// Get classification color helper
-const getClassificationColor = (classification) => {
-  const cls = classification?.toLowerCase()
-  if (cls === 'definitive') return 'success'
-  if (cls === 'strong') return 'info'
-  if (cls === 'moderate') return 'warning'
-  if (cls === 'limited') return 'grey'
-  return 'error'
-}
-
-// Format date helper
-const formatDate = (dateString) => {
-  if (!dateString) return 'N/A'
-  const date = new Date(dateString)
-  return date.toLocaleString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
+  // Computed summary
+  const summary = computed(() => {
+    return geneSummaryStore.getPublicSummary(geneId)
   })
-}
 
-// Fetch data on mount
-onMounted(async () => {
-  logger.info('GeneSummaryView mounted', { geneId })
-  loading.value = true
+  // Consensus color
+  const consensusColor = computed(() => {
+    const cls = summary.value?.consensus_classification?.toLowerCase()
+    if (cls === 'definitive') return 'success'
+    if (cls === 'strong') return 'info'
+    if (cls === 'moderate') return 'warning'
+    if (cls === 'limited') return 'grey'
+    return 'error'
+  })
 
-  try {
-    // Fetch gene summary
-    await geneSummaryStore.fetchPublicSummary(geneId)
-
-    // Fetch gene details for symbol
-    try {
-      const gene = await genesStore.fetchGeneById(geneId)
-      geneSymbol.value = gene.approved_symbol
-    } catch (geneError) {
-      logger.warn('Could not fetch gene details', { geneId, error: geneError.message })
-      // Continue even if gene details fail
-    }
-
-    logger.info('Gene summary loaded successfully', { geneId })
-  } catch (e) {
-    error.value = e.message || 'Failed to load gene summary'
-    logger.error('Failed to load gene summary', { geneId, error: e.message })
-  } finally {
-    loading.value = false
+  // Get classification color helper
+  const getClassificationColor = classification => {
+    const cls = classification?.toLowerCase()
+    if (cls === 'definitive') return 'success'
+    if (cls === 'strong') return 'info'
+    if (cls === 'moderate') return 'warning'
+    if (cls === 'limited') return 'grey'
+    return 'error'
   }
-})
+
+  // Format date helper
+  const formatDate = dateString => {
+    if (!dateString) return 'N/A'
+    const date = new Date(dateString)
+    return date.toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
+  }
+
+  // Fetch data on mount
+  onMounted(async () => {
+    logger.info('GeneSummaryView mounted', { geneId })
+    loading.value = true
+
+    try {
+      // Fetch gene summary
+      await geneSummaryStore.fetchPublicSummary(geneId)
+
+      // Fetch gene details for symbol
+      try {
+        const gene = await genesStore.fetchGeneById(geneId)
+        geneSymbol.value = gene.approved_symbol
+      } catch (geneError) {
+        logger.warn('Could not fetch gene details', { geneId, error: geneError.message })
+        // Continue even if gene details fail
+      }
+
+      logger.info('Gene summary loaded successfully', { geneId })
+    } catch (e) {
+      error.value = e.message || 'Failed to load gene summary'
+      logger.error('Failed to load gene summary', { geneId, error: e.message })
+    } finally {
+      loading.value = false
+    }
+  })
 </script>
 
 <style scoped>
-.v-card-title {
-  background-color: rgb(var(--v-theme-surface-variant));
-}
+  .v-card-title {
+    background-color: rgb(var(--v-theme-surface-variant));
+  }
 </style>

@@ -28,6 +28,9 @@ const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
 const NotFound = () => import('@/views/NotFound.vue')
 const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
+const CurationFormView = () => import('@/views/curation/CurationFormView.vue')
+const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue')
+const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
 
 const routes = [
   {
@@ -111,6 +114,61 @@ const routes = [
     meta: {
       title: 'Scope Dashboard',
       requiresAuth: true
+    }
+  },
+  // Curation routes
+  {
+    path: '/scopes/:scopeId/curations/new',
+    name: 'curation-create',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'New Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/curations/:curationId',
+    name: 'curation-detail',
+    component: CurationDetailView,
+    props: true,
+    meta: {
+      title: 'Curation Details',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/scopes/:scopeId/curations/:curationId/edit',
+    name: 'curation-edit',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'Edit Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/genes/:geneId/curation/new',
+    name: 'gene-curation-create',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'New Gene Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/genes/:geneId/precuration/new',
+    name: 'gene-precuration-create',
+    component: PrecurationFormView,
+    props: true,
+    meta: {
+      title: 'New Precuration',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
     }
   },
   {

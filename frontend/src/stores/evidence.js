@@ -26,26 +26,27 @@ export const useEvidenceStore = defineStore('evidence', {
      * Get evidence items by category for a curation
      */
     getEvidenceByCategory: state => (curationId, category) => {
-      return Array.from(state.evidence.values())
-        .filter(item => item.curation_id === curationId && item.evidence_category === category)
+      return Array.from(state.evidence.values()).filter(
+        item => item.curation_id === curationId && item.evidence_category === category
+      )
     },
 
     /**
      * Count genetic evidence items for a curation
      */
     geneticEvidenceCount: state => curationId => {
-      return Array.from(state.evidence.values())
-        .filter(item => item.curation_id === curationId && item.evidence_type === 'genetic')
-        .length
+      return Array.from(state.evidence.values()).filter(
+        item => item.curation_id === curationId && item.evidence_type === 'genetic'
+      ).length
     },
 
     /**
      * Count experimental evidence items for a curation
      */
     experimentalEvidenceCount: state => curationId => {
-      return Array.from(state.evidence.values())
-        .filter(item => item.curation_id === curationId && item.evidence_type === 'experimental')
-        .length
+      return Array.from(state.evidence.values()).filter(
+        item => item.curation_id === curationId && item.evidence_type === 'experimental'
+      ).length
     }
   },
 
