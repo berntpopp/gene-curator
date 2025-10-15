@@ -39,6 +39,7 @@ dependencies = [
     "pandas>=2.1.4",
     "openpyxl>=3.1.2",
     "pyyaml>=6.0.1",
+    "defusedxml>=0.7.1",
     # "jsonschema>=4.0.0",  # temporarily disabled
 ]
 
@@ -51,6 +52,7 @@ dev = [
     "mypy>=1.7.1",
     "pre-commit>=3.6.0",
     "bandit>=1.7.5",
+    "types-defusedxml>=0.7.0",
 ]
 
 [project.urls]
@@ -118,6 +120,7 @@ ignore = [
 "tests/*" = ["S101", "S106", "S608"]
 "alembic/*" = ["E402"]
 "app/core/logging/performance.py" = ["C901"]  # Performance decorators are inherently complex
+"app/services/validators/*" = ["C901"]  # Validators have complex API response parsing logic
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]
@@ -150,6 +153,12 @@ warn_unreachable = true
 strict_equality = true
 show_error_codes = true
 pretty = true
+plugins = ["pydantic.mypy"]
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = true
 
 [[tool.mypy.overrides]]
 module = [
@@ -190,6 +199,12 @@ disallow_untyped_calls = false
 module = "app.api.*"
 # API modules have complex FastAPI dependencies
 disallow_untyped_calls = false
+
+[[tool.mypy.overrides]]
+module = "app.services.validators.*"
+# Validators interact with external APIs and have complex Pydantic models
+disallow_untyped_calls = false
+warn_return_any = false
 
 [tool.pytest.ini_options]
 minversion = "6.0"

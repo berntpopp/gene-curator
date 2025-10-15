@@ -6,7 +6,10 @@ from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
     auth,
+    evidence,
+    external_validation,
     gene_assignments,
+    gene_summaries,
     genes,
     health,
     logs,
@@ -42,6 +45,13 @@ api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"]
 # Core entity endpoints
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+
+# ClinGen SOP v11 endpoints
+api_router.include_router(evidence.router, tags=["evidence"])
+api_router.include_router(gene_summaries.router, tags=["gene-summaries"])
+api_router.include_router(
+    external_validation.router, prefix="/external-validation", tags=["external-validation"]
+)
 
 # System monitoring endpoints
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])

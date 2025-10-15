@@ -21,6 +21,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -812,6 +813,9 @@ class CurationNew(Base):
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
     )
 
+    # Optimistic locking (ClinGen SOP v11)
+    lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+
     # Metadata
     created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -866,6 +870,7 @@ class CurationNew(Base):
         Index("idx_curations_gene_scope", "gene_id", "scope_id"),
         Index("idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"),
         Index("idx_curations_scores_gin", "computed_scores", postgresql_using="gin"),
+        Index("idx_curations_lock_version", "id", "lock_version"),
     )
 
 
@@ -1065,13 +1070,36 @@ class AuditLogNew(Base):
         UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
     )
 
+    # Enhanced tracking fields (ClinGen SOP v11 - ALCOA+ compliance)
+    change_type: Mapped[str | None] = mapped_column(
+        String(50), index=True
+    )  # 'evidence_added', 'score_updated', 'status_changed'
+    old_values: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB
+    )  # Previous state snapshot
+    new_values: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB
+    )  # New state snapshot
+    change_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB
+    )  # User agent, IP, client info
+    alcoa_metadata: Mapped[dict[str, Any] | None] = mapped_column(
+        JSONB
+    )  # ALCOA+ compliance fields
+
     # Relationships
     scope: Mapped["Scope | None"] = relationship("Scope")
     user: Mapped["UserNew | None"] = relationship("UserNew")
     schema: Mapped["CurationSchema | None"] = relationship("CurationSchema")
     workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
 
-    __table_args__ = (Index("idx_audit_log_entity", "entity_type", "entity_id"),)
+    __table_args__ = (
+        Index("idx_audit_log_entity", "entity_type", "entity_id"),
+        Index("idx_audit_logs_change_type", "change_type"),
+        Index("idx_audit_logs_user_action", "user_id", "change_type", "timestamp"),
+        Index("idx_audit_logs_old_values", "old_values", postgresql_using="gin"),
+        Index("idx_audit_logs_new_values", "new_values", postgresql_using="gin"),
+    )
 
 
 class SchemaSelection(Base):
@@ -1178,4 +1206,257 @@ class SystemLog(Base):
     __table_args__ = (
         Index("idx_system_logs_level_timestamp", "level", timestamp.desc()),
         Index("idx_system_logs_context_gin", "context", postgresql_using="gin"),
+    )
+
+
+# ========================================
+# CLINGEN SOP V11 MODELS
+# ========================================
+
+
+class EvidenceItem(Base):
+    """
+    Individual evidence items extracted from JSONB arrays.
+    Provides better data integrity, validation, and queryability for evidence.
+    """
+
+    __tablename__ = "evidence_items"
+
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    # Required foreign keys
+    curation_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("curations.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_by: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+
+    # Evidence classification
+    evidence_category: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # 'case_level', 'segregation', 'case_control', etc.
+    evidence_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # 'genetic', 'experimental'
+
+    # Evidence data (JSONB for flexibility)
+    evidence_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+    # Scoring results
+    computed_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
+    score_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    # Validation status
+    validation_status: Mapped[str] = mapped_column(
+        String(20), default="pending", nullable=False
+    )  # 'pending', 'valid', 'invalid'
+    validation_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    validated_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+
+    # Audit fields
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
+    )
+    updated_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    updated_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+    )
+
+    # Soft delete
+    is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    deleted_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+    deleted_by: Mapped[PyUUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # Relationships
+    curation: Mapped["CurationNew"] = relationship("CurationNew")
+    creator: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[created_by])
+    updater: Mapped["UserNew | None"] = relationship(
+        "UserNew", foreign_keys=[updated_by]
+    )
+    deleter: Mapped["UserNew | None"] = relationship(
+        "UserNew", foreign_keys=[deleted_by]
+    )
+
+    __table_args__ = (
+        Index(
+            "idx_evidence_items_curation",
+            "curation_id",
+            postgresql_where="is_deleted = FALSE",
+        ),
+        Index(
+            "idx_evidence_items_category",
+            "evidence_category",
+            postgresql_where="is_deleted = FALSE",
+        ),
+        Index(
+            "idx_evidence_items_type",
+            "evidence_type",
+            postgresql_where="is_deleted = FALSE",
+        ),
+        Index(
+            "idx_evidence_items_curation_category",
+            "curation_id",
+            "evidence_category",
+            postgresql_where="is_deleted = FALSE",
+        ),
+        Index(
+            "idx_evidence_items_display",
+            "curation_id",
+            "evidence_category",
+            "created_at",
+            postgresql_where="is_deleted = FALSE",
+        ),
+    )
+
+
+class GeneSummary(Base):
+    """
+    Pre-computed aggregations of gene curations across scopes.
+    Enables fast public queries without real-time aggregation overhead.
+    """
+
+    __tablename__ = "gene_summaries"
+
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    # Required foreign key
+    gene_id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("genes.id", ondelete="CASCADE"),
+        nullable=False,
+        unique=True,
+        index=True,
+    )
+
+    # Aggregated counts
+    total_scopes_curated: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+    public_scopes_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    private_scopes_count: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0
+    )
+
+    # Classification summary (JSONB with counts by classification)
+    classification_summary: Mapped[dict[str, Any]] = mapped_column(
+        JSONB, nullable=False, default={}
+    )
+
+    # Consensus information
+    consensus_classification: Mapped[str | None] = mapped_column(String(50))
+    consensus_confidence: Mapped[float | None] = mapped_column(Numeric(3, 2))
+    has_conflicts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Per-scope details (array of scope summary objects)
+    scope_summaries: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, nullable=False, default=[]
+    )
+
+    # Metadata
+    last_computed_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    computation_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+
+    # Cache control
+    is_stale: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Relationships
+    gene: Mapped["Gene"] = relationship("Gene")
+
+    __table_args__ = (
+        Index(
+            "idx_gene_summaries_public",
+            "public_scopes_count",
+            postgresql_where="public_scopes_count > 0",
+        ),
+        Index(
+            "idx_gene_summaries_stale", "is_stale", postgresql_where="is_stale = TRUE"
+        ),
+        Index(
+            "idx_gene_summaries_classification",
+            "classification_summary",
+            postgresql_using="gin",
+        ),
+        Index("idx_gene_summaries_scopes", "scope_summaries", postgresql_using="gin"),
+    )
+
+
+class ValidationCache(Base):
+    """
+    Cache for external validator results (HGNC, PubMed, HPO).
+    Reduces API calls and improves performance.
+    """
+
+    __tablename__ = "validation_cache"
+
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+
+    # Required fields
+    validator_name: Mapped[str] = mapped_column(
+        String(50), nullable=False, index=True
+    )  # 'hgnc', 'pubmed', 'hpo'
+    input_value: Mapped[str] = mapped_column(
+        String(500), nullable=False
+    )  # Gene symbol, PMID, HPO term
+    validator_input_hash: Mapped[str] = mapped_column(
+        String(64), nullable=False, unique=True, index=True
+    )  # SHA256(validator_name + input_value)
+
+    # Validation result
+    is_valid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    validation_status: Mapped[str] = mapped_column(
+        String(20), nullable=False, index=True
+    )  # 'valid', 'invalid', 'error', 'not_found'
+    validation_response: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+
+    # Suggestions for invalid inputs
+    suggestions: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+
+    # Error information
+    error_message: Mapped[str | None] = mapped_column(Text)
+    error_code: Mapped[str | None] = mapped_column(String(50))
+
+    # Cache control
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    expires_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), nullable=False, index=True
+    )
+    access_count: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    last_accessed_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    __table_args__ = (
+        Index("idx_validation_cache_validator", "validator_name", "input_value"),
+        Index("idx_validation_cache_valid", "validator_name", "is_valid"),
+        Index(
+            "idx_validation_cache_cleanup",
+            "expires_at",
+            postgresql_where="expires_at < NOW()",
+        ),
     )

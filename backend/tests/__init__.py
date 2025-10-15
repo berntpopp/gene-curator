@@ -1,0 +1,1 @@
+"""Gene Curator test suite"""
