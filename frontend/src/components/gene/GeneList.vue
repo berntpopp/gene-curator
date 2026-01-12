@@ -47,7 +47,13 @@
         <v-btn value="cards" icon="mdi-view-grid" aria-label="Card view" />
       </v-btn-toggle>
 
-      <v-btn v-if="canAssignGenes" color="secondary" variant="outlined" class="mr-2" @click="showAddDrawer = true">
+      <v-btn
+        v-if="canAssignGenes"
+        color="secondary"
+        variant="outlined"
+        class="mr-2"
+        @click="showAddDrawer = true"
+      >
         <v-icon start>mdi-dna</v-icon>
         Add Genes
       </v-btn>
@@ -249,10 +255,7 @@
     </v-alert>
 
     <!-- Add Genes Drawer -->
-    <AddGenesDrawer
-      v-model="showAddDrawer"
-      @added="handleGenesAdded"
-    />
+    <AddGenesDrawer v-model="showAddDrawer" @added="handleGenesAdded" />
 
     <!-- Assign Genes Drawer -->
     <AssignGenesDrawer
@@ -513,7 +516,10 @@
    */
   function handleGenesAdded() {
     fetchGenes()
-    notificationStore.addToast('Genes added to catalog. You can now assign them to curators.', 'success')
+    notificationStore.addToast(
+      'Genes added to catalog. You can now assign them to curators.',
+      'success'
+    )
   }
 
   /**

@@ -11,7 +11,7 @@
         <v-icon start>mdi-dna</v-icon>
         Add Genes to Catalog
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" @click="close" aria-label="Close" />
+        <v-btn icon="mdi-close" variant="text" aria-label="Close" @click="close" />
       </v-card-title>
 
       <v-card-text>
@@ -87,7 +87,9 @@
             <v-alert type="info" variant="tonal" class="mt-4">
               <v-icon start>mdi-information</v-icon>
               Enter HGNC-approved gene information. You can verify genes at
-              <a href="https://www.genenames.org/" target="_blank" class="text-white">genenames.org</a>
+              <a href="https://www.genenames.org/" target="_blank" class="text-white"
+                >genenames.org</a
+              >
             </v-alert>
           </div>
 
@@ -129,9 +131,7 @@
       </v-card-text>
 
       <v-card-actions>
-        <v-btn variant="outlined" @click="close">
-          Cancel
-        </v-btn>
+        <v-btn variant="outlined" @click="close"> Cancel </v-btn>
         <v-spacer />
         <v-btn
           color="primary"
@@ -291,10 +291,7 @@
       symbol: result.approved_symbol
     })
 
-    notificationStore.addToast(
-      `Gene ${result.approved_symbol} added successfully`,
-      'success'
-    )
+    notificationStore.addToast(`Gene ${result.approved_symbol} added successfully`, 'success')
   }
 
   async function addBulkGenes() {
@@ -330,7 +327,10 @@
       }
     }
 
-    logger.debug('Adding bulk genes', { count: genes.length, skip_duplicates: bulkOptions.value.skip_duplicates })
+    logger.debug('Adding bulk genes', {
+      count: genes.length,
+      skip_duplicates: bulkOptions.value.skip_duplicates
+    })
 
     const result = await genesAPI.bulkCreateGenes({
       genes,
@@ -350,11 +350,14 @@
   }
 
   // Watch for dialog open
-  watch(() => props.modelValue, (newVal) => {
-    if (newVal) {
-      logger.debug('AddGenesDrawer opened')
+  watch(
+    () => props.modelValue,
+    newVal => {
+      if (newVal) {
+        logger.debug('AddGenesDrawer opened')
+      }
     }
-  })
+  )
 </script>
 
 <style scoped>
