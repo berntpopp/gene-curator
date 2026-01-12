@@ -107,6 +107,22 @@ query.filter(Model.is_active is False)
 make lint lint-frontend format-all
 ```
 
+### 4. Never Skip or Ignore Failing Tests
+❌ **NEVER** use `continue-on-error: true` in CI workflows
+❌ **NEVER** use `.skip()` or `xit()` to skip failing tests
+❌ **NEVER** comment out failing tests
+✅ **ALWAYS** fix failing tests before committing
+✅ **ALWAYS** run `make ci` locally before pushing
+
+**Why**: Skipping tests creates technical debt and hides real issues. If tests fail, fix them - don't work around them.
+
+```bash
+# Before pushing, ALWAYS verify:
+make ci-backend    # All backend tests must pass
+make ci-frontend   # All frontend tests must pass
+make ci            # Full CI must pass
+```
+
 ---
 
 ## Unified Logging System
