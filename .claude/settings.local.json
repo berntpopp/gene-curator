@@ -31,8 +31,6 @@
       "Bash(pkill:*)",
       "Bash(make status:*)",
       "Bash(make:*)",
-      "Bash(DATABASE_URL=\"postgresql://user:pass@localhost:5432/db\" SECRET_KEY=\"test-secret-key\" python -c \"\nimport sys\nsys.path.append(''.'')\n\nfrom app.core.config import Settings\nsettings = Settings()\nprint(f''✅ SUCCESS: Configuration loaded'')\nprint(f''   DATABASE_URL: {settings.DATABASE_URL}'')\nprint(f''   SECRET_KEY: {settings.SECRET_KEY[:10]}...'')\nprint(f''   ENVIRONMENT: {settings.ENVIRONMENT}'')\nprint(f''   DEBUG: {settings.DEBUG}'')\nprint(f''   ALLOWED_ORIGINS: {settings.ALLOWED_ORIGINS}'')\n\")",
-      "Bash(npm run build:*)",
       "Bash(true)",
       "Bash(uv run ruff check:*)",
       "Bash(grep:*)",
