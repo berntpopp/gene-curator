@@ -1,9 +1,12 @@
 # Refactor Branch: GitHub Issues Resolution Analysis
 
-**Branch**: `refactor`
-**Comparison**: refactor vs master
-**Analysis Date**: 2025-10-12
-**Total Changes**: 267 files changed, 57,481 insertions(+), 28,901 deletions(-)
+**Branch**: `feature/scope-centric-refactor`
+**Comparison**: feature/scope-centric-refactor vs master
+**Analysis Date**: 2026-01-12 (Updated)
+**Original Analysis**: 2025-10-12
+**Total Changes**: 267+ files changed, extensive refactoring
+
+> **Update (2026-01-12)**: Curations implementation completed with Pinia store integration, comprehensive API tests, and scoring engine fixes. PR #126 submitted.
 
 ---
 
@@ -301,7 +304,7 @@ async def assign_reviewer(self, curation_id: UUID, reviewer_id: UUID):
 
 ---
 
-### ❌ Not Resolved: #008 (Draft Auto-Save - Enhancement)
+### ⚠️ Partially Resolved: #008 (Draft Auto-Save - Enhancement)
 
 **Backend Status**: ✅ Complete
 ```python
@@ -312,16 +315,18 @@ class CurationNew(Base):
     evidence_data = Column(JSONB)  # Can be partially filled
 ```
 
-**Frontend Status**: ❌ Pending
-- No `useAutoSave` composable implemented
-- No `DraftCurations` view
-- No before-unload warning
+**Frontend Status**: ⚠️ Partial (as of 2026-01-12)
+- ✅ `curationsStore.saveDraft()` implemented in Pinia store
+- ✅ `CurationForm.vue` now uses store for draft operations
+- ❌ No `useAutoSave` composable for automatic interval saves
+- ❌ No `DraftCurations` list view
+- ❌ No before-unload warning
 
-**This is Enhancement #008 from our proposals** - needs frontend implementation (4-6h)
+**This is Enhancement #008 from our proposals** - needs auto-save composable + draft list view (3-4h remaining)
 
 ---
 
-### ❌ Not Resolved: #009 (Dynamic Form Generation - Enhancement)
+### ⚠️ Partially Resolved: #009 (Dynamic Form Generation - Enhancement)
 
 **Backend Status**: ✅ Complete
 ```python
@@ -331,26 +336,39 @@ FIELD_TYPES = ["text", "number", "boolean", "select", "multiselect",
                "date", "url", "email", "evidence_table", "pmid", ...]
 ```
 
-**Frontend Status**: ⚠️ Partially Started
+**Frontend Status**: ⚠️ Partially Started (as of 2026-01-12)
 ```javascript
 // frontend/src/components/dynamic/DynamicField.vue (382 lines)
 // frontend/src/components/dynamic/DynamicForm.vue (288 lines)
 // Components exist but not fully wired to CurationForm
 ```
 
-**This is Enhancement #009 from our proposals** - needs frontend completion (8-10h)
+**Progress (2026-01-12)**:
+- ✅ `CurationForm.vue` refactored to use Pinia `curationsStore`
+- ✅ `CurationList.vue` refactored to use Pinia store with `storeToRefs`
+- ✅ Store actions: `fetchCurations`, `fetchCurationById`, `createCuration`, `saveDraft`, `submitCuration`, `deleteCuration`
+- ❌ DynamicForm not yet wired to render from schema definitions
+- ❌ Field type components need integration
+
+**This is Enhancement #009 from our proposals** - needs DynamicForm integration (6-8h remaining)
 
 ---
 
 ## Summary Statistics
 
-| Category | Count | Percentage |
-|----------|-------|------------|
-| **✅ Fully Resolved** | 11 | 38% |
-| **⚠️ Partially Resolved** | 5 | 17% |
-| **❌ Not Resolved (Frontend/UX)** | 9 | 31% |
-| **❌ Not Resolved (New Features)** | 4 | 14% |
-| **Total Open Issues Analyzed** | 29 | 100% |
+| Category | Count | Percentage | Notes |
+|----------|-------|------------|-------|
+| **✅ Fully Resolved** | 11 | 38% | Core architecture issues |
+| **⚠️ Partially Resolved** | 7 | 24% | +2 from original (008, 009 progressed) |
+| **❌ Not Resolved (Frontend/UX)** | 7 | 24% | -2 from original |
+| **❌ Not Resolved (New Features)** | 4 | 14% | Unchanged |
+| **Total Open Issues Analyzed** | 29 | 100% | |
+
+**Update (2026-01-12)**: Curations implementation now complete with PR #126:
+- ✅ `crud/curation.py` - Fixed `calculate_score` bug
+- ✅ `CurationList.vue` - Refactored to use Pinia store
+- ✅ `CurationForm.vue` - Refactored to use Pinia store
+- ✅ 23 integration tests for curations API added
 
 ---
 
@@ -429,6 +447,18 @@ Document for users:
 
 ---
 
-**Analysis Date**: 2025-10-12
+**Original Analysis Date**: 2025-10-12
+**Last Updated**: 2026-01-12
 **Prepared By**: Claude Code
-**Status**: Ready for Merge Review
+**Status**: Curations implementation complete (PR #126). Phase 1 enhancements (008, 009, 010) partially progressed.
+
+### Recent Progress (2026-01-12)
+
+| Item | Status | Details |
+|------|--------|---------|
+| Curations API | ✅ Complete | CRUD endpoints, optimistic locking, RLS |
+| Curations Store | ✅ Complete | Pinia store with full actions |
+| CurationList.vue | ✅ Refactored | Uses `storeToRefs` pattern |
+| CurationForm.vue | ✅ Refactored | Uses store for all operations |
+| Integration Tests | ✅ Added | 23 tests covering all endpoints |
+| Scoring Bug | ✅ Fixed | `calculate_scores` method call corrected |

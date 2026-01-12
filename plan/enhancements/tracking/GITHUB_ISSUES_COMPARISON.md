@@ -1,7 +1,10 @@
 # GitHub Issues vs Enhancement Proposals - Detailed Comparison
 
-**Date**: 2025-10-12
-**Analysis**: Comparison of 29 open GitHub issues with 7 approved enhancement proposals
+**Original Date**: 2025-10-12
+**Last Updated**: 2026-01-12
+**Analysis**: Comparison of open GitHub issues with 7 approved enhancement proposals
+
+> **Update (2026-01-12)**: Curations implementation completed. PR #126 includes Pinia store integration for CurationList and CurationForm components. Phase 1 enhancements partially progressed.
 
 ---
 
@@ -37,7 +40,7 @@
 
 #### Enhancement #008: Draft Auto-Save Frontend
 
-**Status**: ✅ **UNIQUE** - Not in GitHub issues
+**Status**: ⚠️ **PARTIALLY IMPLEMENTED** (as of 2026-01-12)
 
 **Proposal Details**:
 - Auto-save every 30s + debounced on input
@@ -47,15 +50,22 @@
 
 **GitHub Status**: No existing issue requests this feature
 
+**Progress (2026-01-12)**:
+- ✅ `curationsStore.saveDraft()` action implemented
+- ✅ `CurationForm.vue` uses store for draft operations
+- ❌ Auto-save composable with interval not yet implemented
+- ❌ DraftCurations list view not yet implemented
+- ❌ Before-unload warning not yet implemented
+
 **Value**: High - Prevents curator data loss from browser crashes/closures
 
-**Recommendation**: Implement as proposed (4-6h effort)
+**Recommendation**: Remaining work ~3-4h (auto-save composable + draft list view)
 
 ---
 
 #### Enhancement #009: Dynamic Form Generation
 
-**Status**: ⚠️ **PARTIAL OVERLAP** - GitHub issues exist but focus on incremental improvements
+**Status**: ⚠️ **PARTIALLY IMPLEMENTED** (as of 2026-01-12)
 
 **Proposal Details**:
 - Schema-driven form rendering (12+ field types)
@@ -65,20 +75,29 @@
 
 **Related GitHub Issues**:
 
-| Issue | Title | Overlap | Difference |
-|-------|-------|---------|------------|
-| #113 | Use standard JSON schema | High | My proposal implements comprehensive JSON Schema support |
-| #62 | Enhance Curation Card | Medium | My proposal is broader - all forms, not just curation |
-| #61 | Enhance Pre-Curation Card | Medium | My proposal is broader - all forms, not just precuration |
-| #77 | Implement Prefill Logic | Low | My proposal includes prefill as part of dynamic forms |
+| Issue | Title | Overlap | Status |
+|-------|-------|---------|--------|
+| #113 | Use standard JSON schema | High | ✅ Backend complete (closed) |
+| #62 | Enhance Curation Card | Medium | ⚠️ Store integration done, dynamic fields pending |
+| #61 | Enhance Pre-Curation Card | Medium | ⚠️ Needs similar treatment |
+| #77 | Implement Prefill Logic | Low | ❌ Still pending |
+
+**Progress (2026-01-12)**:
+- ✅ `CurationForm.vue` refactored to use Pinia `curationsStore`
+- ✅ `CurationList.vue` refactored with `storeToRefs` pattern
+- ✅ Full CRUD operations via store actions
+- ✅ 23 integration tests for curations API
+- ❌ DynamicForm component not yet wired to CurationForm
+- ❌ Schema-driven field rendering not yet integrated
 
 **Analysis**:
 - **GitHub issues**: Incremental improvements to specific forms
 - **Enhancement #009**: Comprehensive architectural solution for schema-agnostic design
+- **Current state**: Store/API layer complete, dynamic form rendering is next step
 
 **Recommendation**:
-- Implement Enhancement #009 as proposed
-- When implementing, reference and close issues #113, #62, #61, #77 as "addressed by comprehensive dynamic form system"
+- Remaining work ~6-8h (wire DynamicForm, integrate field types)
+- Will close issues #62, #61, #77 when complete
 
 ---
 
@@ -344,6 +363,29 @@ When implementing Enhancement #010, consider:
 
 ---
 
-**Last Updated**: 2025-10-12
-**Status**: Ready for implementation
-**Next Action**: Begin Phase 1 with Enhancement #008 (Draft Auto-Save)
+**Original Date**: 2025-10-12
+**Last Updated**: 2026-01-12
+**Status**: Phase 1 in progress - curations store/API complete
+**Recent Progress**: PR #126 - Curation scoring fix, Pinia store integration, 23 API tests
+
+### Implementation Progress Summary (2026-01-12)
+
+| Enhancement | Original Effort | Progress | Remaining |
+|-------------|-----------------|----------|-----------|
+| **#008** Draft Auto-Save | 4-6h | 40% | 3-4h |
+| **#009** Dynamic Forms | 8-10h | 30% | 6-8h |
+| **#010** 4-Eyes Review | 4-6h | 70% (backend) | 4-6h (frontend) |
+
+**Completed in Current Sprint**:
+- ✅ `curationsStore` Pinia store with full CRUD actions
+- ✅ `CurationList.vue` refactored to use store + `storeToRefs`
+- ✅ `CurationForm.vue` refactored to use store for all operations
+- ✅ Fixed `calculate_scores` bug in `crud/curation.py`
+- ✅ 23 integration tests for curations API
+- ✅ Fixed pre-existing mypy errors
+
+**Next Actions**:
+1. Implement auto-save composable with 30s interval
+2. Create DraftCurations list view
+3. Wire DynamicForm to CurationForm
+4. Build ReviewQueue frontend UI
