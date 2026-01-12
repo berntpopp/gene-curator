@@ -10,23 +10,24 @@ Enhancements identified through comparative analysis of Gene Curator vs kidney-g
 
 | ID | Enhancement | Priority | Status | Location |
 |----|-------------|----------|--------|----------|
-| **CRITICAL** | Curations API Endpoint | BLOCKER | 🔄 In Progress | [CURATIONS_IMPLEMENTATION_PLAN_v2.1.md](../CURATIONS_IMPLEMENTATION_PLAN_v2.1.md) |
-| 002 | Unified Logger System (Backend) | High | ✅ Implemented | `implemented/` |
-| 003 | Unified Logger System (Frontend) | High | ✅ Implemented | `implemented/` |
-| 006 | API Configuration System | Medium | ✅ Implemented | `implemented/` |
-| 004 | Expanded Makefile Workflow | Medium | ✅ Implemented | `implemented/` |
-| 008 | Draft Autosave (Frontend) | Medium | 📋 Blocked | Depends on Curations API |
-| 009 | Dynamic Form Generation | High | 🔄 Backend Complete | Active |
-| 010 | Review Workflow (4-Eyes) | High | ✅ Implemented | System |
-| 002 | CacheService with L1/L2 | High | 🔮 Deferred | `deferred/` |
-| 005 | Real-Time Progress Tracking | Medium | 🔮 Deferred | `deferred/` |
-| 007 | View Management (Topological) | Low | 🔮 Deferred | `deferred/` |
+| **011** | Wire DynamicForm to CurationFormView | **CRITICAL** | 📋 Ready | [tracking/011-DYNAMIC-FORM-INTEGRATION.md](tracking/011-DYNAMIC-FORM-INTEGRATION.md) |
+| 010 | Review Workflow (4-Eyes) UI | HIGH | 📋 Ready | [010-review-workflow-4eyes.md](010-review-workflow-4eyes.md) |
+| 008 | Draft Autosave (Frontend) | - | ✅ Implemented | `useFormRecovery` composable |
+| 009 | Dynamic Form Component | - | ✅ Implemented | `components/dynamic/DynamicForm.vue` |
+| 002 | Unified Logger System | - | ✅ Implemented | `backend/app/core/logging/` |
+| 006 | API Configuration System | Medium | ✅ Implemented | `backend/config/api.yaml` |
+| 004 | Expanded Makefile Workflow | Medium | ✅ Implemented | `Makefile` |
+| 003 | RetryUtils with Backoff | Medium | 📋 Ready | [003-retry-utils-exponential-backoff.md](003-retry-utils-exponential-backoff.md) |
 
-**Legend**: ✅ Implemented | 🔄 In Progress | 📋 Blocked/Planned | 🔮 Deferred
+**Legend**: ✅ Implemented | 📋 Ready for Implementation | 🔮 Deferred
 
-### Critical Blocker
+### Current Priority
 
-The **Curations API Endpoint** is the current critical blocker. The frontend `CurationList.vue` (17KB) and `CurationForm.vue` exist but return 404 errors because the backend `/curations` endpoint is missing. See [CURATIONS_IMPLEMENTATION_PLAN_v2.1.md](../CURATIONS_IMPLEMENTATION_PLAN_v2.1.md) for the implementation plan.
+**Enhancement #011 - Wire DynamicForm to CurationFormView** is the critical next step.
+
+The DynamicForm component EXISTS (`frontend/src/components/dynamic/DynamicForm.vue`) but is NOT WIRED to the curation workflow. The current `CurationForm.vue` is hardcoded for ClinGen SOP v11 only.
+
+See [tracking/011-DYNAMIC-FORM-INTEGRATION.md](tracking/011-DYNAMIC-FORM-INTEGRATION.md) for the implementation plan.
 
 ## Implementation Summary
 
@@ -60,8 +61,8 @@ The **Curations API Endpoint** is the current critical blocker. The frontend `Cu
 
 ### 🔄 In Progress (Phase 3)
 
-- **Dynamic Form Generation**: Backend complete, frontend integration pending
-- **Draft Autosave**: Design complete, implementation pending
+- **#011 Wire DynamicForm**: DynamicForm component exists, needs wiring to CurationFormView
+- **#010 Review Workflow UI**: Backend complete, frontend views pending
 
 ### 🔮 Deferred (Performance Optimizations)
 

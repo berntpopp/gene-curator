@@ -31,8 +31,8 @@
 | [#118](https://github.com/berntpopp/gene-curator/issues/118) | Workflow Management Views | MEDIUM | `type: ui/ux`, `scope: frontend` | Pending |
 
 ### Related Enhancements
-- **#008** Draft Auto-Save (3-4h remaining)
-- **#009** Dynamic Form Generation (6-8h remaining) → Closes #62, #61, #77
+- **#008** Draft Auto-Save - ✅ **IMPLEMENTED** via `useFormRecovery` composable
+- **#011** [Wire DynamicForm to CurationFormView](011-DYNAMIC-FORM-INTEGRATION.md) (4-6h) → Closes #62, #61, #77
 - **#010** 4-Eyes Review Workflow (4-6h remaining) → Closes #116
 
 ---
@@ -140,9 +140,9 @@ Issues closed by PR #126 merge:
 
 ## Implementation Roadmap
 
-### Phase 1: Core Curation (16-22h)
-1. Enhancement #008: Draft auto-save (3-4h)
-2. Enhancement #009: Dynamic forms (6-8h)
+### Phase 1: Core Curation (8-12h) ← REVISED
+1. ~~Enhancement #008: Draft auto-save~~ ✅ DONE (useFormRecovery composable)
+2. **Enhancement #011: Wire DynamicForm (4-6h)** ← [START HERE](011-DYNAMIC-FORM-INTEGRATION.md)
 3. Enhancement #010: Review workflow (4-6h)
 
 ### Phase 2: Infrastructure (22-30h)
