@@ -170,19 +170,40 @@ def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
 @pytest.fixture
 def admin_token(test_user_admin: UserNew) -> str:
     """JWT token for admin user"""
-    return create_access_token(data={"sub": test_user_admin.email})
+    # Must match production token format: sub=user_id (UUID), not email
+    return create_access_token(
+        data={
+            "sub": str(test_user_admin.id),
+            "email": test_user_admin.email,
+            "role": test_user_admin.role.value,
+        }
+    )
 
 
 @pytest.fixture
 def curator_token(test_user_curator: UserNew) -> str:
     """JWT token for curator user"""
-    return create_access_token(data={"sub": test_user_curator.email})
+    # Must match production token format: sub=user_id (UUID), not email
+    return create_access_token(
+        data={
+            "sub": str(test_user_curator.id),
+            "email": test_user_curator.email,
+            "role": test_user_curator.role.value,
+        }
+    )
 
 
 @pytest.fixture
 def viewer_token(test_user_viewer: UserNew) -> str:
     """JWT token for viewer user"""
-    return create_access_token(data={"sub": test_user_viewer.email})
+    # Must match production token format: sub=user_id (UUID), not email
+    return create_access_token(
+        data={
+            "sub": str(test_user_viewer.id),
+            "email": test_user_viewer.email,
+            "role": test_user_viewer.role.value,
+        }
+    )
 
 
 # =============================================================================

@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import CurationNew, EvidenceItem, UserNew
+from app.models.models import CurationNew, EvidenceItem
 
 pytestmark = pytest.mark.unit
 
@@ -53,7 +53,11 @@ class TestEvidenceCreate:
         client: TestClient,
         test_curation: CurationNew,
     ):
-        """Test evidence creation without authentication"""
+        """Test evidence creation without authentication
+
+        Note: FastAPI's HTTPBearer returns 403 (not 401) when no credentials
+        are provided, per OAuth 2.0 Bearer Token spec (RFC 6750).
+        """
         # Arrange
         evidence_data = {
             "evidence_category": "case_level",
@@ -67,8 +71,8 @@ class TestEvidenceCreate:
             json=evidence_data,
         )
 
-        # Assert
-        assert response.status_code == 401
+        # Assert - HTTPBearer returns 403 for missing credentials
+        assert response.status_code == 403
 
     def test_create_evidence_forbidden_viewer(
         self,
