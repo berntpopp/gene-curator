@@ -76,7 +76,8 @@ Enhancement #011 fixes this by:
 ### Current Plans
 | File | Purpose |
 |------|---------|
-| `011-DYNAMIC-FORM-INTEGRATION.md` | Wire DynamicForm to curation flow |
+| `011-DYNAMIC-FORM-INTEGRATION.md` | Implementation plan - what to build |
+| `011-AGENTIC-IMPLEMENTATION-PROMPT.md` | Agentic prompt - how to build it |
 | `GITHUB_ISSUES_COMPARISON.md` | Issue tracking by milestone |
 
 ### Removed (Superseded)
