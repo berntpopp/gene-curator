@@ -260,13 +260,18 @@ These metrics are from kidney-genetics-db's **high-throughput pipeline** use cas
 
 ## Related Documentation
 
-- **[ACTION_PLAN.md](ACTION_PLAN.md)**: Next steps and relationship to GitHub issues
-- **[APPROVED_ENHANCEMENTS.md](APPROVED_ENHANCEMENTS.md)**: Quick reference guide
 - **[GITHUB_ISSUES_COMPARISON.md](GITHUB_ISSUES_COMPARISON.md)**: Detailed comparison with 29 GitHub issues
-- **[deferred/README.md](deferred/README.md)**: Why certain enhancements were deferred
+- **[Curations Implementation Plan](../../CURATIONS_IMPLEMENTATION_PLAN_v2.1.md)**: Current critical blocker
+- **[Enhancements Overview](../README.md)**: Main enhancement tracking status
+
+### Archived Documents
+
+The following documents have been archived to `plan/archive/2026-01-12/`:
+- `ACTION_PLAN.md` - Superseded by curations plan
+- `APPROVED_ENHANCEMENTS.md` - Consolidated into enhancements README
 
 ---
 
-**Last Updated**: 2025-10-12
+**Last Updated**: 2026-01-12
 **Review Status**: ✅ Scope-adjusted for Gene Curator's actual needs + Compared with GitHub issues
 **Prepared By**: Claude Code (Anthropic)

@@ -6,6 +6,12 @@ This directory contains all planning, tracking, and implementation guides for Ge
 
 ## Quick Navigation
 
+### 🚨 Current Priority (Critical Blocker)
+- **[Curations API Implementation Plan v2.1](./CURATIONS_IMPLEMENTATION_PLAN_v2.1.md)** - Missing `/curations` endpoint (BLOCKER)
+  - Status: Ready for implementation
+  - Blocks: Draft Autosave, Dynamic Forms frontend
+  - Branch: `feature/scope-centric-refactor`
+
 ### 📋 Active Planning & Tracking
 - **[Issue Roadmap](./ISSUE_ROADMAP.md)** - 23 open issues, priority matrices, implementation phases
 - **[Implementation Status](./IMPLEMENTATION_STATUS.md)** - Overall project status and achievements

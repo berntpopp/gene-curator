@@ -10,18 +10,23 @@ Enhancements identified through comparative analysis of Gene Curator vs kidney-g
 
 | ID | Enhancement | Priority | Status | Location |
 |----|-------------|----------|--------|----------|
+| **CRITICAL** | Curations API Endpoint | BLOCKER | 🔄 In Progress | [CURATIONS_IMPLEMENTATION_PLAN_v2.1.md](../CURATIONS_IMPLEMENTATION_PLAN_v2.1.md) |
 | 002 | Unified Logger System (Backend) | High | ✅ Implemented | `implemented/` |
 | 003 | Unified Logger System (Frontend) | High | ✅ Implemented | `implemented/` |
 | 006 | API Configuration System | Medium | ✅ Implemented | `implemented/` |
 | 004 | Expanded Makefile Workflow | Medium | ✅ Implemented | `implemented/` |
-| 008 | Draft Autosave (Frontend) | Medium | 📋 Planned | Active |
+| 008 | Draft Autosave (Frontend) | Medium | 📋 Blocked | Depends on Curations API |
 | 009 | Dynamic Form Generation | High | 🔄 Backend Complete | Active |
 | 010 | Review Workflow (4-Eyes) | High | ✅ Implemented | System |
 | 002 | CacheService with L1/L2 | High | 🔮 Deferred | `deferred/` |
 | 005 | Real-Time Progress Tracking | Medium | 🔮 Deferred | `deferred/` |
 | 007 | View Management (Topological) | Low | 🔮 Deferred | `deferred/` |
 
-**Legend**: ✅ Implemented | 🔄 In Progress | 📋 Planned | 🔮 Deferred
+**Legend**: ✅ Implemented | 🔄 In Progress | 📋 Blocked/Planned | 🔮 Deferred
+
+### Critical Blocker
+
+The **Curations API Endpoint** is the current critical blocker. The frontend `CurationList.vue` (17KB) and `CurationForm.vue` exist but return 404 errors because the backend `/curations` endpoint is missing. See [CURATIONS_IMPLEMENTATION_PLAN_v2.1.md](../CURATIONS_IMPLEMENTATION_PLAN_v2.1.md) for the implementation plan.
 
 ## Implementation Summary
 
@@ -227,6 +232,6 @@ These enhancement proposals are part of the Gene Curator project and follow the 
 
 ---
 
-**Last Updated**: 2025-01-12
+**Last Updated**: 2026-01-12
 **Source Analysis**: kidney-genetics-db v0.1.0-alpha
 **Prepared By**: Claude Code (Anthropic)
