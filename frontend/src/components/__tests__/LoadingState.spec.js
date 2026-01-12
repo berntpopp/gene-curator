@@ -338,20 +338,6 @@ describe('LoadingState', () => {
       expect(skeleton.exists()).toBe(true)
     })
 
-    // Skipped: Vuetify validates skeleton types internally and may throw errors for invalid types.
-    // This is expected behavior - Vuetify handles type validation, not our component.
-    it.skip('should handle invalid skeleton type gracefully', () => {
-      const wrapper = mount(LoadingState, {
-        props: {
-          loading: true,
-          type: 'invalid-type'
-        }
-      })
-
-      const skeleton = wrapper.find('.v-skeleton-loader')
-      expect(skeleton.exists()).toBe(true)
-    })
-
     it('should handle very large content in slot', () => {
       const largeContent = Array(100).fill('<div>Row</div>').join('')
 
