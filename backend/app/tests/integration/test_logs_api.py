@@ -10,12 +10,13 @@ Tests cover:
 - Error handling
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pytest
 
 
-def test_logs_endpoint_imports():
+def test_logs_endpoint_imports() -> None:
     """Test that logs endpoint module can be imported."""
     try:
         from app.api.v1.endpoints import logs
@@ -31,7 +32,7 @@ def test_logs_endpoint_imports():
         pytest.fail(f"Failed to import logs endpoints: {e}")
 
 
-def test_logs_crud_imports():
+def test_logs_crud_imports() -> None:
     """Test that logs CRUD module can be imported."""
     try:
         from app.crud import logs
@@ -47,7 +48,7 @@ def test_logs_crud_imports():
         pytest.fail(f"Failed to import logs CRUD: {e}")
 
 
-def test_logs_schema_imports():
+def test_logs_schema_imports() -> None:
     """Test that logs schema module can be imported."""
     try:
         from app.schemas.logs import (
@@ -65,7 +66,7 @@ def test_logs_schema_imports():
         pytest.fail(f"Failed to import logs schemas: {e}")
 
 
-def test_system_log_model_import():
+def test_system_log_model_import() -> None:
     """Test that SystemLog model can be imported."""
     try:
         from app.models.models import SystemLog
@@ -77,12 +78,12 @@ def test_system_log_model_import():
         pytest.fail(f"Failed to import SystemLog model: {e}")
 
 
-def test_logs_router_registered():
+def test_logs_router_registered() -> None:
     """Test that logs router is registered in main API."""
     try:
         from app.api.v1.api import api_router
 
-        routes = [route.path for route in api_router.routes]
+        routes = [getattr(route, "path", "") for route in api_router.routes]
 
         # Check for logs endpoints (routes may have /logs prefix or not depending on how they're mounted)
         expected_logs_keywords = [
@@ -106,7 +107,7 @@ def test_logs_router_registered():
         pytest.fail(f"Failed to check logs router registration: {e}")
 
 
-def test_permission_dependencies():
+def test_permission_dependencies() -> None:
     """Test that permission check dependencies are properly defined."""
     try:
         from app.api.v1.endpoints.logs import require_admin, require_admin_or_reviewer
@@ -117,7 +118,7 @@ def test_permission_dependencies():
         pytest.fail(f"Failed to import permission dependencies: {e}")
 
 
-def test_log_entry_schema_structure():
+def test_log_entry_schema_structure() -> None:
     """Test LogEntry schema structure matches database model."""
     from pydantic import BaseModel
 
@@ -149,44 +150,92 @@ def test_log_entry_schema_structure():
     )
 
 
-def test_log_search_params_validation():
+def test_log_search_params_validation() -> None:
     """Test LogSearchParams schema validation."""
     from app.schemas.logs import LogSearchParams
 
     # Test valid parameters
-    params = LogSearchParams(level="ERROR", skip=0, limit=100)
+    params = LogSearchParams(
+        level="ERROR",
+        logger_name=None,
+        message=None,
+        request_id=None,
+        user_id=None,
+        scope_id=None,
+        endpoint=None,
+        method=None,
+        start_date=None,
+        end_date=None,
+        min_duration_ms=None,
+        skip=0,
+        limit=100,
+    )
     assert params.level == "ERROR"
     assert params.skip == 0
     assert params.limit == 100
 
     # Test defaults
-    params_default = LogSearchParams()
+    params_default = LogSearchParams(
+        level=None,
+        logger_name=None,
+        message=None,
+        request_id=None,
+        user_id=None,
+        scope_id=None,
+        endpoint=None,
+        method=None,
+        start_date=None,
+        end_date=None,
+        min_duration_ms=None,
+        skip=0,
+        limit=100,
+    )
     assert params_default.skip == 0
     assert params_default.limit == 100
 
     # Test with datetime
-    now = datetime.utcnow()
-    params_time = LogSearchParams(start_date=now - timedelta(days=1), end_date=now)
+    now = datetime.now(UTC)
+    params_time = LogSearchParams(
+        level=None,
+        logger_name=None,
+        message=None,
+        request_id=None,
+        user_id=None,
+        scope_id=None,
+        endpoint=None,
+        method=None,
+        start_date=now - timedelta(days=1),
+        end_date=now,
+        min_duration_ms=None,
+        skip=0,
+        limit=100,
+    )
+    assert params_time.start_date is not None
+    assert params_time.end_date is not None
     assert params_time.start_date < params_time.end_date
 
 
-def test_log_export_params_validation():
+def test_log_export_params_validation() -> None:
     """Test LogExportParams schema validation."""
     from app.schemas.logs import LogExportParams
 
     # Test JSON export
-    params_json = LogExportParams(format="json", limit=5000)
+    params_json = LogExportParams(
+        format="json", level=None, start_date=None, end_date=None, limit=5000
+    )
     assert params_json.format == "json"
     assert params_json.limit == 5000
 
     # Test CSV export
-    params_csv = LogExportParams(format="csv", level="ERROR", limit=1000)
+    params_csv = LogExportParams(
+        format="csv", level="ERROR", start_date=None, end_date=None, limit=1000
+    )
     assert params_csv.format == "csv"
     assert params_csv.level == "ERROR"
     assert params_csv.limit == 1000
 
 
-def test_crud_get_logs_signature():
+def test_crud_get_logs_signature() -> None:
     """Test get_logs CRUD function signature."""
     import inspect
 
@@ -217,7 +266,7 @@ def test_crud_get_logs_signature():
     )
 
 
-def test_crud_get_log_statistics_signature():
+def test_crud_get_log_statistics_signature() -> None:
     """Test get_log_statistics CRUD function signature."""
     import inspect
 
@@ -231,7 +280,7 @@ def test_crud_get_log_statistics_signature():
     assert sig.return_annotation != inspect.Signature.empty
 
 
-def test_system_log_model_fields():
+def test_system_log_model_fields() -> None:
     """Test SystemLog model has all required fields."""
     from sqlalchemy import inspect as sa_inspect
 
@@ -265,7 +314,7 @@ def test_system_log_model_fields():
     )
 
 
-def test_endpoint_docstrings():
+def test_endpoint_docstrings() -> None:
     """Test that all endpoints have proper docstrings."""
     from app.api.v1.endpoints import logs
 
@@ -288,7 +337,7 @@ def test_endpoint_docstrings():
         )
 
 
-def test_crud_functions_are_async():
+def test_crud_functions_are_async() -> None:
     """Test that all CRUD functions are async."""
     import inspect
 
@@ -310,14 +359,15 @@ def test_crud_functions_are_async():
         )
 
 
-def test_endpoint_dependencies():
+def test_endpoint_dependencies() -> None:
     """Test that endpoints have proper authentication dependencies."""
     import inspect
+    from collections.abc import Callable
 
     from app.api.v1.endpoints import logs
 
     # Endpoints that should require admin or reviewer
-    admin_or_reviewer_endpoints = [
+    admin_or_reviewer_endpoints: list[Callable[..., Any]] = [
         logs.search_logs,
         logs.get_log,
         logs.get_logs_by_request,
@@ -332,7 +382,7 @@ def test_endpoint_dependencies():
         )
 
     # Endpoints that should require admin only
-    admin_only_endpoints = [
+    admin_only_endpoints: list[Callable[..., Any]] = [
         logs.get_log_statistics,
         logs.export_logs,
         logs.cleanup_old_logs,
@@ -346,7 +396,7 @@ def test_endpoint_dependencies():
         )
 
 
-def test_export_formats_supported():
+def test_export_formats_supported() -> None:
     """Test that export endpoint supports both JSON and CSV formats."""
     import inspect
 
@@ -359,11 +409,11 @@ def test_export_formats_supported():
     assert "format" in params, "Export endpoint is missing format parameter"
 
     # Check format parameter has regex validation
-    format_param = params["format"]
+    params["format"]
     # The parameter should have Query dependency with regex validation
 
 
-def test_request_correlation_endpoint_exists():
+def test_request_correlation_endpoint_exists() -> None:
     """Test that request correlation endpoint is properly defined."""
     from app.api.v1.endpoints import logs
     from app.crud import logs as crud_logs
@@ -384,7 +434,7 @@ def test_request_correlation_endpoint_exists():
     assert "request_id" in params
 
 
-def test_statistics_endpoint_structure():
+def test_statistics_endpoint_structure() -> None:
     """Test that statistics endpoint returns proper structure."""
     from pydantic import BaseModel
 
@@ -408,10 +458,11 @@ def test_statistics_endpoint_structure():
     )
 
 
-def run_logs_api_tests():
+def run_logs_api_tests() -> bool:
     """Run all logs API tests."""
+    from collections.abc import Callable
 
-    test_functions = [
+    test_functions: list[Callable[[], None]] = [
         test_logs_endpoint_imports,
         test_logs_crud_imports,
         test_logs_schema_imports,
@@ -432,8 +483,8 @@ def run_logs_api_tests():
         test_statistics_endpoint_structure,
     ]
 
-    passed = 0
-    failed = 0
+    passed: int = 0
+    failed: int = 0
 
     for test_func in test_functions:
         try:

@@ -2,10 +2,11 @@
 CRUD operations for schema repository management.
 """
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
@@ -35,10 +36,12 @@ class CRUDCurationSchema(
     ) -> CurationSchema | None:
         """Get schema by name and version."""
         return (
-            db.query(CurationSchema)
-            .filter(
-                and_(CurationSchema.name == name, CurationSchema.version == version)
+            db.execute(
+                select(CurationSchema).where(
+                    and_(CurationSchema.name == name, CurationSchema.version == version)
+                )
             )
+            .scalars()
             .first()
         )
 
@@ -51,23 +54,26 @@ class CRUDCurationSchema(
         schema_type: str | None = None,
         institution: str | None = None,
         active_only: bool = True,
-    ) -> list[CurationSchema]:
+    ) -> Sequence[CurationSchema]:
         """Get multiple schemas with filtering."""
-        query = db.query(CurationSchema)
+        stmt = select(CurationSchema)
 
         if active_only:
-            query = query.filter(CurationSchema.is_active is True)
+            stmt = stmt.where(CurationSchema.is_active)  # Fixed: use == instead of is
 
         if schema_type:
-            query = query.filter(CurationSchema.schema_type == schema_type)
+            stmt = stmt.where(CurationSchema.schema_type == schema_type)
 
         if institution:
-            query = query.filter(CurationSchema.institution == institution)
+            stmt = stmt.where(CurationSchema.institution == institution)
 
         return (
-            query.order_by(CurationSchema.name, CurationSchema.version.desc())
-            .offset(skip)
-            .limit(limit)
+            db.execute(
+                stmt.order_by(CurationSchema.name, CurationSchema.version.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
             .all()
         )
 
@@ -75,7 +81,7 @@ class CRUDCurationSchema(
         self, db: Session, *, obj_in: CurationSchemaCreate, owner_id: UUID
     ) -> CurationSchema:
         """Create schema with owner."""
-        obj_in_data = obj_in.dict()
+        obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
         db_obj = CurationSchema(**obj_in_data)
         db.add(db_obj)
@@ -86,29 +92,34 @@ class CRUDCurationSchema(
     def is_schema_in_use(self, db: Session, *, schema_id: UUID) -> bool:
         """Check if schema is currently in use by workflow pairs or curations."""
         # Check workflow pairs
-        workflow_pair_count = (
-            db.query(func.count(WorkflowPair.id))
-            .filter(
+        workflow_pair_count = db.execute(
+            select(func.count(WorkflowPair.id)).where(
                 or_(
                     WorkflowPair.precuration_schema_id == schema_id,
                     WorkflowPair.curation_schema_id == schema_id,
                 )
             )
-            .scalar()
-        )
+        ).scalar()
 
-        # Check direct usage in precurations/curations
-        precuration_count = (
-            db.query(func.count(PrecurationNew.id))
-            .filter(PrecurationNew.schema_id == schema_id)
-            .scalar()
-        )
+        # Check direct usage in precurations (precurations use precuration_schema_id)
+        precuration_count = db.execute(
+            select(func.count(PrecurationNew.id)).where(
+                PrecurationNew.precuration_schema_id == schema_id
+            )
+        ).scalar()
 
-        curation_count = (
-            db.query(func.count(CurationNew.id))
-            .filter(CurationNew.schema_id == schema_id)
-            .scalar()
-        )
+        # Curations don't have a direct schema_id, they use workflow_pair_id
+        # So we check if any workflow pair using this schema is referenced by curations
+        curation_count = db.execute(
+            select(func.count(CurationNew.id))
+            .join(WorkflowPair, CurationNew.workflow_pair_id == WorkflowPair.id)
+            .where(
+                or_(
+                    WorkflowPair.precuration_schema_id == schema_id,
+                    WorkflowPair.curation_schema_id == schema_id,
+                )
+            )
+        ).scalar()
 
         return (
             (workflow_pair_count or 0) > 0
@@ -152,24 +163,31 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
     ) -> WorkflowPair | None:
         """Get workflow pair by name and version."""
         return (
-            db.query(WorkflowPair)
-            .filter(and_(WorkflowPair.name == name, WorkflowPair.version == version))
+            db.execute(
+                select(WorkflowPair).where(
+                    and_(WorkflowPair.name == name, WorkflowPair.version == version)
+                )
+            )
+            .scalars()
             .first()
         )
 
     def get_multi(
         self, db: Session, *, skip: int = 0, limit: int = 100, active_only: bool = True
-    ) -> list[WorkflowPair]:
+    ) -> Sequence[WorkflowPair]:
         """Get multiple workflow pairs with filtering."""
-        query = db.query(WorkflowPair)
+        stmt = select(WorkflowPair)
 
         if active_only:
-            query = query.filter(WorkflowPair.is_active is True)
+            stmt = stmt.where(WorkflowPair.is_active)  # Fixed: use == instead of is
 
         return (
-            query.order_by(WorkflowPair.name, WorkflowPair.version.desc())
-            .offset(skip)
-            .limit(limit)
+            db.execute(
+                stmt.order_by(WorkflowPair.name, WorkflowPair.version.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
             .all()
         )
 
@@ -177,7 +195,7 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         self, db: Session, *, obj_in: WorkflowPairCreate, owner_id: UUID
     ) -> WorkflowPair:
         """Create workflow pair with owner."""
-        obj_in_data = obj_in.dict()
+        obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
         db_obj = WorkflowPair(**obj_in_data)
         db.add(db_obj)
@@ -190,42 +208,31 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         # Check if any scopes are using this as default workflow pair
         from app.models import Scope
 
-        scope_count = (
-            db.query(func.count(Scope.id))
-            .filter(Scope.default_workflow_pair_id == workflow_pair_id)
-            .scalar()
-        )
+        scope_count = db.execute(
+            select(func.count(Scope.id)).where(
+                Scope.default_workflow_pair_id == workflow_pair_id
+            )
+        ).scalar()
 
         # Check if any precurations/curations are using schemas from this workflow pair
         workflow_pair = self.get(db, id=workflow_pair_id)
         if not workflow_pair:
             return False
 
-        precuration_count = (
-            db.query(func.count(PrecurationNew.id))
-            .filter(
-                PrecurationNew.schema_id.in_(
-                    [
-                        workflow_pair.precuration_schema_id,
-                        workflow_pair.curation_schema_id,
-                    ]
-                )
+        # Check precurations using the precuration_schema
+        precuration_count = db.execute(
+            select(func.count(PrecurationNew.id)).where(
+                PrecurationNew.precuration_schema_id
+                == workflow_pair.precuration_schema_id
             )
-            .scalar()
-        )
+        ).scalar()
 
-        curation_count = (
-            db.query(func.count(CurationNew.id))
-            .filter(
-                CurationNew.schema_id.in_(
-                    [
-                        workflow_pair.precuration_schema_id,
-                        workflow_pair.curation_schema_id,
-                    ]
-                )
+        # Check curations using this workflow_pair
+        curation_count = db.execute(
+            select(func.count(CurationNew.id)).where(
+                CurationNew.workflow_pair_id == workflow_pair_id
             )
-            .scalar()
-        )
+        ).scalar()
 
         return (
             (scope_count or 0) > 0
@@ -235,7 +242,7 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
 
     def get_workflow_pairs_for_scope(
         self, db: Session, *, scope_id: UUID
-    ) -> list[WorkflowPair]:
+    ) -> Sequence[WorkflowPair]:
         """Get workflow pairs available for a specific scope."""
         # For now, return all active workflow pairs
         # In the future, this could be filtered based on scope-specific criteria
@@ -252,24 +259,25 @@ class CRUDWorkflowPair(CRUDBase[WorkflowPair, WorkflowPairCreate, WorkflowPairUp
         # Count scopes using this as default
         from app.models import Scope
 
-        scope_count = (
-            db.query(func.count(Scope.id))
-            .filter(Scope.default_workflow_pair_id == workflow_pair_id)
-            .scalar()
-        )
+        scope_count = db.execute(
+            select(func.count(Scope.id)).where(
+                Scope.default_workflow_pair_id == workflow_pair_id
+            )
+        ).scalar()
 
         # Count active precurations and curations using the schemas
-        precuration_count = (
-            db.query(func.count(PrecurationNew.id))
-            .filter(PrecurationNew.schema_id == workflow_pair.precuration_schema_id)
-            .scalar()
-        )
+        precuration_count = db.execute(
+            select(func.count(PrecurationNew.id)).where(
+                PrecurationNew.precuration_schema_id
+                == workflow_pair.precuration_schema_id
+            )
+        ).scalar()
 
-        curation_count = (
-            db.query(func.count(CurationNew.id))
-            .filter(CurationNew.schema_id == workflow_pair.curation_schema_id)
-            .scalar()
-        )
+        curation_count = db.execute(
+            select(func.count(CurationNew.id)).where(
+                CurationNew.workflow_pair_id == workflow_pair_id
+            )
+        ).scalar()
 
         return {
             "workflow_pair_id": workflow_pair_id,

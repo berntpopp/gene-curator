@@ -24,7 +24,8 @@ from app.core.constants import (
     EXPORT_FORMAT_JSON,
     VALID_EXPORT_FORMATS,
 )
-from app.core.deps import get_current_active_user, get_db
+from app.core.database import get_db
+from app.core.deps import get_current_active_user
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
 from app.schemas.logs import LogEntry, LogStatsSummary
@@ -32,28 +33,30 @@ from app.schemas.logs import LogEntry, LogStatsSummary
 router = APIRouter()
 
 
-def require_admin_or_reviewer(current_user: UserNew = Depends(get_current_active_user)):
+def require_admin_or_reviewer(
+    current_user: UserNew = Depends(get_current_active_user),
+) -> UserNew:
     """
-    Dependency to check if user is admin or reviewer.
+    Dependency to check if user is admin.
 
     Args:
         current_user: Current authenticated user
 
     Returns:
-        User if they have admin or reviewer role
+        User if they have admin role
 
     Raises:
         HTTPException: If user doesn't have required permissions
     """
-    if current_user.role not in [UserRoleNew.ADMIN, UserRoleNew.REVIEWER]:
+    if current_user.role != UserRoleNew.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or Reviewer access required to view logs",
+            detail="Admin access required to view logs",
         )
     return current_user
 
 
-def require_admin(current_user: UserNew = Depends(get_current_active_user)):
+def require_admin(current_user: UserNew = Depends(get_current_active_user)) -> UserNew:
     """
     Dependency to check if user is admin.
 
@@ -93,9 +96,7 @@ async def search_logs(
         None, description="Minimum duration in milliseconds"
     ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
-    limit: int = Query(
-        None, ge=1, description="Maximum number of records to return"
-    ),
+    limit: int = Query(None, ge=1, description="Maximum number of records to return"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
@@ -214,7 +215,9 @@ async def get_log_statistics(
 
 @router.get("/recent-errors", response_model=list[LogEntry])
 async def get_recent_errors(
-    limit: int | None = Query(None, ge=1, description="Maximum number of errors to return"),
+    limit: int | None = Query(
+        None, ge=1, description="Maximum number of errors to return"
+    ),
     hours: int | None = Query(None, ge=1, description="Time window in hours"),
     db: AsyncSession = Depends(get_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
@@ -233,8 +236,12 @@ async def get_recent_errors(
     logging_config = get_logging_config()
 
     # Use configured defaults if not specified
-    effective_limit = limit if limit is not None else logging_config.recent_errors_default_limit
-    effective_hours = hours if hours is not None else logging_config.default_time_window_hours
+    effective_limit = (
+        limit if limit is not None else logging_config.recent_errors_default_limit
+    )
+    effective_hours = (
+        hours if hours is not None else logging_config.default_time_window_hours
+    )
 
     # Enforce maximum limits
     if effective_limit > logging_config.recent_errors_max_limit:

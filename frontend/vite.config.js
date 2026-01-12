@@ -37,6 +37,11 @@ export default defineConfig({
         inline: ['vuetify']
       }
     },
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/tests/e2e/**'
+    ],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

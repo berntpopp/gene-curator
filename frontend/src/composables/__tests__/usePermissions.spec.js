@@ -226,7 +226,6 @@ describe('usePermissions', () => {
       const authStore = useAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
-      authStore.userRole = 'curator'
 
       const { user, userRole, isAuthenticated } = usePermissions()
 

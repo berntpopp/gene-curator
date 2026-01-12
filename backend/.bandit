@@ -1,9 +1,10 @@
+# Bandit configuration file (YAML format)
+# Exclude test files and migrations from security scanning
 exclude_dirs:
   - tests
   - alembic
-  - .venv
-  - venv
 
+# Skip specific tests that are known false positives
+# B101: assert_used - asserts in context managers are acceptable
 skips:
   - B101
-  - B110

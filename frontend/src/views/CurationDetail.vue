@@ -444,7 +444,7 @@
   import { useCurationsStore, useAuthStore } from '@/stores'
   import { showError, showSuccess } from '@/composables/useNotifications.js'
   import ClinGenScoreCard from '@/components/clingen/ClinGenScoreCard.vue'
-  import CurationForm from '@/components/clingen/CurationForm.vue'
+  import CurationForm from '@/components/forms/CurationForm.vue'
 
   const props = defineProps({
     id: {

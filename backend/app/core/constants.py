@@ -69,6 +69,12 @@ ASSIGNMENTS_DEFAULT_LIMIT = 100
 ASSIGNMENTS_MAX_LIMIT = 1000
 """Maximum limit for gene assignment endpoints."""
 
+CURATIONS_DEFAULT_LIMIT = 50
+"""Default limit for curation list endpoints."""
+
+CURATIONS_MAX_LIMIT = 500
+"""Maximum limit for curation list endpoints."""
+
 MAX_OVERVIEW_LIMIT = 10000
 """Maximum limit for overview/analytics endpoints."""
 
@@ -325,7 +331,7 @@ VALID_EXPORT_FORMATS = [EXPORT_FORMAT_JSON, EXPORT_FORMAT_CSV]
 JWT_ALGORITHM = "HS256"
 """JWT token signing algorithm."""
 
-PASSWORD_HASH_ALGORITHM = "bcrypt"
+PASSWORD_HASH_ALGORITHM = "bcrypt"  # noqa: S105  # nosec B105 - Algorithm name, not a password
 """Password hashing algorithm."""
 
 # ========================================

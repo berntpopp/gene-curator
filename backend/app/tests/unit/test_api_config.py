@@ -5,6 +5,7 @@ Tests YAML loading, validation, defaults, and environment variable overrides.
 """
 
 import os
+from collections.abc import Generator
 from unittest.mock import mock_open, patch
 
 import pytest
@@ -32,7 +33,7 @@ from app.core.api_config import (
 class TestCORSConfig:
     """Test CORS configuration model."""
 
-    def test_cors_config_defaults(self):
+    def test_cors_config_defaults(self) -> None:
         """Test CORS config with default values."""
         config = CORSConfig(allow_origins=["http://localhost:3000"])
 
@@ -43,13 +44,15 @@ class TestCORSConfig:
         assert "*" in config.allow_headers
         assert "X-Request-ID" in config.expose_headers
 
-    def test_cors_config_trailing_slash_removal(self):
+    def test_cors_config_trailing_slash_removal(self) -> None:
         """Test that trailing slashes are removed from origins."""
-        config = CORSConfig(allow_origins=["http://localhost:3000/", "https://example.com/"])
+        config = CORSConfig(
+            allow_origins=["http://localhost:3000/", "https://example.com/"]
+        )
 
         assert config.allow_origins == ["http://localhost:3000", "https://example.com"]
 
-    def test_cors_config_custom_values(self):
+    def test_cors_config_custom_values(self) -> None:
         """Test CORS config with custom values."""
         config = CORSConfig(
             allow_origins=["https://production.example.com"],
@@ -69,21 +72,21 @@ class TestCORSConfig:
 class TestRateLimitConfig:
     """Test rate limit configuration model."""
 
-    def test_rate_limit_defaults(self):
+    def test_rate_limit_defaults(self) -> None:
         """Test rate limit with default values."""
         config = RateLimitConfig()
 
         assert config.requests_per_minute >= 1
         assert config.burst_size >= 1
 
-    def test_rate_limit_custom_values(self):
+    def test_rate_limit_custom_values(self) -> None:
         """Test rate limit with custom values."""
         config = RateLimitConfig(requests_per_minute=100, burst_size=20)
 
         assert config.requests_per_minute == 100
         assert config.burst_size == 20
 
-    def test_rate_limit_validation(self):
+    def test_rate_limit_validation(self) -> None:
         """Test validation of rate limit values."""
         with pytest.raises(ValueError):
             RateLimitConfig(requests_per_minute=0)
@@ -95,7 +98,7 @@ class TestRateLimitConfig:
 class TestPaginationConfig:
     """Test pagination configuration model."""
 
-    def test_pagination_defaults(self):
+    def test_pagination_defaults(self) -> None:
         """Test pagination with default values."""
         config = PaginationConfig()
 
@@ -103,7 +106,7 @@ class TestPaginationConfig:
         assert config.max_page_size >= config.default_page_size
         assert config.min_page_size >= 1
 
-    def test_pagination_resource_config(self):
+    def test_pagination_resource_config(self) -> None:
         """Test resource-specific pagination."""
         config = PaginationConfig()
 
@@ -118,7 +121,7 @@ class TestPaginationConfig:
 class TestUploadConfig:
     """Test file upload configuration model."""
 
-    def test_upload_defaults(self):
+    def test_upload_defaults(self) -> None:
         """Test upload config with default values."""
         config = UploadConfig()
 
@@ -128,7 +131,7 @@ class TestUploadConfig:
         assert config.upload_dir
         assert config.validate_content is True
 
-    def test_upload_extension_formatting(self):
+    def test_upload_extension_formatting(self) -> None:
         """Test that extensions are formatted with dots."""
         config = UploadConfig(allowed_extensions=["xlsx", ".csv", "json"])
 
@@ -141,7 +144,7 @@ class TestUploadConfig:
 class TestLoggingConfig:
     """Test logging configuration model."""
 
-    def test_logging_defaults(self):
+    def test_logging_defaults(self) -> None:
         """Test logging config with default values."""
         config = LoggingConfig()
 
@@ -155,7 +158,7 @@ class TestLoggingConfig:
 class TestAPIConfig:
     """Test complete API configuration container."""
 
-    def test_api_config_creation(self):
+    def test_api_config_creation(self) -> None:
         """Test creation of complete API config."""
         config = APIConfig()
 
@@ -166,7 +169,7 @@ class TestAPIConfig:
         assert isinstance(config.uploads, UploadConfig)
         assert isinstance(config.logging, LoggingConfig)
 
-    def test_api_config_rate_limit_tiers(self):
+    def test_api_config_rate_limit_tiers(self) -> None:
         """Test that all rate limit tiers are present."""
         config = APIConfig()
 
@@ -176,18 +179,20 @@ class TestAPIConfig:
         assert "admin" in config.rate_limits
 
         # Verify rates increase with privilege
-        assert config.rate_limits["admin"].requests_per_minute > config.rate_limits[
-            "authenticated"
-        ].requests_per_minute
-        assert config.rate_limits["authenticated"].requests_per_minute > config.rate_limits[
-            "default"
-        ].requests_per_minute
+        assert (
+            config.rate_limits["admin"].requests_per_minute
+            > config.rate_limits["authenticated"].requests_per_minute
+        )
+        assert (
+            config.rate_limits["authenticated"].requests_per_minute
+            > config.rate_limits["default"].requests_per_minute
+        )
 
 
 class TestConfigLoading:
     """Test configuration loading from YAML files."""
 
-    def test_load_config_with_missing_file(self):
+    def test_load_config_with_missing_file(self) -> None:
         """Test loading config when file doesn't exist uses defaults."""
         with patch("pathlib.Path.exists", return_value=False):
             config = load_api_config("/nonexistent/path.yaml")
@@ -196,7 +201,7 @@ class TestConfigLoading:
             # Should have defaults
             assert len(config.cors.allow_origins) > 0
 
-    def test_load_config_with_valid_yaml(self):
+    def test_load_config_with_valid_yaml(self) -> None:
         """Test loading config from valid YAML file."""
         yaml_content = """
 api:
@@ -276,31 +281,35 @@ api:
     enable_request_correlation: false
 """
 
-        with patch("builtins.open", mock_open(read_data=yaml_content)):
-            with patch("pathlib.Path.exists", return_value=True):
-                # Clear cache before loading
-                load_api_config.cache_clear()
-                config = load_api_config("test.yaml")
+        with (
+            patch("builtins.open", mock_open(read_data=yaml_content)),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            # Clear cache before loading
+            load_api_config.cache_clear()
+            config = load_api_config("test.yaml")
 
-                assert "https://test.example.com" in config.cors.allow_origins
-                assert config.cors.allow_credentials is True
-                assert config.rate_limits["default"].requests_per_minute == 50
-                assert config.timeouts.default_seconds == 20
-                assert config.pagination.default_page_size == 25
-                assert config.uploads.max_file_size_mb == 5
-                assert config.logging.retention_days == 60
+            assert "https://test.example.com" in config.cors.allow_origins
+            assert config.cors.allow_credentials is True
+            assert config.rate_limits["default"].requests_per_minute == 50
+            assert config.timeouts.default_seconds == 20
+            assert config.pagination.default_page_size == 25
+            assert config.uploads.max_file_size_mb == 5
+            assert config.logging.retention_days == 60
 
-    def test_load_config_with_invalid_yaml(self):
+    def test_load_config_with_invalid_yaml(self) -> None:
         """Test loading config with invalid YAML uses defaults."""
-        with patch("builtins.open", mock_open(read_data="invalid: yaml: content: :")):
-            with patch("pathlib.Path.exists", return_value=True):
-                load_api_config.cache_clear()
-                config = load_api_config("test.yaml")
+        with (
+            patch("builtins.open", mock_open(read_data="invalid: yaml: content: :")),
+            patch("pathlib.Path.exists", return_value=True),
+        ):
+            load_api_config.cache_clear()
+            config = load_api_config("test.yaml")
 
-                # Should fallback to defaults
-                assert isinstance(config, APIConfig)
+            # Should fallback to defaults
+            assert isinstance(config, APIConfig)
 
-    def test_config_caching(self):
+    def test_config_caching(self) -> None:
         """Test that configuration is cached."""
         with patch("pathlib.Path.exists", return_value=False):
             load_api_config.cache_clear()
@@ -311,12 +320,12 @@ api:
             # Should return the same instance (cached)
             assert config1 is config2
 
-    def test_reload_config_clears_cache(self):
+    def test_reload_config_clears_cache(self) -> None:
         """Test that reload_config clears the cache."""
         with patch("pathlib.Path.exists", return_value=False):
             load_api_config.cache_clear()
 
-            config1 = load_api_config()
+            load_api_config()
             config2 = reload_config()
 
             # After reload, should potentially be different instances
@@ -326,17 +335,17 @@ api:
 class TestConvenienceAccessors:
     """Test convenience accessor functions."""
 
-    def test_get_api_config(self):
+    def test_get_api_config(self) -> None:
         """Test get_api_config accessor."""
         config = get_api_config()
         assert isinstance(config, APIConfig)
 
-    def test_get_cors_config(self):
+    def test_get_cors_config(self) -> None:
         """Test get_cors_config accessor."""
         config = get_cors_config()
         assert isinstance(config, CORSConfig)
 
-    def test_get_rate_limit(self):
+    def test_get_rate_limit(self) -> None:
         """Test get_rate_limit accessor."""
         default = get_rate_limit()
         assert isinstance(default, RateLimitConfig)
@@ -349,22 +358,22 @@ class TestConvenienceAccessors:
         fallback = get_rate_limit("nonexistent")
         assert isinstance(fallback, RateLimitConfig)
 
-    def test_get_timeout_config(self):
+    def test_get_timeout_config(self) -> None:
         """Test get_timeout_config accessor."""
         config = get_timeout_config()
         assert isinstance(config, TimeoutConfig)
 
-    def test_get_pagination_config(self):
+    def test_get_pagination_config(self) -> None:
         """Test get_pagination_config accessor."""
         config = get_pagination_config()
         assert isinstance(config, PaginationConfig)
 
-    def test_get_upload_config(self):
+    def test_get_upload_config(self) -> None:
         """Test get_upload_config accessor."""
         config = get_upload_config()
         assert isinstance(config, UploadConfig)
 
-    def test_get_logging_config(self):
+    def test_get_logging_config(self) -> None:
         """Test get_logging_config accessor."""
         config = get_logging_config()
         assert isinstance(config, LoggingConfig)
@@ -373,7 +382,7 @@ class TestConvenienceAccessors:
 class TestEnvironmentVariableOverrides:
     """Test environment variable override functionality."""
 
-    def test_env_override_not_applied_without_prefix(self):
+    def test_env_override_not_applied_without_prefix(self) -> None:
         """Test that env vars without correct prefix are ignored."""
         os.environ["RANDOM_VAR"] = "should_be_ignored"
 
@@ -388,7 +397,7 @@ class TestEnvironmentVariableOverrides:
 
 
 @pytest.fixture(autouse=True)
-def clear_cache_after_test():
+def clear_cache_after_test() -> Generator[None, None, None]:
     """Clear configuration cache after each test."""
     yield
     load_api_config.cache_clear()

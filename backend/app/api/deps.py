@@ -4,6 +4,7 @@ Provides common dependencies like database sessions and user authentication.
 """
 
 from collections.abc import Generator
+from typing import Any
 
 from fastapi import Depends
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -13,7 +14,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 class DatabaseDependency:
     """Mock database dependency."""
 
-    def __call__(self) -> Generator:
+    def __call__(self) -> Generator[Any, None, None]:
         # In real implementation, this would create and yield a database session
         yield None
 
@@ -24,7 +25,7 @@ class UserDependency:
     def __init__(self, role: str = "admin"):
         self.role = role
         self.id = "user-123"
-        self.assigned_scopes = []
+        self.assigned_scopes: list[str] = []
 
 
 # Create dependency instances

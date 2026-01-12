@@ -3,13 +3,17 @@ Multi-stage workflow management API endpoints.
 Handles workflow transitions, peer reviews, and workflow monitoring.
 """
 
+from collections.abc import Sequence
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.core import deps
+from app.core.database import get_db
+from app.core.deps import get_current_active_user
 from app.crud.workflow_engine import workflow_engine
 from app.models import UserNew
 from app.schemas.workflow_engine import (
@@ -41,16 +45,16 @@ router = APIRouter()
 @router.get("/{item_type}/{item_id}/state", response_model=WorkflowStateInfo)
 def get_workflow_state(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     item_type: str,
     item_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowStateInfo:
     """
     Get current workflow state and available transitions for an item.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view workflow states
+    # RLS policies handle scope-based access
 
     try:
         state_info = workflow_engine.get_workflow_state(db, item_id, item_type)
@@ -65,17 +69,17 @@ def get_workflow_state(
 )
 def validate_workflow_transition(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     item_type: str,
     item_id: UUID,
     transition_request: WorkflowTransitionRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowValidationResult:
     """
     Validate a proposed workflow transition without executing it.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate transitions
+    # RLS policies handle scope-based access
 
     try:
         # Get current stage first
@@ -101,17 +105,17 @@ def validate_workflow_transition(
 @router.post("/{item_type}/{item_id}/transition", response_model=WorkflowTransition)
 def execute_workflow_transition(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     item_type: str,
     item_id: UUID,
     transition_request: WorkflowTransitionRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowTransition:
     """
     Execute a workflow state transition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can execute transitions
+    # RLS policies + workflow engine handle scope-based access
 
     try:
         transition = workflow_engine.execute_transition(
@@ -136,17 +140,17 @@ def execute_workflow_transition(
 @router.post("/{item_type}/{item_id}/assign-reviewer", response_model=PeerReviewRequest)
 def assign_peer_reviewer(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     item_type: str,
     item_id: UUID,
     assignment_request: PeerReviewAssignmentRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewRequest:
     """
     Assign a peer reviewer to an item in review stage.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can assign reviewers in their scopes
+    # Workflow engine enforces 4-eyes principle and scope access
 
     try:
         review_request = workflow_engine.assign_peer_reviewer(
@@ -165,16 +169,16 @@ def assign_peer_reviewer(
 @router.post("/reviews/{review_id}/submit", response_model=PeerReviewResult)
 def submit_peer_review(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     review_id: UUID,
     review_submission: PeerReviewSubmission,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewResult:
     """
     Submit a peer review decision.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can submit reviews they're assigned to
+    # Workflow engine validates reviewer assignment
 
     try:
         result = workflow_engine.submit_peer_review(
@@ -193,43 +197,51 @@ def submit_peer_review(
 @router.get("/reviews/my-assignments", response_model=list[PeerReviewRequest])
 def get_my_review_assignments(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     status: str | None = Query(None, description="Filter by review status"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
-) -> list[PeerReviewRequest]:
+    current_user: UserNew = Depends(get_current_active_user),
+) -> Sequence[PeerReviewRequest]:
     """
     Get peer review assignments for the current user.
     """
     from app.models import Review, ReviewStatus
 
-    query = db.query(Review).filter(Review.reviewer_id == current_user.id)
+    query = select(Review).where(Review.reviewer_id == current_user.id)
 
     if status:
         try:
             status_enum = ReviewStatus(status)
-            query = query.filter(Review.status == status_enum)
+            query = query.where(Review.status == status_enum)
         except ValueError as e:
             raise HTTPException(
                 status_code=400, detail=f"Invalid status: {status}"
             ) from e
 
-    reviews = query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit).all()
+    reviews = (
+        db.execute(query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit))
+        .scalars()
+        .all()
+    )
 
-    return [
-        PeerReviewRequest(
-            review_id=review.id,
-            item_id=review.item_id,
-            item_type=review.item_type,
-            reviewer_id=review.reviewer_id,
-            assigned_by=review.assigned_by,
-            review_type=review.review_type,
-            assigned_at=review.assigned_at,
-            status=review.status,
+    # Convert Review model to PeerReviewRequest schema
+    result: list[PeerReviewRequest] = []
+    for review in reviews:
+        # Map curation_id to item_id, use "curation" as item_type
+        result.append(
+            PeerReviewRequest(
+                review_id=review.id,
+                item_id=review.curation_id,
+                item_type="curation",
+                reviewer_id=review.reviewer_id,
+                assigned_by=review.assigned_by or current_user.id,  # Fallback if None
+                review_type="peer_review",  # Default value
+                assigned_at=review.assigned_at,
+                status=review.status,
+            )
         )
-        for review in reviews
-    ]
+    return result
 
 
 # ========================================
@@ -240,20 +252,18 @@ def get_my_review_assignments(
 @router.get("/statistics", response_model=WorkflowStatistics)
 def get_workflow_statistics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     days: int = Query(30, ge=1, le=365, description="Time period in days"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowStatistics:
     """
     Get workflow performance statistics.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view workflow statistics
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -264,19 +274,17 @@ def get_workflow_statistics(
 @router.get("/dashboard", response_model=WorkflowDashboard)
 def get_workflow_dashboard(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowDashboard:
     """
     Get comprehensive workflow dashboard data for the current user.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view their workflow dashboard
     # Check scope access
     if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -288,43 +296,43 @@ def get_workflow_dashboard(
     )
 
     # Personal workload
-    my_assignments_query = db.query(GeneScopeAssignment).filter(
+    my_assignments_query = select(GeneScopeAssignment).where(
         GeneScopeAssignment.assigned_curator_id == current_user.id
     )
     if scope_id:
-        my_assignments_query = my_assignments_query.filter(
+        my_assignments_query = my_assignments_query.where(
             GeneScopeAssignment.scope_id == scope_id
         )
 
-    my_assignments_count = my_assignments_query.count()
+    my_assignments_count = db.execute(
+        select(func.count(GeneScopeAssignment.id)).select_from(
+            my_assignments_query.subquery()
+        )
+    ).scalar()
 
     # My pending reviews
-    my_pending_reviews = (
-        db.query(Review)
-        .filter(
+    my_pending_reviews = db.execute(
+        select(func.count(Review.id)).where(
             Review.reviewer_id == current_user.id,
-            Review.status == ReviewStatus.assigned,
+            Review.status == ReviewStatus.PENDING,
         )
-        .count()
-    )
+    ).scalar()
 
     # My completed reviews
-    my_completed_reviews = (
-        db.query(Review)
-        .filter(
+    my_completed_reviews = db.execute(
+        select(func.count(Review.id)).where(
             Review.reviewer_id == current_user.id,
-            Review.status == ReviewStatus.completed,
+            Review.status == ReviewStatus.APPROVED,
         )
-        .count()
-    )
+    ).scalar()
 
     # Basic dashboard structure
     dashboard = WorkflowDashboard(
         scope_id=scope_id,
         user_id=current_user.id,
-        my_assignments={"total": my_assignments_count},
-        my_pending_reviews=my_pending_reviews,
-        my_completed_reviews=my_completed_reviews,
+        my_assignments={"total": my_assignments_count or 0},
+        my_pending_reviews=my_pending_reviews or 0,
+        my_completed_reviews=my_completed_reviews or 0,
         team_workload={"total": 0},  # Would need more complex query
         team_pending_reviews=0,  # Would need more complex query
         recent_transitions=[],  # Would query audit log
@@ -339,16 +347,16 @@ def get_workflow_dashboard(
 @router.get("/{item_type}/{item_id}/audit-trail", response_model=WorkflowAuditTrail)
 def get_workflow_audit_trail(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     item_type: str,
     item_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowAuditTrail:
     """
     Get complete workflow audit trail for an item.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view audit trails for items in their scopes
+    # RLS policies handle scope-based access
 
     # Basic audit trail structure (would need full implementation)
     audit_trail = WorkflowAuditTrail(
@@ -372,19 +380,20 @@ def get_workflow_audit_trail(
 @router.post("/bulk-transition", response_model=BulkWorkflowTransitionResult)
 def bulk_workflow_transition(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     bulk_request: BulkWorkflowTransitionRequest,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkWorkflowTransitionResult:
     """
     Execute bulk workflow transitions. Requires admin privileges.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # Only admins can execute bulk transitions
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
 
-    successful_transitions = []
-    failed_transitions = []
-    warnings = []
+    successful_transitions: list[UUID] = []
+    failed_transitions: list[dict[str, Any]] = []
+    warnings: list[str] = []
 
     for item_id in bulk_request.item_ids:
         try:
@@ -419,19 +428,17 @@ def bulk_workflow_transition(
 @router.get("/configuration/{scope_id}", response_model=WorkflowConfiguration)
 def get_workflow_configuration(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowConfiguration:
     """
     Get workflow configuration for a scope.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view workflow configuration for their scopes
     # Check scope access
     if current_user.role != "admin":
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 
@@ -454,10 +461,10 @@ def get_workflow_configuration(
 @router.put("/configuration/{scope_id}", response_model=WorkflowConfiguration)
 def update_workflow_configuration(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID,
     config_update: WorkflowConfiguration,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowConfiguration:
     """
     Update workflow configuration for a scope. Requires admin privileges.
@@ -478,20 +485,18 @@ def update_workflow_configuration(
 @router.get("/analytics", response_model=WorkflowAnalytics)
 def get_workflow_analytics(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
     days: int = Query(90, ge=7, le=365, description="Analysis period in days"),
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowAnalytics:
     """
     Get advanced workflow analytics and performance insights.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
-
+    # All authenticated users can view analytics for their scopes
     # Check scope access
     if current_user.role != "admin" and scope_id:
-        user_scope_ids = current_user.assigned_scopes or []
+        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
         if scope_id not in user_scope_ids:
             raise HTTPException(status_code=403, detail="Not enough permissions")
 

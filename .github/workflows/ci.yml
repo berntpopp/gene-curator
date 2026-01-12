@@ -1,0 +1,219 @@
+name: CI - Continuous Integration
+
+on:
+  # Push only triggers on main/master/develop (direct commits, merges)
+  # Feature branches are covered by pull_request events
+  # This avoids duplicate runs when pushing to feature branches with open PRs
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - 'plan/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.github/workflows/security.yml'
+  # Pull requests trigger for all PRs targeting main/master/develop
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - 'plan/**'
+      - '*.md'
+      - 'LICENSE'
+      - '.github/workflows/security.yml'
+  workflow_dispatch:
+
+# Cancel in-progress runs for the same workflow and ref
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Detect which parts of the codebase changed
+  # =============================================================================
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'backend/**'
+              - '.github/workflows/ci.yml'
+            frontend:
+              - 'frontend/**'
+              - '.github/workflows/ci.yml'
+
+  # =============================================================================
+  # Backend CI - Python/FastAPI
+  # Compatible with: make lint-check, make test
+  # =============================================================================
+  backend-ci:
+    name: Backend CI
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: gene_curator_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --extra dev
+
+      # Quality checks - matches `make lint-check`
+      - name: Run linting (ruff check)
+        working-directory: backend
+        run: uv run ruff check app/ tests/
+
+      - name: Run format check (ruff format)
+        working-directory: backend
+        run: uv run ruff format --check app/ tests/
+
+      - name: Run type checking (mypy)
+        working-directory: backend
+        run: uv run mypy app/
+
+      - name: Run security check (bandit)
+        working-directory: backend
+        run: uv run bandit -c .bandit -r app/
+
+      # Tests - matches `make test`
+      - name: Run tests (pytest)
+        working-directory: backend
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/gene_curator_test
+          JWT_SECRET: test-secret-key-for-ci-minimum-32-chars
+          SECRET_KEY: test-secret-key-for-ci-minimum-32-chars
+          TESTING: "true"
+        run: uv run pytest tests/ -v --cov=app --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          files: ./backend/coverage.xml
+          flags: backend
+          name: backend-coverage
+          fail_ci_if_error: false
+
+  # =============================================================================
+  # Frontend CI - Vue.js/Vite
+  # Compatible with: make lint-frontend-check, npm run build
+  # =============================================================================
+  frontend-ci:
+    name: Frontend CI
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Quality checks - matches `make lint-frontend-check`
+      - name: Run ESLint
+        working-directory: frontend
+        run: npm run lint:check
+
+      - name: Run Prettier format check
+        working-directory: frontend
+        run: npm run format:check
+
+      # Unit tests - matches `make test-frontend`
+      - name: Run frontend tests
+        working-directory: frontend
+        run: npm run test:run
+
+      # Build - matches npm run build
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: /api
+
+  # =============================================================================
+  # CI Summary - aggregates all results
+  # =============================================================================
+  ci-summary:
+    name: CI Summary
+    needs: [changes, backend-ci, frontend-ci]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check CI results
+        run: |
+          echo "## CI Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Job | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend CI | ${{ needs.backend-ci.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Frontend CI | ${{ needs.frontend-ci.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Fail if any required job failed (skip doesn't count as failure)
+          if [[ "${{ needs.backend-ci.result }}" == "failure" ]]; then
+            echo "::error::Backend CI failed"
+            exit 1
+          fi
+
+          if [[ "${{ needs.frontend-ci.result }}" == "failure" ]]; then
+            echo "::error::Frontend CI failed"
+            exit 1
+          fi
+
+          echo "::notice::All CI checks passed or skipped appropriately"

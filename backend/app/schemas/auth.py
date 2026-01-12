@@ -32,7 +32,7 @@ class UserUpdate(BaseModel):
     """Schema for updating user information."""
 
     email: EmailStr | None = None
-    name: str | None = Field(None, min_length=1, max_length=255)
+    name: str | None = Field(default=None, min_length=1, max_length=255)
     role: str | None = None
     is_active: bool | None = None
 

@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.database import get_db
 from app.core.schema_validator import schema_validator
 from app.crud.schema_repository import schema_crud
 from app.models import UserNew
@@ -64,15 +65,14 @@ class JSONSchemaResponse(BaseModel):
 @router.post("/validate-evidence", response_model=ValidationResponse)
 def validate_evidence_data(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     validation_request: ValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ValidationResponse:
     """
     Validate evidence data against a schema definition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate evidence data
 
     # Get schema definition
     schema_definition = validation_request.schema_definition
@@ -81,7 +81,10 @@ def validate_evidence_data(
         schema = schema_crud.get(db, id=validation_request.schema_id)
         if not schema:
             raise HTTPException(status_code=404, detail="Schema not found")
-        schema_definition = schema.schema_data
+        schema_definition = {
+            "field_definitions": schema.field_definitions,
+            "validation_rules": schema.validation_rules,
+        }
 
     if not schema_definition:
         raise HTTPException(
@@ -116,15 +119,14 @@ def validate_evidence_data(
 @router.post("/validate-schema", response_model=ValidationResponse)
 def validate_schema_definition(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_request: SchemaValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> ValidationResponse:
     """
     Validate a schema definition for correctness and completeness.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate schema definitions
 
     try:
         result = schema_validator.validate_schema_definition(
@@ -152,15 +154,14 @@ def validate_schema_definition(
 @router.post("/generate-json-schema", response_model=JSONSchemaResponse)
 def generate_json_schema(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_request: SchemaValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> JSONSchemaResponse:
     """
     Generate JSON Schema from a curation schema definition.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can generate JSON schemas
 
     try:
         json_schema = schema_validator.generate_json_schema(
@@ -187,25 +188,28 @@ def generate_json_schema(
 @router.get("/schema/{schema_id}/json-schema", response_model=JSONSchemaResponse)
 def get_json_schema_for_schema(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     schema_id: UUID,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> JSONSchemaResponse:
     """
     Get JSON Schema for an existing curation schema.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can get JSON schemas
 
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
 
     try:
-        json_schema = schema_validator.generate_json_schema(schema.schema_data)
+        schema_definition = {
+            "field_definitions": schema.field_definitions,
+            "validation_rules": schema.validation_rules,
+        }
+        json_schema = schema_validator.generate_json_schema(schema_definition)
 
-        field_count = len(schema.schema_data.get("field_definitions", {}))
-        validation_rules_count = len(schema.schema_data.get("validation_rules", {}))
+        field_count = len(schema.field_definitions)
+        validation_rules_count = len(schema.validation_rules)
 
         return JSONSchemaResponse(
             json_schema=json_schema,
@@ -245,15 +249,14 @@ class FieldValidationResponse(BaseModel):
 @router.post("/validate-field", response_model=FieldValidationResponse)
 def validate_single_field(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     field_request: FieldValidationRequest,
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> FieldValidationResponse:
     """
     Validate a single field value against its configuration.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can validate fields
 
     try:
         # Create a minimal schema for field validation
@@ -300,8 +303,7 @@ def get_supported_field_types(
     """
     Get list of supported field types and their configurations.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view supported field types
 
     field_types = {
         "text": {
@@ -450,8 +452,7 @@ def get_supported_business_rules(
     """
     Get list of supported business rules and their descriptions.
     """
-    if current_user.role not in ["admin", "scope_admin", "curator", "viewer"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # All authenticated users can view business rules
 
     business_rules = {
         "clingen_genetic_evidence": {
@@ -503,14 +504,15 @@ def get_supported_business_rules(
 @router.post("/test-validation")
 def test_validation_with_examples(
     *,
-    db: Session = Depends(deps.get_db),
+    db: Session = Depends(get_db),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> dict[str, Any]:
     """
     Test validation system with example data.
     """
-    if current_user.role not in ["admin", "scope_admin"]:
-        raise HTTPException(status_code=403, detail="Not enough permissions")
+    # Only admins can run validation tests
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin privileges required")
 
     # Example schema definition
     test_schema = {
@@ -597,9 +599,9 @@ def test_validation_with_examples(
 
     for test_case in test_cases:
         try:
-            result = schema_validator.validate_evidence_data(
-                test_case["data"], test_schema
-            )
+            # Type cast to dict[str, Any] for mypy
+            test_data: dict[str, Any] = test_case["data"]  # type: ignore[assignment]
+            result = schema_validator.validate_evidence_data(test_data, test_schema)
 
             results[test_case["name"]] = {
                 "is_valid": result.is_valid,

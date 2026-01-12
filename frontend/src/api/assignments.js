@@ -10,6 +10,14 @@ export const assignmentsAPI = {
   },
 
   /**
+   * Create a single gene assignment
+   */
+  async createAssignment(assignmentData) {
+    const response = await apiClient.post('/gene-assignments', assignmentData)
+    return response.data
+  },
+
+  /**
    * Bulk assign genes to scope
    */
   async bulkAssignGenes(assignmentData) {

@@ -19,7 +19,7 @@
 <script setup>
   import { useRouter, useRoute } from 'vue-router'
   import { showSuccess } from '@/composables/useNotifications.js'
-  import CurationForm from '@/components/clingen/CurationForm.vue'
+  import CurationForm from '@/components/forms/CurationForm.vue'
 
   const router = useRouter()
   const route = useRoute()

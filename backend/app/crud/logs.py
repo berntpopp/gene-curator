@@ -5,17 +5,18 @@ This module provides database operations for querying system logs,
 supporting request correlation, filtering, and statistics.
 """
 
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import and_, func, or_
+from sqlalchemy import and_, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from app.models.models import SystemLog
 
 
-async def get_logs(
+async def get_logs(  # noqa: C901
     db: AsyncSession,
     skip: int = 0,
     limit: int = 100,
@@ -29,7 +30,7 @@ async def get_logs(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     min_duration_ms: float | None = None,
-) -> list[SystemLog]:
+) -> Sequence[SystemLog]:
     """
     Get system logs with optional filtering.
 
@@ -105,7 +106,9 @@ async def get_log_by_id(db: AsyncSession, log_id: int) -> SystemLog | None:
     return result.scalar_one_or_none()
 
 
-async def get_logs_by_request_id(db: AsyncSession, request_id: str) -> list[SystemLog]:
+async def get_logs_by_request_id(
+    db: AsyncSession, request_id: str
+) -> Sequence[SystemLog]:
     """
     Get all logs for a specific request (request correlation).
 
@@ -243,7 +246,7 @@ async def get_log_statistics(db: AsyncSession) -> dict[str, Any]:
 
 async def get_recent_errors(
     db: AsyncSession, limit: int = 20, hours: int = 24
-) -> list[SystemLog]:
+) -> Sequence[SystemLog]:
     """
     Get recent error and critical logs for triage.
 
@@ -277,7 +280,7 @@ async def get_logs_for_export(
     start_date: datetime | None = None,
     end_date: datetime | None = None,
     limit: int = 10000,
-) -> list[SystemLog]:
+) -> Sequence[SystemLog]:
     """
     Get logs for export (JSON/CSV).
 
@@ -327,7 +330,7 @@ async def cleanup_old_partitions(db: AsyncSession, days: int = 90) -> dict[str, 
         Dictionary with cleanup results
     """
     # Call the PostgreSQL function
-    query = "SELECT cleanup_old_logs()"
+    query = text("SELECT cleanup_old_logs()")
     await db.execute(query)
     await db.commit()
 

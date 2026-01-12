@@ -77,7 +77,7 @@ app.include_router(api_router, prefix="/api/v1")
 
 # Root endpoint
 @app.get("/")
-async def root():
+async def root() -> dict[str, str | None]:
     """Root endpoint providing API information."""
     return {
         "name": APP_NAME,
@@ -96,7 +96,7 @@ async def root():
 
 # Health check endpoint
 @app.get("/health")
-async def health_check():
+async def health_check() -> dict[str, str | float]:
     """Health check endpoint for monitoring."""
     try:
         # Test database connection
@@ -122,7 +122,7 @@ async def health_check():
 
 # Global exception handler
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Global exception caught", error=exc)
     return JSONResponse(
         status_code=500,
@@ -136,7 +136,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Startup event
 @app.on_event("startup")
-async def startup_event():
+async def startup_event() -> None:
     logger.info(
         "Starting Gene Curator API...",
         environment=settings.ENVIRONMENT,
@@ -147,7 +147,7 @@ async def startup_event():
 
 # Shutdown event
 @app.on_event("shutdown")
-async def shutdown_event():
+async def shutdown_event() -> None:
     logger.info("Shutting down Gene Curator API...")
 
 

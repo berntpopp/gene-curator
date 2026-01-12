@@ -8,6 +8,9 @@ const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
 const Dashboard = () => import('@/views/Dashboard.vue')
 const ScopeSelection = () => import('@/views/ScopeSelection.vue')
+const ScopeList = () => import('@/views/scope/ScopeList.vue')
+const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
+const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
 const GenesTable = () => import('@/views/GenesTable.vue')
 const GeneDetail = () => import('@/views/GeneDetail.vue')
 const GeneAdmin = () => import('@/views/GeneAdmin.vue')
@@ -24,6 +27,10 @@ const About = () => import('@/views/About.vue')
 const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
 const NotFound = () => import('@/views/NotFound.vue')
+const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
+const CurationFormView = () => import('@/views/curation/CurationFormView.vue')
+const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue')
+const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
 
 const routes = [
   {
@@ -77,6 +84,94 @@ const routes = [
     }
   },
   {
+    path: '/scopes',
+    name: 'scopes',
+    component: ScopeList,
+    meta: {
+      title: 'Clinical Scopes',
+      requiresAuth: true,
+      showInMainMenu: true,
+      icon: 'mdi-folder-multiple',
+      label: 'Scopes',
+      order: 1
+    }
+  },
+  {
+    path: '/scopes/create',
+    name: 'scope-create',
+    component: ScopeCreate,
+    meta: {
+      title: 'Create Scope',
+      requiresAuth: true
+      // Any authenticated user can create a scope
+    }
+  },
+  {
+    path: '/scopes/:scopeId',
+    name: 'scope-dashboard',
+    component: ScopeDashboard,
+    props: true,
+    meta: {
+      title: 'Scope Dashboard',
+      requiresAuth: true
+    }
+  },
+  // Curation routes
+  {
+    path: '/scopes/:scopeId/curations/new',
+    name: 'curation-create',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'New Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/curations/:curationId',
+    name: 'curation-detail',
+    component: CurationDetailView,
+    props: true,
+    meta: {
+      title: 'Curation Details',
+      requiresAuth: true
+    }
+  },
+  {
+    path: '/scopes/:scopeId/curations/:curationId/edit',
+    name: 'curation-edit',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'Edit Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/genes/:geneId/curation/new',
+    name: 'gene-curation-create',
+    component: CurationFormView,
+    props: true,
+    meta: {
+      title: 'New Gene Curation',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
+    path: '/scopes/:scopeId/genes/:geneId/precuration/new',
+    name: 'gene-precuration-create',
+    component: PrecurationFormView,
+    props: true,
+    meta: {
+      title: 'New Precuration',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
+    }
+  },
+  {
     path: '/genes',
     name: 'Genes',
     component: GenesTable,
@@ -96,6 +191,16 @@ const routes = [
     props: true,
     meta: {
       title: 'Gene Details',
+      requiresAuth: false
+    }
+  },
+  {
+    path: '/genes/:geneId/summary',
+    name: 'GeneSummary',
+    component: GeneSummaryView,
+    props: true,
+    meta: {
+      title: 'Gene Summary',
       requiresAuth: false
     }
   },

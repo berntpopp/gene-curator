@@ -2,10 +2,11 @@
 User CRUD operations.
 """
 
+from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -22,27 +23,28 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def get_by_email(self, db: Session, *, email: str) -> User | None:
         """Get user by email address."""
-        return db.query(User).filter(User.email == email).first()
+        stmt = select(User).where(User.email == email)
+        return db.execute(stmt).scalars().first()
 
-    def create(self, db: Session, *, user_create: UserCreate) -> User:
+    def create(self, db: Session, *, obj_in: UserCreate) -> User:
         """Create a new user with hashed password."""
         db_obj = User(
-            email=user_create.email,
-            hashed_password=get_password_hash(user_create.password),
-            name=user_create.name,
-            role=user_create.role,
-            institution=user_create.institution,
-            orcid_id=user_create.orcid_id,
-            expertise_areas=user_create.expertise_areas or [],
-            assigned_scopes=user_create.assigned_scopes or [],
-            is_active=user_create.is_active,
+            email=obj_in.email,
+            hashed_password=get_password_hash(obj_in.password),
+            name=obj_in.name,
+            role=obj_in.role,
+            institution=obj_in.institution,
+            orcid_id=obj_in.orcid_id,
+            expertise_areas=obj_in.expertise_areas or [],
+            assigned_scopes=obj_in.assigned_scopes or [],
+            is_active=obj_in.is_active,
         )
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
         return db_obj
 
-    def update(
+    def update_user(
         self, db: Session, *, user_id: str, user_update: UserUpdate
     ) -> User | None:
         """Update user data."""
@@ -89,7 +91,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             email=email,
             user_id=str(user.id),
             has_hashed_password=bool(user.hashed_password),
-            hashed_password_length=len(user.hashed_password) if user.hashed_password else 0,
+            hashed_password_length=len(user.hashed_password)
+            if user.hashed_password
+            else 0,
         )
 
         password_valid = verify_password(password, user.hashed_password)
@@ -128,41 +132,49 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def get_by_role(
         self, db: Session, *, role: UserRole, skip: int = 0, limit: int = 100
-    ) -> list[User]:
+    ) -> Sequence[User]:
         """Get users by role."""
-        return (
-            db.query(User)
-            .filter(User.role == role)
-            .filter(User.is_active)
+        stmt = (
+            select(User)
+            .where(User.role == role)
+            .where(User.is_active)
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return db.execute(stmt).scalars().all()
 
     def search(
         self, db: Session, *, query: str, skip: int = 0, limit: int = 100
-    ) -> list[User]:
+    ) -> Sequence[User]:
         """Search users by name or email."""
-        search_filter = (
-            or_(
+        stmt = select(User)
+
+        if query:
+            search_filter = or_(
                 User.name.ilike(f"%{query}%"),
                 User.email.ilike(f"%{query}%"),
                 User.institution.ilike(f"%{query}%"),
             )
-            if query
-            else True
-        )
+            stmt = stmt.where(search_filter)
 
-        return db.query(User).filter(search_filter).offset(skip).limit(limit).all()
+        stmt = stmt.offset(skip).limit(limit)
+        return db.execute(stmt).scalars().all()
 
     def get_statistics(self, db: Session) -> dict[str, Any]:
         """Get user statistics."""
-        total_users = db.query(func.count(User.id)).scalar()
-        active_users = db.query(func.count(User.id)).filter(User.is_active).scalar()
+        total_users = db.execute(select(func.count(User.id))).scalar() or 0
+        active_users = (
+            db.execute(select(func.count(User.id)).where(User.is_active)).scalar() or 0
+        )
 
-        role_counts = {}
+        role_counts: dict[str, int] = {}
         for role in UserRole:
-            count = db.query(func.count(User.id)).filter(User.role == role).scalar()
+            count = (
+                db.execute(
+                    select(func.count(User.id)).where(User.role == role)
+                ).scalar()
+                or 0
+            )
             role_counts[role.value] = count
 
         return {
@@ -192,16 +204,16 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
 
     def get_users_by_scope(
         self, db: Session, *, scope_id: UUID, skip: int = 0, limit: int = 100
-    ) -> list[User]:
+    ) -> Sequence[User]:
         """Get users assigned to a specific scope."""
-        return (
-            db.query(User)
-            .filter(User.assigned_scopes.contains([str(scope_id)]))
-            .filter(User.is_active)
+        stmt = (
+            select(User)
+            .where(User.assigned_scopes.contains([str(scope_id)]))
+            .where(User.is_active)
             .offset(skip)
             .limit(limit)
-            .all()
         )
+        return db.execute(stmt).scalars().all()
 
     def assign_to_scope(self, db: Session, *, user_id: str, scope_id: UUID) -> bool:
         """Assign user to a scope."""
@@ -210,11 +222,11 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return False
 
         scope_id_str = str(scope_id)
-        current_scopes = user.assigned_scopes or []
+        current_scopes: list[str] = [str(s) for s in (user.assigned_scopes or [])]
 
         if scope_id_str not in current_scopes:
             current_scopes.append(scope_id_str)
-            user.assigned_scopes = current_scopes
+            user.assigned_scopes = [UUID(s) for s in current_scopes]
             db.commit()
 
         return True
@@ -226,11 +238,11 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             return False
 
         scope_id_str = str(scope_id)
-        current_scopes = user.assigned_scopes or []
+        current_scopes: list[str] = [str(s) for s in (user.assigned_scopes or [])]
 
         if scope_id_str in current_scopes:
             current_scopes.remove(scope_id_str)
-            user.assigned_scopes = current_scopes
+            user.assigned_scopes = [UUID(s) for s in current_scopes]
             db.commit()
 
         return True

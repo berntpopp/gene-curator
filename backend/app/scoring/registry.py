@@ -3,6 +3,8 @@ Scoring engine registry for managing pluggable scoring methodologies.
 Provides centralized registration and selection of scoring engines.
 """
 
+from typing import Any
+
 from .base import ScoringEngine, ScoringResult
 from .clingen import ClinGenEngine
 from .gencc import GenCCEngine
@@ -12,17 +14,17 @@ from .qualitative import QualitativeEngine
 class ScoringEngineRegistry:
     """Registry for scoring engines."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._engines: dict[str, ScoringEngine] = {}
         self._register_default_engines()
 
-    def _register_default_engines(self):
+    def _register_default_engines(self) -> None:
         """Register built-in scoring engines."""
         self.register(ClinGenEngine())
         self.register(GenCCEngine())
         self.register(QualitativeEngine())
 
-    def register(self, engine: ScoringEngine):
+    def register(self, engine: ScoringEngine) -> None:
         """Register a scoring engine."""
         self._engines[engine.name] = engine
 
@@ -30,7 +32,7 @@ class ScoringEngineRegistry:
         """Get a scoring engine by name."""
         return self._engines.get(name)
 
-    def list_engines(self) -> list[dict[str, str]]:
+    def list_engines(self) -> list[dict[str, Any]]:
         """List all registered engines with their metadata."""
         return [
             {
@@ -56,9 +58,9 @@ class ScoringEngineRegistry:
     def calculate_scores(
         self,
         engine_name: str,
-        evidence_data: dict,
-        schema_config: dict,
-        scope_context: dict | None = None,
+        evidence_data: dict[str, Any],
+        schema_config: dict[str, Any],
+        scope_context: dict[str, Any] | None = None,
     ) -> ScoringResult | None:
         """Calculate scores using the specified engine."""
         engine = self.get_engine(engine_name)
@@ -68,7 +70,10 @@ class ScoringEngineRegistry:
         return engine.calculate_scores(evidence_data, schema_config, scope_context)
 
     def validate_evidence(
-        self, engine_name: str, evidence_data: dict, schema_config: dict
+        self,
+        engine_name: str,
+        evidence_data: dict[str, Any],
+        schema_config: dict[str, Any],
     ) -> list[str]:
         """Validate evidence using the specified engine."""
         engine = self.get_engine(engine_name)
@@ -97,7 +102,7 @@ class ScoringEngineRegistry:
                 compatible_engines.append(engine_name)
         return compatible_engines
 
-    def get_engine_info(self, engine_name: str) -> dict[str, any] | None:
+    def get_engine_info(self, engine_name: str) -> dict[str, Any] | None:
         """Get detailed information about a specific engine."""
         engine = self.get_engine(engine_name)
         if not engine:

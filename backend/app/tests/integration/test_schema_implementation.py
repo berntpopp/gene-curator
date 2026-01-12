@@ -18,7 +18,7 @@ except ImportError:
     sys.exit(1)
 
 
-def test_schema_validator():
+def test_schema_validator() -> None:
     """Test the schema validation engine."""
 
     # Test schema definition
@@ -136,7 +136,7 @@ def test_schema_validator():
         schema_validator.generate_json_schema(test_schema)
 
 
-def test_scoring_engines():
+def test_scoring_engines() -> None:
     """Test the scoring engine registry and implementations."""
 
     # Test 1: Registry functionality
@@ -203,7 +203,7 @@ def test_scoring_engines():
         pass
 
 
-def test_integration():
+def test_integration() -> None:
     """Test integration between components."""
 
     # Test 1: Schema validation with scoring
@@ -281,7 +281,7 @@ def test_integration():
         pass
 
 
-def test_error_handling():
+def test_error_handling() -> None:
     """Test error handling and edge cases."""
 
     # Test 1: Invalid schema structure
@@ -321,7 +321,7 @@ def test_error_handling():
         schema_validator.validate_evidence_data(bad_data, schema)
 
 
-def run_all_tests():
+def run_all_tests() -> bool:
     """Run all test suites."""
 
     try:

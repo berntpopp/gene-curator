@@ -8,6 +8,8 @@ Tests each checker method independently to verify:
 - SOLID principles compliance
 """
 
+from typing import Any
+
 import pytest
 
 from app.scoring.qualitative_checker import (
@@ -20,7 +22,7 @@ from app.scoring.qualitative_checker import (
 class TestAssessmentWarning:
     """Test AssessmentWarning dataclass."""
 
-    def test_warning_creation(self):
+    def test_warning_creation(self) -> None:
         """Test creating an AssessmentWarning."""
         warning = AssessmentWarning(
             severity="error",
@@ -34,7 +36,7 @@ class TestAssessmentWarning:
         assert warning.message == "Test message"
         assert warning.field == "test.field"
 
-    def test_warning_equality(self):
+    def test_warning_equality(self) -> None:
         """Test that warnings with same values are equal."""
         warning1 = AssessmentWarning(
             severity="warning", category="incomplete", message="Test", field="field"
@@ -49,11 +51,11 @@ class TestAssessmentWarning:
 class TestQualitativeWarningChecker:
     """Test QualitativeWarningChecker class."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.checker = QualitativeWarningChecker()
 
-    def test_check_all_with_complete_data(self):
+    def test_check_all_with_complete_data(self) -> None:
         """Test that complete data produces no warnings."""
         evidence = {
             "clinical_assessment": {
@@ -70,9 +72,9 @@ class TestQualitativeWarningChecker:
 
         assert len(warnings) == 0
 
-    def test_check_all_with_empty_data(self):
+    def test_check_all_with_empty_data(self) -> None:
         """Test that empty data produces error warnings."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker.check_all(evidence)
 
@@ -80,7 +82,7 @@ class TestQualitativeWarningChecker:
         assert all(w.severity == "error" for w in warnings)
         assert all(w.category == "missing" for w in warnings)
 
-    def test_check_missing_clinical_assessment(self):
+    def test_check_missing_clinical_assessment(self) -> None:
         """Test detection of missing clinical assessment."""
         evidence = {"literature_review": {"evidence_quality": "high"}}
 
@@ -91,7 +93,7 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "clinical_assessment"
         assert "clinical assessment" in warnings[0].message.lower()
 
-    def test_check_missing_literature_review(self):
+    def test_check_missing_literature_review(self) -> None:
         """Test detection of missing literature review."""
         evidence = {"clinical_assessment": {"phenotype_match": "good"}}
 
@@ -102,9 +104,9 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "literature_review"
         assert "literature review" in warnings[0].message.lower()
 
-    def test_check_missing_both_assessments(self):
+    def test_check_missing_both_assessments(self) -> None:
         """Test detection when both assessments are missing."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_missing_assessments(evidence)
 
@@ -113,7 +115,7 @@ class TestQualitativeWarningChecker:
         assert "clinical_assessment" in fields
         assert "literature_review" in fields
 
-    def test_check_incomplete_clinical_missing_phenotype(self):
+    def test_check_incomplete_clinical_missing_phenotype(self) -> None:
         """Test detection of missing phenotype match."""
         evidence = {"clinical_assessment": {"inheritance_consistency": "consistent"}}
 
@@ -123,7 +125,7 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "clinical_assessment.phenotype_match"
         assert "phenotype match" in warnings[0].message.lower()
 
-    def test_check_incomplete_clinical_missing_inheritance(self):
+    def test_check_incomplete_clinical_missing_inheritance(self) -> None:
         """Test detection of missing inheritance consistency."""
         evidence = {"clinical_assessment": {"phenotype_match": "good"}}
 
@@ -133,9 +135,9 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "clinical_assessment.inheritance_consistency"
         assert "inheritance consistency" in warnings[0].message.lower()
 
-    def test_check_incomplete_clinical_missing_both_fields(self):
+    def test_check_incomplete_clinical_missing_both_fields(self) -> None:
         """Test detection when both clinical fields are missing."""
-        evidence = {"clinical_assessment": {}}
+        evidence: dict[str, Any] = {"clinical_assessment": {}}
 
         warnings = self.checker._check_incomplete_clinical(evidence)
 
@@ -144,15 +146,15 @@ class TestQualitativeWarningChecker:
         assert "clinical_assessment.phenotype_match" in fields
         assert "clinical_assessment.inheritance_consistency" in fields
 
-    def test_check_incomplete_clinical_returns_empty_when_no_clinical(self):
+    def test_check_incomplete_clinical_returns_empty_when_no_clinical(self) -> None:
         """Test that incomplete check returns empty when clinical is missing."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_incomplete_clinical(evidence)
 
         assert len(warnings) == 0  # Already caught by missing check
 
-    def test_check_incomplete_literature_missing_quality(self):
+    def test_check_incomplete_literature_missing_quality(self) -> None:
         """Test detection of missing evidence quality."""
         evidence = {"literature_review": {"study_design_strength": "strong"}}
 
@@ -162,7 +164,7 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "literature_review.evidence_quality"
         assert "evidence quality" in warnings[0].message.lower()
 
-    def test_check_incomplete_literature_missing_design(self):
+    def test_check_incomplete_literature_missing_design(self) -> None:
         """Test detection of missing study design strength."""
         evidence = {"literature_review": {"evidence_quality": "high"}}
 
@@ -172,7 +174,7 @@ class TestQualitativeWarningChecker:
         assert warnings[0].field == "literature_review.study_design_strength"
         assert "study design" in warnings[0].message.lower()
 
-    def test_check_low_confidence_poor_phenotype(self):
+    def test_check_low_confidence_poor_phenotype(self) -> None:
         """Test detection of poor phenotype match."""
         evidence = {"clinical_assessment": {"phenotype_match": "poor"}}
 
@@ -183,17 +185,19 @@ class TestQualitativeWarningChecker:
         assert len(poor_warnings) == 1
         assert poor_warnings[0].category == "low_confidence"
 
-    def test_check_low_confidence_inconsistent_inheritance(self):
+    def test_check_low_confidence_inconsistent_inheritance(self) -> None:
         """Test detection of inconsistent inheritance."""
         evidence = {"clinical_assessment": {"inheritance_consistency": "inconsistent"}}
 
         warnings = self.checker._check_low_confidence_indicators(evidence)
 
         assert len(warnings) >= 1
-        inconsistent_warnings = [w for w in warnings if "inconsistent" in w.message.lower()]
+        inconsistent_warnings = [
+            w for w in warnings if "inconsistent" in w.message.lower()
+        ]
         assert len(inconsistent_warnings) == 1
 
-    def test_check_low_confidence_low_quality_evidence(self):
+    def test_check_low_confidence_low_quality_evidence(self) -> None:
         """Test detection of low evidence quality."""
         evidence = {"literature_review": {"evidence_quality": "low"}}
 
@@ -203,7 +207,7 @@ class TestQualitativeWarningChecker:
         low_quality_warnings = [w for w in warnings if "low" in w.message.lower()]
         assert len(low_quality_warnings) == 1
 
-    def test_check_low_confidence_multiple_indicators(self):
+    def test_check_low_confidence_multiple_indicators(self) -> None:
         """Test detection of multiple low confidence indicators."""
         evidence = {
             "clinical_assessment": {
@@ -218,7 +222,7 @@ class TestQualitativeWarningChecker:
         assert len(warnings) == 3
         assert all(w.category == "low_confidence" for w in warnings)
 
-    def test_check_low_confidence_case_insensitive(self):
+    def test_check_low_confidence_case_insensitive(self) -> None:
         """Test that confidence checks are case-insensitive."""
         evidence = {"clinical_assessment": {"phenotype_match": "POOR"}}
 
@@ -226,9 +230,9 @@ class TestQualitativeWarningChecker:
 
         assert len(warnings) >= 1
 
-    def test_check_low_confidence_returns_empty_when_no_data(self):
+    def test_check_low_confidence_returns_empty_when_no_data(self) -> None:
         """Test that low confidence check returns empty when no data."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = self.checker._check_low_confidence_indicators(evidence)
 
@@ -238,16 +242,16 @@ class TestQualitativeWarningChecker:
 class TestConvenienceFunction:
     """Test the convenience function check_qualitative_warnings."""
 
-    def test_convenience_function_returns_strings(self):
+    def test_convenience_function_returns_strings(self) -> None:
         """Test that convenience function returns string messages."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = check_qualitative_warnings(evidence)
 
         assert isinstance(warnings, list)
         assert all(isinstance(w, str) for w in warnings)
 
-    def test_convenience_function_with_complete_data(self):
+    def test_convenience_function_with_complete_data(self) -> None:
         """Test convenience function with complete data."""
         evidence = {
             "clinical_assessment": {
@@ -264,9 +268,9 @@ class TestConvenienceFunction:
 
         assert len(warnings) == 0
 
-    def test_convenience_function_with_missing_data(self):
+    def test_convenience_function_with_missing_data(self) -> None:
         """Test convenience function with missing data."""
-        evidence = {}
+        evidence: dict[str, Any] = {}
 
         warnings = check_qualitative_warnings(evidence)
 
@@ -278,11 +282,11 @@ class TestConvenienceFunction:
 class TestIntegrationScenarios:
     """Test real-world integration scenarios."""
 
-    def setup_method(self):
+    def setup_method(self) -> None:
         """Set up test fixtures."""
         self.checker = QualitativeWarningChecker()
 
-    def test_minimal_valid_assessment(self):
+    def test_minimal_valid_assessment(self) -> None:
         """Test minimal valid assessment produces no errors."""
         evidence = {
             "clinical_assessment": {
@@ -301,7 +305,7 @@ class TestIntegrationScenarios:
         error_warnings = [w for w in warnings if w.severity == "error"]
         assert len(error_warnings) == 0
 
-    def test_partial_assessment_with_warnings(self):
+    def test_partial_assessment_with_warnings(self) -> None:
         """Test partial assessment produces appropriate warnings."""
         evidence = {
             "clinical_assessment": {
@@ -323,7 +327,7 @@ class TestIntegrationScenarios:
         low_conf_warnings = [w for w in warnings if w.category == "low_confidence"]
         assert len(low_conf_warnings) >= 1
 
-    def test_problematic_assessment_all_warnings(self):
+    def test_problematic_assessment_all_warnings(self) -> None:
         """Test problematic assessment triggers all warning types."""
         evidence = {
             "clinical_assessment": {

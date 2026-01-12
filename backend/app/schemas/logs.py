@@ -3,7 +3,7 @@ Pydantic schemas for system log API endpoints.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field
 
@@ -33,7 +33,7 @@ class LogEntry(BaseModel):
 
     class Config:
         from_attributes = True
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "id": 12345,
                 "timestamp": "2025-01-15T10:30:45.123Z",
@@ -76,7 +76,7 @@ class LogSearchParams(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "level": "ERROR",
                 "start_date": "2025-01-15T00:00:00Z",
@@ -107,7 +107,7 @@ class LogStatsSummary(BaseModel):
     )
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "total_logs": 50000,
                 "logs_by_level": {
@@ -148,7 +148,7 @@ class LogExportParams(BaseModel):
     limit: int = Field(10000, ge=1, le=100000, description="Maximum records to export")
 
     class Config:
-        json_schema_extra = {
+        json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "format": "csv",
                 "level": "ERROR",

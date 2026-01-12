@@ -1,0 +1,196 @@
+name: Security Scanning
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - 'plan/**'
+      - '*.md'
+      - 'LICENSE'
+  pull_request:
+    branches:
+      - main
+      - master
+      - develop
+    paths-ignore:
+      - 'docs/**'
+      - 'plan/**'
+      - '*.md'
+      - 'LICENSE'
+  schedule:
+    # Weekly Monday 6 AM UTC - regular security audits
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Python Dependency Vulnerability Scanning
+  # =============================================================================
+  pip-audit:
+    name: Python Dependency Scan (pip-audit)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --extra dev
+
+      - name: Run pip-audit
+        working-directory: backend
+        run: |
+          echo "## pip-audit Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          uv run pip-audit --vulnerability-service pypi --progress-spinner off 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+        continue-on-error: true
+
+  # =============================================================================
+  # Python SAST with Bandit
+  # =============================================================================
+  bandit:
+    name: Python SAST (Bandit)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+          cache-dependency-glob: "backend/uv.lock"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        working-directory: backend
+        run: uv sync --extra dev
+
+      - name: Run Bandit Security Scan (SARIF)
+        working-directory: backend
+        run: |
+          uv run bandit -r app/ -f sarif -o bandit-results.sarif --severity-level medium --confidence-level medium || true
+          # Ensure file exists even if no issues found
+          if [ ! -s bandit-results.sarif ]; then
+            echo '{"$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Bandit","version":"1.8.0"}},"results":[]}]}' > bandit-results.sarif
+          fi
+
+      - name: Upload Bandit results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: backend/bandit-results.sarif
+          category: bandit
+        continue-on-error: true
+
+      - name: Run Bandit (console output)
+        working-directory: backend
+        run: |
+          echo "## Bandit Security Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          uv run bandit -r app/ -c .bandit --severity-level medium --confidence-level medium -f txt 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+
+  # =============================================================================
+  # JavaScript Dependency Vulnerability Scanning
+  # =============================================================================
+  npm-audit:
+    name: JavaScript Dependency Scan (npm audit)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Run npm audit (production dependencies - critical)
+        working-directory: frontend
+        run: |
+          echo "## NPM Audit Report" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Production Dependencies (Critical)" >> $GITHUB_STEP_SUMMARY
+          npm audit --omit=dev --audit-level=critical 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+
+      - name: Run npm audit (full report)
+        working-directory: frontend
+        run: |
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Full Audit (High severity)" >> $GITHUB_STEP_SUMMARY
+          npm audit --audit-level=high 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+
+  # =============================================================================
+  # Security Scan Summary
+  # =============================================================================
+  security-summary:
+    name: Security Summary
+    needs: [pip-audit, bandit, npm-audit]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check security scan results
+        run: |
+          echo "## Security Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Scan | Result |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| pip-audit (Python deps) | ${{ needs.pip-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bandit (Python SAST) | ${{ needs.bandit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| npm audit (JS deps) | ${{ needs.npm-audit.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Note: We use continue-on-error for most security scans
+          # Critical failures should be investigated but not block CI
+          if [[ "${{ needs.pip-audit.result }}" == "failure" ]]; then
+            echo "::warning::pip-audit found potential vulnerabilities - review recommended"
+          fi
+
+          if [[ "${{ needs.bandit.result }}" == "failure" ]]; then
+            echo "::warning::Bandit found potential security issues - review recommended"
+          fi
+
+          if [[ "${{ needs.npm-audit.result }}" == "failure" ]]; then
+            echo "::warning::npm audit found issues - review recommended"
+          fi
+
+          echo "::notice::Security scans completed - review results above"

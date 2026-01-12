@@ -29,7 +29,7 @@ services:
       - "${POSTGRES_PORT:-5454}:5432"  # Non-standard external port
     volumes:
       - ./database/sql:/docker-entrypoint-initdb.d
-      - ./database/init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+      # - ./database/init.sh:/docker-entrypoint-initdb.d/init.sh:ro  # Commented out - redundant, causes issues
       - dev_postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dev_user} -d ${POSTGRES_DB:-gene_curator_dev}"]

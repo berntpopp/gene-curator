@@ -121,7 +121,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for incomplete clinical fields
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         clinical = evidence_data.get("clinical_assessment")
 
         # If clinical_assessment key doesn't exist at all, skip (caught by missing check)
@@ -139,7 +139,9 @@ class QualitativeWarningChecker:
         for field, message in required_fields.items():
             # Check if field is missing, None, or empty string
             field_value = clinical.get(field)
-            if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+            if not field_value or (
+                isinstance(field_value, str) and not field_value.strip()
+            ):
                 warnings.append(
                     AssessmentWarning(
                         severity="warning",
@@ -165,7 +167,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for incomplete literature fields
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         literature = evidence_data.get("literature_review")
 
         # If literature_review key doesn't exist at all, skip (caught by missing check)
@@ -181,7 +183,9 @@ class QualitativeWarningChecker:
         for field, message in required_fields.items():
             # Check if field is missing, None, or empty string
             field_value = literature.get(field)
-            if not field_value or (isinstance(field_value, str) and not field_value.strip()):
+            if not field_value or (
+                isinstance(field_value, str) and not field_value.strip()
+            ):
                 warnings.append(
                     AssessmentWarning(
                         severity="warning",
@@ -207,7 +211,7 @@ class QualitativeWarningChecker:
         Returns:
             List of warnings for low confidence indicators
         """
-        warnings = []
+        warnings: list[AssessmentWarning] = []
         clinical = evidence_data.get("clinical_assessment", {})
         literature = evidence_data.get("literature_review", {})
 
