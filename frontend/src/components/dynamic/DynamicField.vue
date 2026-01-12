@@ -10,6 +10,7 @@
       :rules="getValidationRules()"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
+      :disabled="disabled"
       @update:model-value="updateValue"
       @blur="handleBlur"
     />
@@ -25,6 +26,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :rows="fieldSchema.rows || 3"
+      :disabled="disabled"
       @update:model-value="updateValue"
       @blur="handleBlur"
     />
@@ -41,6 +43,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :clearable="!fieldSchema.required"
+      :disabled="disabled"
       @update:model-value="updateValue"
     />
 
@@ -58,6 +61,7 @@
       :min="fieldSchema.minimum"
       :max="fieldSchema.maximum"
       :step="fieldSchema.type === 'integer' ? 1 : fieldSchema.step || 0.1"
+      :disabled="disabled"
       @update:model-value="updateValue"
       @blur="handleBlur"
     />
@@ -69,6 +73,7 @@
       :label="getFieldLabel()"
       :rules="getValidationRules()"
       :error-messages="getErrorMessages()"
+      :disabled="disabled"
       @update:model-value="updateValue"
     />
 
@@ -83,6 +88,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       type="date"
+      :disabled="disabled"
       @update:model-value="updateValue"
       @blur="handleBlur"
     />
@@ -109,6 +115,7 @@
                   size="small"
                   color="error"
                   variant="text"
+                  :disabled="disabled"
                   @click="removeArrayItem(index)"
                 />
               </div>
@@ -125,6 +132,7 @@
                     :field-schema="subFieldSchema"
                     :model-value="item[subFieldName]"
                     variant="outlined"
+                    :disabled="disabled"
                     @update:model-value="updateArrayItem(index, subFieldName, $event)"
                   />
                 </v-col>
@@ -132,7 +140,13 @@
             </div>
           </div>
 
-          <v-btn color="primary" variant="outlined" block @click="addArrayItem">
+          <v-btn
+            color="primary"
+            variant="outlined"
+            block
+            :disabled="disabled"
+            @click="addArrayItem"
+          >
             <v-icon start>mdi-plus</v-icon>
             Add {{ fieldSchema.itemTitle || 'Item' }}
           </v-btn>
@@ -165,6 +179,7 @@
                 :field-schema="subFieldSchema"
                 :model-value="objectValue[subFieldName]"
                 variant="outlined"
+                :disabled="disabled"
                 @update:model-value="updateObjectField(subFieldName, $event)"
               />
             </v-col>
@@ -217,6 +232,10 @@
     variant: {
       type: String,
       default: 'filled'
+    },
+    disabled: {
+      type: Boolean,
+      default: false
     }
   })
 

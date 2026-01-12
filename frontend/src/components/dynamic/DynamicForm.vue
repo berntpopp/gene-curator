@@ -24,6 +24,7 @@
                 :field-schema="field"
                 :model-value="formData[fieldName]"
                 :validation-result="getFieldValidation(fieldName)"
+                :disabled="readonly"
                 @update:model-value="updateField(fieldName, $event)"
                 @validate="validateField(fieldName, $event)"
               />
@@ -146,10 +147,14 @@
     initialData: {
       type: Object,
       default: () => ({})
+    },
+    readonly: {
+      type: Boolean,
+      default: false
     }
   })
 
-  const emit = defineEmits(['submit', 'save-draft'])
+  const emit = defineEmits(['submit', 'save-draft', 'update:modelValue', 'validation-change'])
 
   const validationStore = useValidationStore()
   const formRef = ref(null)
@@ -277,6 +282,24 @@
       }
     },
     { deep: true }
+  )
+
+  // Emit modelValue changes for v-model support
+  watch(
+    formData,
+    newVal => {
+      emit('update:modelValue', { ...newVal })
+    },
+    { deep: true }
+  )
+
+  // Emit validation state changes for parent components
+  watch(
+    validationResult,
+    result => {
+      emit('validation-change', result)
+    },
+    { immediate: true }
   )
 
   onMounted(async () => {
