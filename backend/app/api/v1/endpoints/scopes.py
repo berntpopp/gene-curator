@@ -126,7 +126,7 @@ def create_scope(
             "Failed to create scope membership",
             scope_id=str(scope.id),
             user_id=str(current_user.id),
-            error=str(e),
+            error=e,
             error_type=type(e).__name__,
         )
         # Don't fail scope creation if membership fails - log and continue

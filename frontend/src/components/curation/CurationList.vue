@@ -287,10 +287,11 @@
    * <CurationList :scope-id="scopeId" />
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
-  import { curationsAPI } from '@/api'
+  import { storeToRefs } from 'pinia'
   import { useAuthStore } from '@/stores/auth'
+  import { useCurationsStore } from '@/stores/curations'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
@@ -304,12 +305,14 @@
 
   const router = useRouter()
   const authStore = useAuthStore()
+  const curationsStore = useCurationsStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
-  // State
-  const curations = ref([])
-  const loading = ref(false)
+  // Extract reactive state from store using storeToRefs
+  const { curations, loading } = storeToRefs(curationsStore)
+
+  // Local UI state (filters, view mode)
   const search = ref('')
   const filterStatus = ref(null)
   const filterCurator = ref(null)
@@ -360,9 +363,26 @@
     }))
   })
 
-  // Filtered curations
+  // Transform store curations to component format
+  const transformedCurations = computed(() => {
+    return curations.value.map(curation => ({
+      curation_id: curation.id || curation.curation_id,
+      gene_id: curation.gene_id,
+      gene_symbol: curation.gene_symbol || '—',
+      disease_name: curation.disease_name,
+      curator_id: curation.created_by || curation.curator_id,
+      curator_name: curation.curator_name,
+      status: curation.status,
+      classification: curation.computed_verdict || curation.classification,
+      score: curation.computed_scores?.total_score || curation.score || 0,
+      updated_at: curation.updated_at,
+      created_at: curation.created_at
+    }))
+  })
+
+  // Filtered curations (applies local UI filters)
   const filteredCurations = computed(() => {
-    let result = curations.value
+    let result = transformedCurations.value
 
     // Search filter
     if (search.value) {
@@ -387,45 +407,37 @@
     return result
   })
 
-  /**
-   * Fetch curations for scope
-   */
-  async function fetchCurations() {
-    loading.value = true
-    try {
-      const response = await curationsAPI.getCurations({ scope_id: props.scopeId })
-      curations.value = response.map(curation => ({
-        curation_id: curation.curation_id,
-        gene_id: curation.gene_id,
-        gene_symbol: curation.gene?.gene_symbol || curation.gene_symbol || '—',
-        disease_name: curation.disease_name,
-        curator_id: curation.curator_id,
-        curator_name: curation.curator?.full_name || curation.curator?.email,
-        status: curation.status,
-        classification: curation.calculated_score?.classification,
-        score: curation.calculated_score?.total_score || 0,
-        updated_at: curation.updated_at,
-        created_at: curation.created_at
-      }))
-
-      // Extract unique curators for filter
+  // Extract unique curators from curations for filter dropdown
+  watch(
+    transformedCurations,
+    newCurations => {
       curators.value = Array.from(
         new Map(
-          curations.value
+          newCurations
             .filter(c => c.curator_id)
             .map(c => [c.curator_id, { user_id: c.curator_id, user_name: c.curator_name }])
         ).values()
       )
+    },
+    { immediate: true }
+  )
 
-      logger.debug('Curations loaded', {
+  /**
+   * Fetch curations for scope using the store
+   */
+  async function fetchCurations() {
+    try {
+      // Update store filters and fetch
+      curationsStore.updateFilters({ scope_id: props.scopeId })
+      await curationsStore.fetchCurations({ scope_id: props.scopeId })
+
+      logger.debug('Curations loaded via store', {
         count: curations.value.length,
         scope_id: props.scopeId
       })
     } catch (error) {
       logger.error('Failed to fetch curations', { error: error.message })
       notificationStore.addToast('Failed to load curations', 'error')
-    } finally {
-      loading.value = false
     }
   }
 
@@ -531,15 +543,15 @@
   }
 
   /**
-   * Delete curation
+   * Delete curation using store action
    */
   async function deleteCuration(curation) {
     if (!confirm(`Delete curation for ${curation.gene_symbol}?`)) return
 
     try {
-      await curationsAPI.deleteCuration(curation.curation_id)
+      await curationsStore.deleteCuration(curation.curation_id)
       notificationStore.addToast('Curation deleted successfully', 'success')
-      fetchCurations()
+      // Store automatically updates the curations list
     } catch (error) {
       logger.error('Failed to delete curation', { error: error.message })
       notificationStore.addToast('Failed to delete curation', 'error')

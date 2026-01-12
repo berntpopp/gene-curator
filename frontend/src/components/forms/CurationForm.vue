@@ -398,13 +398,13 @@
 
   import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
   import { useRouter } from 'vue-router'
-  import { curationsAPI } from '@/api'
+  import { useCurationsStore } from '@/stores/curations'
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useOptimisticLocking } from '@/composables/useOptimisticLocking'
   import { useSessionTimeout } from '@/composables/useSessionTimeout'
   import { useLogger } from '@/composables/useLogger'
-  import { useNotificationStore } from '@/stores/notifications'
+  import { useNotificationsStore } from '@/stores/notifications'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/dialogs/FormRecoveryDialog.vue'
   import ConflictResolutionDialog from '@/components/dialogs/ConflictResolutionDialog.vue'
@@ -434,7 +434,8 @@
 
   const logger = useLogger()
   const router = useRouter()
-  const notificationStore = useNotificationStore()
+  const curationsStore = useCurationsStore()
+  const notificationsStore = useNotificationsStore()
 
   // Form state
   const formRef = ref(null)
@@ -497,9 +498,8 @@
     { deep: true }
   )
 
-  // 3. Optimistic Locking
-  const { conflictDetected, conflictData, saveWithLockCheck, resolveConflict } =
-    useOptimisticLocking()
+  // 3. Optimistic Locking (store handles locking, we use this for conflict UI)
+  const { conflictDetected, conflictData, resolveConflict } = useOptimisticLocking()
 
   // 4. Session Timeout
   const { showTimeoutWarning, timeRemaining, extendSession } = useSessionTimeout()
@@ -526,28 +526,30 @@
   const allEvidenceItems = computed(() => formData.value.evidence_items)
 
   /**
-   * Load existing curation data
+   * Load existing curation data using store
    */
   async function loadCuration() {
     if (!props.curationId) return
 
     isLoading.value = true
     try {
-      const curation = await curationsAPI.getCuration(props.curationId)
-      formData.value = {
-        gene_symbol: curation.gene_symbol || '',
-        disease_name: curation.disease_name || '',
-        hpo_terms: curation.hpo_terms || [],
-        curator_notes: curation.curator_notes || '',
-        evidence_items: curation.evidence_items || []
-      }
-      lockVersion.value = curation.lock_version || 0
-      isDraft.value = curation.status === 'draft'
+      const curation = await curationsStore.fetchCurationById(props.curationId)
+      if (curation) {
+        formData.value = {
+          gene_symbol: curation.gene_symbol || '',
+          disease_name: curation.disease_name || '',
+          hpo_terms: curation.hpo_terms || [],
+          curator_notes: curation.curator_notes || '',
+          evidence_items: curation.evidence_items || []
+        }
+        lockVersion.value = curation.lock_version || 0
+        isDraft.value = curation.status === 'draft'
 
-      logger.info('Curation loaded', { curation_id: props.curationId })
+        logger.info('Curation loaded via store', { curation_id: props.curationId })
+      }
     } catch (error) {
       logger.error('Failed to load curation', { error: error.message })
-      notificationStore.addToast('Failed to load curation', 'error')
+      notificationsStore.addToast('Failed to load curation', 'error')
     } finally {
       isLoading.value = false
     }
@@ -601,36 +603,41 @@
   }
 
   /**
-   * Save draft
+   * Save draft using store
    */
   async function handleSaveDraft() {
     savingDraft.value = true
     try {
       const payload = {
-        ...formData.value,
-        scope_id: props.scopeId,
-        status: 'draft'
+        evidence_data: formData.value,
+        lock_version: lockVersion.value
       }
 
       if (props.curationId) {
-        await saveWithLockCheck(
-          data => curationsAPI.updateCuration(props.curationId, data),
-          payload,
-          lockVersion.value
-        )
-        logger.info('Curation draft updated', { curation_id: props.curationId })
+        // Use saveDraft for auto-save (doesn't require lock_version check)
+        const updated = await curationsStore.saveDraft(props.curationId, payload)
+        if (updated) {
+          lockVersion.value = updated.lock_version
+          logger.info('Curation draft updated via store', { curation_id: props.curationId })
+        }
       } else {
-        const created = await curationsAPI.createCuration(payload)
-        logger.info('Curation draft created', { curation_id: created.curation_id })
-        router.push(`/curations/${created.curation_id}/edit`)
+        // Create new curation
+        const created = await curationsStore.createCuration({
+          gene_id: formData.value.gene_id,
+          scope_id: props.scopeId,
+          workflow_pair_id: formData.value.workflow_pair_id,
+          evidence_data: formData.value
+        })
+        logger.info('Curation draft created via store', { curation_id: created.id })
+        router.push(`/curations/${created.id}/edit`)
       }
 
-      notificationStore.addToast('Draft saved successfully', 'success')
+      notificationsStore.addToast('Draft saved successfully', 'success')
       clearRecovery()
     } catch (error) {
       if (error.response?.status !== 409) {
         logger.error('Failed to save draft', { error: error.message })
-        notificationStore.addToast('Failed to save draft', 'error')
+        notificationsStore.addToast('Failed to save draft', 'error')
       }
     } finally {
       savingDraft.value = false
@@ -638,42 +645,51 @@
   }
 
   /**
-   * Submit curation
+   * Submit curation using store
    */
   async function handleSubmit() {
     const { valid } = await formRef.value.validate()
     if (!valid) {
-      notificationStore.addToast('Please fix validation errors', 'warning')
+      notificationsStore.addToast('Please fix validation errors', 'warning')
       return
     }
 
     submitting.value = true
     try {
-      const payload = {
-        ...formData.value,
-        scope_id: props.scopeId,
-        status: 'submitted'
-      }
-
       if (props.curationId) {
-        await saveWithLockCheck(
-          data => curationsAPI.submitCuration(props.curationId, data),
-          payload,
-          lockVersion.value
-        )
+        // Submit existing curation
+        await curationsStore.submitCuration(props.curationId, {
+          lock_version: lockVersion.value,
+          notes: formData.value.curator_notes
+        })
       } else {
-        await curationsAPI.createCuration(payload)
+        // Create and submit new curation
+        const created = await curationsStore.createCuration({
+          gene_id: formData.value.gene_id,
+          scope_id: props.scopeId,
+          workflow_pair_id: formData.value.workflow_pair_id,
+          evidence_data: formData.value
+        })
+        // Then submit it
+        await curationsStore.submitCuration(created.id, {
+          lock_version: 0,
+          notes: formData.value.curator_notes
+        })
       }
 
-      logger.info('Curation submitted', { curation_id: props.curationId })
-      notificationStore.addToast('Curation submitted successfully!', 'success')
+      logger.info('Curation submitted via store', { curation_id: props.curationId })
+      notificationsStore.addToast('Curation submitted successfully!', 'success')
       clearRecovery()
       clearHistory()
       emit('success')
     } catch (error) {
-      if (error.response?.status !== 409) {
+      // Check for conflict error from store
+      if (curationsStore.isConflictError) {
+        // Conflict is handled by the store error state
+        logger.warn('Curation submission conflict detected')
+      } else {
         logger.error('Failed to submit curation', { error: error.message })
-        notificationStore.addToast('Failed to submit curation', 'error')
+        notificationsStore.addToast('Failed to submit curation', 'error')
       }
     } finally {
       submitting.value = false

@@ -247,7 +247,7 @@ class TestScopeCRUD:
         inactive_scope = scope_crud.create_scope(db, inactive_scope_data, admin_user.id)
 
         # Deactivate it
-        update_data = ScopeUpdate(is_active=False)  # type: ignore[call-arg]
+        update_data = ScopeUpdate(is_active=False)
         scope_crud.update_scope(db, inactive_scope.id, update_data)
 
         # Get only active scopes
@@ -304,7 +304,7 @@ class TestScopeCRUD:
     def test_update_scope_not_found(self, db: Session) -> None:
         """Test updating a non-existent scope returns None."""
         fake_id = uuid4()
-        update_data = ScopeUpdate(display_name="Should Fail")  # type: ignore[call-arg]
+        update_data = ScopeUpdate(display_name="Should Fail")
 
         updated_scope = scope_crud.update_scope(db, fake_id, update_data)
 
@@ -316,7 +316,7 @@ class TestScopeCRUD:
         """Test that scope name cannot be changed via update."""
         # Attempt to update name (should be ignored by ScopeUpdate schema)
         # name cannot be in ScopeUpdate
-        update_data = ScopeUpdate(display_name="Updated")  # type: ignore[call-arg]
+        update_data = ScopeUpdate(display_name="Updated")
 
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
@@ -617,7 +617,7 @@ class TestScopeEdgeCases:
 
         time.sleep(0.1)
 
-        update_data = ScopeUpdate(display_name="Updated Name")  # type: ignore[call-arg]
+        update_data = ScopeUpdate(display_name="Updated Name")
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
 
         assert updated_scope is not None
@@ -626,8 +626,8 @@ class TestScopeEdgeCases:
     def test_concurrent_scope_updates(self, db: Session, test_scope: Scope) -> None:
         """Test that concurrent updates don't cause data corruption."""
         # This is a basic test - full concurrency testing would require more setup
-        update_data_1 = ScopeUpdate(display_name="Update 1")  # type: ignore[call-arg]
-        update_data_2 = ScopeUpdate(description="Update 2 description")  # type: ignore[call-arg]
+        update_data_1 = ScopeUpdate(display_name="Update 1")
+        update_data_2 = ScopeUpdate(description="Update 2 description")
 
         # Perform updates sequentially
         scope_crud.update_scope(db, test_scope.id, update_data_1)

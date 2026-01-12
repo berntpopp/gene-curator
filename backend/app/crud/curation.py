@@ -370,24 +370,33 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
 
             scoring_engine = ClinGenEngine()
 
-        # Calculate score
-        result = scoring_engine.calculate_score(db_obj.evidence_data)
+        # Calculate score using the correct method name and signature
+        # schema_config is empty dict as we're using ClinGen defaults
+        result = scoring_engine.calculate_scores(
+            evidence_data=db_obj.evidence_data,
+            schema_config={},
+            scope_context=None,
+        )
 
-        # Update computed fields
-        db_obj.computed_scores = result.get("breakdown", {})
-        db_obj.computed_verdict = result.get("classification")
-        db_obj.computed_summary = result.get("summary")
+        # Update computed fields from ScoringResult
+        db_obj.computed_scores = result.evidence_breakdown
+        db_obj.computed_verdict = result.verdict
+        db_obj.computed_summary = result.verdict_rationale
 
         db.add(db_obj)
         db.commit()
 
+        # Extract genetic and experimental scores from the scores dict
+        genetic_score = result.scores.get("genetic_score", 0.0)
+        experimental_score = result.scores.get("experimental_score", 0.0)
+
         return CurationScoreResponse(
             curation_id=db_obj.id,
-            total_score=result.get("total_score", 0.0),
-            classification=result.get("classification", "No Known"),
-            genetic_score=result.get("genetic_total", 0.0),
-            experimental_score=result.get("experimental_total", 0.0),
-            breakdown=result.get("breakdown", {}),
+            total_score=result.total_score,
+            classification=result.verdict,
+            genetic_score=genetic_score,
+            experimental_score=experimental_score,
+            breakdown=result.evidence_breakdown,
             calculated_at=_utc_now(),
         )
 
