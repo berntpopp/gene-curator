@@ -61,7 +61,7 @@
   import { computed } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useNotificationsStore } from '@/stores/notifications'
-  import CurationForm from '@/components/clingen/CurationForm.vue'
+  import CurationForm from '@/components/forms/CurationForm.vue'
 
   const router = useRouter()
   const route = useRoute()

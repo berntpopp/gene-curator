@@ -80,6 +80,7 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
 @pytest.fixture
 def client(db_session: Session) -> TestClient:
     """FastAPI test client with database override"""
+
     def override_get_db() -> Generator[Session, None, None]:
         try:
             yield db_session
@@ -97,6 +98,7 @@ def client(db_session: Session) -> TestClient:
 # =============================================================================
 # User Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def test_user_admin(db_session: Session) -> UserNew:
@@ -209,6 +211,7 @@ def viewer_token(test_user_viewer: UserNew) -> str:
 # =============================================================================
 # Data Fixtures
 # =============================================================================
+
 
 @pytest.fixture
 def test_scope(db_session: Session) -> Scope:
@@ -340,6 +343,7 @@ def test_evidence_item(
 # Mock Fixtures for External APIs
 # =============================================================================
 
+
 @pytest.fixture
 def mock_hgnc_api() -> Generator[MagicMock, None, None]:
     """Mock HGNC API responses"""
@@ -348,13 +352,15 @@ def mock_hgnc_api() -> Generator[MagicMock, None, None]:
         mock_response.status_code = 200
         mock_response.json.return_value = {
             "response": {
-                "docs": [{
-                    "symbol": "BRCA1",
-                    "hgnc_id": "HGNC:1100",
-                    "name": "BRCA1 DNA repair associated",
-                    "status": "Approved",
-                    "alias_symbol": ["BRCC1", "FANCS"],
-                }]
+                "docs": [
+                    {
+                        "symbol": "BRCA1",
+                        "hgnc_id": "HGNC:1100",
+                        "name": "BRCA1 DNA repair associated",
+                        "status": "Approved",
+                        "alias_symbol": ["BRCC1", "FANCS"],
+                    }
+                ]
             }
         }
         mock_get.return_value = mock_response
@@ -411,6 +417,7 @@ def mock_hpo_api() -> Generator[MagicMock, None, None]:
 # =============================================================================
 # Parametrization Helpers
 # =============================================================================
+
 
 def pytest_configure(config: Any) -> None:
     """Configure custom markers"""

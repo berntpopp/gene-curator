@@ -111,6 +111,11 @@ help: ## Show this help message
 	@echo "  make check           - Run all backend quality checks (lint + test)"
 	@echo "  make check-all       - Run all quality checks (backend + frontend)"
 	@echo ""
+	@echo "🚀 CI/CD (matches GitHub Actions):"
+	@echo "  make ci              - Run full CI locally (backend + frontend)"
+	@echo "  make ci-backend      - Run backend CI locally"
+	@echo "  make ci-frontend     - Run frontend CI locally"
+	@echo ""
 	@echo "🛠️  UTILITIES:"
 	@echo "  make backend-shell   - Open bash shell in backend container"
 	@echo "  make frontend-shell  - Open bash shell in frontend container"
@@ -433,10 +438,10 @@ lint: ## Lint backend code (ruff, mypy, bandit)
 
 lint-check: ## Lint backend without auto-fix (for CI/CD)
 	@echo "$(BLUE)Checking backend code quality (no auto-fix)...$(NC)"
-	@cd $(BACKEND_DIR) && uv run ruff check app/ && \
-		uv run ruff format --check app/ && \
+	@cd $(BACKEND_DIR) && uv run ruff check app/ tests/ && \
+		uv run ruff format --check app/ tests/ && \
 		uv run mypy app/ && \
-		uv run bandit -r app/ -f json
+		uv run bandit -c .bandit -r app/
 	@echo "$(GREEN)✅ All checks passed!$(NC)"
 
 lint-frontend: ## Lint frontend code (ESLint)
@@ -465,6 +470,31 @@ format-all: format format-frontend ## Format all code (backend + frontend)
 check: lint test ## Run all quality checks (lint + test)
 
 check-all: lint-all test test-frontend ## Run all quality checks (backend + frontend)
+
+# ═══════════════════════════════════════════════════════════════
+# CI/CD COMMANDS (matches GitHub Actions exactly)
+# ═══════════════════════════════════════════════════════════════
+
+ci-backend: ## Run backend CI locally (matches GitHub Actions)
+	@echo "$(BLUE)Running backend CI checks...$(NC)"
+	@cd $(BACKEND_DIR) && \
+		echo "🔍 Ruff check..." && uv run ruff check app/ tests/ && \
+		echo "🔍 Ruff format check..." && uv run ruff format --check app/ tests/ && \
+		echo "🔍 MyPy type check..." && uv run mypy app/ && \
+		echo "🔍 Bandit security check..." && uv run bandit -c .bandit -r app/ && \
+		echo "🧪 Running tests..." && uv run pytest tests/ -v --cov=app --cov-report=term-missing
+	@echo "$(GREEN)✅ Backend CI passed!$(NC)"
+
+ci-frontend: ## Run frontend CI locally (matches GitHub Actions)
+	@echo "$(BLUE)Running frontend CI checks...$(NC)"
+	@cd $(FRONTEND_DIR) && \
+		echo "🔍 ESLint check..." && npm run lint:check && \
+		echo "🔍 Prettier format check..." && npm run format:check && \
+		echo "🧪 Running tests..." && npm run test:run && \
+		echo "📦 Building..." && npm run build
+	@echo "$(GREEN)✅ Frontend CI passed!$(NC)"
+
+ci: ci-backend ci-frontend ## Run full CI locally (matches GitHub Actions)
 
 # ═══════════════════════════════════════════════════════════════
 # UTILITIES

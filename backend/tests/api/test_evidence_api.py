@@ -106,6 +106,7 @@ class TestEvidenceCreate:
         """Test evidence creation for non-existent curation"""
         # Arrange
         import uuid
+
         fake_id = uuid.uuid4()
         evidence_data = {
             "evidence_category": "case_level",
