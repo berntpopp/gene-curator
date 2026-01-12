@@ -92,8 +92,12 @@ async def validate_batch(
 async def validate_hgnc(
     *,
     db: Session = Depends(get_db),
-    gene_symbol: str = Query(..., description="Gene symbol to validate", min_length=1, max_length=50),
-    skip_cache: bool = Query(False, description="Skip cache and force fresh validation"),
+    gene_symbol: str = Query(
+        ..., description="Gene symbol to validate", min_length=1, max_length=50
+    ),
+    skip_cache: bool = Query(
+        False, description="Skip cache and force fresh validation"
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> ValidationResult:
     """Validate gene symbol against HGNC
@@ -156,8 +160,16 @@ async def validate_hgnc(
 async def validate_pubmed(
     *,
     db: Session = Depends(get_db),
-    pmid: str = Query(..., description="PubMed ID to validate", pattern=r"^\d+$", min_length=1, max_length=10),
-    skip_cache: bool = Query(False, description="Skip cache and force fresh validation"),
+    pmid: str = Query(
+        ...,
+        description="PubMed ID to validate",
+        pattern=r"^\d+$",
+        min_length=1,
+        max_length=10,
+    ),
+    skip_cache: bool = Query(
+        False, description="Skip cache and force fresh validation"
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> ValidationResult:
     """Validate PMID against PubMed
@@ -221,8 +233,16 @@ async def validate_pubmed(
 async def validate_hpo(
     *,
     db: Session = Depends(get_db),
-    hpo_term: str = Query(..., description="HPO term to validate", pattern=r"^HP:\d{7}$", min_length=10, max_length=10),
-    skip_cache: bool = Query(False, description="Skip cache and force fresh validation"),
+    hpo_term: str = Query(
+        ...,
+        description="HPO term to validate",
+        pattern=r"^HP:\d{7}$",
+        min_length=10,
+        max_length=10,
+    ),
+    skip_cache: bool = Query(
+        False, description="Skip cache and force fresh validation"
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> ValidationResult:
     """Validate HPO term against OLS

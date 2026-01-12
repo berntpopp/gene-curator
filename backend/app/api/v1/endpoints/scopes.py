@@ -117,7 +117,9 @@ def create_scope(
             user_id=str(current_user.id),
             role=membership.role,
             is_active=membership.is_active,
-            accepted_at=str(membership.accepted_at) if membership.accepted_at else "NULL",
+            accepted_at=str(membership.accepted_at)
+            if membership.accepted_at
+            else "NULL",
         )
     except Exception as e:
         logger.error(

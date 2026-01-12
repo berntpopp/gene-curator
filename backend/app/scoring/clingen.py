@@ -114,8 +114,8 @@ class ClinGenEngine(ScoringEngine):
         )
 
         # Calculate experimental evidence score (max 6 points)
-        experimental_score, experimental_details = self._calculate_experimental_evidence(
-            experimental_evidence
+        experimental_score, experimental_details = (
+            self._calculate_experimental_evidence(experimental_evidence)
         )
 
         # Total score (max 18 points)
@@ -481,9 +481,7 @@ class ClinGenEngine(ScoringEngine):
             elif category == "models":
                 # Model systems: patient cells/animal models (4.0) or other (2.0)
                 score = (
-                    4.0
-                    if model_system in ["patient_cells", "animal_model"]
-                    else 2.0
+                    4.0 if model_system in ["patient_cells", "animal_model"] else 2.0
                 )
                 models_score += score
                 models_items.append({**item, "computed_score": score})
@@ -613,7 +611,9 @@ class ClinGenEngine(ScoringEngine):
 
         # Check for missing evidence
         if not genetic_evidence:
-            warnings.append("No genetic evidence provided - at least one item recommended")
+            warnings.append(
+                "No genetic evidence provided - at least one item recommended"
+            )
 
         if not experimental_evidence:
             warnings.append(
@@ -622,7 +622,9 @@ class ClinGenEngine(ScoringEngine):
 
         # Check case-level evidence count
         case_level_items = [
-            item for item in genetic_evidence if item.get("evidence_category") == "case_level"
+            item
+            for item in genetic_evidence
+            if item.get("evidence_category") == "case_level"
         ]
         if len(case_level_items) < 2:
             warnings.append(
@@ -748,10 +750,11 @@ class ClinGenEngine(ScoringEngine):
                 )
 
             # Model system validation for categories that use it
-            if category in ["expression", "protein_function", "models"] and "model_system" not in item:
-                errors.append(
-                    f"Experimental evidence {idx + 1}: Missing model_system"
-                )
+            if (
+                category in ["expression", "protein_function", "models"]
+                and "model_system" not in item
+            ):
+                errors.append(f"Experimental evidence {idx + 1}: Missing model_system")
 
             # Rescue evidence validation
             if category == "rescue" and "rescue_observed" not in item:

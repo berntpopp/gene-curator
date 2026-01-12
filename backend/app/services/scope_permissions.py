@@ -48,7 +48,9 @@ class ScopePermissionService:
         """
         # Public scopes: anyone can view
         if scope.is_public:
-            logger.debug("Scope is public", scope_id=str(scope.id), scope_name=scope.name)
+            logger.debug(
+                "Scope is public", scope_id=str(scope.id), scope_name=scope.name
+            )
             return True
 
         # Private scopes: must be authenticated and member
@@ -218,10 +220,10 @@ class ScopePermissionService:
             return True
 
         # Creator can edit own curations (if not in review/active)
-        if (
-            curation.created_by == user.id
-            and curation.workflow_stage.value not in ["review", "active"]
-        ):
+        if curation.created_by == user.id and curation.workflow_stage.value not in [
+            "review",
+            "active",
+        ]:
             logger.debug(
                 "Creator can edit own curation",
                 user_id=str(user.id),
@@ -261,9 +263,7 @@ class ScopePermissionService:
         return False
 
     @staticmethod
-    def can_approve_curation(
-        db: Session, user: UserNew, curation: CurationNew
-    ) -> bool:
+    def can_approve_curation(db: Session, user: UserNew, curation: CurationNew) -> bool:
         """Check if user can approve/activate curation (4-eyes principle)
 
         Approval rules (4-eyes principle):

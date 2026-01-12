@@ -132,7 +132,9 @@ class ValidationService:
             )
 
         logger.info(
-            "Validation cache MISS", validator=validator_name, input_value=input_value[:50]
+            "Validation cache MISS",
+            validator=validator_name,
+            input_value=input_value[:50],
         )
         return None
 

@@ -88,9 +88,7 @@ class GeneSummaryService:
 
         # Fetch all curations in one query
         curations = (
-            self.db.query(CurationNew)
-            .filter(CurationNew.id.in_(curation_ids))
-            .all()
+            self.db.query(CurationNew).filter(CurationNew.id.in_(curation_ids)).all()
         )
 
         # Get unique scopes
@@ -116,31 +114,43 @@ class GeneSummaryService:
             scope = scope_map[curation.scope_id]
 
             # Extract scores from computed_scores JSONB
-            genetic_score = curation.computed_scores.get(
-                "genetic_evidence_total", 0
-            ) if curation.computed_scores else 0
-            experimental_score = curation.computed_scores.get(
-                "experimental_evidence_total", 0
-            ) if curation.computed_scores else 0
-            total_score = curation.computed_scores.get(
-                "total_score", 0
-            ) if curation.computed_scores else 0
-            evidence_items = curation.computed_scores.get(
-                "evidence_items", []
-            ) if curation.computed_scores else []
+            genetic_score = (
+                curation.computed_scores.get("genetic_evidence_total", 0)
+                if curation.computed_scores
+                else 0
+            )
+            experimental_score = (
+                curation.computed_scores.get("experimental_evidence_total", 0)
+                if curation.computed_scores
+                else 0
+            )
+            total_score = (
+                curation.computed_scores.get("total_score", 0)
+                if curation.computed_scores
+                else 0
+            )
+            evidence_items = (
+                curation.computed_scores.get("evidence_items", [])
+                if curation.computed_scores
+                else []
+            )
 
-            scope_summaries.append({
-                "scope_id": str(curation.scope_id),
-                "scope_name": scope.name,
-                "is_public": scope.is_public,
-                "classification": curation.computed_verdict,
-                "genetic_score": genetic_score,
-                "experimental_score": experimental_score,
-                "total_score": total_score,
-                "last_updated": curation.updated_at.isoformat(),
-                "curator_count": 1,  # TODO: Get from curation history
-                "evidence_count": len(evidence_items) if isinstance(evidence_items, list) else 0,
-            })
+            scope_summaries.append(
+                {
+                    "scope_id": str(curation.scope_id),
+                    "scope_name": scope.name,
+                    "is_public": scope.is_public,
+                    "classification": curation.computed_verdict,
+                    "genetic_score": genetic_score,
+                    "experimental_score": experimental_score,
+                    "total_score": total_score,
+                    "last_updated": curation.updated_at.isoformat(),
+                    "curator_count": 1,  # TODO: Get from curation history
+                    "evidence_count": len(evidence_items)
+                    if isinstance(evidence_items, list)
+                    else 0,
+                }
+            )
 
         # Check for conflicts
         unique_classifications = {
@@ -150,9 +160,7 @@ class GeneSummaryService:
 
         # Get or create summary
         summary = (
-            self.db.query(GeneSummary)
-            .filter(GeneSummary.gene_id == gene_id)
-            .first()
+            self.db.query(GeneSummary).filter(GeneSummary.gene_id == gene_id).first()
         )
 
         if not summary:
@@ -174,9 +182,9 @@ class GeneSummaryService:
             summary.consensus_classification = max(
                 classification_summary, key=lambda k: classification_summary[k]
             )
-            summary.consensus_confidence = (
-                classification_summary[summary.consensus_classification] / len(curations)
-            )
+            summary.consensus_confidence = classification_summary[
+                summary.consensus_classification
+            ] / len(curations)
         else:
             summary.consensus_classification = None
             summary.consensus_confidence = None
@@ -210,9 +218,7 @@ class GeneSummaryService:
             GeneSummaryPublic with only public scopes, or None if no public data
         """
         summary = (
-            self.db.query(GeneSummary)
-            .filter(GeneSummary.gene_id == gene_id)
-            .first()
+            self.db.query(GeneSummary).filter(GeneSummary.gene_id == gene_id).first()
         )
 
         if not summary:
