@@ -12,7 +12,6 @@ from typing import Any
 from uuid import UUID as PyUUID  # noqa: N811
 
 from sqlalchemy import (
-    ARRAY,
     BigInteger,
     Boolean,
     Date,
@@ -26,11 +25,17 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import INET, JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
 from app.core.database import Base
+from app.core.db_types import (
+    compatible_array_text,
+    compatible_array_uuid,
+    compatible_inet,
+    compatible_jsonb,
+    compatible_uuid,
+)
 
 # ========================================
 # ENHANCED ENUM DEFINITIONS
@@ -95,7 +100,7 @@ class Scope(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -108,7 +113,7 @@ class Scope(Base):
     description: Mapped[str | None] = mapped_column(Text)
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
     default_workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
+        compatible_uuid(), ForeignKey("workflow_pairs.id")
     )
 
     # Status
@@ -116,7 +121,7 @@ class Scope(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 
     # Configuration
-    scope_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    scope_config: Mapped[dict[str, Any]] = mapped_column(compatible_jsonb(), default={})
 
     # Metadata
     created_at: Mapped[dt] = mapped_column(
@@ -129,7 +134,7 @@ class Scope(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Relationships
@@ -163,7 +168,7 @@ class UserNew(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -182,12 +187,14 @@ class UserNew(Base):
     # Nullable fields
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
     assigned_scopes: Mapped[list[PyUUID]] = mapped_column(
-        ARRAY(UUID(as_uuid=True)), default=[]
+        compatible_array_uuid(), default=[]
     )
 
     # Enhanced profile (nullable)
     orcid_id: Mapped[str | None] = mapped_column(String(50))
-    expertise_areas: Mapped[list[str]] = mapped_column(ARRAY(Text), default=[])
+    expertise_areas: Mapped[list[str]] = mapped_column(
+        compatible_array_text(), default=[]
+    )
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
@@ -257,18 +264,18 @@ class ScopeMembership(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     user_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -281,7 +288,7 @@ class ScopeMembership(Base):
 
     # Invitation workflow (nullable fields)
     invited_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     invited_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -296,7 +303,7 @@ class ScopeMembership(Base):
     )
 
     # Team support (future feature for group-based permissions)
-    team_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
+    team_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid())
 
     # Notes (nullable)
     notes: Mapped[str | None] = mapped_column(Text)
@@ -342,7 +349,7 @@ class CurationSchema(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -355,26 +362,34 @@ class CurationSchema(Base):
     )
 
     # Complete schema definition (required)
-    field_definitions: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    validation_rules: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default={}
+    field_definitions: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False
     )
-    workflow_states: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
-    ui_configuration: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    validation_rules: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False, default={}
+    )
+    workflow_states: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False
+    )
+    ui_configuration: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False
+    )
 
     # Complete schema definition (nullable)
-    scoring_configuration: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    scoring_configuration: Mapped[dict[str, Any] | None] = mapped_column(
+        compatible_jsonb()
+    )
 
     # Inheritance support (nullable)
     based_on_schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
 
     # Metadata (nullable)
     description: Mapped[str | None] = mapped_column(Text)
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
+        compatible_uuid(), ForeignKey("users.id")
     )
     created_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -425,7 +440,7 @@ class WorkflowPair(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -434,24 +449,26 @@ class WorkflowPair(Base):
 
     # Schema references (nullable)
     precuration_schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
     curation_schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
 
     # How data flows between stages
     data_mapping: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default={}
+        compatible_jsonb(), nullable=False, default={}
     )
 
     # Workflow configuration
-    workflow_config: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    workflow_config: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
 
     # Metadata (nullable)
     description: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id")
+        compatible_uuid(), ForeignKey("users.id")
     )
     created_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
@@ -498,7 +515,7 @@ class Gene(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -511,13 +528,13 @@ class Gene(Base):
     record_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
 
     # Nullable fields
-    previous_symbols: Mapped[list[str]] = mapped_column(ARRAY(Text))
-    alias_symbols: Mapped[list[str]] = mapped_column(ARRAY(Text))
+    previous_symbols: Mapped[list[str]] = mapped_column(compatible_array_text())
+    alias_symbols: Mapped[list[str]] = mapped_column(compatible_array_text())
     chromosome: Mapped[str | None] = mapped_column(String(10), index=True)
     location: Mapped[str | None] = mapped_column(String(50))
 
     # Gene details (preserves current flexibility)
-    details: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    details: Mapped[dict[str, Any]] = mapped_column(compatible_jsonb(), default={})
 
     # Provenance tracking
     previous_hash: Mapped[str | None] = mapped_column(String(64))
@@ -533,10 +550,10 @@ class Gene(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Relationships
@@ -571,18 +588,18 @@ class GeneScopeAssignment(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -590,10 +607,10 @@ class GeneScopeAssignment(Base):
 
     # Nullable fields
     assigned_curator_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL"), index=True
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL"), index=True
     )
     workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflow_pairs.id"), index=True
+        compatible_uuid(), ForeignKey("workflow_pairs.id"), index=True
     )
 
     # Assignment details
@@ -606,7 +623,7 @@ class GeneScopeAssignment(Base):
 
     # Metadata
     assigned_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     assigned_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -648,24 +665,24 @@ class PrecurationNew(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     precuration_schema_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("curation_schemas.id"),
         nullable=False,
         index=True,
@@ -688,12 +705,16 @@ class PrecurationNew(Base):
 
     # Evidence data (schema-agnostic)
     evidence_data: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default={}
+        compatible_jsonb(), nullable=False, default={}
     )
 
     # Computed results from schema
-    computed_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
-    computed_fields: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    computed_scores: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
+    computed_fields: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
 
     # Auto-save functionality (nullable)
     auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
@@ -709,10 +730,10 @@ class PrecurationNew(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
@@ -749,29 +770,29 @@ class CurationNew(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     workflow_pair_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflow_pairs.id"), nullable=False, index=True
+        compatible_uuid(), ForeignKey("workflow_pairs.id"), nullable=False, index=True
     )
 
     # Nullable fields
     precuration_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("precurations.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("precurations.id", ondelete="SET NULL")
     )
 
     # Status and workflow
@@ -791,14 +812,18 @@ class CurationNew(Base):
 
     # Evidence data (schema-agnostic)
     evidence_data: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default={}
+        compatible_jsonb(), nullable=False, default={}
     )
 
     # Computed results (updated by scoring engines)
-    computed_scores: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    computed_scores: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
     computed_verdict: Mapped[str | None] = mapped_column(String(100), index=True)
     computed_summary: Mapped[str | None] = mapped_column(Text)
-    computed_fields: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    computed_fields: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
 
     # Auto-save functionality (nullable)
     auto_saved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
@@ -806,11 +831,11 @@ class CurationNew(Base):
     # Submission and approval (nullable)
     submitted_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
     submitted_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     approved_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
     approved_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Optimistic locking (ClinGen SOP v11)
@@ -827,10 +852,10 @@ class CurationNew(Base):
         nullable=False,
     )
     created_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Provenance tracking
@@ -881,18 +906,18 @@ class Review(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     curation_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("curations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     reviewer_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("users.id", ondelete="SET NULL"),
         nullable=False,
         index=True,
@@ -907,7 +932,9 @@ class Review(Base):
 
     # Review content (nullable)
     comments: Mapped[str | None] = mapped_column(Text)
-    feedback_data: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    feedback_data: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), default={}
+    )
     recommendation: Mapped[str | None] = mapped_column(
         String(50)
     )  # approve, reject, needs_revision
@@ -920,7 +947,7 @@ class Review(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     assigned_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     due_date: Mapped[dt | None] = mapped_column(Date)
 
@@ -946,24 +973,24 @@ class ActiveCuration(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     gene_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("scopes.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     curation_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("curations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -974,18 +1001,18 @@ class ActiveCuration(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
     )
     activated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Previous active curation (for audit trail)
     replaced_curation_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curations.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("curations.id", ondelete="SET NULL")
     )
 
     # Archive information (nullable)
     archived_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True), index=True)
     archived_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     archive_reason: Mapped[str | None] = mapped_column(Text)
 
@@ -1031,7 +1058,7 @@ class AuditLogNew(Base):
 
     # Required fields
     entity_type: Mapped[str] = mapped_column(Text, nullable=False, index=True)
-    entity_id: Mapped[PyUUID] = mapped_column(UUID(as_uuid=True), nullable=False)
+    entity_id: Mapped[PyUUID] = mapped_column(compatible_uuid(), nullable=False)
     operation: Mapped[str] = mapped_column(Text, nullable=False, index=True)
     timestamp: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False, index=True
@@ -1039,17 +1066,17 @@ class AuditLogNew(Base):
 
     # Nullable fields
     scope_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("scopes.id")
+        compatible_uuid(), ForeignKey("scopes.id")
     )
-    changes: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    changes: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Additional context (nullable)
-    ip_address: Mapped[str | None] = mapped_column(INET)
+    ip_address: Mapped[str | None] = mapped_column(compatible_inet())
     user_agent: Mapped[str | None] = mapped_column(Text)
-    session_id: Mapped[PyUUID | None] = mapped_column(UUID(as_uuid=True))
+    session_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid())
 
     # Multi-stage workflow context (nullable)
     workflow_stage: Mapped[WorkflowStage | None] = mapped_column(
@@ -1064,10 +1091,10 @@ class AuditLogNew(Base):
 
     # Schema context (nullable)
     schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
     workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
+        compatible_uuid(), ForeignKey("workflow_pairs.id")
     )
 
     # Enhanced tracking fields (ClinGen SOP v11 - ALCOA+ compliance)
@@ -1075,16 +1102,16 @@ class AuditLogNew(Base):
         String(50), index=True
     )  # 'evidence_added', 'score_updated', 'status_changed'
     old_values: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB
+        compatible_jsonb()
     )  # Previous state snapshot
     new_values: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB
+        compatible_jsonb()
     )  # New state snapshot
     change_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB
+        compatible_jsonb()
     )  # User agent, IP, client info
     alcoa_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB
+        compatible_jsonb()
     )  # ALCOA+ compliance fields
 
     # Relationships
@@ -1109,29 +1136,29 @@ class SchemaSelection(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
     scope_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("scopes.id"), nullable=False
+        compatible_uuid(), ForeignKey("scopes.id"), nullable=False
     )
 
     # Nullable fields
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE")
+        compatible_uuid(), ForeignKey("users.id", ondelete="CASCADE")
     )
     institution: Mapped[str | None] = mapped_column(String(255))
 
     # Preferred schemas (nullable)
     preferred_workflow_pair_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("workflow_pairs.id")
+        compatible_uuid(), ForeignKey("workflow_pairs.id")
     )
     preferred_precuration_schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
     preferred_curation_schema_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("curation_schemas.id")
+        compatible_uuid(), ForeignKey("curation_schemas.id")
     )
 
     # Selection metadata
@@ -1177,14 +1204,14 @@ class SystemLog(Base):
     level: Mapped[str] = mapped_column(Text, index=True)
     logger: Mapped[str] = mapped_column(Text, index=True)
     message: Mapped[str] = mapped_column(Text)
-    context: Mapped[dict[str, Any]] = mapped_column(JSONB, default={})
+    context: Mapped[dict[str, Any]] = mapped_column(compatible_jsonb(), default={})
 
     # Request correlation (nullable)
     request_id: Mapped[str | None] = mapped_column(Text, index=True)
 
     # User context (nullable)
     user_id: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
     ip_address: Mapped[str | None] = mapped_column(Text)
     user_agent: Mapped[str | None] = mapped_column(Text)
@@ -1224,18 +1251,18 @@ class EvidenceItem(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required foreign keys
     curation_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("curations.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     created_by: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("users.id", ondelete="RESTRICT"),
         nullable=False,
     )
@@ -1249,17 +1276,19 @@ class EvidenceItem(Base):
     )  # 'genetic', 'experimental'
 
     # Evidence data (JSONB for flexibility)
-    evidence_data: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    evidence_data: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False
+    )
 
     # Scoring results
     computed_score: Mapped[float | None] = mapped_column(Numeric(5, 2))
-    score_metadata: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    score_metadata: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
 
     # Validation status
     validation_status: Mapped[str] = mapped_column(
         String(20), default="pending", nullable=False
     )  # 'pending', 'valid', 'invalid'
-    validation_errors: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    validation_errors: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
     validated_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
 
     # Audit fields
@@ -1273,14 +1302,14 @@ class EvidenceItem(Base):
         nullable=False,
     )
     updated_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT")
+        compatible_uuid(), ForeignKey("users.id", ondelete="RESTRICT")
     )
 
     # Soft delete
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     deleted_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
     deleted_by: Mapped[PyUUID | None] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id", ondelete="SET NULL")
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
     )
 
     # Relationships
@@ -1335,12 +1364,12 @@ class GeneSummary(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required foreign key
     gene_id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True),
+        compatible_uuid(),
         ForeignKey("genes.id", ondelete="CASCADE"),
         nullable=False,
         unique=True,
@@ -1358,7 +1387,7 @@ class GeneSummary(Base):
 
     # Classification summary (JSONB with counts by classification)
     classification_summary: Mapped[dict[str, Any]] = mapped_column(
-        JSONB, nullable=False, default={}
+        compatible_jsonb(), nullable=False, default={}
     )
 
     # Consensus information
@@ -1368,7 +1397,7 @@ class GeneSummary(Base):
 
     # Per-scope details (array of scope summary objects)
     scope_summaries: Mapped[list[dict[str, Any]]] = mapped_column(
-        JSONB, nullable=False, default=[]
+        compatible_jsonb(), nullable=False, default=[]
     )
 
     # Metadata
@@ -1411,7 +1440,7 @@ class ValidationCache(Base):
 
     # Primary key
     id: Mapped[PyUUID] = mapped_column(
-        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
 
     # Required fields
@@ -1430,10 +1459,12 @@ class ValidationCache(Base):
     validation_status: Mapped[str] = mapped_column(
         String(20), nullable=False, index=True
     )  # 'valid', 'invalid', 'error', 'not_found'
-    validation_response: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    validation_response: Mapped[dict[str, Any]] = mapped_column(
+        compatible_jsonb(), nullable=False
+    )
 
     # Suggestions for invalid inputs
-    suggestions: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
+    suggestions: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
 
     # Error information
     error_message: Mapped[str | None] = mapped_column(Text)

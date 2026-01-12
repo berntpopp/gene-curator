@@ -11,7 +11,7 @@ Provides:
 from collections.abc import Generator
 from typing import Any
 from unittest.mock import MagicMock, patch
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
@@ -30,6 +30,7 @@ from app.models.models import (
     Scope,
     ScopeMembership,
     UserNew,
+    WorkflowPair,
 )
 
 # Test database URL - in-memory SQLite for speed
@@ -62,8 +63,10 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
     Base.metadata.create_all(bind=test_engine)
 
     # Create session
-    TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-    session = TestingSessionLocal()
+    testing_session_local = sessionmaker(
+        autocommit=False, autoflush=False, bind=test_engine
+    )
+    session = testing_session_local()
 
     try:
         yield session
@@ -100,13 +103,11 @@ def test_user_admin(db_session: Session) -> UserNew:
     """Create test admin user"""
     user = UserNew(
         id=uuid4(),
-        username="admin",
         email="admin@test.com",
         hashed_password=get_password_hash("admin123"),
-        full_name="Admin User",
+        name="Admin User",
         role="admin",
         is_active=True,
-        is_verified=True,
     )
     db_session.add(user)
     db_session.commit()
@@ -116,25 +117,23 @@ def test_user_admin(db_session: Session) -> UserNew:
 
 @pytest.fixture
 def test_user_curator(db_session: Session, test_scope: Scope) -> UserNew:
-    """Create test curator user"""
+    """Create test curator user (user role with curator scope membership)"""
     user = UserNew(
         id=uuid4(),
-        username="curator",
         email="curator@test.com",
         hashed_password=get_password_hash("curator123"),
-        full_name="Curator User",
-        role="curator",
+        name="Curator User",
+        role="user",  # User role at application level
         is_active=True,
-        is_verified=True,
     )
     db_session.add(user)
     db_session.commit()
 
-    # Add scope membership
+    # Add scope membership with curator role
     membership = ScopeMembership(
         scope_id=test_scope.id,
         user_id=user.id,
-        role="curator",
+        role="curator",  # Scope-specific role
     )
     db_session.add(membership)
     db_session.commit()
@@ -144,16 +143,14 @@ def test_user_curator(db_session: Session, test_scope: Scope) -> UserNew:
 
 @pytest.fixture
 def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
-    """Create test viewer user"""
+    """Create test viewer user (user role with viewer scope membership)"""
     user = UserNew(
         id=uuid4(),
-        username="viewer",
         email="viewer@test.com",
         hashed_password=get_password_hash("viewer123"),
-        full_name="Viewer User",
-        role="viewer",
+        name="Viewer User",
+        role="user",  # User role at application level
         is_active=True,
-        is_verified=True,
     )
     db_session.add(user)
     db_session.commit()
@@ -162,7 +159,7 @@ def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
     membership = ScopeMembership(
         scope_id=test_scope.id,
         user_id=user.id,
-        role="viewer",
+        role="viewer",  # Scope-specific role
     )
     db_session.add(membership)
     db_session.commit()
@@ -173,19 +170,19 @@ def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
 @pytest.fixture
 def admin_token(test_user_admin: UserNew) -> str:
     """JWT token for admin user"""
-    return create_access_token(data={"sub": test_user_admin.username})
+    return create_access_token(data={"sub": test_user_admin.email})
 
 
 @pytest.fixture
 def curator_token(test_user_curator: UserNew) -> str:
     """JWT token for curator user"""
-    return create_access_token(data={"sub": test_user_curator.username})
+    return create_access_token(data={"sub": test_user_curator.email})
 
 
 @pytest.fixture
 def viewer_token(test_user_viewer: UserNew) -> str:
     """JWT token for viewer user"""
-    return create_access_token(data={"sub": test_user_viewer.username})
+    return create_access_token(data={"sub": test_user_viewer.email})
 
 
 # =============================================================================
@@ -229,14 +226,21 @@ def test_public_scope(db_session: Session) -> Scope:
 @pytest.fixture
 def test_gene(db_session: Session) -> Gene:
     """Create test gene"""
+    import hashlib
+
+    gene_data = "HGNC:1100:BRCA1"
+    record_hash = hashlib.sha256(gene_data.encode()).hexdigest()
+
     gene = Gene(
         id=uuid4(),
         hgnc_id="HGNC:1100",
         approved_symbol="BRCA1",
-        approved_name="BRCA1 DNA repair associated",
+        record_hash=record_hash,
+        previous_symbols=["BRCC1"],
+        alias_symbols=["FANCS", "RNF53"],
         chromosome="17",
         location="17q21.31",
-        gene_group="BRCA1 pathway",
+        details={"approved_name": "BRCA1 DNA repair associated"},
     )
     db_session.add(gene)
     db_session.commit()
@@ -245,19 +249,35 @@ def test_gene(db_session: Session) -> Gene:
 
 
 @pytest.fixture
+def test_workflow_pair(db_session: Session) -> WorkflowPair:
+    """Create test workflow pair"""
+    workflow_pair = WorkflowPair(
+        id=uuid4(),
+        name="test-workflow",
+        version="1.0",
+    )
+    db_session.add(workflow_pair)
+    db_session.commit()
+    db_session.refresh(workflow_pair)
+    return workflow_pair
+
+
+@pytest.fixture
 def test_curation(
     db_session: Session,
     test_scope: Scope,
     test_gene: Gene,
-    test_user_curator: UserNew
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
 ) -> CurationNew:
     """Create test curation"""
     curation = CurationNew(
         id=uuid4(),
         scope_id=test_scope.id,
         gene_id=test_gene.id,
+        workflow_pair_id=test_workflow_pair.id,
         workflow_stage="curation",
-        classification_summary={"status": "in_progress"},
+        evidence_data={"status": "in_progress"},
         created_by=test_user_curator.id,
     )
     db_session.add(curation)

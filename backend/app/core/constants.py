@@ -69,6 +69,12 @@ ASSIGNMENTS_DEFAULT_LIMIT = 100
 ASSIGNMENTS_MAX_LIMIT = 1000
 """Maximum limit for gene assignment endpoints."""
 
+CURATIONS_DEFAULT_LIMIT = 50
+"""Default limit for curation list endpoints."""
+
+CURATIONS_MAX_LIMIT = 500
+"""Maximum limit for curation list endpoints."""
+
 MAX_OVERVIEW_LIMIT = 10000
 """Maximum limit for overview/analytics endpoints."""
 
