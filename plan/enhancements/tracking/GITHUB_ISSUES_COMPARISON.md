@@ -1,391 +1,163 @@
-# GitHub Issues vs Enhancement Proposals - Detailed Comparison
+# GitHub Issues - Organized Tracking
 
-**Original Date**: 2025-10-12
 **Last Updated**: 2026-01-12
-**Analysis**: Comparison of open GitHub issues with 7 approved enhancement proposals
-
-> **Update (2026-01-12)**: Curations implementation completed. PR #126 includes Pinia store integration for CurationList and CurationForm components. Phase 1 enhancements partially progressed.
-
----
-
-## Executive Summary
-
-**Key Finding**: Enhancement proposals and existing GitHub issues are **complementary**, not competing. They address different layers of the application:
-
-- **Enhancement Proposals**: Backend infrastructure + core architectural features
-- **GitHub Issues**: Frontend UI/UX improvements + user-facing features
-
-**Recommendation**: Proceed with all approved enhancements as planned. No conflicts identified.
+**PR #126**: Merged to master
+**Total Open Issues**: 23
 
 ---
 
-## Detailed Comparison
+## Milestone Overview
 
-### Category 1: Infrastructure Improvements
-
-#### ✅ UNIQUE TO ENHANCEMENT PROPOSALS (Not in GitHub)
-
-| Enhancement | Effort | Value | GitHub Equivalent |
-|-------------|--------|-------|-------------------|
-| **001 - Simple Structured Logging** | 2-3h | Request correlation, structured JSON logs | ❌ None |
-| **003 - RetryUtils with Backoff** | 3-4h | 95%+ success rate for external APIs | ❌ None |
-| **004 - Expanded Makefile** | 2-3h | Hybrid dev mode, `make status` | ❌ None |
-| **006 - Simple API Configuration** | 1-2h | YAML-based CORS, rate limits | ❌ None |
-
-**Analysis**: No existing GitHub issues address backend infrastructure or developer experience improvements. These are pure additions with zero conflict risk.
+| Milestone | Open Issues | Priority | Target |
+|-----------|-------------|----------|--------|
+| **v0.4.0 - Core Curation Features** | 6 | HIGH | Phase 1 complete |
+| **v0.5.0 - Infrastructure & Scalability** | 5 | HIGH | Production scalability |
+| **v1.0.0 - Production Ready** | 6 | MEDIUM | First production release |
+| **Backlog** | 6 | LOW | Future consideration |
 
 ---
 
-### Category 2: Core Curation Features
+## v0.4.0 - Core Curation Features
 
-#### Enhancement #008: Draft Auto-Save Frontend
+**Focus**: Complete core curation workflow with dynamic forms and review system.
 
-**Status**: ⚠️ **PARTIALLY IMPLEMENTED** (as of 2026-01-12)
+| Issue | Title | Priority | Labels | Status |
+|-------|-------|----------|--------|--------|
+| [#116](https://github.com/berntpopp/gene-curator/issues/116) | Multi-user approval | HIGH | `type: feature`, `scope: frontend`, `scope: backend` | 70% - Backend complete |
+| [#62](https://github.com/berntpopp/gene-curator/issues/62) | Enhance Curation Card | HIGH | `type: feature`, `scope: frontend` | 60% - Store complete |
+| [#61](https://github.com/berntpopp/gene-curator/issues/61) | Enhance Pre-Curation Card | HIGH | `type: feature`, `scope: frontend` | 60% - Store complete |
+| [#77](https://github.com/berntpopp/gene-curator/issues/77) | Implement Prefill Logic | MEDIUM | `type: feature`, `scope: frontend` | 40% - Backend ready |
+| [#119](https://github.com/berntpopp/gene-curator/issues/119) | Gene Assignment Edit/Reassign | MEDIUM | `type: ui/ux`, `scope: frontend` | Pending |
+| [#118](https://github.com/berntpopp/gene-curator/issues/118) | Workflow Management Views | MEDIUM | `type: ui/ux`, `scope: frontend` | Pending |
 
-**Proposal Details**:
-- Auto-save every 30s + debounced on input
-- Resume incomplete curations from DraftCurations view
-- Before-unload warning to prevent data loss
-- Backend already supports draft state
-
-**GitHub Status**: No existing issue requests this feature
-
-**Progress (2026-01-12)**:
-- ✅ `curationsStore.saveDraft()` action implemented
-- ✅ `CurationForm.vue` uses store for draft operations
-- ❌ Auto-save composable with interval not yet implemented
-- ❌ DraftCurations list view not yet implemented
-- ❌ Before-unload warning not yet implemented
-
-**Value**: High - Prevents curator data loss from browser crashes/closures
-
-**Recommendation**: Remaining work ~3-4h (auto-save composable + draft list view)
+### Related Enhancements
+- **#008** Draft Auto-Save (3-4h remaining)
+- **#009** Dynamic Form Generation (6-8h remaining) → Closes #62, #61, #77
+- **#010** 4-Eyes Review Workflow (4-6h remaining) → Closes #116
 
 ---
 
-#### Enhancement #009: Dynamic Form Generation
+## v0.5.0 - Infrastructure & Scalability
 
-**Status**: ⚠️ **PARTIALLY IMPLEMENTED** (as of 2026-01-12)
+**Focus**: Production-ready performance and data management.
 
-**Proposal Details**:
-- Schema-driven form rendering (12+ field types)
-- DynamicForm component that renders from schema definitions
-- Client-side validation from schema rules
-- Core product differentiator for schema-agnostic design
+| Issue | Title | Priority | Labels | Effort |
+|-------|-------|----------|--------|--------|
+| [#67](https://github.com/berntpopp/gene-curator/issues/67) | Pagination in Stores | HIGH | `type: performance`, `scope: frontend`, `scope: backend` | 4-6h |
+| [#75](https://github.com/berntpopp/gene-curator/issues/75) | Search Functionality | HIGH | `type: feature`, `scope: frontend`, `scope: backend` | 3-4h |
+| [#86](https://github.com/berntpopp/gene-curator/issues/86) | Backup System | HIGH | `type: infrastructure`, `scope: backend`, `scope: database` | 6-8h |
+| [#66](https://github.com/berntpopp/gene-curator/issues/66) | Lazy Loading/Performance | MEDIUM | `type: performance`, `scope: frontend` | 6-8h |
+| [#95](https://github.com/berntpopp/gene-curator/issues/95) | Advanced Filters | MEDIUM | `type: ui/ux`, `scope: frontend` | 3-4h |
 
-**Related GitHub Issues**:
-
-| Issue | Title | Overlap | Status |
-|-------|-------|---------|--------|
-| #113 | Use standard JSON schema | High | ✅ Backend complete (closed) |
-| #62 | Enhance Curation Card | Medium | ⚠️ Store integration done, dynamic fields pending |
-| #61 | Enhance Pre-Curation Card | Medium | ⚠️ Needs similar treatment |
-| #77 | Implement Prefill Logic | Low | ❌ Still pending |
-
-**Progress (2026-01-12)**:
-- ✅ `CurationForm.vue` refactored to use Pinia `curationsStore`
-- ✅ `CurationList.vue` refactored with `storeToRefs` pattern
-- ✅ Full CRUD operations via store actions
-- ✅ 23 integration tests for curations API
-- ❌ DynamicForm component not yet wired to CurationForm
-- ❌ Schema-driven field rendering not yet integrated
-
-**Analysis**:
-- **GitHub issues**: Incremental improvements to specific forms
-- **Enhancement #009**: Comprehensive architectural solution for schema-agnostic design
-- **Current state**: Store/API layer complete, dynamic form rendering is next step
-
-**Recommendation**:
-- Remaining work ~6-8h (wire DynamicForm, integrate field types)
-- Will close issues #62, #61, #77 when complete
+**Total Effort**: ~22-30h
 
 ---
 
-#### Enhancement #010: 4-Eyes Review Workflow
+## v1.0.0 - Production Ready
 
-**Status**: ⚠️ **PARTIAL OVERLAP** - GitHub issues focus on UI visibility, not complete workflow
+**Focus**: Complete feature set for first production release.
 
-**Proposal Details**:
-- ReviewQueue view (pending reviews)
-- CurationReview view (approve/reject/needs_revision)
-- Review notification badge
-- Workflow store integration
-- Mandatory independent peer review (regulatory compliance)
+| Issue | Title | Priority | Labels | Effort |
+|-------|-------|----------|--------|--------|
+| [#104](https://github.com/berntpopp/gene-curator/issues/104) | Add detailed instructions | MEDIUM | `documentation` | 2-3h |
+| [#102](https://github.com/berntpopp/gene-curator/issues/102) | Check Clinical Groups | MEDIUM | `scope: backend` | 2-3h |
+| [#105](https://github.com/berntpopp/gene-curator/issues/105) | ClinGen Classification Import | MEDIUM | `type: feature`, `scope: backend` | 4-6h |
+| [#87](https://github.com/berntpopp/gene-curator/issues/87) | Prevent Deletion of Precuration | MEDIUM | `type: feature`, `scope: backend`, `scope: database` | 1-2h |
+| [#53](https://github.com/berntpopp/gene-curator/issues/53) | MONDO Disease Selector | LOW | `type: feature`, `scope: frontend` | 4-6h |
+| [#54](https://github.com/berntpopp/gene-curator/issues/54) | OMIM Disease Selector | LOW | `type: feature`, `scope: frontend` | 4-6h |
 
-**Related GitHub Issues**:
-
-| Issue | Title | Overlap | Difference |
-|-------|-------|---------|------------|
-| #116 | Multi-user approval | High | My proposal includes complete workflow, not just approval |
-| #107 | Make curation tab visible | Low | UI visibility vs complete review workflow |
-
-**Analysis**:
-- **GitHub #116**: Focuses on multi-user approval mechanism
-- **GitHub #107**: Focuses on UI visibility of completed curations
-- **Enhancement #010**: Complete 4-eyes review workflow with queue, notifications, state management
-
-**Recommendation**:
-- Implement Enhancement #010 as proposed
-- When implementing, reference issue #116 and incorporate any additional requirements
-- Enhancement #010 will naturally address #107 (visibility)
+**Total Effort**: ~18-26h
 
 ---
 
-### Category 3: User-Facing Features (GitHub Only)
+## Backlog
 
-#### HIGH PRIORITY (Consider After Phase 1)
+**Focus**: Future considerations, nice-to-have features.
 
-| Issue | Title | Effort Est. | Value |
-|-------|-------|-------------|-------|
-| #67 | Implement Pagination in Stores | 4-6h | High - Scalability for large datasets |
-| #75 | Search functionality | 3-4h | High - Usability improvement |
-| #86 | Implement Backup System | 6-8h | High - Data safety |
-| #110 | Replace Console Logs with Snackbar | 2-3h | Medium - UX quick win |
+| Issue | Title | Priority | Labels | Reason |
+|-------|-------|----------|--------|--------|
+| [#115](https://github.com/berntpopp/gene-curator/issues/115) | Add transcript to curation | LOW | `type: feature` | Domain-specific |
+| [#109](https://github.com/berntpopp/gene-curator/issues/109) | Transform TODOs into Issues | LOW | `documentation` | Documentation task |
+| [#120](https://github.com/berntpopp/gene-curator/issues/120) | Schema Read-Only Detail View | LOW | `type: ui/ux` | UI enhancement |
+| [#30](https://github.com/berntpopp/gene-curator/issues/30) | Customizable Dashboard | LOW | `type: feature` | Future feature |
+| [#46](https://github.com/berntpopp/gene-curator/issues/46) | JSON/CSV File Uploads | LOW | `type: feature` | Future feature |
+| [#19](https://github.com/berntpopp/gene-curator/issues/19) | Curation Modal Enhancement | LOW | `type: ui/ux` | Superseded by #62 |
 
-#### MEDIUM PRIORITY
+---
 
-| Issue | Title | Effort Est. | Value |
-|-------|-------|-------------|-------|
-| #95 | Advanced Filters for Tables | 3-4h | Medium - Better data discovery |
-| #66 | Optimize Performance (lazy loading) | 6-8h | Medium - Performance improvement |
-| #88 | Display Curation Status in Tables | 2-3h | Medium - Better visibility |
-| #99 | Update Stores for Nested Data | 4-6h | Medium - Data structure improvement |
+## Recently Closed Issues
 
-#### ADMIN & MANAGEMENT
+Issues closed by PR #126 merge:
 
-| Issue | Title | Effort Est. | Value |
-|-------|-------|-------------|-------|
-| #101 | Create Log File for User Roles | 2-3h | Medium - Audit trail |
-| #100 | Add User Deletion for Admin | 1-2h | Low - Admin convenience |
-| #109 | Transform TODOs into Issues | 1-2h | Low - Documentation |
+| Issue | Title | Resolution |
+|-------|-------|------------|
+| #113 | Use standard JSON schema | JSON Schema validation implemented |
+| #108 | Curation Entity Not Initialized | Proper initialization in new system |
+| #107 | Make Curation Tab Visible | Navigation visibility logic |
+| #106 | Make "Groups" mandatory | Schema-driven required fields |
+| #101 | Create Log File for User Roles | Audit trail in database |
+| #100 | Add User Deletion for Admin | User management endpoints |
+| #99 | Update Stores for Nested Data | Pinia stores updated |
+| #96 | Integration of Precuration and Gene | Unified data model |
+| #110 | Replace Console Logs with Snackbar | Notification system |
+| #114 | Broken link in FAQ | Fixed |
 
-#### SPECIFIC FEATURES
+---
 
-| Issue | Title | Effort Est. | Value |
-|-------|-------|-------------|-------|
-| #115 | Add transcript to curation | 2-3h | Low - Domain-specific |
-| #105 | Take over classification from ClinGen | 4-6h | Medium - External integration |
-| #87 | Prevent Deletion of Precuration | 1-2h | Low - Data integrity |
-| #77 | Prefill Logic (workflow config) | 3-4h | Medium - Addressed by #009 |
+## Label System
 
-#### LOW PRIORITY / DEFERRED
+### Priority
+| Label | Color | Description |
+|-------|-------|-------------|
+| `priority: critical` | 🔴 Red | P0 - Blocker, must fix immediately |
+| `priority: high` | 🟠 Orange | P1 - Important, should fix soon |
+| `priority: medium` | 🟡 Yellow | P2 - Normal priority |
+| `priority: low` | 🟢 Green | P3 - Nice to have |
 
-| Issue | Title | Reason |
-|-------|-------|--------|
-| #92 | Electron App Feasibility | Future consideration |
-| #73 | Federation between instances | Future consideration |
-| #102 | Check Clinical Groups | Documentation task |
-| #104 | Add detailed instructions | Documentation task |
-| #114 | Broken link in FAQ | Quick fix, not enhancement |
+### Type
+| Label | Color | Description |
+|-------|-------|-------------|
+| `type: feature` | 🔵 Blue | New feature implementation |
+| `type: infrastructure` | 🟣 Purple | Backend/tooling infrastructure |
+| `type: ui/ux` | 🔵 Light Blue | User interface/experience |
+| `type: performance` | 🟠 Peach | Performance optimization |
+
+### Scope
+| Label | Color | Description |
+|-------|-------|-------------|
+| `scope: frontend` | Teal | Vue.js changes |
+| `scope: backend` | Purple | FastAPI changes |
+| `scope: database` | Pink | Database schema/queries |
+
+### Status
+| Label | Color | Description |
+|-------|-------|-------------|
+| `status: blocked` | 🔴 Red | Blocked by another issue/PR |
+| `status: in-progress` | 🟢 Green | Currently being worked on |
+| `status: needs-review` | 🟡 Yellow | Needs design/architecture review |
 
 ---
 
 ## Implementation Roadmap
 
-### Phase 0: Quick Wins (Optional, 1-2 days)
-Before starting Phase 1, consider these quick GitHub issue fixes:
-- #114: Fix broken link in FAQ (5 minutes)
-- #110: Replace console.log with snackbar (2-3h)
-- #100: Add user deletion for admin (1-2h)
+### Phase 1: Core Curation (16-22h)
+1. Enhancement #008: Draft auto-save (3-4h)
+2. Enhancement #009: Dynamic forms (6-8h)
+3. Enhancement #010: Review workflow (4-6h)
 
-**Total**: ~4h of high-value, low-effort improvements
+### Phase 2: Infrastructure (22-30h)
+1. #67: Pagination (4-6h)
+2. #75: Search (3-4h)
+3. #86: Backup (6-8h)
+4. #66: Lazy loading (6-8h)
+5. #95: Filters (3-4h)
 
-### Phase 1: Core Curation Features (16-22 hours) ← **START HERE**
-
-```bash
-# Enhancement #008: Draft Auto-Save (4-6h)
-git checkout -b feature/008-draft-autosave
-# Implement useAutoSave composable
-# Integrate with CurationForm and PrecurationForm
-# Add DraftCurations view
-# Test: Create draft, close browser, reopen, resume
-
-# Enhancement #009: Dynamic Form Generation (8-10h)
-git checkout -b feature/009-dynamic-forms
-# Create 12+ field type components
-# Build DynamicForm component
-# Update CurationForm to use DynamicForm
-# Test with multiple schemas
-# CLOSES: GitHub issues #113, #62, #61, #77
-
-# Enhancement #010: 4-Eyes Review Workflow (4-6h)
-git checkout -b feature/010-review-workflow
-# Create ReviewQueue view
-# Create CurationReview view
-# Add review notification badge
-# Integrate with workflow store
-# Test complete workflow
-# REFERENCES: GitHub issue #116
-# CLOSES: GitHub issue #107
-```
-
-### Phase 2: Infrastructure (8-12 hours)
-
-```bash
-# Enhancement #003: RetryUtils (3-4h)
-git checkout -b feature/003-retry-utils
-# Implement RetryConfig + CircuitBreaker
-# Add @retry_with_backoff decorator
-# Create RetryableHTTPClient
-# Test with HGNC API calls
-
-# Enhancement #004: Expanded Makefile (2-3h)
-git checkout -b feature/004-makefile
-# Add hybrid development mode
-# Implement make status
-# Add backup/restore commands
-# Test all new commands
-
-# Enhancement #001: Simple Structured Logging (2-3h)
-git checkout -b feature/001-logging
-# Create StructuredFormatter
-# Add request correlation middleware
-# Update get_logger() usage
-# Test log output
-
-# Enhancement #006: Simple API Configuration (1-2h)
-git checkout -b feature/006-config
-# Create backend/config/api.yaml
-# Implement YAML loader with validation
-# Update app initialization
-# Test configuration loading
-```
-
-### Phase 3: High-Priority GitHub Issues (12-16 hours)
-
-After completing Phases 1 & 2, address these GitHub issues:
-
-```bash
-# Issue #67: Pagination (4-6h)
-git checkout -b feature/pagination
-# Implement pagination in all stores
-# Add UI pagination controls
-# Test with large datasets
-
-# Issue #75: Search Functionality (3-4h)
-git checkout -b feature/search
-# Add global search bar
-# Implement search API endpoints
-# Test search across entities
-
-# Issue #86: Backup System (6-8h)
-git checkout -b feature/backup
-# Design backup strategy (automated + manual)
-# Implement backup commands
-# Test backup/restore workflow
-```
+### Phase 3: Production Ready (18-26h)
+- Complete v1.0.0 milestone issues
+- Final documentation
+- Production deployment
 
 ---
 
-## Risk Analysis
-
-### ✅ Zero Conflict Risk
-
-All enhancement proposals can be implemented without affecting existing features:
-
-1. **Infrastructure Enhancements** (001, 003, 004, 006)
-   - Pure additions to backend/tooling
-   - Zero risk to existing functionality
-
-2. **Draft Auto-Save** (#008)
-   - Adds new functionality, doesn't modify existing
-   - Backend already supports draft state
-
-3. **Dynamic Forms** (#009)
-   - May replace existing form code, but improves it
-   - Can be implemented incrementally (gradual migration)
-
-4. **4-Eyes Review** (#010)
-   - Backend already implements workflow states
-   - Adds new views, doesn't modify existing
-
-### ⚠️ Integration Points
-
-When implementing Enhancement #009, consider:
-- **Issue #62**: Ensure curation card enhancements are included in dynamic form design
-- **Issue #61**: Ensure precuration card enhancements are included
-- **Issue #113**: Use standard JSON Schema format for validation
-
-When implementing Enhancement #010, consider:
-- **Issue #116**: Multi-user approval requirements
-- **Issue #107**: Ensure completed curations remain visible
-
----
-
-## Effort Summary
-
-| Phase | Enhancement Proposals | GitHub Issues | Total |
-|-------|----------------------|---------------|-------|
-| Phase 0 (Optional) | - | 4h | 4h |
-| Phase 1 | 16-22h | - | 16-22h |
-| Phase 2 | 8-12h | - | 8-12h |
-| Phase 3 | - | 12-16h | 12-16h |
-| **Total** | **24-34h** | **16-20h** | **40-54h** |
-
-**Deferred Savings**: 15-20h (enhancements 002, 005, 007)
-
----
-
-## Conclusion
-
-### Key Insights
-
-1. **No Conflicts**: Enhancement proposals and GitHub issues address different concerns
-2. **Complementary**: Infrastructure + core features vs UI/UX improvements
-3. **Prioritization**: Phase 1 enhancements are higher priority than most GitHub issues
-4. **Integration Opportunities**: Enhancement #009 can address issues #113, #62, #61, #77 comprehensively
-
-### Recommended Action Plan
-
-1. ✅ **Proceed with all 7 approved enhancements** as documented
-2. ✅ **Reference related GitHub issues** when implementing #009 and #010
-3. ✅ **Address high-priority GitHub issues** after Phase 1 completion
-4. ✅ **Close superseded issues** when comprehensive solutions are implemented
-
-### Success Criteria
-
-**After Phase 1 (Enhancements #008, #009, #010):**
-- ✅ Curators can save drafts and resume work
-- ✅ Forms render dynamically from schema definitions
-- ✅ All curations require independent peer review
-- ✅ GitHub issues #113, #62, #61, #77, #107 are addressed
-
-**After Phase 2 (Enhancements #001, #003, #004, #006):**
-- ✅ Structured logging with request correlation
-- ✅ External API calls succeed 95%+ of time
-- ✅ Developers can start coding in <5 minutes
-- ✅ Deployment configuration is flexible
-
-**After Phase 3 (GitHub Issues #67, #75, #86):**
-- ✅ Application handles large datasets efficiently
-- ✅ Users can search across all entities
-- ✅ Automated backup system protects data
-
----
-
-**Original Date**: 2025-10-12
 **Last Updated**: 2026-01-12
-**Status**: Phase 1 in progress - curations store/API complete
-**Recent Progress**: PR #126 - Curation scoring fix, Pinia store integration, 23 API tests
-
-### Implementation Progress Summary (2026-01-12)
-
-| Enhancement | Original Effort | Progress | Remaining |
-|-------------|-----------------|----------|-----------|
-| **#008** Draft Auto-Save | 4-6h | 40% | 3-4h |
-| **#009** Dynamic Forms | 8-10h | 30% | 6-8h |
-| **#010** 4-Eyes Review | 4-6h | 70% (backend) | 4-6h (frontend) |
-
-**Completed in Current Sprint**:
-- ✅ `curationsStore` Pinia store with full CRUD actions
-- ✅ `CurationList.vue` refactored to use store + `storeToRefs`
-- ✅ `CurationForm.vue` refactored to use store for all operations
-- ✅ Fixed `calculate_scores` bug in `crud/curation.py`
-- ✅ 23 integration tests for curations API
-- ✅ Fixed pre-existing mypy errors
-
-**Next Actions**:
-1. Implement auto-save composable with 30s interval
-2. Create DraftCurations list view
-3. Wire DynamicForm to CurationForm
-4. Build ReviewQueue frontend UI
+**Status**: Issues reorganized, labeled, and assigned to milestones
