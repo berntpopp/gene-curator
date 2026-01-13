@@ -1500,3 +1500,92 @@ class ValidationCache(Base):
             postgresql_where="expires_at < NOW()",
         ),
     )
+
+
+# ========================================
+# PUBLICATION CACHE
+# ========================================
+
+
+class Publication(Base):
+    """
+    Cached publication data from PubMed/Europe PMC.
+    Stores validated publication metadata for association with curations
+    and evidence items without repeated API calls.
+    """
+
+    __tablename__ = "publications"
+
+    # Primary key - using PMID as natural key
+    id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
+    )
+
+    # PubMed identifier (unique)
+    pmid: Mapped[str] = mapped_column(
+        String(20), nullable=False, unique=True, index=True
+    )
+
+    # Core publication data
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    authors: Mapped[list[str]] = mapped_column(
+        compatible_array_text(), nullable=False, default=[]
+    )
+    author_string: Mapped[str | None] = mapped_column(Text)  # Formatted author list
+
+    # Journal information
+    journal: Mapped[str] = mapped_column(String(500), nullable=False)
+    journal_abbrev: Mapped[str | None] = mapped_column(String(100))
+    volume: Mapped[str | None] = mapped_column(String(50))
+    issue: Mapped[str | None] = mapped_column(String(50))
+    pages: Mapped[str | None] = mapped_column(String(50))
+
+    # Date information
+    pub_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    pub_date: Mapped[str | None] = mapped_column(String(50))  # Full date string
+
+    # External identifiers
+    doi: Mapped[str | None] = mapped_column(String(200), index=True)
+    pmcid: Mapped[str | None] = mapped_column(String(20), index=True)
+
+    # Extended metadata
+    abstract: Mapped[str | None] = mapped_column(Text)
+    pub_type: Mapped[str | None] = mapped_column(String(100))
+    is_open_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cited_by_count: Mapped[int | None] = mapped_column(Integer)
+
+    # Raw API response for reference
+    api_response: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
+
+    # Cache control
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    last_fetched_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Track who first added this publication
+    added_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # Relationships
+    adder: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[added_by])
+
+    __table_args__ = (
+        Index("idx_publications_year", "pub_year"),
+        Index("idx_publications_journal", "journal"),
+        Index(
+            "idx_publications_search",
+            "pmid",
+            "doi",
+            "title",
+        ),
+    )

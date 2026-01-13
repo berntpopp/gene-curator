@@ -15,7 +15,9 @@ from app.api.v1.endpoints import (
     health,
     invitations,
     logs,
+    ontology,
     precurations,
+    publications,
     schema_validation,
     schemas,
     scope_memberships,
@@ -63,6 +65,16 @@ api_router.include_router(
     external_validation.router,
     prefix="/external-validation",
     tags=["external-validation"],
+)
+api_router.include_router(
+    ontology.router,
+    prefix="/ontology",
+    tags=["ontology"],
+)
+api_router.include_router(
+    publications.router,
+    prefix="/publications",
+    tags=["publications"],
 )
 
 # System monitoring endpoints
