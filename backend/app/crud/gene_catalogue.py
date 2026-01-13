@@ -254,7 +254,7 @@ def _build_catalogue_entry(
             experimental_score=experimental_score,
             total_score=total_score,
             activated_at=active_curation.activated_at,
-            curator_name=curator.full_name if curator else None,
+            curator_name=curator.name if curator else None,
         )
         scope_curations.append(scope_summary)
 
@@ -316,14 +316,18 @@ def get_available_classifications(db: Session) -> list[str]:
 
     Returns classifications that have at least one active curation.
     """
-    results = db.execute(
-        select(func.distinct(CurationNew.computed_verdict))
-        .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-        .where(
-            ActiveCuration.archived_at.is_(None),
-            CurationNew.computed_verdict.isnot(None),
+    results = (
+        db.execute(
+            select(func.distinct(CurationNew.computed_verdict))
+            .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+            .where(
+                ActiveCuration.archived_at.is_(None),
+                CurationNew.computed_verdict.isnot(None),
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return sorted([r.lower() for r in results if r])
 
@@ -334,16 +338,20 @@ def get_available_diseases(db: Session, limit: int = 50) -> list[str]:
     Returns unique disease names from active curations.
     """
     # Query distinct disease names from evidence_data
-    results = db.execute(
-        select(func.distinct(CurationNew.evidence_data["disease_name"].astext))
-        .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-        .where(
-            ActiveCuration.archived_at.is_(None),
-            CurationNew.evidence_data["disease_name"].astext.isnot(None),
-            CurationNew.evidence_data["disease_name"].astext != "",
+    results = (
+        db.execute(
+            select(func.distinct(CurationNew.evidence_data["disease_name"].astext))
+            .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+            .where(
+                ActiveCuration.archived_at.is_(None),
+                CurationNew.evidence_data["disease_name"].astext.isnot(None),
+                CurationNew.evidence_data["disease_name"].astext != "",
+            )
+            .limit(limit)
         )
-        .limit(limit)
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
 
     return sorted([r for r in results if r])
 

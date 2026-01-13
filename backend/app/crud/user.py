@@ -270,7 +270,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(user)
         return user
 
-    def remove_from_scope(self, db: Session, *, user_id: UUID, scope_id: UUID) -> User | None:
+    def remove_from_scope(
+        self, db: Session, *, user_id: UUID, scope_id: UUID
+    ) -> User | None:
         """Remove user from scope via scope_memberships table (soft delete)."""
         user = self.get(db, user_id)
         if not user:

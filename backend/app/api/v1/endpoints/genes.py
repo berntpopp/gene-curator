@@ -78,7 +78,9 @@ def get_genes(
     # No need for role check here - authentication is sufficient
 
     # Regular users can only see genes in their scopes
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this scope",
@@ -170,7 +172,9 @@ def search_genes(
     Advanced gene search with multiple filters.
     """
     # Check scope permissions
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this scope",
@@ -385,7 +389,9 @@ def get_gene_curation_progress(
         )
 
     # Check scope permissions
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this scope",

@@ -16,7 +16,9 @@ class ScopeCurationSummary(BaseModel):
     scope_id: UUID = Field(..., description="Scope UUID")
     scope_name: str = Field(..., description="Scope slug (e.g., kidney-genetics)")
     scope_display_name: str = Field(..., description="Human-readable scope name")
-    is_public: bool = Field(default=False, description="Whether scope is publicly visible")
+    is_public: bool = Field(
+        default=False, description="Whether scope is publicly visible"
+    )
 
     # Disease information from evidence_data
     disease_name: str | None = Field(None, description="Disease name from curation")
@@ -51,15 +53,15 @@ class GeneCatalogueEntry(BaseModel):
     hgnc_id: str = Field(..., description="HGNC identifier (e.g., HGNC:1100)")
     approved_symbol: str = Field(..., description="Official gene symbol")
     chromosome: str | None = Field(None, description="Chromosome (e.g., 17)")
-    location: str | None = Field(None, description="Chromosomal location (e.g., 17q21.31)")
+    location: str | None = Field(
+        None, description="Chromosomal location (e.g., 17q21.31)"
+    )
 
     # Aggregated counts
     total_curations: int = Field(
         ..., description="Total number of active curations for this gene"
     )
-    scope_count: int = Field(
-        ..., description="Number of scopes with active curations"
-    )
+    scope_count: int = Field(..., description="Number of scopes with active curations")
 
     # Classification distribution
     classifications: dict[str, int] = Field(
@@ -89,9 +91,7 @@ class GeneCatalogueSummaryStats(BaseModel):
     total_curations: int = Field(
         ..., description="Total number of active curations across all genes"
     )
-    total_scopes: int = Field(
-        ..., description="Number of scopes with active curations"
-    )
+    total_scopes: int = Field(..., description="Number of scopes with active curations")
     classification_summary: dict[str, int] = Field(
         default_factory=dict,
         description="Overall classification distribution across all curations",
@@ -138,7 +138,9 @@ class GeneCatalogueFilters(BaseModel):
 
     # Pagination and sorting
     skip: int = Field(default=0, ge=0, description="Number of records to skip")
-    limit: int = Field(default=20, ge=1, le=100, description="Maximum records to return")
+    limit: int = Field(
+        default=20, ge=1, le=100, description="Maximum records to return"
+    )
     sort_by: str = Field(
         default="approved_symbol",
         description="Sort field: approved_symbol, total_curations, chromosome",

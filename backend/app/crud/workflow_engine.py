@@ -132,7 +132,10 @@ class WorkflowEngine:
         if not user:
             errors.append("User not found")
             return WorkflowValidationResult(
-                is_valid=False, errors=errors, warnings=warnings, requirements=requirements
+                is_valid=False,
+                errors=errors,
+                warnings=warnings,
+                requirements=requirements,
             )
 
         # Load item to get scope_id for scope-specific role check
@@ -148,7 +151,9 @@ class WorkflowEngine:
 
         # 4-eyes principle validation
         if self._requires_peer_review(current_stage, target_stage):
-            errors.extend(self._validate_4_eyes_principle(db, user, user_id, item, item_type))
+            errors.extend(
+                self._validate_4_eyes_principle(db, user, user_id, item, item_type)
+            )
 
         # Content validation requirements
         requirements.extend(self._get_content_requirements(current_stage, target_stage))

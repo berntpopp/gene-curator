@@ -299,7 +299,9 @@ def get_workflow_statistics(
     """
     # All authenticated users can view workflow statistics
     # Check scope access
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=403, detail="Not authorized to access this scope"
         )
@@ -320,7 +322,9 @@ def get_workflow_dashboard(
     """
     # All authenticated users can view their workflow dashboard
     # Check scope access
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=403, detail="Not authorized to access this scope"
         )
@@ -532,7 +536,9 @@ def get_workflow_analytics(
     """
     # All authenticated users can view analytics for their scopes
     # Check scope access
-    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
         raise HTTPException(
             status_code=403, detail="Not authorized to access this scope"
         )

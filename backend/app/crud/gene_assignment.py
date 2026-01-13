@@ -372,7 +372,9 @@ class CRUDGeneScopeAssignment(
         )
         if not curator:
             raise ValueError("Curator not found")
-        if not ScopePermissionService.has_scope_access(db, curator, assignment.scope_id):
+        if not ScopePermissionService.has_scope_access(
+            db, curator, assignment.scope_id
+        ):
             raise ValueError("Curator does not have access to this scope")
 
         assignment.assigned_curator_id = curator_id
