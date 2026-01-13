@@ -1,0 +1,8 @@
+{
+  "_comment": "Copy this file to settings.local.json to override project hooks",
+  "_usage": "Use this to disable the UI/UX review gate during quick iterations",
+
+  "hooks": {
+    "Stop": []
+  }
+}
