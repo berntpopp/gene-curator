@@ -21,6 +21,16 @@ export const workflowAPI = {
   },
 
   /**
+   * Get workflow state for an item
+   * @param {string} itemType - Item type (curation, precuration)
+   * @param {string} itemId - Item UUID
+   */
+  async getWorkflowState(itemType, itemId) {
+    const response = await apiClient.get(`/workflow/${itemType}/${itemId}/state`)
+    return response.data
+  },
+
+  /**
    * Get available transitions for curation
    */
   async getAvailableTransitions(curationId) {

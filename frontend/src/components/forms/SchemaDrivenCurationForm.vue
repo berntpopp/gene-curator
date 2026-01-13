@@ -142,6 +142,10 @@
       type: String,
       required: true
     },
+    workflowPairId: {
+      type: String,
+      default: null
+    },
     curationId: {
       type: String,
       default: null
@@ -347,7 +351,7 @@
         const created = await curationsStore.createCuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
-          curation_schema_id: props.schemaId,
+          workflow_pair_id: props.workflowPairId,
           evidence_data: evidenceData.value
         })
         // Navigate to edit the created curation
@@ -384,7 +388,7 @@
         const created = await curationsStore.createCuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
-          curation_schema_id: props.schemaId,
+          workflow_pair_id: props.workflowPairId,
           evidence_data: evidenceData.value
         })
         await curationsStore.submitCuration(created.id, { lock_version: 0 })
@@ -435,7 +439,7 @@
         const created = await curationsStore.createCuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
-          curation_schema_id: props.schemaId,
+          workflow_pair_id: props.workflowPairId,
           evidence_data: clingenEvidenceData
         })
         await curationsStore.submitCuration(created.id, { lock_version: 0 })
@@ -472,7 +476,7 @@
         const created = await curationsStore.createCuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
-          curation_schema_id: props.schemaId,
+          workflow_pair_id: props.workflowPairId,
           evidence_data: clingenEvidenceData
         })
         // Navigate to edit the created curation

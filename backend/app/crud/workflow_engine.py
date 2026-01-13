@@ -617,9 +617,15 @@ class WorkflowEngine:
     def _requires_peer_review(
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
     ) -> bool:
-        """Check if transition requires peer review (4-eyes principle)."""
+        """
+        Check if transition requires peer review (4-eyes principle).
+
+        Note: The 4-eyes principle applies at APPROVAL time (REVIEW -> ACTIVE),
+        not at SUBMISSION time (CURATION -> REVIEW). A curator can submit their
+        own work for review, but a different reviewer must approve it.
+        """
         peer_review_transitions = [
-            (WorkflowStage.CURATION, WorkflowStage.REVIEW),
+            # Only approval requires 4-eyes - a different person must approve
             (WorkflowStage.REVIEW, WorkflowStage.ACTIVE),
         ]
         return (current_stage, target_stage) in peer_review_transitions
@@ -694,13 +700,17 @@ class WorkflowEngine:
                 .first()
             )
             if curation:
-                # Check if evidence is complete
-                if not curation.evidence_data or not curation.evidence_data.get(
-                    "summary"
-                ):
-                    errors.append("Evidence summary is required before review")
+                # Check if evidence data exists
+                if not curation.evidence_data:
+                    errors.append("Evidence data is required before review")
+                else:
+                    # Summary is recommended but not required for submission
+                    if not curation.evidence_data.get("summary"):
+                        warnings.append(
+                            "Evidence summary not provided - consider adding one"
+                        )
 
-                # Check if scoring is complete
+                # Check if scoring is complete (warning only)
                 if not curation.computed_scores:
                     warnings.append("Final score not calculated")
 
