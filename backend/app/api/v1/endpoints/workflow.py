@@ -34,6 +34,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransitionRequest,
     WorkflowValidationResult,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 
@@ -298,10 +299,10 @@ def get_workflow_statistics(
     """
     # All authenticated users can view workflow statistics
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this scope"
+        )
 
     statistics = workflow_engine.get_workflow_statistics(db, scope_id, days)
     return statistics
@@ -319,10 +320,10 @@ def get_workflow_dashboard(
     """
     # All authenticated users can view their workflow dashboard
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this scope"
+        )
 
     # Build dashboard data (simplified implementation)
     from app.models import (
@@ -473,10 +474,10 @@ def get_workflow_configuration(
     """
     # All authenticated users can view workflow configuration for their scopes
     # Check scope access
-    if current_user.role != "admin":
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this scope"
+        )
 
     # Return default configuration (would be stored in database in real implementation)
     return WorkflowConfiguration(
@@ -531,10 +532,10 @@ def get_workflow_analytics(
     """
     # All authenticated users can view analytics for their scopes
     # Check scope access
-    if current_user.role != "admin" and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(status_code=403, detail="Not enough permissions")
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=403, detail="Not authorized to access this scope"
+        )
 
     # Return basic analytics structure (would need full implementation)
     return WorkflowAnalytics(
