@@ -182,7 +182,9 @@ def get_gene_assignment(
         )
 
     # Check user permissions
-    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -245,7 +247,9 @@ def update_gene_assignment(
 
     # All authenticated users can update assignments in their scopes
     # Check scope access
-    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -339,7 +343,9 @@ def get_assignment_statistics(
         )
 
     # Check permissions
-    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -410,7 +416,9 @@ def assign_curator_to_gene(
 
     # All authenticated users can assign curators in their scopes
     # Check scope access
-    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -447,7 +455,9 @@ def unassign_curator_from_gene(
 
     # All authenticated users can unassign curators in their scopes
     # Check scope access
-    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )

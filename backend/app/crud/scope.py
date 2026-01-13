@@ -498,12 +498,16 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 continue
 
             # Check if membership already exists
-            existing = db.execute(
-                select(ScopeMembership).where(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.user_id == user_id,
+            existing = (
+                db.execute(
+                    select(ScopeMembership).where(
+                        ScopeMembership.scope_id == scope_id,
+                        ScopeMembership.user_id == user_id,
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
 
             if existing:
                 # Reactivate if inactive
@@ -533,13 +537,17 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         for user_id in user_ids:
             # Find active membership
-            membership = db.execute(
-                select(ScopeMembership).where(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.user_id == user_id,
-                    ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+            membership = (
+                db.execute(
+                    select(ScopeMembership).where(
+                        ScopeMembership.scope_id == scope_id,
+                        ScopeMembership.user_id == user_id,
+                        ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+                    )
                 )
-            ).scalars().first()
+                .scalars()
+                .first()
+            )
 
             if membership:
                 # Soft delete the membership
@@ -552,19 +560,16 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
     def get_scope_users(self, db: Session, *, scope_id: UUID) -> list[dict[str, Any]]:
         """Get users assigned to a scope via scope_memberships table."""
         # Query users through scope_memberships join
-        memberships = (
-            db.execute(
-                select(ScopeMembership, UserNew)
-                .join(UserNew, ScopeMembership.user_id == UserNew.id)
-                .where(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
-                    ScopeMembership.accepted_at.isnot(None),
-                    UserNew.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
-                )
+        memberships = db.execute(
+            select(ScopeMembership, UserNew)
+            .join(UserNew, ScopeMembership.user_id == UserNew.id)
+            .where(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+                ScopeMembership.accepted_at.isnot(None),
+                UserNew.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
             )
-            .all()
-        )
+        ).all()
 
         result = []
         for membership, user in memberships:
