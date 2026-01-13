@@ -73,3 +73,45 @@ class CacheStatistics(BaseModel):
     total_hits: int = Field(..., description="Total cache hits")
     hit_rate: float = Field(..., description="Cache hit rate (0.0-1.0)")
     expired_entries: int = Field(..., description="Expired entries pending cleanup")
+
+
+# HGNC Search schemas for gene autocomplete
+class HGNCGeneSearchResult(BaseModel):
+    """Single gene result from HGNC search"""
+
+    hgnc_id: str = Field(..., description="HGNC ID (e.g., HGNC:1100)")
+    symbol: str = Field(..., description="Approved gene symbol")
+    name: str | None = Field(None, description="Approved gene name")
+    alias_symbols: list[str] = Field(default=[], description="Alias gene symbols")
+    previous_symbols: list[str] = Field(default=[], description="Previous gene symbols")
+    chromosome: str | None = Field(None, description="Chromosome location")
+    location: str | None = Field(None, description="Chromosomal location (e.g., 17q21.31)")
+    locus_type: str | None = Field(None, description="Locus type")
+    status: str | None = Field(None, description="Gene status (e.g., Approved)")
+
+
+class HGNCSearchRequest(BaseModel):
+    """Request for HGNC gene search"""
+
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Search query (gene symbol, HGNC ID, or partial name)",
+    )
+    limit: int = Field(
+        default=10,
+        ge=1,
+        le=50,
+        description="Maximum number of results to return",
+    )
+
+
+class HGNCSearchResponse(BaseModel):
+    """Response from HGNC gene search"""
+
+    query: str = Field(..., description="Original search query")
+    total_results: int = Field(..., description="Total matching results")
+    results: list[HGNCGeneSearchResult] = Field(
+        default=[], description="List of matching genes"
+    )

@@ -64,5 +64,29 @@ export const externalValidationAPI = {
   async getCacheStatistics() {
     const response = await apiClient.get('/external-validation/cache/statistics')
     return response.data
+  },
+
+  /**
+   * Search HGNC database for genes (for autocomplete)
+   * @param {string} query - Search query (gene symbol, HGNC ID, or name)
+   * @param {number} limit - Maximum number of results (default: 10)
+   * @returns {Promise<Object>} Search response with matching genes
+   */
+  async searchHGNC(query, limit = 10) {
+    const response = await apiClient.post('/external-validation/hgnc/search', {
+      query,
+      limit
+    })
+    return response.data
+  },
+
+  /**
+   * Fetch a single gene by HGNC ID
+   * @param {string} hgncId - HGNC ID (e.g., "HGNC:1100" or "1100")
+   * @returns {Promise<Object>} Search response with single gene result
+   */
+  async fetchHGNCGene(hgncId) {
+    const response = await apiClient.get(`/external-validation/hgnc/fetch/${hgncId}`)
+    return response.data
   }
 }

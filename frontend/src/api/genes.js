@@ -5,7 +5,7 @@ export const genesAPI = {
    * Get all genes with assignment status
    */
   async getGenes(params = {}) {
-    const response = await apiClient.get('/genes', { params })
+    const response = await apiClient.get('/genes/', { params })
     return response.data
   },
 
@@ -38,6 +38,14 @@ export const genesAPI = {
    */
   async deleteGene(id) {
     const response = await apiClient.delete(`/genes/${id}`)
+    return response.data
+  },
+
+  /**
+   * Bulk create genes
+   */
+  async bulkCreateGenes(bulkData) {
+    const response = await apiClient.post('/genes/bulk', bulkData)
     return response.data
   },
 
