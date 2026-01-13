@@ -138,7 +138,16 @@
                     </v-expansion-panel-title>
                     <v-expansion-panel-text>
                       <v-row>
-                        <v-col cols="12" md="8">
+                        <v-col cols="12" md="6">
+                          <MONDOAutocomplete
+                            v-model="form.mondo_id"
+                            v-model:disease-name="form.mondo_disease_name"
+                            label="MONDO Disease"
+                            hint="Search for a disease to auto-populate name"
+                            @select="handleMONDOSelect"
+                          />
+                        </v-col>
+                        <v-col cols="12" md="6">
                           <v-text-field
                             v-model="form.disease_name"
                             label="Disease Name *"
@@ -149,30 +158,17 @@
                             persistent-hint
                           />
                         </v-col>
-                        <v-col cols="12" md="4">
-                          <v-text-field
-                            v-model="form.mondo_id"
-                            label="MONDO ID"
-                            variant="outlined"
-                            prepend-inner-icon="mdi-database"
-                            placeholder="MONDO:0000001"
-                            hint="Monarch Disease Ontology identifier"
-                            persistent-hint
-                          />
-                        </v-col>
                       </v-row>
 
                       <v-row class="mt-2">
                         <v-col cols="12" md="6">
-                          <v-select
+                          <HPOInheritanceSelect
                             v-model="form.mode_of_inheritance"
-                            :items="modeOfInheritanceOptions"
+                            v-model:hpo-id="form.inheritance_hpo_id"
                             label="Mode of Inheritance *"
-                            variant="outlined"
-                            :rules="[v => !!v || 'Mode of inheritance is required']"
-                            prepend-inner-icon="mdi-family-tree"
+                            :required="true"
                             hint="Select the inheritance pattern"
-                            persistent-hint
+                            @select="handleInheritanceSelect"
                           />
                         </v-col>
                         <v-col cols="12" md="6">
@@ -278,18 +274,14 @@
                             <v-icon size="small" color="success" class="mr-1"
                               >mdi-check-circle</v-icon
                             >
-                            Included MIM Phenotypes
+                            Included OMIM Phenotypes
                           </div>
-                          <v-combobox
+                          <OMIMAutocomplete
                             v-model="form.included_mim_phenotypes"
-                            label="Included MIM Numbers"
-                            variant="outlined"
+                            label="Search OMIM to Include"
+                            hint="Search by disease name or OMIM number"
+                            prepend-icon="mdi-plus-circle"
                             multiple
-                            chips
-                            closable-chips
-                            hint="Enter MIM numbers to include in curation"
-                            persistent-hint
-                            prepend-inner-icon="mdi-plus-circle"
                           />
                         </v-col>
                         <v-col cols="12" md="6">
@@ -297,18 +289,14 @@
                             <v-icon size="small" color="warning" class="mr-1"
                               >mdi-close-circle</v-icon
                             >
-                            Excluded MIM Phenotypes
+                            Excluded OMIM Phenotypes
                           </div>
-                          <v-combobox
+                          <OMIMAutocomplete
                             v-model="form.excluded_mim_phenotypes"
-                            label="Excluded MIM Numbers"
-                            variant="outlined"
+                            label="Search OMIM to Exclude"
+                            hint="Search by disease name or OMIM number"
+                            prepend-icon="mdi-minus-circle"
                             multiple
-                            chips
-                            closable-chips
-                            hint="Enter MIM numbers NOT part of this disease entity"
-                            persistent-hint
-                            prepend-inner-icon="mdi-minus-circle"
                           />
                         </v-col>
                       </v-row>
@@ -316,14 +304,11 @@
                       <!-- Supporting Literature -->
                       <v-row class="mt-2">
                         <v-col cols="12">
-                          <v-text-field
+                          <PMIDInput
                             v-model="form.supporting_pmids"
+                            v-model:publications="form.supporting_publications"
                             label="Supporting PMIDs"
-                            variant="outlined"
-                            prepend-inner-icon="mdi-book-open-page-variant"
-                            placeholder="12345678, 87654321"
-                            hint="Comma-separated PubMed IDs supporting the lumping/splitting decision"
-                            persistent-hint
+                            hint="Enter PubMed IDs and click Validate to verify"
                           />
                         </v-col>
                       </v-row>
@@ -452,6 +437,10 @@
   import { genesAPI, precurationsAPI, scopesAPI, schemasAPI } from '@/api'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
+  import MONDOAutocomplete from '@/components/evidence/MONDOAutocomplete.vue'
+  import OMIMAutocomplete from '@/components/evidence/OMIMAutocomplete.vue'
+  import HPOInheritanceSelect from '@/components/evidence/HPOInheritanceSelect.vue'
+  import PMIDInput from '@/components/evidence/PMIDInput.vue'
 
   const router = useRouter()
   const route = useRoute()
@@ -483,14 +472,17 @@
     // Disease entity definition
     disease_name: '',
     mondo_id: '',
+    mondo_disease_name: '', // Auto-filled from MONDO selection
     mode_of_inheritance: null,
+    inheritance_hpo_id: '', // HPO ID for inheritance pattern
     evaluation_date: new Date().toISOString().split('T')[0],
     // Lumping & Splitting (per ClinGen guidelines)
     curation_type: null,
     rationale: [],
     included_mim_phenotypes: [],
     excluded_mim_phenotypes: [],
-    supporting_pmids: '',
+    supporting_pmids: [],
+    supporting_publications: [],
     rationale_notes: '',
     // Evidence assessment
     evidence_strength: null,
@@ -499,16 +491,8 @@
     notes: ''
   })
 
-  // Mode of Inheritance options (per ClinGen SOP v11)
-  const modeOfInheritanceOptions = [
-    { title: 'Autosomal Dominant (HP:0000006)', value: 'AD' },
-    { title: 'Autosomal Recessive (HP:0000007)', value: 'AR' },
-    { title: 'X-linked Dominant (HP:0001417)', value: 'XLD' },
-    { title: 'X-linked Recessive (HP:0001419)', value: 'XLR' },
-    { title: 'Semidominant (HP:0032113)', value: 'SD' },
-    { title: 'Mitochondrial (HP:0001427)', value: 'MT' },
-    { title: 'Other (specify)', value: 'Other' }
-  ]
+  // Note: Mode of Inheritance options are now fetched from HPO API
+  // via the HPOInheritanceSelect component
 
   // ClinGen Curation Type options (single choice)
   const curationTypeOptions = [
@@ -574,6 +558,41 @@
       lumped_entity: 'Lumped'
     }
     return labels[type] || type
+  }
+
+  /**
+   * Handle MONDO disease selection
+   * Auto-populates disease name with gene-associated naming pattern
+   */
+  function handleMONDOSelect(mondoTerm) {
+    if (mondoTerm && mondoTerm.label) {
+      // Create dyadic name: Gene-associated disease name
+      const geneSymbol = form.value.gene_symbol || 'Gene'
+      const baseName = mondoTerm.label
+
+      // Only auto-fill if disease_name is empty or matches previous auto-fill
+      if (!form.value.disease_name || form.value.disease_name === form.value.mondo_disease_name) {
+        form.value.disease_name = `${geneSymbol}-related ${baseName}`
+      }
+
+      logger.info('MONDO term selected, disease name updated', {
+        mondo_id: mondoTerm.mondo_id,
+        disease_name: form.value.disease_name
+      })
+    }
+  }
+
+  /**
+   * Handle HPO inheritance pattern selection
+   */
+  function handleInheritanceSelect(inheritancePattern) {
+    if (inheritancePattern) {
+      logger.info('Inheritance pattern selected', {
+        hpo_id: inheritancePattern.hpo_id,
+        name: inheritancePattern.name,
+        shortcode: inheritancePattern.shortcode
+      })
+    }
   }
 
   /**
