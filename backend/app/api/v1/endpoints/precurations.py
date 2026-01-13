@@ -28,6 +28,7 @@ from app.schemas.precuration import (
     PrecurationSubmit,
     PrecurationUpdate,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -39,22 +40,21 @@ logger = get_logger(__name__)
 
 
 def _check_scope_access(
+    db: Session,
     current_user: UserNew,
     scope_id: UUID,
-    action: str = "access",
+    required_roles: list[str] | None = None,
 ) -> None:
     """
     Check if user has access to the specified scope.
-    Raises HTTPException if access denied.
+    Uses ScopePermissionService for centralized permission logic.
     """
-    if current_user.role == "admin":
-        return  # Admin bypasses scope checks
-
-    user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-    if scope_id not in user_scope_ids:
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id, required_roles=required_roles
+    ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Not authorized to {action} precurations in this scope",
+            detail="Not authorized to access this scope",
         )
 
 
@@ -90,21 +90,16 @@ def list_precurations(
 
     # Determine scope filtering
     scope_ids = None
-    if current_user.role != "admin" and not scope_id:
-        scope_ids = current_user.assigned_scopes or []
+    if not scope_id:
+        scope_ids = ScopePermissionService.get_user_scope_ids(db, current_user)
         if not scope_ids:
             return PrecurationListResponse(
                 precurations=[], total=0, skip=skip, limit=limit
             )
 
     # If specific scope requested, verify access
-    if scope_id and current_user.role != "admin":
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions",
-            )
+    if scope_id:
+        _check_scope_access(db, current_user, scope_id)
 
     summaries, total = precuration_crud.get_multi_filtered(
         db,
@@ -144,7 +139,7 @@ def get_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(current_user, precuration.scope_id, "view")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     return Precuration.model_validate(precuration)
 
@@ -169,7 +164,7 @@ def create_precuration(
     set_rls_context(db, current_user)
 
     # Verify scope access
-    _check_scope_access(current_user, precuration_in.scope_id, "create")
+    _check_scope_access(db, current_user, precuration_in.scope_id)
 
     try:
         precuration = precuration_crud.create_precuration(
@@ -212,7 +207,7 @@ def update_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(current_user, precuration.scope_id, "update")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     # Check precuration is editable
     if precuration.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -349,7 +344,7 @@ def complete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(current_user, precuration.scope_id, "complete")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     try:
         completed = precuration_crud.complete_precuration(
@@ -394,7 +389,7 @@ def approve_precuration(
         )
 
     # Verify scope access with reviewer role
-    _check_scope_access(current_user, precuration.scope_id, "approve")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     # 4-eyes principle: creator cannot approve their own precuration
     if precuration.created_by == current_user.id and current_user.role != "admin":
@@ -440,7 +435,7 @@ def reject_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(current_user, precuration.scope_id, "reject")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     reason = rejection_data.get("reason", "No reason provided")
 
@@ -479,7 +474,7 @@ def delete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(current_user, precuration.scope_id, "delete")
+    _check_scope_access(db, current_user, precuration.scope_id)
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":

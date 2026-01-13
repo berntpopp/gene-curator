@@ -35,6 +35,7 @@ from app.schemas.gene_assignment import (
     GeneScopeAssignmentWithDetails,
     ScopeAssignmentOverview,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 
@@ -69,12 +70,12 @@ def get_gene_assignments(
     # RLS policies + scope membership checks handle access control
 
     # Regular users can only see assignments in their scopes
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
     # Get assignments with related entity details using eager loading
     if is_active:
@@ -143,13 +144,13 @@ def create_gene_assignment(
     """
     # All authenticated users can create assignments in their scopes
     # Check if user has access to the target scope
-    if current_user.role not in ["admin"]:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if assignment_in.scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions for this scope",
-            )
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment_in.scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions for this scope",
+        )
 
     try:
         assignment_model = gene_assignment_crud.create_assignment(
@@ -181,9 +182,7 @@ def get_gene_assignment(
         )
 
     # Check user permissions
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -246,9 +245,7 @@ def update_gene_assignment(
 
     # All authenticated users can update assignments in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -342,9 +339,7 @@ def get_assignment_statistics(
         )
 
     # Check permissions
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -372,13 +367,13 @@ def bulk_create_gene_assignments(
     """
     # All authenticated users can bulk create assignments in their scopes
     # Check scope access
-    if current_user.role not in ["admin"]:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if bulk_request.scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions for this scope",
-            )
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, bulk_request.scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions for this scope",
+        )
 
     result = gene_assignment_crud.bulk_assign_genes(
         db,
@@ -415,9 +410,7 @@ def assign_curator_to_gene(
 
     # All authenticated users can assign curators in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -454,9 +447,7 @@ def unassign_curator_from_gene(
 
     # All authenticated users can unassign curators in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, assignment.scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -566,9 +557,7 @@ def get_scope_assignments(
     Get all assignments for a specific scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -622,9 +611,7 @@ def get_available_genes_for_scope(
     Get genes available for assignment to a scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -658,9 +645,7 @@ def get_scope_assignment_overview(
     Get assignment overview for a scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )

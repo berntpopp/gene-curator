@@ -41,6 +41,7 @@ from app.schemas.gene import (
     GeneWithAssignments,
     ScopeGeneListResponse,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 
@@ -77,12 +78,11 @@ def get_genes(
     # No need for role check here - authentication is sufficient
 
     # Regular users can only see genes in their scopes
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this scope",
+        )
 
     if scope_id:
         genes = gene_crud.get_genes_for_scope(
@@ -170,12 +170,11 @@ def search_genes(
     Advanced gene search with multiple filters.
     """
     # Check scope permissions
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this scope",
+        )
 
     search_params = GeneSearchQuery(
         query=query,
@@ -229,13 +228,11 @@ def get_gene_statistics(
     """
     # Check scope permissions (only if user is authenticated and scope is specified)
     if current_user and scope_id:
-        if current_user.role not in ["admin"]:
-            user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-            if scope_id not in user_scope_ids:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail="Not enough permissions",
-                )
+        if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access this scope",
+            )
     elif scope_id and not current_user:
         # If scope is specified but user is not authenticated, ignore scope filter
         scope_id = None
@@ -388,12 +385,11 @@ def get_gene_curation_progress(
         )
 
     # Check scope permissions
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
+    if scope_id and not ScopePermissionService.has_scope_access(db, current_user, scope_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this scope",
+        )
 
     progress = gene_crud.get_gene_curation_progress(
         db, gene_id=gene_id, scope_id=scope_id
@@ -449,11 +445,10 @@ def get_scope_genes(
     Get genes for a specific scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this scope",
         )
 
     # Get scope information (would need proper scope lookup in real implementation)
