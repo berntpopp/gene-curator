@@ -124,6 +124,74 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
+    def get_multi_with_counts(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        active_only: bool = True,
+        institution: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get multiple scopes with gene and member counts."""
+        from app.models import ScopeMembership
+
+        stmt = select(Scope)
+
+        if active_only:
+            stmt = stmt.where(Scope.is_active)
+
+        if institution:
+            stmt = stmt.where(Scope.institution == institution)
+
+        scopes = db.execute(stmt.offset(skip).limit(limit)).scalars().all()
+
+        result = []
+        for scope in scopes:
+            # Get gene count for this scope
+            gene_count = (
+                db.execute(
+                    select(func.count(GeneScopeAssignment.id)).where(
+                        GeneScopeAssignment.scope_id == scope.id,
+                        GeneScopeAssignment.is_active,
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Get member count for this scope
+            member_count = (
+                db.execute(
+                    select(func.count(ScopeMembership.id)).where(
+                        ScopeMembership.scope_id == scope.id,
+                        ScopeMembership.is_active,
+                        ScopeMembership.accepted_at.isnot(None),
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Convert scope to dict and add counts
+            scope_dict = {
+                "id": scope.id,
+                "name": scope.name,
+                "display_name": scope.display_name,
+                "description": scope.description,
+                "institution": scope.institution,
+                "is_public": scope.is_public,
+                "scope_config": scope.scope_config,
+                "is_active": scope.is_active,
+                "default_workflow_pair_id": scope.default_workflow_pair_id,
+                "created_at": scope.created_at,
+                "updated_at": scope.updated_at,
+                "created_by": scope.created_by,
+                "gene_count": gene_count,
+                "member_count": member_count,
+            }
+            result.append(scope_dict)
+
+        return result
+
     def get_user_scopes(
         self, db: Session, *, user_scope_ids: list[UUID], active_only: bool = True
     ) -> Sequence[Scope]:

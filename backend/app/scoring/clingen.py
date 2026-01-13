@@ -40,7 +40,7 @@ class ClinGenEngine(ScoringEngine):
 
     # Genetic evidence category limits
     MAX_CASE_LEVEL_SCORE: Final[float] = 12.0
-    MAX_SEGREGATION_SCORE: Final[float] = 7.0
+    MAX_SEGREGATION_SCORE: Final[float] = 3.0  # ClinGen SOP v11: max 3 points for segregation
     MAX_CASE_CONTROL_SCORE: Final[float] = 6.0
 
     # Experimental evidence category limits

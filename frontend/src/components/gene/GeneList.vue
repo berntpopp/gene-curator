@@ -52,13 +52,13 @@
         color="secondary"
         variant="outlined"
         class="mr-2"
-        @click="showAddDrawer = true"
+        @click="openAddDrawer"
       >
         <v-icon start>mdi-dna</v-icon>
         Add Genes
       </v-btn>
 
-      <v-btn v-if="canAssignGenes" color="primary" @click="showAssignDrawer = true">
+      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignDrawer">
         <v-icon start>mdi-account-arrow-right</v-icon>
         Assign to Curator
       </v-btn>
@@ -245,7 +245,7 @@
         <v-btn
           v-if="canAssignGenes && !search && !filterStatus"
           color="primary"
-          @click="showAssignDrawer = true"
+          @click="openAssignDrawer"
         >
           <v-icon start>mdi-plus</v-icon>
           Assign Genes
@@ -291,6 +291,7 @@
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import { useDrawerState } from '@/composables/useDrawerState'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
   import AddGenesDrawer from '@/components/drawers/AddGenesDrawer.vue'
   import AssignGenesDrawer from '@/components/drawers/AssignGenesDrawer.vue'
@@ -314,9 +315,11 @@
   const filterStatus = ref(null)
   const filterCurator = ref(null)
   const viewMode = ref('table')
-  const showAddDrawer = ref(false)
-  const showAssignDrawer = ref(false)
   const curators = ref([])
+
+  // Drawer state management (ensures only one drawer open at a time)
+  const { isOpen: showAddDrawer, open: openAddDrawer } = useDrawerState('gene-list-add')
+  const { isOpen: showAssignDrawer, open: openAssignDrawer } = useDrawerState('gene-list-assign')
 
   // Table headers
   const tableHeaders = [
@@ -386,12 +389,12 @@
     try {
       const response = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
       genes.value = response.map(assignment => ({
-        assignment_id: assignment.assignment_id,
+        assignment_id: assignment.id || assignment.assignment_id,
         gene_id: assignment.gene_id,
-        gene_symbol: assignment.gene?.gene_symbol || assignment.gene_symbol,
-        gene_name: assignment.gene?.gene_name || '',
-        curator_id: assignment.curator_id,
-        curator_name: assignment.curator?.full_name || assignment.curator?.email,
+        gene_symbol: assignment.gene_symbol || assignment.gene?.gene_symbol || '',
+        gene_name: assignment.gene_name || assignment.gene?.gene_name || '',
+        curator_id: assignment.assigned_curator_id || assignment.curator_id,
+        curator_name: assignment.curator_name || assignment.curator?.full_name || assignment.curator?.email || '',
         status: assignment.status || 'assigned',
         due_date: assignment.due_date,
         progress: calculateProgress(assignment)
@@ -508,7 +511,7 @@
   function reassignGene() {
     // Open assign drawer with this gene pre-selected
     // TODO: Pre-select this gene in the drawer
-    showAssignDrawer.value = true
+    openAssignDrawer()
   }
 
   /**

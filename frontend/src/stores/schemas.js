@@ -173,6 +173,24 @@ export const useSchemasStore = defineStore('schemas', {
       }
     },
 
+    async deleteWorkflowPair(id) {
+      this.loading = true
+      this.error = null
+      try {
+        await schemasAPI.deleteWorkflowPair(id)
+        this.workflowPairs = this.workflowPairs.filter(p => p.id !== id)
+        if (this.currentWorkflowPair && this.currentWorkflowPair.id === id) {
+          this.currentWorkflowPair = null
+        }
+        return true
+      } catch (error) {
+        this.error = error.message
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     setCurrentSchema(schema) {
       this.currentSchema = schema
     },

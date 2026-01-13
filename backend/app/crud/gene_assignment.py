@@ -8,7 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.crud.base import CRUDBase
 from app.models import (
@@ -44,6 +44,134 @@ class CRUDGeneScopeAssignment(
             )
             .scalars()
             .first()
+        )
+
+    def get_with_details(
+        self, db: Session, *, assignment_id: UUID
+    ) -> GeneScopeAssignment | None:
+        """Get assignment by ID with related gene, scope, and curator data."""
+        return (
+            db.execute(
+                select(GeneScopeAssignment)
+                .options(
+                    joinedload(GeneScopeAssignment.gene),
+                    joinedload(GeneScopeAssignment.scope),
+                    joinedload(GeneScopeAssignment.assigned_curator),
+                )
+                .where(GeneScopeAssignment.id == assignment_id)
+            )
+            .scalars()
+            .first()
+        )
+
+    def get_scope_assignments_with_details(
+        self,
+        db: Session,
+        *,
+        scope_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+        include_inactive: bool = False,
+    ) -> Sequence[GeneScopeAssignment]:
+        """Get all assignments for a specific scope with related entity details."""
+        stmt = (
+            select(GeneScopeAssignment)
+            .options(
+                joinedload(GeneScopeAssignment.gene),
+                joinedload(GeneScopeAssignment.scope),
+                joinedload(GeneScopeAssignment.assigned_curator),
+            )
+            .where(GeneScopeAssignment.scope_id == scope_id)
+        )
+
+        if not include_inactive:
+            stmt = stmt.where(GeneScopeAssignment.is_active)
+
+        return (
+            db.execute(
+                stmt.order_by(GeneScopeAssignment.assigned_at.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
+            .unique()
+            .all()
+        )
+
+    def get_curator_assignments_with_details(
+        self,
+        db: Session,
+        *,
+        curator_id: UUID,
+        skip: int = 0,
+        limit: int = 100,
+        scope_id: UUID | None = None,
+    ) -> Sequence[GeneScopeAssignment]:
+        """Get all assignments for a specific curator with related entity details."""
+        stmt = (
+            select(GeneScopeAssignment)
+            .options(
+                joinedload(GeneScopeAssignment.gene),
+                joinedload(GeneScopeAssignment.scope),
+                joinedload(GeneScopeAssignment.assigned_curator),
+            )
+            .where(
+                and_(
+                    GeneScopeAssignment.assigned_curator_id == curator_id,
+                    GeneScopeAssignment.is_active,
+                )
+            )
+        )
+
+        if scope_id:
+            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
+
+        return (
+            db.execute(
+                stmt.order_by(GeneScopeAssignment.assigned_at.desc())
+                .offset(skip)
+                .limit(limit)
+            )
+            .scalars()
+            .unique()
+            .all()
+        )
+
+    def get_active_assignments_with_details(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        scope_id: UUID | None = None,
+        curator_id: UUID | None = None,
+        gene_id: UUID | None = None,
+    ) -> Sequence[GeneScopeAssignment]:
+        """Get active assignments with related entity details."""
+        stmt = (
+            select(GeneScopeAssignment)
+            .options(
+                joinedload(GeneScopeAssignment.gene),
+                joinedload(GeneScopeAssignment.scope),
+                joinedload(GeneScopeAssignment.assigned_curator),
+            )
+            .where(GeneScopeAssignment.is_active)
+        )
+
+        if scope_id:
+            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
+
+        if curator_id:
+            stmt = stmt.where(GeneScopeAssignment.assigned_curator_id == curator_id)
+
+        if gene_id:
+            stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
+
+        return (
+            db.execute(stmt.offset(skip).limit(limit))
+            .scalars()
+            .unique()
+            .all()
         )
 
     def get_active_assignments(
@@ -186,6 +314,14 @@ class CRUDGeneScopeAssignment(
         obj_in_data = obj_in.model_dump()
         obj_in_data["assigned_by"] = assigned_by
         obj_in_data["assigned_at"] = datetime.utcnow()
+
+        # Map schema field 'priority_level' to model field 'priority'
+        if "priority_level" in obj_in_data:
+            priority = obj_in_data.pop("priority_level")
+            # Map "medium" (schema) to "normal" (model default)
+            if priority == "medium":
+                priority = "normal"
+            obj_in_data["priority"] = priority
 
         db_obj = GeneScopeAssignment(**obj_in_data)
         db.add(db_obj)

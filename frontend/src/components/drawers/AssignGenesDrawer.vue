@@ -4,19 +4,22 @@
     location="right"
     temporary
     width="500"
+    class="assign-genes-drawer"
     @update:model-value="emit('update:modelValue', $event)"
+    @keydown.escape="close"
   >
-    <!-- Header -->
-    <v-toolbar density="compact" color="primary">
-      <v-toolbar-title>Assign Genes to Curators</v-toolbar-title>
-      <v-spacer />
-      <v-btn icon aria-label="Close" @click="close">
-        <v-icon>mdi-close</v-icon>
-      </v-btn>
-    </v-toolbar>
+    <div class="drawer-container">
+      <!-- Header -->
+      <v-toolbar density="compact" color="primary" class="drawer-header">
+        <v-toolbar-title>Assign Genes to Curators</v-toolbar-title>
+        <v-spacer />
+        <v-btn icon aria-label="Close" @click="close">
+          <v-icon>mdi-close</v-icon>
+        </v-btn>
+      </v-toolbar>
 
-    <!-- Content -->
-    <v-card-text class="pt-4">
+      <!-- Content -->
+      <div class="drawer-content pt-4">
       <v-form ref="formRef">
         <!-- Gene Selection -->
         <div class="text-subtitle-2 mb-2">Select Genes</div>
@@ -125,17 +128,18 @@
           auto-grow
         />
       </v-form>
-    </v-card-text>
+    </div>
 
-    <!-- Actions -->
-    <v-card-actions class="px-4 pb-4">
-      <v-btn variant="outlined" @click="close">Cancel</v-btn>
-      <v-spacer />
-      <v-btn color="primary" :loading="assigning" @click="handleAssign">
-        <v-icon start>mdi-check</v-icon>
-        Assign {{ selectedGenes.length > 0 ? `(${selectedGenes.length})` : '' }}
-      </v-btn>
-    </v-card-actions>
+      <!-- Actions -->
+      <div class="drawer-footer">
+        <v-btn variant="outlined" @click="close">Cancel</v-btn>
+        <v-spacer />
+        <v-btn color="primary" :loading="assigning" @click="handleAssign">
+          <v-icon start>mdi-check</v-icon>
+          Assign {{ selectedGenes.length > 0 ? `(${selectedGenes.length})` : '' }}
+        </v-btn>
+      </div>
+    </div>
   </v-navigation-drawer>
 </template>
 
@@ -397,10 +401,41 @@
 </script>
 
 <style scoped>
-  /* Drawer content spacing */
-  .v-card-text {
-    max-height: calc(100vh - 200px);
+  /* Ensure drawer doesn't overlap with page footer or header */
+  .assign-genes-drawer {
+    top: 64px !important; /* Below app header */
+    bottom: 77px !important; /* Above page footer */
+    height: calc(100vh - 64px - 77px) !important; /* Viewport minus header and footer */
+  }
+
+  /* Flex container for full-height drawer layout */
+  .drawer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Fixed header */
+  .drawer-header {
+    flex-shrink: 0;
+  }
+
+  /* Scrollable content area */
+  .drawer-content {
+    flex: 1;
     overflow-y: auto;
+    padding: 16px;
+  }
+
+  /* Sticky footer */
+  .drawer-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
   }
 
   /* Form sections */

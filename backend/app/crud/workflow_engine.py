@@ -902,5 +902,93 @@ class WorkflowEngine:
         return 24.0  # 24 hours average
 
 
+    def get_eligible_peer_reviewers(
+        self,
+        db: Session,
+        scope_id: UUID | None = None,
+        exclude_user_id: UUID | None = None,
+    ) -> list[dict[str, Any]]:
+        """
+        Get eligible peer reviewers for assignment.
+
+        Filters:
+        - Active users only
+        - If scope_id provided, must be member of that scope with reviewer-capable role
+        - Excludes exclude_user_id (4-eyes principle)
+
+        Returns users with pending review count.
+        """
+        from sqlalchemy import func as sqlalchemy_func
+
+        from app.models.models import Review, ReviewStatus, ScopeMembership
+
+        # Eligible roles within a scope for reviewing
+        eligible_scope_roles = ["admin", "curator", "reviewer", "scope_admin"]
+
+        # Base query for active users
+        query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712
+
+        # Exclude current user (4-eyes principle)
+        if exclude_user_id:
+            query = query.filter(UserNew.id != exclude_user_id)
+
+        # Filter by scope membership if scope_id provided
+        if scope_id:
+            # Subquery to get user IDs with eligible roles in the scope
+            scope_member_ids = (
+                db.query(ScopeMembership.user_id)
+                .filter(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active == True,  # noqa: E712
+                    ScopeMembership.role.in_(eligible_scope_roles),
+                )
+                .subquery()
+            )
+            query = query.filter(UserNew.id.in_(select(scope_member_ids)))
+
+        users = query.order_by(UserNew.name).all()
+
+        # Get pending review counts and scope roles
+        result = []
+        for user in users:
+            pending_count = (
+                db.query(sqlalchemy_func.count(Review.id))
+                .filter(
+                    Review.reviewer_id == user.id,
+                    Review.status == ReviewStatus.PENDING,
+                )
+                .scalar()
+                or 0
+            )
+
+            # Get scope roles for this user
+            scope_roles_query = db.query(ScopeMembership.role).filter(
+                ScopeMembership.user_id == user.id,
+                ScopeMembership.is_active == True,  # noqa: E712
+            )
+            if scope_id:
+                scope_roles_query = scope_roles_query.filter(
+                    ScopeMembership.scope_id == scope_id
+                )
+
+            scope_roles = list({r[0] for r in scope_roles_query.all()})
+
+            result.append(
+                {
+                    "id": user.id,
+                    "name": user.name or user.email.split("@")[0],
+                    "email": user.email,
+                    "role": user.role.value if hasattr(user.role, "value") else user.role,
+                    "institution": user.institution,
+                    "expertise_areas": user.expertise_areas or [],
+                    "is_active": user.is_active,
+                    "pending_review_count": pending_count,
+                    "scope_roles": scope_roles,
+                }
+            )
+
+        return result
+
+
 # Create singleton instance
 workflow_engine = WorkflowEngine()
