@@ -112,6 +112,100 @@ class Curation(CurationInDBBase):
     pass
 
 
+class CurationDetail(CurationInDBBase):
+    """Detailed curation response with expanded relations."""
+
+    # Expanded from gene relationship
+    gene_symbol: str | None = None
+    hgnc_id: str | None = None
+
+    # Expanded from scope relationship
+    scope_name: str | None = None
+
+    # Expanded from creator relationship
+    curator_name: str | None = None
+    curator_id: UUID | None = None
+
+    # Extracted from evidence_data for convenience
+    disease_name: str | None = None
+    mondo_id: str | None = None
+    mode_of_inheritance: str | None = None
+
+    # Computed score breakdown
+    calculated_score: dict[str, Any] | None = None
+
+    @classmethod
+    def from_orm_with_relations(cls, curation: Any) -> "CurationDetail":
+        """Create instance from ORM model with loaded relationships."""
+        # Base data from model
+        data = {
+            "id": curation.id,
+            "gene_id": curation.gene_id,
+            "scope_id": curation.scope_id,
+            "workflow_pair_id": curation.workflow_pair_id,
+            "precuration_id": curation.precuration_id,
+            "evidence_data": curation.evidence_data or {},
+            "status": curation.status,
+            "workflow_stage": curation.workflow_stage,
+            "is_draft": curation.is_draft,
+            "computed_scores": curation.computed_scores or {},
+            "computed_verdict": curation.computed_verdict,
+            "computed_summary": curation.computed_summary,
+            "lock_version": curation.lock_version,
+            "created_at": curation.created_at,
+            "updated_at": curation.updated_at,
+            "submitted_at": curation.submitted_at,
+            "approved_at": curation.approved_at,
+            "auto_saved_at": curation.auto_saved_at,
+            "created_by": curation.created_by,
+            "updated_by": curation.updated_by,
+            "submitted_by": curation.submitted_by,
+            "approved_by": curation.approved_by,
+        }
+
+        # Expand gene relationship
+        if hasattr(curation, "gene") and curation.gene:
+            data["gene_symbol"] = curation.gene.approved_symbol
+            data["hgnc_id"] = curation.gene.hgnc_id
+
+        # Expand scope relationship
+        if hasattr(curation, "scope") and curation.scope:
+            data["scope_name"] = curation.scope.name
+
+        # Expand creator relationship
+        if hasattr(curation, "creator") and curation.creator:
+            data["curator_name"] = (
+                curation.creator.name or curation.creator.email
+            )
+            data["curator_id"] = curation.creator.id
+
+        # Extract from evidence_data OR precuration for convenience
+        evidence = curation.evidence_data or {}
+        precuration_data = {}
+        if hasattr(curation, "precuration") and curation.precuration:
+            precuration_data = curation.precuration.evidence_data or {}
+
+        # Priority: evidence_data > precuration_data
+        data["disease_name"] = (
+            evidence.get("disease_name")
+            or precuration_data.get("disease_name")
+        )
+        data["mondo_id"] = (
+            evidence.get("mondo_id")
+            or precuration_data.get("mondo_id")
+        )
+        data["mode_of_inheritance"] = (
+            evidence.get("mode_of_inheritance")
+            or precuration_data.get("mode_of_inheritance")
+        )
+
+        # Include computed scores as calculated_score for frontend
+        if curation.computed_scores:
+            data["calculated_score"] = curation.computed_scores
+
+        return cls(**data)
+
+
 class CurationSummary(BaseModel):
     """Lightweight curation summary for list views (no evidence_data)."""
 
@@ -123,6 +217,8 @@ class CurationSummary(BaseModel):
     status: CurationStatus
     workflow_stage: WorkflowStage
     computed_verdict: str | None
+    computed_scores: dict[str, Any] | None = None
+    disease_name: str | None = None
     is_draft: bool
     created_at: datetime
     updated_at: datetime
