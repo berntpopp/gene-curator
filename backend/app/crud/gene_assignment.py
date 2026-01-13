@@ -324,6 +324,37 @@ class CRUDGeneScopeAssignment(
         db.refresh(db_obj)
         return db_obj
 
+    def update(
+        self,
+        db: Session,
+        *,
+        db_obj: GeneScopeAssignment,
+        obj_in: GeneScopeAssignmentUpdate | dict[str, Any],
+    ) -> GeneScopeAssignment:
+        """Update a gene-scope assignment with proper field mapping."""
+        if isinstance(obj_in, dict):
+            update_data = obj_in
+        else:
+            update_data = obj_in.model_dump(exclude_unset=True)
+
+        # Map schema field 'priority_level' to model field 'priority'
+        if "priority_level" in update_data:
+            priority = update_data.pop("priority_level")
+            if priority is not None:
+                # Map "medium" (schema) to "normal" (model default)
+                if priority == "medium":
+                    priority = "normal"
+                update_data["priority"] = priority
+
+        # Apply updates to the model
+        for field, value in update_data.items():
+            if hasattr(db_obj, field):
+                setattr(db_obj, field, value)
+
+        db.commit()
+        db.refresh(db_obj)
+        return db_obj
+
     def assign_curator(
         self, db: Session, *, assignment_id: UUID, curator_id: UUID, assigned_by: UUID
     ) -> GeneScopeAssignment | None:

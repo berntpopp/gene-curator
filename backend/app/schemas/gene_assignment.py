@@ -41,6 +41,7 @@ class GeneScopeAssignmentUpdate(BaseModel):
 
     assigned_curator_id: UUID | None = Field(None, description="Assigned curator ID")
     priority_level: str | None = Field(None, description="Assignment priority level")
+    due_date: datetime | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
 
     @field_validator("priority_level")

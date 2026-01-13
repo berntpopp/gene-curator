@@ -1,5 +1,7 @@
 """HGNC gene symbol validator with caching and search functionality"""
 
+from typing import Any
+
 import httpx
 
 from app.core.logging import get_logger
@@ -264,7 +266,7 @@ class HGNCValidator(ExternalValidator):
         return f"/search/{search_query}"
 
     def _parse_search_response(
-        self, data: dict, limit: int
+        self, data: dict[str, Any], limit: int
     ) -> list[HGNCGeneSearchResult]:
         """Parse HGNC API response into search results
 
@@ -275,7 +277,7 @@ class HGNCValidator(ExternalValidator):
         Returns:
             List of HGNCGeneSearchResult objects
         """
-        results = []
+        results: list[HGNCGeneSearchResult] = []
 
         if "response" not in data or "docs" not in data["response"]:
             return results
