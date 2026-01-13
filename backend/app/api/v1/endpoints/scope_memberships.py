@@ -9,6 +9,7 @@ Key Features:
 - Role-based access control (admin can manage, members can view)
 - Member listing with user details (JOIN query)
 - Soft delete support (deactivation instead of hard delete)
+- User search for invitations (scope admin only)
 
 Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
@@ -16,8 +17,8 @@ Author: Claude Code (Automated Implementation)
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -25,7 +26,8 @@ from app.core.deps import get_current_active_user, require_scope_role
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.scope_membership import scope_membership_crud
-from app.models import Scope, ScopeMembership, User
+from app.models import Scope, ScopeMembership, User, UserNew
+from app.schemas.auth import UserResponse
 from app.schemas.scope_membership import (
     ScopeMemberListResponse,
     ScopeMembershipAccept,
@@ -37,6 +39,75 @@ from app.schemas.scope_membership import (
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+@router.get("/{scope_id}/users/search", response_model=list[UserResponse])
+def search_users_for_invitation(
+    *,
+    db: Session = Depends(get_db),
+    scope_id: UUID,
+    q: str = Query(
+        ..., min_length=1, description="Search query (name, email, or institution)"
+    ),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+) -> list[UserNew]:
+    """
+    Search users for invitation to a scope (scope admin only).
+
+    Returns users who are NOT already members of this scope.
+    Searches by name, email, or institution.
+
+    Args:
+        db: Database session
+        scope_id: Scope UUID
+        q: Search query string
+        limit: Maximum results to return
+        scope: Scope object (dependency ensures admin access)
+
+    Returns:
+        List of matching users (excluding existing members)
+    """
+    # Get existing member user IDs for this scope
+    existing_member_ids = (
+        db.execute(
+            select(ScopeMembership.user_id).where(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712
+            )
+        )
+        .scalars()
+        .all()
+    )
+
+    # Search users excluding existing members
+    search_filter = or_(
+        UserNew.name.ilike(f"%{q}%"),
+        UserNew.email.ilike(f"%{q}%"),
+        UserNew.institution.ilike(f"%{q}%"),
+    )
+
+    stmt = (
+        select(UserNew).where(search_filter).where(UserNew.is_active == True)  # noqa: E712
+    )
+
+    # Exclude existing members
+    if existing_member_ids:
+        stmt = stmt.where(UserNew.id.notin_(existing_member_ids))
+
+    stmt = stmt.limit(limit)
+
+    users = db.execute(stmt).scalars().all()
+
+    logger.debug(
+        "User search for scope invitation",
+        scope_id=str(scope_id),
+        query=q,
+        results_count=len(users),
+        excluded_member_count=len(existing_member_ids),
+    )
+
+    return list(users)
 
 
 @router.post(

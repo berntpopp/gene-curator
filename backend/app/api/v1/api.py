@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     gene_summaries,
     genes,
     health,
+    invitations,
     logs,
     precurations,
     schema_validation,
@@ -35,6 +36,9 @@ api_router.include_router(scopes.router, prefix="/scopes", tags=["scopes"])
 api_router.include_router(
     scope_memberships.router, prefix="/scopes", tags=["scope-memberships"]
 )
+api_router.include_router(
+    invitations.router, tags=["invitations"]
+)  # User-facing invitation endpoints (/me/invitations, /invitations/{id}/...)
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
