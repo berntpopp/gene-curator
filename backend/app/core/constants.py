@@ -75,6 +75,12 @@ CURATIONS_DEFAULT_LIMIT = 50
 CURATIONS_MAX_LIMIT = 500
 """Maximum limit for curation list endpoints."""
 
+PRECURATIONS_DEFAULT_LIMIT = 50
+"""Default limit for precuration list endpoints."""
+
+PRECURATIONS_MAX_LIMIT = 200
+"""Maximum limit for precuration list endpoints."""
+
 MAX_OVERVIEW_LIMIT = 10000
 """Maximum limit for overview/analytics endpoints."""
 

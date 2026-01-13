@@ -20,115 +20,115 @@
 
       <!-- Content -->
       <div class="drawer-content pt-4">
-      <v-form ref="formRef">
-        <!-- Gene Selection -->
-        <div class="text-subtitle-2 mb-2">Select Genes</div>
-        <v-autocomplete
-          v-model="selectedGenes"
-          :items="availableGenes"
-          :loading="loadingGenes"
-          item-title="gene_symbol"
-          item-value="gene_id"
-          label="Genes"
-          hint="Select one or more genes to assign"
-          persistent-hint
-          variant="outlined"
-          multiple
-          chips
-          closable-chips
-          :rules="[v => (v && v.length > 0) || 'At least one gene is required']"
-          class="mb-4"
-        >
-          <template #chip="{ item, props: chipProps }">
-            <v-chip v-bind="chipProps" size="small">
-              <v-icon start size="small">mdi-dna</v-icon>
-              {{ item.value }}
-            </v-chip>
-          </template>
+        <v-form ref="formRef">
+          <!-- Gene Selection -->
+          <div class="text-subtitle-2 mb-2">Select Genes</div>
+          <v-autocomplete
+            v-model="selectedGenes"
+            :items="availableGenes"
+            :loading="loadingGenes"
+            item-title="gene_symbol"
+            item-value="gene_id"
+            label="Genes"
+            hint="Select one or more genes to assign"
+            persistent-hint
+            variant="outlined"
+            multiple
+            chips
+            closable-chips
+            :rules="[v => (v && v.length > 0) || 'At least one gene is required']"
+            class="mb-4"
+          >
+            <template #chip="{ item, props: chipProps }">
+              <v-chip v-bind="chipProps" size="small">
+                <v-icon start size="small">mdi-dna</v-icon>
+                {{ item.value }}
+              </v-chip>
+            </template>
 
-          <template #item="{ item, props: itemProps }">
-            <v-list-item v-bind="itemProps">
-              <template #prepend>
-                <v-icon>mdi-dna</v-icon>
-              </template>
-              <v-list-item-title>{{ item.raw.gene_symbol }}</v-list-item-title>
-              <v-list-item-subtitle v-if="item.raw.gene_name">
-                {{ item.raw.gene_name }}
-              </v-list-item-subtitle>
-            </v-list-item>
-          </template>
-        </v-autocomplete>
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #prepend>
+                  <v-icon>mdi-dna</v-icon>
+                </template>
+                <v-list-item-title>{{ item.raw.gene_symbol }}</v-list-item-title>
+                <v-list-item-subtitle v-if="item.raw.gene_name">
+                  {{ item.raw.gene_name }}
+                </v-list-item-subtitle>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
 
-        <!-- Curator Selection -->
-        <div class="text-subtitle-2 mb-2">Assign to Curator</div>
-        <v-autocomplete
-          v-model="selectedCurator"
-          :items="availableCurators"
-          :loading="loadingCurators"
-          item-title="full_name"
-          item-value="user_id"
-          label="Curator"
-          hint="Select a curator to assign these genes to"
-          persistent-hint
-          variant="outlined"
-          :rules="[v => !!v || 'Curator is required']"
-          class="mb-4"
-        >
-          <template #item="{ item, props: itemProps }">
-            <v-list-item v-bind="itemProps">
-              <template #prepend>
-                <v-avatar size="32" :color="getAvatarColor(item.raw.email)">
-                  <span class="text-uppercase">{{
-                    getInitials(item.raw.full_name || item.raw.email)
-                  }}</span>
-                </v-avatar>
-              </template>
-              <v-list-item-title>{{ item.raw.full_name || item.raw.email }}</v-list-item-title>
-              <v-list-item-subtitle>
-                <v-chip size="x-small" :color="getRoleColor(item.raw.role)">
-                  {{ item.raw.role }}
-                </v-chip>
-              </v-list-item-subtitle>
-            </v-list-item>
-          </template>
-        </v-autocomplete>
+          <!-- Curator Selection -->
+          <div class="text-subtitle-2 mb-2">Assign to Curator</div>
+          <v-autocomplete
+            v-model="selectedCurator"
+            :items="availableCurators"
+            :loading="loadingCurators"
+            item-title="full_name"
+            item-value="user_id"
+            label="Curator"
+            hint="Select a curator to assign these genes to"
+            persistent-hint
+            variant="outlined"
+            :rules="[v => !!v || 'Curator is required']"
+            class="mb-4"
+          >
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps">
+                <template #prepend>
+                  <v-avatar size="32" :color="getAvatarColor(item.raw.email)">
+                    <span class="text-uppercase">{{
+                      getInitials(item.raw.full_name || item.raw.email)
+                    }}</span>
+                  </v-avatar>
+                </template>
+                <v-list-item-title>{{ item.raw.full_name || item.raw.email }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  <v-chip size="x-small" :color="getRoleColor(item.raw.role)">
+                    {{ item.raw.role }}
+                  </v-chip>
+                </v-list-item-subtitle>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
 
-        <!-- Due Date (Optional) -->
-        <div class="text-subtitle-2 mb-2">Due Date (Optional)</div>
-        <v-text-field
-          v-model="dueDate"
-          label="Due Date"
-          type="date"
-          variant="outlined"
-          hint="Set a target completion date"
-          persistent-hint
-          class="mb-4"
-        />
+          <!-- Due Date (Optional) -->
+          <div class="text-subtitle-2 mb-2">Due Date (Optional)</div>
+          <v-text-field
+            v-model="dueDate"
+            label="Due Date"
+            type="date"
+            variant="outlined"
+            hint="Set a target completion date"
+            persistent-hint
+            class="mb-4"
+          />
 
-        <!-- Priority (Optional) -->
-        <div class="text-subtitle-2 mb-2">Priority (Optional)</div>
-        <v-select
-          v-model="priority"
-          :items="priorityOptions"
-          label="Priority"
-          variant="outlined"
-          hint="Set priority level for these assignments"
-          persistent-hint
-          class="mb-4"
-        />
+          <!-- Priority (Optional) -->
+          <div class="text-subtitle-2 mb-2">Priority (Optional)</div>
+          <v-select
+            v-model="priority"
+            :items="priorityOptions"
+            label="Priority"
+            variant="outlined"
+            hint="Set priority level for these assignments"
+            persistent-hint
+            class="mb-4"
+          />
 
-        <!-- Notes (Optional) -->
-        <div class="text-subtitle-2 mb-2">Notes (Optional)</div>
-        <v-textarea
-          v-model="notes"
-          label="Assignment Notes"
-          hint="Add any additional context for the curator"
-          variant="outlined"
-          rows="3"
-          auto-grow
-        />
-      </v-form>
-    </div>
+          <!-- Notes (Optional) -->
+          <div class="text-subtitle-2 mb-2">Notes (Optional)</div>
+          <v-textarea
+            v-model="notes"
+            label="Assignment Notes"
+            hint="Add any additional context for the curator"
+            variant="outlined"
+            rows="3"
+            auto-grow
+          />
+        </v-form>
+      </div>
 
       <!-- Actions -->
       <div class="drawer-footer">

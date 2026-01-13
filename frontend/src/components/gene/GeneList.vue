@@ -98,6 +98,20 @@
               {{ getStatusLabel(item.status) }}
             </v-chip>
           </td>
+          <td>
+            <v-chip v-if="isPrecurationApproved(item)" size="small" color="success" variant="tonal">
+              <v-icon start size="small">mdi-check-circle</v-icon>
+              Ready for Curation
+            </v-chip>
+            <v-chip v-else-if="hasPrecuration(item)" size="small" color="warning" variant="tonal">
+              <v-icon start size="small">mdi-clipboard-text</v-icon>
+              {{ getPrecurationStatusLabel(item) }}
+            </v-chip>
+            <v-chip v-else size="small" variant="outlined" color="grey">
+              <v-icon start size="small">mdi-clipboard-outline</v-icon>
+              No Precuration
+            </v-chip>
+          </td>
           <td>{{ formatDate(item.due_date) }}</td>
           <td>
             <v-progress-linear
@@ -128,17 +142,32 @@
                   </template>
                   <v-list-item-title>View Details</v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="startPrecuration(item)">
+                <v-list-item v-if="!hasPrecuration(item)" @click="startPrecuration(item)">
                   <template #prepend>
                     <v-icon>mdi-clipboard-text</v-icon>
                   </template>
                   <v-list-item-title>Start Precuration</v-list-item-title>
                 </v-list-item>
-                <v-list-item @click="startCuration(item)">
+                <v-list-item
+                  v-else-if="hasPrecuration(item) && !isPrecurationApproved(item)"
+                  @click="continuePrecuration(item)"
+                >
+                  <template #prepend>
+                    <v-icon>mdi-clipboard-edit</v-icon>
+                  </template>
+                  <v-list-item-title>Continue Precuration</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-if="isPrecurationApproved(item)" @click="startCuration(item)">
                   <template #prepend>
                     <v-icon>mdi-pencil</v-icon>
                   </template>
                   <v-list-item-title>Start Curation</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-else disabled>
+                  <template #prepend>
+                    <v-icon>mdi-pencil</v-icon>
+                  </template>
+                  <v-list-item-title> Curation (requires approved precuration) </v-list-item-title>
                 </v-list-item>
                 <v-divider />
                 <v-list-item v-if="canAssignGenes" @click="reassignGene(item)">
@@ -215,9 +244,36 @@
                 View
               </v-btn>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="startCuration(gene)">
+              <!-- Workflow-aware action button -->
+              <v-btn
+                v-if="!hasPrecuration(gene)"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="startPrecuration(gene)"
+              >
+                <v-icon start>mdi-clipboard-text</v-icon>
+                Start Precuration
+              </v-btn>
+              <v-btn
+                v-else-if="hasPrecuration(gene) && !isPrecurationApproved(gene)"
+                size="small"
+                color="warning"
+                variant="tonal"
+                @click="continuePrecuration(gene)"
+              >
+                <v-icon start>mdi-clipboard-edit</v-icon>
+                Continue Precuration
+              </v-btn>
+              <v-btn
+                v-else-if="isPrecurationApproved(gene)"
+                size="small"
+                color="success"
+                variant="tonal"
+                @click="startCuration(gene)"
+              >
                 <v-icon start>mdi-pencil</v-icon>
-                Curate
+                Start Curation
               </v-btn>
             </v-card-actions>
           </v-card>
@@ -287,7 +343,7 @@
 
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { assignmentsAPI } from '@/api'
+  import { assignmentsAPI, precurationsAPI } from '@/api'
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -316,6 +372,7 @@
   const filterCurator = ref(null)
   const viewMode = ref('table')
   const curators = ref([])
+  const genePrecurations = ref({}) // Map of gene_id -> precuration status
 
   // Drawer state management (ensures only one drawer open at a time)
   const { isOpen: showAddDrawer, open: openAddDrawer } = useDrawerState('gene-list-add')
@@ -327,6 +384,7 @@
     { title: 'Gene Name', key: 'gene_name', sortable: true },
     { title: 'Curator', key: 'curator_name', sortable: true },
     { title: 'Status', key: 'status', sortable: true },
+    { title: 'Workflow', key: 'workflow', sortable: false },
     { title: 'Due Date', key: 'due_date', sortable: true },
     { title: 'Progress', key: 'progress', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
@@ -394,7 +452,11 @@
         gene_symbol: assignment.gene_symbol || assignment.gene?.gene_symbol || '',
         gene_name: assignment.gene_name || assignment.gene?.gene_name || '',
         curator_id: assignment.assigned_curator_id || assignment.curator_id,
-        curator_name: assignment.curator_name || assignment.curator?.full_name || assignment.curator?.email || '',
+        curator_name:
+          assignment.curator_name ||
+          assignment.curator?.full_name ||
+          assignment.curator?.email ||
+          '',
         status: assignment.status || 'assigned',
         due_date: assignment.due_date,
         progress: calculateProgress(assignment)
@@ -409,6 +471,9 @@
         ).values()
       )
 
+      // Fetch precuration status for all genes in scope
+      await fetchPrecurationStatuses()
+
       logger.debug('Genes loaded', { count: genes.value.length, scope_id: props.scopeId })
     } catch (error) {
       logger.error('Failed to fetch genes', { error: error.message })
@@ -416,6 +481,55 @@
     } finally {
       loading.value = false
     }
+  }
+
+  /**
+   * Fetch precuration statuses for genes in this scope
+   * Maps gene_id -> latest precuration status
+   */
+  async function fetchPrecurationStatuses() {
+    try {
+      const response = await precurationsAPI.getPrecurations({
+        scope_id: props.scopeId,
+        limit: 200 // Backend max limit is 200
+      })
+
+      // Build map of gene_id -> most recent precuration
+      const precurationMap = {}
+      for (const precuration of response.precurations || []) {
+        const existing = precurationMap[precuration.gene_id]
+        // Keep the most recent or highest-status precuration
+        if (!existing || shouldReplacePrecuration(existing, precuration)) {
+          precurationMap[precuration.gene_id] = {
+            id: precuration.id,
+            status: precuration.status,
+            workflow_stage: precuration.workflow_stage,
+            updated_at: precuration.updated_at
+          }
+        }
+      }
+      genePrecurations.value = precurationMap
+      logger.debug('Precuration statuses loaded', { count: Object.keys(precurationMap).length })
+    } catch (error) {
+      logger.error('Failed to fetch precuration statuses', { error: error.message })
+      // Don't fail the whole page if precurations fail to load
+    }
+  }
+
+  /**
+   * Determine if a new precuration should replace an existing one
+   * Prioritizes approved > submitted > draft, then by date
+   */
+  function shouldReplacePrecuration(existing, newPrecuration) {
+    const statusPriority = { approved: 3, submitted: 2, draft: 1, rejected: 0 }
+    const existingPriority = statusPriority[existing.status] || 0
+    const newPriority = statusPriority[newPrecuration.status] || 0
+
+    if (newPriority > existingPriority) return true
+    if (newPriority < existingPriority) return false
+
+    // Same status - use most recent
+    return new Date(newPrecuration.updated_at) > new Date(existing.updated_at)
   }
 
   /**
@@ -492,6 +606,38 @@
   }
 
   /**
+   * Check if gene has a precuration
+   */
+  function hasPrecuration(gene) {
+    return !!genePrecurations.value[gene.gene_id]
+  }
+
+  /**
+   * Check if gene's precuration is approved
+   */
+  function isPrecurationApproved(gene) {
+    const precuration = genePrecurations.value[gene.gene_id]
+    return precuration?.status === 'approved'
+  }
+
+  /**
+   * Get precuration status label for display
+   */
+  function getPrecurationStatusLabel(gene) {
+    const precuration = genePrecurations.value[gene.gene_id]
+    if (!precuration) return 'No Precuration'
+
+    const statusLabels = {
+      draft: 'Draft',
+      submitted: 'Submitted',
+      in_review: 'In Review',
+      approved: 'Approved',
+      rejected: 'Rejected'
+    }
+    return statusLabels[precuration.status] || precuration.status
+  }
+
+  /**
    * Start precuration for gene
    */
   function startPrecuration(gene) {
@@ -499,9 +645,28 @@
   }
 
   /**
-   * Start curation for gene
+   * Continue existing precuration
+   */
+  function continuePrecuration(gene) {
+    const precuration = genePrecurations.value[gene.gene_id]
+    if (precuration?.id) {
+      router.push(`/scopes/${props.scopeId}/precurations/${precuration.id}`)
+    } else {
+      startPrecuration(gene)
+    }
+  }
+
+  /**
+   * Start curation for gene (only if precuration approved)
    */
   function startCuration(gene) {
+    if (!isPrecurationApproved(gene)) {
+      notificationStore.addToast(
+        'Complete and approve precuration before starting curation',
+        'warning'
+      )
+      return
+    }
     router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new`)
   }
 

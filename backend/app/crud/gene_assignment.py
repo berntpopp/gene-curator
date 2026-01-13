@@ -167,12 +167,7 @@ class CRUDGeneScopeAssignment(
         if gene_id:
             stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
 
-        return (
-            db.execute(stmt.offset(skip).limit(limit))
-            .scalars()
-            .unique()
-            .all()
-        )
+        return db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
 
     def get_active_assignments(
         self,
