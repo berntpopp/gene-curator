@@ -26,5 +26,5 @@ backups/
 # Test artifacts and browser automation
 .playwright-mcp/
 
-# Claude Code local settings
-.claude/
+# Claude Code - allow project settings, exclude local overrides
+.claude/settings.local.json
