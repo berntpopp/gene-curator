@@ -141,6 +141,54 @@
                 </template>
               </v-switch>
             </v-form>
+
+            <!-- Initial Members Section -->
+            <v-divider class="my-4" />
+
+            <div class="d-flex align-center mb-3">
+              <v-icon start color="primary">mdi-account-group</v-icon>
+              <span class="text-subtitle-1 font-weight-medium">Initial Members (Optional)</span>
+            </div>
+
+            <p class="text-body-2 text-medium-emphasis mb-3">
+              Add team members who will be invited when the scope is created. You'll be added as an
+              admin automatically.
+            </p>
+
+            <!-- Pending members list -->
+            <v-list v-if="pendingMembers.length > 0" density="compact" class="mb-3">
+              <v-list-item v-for="member in pendingMembers" :key="member.user.id">
+                <template #prepend>
+                  <v-avatar size="32" :color="getRoleColor(member.role)">
+                    <span class="text-caption">{{ getInitials(member.user.name) }}</span>
+                  </v-avatar>
+                </template>
+
+                <v-list-item-title>{{ member.user.name || member.user.email }}</v-list-item-title>
+                <v-list-item-subtitle>
+                  {{ member.user.email }} - {{ member.role }}
+                </v-list-item-subtitle>
+
+                <template #append>
+                  <v-btn
+                    icon="mdi-close"
+                    size="small"
+                    variant="text"
+                    @click="removePendingMember(member.user.id)"
+                  />
+                </template>
+              </v-list-item>
+            </v-list>
+
+            <!-- Add member button -->
+            <v-btn
+              variant="outlined"
+              color="primary"
+              prepend-icon="mdi-account-plus"
+              @click="showAddMemberDialog = true"
+            >
+              Add Member
+            </v-btn>
           </v-card-text>
 
           <v-card-actions>
@@ -217,6 +265,67 @@
       </v-col>
     </v-row>
 
+    <!-- Add Member Dialog for Initial Members -->
+    <v-dialog v-model="showAddMemberDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start color="primary">mdi-account-plus</v-icon>
+          Add Initial Member
+        </v-card-title>
+
+        <v-card-text>
+          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+            Search for existing users to invite when this scope is created.
+          </v-alert>
+
+          <!-- Simple user search for scope creation -->
+          <v-autocomplete
+            v-model="selectedMember"
+            :items="userSearchResults"
+            :loading="searchingUsers"
+            item-title="displayName"
+            item-value="id"
+            label="Search for user"
+            placeholder="Type name or email..."
+            return-object
+            clearable
+            no-filter
+            @update:search="onUserSearch"
+          >
+            <template #item="{ item, props }">
+              <v-list-item v-bind="props" :title="undefined">
+                <v-list-item-title>{{ item.raw.name || item.raw.email }}</v-list-item-title>
+                <v-list-item-subtitle>{{ item.raw.email }}</v-list-item-subtitle>
+              </v-list-item>
+            </template>
+          </v-autocomplete>
+
+          <!-- Role selection -->
+          <v-select v-model="memberRole" :items="roleOptions" label="Role" class="mt-3">
+            <template #item="{ item, props }">
+              <v-list-item v-bind="props">
+                <template #prepend>
+                  <v-icon :icon="getRoleIcon(item.value)" :color="getRoleColor(item.value)" />
+                </template>
+              </v-list-item>
+            </template>
+          </v-select>
+        </v-card-text>
+
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="cancelAddMember">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            :disabled="!selectedMember || !memberRole"
+            @click="addPendingMember"
+          >
+            Add
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Snackbar for notifications -->
     <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
       {{ snackbarMessage }}
@@ -232,7 +341,9 @@
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useScopeUtils } from '@/composables/useScopeUtils'
+  import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
+  import { usersApi } from '@/api/users'
 
   // ============================================
   // COMPOSABLES & STORE
@@ -241,6 +352,7 @@
   const router = useRouter()
   const scopeStore = useScopesStore()
   const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils()
+  const { getRoleColor, getRoleIcon } = useRoleColors()
   const logger = useLogger()
 
   // ============================================
@@ -286,6 +398,17 @@
   const showSnackbar = ref(false)
   const snackbarMessage = ref('')
   const snackbarColor = ref('success')
+
+  // Initial members
+  const showAddMemberDialog = ref(false)
+  const pendingMembers = ref([])
+  const selectedMember = ref(null)
+  const memberRole = ref('curator')
+  const userSearchResults = ref([])
+  const searchingUsers = ref(false)
+  const searchDebounce = ref(null)
+
+  const roleOptions = ['admin', 'curator', 'reviewer', 'viewer']
 
   // ============================================
   // COMPUTED
@@ -371,7 +494,8 @@
     try {
       logger.debug('Creating new scope', {
         name: scopeData.value.name,
-        display_name: scopeData.value.display_name
+        display_name: scopeData.value.display_name,
+        initial_members: pendingMembers.value.length
       })
 
       const newScope = await scopeStore.createScope(scopeData.value)
@@ -380,6 +504,35 @@
         scope_id: newScope.id,
         name: newScope.name
       })
+
+      // Invite pending members
+      if (pendingMembers.value.length > 0) {
+        logger.debug('Inviting initial members', {
+          scope_id: newScope.id,
+          count: pendingMembers.value.length
+        })
+
+        for (const member of pendingMembers.value) {
+          try {
+            await scopeStore.inviteMember(newScope.id, {
+              user_id: member.user.id,
+              role: member.role
+            })
+            logger.debug('Invited member', {
+              scope_id: newScope.id,
+              user_id: member.user.id,
+              role: member.role
+            })
+          } catch (inviteError) {
+            logger.warn('Failed to invite member', {
+              scope_id: newScope.id,
+              user_id: member.user.id,
+              error: inviteError.message
+            })
+            // Continue with other invitations even if one fails
+          }
+        }
+      }
 
       showNotification('Scope created successfully!', 'success')
 
@@ -423,6 +576,87 @@
     snackbarMessage.value = message
     snackbarColor.value = color
     showSnackbar.value = true
+  }
+
+  // ============================================
+  // INITIAL MEMBERS METHODS
+  // ============================================
+
+  /**
+   * Get initials from name
+   */
+  const getInitials = name => {
+    if (!name) return '?'
+    const parts = name.trim().split(' ')
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
+    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+  }
+
+  /**
+   * Handle user search with debounce
+   */
+  const onUserSearch = query => {
+    if (searchDebounce.value) {
+      clearTimeout(searchDebounce.value)
+    }
+
+    if (!query || query.length < 2) {
+      userSearchResults.value = []
+      return
+    }
+
+    searchDebounce.value = setTimeout(async () => {
+      searchingUsers.value = true
+      try {
+        const results = await usersApi.searchUsers(query, { limit: 10 })
+        // Filter out already added members
+        const existingIds = pendingMembers.value.map(m => m.user.id)
+        userSearchResults.value = results
+          .filter(u => !existingIds.includes(u.id))
+          .map(u => ({ ...u, displayName: u.name || u.email }))
+      } catch (error) {
+        logger.error('User search failed', { error: error.message })
+        userSearchResults.value = []
+      } finally {
+        searchingUsers.value = false
+      }
+    }, 300)
+  }
+
+  /**
+   * Add member to pending list
+   */
+  const addPendingMember = () => {
+    if (!selectedMember.value || !memberRole.value) return
+
+    pendingMembers.value.push({
+      user: selectedMember.value,
+      role: memberRole.value
+    })
+
+    logger.debug('Added pending member', {
+      userId: selectedMember.value.id,
+      role: memberRole.value
+    })
+
+    cancelAddMember()
+  }
+
+  /**
+   * Remove member from pending list
+   */
+  const removePendingMember = userId => {
+    pendingMembers.value = pendingMembers.value.filter(m => m.user.id !== userId)
+  }
+
+  /**
+   * Cancel add member dialog
+   */
+  const cancelAddMember = () => {
+    showAddMemberDialog.value = false
+    selectedMember.value = null
+    memberRole.value = 'curator'
+    userSearchResults.value = []
   }
 </script>
 

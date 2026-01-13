@@ -8,7 +8,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select
@@ -24,6 +24,9 @@ from app.schemas.scope_membership import (
     ScopeMembershipResponse,
     ScopeMembershipUpdate,
 )
+
+# Default invitation validity period
+INVITATION_VALIDITY_DAYS = 7
 
 logger = get_logger(__name__)
 
@@ -97,16 +100,19 @@ class ScopeMembershipCRUD(
                 )
                 raise ValueError("User is already a member of this scope")
 
-        # Create membership
+        # Create membership - always pending, user must explicitly accept
+        # GitHub-style: invitations require explicit acceptance
+        now = datetime.now(UTC)
+        expires_at = now + timedelta(days=INVITATION_VALIDITY_DAYS)
+
         membership = ScopeMembership(
             scope_id=scope_id,
             user_id=obj_in.user_id,  # May be None for email invitations
             role=obj_in.role.value,
             invited_by=invited_by_id,
-            invited_at=datetime.now(UTC),
-            accepted_at=datetime.now(UTC)
-            if obj_in.user_id
-            else None,  # Auto-accept for existing users
+            invited_at=now,
+            accepted_at=None,  # Always pending - user must accept
+            expires_at=expires_at,  # Invitation expires after INVITATION_VALIDITY_DAYS
             is_active=True,
             team_id=obj_in.team_id,
             notes=obj_in.notes,

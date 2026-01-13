@@ -302,6 +302,9 @@ class ScopeMembership(Base):
     accepted_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True)
     )  # NULL = pending invitation
+    expires_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True)
+    )  # Invitation expiry (GitHub-style)
 
     # Status
     is_active: Mapped[bool] = mapped_column(
