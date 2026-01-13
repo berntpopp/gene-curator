@@ -52,13 +52,13 @@
         color="secondary"
         variant="outlined"
         class="mr-2"
-        @click="openAddDrawer"
+        @click="showAddModal = true"
       >
         <v-icon start>mdi-dna</v-icon>
         Add Genes
       </v-btn>
 
-      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignDrawer">
+      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignModal()">
         <v-icon start>mdi-account-arrow-right</v-icon>
         Assign to Curator
       </v-btn>
@@ -77,12 +77,13 @@
           <td>
             <div class="d-flex align-center">
               <v-icon icon="mdi-dna" size="small" class="mr-2" />
-              <router-link
-                :to="`/scopes/${scopeId}/genes/${item.gene_id}`"
-                class="text-decoration-none font-weight-medium"
+              <a
+                href="#"
+                class="text-decoration-none font-weight-medium gene-link"
+                @click.prevent="viewGene(item)"
               >
                 {{ item.gene_symbol }}
-              </router-link>
+              </a>
             </div>
           </td>
           <td>{{ item.gene_name || '—' }}</td>
@@ -198,7 +199,9 @@
           <v-card hover>
             <v-card-title class="d-flex align-center">
               <v-icon icon="mdi-dna" class="mr-2" />
-              {{ gene.gene_symbol }}
+              <a href="#" class="text-decoration-none gene-link" @click.prevent="viewGene(gene)">
+                {{ gene.gene_symbol }}
+              </a>
               <v-spacer />
               <v-chip :color="getStatusColor(gene.status)" size="small">
                 {{ getStatusLabel(gene.status) }}
@@ -301,7 +304,7 @@
         <v-btn
           v-if="canAssignGenes && !search && !filterStatus"
           color="primary"
-          @click="openAssignDrawer"
+          @click="openAssignModal()"
         >
           <v-icon start>mdi-plus</v-icon>
           Assign Genes
@@ -310,14 +313,23 @@
       </template>
     </v-alert>
 
-    <!-- Add Genes Drawer -->
-    <AddGenesDrawer v-model="showAddDrawer" @added="handleGenesAdded" />
+    <!-- Add Genes Modal (replaces drawer for better UX) -->
+    <AddGeneModal v-model="showAddModal" :scope-id="scopeId" @added="handleGenesAdded" />
 
-    <!-- Assign Genes Drawer -->
-    <AssignGenesDrawer
-      v-model="showAssignDrawer"
+    <!-- Assign Curator Modal (replaces drawer for better UX) -->
+    <AssignCuratorModal
+      v-model="showAssignModal"
       :scope-id="scopeId"
+      :pre-selected-genes="preSelectedGeneIds"
       @assigned="handleGenesAssigned"
+    />
+
+    <!-- Gene Detail Modal -->
+    <GeneDetailModal
+      v-model="showGeneDetailModal"
+      :hgnc-id="selectedGeneForDetail?.gene_hgnc_id"
+      :gene-symbol="selectedGeneForDetail?.gene_symbol"
+      :gene-id="selectedGeneForDetail?.gene_id"
     />
   </div>
 </template>
@@ -333,8 +345,9 @@
    * - Search by gene symbol/name
    * - Filter by status and curator
    * - Table/card view toggle
-   * - Assign genes drawer
-   * - Start precuration/curation
+   * - Add genes modal with HGNC search and bulk upload
+   * - Assign curator modal with multi-gene selection
+   * - Start precuration/curation workflow
    * - Progress tracking
    *
    * @example
@@ -347,10 +360,10 @@
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import { useDrawerState } from '@/composables/useDrawerState'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
-  import AddGenesDrawer from '@/components/drawers/AddGenesDrawer.vue'
-  import AssignGenesDrawer from '@/components/drawers/AssignGenesDrawer.vue'
+  import AddGeneModal from '@/components/gene/AddGeneModal.vue'
+  import AssignCuratorModal from '@/components/gene/AssignCuratorModal.vue'
+  import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
 
   const props = defineProps({
     scopeId: {
@@ -374,9 +387,20 @@
   const curators = ref([])
   const genePrecurations = ref({}) // Map of gene_id -> precuration status
 
-  // Drawer state management (ensures only one drawer open at a time)
-  const { isOpen: showAddDrawer, open: openAddDrawer } = useDrawerState('gene-list-add')
-  const { isOpen: showAssignDrawer, open: openAssignDrawer } = useDrawerState('gene-list-assign')
+  // Modal state
+  const showAddModal = ref(false)
+  const showAssignModal = ref(false)
+  const showGeneDetailModal = ref(false)
+  const selectedGeneForDetail = ref(null)
+  const preSelectedGeneIds = ref([])
+
+  /**
+   * Open assign curator modal with optional pre-selected genes
+   */
+  function openAssignModal(geneIds = []) {
+    preSelectedGeneIds.value = geneIds
+    showAssignModal.value = true
+  }
 
   // Table headers
   const tableHeaders = [
@@ -451,6 +475,7 @@
         gene_id: assignment.gene_id,
         gene_symbol: assignment.gene_symbol || assignment.gene?.gene_symbol || '',
         gene_name: assignment.gene_name || assignment.gene?.gene_name || '',
+        gene_hgnc_id: assignment.gene_hgnc_id || assignment.gene?.hgnc_id || '',
         curator_id: assignment.assigned_curator_id || assignment.curator_id,
         curator_name:
           assignment.curator_name ||
@@ -599,10 +624,11 @@
   }
 
   /**
-   * View gene details
+   * View gene details in modal
    */
   function viewGene(gene) {
-    router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}`)
+    selectedGeneForDetail.value = gene
+    showGeneDetailModal.value = true
   }
 
   /**
@@ -671,12 +697,11 @@
   }
 
   /**
-   * Reassign gene
+   * Reassign gene to another curator
    */
-  function reassignGene() {
-    // Open assign drawer with this gene pre-selected
-    // TODO: Pre-select this gene in the drawer
-    openAssignDrawer()
+  function reassignGene(gene) {
+    // Open assign modal with this gene pre-selected
+    openAssignModal([gene.gene_id])
   }
 
   /**
@@ -723,5 +748,10 @@
 
   a:hover {
     text-decoration: underline;
+  }
+
+  /* Gene link in table */
+  .gene-link {
+    cursor: pointer;
   }
 </style>
