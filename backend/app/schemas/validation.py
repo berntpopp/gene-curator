@@ -85,7 +85,9 @@ class HGNCGeneSearchResult(BaseModel):
     alias_symbols: list[str] = Field(default=[], description="Alias gene symbols")
     previous_symbols: list[str] = Field(default=[], description="Previous gene symbols")
     chromosome: str | None = Field(None, description="Chromosome location")
-    location: str | None = Field(None, description="Chromosomal location (e.g., 17q21.31)")
+    location: str | None = Field(
+        None, description="Chromosomal location (e.g., 17q21.31)"
+    )
     locus_type: str | None = Field(None, description="Locus type")
     status: str | None = Field(None, description="Gene status (e.g., Approved)")
 

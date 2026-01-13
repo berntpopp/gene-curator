@@ -86,13 +86,18 @@
               </a>
             </div>
           </td>
-          <td>{{ item.gene_name || '—' }}</td>
           <td>
             <v-chip v-if="item.curator_name" size="small" color="primary" variant="tonal">
               <v-icon start size="small">mdi-account</v-icon>
               {{ item.curator_name }}
             </v-chip>
             <v-chip v-else size="small" variant="outlined">Unassigned</v-chip>
+          </td>
+          <td>
+            <v-chip :color="getPriorityColor(item.priority)" size="small" variant="tonal">
+              <v-icon start size="small">{{ getPriorityIcon(item.priority) }}</v-icon>
+              {{ getPriorityLabel(item.priority) }}
+            </v-chip>
           </td>
           <td>
             <v-chip :color="getStatusColor(item.status)" size="small">
@@ -137,12 +142,6 @@
                 </v-btn>
               </template>
               <v-list density="compact">
-                <v-list-item @click="viewGene(item)">
-                  <template #prepend>
-                    <v-icon>mdi-eye</v-icon>
-                  </template>
-                  <v-list-item-title>View Details</v-list-item-title>
-                </v-list-item>
                 <v-list-item v-if="!hasPrecuration(item)" @click="startPrecuration(item)">
                   <template #prepend>
                     <v-icon>mdi-clipboard-text</v-icon>
@@ -176,6 +175,22 @@
                     <v-icon>mdi-account-switch</v-icon>
                   </template>
                   <v-list-item-title>Reassign</v-list-item-title>
+                </v-list-item>
+                <v-list-item v-if="canAssignGenes" @click="editGeneAssignment(item)">
+                  <template #prepend>
+                    <v-icon>mdi-pencil-box</v-icon>
+                  </template>
+                  <v-list-item-title>Edit Assignment</v-list-item-title>
+                </v-list-item>
+                <v-list-item
+                  v-if="canRemoveGenes"
+                  class="text-error"
+                  @click="confirmRemoveGene(item)"
+                >
+                  <template #prepend>
+                    <v-icon color="error">mdi-delete</v-icon>
+                  </template>
+                  <v-list-item-title>Remove from Scope</v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-menu>
@@ -219,6 +234,14 @@
                 <span class="text-caption">
                   {{ gene.curator_name || 'Unassigned' }}
                 </span>
+              </div>
+
+              <!-- Priority -->
+              <div class="d-flex align-center mb-2">
+                <v-icon :icon="getPriorityIcon(gene.priority)" size="small" class="mr-2" />
+                <v-chip :color="getPriorityColor(gene.priority)" size="x-small" variant="tonal">
+                  {{ getPriorityLabel(gene.priority) }}
+                </v-chip>
               </div>
 
               <!-- Due date -->
@@ -331,6 +354,59 @@
       :gene-symbol="selectedGeneForDetail?.gene_symbol"
       :gene-id="selectedGeneForDetail?.gene_id"
     />
+
+    <!-- Reassign Gene Modal -->
+    <ReassignGeneModal
+      v-model="showReassignModal"
+      :scope-id="scopeId"
+      :gene="selectedGeneForReassign"
+      @reassigned="handleGeneReassigned"
+    />
+
+    <!-- Edit Gene Assignment Modal -->
+    <EditGeneAssignmentModal
+      v-model="showEditModal"
+      :scope-id="scopeId"
+      :gene="selectedGeneForEdit"
+      @updated="handleGeneEdited"
+      @revalidated="handleGeneRevalidated"
+    />
+
+    <!-- Remove Gene Confirmation Dialog -->
+    <v-dialog v-model="showRemoveConfirm" max-width="450" persistent>
+      <v-card>
+        <v-card-title class="d-flex align-center text-error pa-4">
+          <v-icon start color="error" size="28">mdi-alert-circle</v-icon>
+          <span class="text-h6">Remove Gene from Scope</span>
+        </v-card-title>
+
+        <v-divider />
+
+        <v-card-text class="pa-4">
+          <p class="mb-3">
+            Are you sure you want to remove
+            <strong>{{ selectedGeneForRemoval?.gene_symbol }}</strong> from this scope?
+          </p>
+          <v-alert type="warning" variant="tonal" density="compact">
+            <div class="text-body-2">
+              This will remove the gene assignment but will not delete the gene from the catalog.
+              Any existing precurations or curations will be preserved.
+            </div>
+          </v-alert>
+        </v-card-text>
+
+        <v-divider />
+
+        <v-card-actions class="pa-4">
+          <v-btn variant="text" :disabled="isRemoving" @click="cancelRemoveGene"> Cancel </v-btn>
+          <v-spacer />
+          <v-btn color="error" variant="flat" :loading="isRemoving" @click="removeGeneFromScope">
+            <v-icon start>mdi-delete</v-icon>
+            Remove
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </div>
 </template>
 
@@ -364,6 +440,8 @@
   import AddGeneModal from '@/components/gene/AddGeneModal.vue'
   import AssignCuratorModal from '@/components/gene/AssignCuratorModal.vue'
   import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
+  import ReassignGeneModal from '@/components/gene/ReassignGeneModal.vue'
+  import EditGeneAssignmentModal from '@/components/gene/EditGeneAssignmentModal.vue'
 
   const props = defineProps({
     scopeId: {
@@ -391,8 +469,15 @@
   const showAddModal = ref(false)
   const showAssignModal = ref(false)
   const showGeneDetailModal = ref(false)
+  const showReassignModal = ref(false)
+  const showRemoveConfirm = ref(false)
   const selectedGeneForDetail = ref(null)
+  const selectedGeneForReassign = ref(null)
+  const selectedGeneForRemoval = ref(null)
+  const selectedGeneForEdit = ref(null)
   const preSelectedGeneIds = ref([])
+  const isRemoving = ref(false)
+  const showEditModal = ref(false)
 
   /**
    * Open assign curator modal with optional pre-selected genes
@@ -405,8 +490,8 @@
   // Table headers
   const tableHeaders = [
     { title: 'Gene Symbol', key: 'gene_symbol', sortable: true },
-    { title: 'Gene Name', key: 'gene_name', sortable: true },
     { title: 'Curator', key: 'curator_name', sortable: true },
+    { title: 'Priority', key: 'priority', sortable: true },
     { title: 'Status', key: 'status', sortable: true },
     { title: 'Workflow', key: 'workflow', sortable: false },
     { title: 'Due Date', key: 'due_date', sortable: true },
@@ -426,6 +511,12 @@
   const canAssignGenes = computed(() => {
     const userRole = authStore.user?.role
     return ['admin', 'scope_admin', 'curator'].includes(userRole)
+  })
+
+  // Permission to remove genes from scope (admins, scope_admins, reviewers)
+  const canRemoveGenes = computed(() => {
+    const userRole = authStore.user?.role
+    return ['admin', 'scope_admin', 'reviewer'].includes(userRole)
   })
 
   // Curator options (for filter)
@@ -482,6 +573,8 @@
           assignment.curator?.full_name ||
           assignment.curator?.email ||
           '',
+        priority: assignment.priority || assignment.priority_level || 'normal',
+        assignment_notes: assignment.assignment_notes || '',
         status: assignment.status || 'assigned',
         due_date: assignment.due_date,
         progress: calculateProgress(assignment)
@@ -597,6 +690,45 @@
   }
 
   /**
+   * Get priority color
+   */
+  function getPriorityColor(priority) {
+    const colors = {
+      high: 'error',
+      medium: 'warning',
+      normal: 'warning',
+      low: 'grey'
+    }
+    return colors[priority] || 'grey'
+  }
+
+  /**
+   * Get priority icon
+   */
+  function getPriorityIcon(priority) {
+    const icons = {
+      high: 'mdi-flag',
+      medium: 'mdi-flag',
+      normal: 'mdi-flag',
+      low: 'mdi-flag-outline'
+    }
+    return icons[priority] || 'mdi-flag-outline'
+  }
+
+  /**
+   * Get priority label
+   */
+  function getPriorityLabel(priority) {
+    const labels = {
+      high: 'High',
+      medium: 'Medium',
+      normal: 'Medium',
+      low: 'Low'
+    }
+    return labels[priority] || priority
+  }
+
+  /**
    * Get progress color
    */
   function getProgressColor(progress) {
@@ -700,8 +832,62 @@
    * Reassign gene to another curator
    */
   function reassignGene(gene) {
-    // Open assign modal with this gene pre-selected
-    openAssignModal([gene.gene_id])
+    selectedGeneForReassign.value = gene
+    showReassignModal.value = true
+  }
+
+  /**
+   * Confirm removal of gene from scope
+   */
+  function confirmRemoveGene(gene) {
+    selectedGeneForRemoval.value = gene
+    showRemoveConfirm.value = true
+  }
+
+  /**
+   * Cancel the remove gene confirmation dialog
+   */
+  function cancelRemoveGene() {
+    showRemoveConfirm.value = false
+    selectedGeneForRemoval.value = null
+  }
+
+  /**
+   * Remove gene from scope
+   */
+  async function removeGeneFromScope() {
+    if (!selectedGeneForRemoval.value?.assignment_id) return
+
+    isRemoving.value = true
+    try {
+      await assignmentsAPI.removeAssignment(
+        selectedGeneForRemoval.value.assignment_id,
+        'Removed from scope via gene management'
+      )
+
+      logger.info('Gene removed from scope', {
+        gene_id: selectedGeneForRemoval.value.gene_id,
+        gene_symbol: selectedGeneForRemoval.value.gene_symbol,
+        scope_id: props.scopeId
+      })
+
+      notificationStore.addToast(
+        `${selectedGeneForRemoval.value.gene_symbol} removed from scope`,
+        'success'
+      )
+
+      showRemoveConfirm.value = false
+      selectedGeneForRemoval.value = null
+      fetchGenes()
+    } catch (error) {
+      logger.error('Failed to remove gene from scope', { error: error.message })
+      notificationStore.addToast(
+        `Failed to remove: ${error.response?.data?.detail || error.message}`,
+        'error'
+      )
+    } finally {
+      isRemoving.value = false
+    }
   }
 
   /**
@@ -721,6 +907,39 @@
   function handleGenesAssigned() {
     fetchGenes()
     notificationStore.addToast('Genes assigned successfully', 'success')
+  }
+
+  /**
+   * Handle gene reassigned
+   */
+  function handleGeneReassigned() {
+    fetchGenes()
+  }
+
+  /**
+   * Edit gene assignment (priority, due date, notes)
+   */
+  function editGeneAssignment(gene) {
+    selectedGeneForEdit.value = gene
+    showEditModal.value = true
+  }
+
+  /**
+   * Handle gene assignment edited
+   */
+  function handleGeneEdited() {
+    fetchGenes()
+  }
+
+  /**
+   * Handle gene revalidated
+   */
+  function handleGeneRevalidated(result) {
+    logger.debug('Gene revalidated', { result })
+    // Optionally refresh genes if data changed
+    if (result?.external_data) {
+      fetchGenes()
+    }
   }
 
   // Lifecycle
