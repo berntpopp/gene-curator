@@ -33,8 +33,9 @@ def mock_rls_context():
 
 @pytest.fixture
 def test_user_with_scope(db_session: Session, test_scope: Scope) -> UserNew:
-    """Create a user with the test scope in assigned_scopes."""
+    """Create a user with scope membership via scope_memberships table."""
     from app.core.security import get_password_hash
+    from app.models.models import ScopeMembership
 
     user = UserNew(
         id=uuid4(),
@@ -43,9 +44,18 @@ def test_user_with_scope(db_session: Session, test_scope: Scope) -> UserNew:
         name="Scope User",
         role="user",
         is_active=True,
-        assigned_scopes=[test_scope.id],
     )
     db_session.add(user)
+    db_session.flush()  # Get user ID
+
+    # Create scope membership
+    membership = ScopeMembership(
+        user_id=user.id,
+        scope_id=test_scope.id,
+        role="curator",
+        is_active=True,
+    )
+    db_session.add(membership)
     db_session.commit()
     db_session.refresh(user)
     return user
