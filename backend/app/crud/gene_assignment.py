@@ -22,6 +22,7 @@ from app.schemas.gene_assignment import (
     GeneScopeAssignmentCreate,
     GeneScopeAssignmentUpdate,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 
 class CRUDGeneScopeAssignment(
@@ -369,7 +370,9 @@ class CRUDGeneScopeAssignment(
             .scalars()
             .first()
         )
-        if not curator or assignment.scope_id not in (curator.assigned_scopes or []):
+        if not curator:
+            raise ValueError("Curator not found")
+        if not ScopePermissionService.has_scope_access(db, curator, assignment.scope_id):
             raise ValueError("Curator does not have access to this scope")
 
         assignment.assigned_curator_id = curator_id
