@@ -493,19 +493,53 @@
   }
 
   /**
-   * Load precuration data if curation is linked to one
+   * Load precuration data for curation form
+   * - For existing curations: Load via precuration_id link
+   * - For new curations: Find approved precuration for gene+scope
    */
   async function loadPrecurationData() {
-    if (!props.curationId) return
-
     try {
-      const curation = curationsStore.currentCuration
-      if (curation?.precuration_id) {
-        const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
-        if (precuration) {
-          precurationData.value = precuration.evidence_data || {}
-          logger.debug('Loaded precuration data for ClinGen form', {
-            precuration_id: curation.precuration_id
+      // Case 1: Existing curation with linked precuration
+      if (props.curationId) {
+        const curation = curationsStore.currentCuration
+        if (curation?.precuration_id) {
+          const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
+          if (precuration) {
+            precurationData.value = precuration.evidence_data || {}
+            logger.debug('Loaded precuration data for existing curation', {
+              precuration_id: curation.precuration_id
+            })
+          }
+        }
+        return
+      }
+
+      // Case 2: New curation - find approved precuration for gene+scope
+      if (props.geneId && props.scopeId) {
+        await precurationsStore.fetchPrecurations({
+          gene_id: props.geneId,
+          scope_id: props.scopeId
+        })
+
+        // Find the approved precuration
+        const precurations = precurationsStore.precurations || []
+        const approvedPrecuration = precurations.find(p => p.status === 'approved')
+
+        if (approvedPrecuration) {
+          // Fetch full details if we only have summary
+          if (!approvedPrecuration.evidence_data) {
+            const fullPrecuration = await precurationsStore.fetchPrecurationById(
+              approvedPrecuration.id
+            )
+            precurationData.value = fullPrecuration?.evidence_data || {}
+          } else {
+            precurationData.value = approvedPrecuration.evidence_data || {}
+          }
+
+          logger.debug('Loaded precuration data for new curation', {
+            precuration_id: approvedPrecuration.id,
+            disease_name: precurationData.value.disease_name,
+            mondo_id: precurationData.value.mondo_id
           })
         }
       }
@@ -576,9 +610,14 @@
   onMounted(async () => {
     await loadSchema()
     await loadCuration()
+    // Also load precuration data for new curations
+    if (!props.curationId && props.geneId) {
+      await loadPrecurationData()
+    }
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,
-      curationId: props.curationId
+      curationId: props.curationId,
+      hasPrecurationData: Object.keys(precurationData.value).length > 0
     })
   })
 

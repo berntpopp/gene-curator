@@ -68,13 +68,28 @@ export const precurationsAPI = {
   },
 
   /**
-   * Submit precuration (mark as complete)
+   * Submit precuration for peer review
    * @param {string} id - Precuration UUID
    * @param {Object} data - Submission data
    * @returns {Promise<Object>} Submitted precuration
    */
   async submitPrecuration(id, data = {}) {
     const response = await apiClient.post(`/precurations/${id}/submit`, data)
+    return response.data
+  },
+
+  /**
+   * Complete precuration (mark as ready for curation without peer review)
+   *
+   * This is a simplified workflow path that skips peer review.
+   * Use when precuration doesn't require 4-eyes principle validation.
+   * After completion, curation can begin immediately.
+   *
+   * @param {string} id - Precuration UUID
+   * @returns {Promise<Object>} Completed precuration with status 'approved'
+   */
+  async completePrecuration(id) {
+    const response = await apiClient.post(`/precurations/${id}/complete`)
     return response.data
   },
 
