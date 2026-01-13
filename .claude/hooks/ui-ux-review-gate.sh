@@ -19,13 +19,43 @@ set -e
 # Configuration
 REPORT_DIR="plan/enhancements/tracking"
 REVIEW_REPORT="${REPORT_DIR}/UI-UX-REVIEW-REPORT.md"
+ITERATION_FILE="${REPORT_DIR}/.ui-ux-review-iterations"
 MIN_UI_SCORE=8
 MIN_UX_SCORE=8
 MIN_PLAN_SCORE=8
+MAX_ITERATIONS=10
 
 # Read stdin for hook context
 HOOK_INPUT=$(cat)
 STOP_HOOK_ACTIVE=$(echo "$HOOK_INPUT" | grep -o '"stop_hook_active":\s*true' || echo "")
+
+# Track iterations
+CURRENT_ITERATION=0
+if [ -f "$ITERATION_FILE" ]; then
+    CURRENT_ITERATION=$(cat "$ITERATION_FILE" 2>/dev/null || echo "0")
+fi
+
+# Increment iteration counter
+CURRENT_ITERATION=$((CURRENT_ITERATION + 1))
+mkdir -p "$REPORT_DIR"
+echo "$CURRENT_ITERATION" > "$ITERATION_FILE"
+
+# Check if max iterations reached
+if [ "$CURRENT_ITERATION" -gt "$MAX_ITERATIONS" ]; then
+    output_json() {
+        local decision="$1"
+        local reason="$2"
+        local system_msg="$3"
+        reason=$(echo "$reason" | sed 's/\\/\\\\/g' | sed 's/"/\\"/g' | sed ':a;N;$!ba;s/\n/\\n/g' | sed 's/\t/\\t/g')
+        printf '{"decision":"%s","reason":"%s","systemMessage":"%s"}\n' "$decision" "$reason" "$system_msg"
+    }
+    # Reset counter for next session
+    rm -f "$ITERATION_FILE"
+    output_json "approve" \
+        "Maximum iterations (${MAX_ITERATIONS}) reached. Approving to prevent infinite loop. Review the UI-UX-REVIEW-REPORT.md for final status." \
+        "Quality gate: Max iterations reached - auto-approved"
+    exit 0
+fi
 
 # Function to output JSON safely (escapes newlines)
 output_json() {
@@ -55,13 +85,16 @@ if [ -n "$STOP_HOOK_ACTIVE" ]; then
             if [ "$UI_SCORE" -ge "$MIN_UI_SCORE" ] && \
                [ "$UX_SCORE" -ge "$MIN_UX_SCORE" ] && \
                [ "$PLAN_SCORE" -ge "$MIN_PLAN_SCORE" ]; then
+                # Reset iteration counter on success
+                rm -f "$ITERATION_FILE"
                 output_json "approve" \
                     "UI/UX Review completed successfully. UI: ${UI_SCORE}/10, UX: ${UX_SCORE}/10, Plan: ${PLAN_SCORE}/10" \
                     "Quality gate passed: All scores >= 8/10"
                 exit 0
             else
                 # Scores below threshold - need iteration
-                REASON="UI/UX Review scores below threshold. Current: UI=${UI_SCORE}/10, UX=${UX_SCORE}/10, Plan=${PLAN_SCORE}/10. Required: >= 8/10 each.
+                REMAINING=$((MAX_ITERATIONS - CURRENT_ITERATION))
+                REASON="UI/UX Review scores below threshold (Iteration ${CURRENT_ITERATION}/${MAX_ITERATIONS}, ${REMAINING} remaining). Current: UI=${UI_SCORE}/10, UX=${UX_SCORE}/10, Plan=${PLAN_SCORE}/10. Required: >= 8/10 each.
 
 ITERATION REQUIRED:
 1. Read the review report at ${REVIEW_REPORT}
@@ -80,7 +113,8 @@ Focus on the lowest-scoring area first."
 fi
 
 # No recent review - require one
-REASON="STOP HOOK TRIGGERED: Full UI/UX Review Required
+REMAINING=$((MAX_ITERATIONS - CURRENT_ITERATION))
+REASON="STOP HOOK TRIGGERED: Full UI/UX Review Required (Iteration ${CURRENT_ITERATION}/${MAX_ITERATIONS}, ${REMAINING} remaining)
 
 Before completing, you MUST perform a comprehensive UI/UX review using Playwright MCP.
 
