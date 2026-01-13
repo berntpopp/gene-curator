@@ -28,3 +28,6 @@ backups/
 
 # Claude Code - allow project settings, exclude local overrides
 .claude/settings.local.json
+
+# UI/UX review iteration tracking (auto-generated)
+plan/enhancements/tracking/.ui-ux-review-iterations
