@@ -30,6 +30,7 @@ const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
 const CurationFormView = () => import('@/views/curation/CurationFormView.vue')
 const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue')
 const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
+const ReviewQueueView = () => import('@/views/curation/ReviewQueueView.vue')
 
 const routes = [
   {
@@ -113,6 +114,21 @@ const routes = [
     meta: {
       title: 'Scope Dashboard',
       requiresAuth: true
+    }
+  },
+  // Review Queue (cross-scope)
+  {
+    path: '/review-queue',
+    name: 'review-queue',
+    component: ReviewQueueView,
+    meta: {
+      title: 'Review Queue',
+      requiresAuth: true,
+      requiredRoles: ['reviewer', 'curator', 'scope_admin', 'admin'],
+      showInDropdown: 'curation',
+      icon: 'mdi-clipboard-check-outline',
+      label: 'Review Queue',
+      order: 2
     }
   },
   // Curation routes

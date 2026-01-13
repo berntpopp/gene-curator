@@ -13,6 +13,7 @@ from app.crud.base import CRUDBase
 from app.models import (
     ActiveCuration,
     CurationNew,
+    CurationStatus,
     GeneScopeAssignment,
     PrecurationNew,
     Review,
@@ -261,10 +262,12 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             or 0
         )
 
+        # Count curations excluding archived
         curation_count = (
             db.execute(
                 select(func.count(CurationNew.id)).where(
-                    CurationNew.scope_id == scope_id
+                    CurationNew.scope_id == scope_id,
+                    CurationNew.status != CurationStatus.ARCHIVED,
                 )
             ).scalar()
             or 0
