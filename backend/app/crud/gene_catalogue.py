@@ -23,6 +23,111 @@ from app.schemas.gene_catalogue import (
 logger = get_logger(__name__)
 
 
+def _sum_points_from_list(items: list[dict[str, Any]], key: str = "points") -> float:
+    """Sum points from a list of evidence items."""
+    return sum(item.get(key, 0) or 0 for item in items)
+
+
+def _calc_genetic_score(genetic: dict[str, Any]) -> float:
+    """Calculate genetic evidence score from evidence data."""
+    total = 0.0
+
+    # Case-level evidence
+    case_level = genetic.get("case_level", {})
+    for inheritance_type in ["autosomal_dominant_or_x_linked", "autosomal_recessive"]:
+        inheritance = case_level.get(inheritance_type, {})
+        for variant_type in ["predicted_or_proven_null", "other_variant_type"]:
+            total += _sum_points_from_list(
+                inheritance.get(variant_type, []), "proband_counted_points"
+            )
+
+    # Segregation and case-control
+    total += _sum_points_from_list(genetic.get("segregation", []))
+    case_control = genetic.get("case_control", {})
+    total += _sum_points_from_list(case_control.get("single_variant_analysis", []))
+    total += _sum_points_from_list(case_control.get("aggregate_variant_analysis", []))
+
+    return total
+
+
+def _calc_experimental_score(experimental: dict[str, Any]) -> float:
+    """Calculate experimental evidence score from evidence data."""
+    total = 0.0
+
+    # Function evidence
+    func = experimental.get("function", {})
+    for func_type in ["biochemical_function", "protein_interaction", "expression"]:
+        total += _sum_points_from_list(func.get(func_type, []))
+
+    # Functional alteration
+    func_alt = experimental.get("functional_alteration", {})
+    total += _sum_points_from_list(func_alt.get("patient_cells", []))
+    total += _sum_points_from_list(func_alt.get("non_patient_cells", []))
+
+    # Models
+    models = experimental.get("models", {})
+    total += _sum_points_from_list(models.get("non_human_model_organism", []))
+    total += _sum_points_from_list(models.get("cell_culture_model", []))
+
+    # Rescue
+    rescue = experimental.get("rescue", {})
+    for rescue_type in [
+        "human",
+        "non_human_model_organism",
+        "cell_culture",
+        "patient_cells",
+    ]:
+        total += _sum_points_from_list(rescue.get(rescue_type, []))
+
+    return total
+
+
+def _determine_classification(genetic_score: float, total_score: float) -> str:
+    """Determine ClinGen classification based on scores."""
+    if total_score >= 12 and genetic_score >= 6:
+        return "definitive"
+    if total_score >= 12 and genetic_score >= 4.5:
+        return "strong"
+    if total_score >= 9 and genetic_score >= 3:
+        return "moderate"
+    if total_score >= 1:
+        return "limited"
+    return "no_known"
+
+
+def _calculate_scores_from_evidence(
+    evidence_data: dict[str, Any],
+) -> tuple[float | None, float | None, float | None, str | None]:
+    """Calculate scores from evidence_data when computed_scores is incomplete.
+
+    This is a fallback calculation for curations that were activated without
+    proper score computation.
+
+    Returns:
+        Tuple of (genetic_score, experimental_score, total_score, classification)
+    """
+    if not evidence_data:
+        return None, None, None, None
+
+    genetic = evidence_data.get("genetic_evidence", {})
+    experimental = evidence_data.get("experimental_evidence", {})
+
+    genetic_raw = _calc_genetic_score(genetic)
+    experimental_raw = _calc_experimental_score(experimental)
+
+    # Only return if we actually found evidence
+    if genetic_raw == 0 and experimental_raw == 0:
+        return None, None, None, None
+
+    # Apply caps
+    genetic_score = min(genetic_raw, 12.0)
+    experimental_score = min(experimental_raw, 6.0)
+    total_score = genetic_score + experimental_score
+    classification = _determine_classification(genetic_score, total_score)
+
+    return genetic_score, experimental_score, total_score, classification
+
+
 def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     """Get overall catalogue statistics.
 
@@ -164,6 +269,60 @@ def get_catalogue_entries(
     return entries, total
 
 
+def _build_scope_curation_summary(
+    active_curation: ActiveCuration,
+    curation: CurationNew,
+    scope: Scope,
+    curator: UserNew | None,
+) -> tuple[ScopeCurationSummary, str | None, str | None]:
+    """Build a scope curation summary from database results.
+
+    Returns:
+        Tuple of (summary, classification_key, disease_name)
+    """
+    evidence = curation.evidence_data or {}
+    disease_name = evidence.get("disease_name")
+    mondo_id = evidence.get("mondo_id")
+    moi = evidence.get("mode_of_inheritance")
+
+    # Extract scores from computed_scores first
+    scores = curation.computed_scores or {}
+    genetic_score = scores.get("genetic_score")
+    experimental_score = scores.get("experimental_score")
+    total_score = scores.get("total_score")
+    classification = curation.computed_verdict
+
+    # Fallback: calculate from evidence_data if computed fields are missing
+    if total_score is None and evidence:
+        calc_genetic, calc_experimental, calc_total, calc_class = (
+            _calculate_scores_from_evidence(evidence)
+        )
+        if calc_total is not None:
+            genetic_score = calc_genetic
+            experimental_score = calc_experimental
+            total_score = calc_total
+            classification = classification or calc_class
+
+    summary = ScopeCurationSummary(
+        scope_id=scope.id,
+        scope_name=scope.name,
+        scope_display_name=scope.display_name,
+        is_public=scope.is_public,
+        disease_name=disease_name,
+        mondo_id=mondo_id,
+        mode_of_inheritance=moi,
+        classification=classification,
+        genetic_score=genetic_score,
+        experimental_score=experimental_score,
+        total_score=total_score,
+        activated_at=active_curation.activated_at,
+        curator_name=curator.name if curator else None,
+    )
+
+    class_key = classification.lower() if classification else None
+    return summary, class_key, disease_name
+
+
 def _build_catalogue_entry(
     db: Session, gene: Gene, filters: GeneCatalogueFilters
 ) -> GeneCatalogueEntry | None:
@@ -189,19 +348,15 @@ def _build_catalogue_entry(
         )
     )
 
-    # Apply scope filter if specified
+    # Apply filters
     if filters.scope_id:
         curation_query = curation_query.where(
             ActiveCuration.scope_id == filters.scope_id
         )
-
-    # Apply classification filter
     if filters.classification:
         curation_query = curation_query.where(
             func.lower(CurationNew.computed_verdict) == filters.classification.lower()
         )
-
-    # Apply disease filter
     if filters.disease:
         disease_term = f"%{filters.disease}%"
         curation_query = curation_query.where(
@@ -209,7 +364,6 @@ def _build_catalogue_entry(
         )
 
     results = db.execute(curation_query).all()
-
     if not results:
         return None
 
@@ -219,44 +373,15 @@ def _build_catalogue_entry(
     diseases: set[str] = set()
 
     for active_curation, curation, scope, curator in results:
-        # Extract evidence data
-        evidence = curation.evidence_data or {}
-        disease_name = evidence.get("disease_name")
-        mondo_id = evidence.get("mondo_id")
-        moi = evidence.get("mode_of_inheritance")
+        summary, class_key, disease_name = _build_scope_curation_summary(
+            active_curation, curation, scope, curator
+        )
+        scope_curations.append(summary)
 
-        # Extract scores
-        scores = curation.computed_scores or {}
-        genetic_score = scores.get("genetic_score")
-        experimental_score = scores.get("experimental_score")
-        total_score = scores.get("total_score")
-
-        # Normalize classification
-        classification = curation.computed_verdict
-        if classification:
-            classifications[classification.lower()] += 1
-
-        # Track unique diseases
+        if class_key:
+            classifications[class_key] += 1
         if disease_name:
             diseases.add(disease_name)
-
-        # Build scope summary
-        scope_summary = ScopeCurationSummary(
-            scope_id=scope.id,
-            scope_name=scope.name,
-            scope_display_name=scope.display_name,
-            is_public=scope.is_public,
-            disease_name=disease_name,
-            mondo_id=mondo_id,
-            mode_of_inheritance=moi,
-            classification=classification,
-            genetic_score=genetic_score,
-            experimental_score=experimental_score,
-            total_score=total_score,
-            activated_at=active_curation.activated_at,
-            curator_name=curator.name if curator else None,
-        )
-        scope_curations.append(scope_summary)
 
     return GeneCatalogueEntry(
         gene_id=gene.id,
