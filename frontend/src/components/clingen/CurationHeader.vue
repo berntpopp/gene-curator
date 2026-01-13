@@ -8,7 +8,9 @@
             <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
             <div>
               <div class="text-caption text-medium-emphasis">Gene</div>
-              <div class="text-h5 font-weight-bold">{{ gene?.symbol || 'Unknown' }}</div>
+              <div class="text-h5 font-weight-bold">
+                {{ gene?.approved_symbol || gene?.symbol || 'Unknown' }}
+              </div>
               <div v-if="gene?.hgnc_id" class="text-caption">{{ gene.hgnc_id }}</div>
             </div>
           </div>

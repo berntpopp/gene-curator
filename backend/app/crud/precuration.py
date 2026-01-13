@@ -436,6 +436,53 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
 
         return db_obj
 
+    def complete_precuration(
+        self,
+        db: Session,
+        *,
+        db_obj: PrecurationNew,
+        user_id: UUID,
+    ) -> PrecurationNew:
+        """
+        Mark precuration as completed and ready for curation.
+
+        This is a simplified workflow path that skips peer review.
+        Useful when precuration doesn't require 4-eyes principle.
+        Sets status to APPROVED so curation can begin immediately.
+        """
+        # Validate precuration is in a state that can be completed
+        if db_obj.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+            raise ValueError(
+                f"Cannot complete precuration with status {db_obj.status}. "
+                "Only draft or rejected precurations can be completed."
+            )
+
+        # Update precuration status to approved (ready for curation)
+        db_obj.status = CurationStatus.APPROVED
+        db_obj.workflow_stage = WorkflowStage.CURATION
+        db_obj.is_draft = False
+        db_obj.updated_by = user_id
+        db_obj.updated_at = _utc_now()
+
+        # Record completion in computed_fields
+        db_obj.computed_fields = {
+            **(db_obj.computed_fields or {}),
+            "completed_at": _utc_now().isoformat(),
+            "completed_by": str(user_id),
+        }
+
+        db.add(db_obj)
+        db.commit()
+        db.refresh(db_obj)
+
+        logger.info(
+            "Precuration completed",
+            precuration_id=str(db_obj.id),
+            user_id=str(user_id),
+        )
+
+        return db_obj
+
     # ========================================
     # HELPER METHODS
     # ========================================

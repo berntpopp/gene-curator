@@ -697,12 +697,19 @@
         curation_type: form.value.curation_type
       })
 
-      notificationStore.addToast('Precuration saved successfully', 'success')
+      // Mark precuration as complete (ready for curation without peer review)
+      await precurationsAPI.completePrecuration(precuration.id)
 
-      // Navigate back to scope dashboard
+      logger.info('Precuration marked as complete', {
+        precuration_id: precuration.id
+      })
+
+      notificationStore.addToast('Precuration completed successfully', 'success')
+
+      // Navigate back to scope dashboard genes tab
       router.push({
         name: 'scope-dashboard',
-        params: { scopeId: scopeId.value }
+        params: { scopeId: scopeId.value, tab: 'genes' }
       })
     } catch (err) {
       logger.error('Failed to save precuration', { error: err.message })

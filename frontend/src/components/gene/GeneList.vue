@@ -150,12 +150,12 @@
                 </v-list-item>
                 <v-list-item
                   v-else-if="hasPrecuration(item) && !isPrecurationApproved(item)"
-                  @click="continuePrecuration(item)"
+                  @click="completePrecuration(item)"
                 >
                   <template #prepend>
-                    <v-icon>mdi-clipboard-edit</v-icon>
+                    <v-icon>mdi-clipboard-check</v-icon>
                   </template>
-                  <v-list-item-title>Continue Precuration</v-list-item-title>
+                  <v-list-item-title>Complete Precuration</v-list-item-title>
                 </v-list-item>
                 <v-list-item v-if="isPrecurationApproved(item)" @click="startCuration(item)">
                   <template #prepend>
@@ -286,10 +286,10 @@
                 size="small"
                 color="warning"
                 variant="tonal"
-                @click="continuePrecuration(gene)"
+                @click="completePrecuration(gene)"
               >
-                <v-icon start>mdi-clipboard-edit</v-icon>
-                Continue Precuration
+                <v-icon start>mdi-clipboard-check</v-icon>
+                Complete Precuration
               </v-btn>
               <v-btn
                 v-else-if="isPrecurationApproved(gene)"
@@ -786,11 +786,11 @@
     if (!precuration) return 'No Precuration'
 
     const statusLabels = {
-      draft: 'Draft',
-      submitted: 'Submitted',
+      draft: 'In Progress',
+      submitted: 'Pending Review',
       in_review: 'In Review',
-      approved: 'Approved',
-      rejected: 'Rejected'
+      approved: 'Ready for Curation',
+      rejected: 'Needs Revision'
     }
     return statusLabels[precuration.status] || precuration.status
   }
@@ -803,14 +803,29 @@
   }
 
   /**
-   * Continue existing precuration
+   * Complete existing precuration (mark as ready for curation)
    */
-  function continuePrecuration(gene) {
+  async function completePrecuration(gene) {
     const precuration = genePrecurations.value[gene.gene_id]
-    if (precuration?.id) {
-      router.push(`/scopes/${props.scopeId}/precurations/${precuration.id}`)
-    } else {
+    if (!precuration?.id) {
       startPrecuration(gene)
+      return
+    }
+
+    try {
+      await precurationsAPI.completePrecuration(precuration.id)
+      notificationStore.addToast('Precuration completed successfully', 'success')
+
+      // Refresh precuration status to update UI
+      await fetchPrecurationStatuses()
+
+      logger.info('Precuration completed', {
+        precuration_id: precuration.id,
+        gene_id: gene.gene_id
+      })
+    } catch (error) {
+      logger.error('Failed to complete precuration', { error: error.message })
+      notificationStore.addToast(`Failed to complete precuration: ${error.message}`, 'error')
     }
   }
 

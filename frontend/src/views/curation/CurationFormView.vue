@@ -242,7 +242,7 @@
 
   async function loadScope() {
     try {
-      scope.value = await scopesStore.fetchScopeById(scopeId.value)
+      scope.value = await scopesStore.fetchScope(scopeId.value)
     } catch (error) {
       logger.error('Failed to load scope', { error: error.message })
     }
