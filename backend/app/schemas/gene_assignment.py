@@ -54,21 +54,21 @@ class GeneScopeAssignmentUpdate(BaseModel):
 
 
 # Database Schema
-class GeneScopeAssignmentInDBBase(GeneScopeAssignmentBase):
-    """Base schema with database fields."""
+class GeneScopeAssignmentInDBBase(BaseModel):
+    """Base schema with database fields that matches the SQLAlchemy model."""
 
     id: UUID
-    is_active: bool
-    assigned_at: datetime
-    assigned_by: UUID
-    curator_assigned_at: datetime | None
-    curator_assigned_by: UUID | None
-    deactivated_at: datetime | None
-    deactivated_by: UUID | None
-    deactivation_reason: str | None
-    created_at: datetime
-    updated_at: datetime
-    last_updated_by: UUID | None
+    gene_id: UUID = Field(..., description="Gene identifier")
+    scope_id: UUID = Field(..., description="Scope identifier")
+    assigned_curator_id: UUID | None = Field(None, description="Assigned curator ID")
+    workflow_pair_id: UUID | None = Field(None, description="Workflow pair ID")
+    is_active: bool = Field(default=True, description="Whether assignment is active")
+    priority: str = Field("normal", description="Assignment priority (high, normal, low)")
+    due_date: datetime | None = Field(None, description="Due date for assignment")
+    assignment_notes: str | None = Field(None, description="Notes about the assignment")
+    assigned_by: UUID | None = Field(None, description="User who created assignment")
+    assigned_at: datetime = Field(..., description="When assignment was created")
+    updated_at: datetime = Field(..., description="When assignment was last updated")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -105,7 +105,6 @@ class GeneScopeAssignmentStatistics(BaseModel):
     assigned_curator_id: UUID | None
     is_active: bool
     assigned_at: datetime
-    curator_assigned_at: datetime | None
 
     # Work progress
     total_precurations: int = Field(default=0, description="Total precurations")
@@ -166,12 +165,12 @@ class GeneScopeAssignmentSummary(BaseModel):
     scope_name: str
     assigned_curator_id: UUID | None
     curator_name: str | None
-    priority_level: str
+    priority_level: str = Field(..., alias="priority", description="Assignment priority")
     is_active: bool
     assigned_at: datetime
     has_active_work: bool = Field(default=False, description="Has active work")
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 # Bulk Assignment Request

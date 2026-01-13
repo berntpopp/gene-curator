@@ -14,7 +14,6 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
-from collections.abc import Sequence
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -30,6 +29,8 @@ from app.models import Scope, User
 from app.schemas.scope import (
     Scope as ScopeResponse,
     ScopeCreate,
+    ScopeListItem,
+    ScopeListStats,
     ScopeStatistics,
     ScopeUpdate,
     ScopeWithStats,
@@ -143,7 +144,7 @@ def create_scope(
     return scope
 
 
-@router.get("/", response_model=list[ScopeResponse])
+@router.get("/", response_model=list[ScopeListItem])
 def list_scopes(
     *,
     db: Session = Depends(get_db),
@@ -154,9 +155,9 @@ def list_scopes(
     ),
     active_only: bool = Query(True, description="Filter for active scopes only"),
     include_public: bool = Query(True, description="Include public scopes"),
-) -> Sequence[Scope]:
+) -> list[ScopeListItem]:
     """
-    List scopes the current user has access to.
+    List scopes the current user has access to with gene and member counts.
 
     Returns scopes filtered by RLS policies:
     - Application admins see all scopes
@@ -172,14 +173,14 @@ def list_scopes(
         include_public: Include public scopes in results
 
     Returns:
-        List of scopes the user has access to
+        List of scopes the user has access to with counts
     """
     # Set RLS context - this will filter scopes automatically
     deps.set_rls_context(db, current_user)
 
-    # Application admins see ALL scopes
+    # Application admins see ALL scopes with counts
     if current_user.role.value == "admin":
-        scopes = scope_crud.get_multi(
+        scopes_with_counts = scope_crud.get_multi_with_counts(
             db, skip=skip, limit=limit, active_only=active_only
         )
 
@@ -187,12 +188,21 @@ def list_scopes(
             "Listed all scopes for admin user",
             user_id=str(current_user.id),
             user_role=current_user.role.value,
-            total_scopes=len(scopes),
+            total_scopes=len(scopes_with_counts),
             skip=skip,
             limit=limit,
         )
 
-        return scopes
+        # Convert to ScopeListItem with nested stats
+        result = []
+        for scope_data in scopes_with_counts:
+            stats = ScopeListStats(
+                total_genes=scope_data.pop("gene_count", 0),
+                member_count=scope_data.pop("member_count", 0),
+            )
+            scope_item = ScopeListItem(**scope_data, stats=stats)
+            result.append(scope_item)
+        return result
 
     # Regular users see scopes they are members of
     user_scopes = scope_membership_crud.get_user_scopes(db, user_id=current_user.id)
@@ -207,17 +217,67 @@ def list_scopes(
     # Apply pagination
     paginated_scopes = scopes[skip : skip + limit]
 
+    # Get counts for each scope
+    from sqlalchemy import func, select
+
+    from app.models import GeneScopeAssignment, ScopeMembership
+
+    result = []
+    for scope in paginated_scopes:
+        # Get gene count for this scope
+        gene_count = (
+            db.execute(
+                select(func.count(GeneScopeAssignment.id)).where(
+                    GeneScopeAssignment.scope_id == scope.id,
+                    GeneScopeAssignment.is_active,
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Get member count for this scope
+        member_count = (
+            db.execute(
+                select(func.count(ScopeMembership.id)).where(
+                    ScopeMembership.scope_id == scope.id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Create stats object for frontend compatibility
+        stats = ScopeListStats(total_genes=gene_count, member_count=member_count)
+
+        scope_item = ScopeListItem(
+            id=scope.id,
+            name=scope.name,
+            display_name=scope.display_name,
+            description=scope.description,
+            institution=scope.institution,
+            is_public=scope.is_public,
+            scope_config=scope.scope_config,
+            is_active=scope.is_active,
+            default_workflow_pair_id=scope.default_workflow_pair_id,
+            created_at=scope.created_at,
+            updated_at=scope.updated_at,
+            created_by=scope.created_by,
+            stats=stats,
+        )
+        result.append(scope_item)
+
     logger.debug(
         "Listed scopes for user",
         user_id=str(current_user.id),
         user_role=current_user.role.value,
         total_scopes=len(scopes),
-        returned_scopes=len(paginated_scopes),
+        returned_scopes=len(result),
         skip=skip,
         limit=limit,
     )
 
-    return paginated_scopes
+    return result
 
 
 @router.get("/{scope_id}", response_model=ScopeWithStats)

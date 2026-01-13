@@ -20,6 +20,7 @@ from app.schemas.workflow_engine import (
     BulkWorkflowTransitionRequest,
     BulkWorkflowTransitionResult,
     PeerReviewAssignmentRequest,
+    PeerReviewerResponse,
     PeerReviewRequest,
     PeerReviewResult,
     PeerReviewSubmission,
@@ -35,6 +36,41 @@ from app.schemas.workflow_engine import (
 )
 
 router = APIRouter()
+
+
+# ========================================
+# PEER REVIEWERS ENDPOINTS
+# ========================================
+
+
+@router.get(
+    "/peer-reviewers",
+    response_model=list[PeerReviewerResponse],
+    summary="Get available peer reviewers",
+    description="""
+    Returns list of users eligible to be assigned as peer reviewers.
+
+    Filters applied:
+    - Only active users
+    - If scope_id provided, only scope members with reviewer/curator/admin roles
+    - Excludes current user (4-eyes principle)
+
+    Includes pending review count for workload assessment.
+    """,
+)
+def get_peer_reviewers(
+    *,
+    db: Session = Depends(get_db),
+    scope_id: UUID | None = Query(None, description="Filter by scope membership"),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> list[PeerReviewerResponse]:
+    """Get available peer reviewers for assignment."""
+    reviewers = workflow_engine.get_eligible_peer_reviewers(
+        db=db,
+        scope_id=scope_id,
+        exclude_user_id=current_user.id,  # 4-eyes principle
+    )
+    return [PeerReviewerResponse(**r) for r in reviewers]
 
 
 # ========================================

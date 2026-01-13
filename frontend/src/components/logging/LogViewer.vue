@@ -1,13 +1,15 @@
 <template>
   <v-navigation-drawer
-    v-model="logStore.isViewerVisible"
+    v-model="drawerVisible"
     location="right"
     temporary
     width="600"
     class="log-viewer"
+    @keydown.escape="closeDrawer"
   >
-    <!-- Toolbar -->
-    <v-toolbar color="primary" dark density="compact">
+    <div class="drawer-container">
+      <!-- Toolbar -->
+      <v-toolbar color="primary" dark density="compact" class="drawer-header">
       <v-toolbar-title class="text-subtitle-1">
         <v-icon start>mdi-text-box-search-outline</v-icon>
         Application Logs
@@ -48,12 +50,14 @@
         size="small"
         variant="text"
         title="Close log viewer"
-        @click="logStore.hideViewer"
+        @click="closeDrawer"
       ></v-btn>
     </v-toolbar>
 
-    <!-- Filter Controls -->
-    <v-container class="py-2" fluid>
+      <!-- Scrollable content area -->
+      <div class="drawer-content">
+        <!-- Filter Controls -->
+        <v-container class="py-2" fluid>
       <v-row dense>
         <!-- Search Filter -->
         <v-col cols="12" md="6">
@@ -196,6 +200,8 @@
         </v-card-text>
       </v-card>
     </v-container>
+      </div>
+    </div>
   </v-navigation-drawer>
 </template>
 
@@ -203,9 +209,54 @@
   import { ref, computed, watch } from 'vue'
   import { useLogStore } from '@/stores/logStore'
   import { LogLevel } from '@/services/logService'
+  import { useDrawerState } from '@/composables/useDrawerState'
 
   // Store access
   const logStore = useLogStore()
+
+  // Use drawer state for single-open-drawer pattern
+  const { isOpen: drawerIsOpen, close: closeDrawer } = useDrawerState('log-viewer')
+
+  // Computed property to sync drawer state with logStore
+  const drawerVisible = computed({
+    get: () => drawerIsOpen.value,
+    set: value => {
+      if (value) {
+        drawerIsOpen.value = true
+        // Also update logStore for compatibility
+        if (!logStore.isViewerVisible) {
+          logStore.isViewerVisible = true
+        }
+      } else {
+        drawerIsOpen.value = false
+        if (logStore.isViewerVisible) {
+          logStore.isViewerVisible = false
+        }
+      }
+    }
+  })
+
+  // Watch logStore.isViewerVisible to sync with drawer state (for keyboard shortcut support)
+  watch(
+    () => logStore.isViewerVisible,
+    newValue => {
+      if (newValue && !drawerIsOpen.value) {
+        drawerIsOpen.value = true
+      } else if (!newValue && drawerIsOpen.value) {
+        drawerIsOpen.value = false
+      }
+    }
+  )
+
+  // Watch drawerIsOpen to sync back to logStore
+  watch(
+    () => drawerIsOpen.value,
+    newValue => {
+      if (newValue !== logStore.isViewerVisible) {
+        logStore.isViewerVisible = newValue
+      }
+    }
+  )
 
   // Local reactive state
   const searchQuery = ref('')
@@ -381,11 +432,33 @@
 <style scoped>
   .log-viewer {
     z-index: 1000;
+    /* Ensure drawer doesn't overlap with page footer or header */
+    top: 64px !important; /* Below app header */
+    bottom: 77px !important; /* Above page footer */
+    height: calc(100vh - 64px - 77px) !important; /* Viewport minus header and footer */
+  }
+
+  /* Flex container for full-height drawer layout */
+  .drawer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Fixed header */
+  .drawer-header {
+    flex-shrink: 0;
+  }
+
+  /* Scrollable content area */
+  .drawer-content {
+    flex: 1;
+    overflow-y: auto;
   }
 
   .log-entries {
-    max-height: calc(100vh - 280px);
-    overflow-y: auto;
+    /* No longer needs max-height, contained by flex layout */
   }
 
   .log-entry {

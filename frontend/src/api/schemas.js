@@ -2,42 +2,42 @@ import apiClient from './client.js'
 
 export const schemasAPI = {
   /**
-   * Get all schemas
+   * Get all curation schemas
    */
   async getSchemas(params = {}) {
-    const response = await apiClient.get('/schemas', { params })
+    const response = await apiClient.get('/schemas/curation-schemas', { params })
     return response.data
   },
 
   /**
-   * Get schema by ID
+   * Get curation schema by ID
    */
   async getSchemaById(id) {
-    const response = await apiClient.get(`/schemas/${id}`)
+    const response = await apiClient.get(`/schemas/curation-schemas/${id}`)
     return response.data
   },
 
   /**
-   * Create new schema
+   * Create new curation schema
    */
   async createSchema(schemaData) {
-    const response = await apiClient.post('/schemas', schemaData)
+    const response = await apiClient.post('/schemas/curation-schemas', schemaData)
     return response.data
   },
 
   /**
-   * Update schema
+   * Update curation schema
    */
   async updateSchema(id, schemaData) {
-    const response = await apiClient.put(`/schemas/${id}`, schemaData)
+    const response = await apiClient.put(`/schemas/curation-schemas/${id}`, schemaData)
     return response.data
   },
 
   /**
-   * Delete schema
+   * Delete curation schema
    */
   async deleteSchema(id) {
-    const response = await apiClient.delete(`/schemas/${id}`)
+    const response = await apiClient.delete(`/schemas/curation-schemas/${id}`)
     return response.data
   },
 
@@ -45,7 +45,7 @@ export const schemasAPI = {
    * Get schema usage statistics
    */
   async getSchemaUsageStatistics(id) {
-    const response = await apiClient.get(`/schemas/${id}/usage-statistics`)
+    const response = await apiClient.get(`/schemas/curation-schemas/${id}/usage-statistics`)
     return response.data
   },
 
