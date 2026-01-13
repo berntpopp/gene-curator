@@ -134,6 +134,11 @@ class CurationDetail(CurationInDBBase):
     # Computed score breakdown
     calculated_score: dict[str, Any] | None = None
 
+    # User permissions for this curation (set by endpoint based on current user)
+    can_edit: bool = False
+    can_review: bool = False
+    can_delete: bool = False
+
     @classmethod
     def from_orm_with_relations(cls, curation: Any) -> "CurationDetail":
         """Create instance from ORM model with loaded relationships."""
@@ -174,9 +179,7 @@ class CurationDetail(CurationInDBBase):
 
         # Expand creator relationship
         if hasattr(curation, "creator") and curation.creator:
-            data["curator_name"] = (
-                curation.creator.name or curation.creator.email
-            )
+            data["curator_name"] = curation.creator.name or curation.creator.email
             data["curator_id"] = curation.creator.id
 
         # Extract from evidence_data OR precuration for convenience
@@ -186,18 +189,13 @@ class CurationDetail(CurationInDBBase):
             precuration_data = curation.precuration.evidence_data or {}
 
         # Priority: evidence_data > precuration_data
-        data["disease_name"] = (
-            evidence.get("disease_name")
-            or precuration_data.get("disease_name")
+        data["disease_name"] = evidence.get("disease_name") or precuration_data.get(
+            "disease_name"
         )
-        data["mondo_id"] = (
-            evidence.get("mondo_id")
-            or precuration_data.get("mondo_id")
-        )
-        data["mode_of_inheritance"] = (
-            evidence.get("mode_of_inheritance")
-            or precuration_data.get("mode_of_inheritance")
-        )
+        data["mondo_id"] = evidence.get("mondo_id") or precuration_data.get("mondo_id")
+        data["mode_of_inheritance"] = evidence.get(
+            "mode_of_inheritance"
+        ) or precuration_data.get("mode_of_inheritance")
 
         # Include computed scores as calculated_score for frontend
         if curation.computed_scores:
@@ -223,6 +221,7 @@ class CurationSummary(BaseModel):
     created_at: datetime
     updated_at: datetime
     curator_name: str | None
+    created_by: UUID | None = None  # For 4-eyes filtering in review queue
 
     model_config = ConfigDict(use_enum_values=True)
 
