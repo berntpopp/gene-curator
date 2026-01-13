@@ -108,6 +108,24 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         )
         return list(db.execute(stmt).scalars().all())
 
+    def get_approved_for_gene_scope(
+        self,
+        db: Session,
+        gene_id: UUID,
+        scope_id: UUID,
+    ) -> PrecurationNew | None:
+        """Get the approved precuration for a gene within a scope."""
+        stmt = (
+            select(PrecurationNew)
+            .where(
+                PrecurationNew.gene_id == gene_id,
+                PrecurationNew.scope_id == scope_id,
+                PrecurationNew.status == "approved",
+            )
+            .order_by(PrecurationNew.updated_at.desc())
+        )
+        return db.execute(stmt).scalars().first()
+
     def get_multi_filtered(
         self,
         db: Session,

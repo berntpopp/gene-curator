@@ -35,6 +35,7 @@
         <SchemaDrivenCurationForm
           v-else-if="resolvedSchemaId"
           :schema-id="resolvedSchemaId"
+          :workflow-pair-id="resolvedWorkflowPairId"
           :curation-id="curationId"
           :scope-id="scopeId"
           :gene-id="geneId"
@@ -150,6 +151,31 @@
     // Priority 5: Only one schema available - auto-select it
     if (availableSchemas.value.length === 1) {
       return availableSchemas.value[0].id
+    }
+
+    return null
+  })
+
+  // Resolve workflow pair ID from schema or scope default
+  const resolvedWorkflowPairId = computed(() => {
+    // Priority 1: Existing curation has workflow pair
+    if (curation.value?.workflow_pair_id) {
+      return curation.value.workflow_pair_id
+    }
+
+    // Priority 2: Scope's default workflow pair
+    if (scope.value?.default_workflow_pair_id) {
+      return scope.value.default_workflow_pair_id
+    }
+
+    // Priority 3: Find workflow pair that uses the resolved schema
+    if (resolvedSchemaId.value) {
+      const workflowPair = schemasStore.workflowPairs.find(
+        wp => wp.curation_schema_id === resolvedSchemaId.value
+      )
+      if (workflowPair) {
+        return workflowPair.id
+      }
     }
 
     return null

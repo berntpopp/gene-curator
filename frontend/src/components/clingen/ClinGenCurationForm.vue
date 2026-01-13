@@ -262,9 +262,21 @@
   const evidenceData = ref({
     evidence_summary: '',
     genetic_evidence: {
-      case_level: [],
+      case_level: {
+        autosomal_dominant_or_x_linked: {
+          predicted_or_proven_null: [],
+          other_variant_type: []
+        },
+        autosomal_recessive: {
+          predicted_or_proven_null: [],
+          other_variant_type: []
+        }
+      },
       segregation: [],
-      case_control: []
+      case_control: {
+        single_variant_analysis: [],
+        aggregate_variant_analysis: []
+      }
     },
     experimental_evidence: {
       function: {
@@ -341,9 +353,17 @@
 
   const canSubmit = computed(() => {
     // Must have at least some genetic evidence
-    const hasGenetic =
-      evidenceData.value.genetic_evidence.case_level?.length > 0 ||
-      evidenceData.value.genetic_evidence.segregation?.length > 0
+    const ge = evidenceData.value.genetic_evidence
+    const caseLevel = ge.case_level
+
+    // Check nested case_level structure for any evidence
+    const hasCaseLevelEvidence =
+      caseLevel?.autosomal_dominant_or_x_linked?.predicted_or_proven_null?.length > 0 ||
+      caseLevel?.autosomal_dominant_or_x_linked?.other_variant_type?.length > 0 ||
+      caseLevel?.autosomal_recessive?.predicted_or_proven_null?.length > 0 ||
+      caseLevel?.autosomal_recessive?.other_variant_type?.length > 0
+
+    const hasGenetic = hasCaseLevelEvidence || ge.segregation?.length > 0
 
     return hasGenetic && !props.readonly
   })
@@ -356,25 +376,37 @@
     let segregationTotal = 0
     let caseControlTotal = 0
 
-    // Case-level scoring
+    // Case-level scoring - navigate nested structure
     if (ge.case_level) {
-      caseLevelTotal = ge.case_level.reduce((sum, item) => {
-        return sum + (parseFloat(item.proband_counted_points) || 0)
-      }, 0)
+      // AD/X-linked variants
+      if (ge.case_level.autosomal_dominant_or_x_linked) {
+        const adXl = ge.case_level.autosomal_dominant_or_x_linked
+        caseLevelTotal += sumProbandPoints(adXl.predicted_or_proven_null)
+        caseLevelTotal += sumProbandPoints(adXl.other_variant_type)
+      }
+      // AR variants
+      if (ge.case_level.autosomal_recessive) {
+        const ar = ge.case_level.autosomal_recessive
+        caseLevelTotal += sumProbandPoints(ar.predicted_or_proven_null)
+        caseLevelTotal += sumProbandPoints(ar.other_variant_type)
+      }
     }
 
     // Segregation scoring
-    if (ge.segregation) {
+    if (ge.segregation && Array.isArray(ge.segregation)) {
       segregationTotal = ge.segregation.reduce((sum, item) => {
         return sum + (parseFloat(item.points) || 0)
       }, 0)
     }
 
-    // Case-control scoring
+    // Case-control scoring - navigate nested structure
     if (ge.case_control) {
-      caseControlTotal = ge.case_control.reduce((sum, item) => {
-        return sum + (parseFloat(item.points) || 0)
-      }, 0)
+      if (ge.case_control.single_variant_analysis) {
+        caseControlTotal += sumPoints(ge.case_control.single_variant_analysis)
+      }
+      if (ge.case_control.aggregate_variant_analysis) {
+        caseControlTotal += sumPoints(ge.case_control.aggregate_variant_analysis)
+      }
     }
 
     return {
@@ -435,6 +467,11 @@
   function sumPoints(items) {
     if (!Array.isArray(items)) return 0
     return items.reduce((sum, item) => sum + (parseFloat(item.points) || 0), 0)
+  }
+
+  function sumProbandPoints(items) {
+    if (!Array.isArray(items)) return 0
+    return items.reduce((sum, item) => sum + (parseFloat(item.proband_counted_points) || 0), 0)
   }
 
   // Event handlers

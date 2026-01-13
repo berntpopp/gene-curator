@@ -18,11 +18,13 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.curation import curation_crud
+from app.crud.precuration import precuration_crud
 from app.models import CurationStatus, UserNew
 from app.schemas.curation import (
     Curation,
     CurationConflictResponse,
     CurationCreate,
+    CurationDetail,
     CurationDraftSave,
     CurationListResponse,
     CurationScoreResponse,
@@ -128,14 +130,14 @@ def list_curations(
     )
 
 
-@router.get("/{curation_id}", response_model=Curation)
+@router.get("/{curation_id}", response_model=CurationDetail)
 @api_endpoint()
 def get_curation(
     curation_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation:
-    """Get a single curation by ID."""
+) -> CurationDetail:
+    """Get a single curation by ID with expanded relations."""
     # Set RLS context
     set_rls_context(db, current_user)
 
@@ -156,7 +158,16 @@ def get_curation(
                 detail="Not enough permissions",
             )
 
-    return Curation.model_validate(curation)
+    # If no precuration linked, try to find approved one for this gene+scope
+    if not curation.precuration:
+        approved_precuration = precuration_crud.get_approved_for_gene_scope(
+            db, curation.gene_id, curation.scope_id
+        )
+        if approved_precuration:
+            # Temporarily attach for serialization
+            curation.precuration = approved_precuration
+
+    return CurationDetail.from_orm_with_relations(curation)
 
 
 # ========================================
