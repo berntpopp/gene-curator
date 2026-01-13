@@ -31,7 +31,6 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 from app.core.db_types import (
     compatible_array_text,
-    compatible_array_uuid,
     compatible_inet,
     compatible_jsonb,
     compatible_uuid,
@@ -192,9 +191,6 @@ class UserNew(Base):
 
     # Nullable fields
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
-    assigned_scopes: Mapped[list[PyUUID]] = mapped_column(
-        compatible_array_uuid(), default=[]
-    )
 
     # Enhanced profile (nullable)
     orcid_id: Mapped[str | None] = mapped_column(String(50))

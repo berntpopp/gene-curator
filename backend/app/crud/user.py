@@ -41,20 +41,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
-
-        # Create ScopeMembership records for assigned scopes
-        if obj_in.assigned_scopes:
-            for scope_id in obj_in.assigned_scopes:
-                membership = ScopeMembership(
-                    user_id=db_obj.id,
-                    scope_id=scope_id,
-                    role="viewer",
-                    is_active=True,
-                )
-                db.add(membership)
-            db.commit()
-            db.refresh(db_obj)
-
         return db_obj
 
     def update_user(
@@ -203,7 +189,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not user:
             return {}
 
-        # Count scope memberships instead of using deprecated assigned_scopes
         scope_count = (
             db.query(func.count(ScopeMembership.id))
             .filter(
@@ -213,14 +198,13 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             .scalar()
         )
 
-        # This would be expanded with actual activity tracking
         return {
             "user_id": str(user.id),
             "name": user.name,
             "email": user.email,
             "role": user.role.value,
             "last_login": user.last_login,
-            "assigned_scopes": scope_count or 0,
+            "scope_count": scope_count or 0,
             "expertise_areas": len(user.expertise_areas) if user.expertise_areas else 0,
             "is_active": user.is_active,
         }
