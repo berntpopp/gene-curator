@@ -11,7 +11,12 @@
             compliance
           </p>
           <div class="d-flex justify-center gap-4 flex-wrap">
-            <v-btn :to="{ name: 'Genes' }" color="primary" size="large" prepend-icon="mdi-dna">
+            <v-btn
+              :to="{ name: 'GeneCatalogue' }"
+              color="primary"
+              size="large"
+              prepend-icon="mdi-dna"
+            >
               Browse Genes
             </v-btn>
             <v-btn
@@ -41,8 +46,10 @@
     <v-container class="py-8">
       <v-row v-if="statistics">
         <v-col cols="12" class="text-center mb-6">
-          <h2 class="text-h4 mb-2">Database Statistics</h2>
-          <p class="text-subtitle-1 text-medium-emphasis">Current state of the gene database</p>
+          <h2 class="text-h4 mb-2">Curation Overview</h2>
+          <p class="text-subtitle-1 text-medium-emphasis">
+            Current state of gene curations across all scopes
+          </p>
         </v-col>
 
         <v-col v-for="stat in statisticsCards" :key="stat.title" cols="12" md="3">
@@ -185,27 +192,27 @@
 
     return [
       {
-        title: 'Total Genes',
-        value: statistics.value.total_genes || 0,
+        title: 'Curated Genes',
+        value: statistics.value.curated_genes || 0,
         icon: 'mdi-dna',
         color: 'primary'
       },
       {
-        title: 'Curation Ready',
-        value: statistics.value.genes_ready_for_curation || 0,
+        title: 'Active Curations',
+        value: statistics.value.active_curations || 0,
         icon: 'mdi-clipboard-check',
         color: 'success'
       },
       {
-        title: 'Recent Additions',
-        value: statistics.value.recent_additions || 0,
-        icon: 'mdi-plus-circle',
+        title: 'Clinical Scopes',
+        value: statistics.value.total_scopes || 0,
+        icon: 'mdi-folder-multiple',
         color: 'info'
       },
       {
-        title: 'Recently Updated',
-        value: statistics.value.updated_last_week || 0,
-        icon: 'mdi-update',
+        title: 'Pending Review',
+        value: statistics.value.pending_review || 0,
+        icon: 'mdi-clock-outline',
         color: 'warning'
       }
     ]

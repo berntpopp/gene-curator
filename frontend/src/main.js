@@ -6,6 +6,9 @@ import router from './router'
 // Logging system
 import loggerPlugin from './plugins/logger'
 
+// Pinia error handling plugin
+import { piniaErrorHandlerPlugin } from './plugins/piniaErrorHandler'
+
 // Vuetify
 import 'vuetify/styles'
 import { createVuetify } from 'vuetify'
@@ -38,6 +41,9 @@ const vuetify = createVuetify({
 
 const app = createApp(App)
 const pinia = createPinia()
+
+// Add Pinia plugins
+pinia.use(piniaErrorHandlerPlugin)
 
 // Install plugins in order:
 // 1. Pinia (state management) - must be first

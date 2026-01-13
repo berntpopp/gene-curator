@@ -21,8 +21,9 @@ export const validationAPI = {
    * Generate JSON Schema for UI from schema definition
    */
   async generateJsonSchema(schemaId) {
-    const response = await apiClient.get(`/validation/generate-json-schema/${schemaId}`)
-    return response.data
+    const response = await apiClient.get(`/validation/schema/${schemaId}/json-schema`)
+    // Extract json_schema from the response wrapper
+    return response.data.json_schema || response.data
   },
 
   /**

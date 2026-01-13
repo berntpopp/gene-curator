@@ -377,7 +377,7 @@ CREATE TABLE audit_log (
     id BIGSERIAL PRIMARY KEY,
     entity_type TEXT NOT NULL,                     -- 'gene', 'precuration', 'curation', 'review', 'active_curation', 'scope'
     entity_id UUID NOT NULL,
-    scope_id UUID REFERENCES scopes(id),
+    scope_id UUID REFERENCES scopes(id) ON DELETE SET NULL,
     operation TEXT NOT NULL,                       -- 'CREATE', 'UPDATE', 'SUBMIT', 'APPROVE', 'REJECT', 'ACTIVATE', 'ARCHIVE'
     changes JSONB,                                 -- Detailed change information
     user_id UUID,                                  -- Will reference users(id)
@@ -403,7 +403,7 @@ CREATE TABLE audit_log (
 CREATE TABLE schema_selections (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID,                                  -- Will reference users(id) - NULL for institutional defaults
-    scope_id UUID REFERENCES scopes(id),
+    scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
     institution VARCHAR(255),                      -- For institutional defaults
     
     -- Preferred schemas

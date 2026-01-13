@@ -181,13 +181,21 @@ class GeneListResponse(BaseModel):
 
 # Statistics Schema
 class GeneStatistics(BaseModel):
-    """Gene database statistics."""
+    """Gene database statistics with curation-focused metrics."""
 
     scope_id: UUID | None = Field(None, description="Scope filter applied")
-    total_genes: int = Field(..., description="Total genes in database")
-    recent_additions: int = Field(..., description="Genes added in last 30 days")
-    updated_last_week: int = Field(..., description="Genes updated in last 7 days")
-    genes_with_details: int = Field(..., description="Genes with detailed metadata")
+
+    # Curation-focused statistics (primary)
+    curated_genes: int = Field(0, description="Genes with active curations")
+    active_curations: int = Field(0, description="Total active curation count")
+    scopes_with_curations: int = Field(0, description="Scopes that have curations")
+    total_scopes: int = Field(0, description="Total scope count")
+    recent_curations: int = Field(0, description="Curations activated in last 30 days")
+    pending_review: int = Field(0, description="Curations awaiting approval")
+
+    # Gene database statistics (secondary, for admin)
+    total_genes: int = Field(0, description="Total genes in database")
+    genes_with_details: int = Field(0, description="Genes with detailed metadata")
 
     # Assignment statistics (when no scope filter)
     total_assignments: int | None = Field(None, description="Total scope assignments")

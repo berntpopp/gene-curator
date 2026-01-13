@@ -25,8 +25,10 @@ from app.core.security import create_access_token, get_password_hash
 from app.main import app
 from app.models.models import (
     CurationNew,
+    CurationSchema,
     EvidenceItem,
     Gene,
+    PrecurationNew,
     Scope,
     ScopeMembership,
     UserNew,
@@ -337,6 +339,68 @@ def test_evidence_item(
     db_session.commit()
     db_session.refresh(evidence)
     return evidence
+
+
+@pytest.fixture
+def test_precuration_schema(db_session: Session) -> CurationSchema:
+    """Create test precuration schema"""
+    import hashlib
+
+    schema_data = "Test Precuration Schema1.0"
+    schema_hash = hashlib.sha256(schema_data.encode()).hexdigest()
+
+    schema = CurationSchema(
+        id=uuid4(),
+        name="Test Precuration Schema",
+        version="1.0",
+        schema_type="precuration",
+        description="Test precuration schema for unit tests",
+        institution="Test Institution",
+        is_active=True,
+        field_definitions={
+            "sections": [{"id": "disease_entity", "label": "Disease Entity"}]
+        },
+        validation_rules={"required_fields": ["mondo_id"]},
+        workflow_states={
+            "precuration": {"allowed_transitions": ["review"]},
+            "review": {"allowed_transitions": ["precuration", "approved"]},
+        },
+        ui_configuration={"form_layout": "wizard", "show_progress_bar": True},
+        schema_hash=schema_hash,
+    )
+    db_session.add(schema)
+    db_session.commit()
+    db_session.refresh(schema)
+    return schema
+
+
+@pytest.fixture
+def test_precuration(
+    db_session: Session,
+    test_scope: Scope,
+    test_gene: Gene,
+    test_user_curator: UserNew,
+    test_precuration_schema: CurationSchema,
+) -> PrecurationNew:
+    """Create test precuration"""
+    precuration = PrecurationNew(
+        id=uuid4(),
+        scope_id=test_scope.id,
+        gene_id=test_gene.id,
+        precuration_schema_id=test_precuration_schema.id,
+        workflow_stage="precuration",
+        evidence_data={
+            "mondo_id": "MONDO:0000001",
+            "disease_name": "Test Disease",
+            "mode_of_inheritance": "AD",
+        },
+        created_by=test_user_curator.id,
+        updated_by=test_user_curator.id,
+    )
+    db_session.add(precuration)
+    db_session.commit()
+    db_session.refresh(precuration)
+    return precuration
 
 
 # =============================================================================

@@ -47,9 +47,12 @@
         <v-btn value="cards" icon="mdi-view-grid" aria-label="Card view" />
       </v-btn-toggle>
 
-      <v-btn v-if="canCreateCuration" color="primary" @click="createNewCuration">
-        <v-icon start>mdi-plus</v-icon>
-        New Curation
+      <v-btn v-if="canCreateCuration" color="primary" :to="`/scopes/${scopeId}/genes`">
+        <v-icon start>mdi-dna</v-icon>
+        Start Curation
+        <v-tooltip activator="parent" location="bottom">
+          Go to Genes tab to start a new curation
+        </v-tooltip>
       </v-btn>
     </v-toolbar>
 
@@ -257,10 +260,10 @@
         <v-btn
           v-if="canCreateCuration && !search && !filterStatus"
           color="primary"
-          @click="createNewCuration"
+          :to="`/scopes/${scopeId}/genes`"
         >
-          <v-icon start>mdi-plus</v-icon>
-          New Curation
+          <v-icon start>mdi-dna</v-icon>
+          Start Curation
         </v-btn>
         <v-btn v-else variant="outlined" @click="clearFilters">Clear Filters</v-btn>
       </template>
@@ -519,13 +522,6 @@
     search.value = ''
     filterStatus.value = null
     filterCurator.value = null
-  }
-
-  /**
-   * Create new curation
-   */
-  function createNewCuration() {
-    router.push(`/scopes/${props.scopeId}/curations/new`)
   }
 
   /**

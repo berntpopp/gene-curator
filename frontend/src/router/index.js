@@ -11,9 +11,9 @@ const ScopeSelection = () => import('@/views/ScopeSelection.vue')
 const ScopeList = () => import('@/views/scope/ScopeList.vue')
 const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
 const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
+const GeneCatalogueView = () => import('@/views/GeneCatalogueView.vue')
 const GenesTable = () => import('@/views/GenesTable.vue')
 const GeneDetail = () => import('@/views/GeneDetail.vue')
-const GeneAdmin = () => import('@/views/GeneAdmin.vue')
 const GeneAssignments = () => import('@/views/GeneAssignments.vue')
 const AssignmentDetail = () => import('@/views/AssignmentDetail.vue')
 const CreateAssignment = () => import('@/views/CreateAssignment.vue')
@@ -31,6 +31,7 @@ const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
 const CurationFormView = () => import('@/views/curation/CurationFormView.vue')
 const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue')
 const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
+const ReviewQueueView = () => import('@/views/curation/ReviewQueueView.vue')
 
 const routes = [
   {
@@ -107,13 +108,28 @@ const routes = [
     }
   },
   {
-    path: '/scopes/:scopeId',
+    path: '/scopes/:scopeId/:tab?',
     name: 'scope-dashboard',
     component: ScopeDashboard,
     props: true,
     meta: {
       title: 'Scope Dashboard',
       requiresAuth: true
+    }
+  },
+  // Review Queue (cross-scope)
+  {
+    path: '/review-queue',
+    name: 'review-queue',
+    component: ReviewQueueView,
+    meta: {
+      title: 'Review Queue',
+      requiresAuth: true,
+      requiredRoles: ['reviewer', 'curator', 'scope_admin', 'admin'],
+      showInDropdown: 'curation',
+      icon: 'mdi-clipboard-check-outline',
+      label: 'Review Queue',
+      order: 2
     }
   },
   // Curation routes
@@ -173,15 +189,25 @@ const routes = [
   },
   {
     path: '/genes',
-    name: 'Genes',
-    component: GenesTable,
+    name: 'GeneCatalogue',
+    component: GeneCatalogueView,
     meta: {
-      title: 'Gene Catalog',
+      title: 'Gene Catalogue',
       requiresAuth: false,
       showInMainMenu: true,
       icon: 'mdi-dna',
-      label: 'Gene Catalog',
+      label: 'Gene Catalogue',
       order: 2
+    }
+  },
+  {
+    path: '/admin/genes',
+    name: 'GeneAdmin',
+    component: GenesTable,
+    meta: {
+      title: 'Gene Database',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
     }
   },
   {
@@ -202,16 +228,6 @@ const routes = [
     meta: {
       title: 'Gene Summary',
       requiresAuth: false
-    }
-  },
-  {
-    path: '/admin/genes',
-    name: 'GeneAdmin',
-    component: GeneAdmin,
-    meta: {
-      title: 'Gene Administration',
-      requiresAuth: true,
-      requiredRoles: ['admin']
     }
   },
   {

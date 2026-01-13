@@ -25,7 +25,6 @@ class UserDependency:
     def __init__(self, role: str = "admin"):
         self.role = role
         self.id = "user-123"
-        self.assigned_scopes: list[str] = []
 
 
 # Create dependency instances

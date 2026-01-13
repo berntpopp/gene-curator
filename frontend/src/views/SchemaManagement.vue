@@ -176,6 +176,13 @@
   import { useSchemasStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
+  import {
+    transformSchemas,
+    formatType,
+    formatStatus,
+    getTypeColor,
+    getStatusColor
+  } from '@/utils/schemaTransformer'
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
@@ -232,8 +239,9 @@
     { title: 'Actions', key: 'actions', sortable: false }
   ]
 
-  // Defensive computed properties with defaults
-  const schemas = computed(() => schemasStore.schemas || [])
+  // Transform raw schemas from store using schemaTransformer utility (DRY principle)
+  // This handles backend field mapping (schema_type -> type, is_active -> status)
+  const schemas = computed(() => transformSchemas(schemasStore.schemas))
 
   const filteredSchemas = computed(() => {
     // Defensive: ensure schemas is always an array
@@ -250,31 +258,8 @@
     return filtered
   })
 
-  const getTypeColor = type => {
-    const colorMap = {
-      precuration: 'blue',
-      curation: 'green',
-      combined: 'purple'
-    }
-    return colorMap[type] || 'grey'
-  }
-
-  const getStatusColor = status => {
-    const colorMap = {
-      draft: 'orange',
-      active: 'success',
-      deprecated: 'error'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const formatType = type => {
-    return type.charAt(0).toUpperCase() + type.slice(1)
-  }
-
-  const formatStatus = status => {
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
+  // Note: getTypeColor, getStatusColor, formatType, formatStatus
+  // are now imported from @/utils/schemaTransformer (DRY principle)
 
   const formatDate = dateString => {
     return new Date(dateString).toLocaleDateString()

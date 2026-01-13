@@ -1,9 +1,13 @@
-"""HGNC gene symbol validator with caching"""
+"""HGNC gene symbol validator with caching and search functionality"""
+
+from typing import Any
 
 import httpx
 
 from app.core.logging import get_logger
 from app.schemas.validation import (
+    HGNCGeneSearchResult,
+    HGNCSearchResponse,
     HGNCValidationData,
     ValidationResult,
 )
@@ -159,6 +163,191 @@ class HGNCValidator(ExternalValidator):
         )
 
         return results
+
+    async def search(self, query: str, limit: int = 10) -> HGNCSearchResponse:
+        """Search HGNC database for genes matching query
+
+        Supports searching by:
+        - Gene symbol (exact or partial with wildcard)
+        - HGNC ID (e.g., HGNC:1100 or just 1100)
+        - Gene name (partial match)
+        - Alias symbols
+
+        Args:
+            query: Search query string
+            limit: Maximum number of results (default: 10, max: 50)
+
+        Returns:
+            HGNCSearchResponse with matching genes
+        """
+        try:
+            # Normalize query
+            query = query.strip()
+            if not query:
+                return HGNCSearchResponse(query=query, total_results=0, results=[])
+
+            # Build search URL based on query type
+            search_url = self._build_search_url(query)
+
+            logger.debug(
+                "HGNC search request",
+                query=query,
+                search_url=search_url,
+                limit=limit,
+            )
+
+            response = await self.client.get(search_url)
+
+            if response.status_code != 200:
+                logger.error(
+                    "HGNC search API error",
+                    status_code=response.status_code,
+                    query=query,
+                )
+                return HGNCSearchResponse(query=query, total_results=0, results=[])
+
+            data = response.json()
+
+            # Parse response
+            results = self._parse_search_response(data, limit)
+
+            logger.info(
+                "HGNC search completed",
+                query=query,
+                total_results=len(results),
+            )
+
+            return HGNCSearchResponse(
+                query=query,
+                total_results=len(results),
+                results=results,
+            )
+
+        except httpx.TimeoutException:
+            logger.error("HGNC search timeout", query=query)
+            return HGNCSearchResponse(query=query, total_results=0, results=[])
+        except Exception as e:
+            logger.error("HGNC search error", query=query, error=e)
+            return HGNCSearchResponse(query=query, total_results=0, results=[])
+
+    def _build_search_url(self, query: str) -> str:
+        """Build appropriate HGNC search URL based on query type
+
+        Args:
+            query: User's search query
+
+        Returns:
+            Appropriate HGNC REST API URL
+        """
+        query_upper = query.upper()
+
+        # Check if it's an HGNC ID (with or without prefix)
+        if query_upper.startswith("HGNC:"):
+            hgnc_num = query_upper.replace("HGNC:", "")
+            return f"/fetch/hgnc_id/HGNC:{hgnc_num}"
+        elif query.isdigit():
+            # Just a number, treat as HGNC ID
+            return f"/fetch/hgnc_id/HGNC:{query}"
+
+        # For gene symbols and names, use search with wildcard
+        # Search across symbol, alias_symbol, prev_symbol, and name fields
+        search_term = query_upper
+        if len(query) >= 2:
+            # Add wildcard for partial matching
+            search_term = f"{query_upper}*"
+
+        # Use combined search across multiple fields
+        search_query = (
+            f"symbol:{search_term}+OR+"
+            f"alias_symbol:{search_term}+OR+"
+            f"prev_symbol:{search_term}+OR+"
+            f"name:*{query_upper}*"
+        )
+        return f"/search/{search_query}"
+
+    def _parse_search_response(
+        self, data: dict[str, Any], limit: int
+    ) -> list[HGNCGeneSearchResult]:
+        """Parse HGNC API response into search results
+
+        Args:
+            data: Raw HGNC API response
+            limit: Maximum results to return
+
+        Returns:
+            List of HGNCGeneSearchResult objects
+        """
+        results: list[HGNCGeneSearchResult] = []
+
+        if "response" not in data or "docs" not in data["response"]:
+            return results
+
+        docs = data["response"]["docs"][:limit]
+
+        for doc in docs:
+            result = HGNCGeneSearchResult(
+                hgnc_id=doc.get("hgnc_id", ""),
+                symbol=doc.get("symbol", ""),
+                name=doc.get("name"),
+                alias_symbols=doc.get("alias_symbol", []) or [],
+                previous_symbols=doc.get("prev_symbol", []) or [],
+                chromosome=doc.get("location", "").split("q")[0].split("p")[0]
+                if doc.get("location")
+                else None,
+                location=doc.get("location"),
+                locus_type=doc.get("locus_type"),
+                status=doc.get("status"),
+            )
+            results.append(result)
+
+        return results
+
+    async def fetch_gene_by_id(self, hgnc_id: str) -> HGNCGeneSearchResult | None:
+        """Fetch complete gene data by HGNC ID
+
+        Args:
+            hgnc_id: HGNC ID (e.g., "HGNC:1100" or "1100")
+
+        Returns:
+            HGNCGeneSearchResult with full gene data, or None if not found
+        """
+        try:
+            # Normalize HGNC ID
+            if not hgnc_id.upper().startswith("HGNC:"):
+                hgnc_id = f"HGNC:{hgnc_id}"
+
+            response = await self.client.get(f"/fetch/hgnc_id/{hgnc_id}")
+
+            if response.status_code != 200:
+                return None
+
+            data = response.json()
+
+            if "response" not in data or "docs" not in data["response"]:
+                return None
+
+            docs = data["response"]["docs"]
+            if not docs:
+                return None
+
+            doc = docs[0]
+            return HGNCGeneSearchResult(
+                hgnc_id=doc.get("hgnc_id", ""),
+                symbol=doc.get("symbol", ""),
+                name=doc.get("name"),
+                alias_symbols=doc.get("alias_symbol", []) or [],
+                previous_symbols=doc.get("prev_symbol", []) or [],
+                chromosome=doc.get("location", "").split("q")[0].split("p")[0]
+                if doc.get("location")
+                else None,
+                location=doc.get("location"),
+                locus_type=doc.get("locus_type"),
+                status=doc.get("status"),
+            )
+
+        except Exception as e:
+            logger.error("HGNC fetch by ID error", hgnc_id=hgnc_id, error=e)
+            return None
 
     async def close(self) -> None:
         """Close HTTP client"""

@@ -115,6 +115,9 @@
       </v-col>
 
       <v-col cols="12" lg="4">
+        <!-- Pending Invitations -->
+        <PendingInvitations class="mb-4" />
+
         <!-- Quick Actions -->
         <v-card class="mb-4">
           <v-card-title class="d-flex align-center">
@@ -188,6 +191,7 @@
 
 <script setup>
   import { useLogger } from '@/composables/useLogger'
+  import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
 
   const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'

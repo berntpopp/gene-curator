@@ -8,17 +8,73 @@ Design Principles:
 - Stateless: All methods are pure functions
 - Type Safety: Full type hints for all operations
 - Performance: Optimized queries with minimal database hits
+- DRY: Admin bypass extracted to reusable decorator
+- SOLID: Protocol interface for dependency injection
+
+Reference: https://docs.sqlalchemy.org/en/20/orm/queryguide/query
 """
 
-from typing import Any
+from collections.abc import Callable
+from functools import wraps
+from typing import TYPE_CHECKING, Any, ParamSpec, TypeVar, cast
 from uuid import UUID
 
+from sqlalchemy import and_, exists
 from sqlalchemy.orm import Query, Session
 
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Scope, ScopeMembership, UserNew
 
+if TYPE_CHECKING:
+    from app.models.models import PrecurationNew
+
 logger = get_logger(__name__)
+
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def _is_global_admin(user: UserNew) -> bool:
+    """Check if user has global admin role.
+
+    Extracted for DRY - single source of truth for admin check.
+    """
+    return user.role.value == "admin"
+
+
+def admin_bypass_returns_true(func: Callable[P, bool]) -> Callable[P, bool]:
+    """Decorator that allows global admins to bypass permission checks.
+
+    For methods that return bool, admins always get True.
+    This follows DRY by centralizing the admin bypass logic.
+
+    Usage:
+        @admin_bypass_returns_true
+        def has_scope_access(db, user, scope_id, ...) -> bool:
+            # Admin check already done by decorator
+            # Only membership logic needed here
+    """
+
+    @wraps(func)
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> bool:
+        # Extract user from args (position 1 after db)
+        # Convention: (db: Session, user: UserNew, ...)
+        user: UserNew | None = None
+        if len(args) > 1:
+            user = cast(UserNew, args[1])
+        elif "user" in kwargs:
+            user = cast(UserNew, kwargs.get("user"))
+
+        if user and _is_global_admin(user):
+            logger.debug(
+                "Admin bypass granted",
+                user_id=str(user.id),
+                function=func.__name__,
+            )
+            return True
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 class ScopePermissionService:
@@ -425,3 +481,209 @@ class ScopePermissionService:
         )
 
         return filtered_query
+
+    @staticmethod
+    @admin_bypass_returns_true
+    def has_scope_access(
+        db: Session,
+        user: UserNew,
+        scope_id: UUID,
+        required_roles: list[str] | None = None,
+    ) -> bool:
+        """Check if user has access to scope with optional role requirement.
+
+        Uses EXISTS subquery for optimal performance (O(1) vs O(n) for COUNT).
+
+        Args:
+            db: Database session
+            user: Current user
+            scope_id: Scope to check access for
+            required_roles: Optional list of required roles (e.g., ["curator", "admin"])
+                           If None, any active membership grants access.
+
+        Returns:
+            True if user has access, False otherwise
+
+        Performance Note:
+            Uses EXISTS instead of COUNT for O(1) early termination.
+            Reference: https://docs.sqlalchemy.org/en/20/orm/queryguide/query
+        """
+        logger.debug(
+            "Checking scope access",
+            user_id=str(user.id),
+            scope_id=str(scope_id),
+            required_roles=required_roles,
+        )
+
+        # Validate scope exists and is active
+        scope_exists = db.query(
+            exists().where(and_(Scope.id == scope_id, Scope.is_active == True))  # noqa: E712
+        ).scalar()
+
+        if not scope_exists:
+            logger.warning("Scope not found or inactive", scope_id=str(scope_id))
+            return False
+
+        # Build EXISTS subquery for O(1) performance
+        conditions = [
+            ScopeMembership.user_id == user.id,
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+        ]
+
+        if required_roles:
+            conditions.append(ScopeMembership.role.in_(required_roles))
+
+        # Use EXISTS for early termination (stops at first match)
+        exists_query = exists().where(and_(*conditions))
+        result = bool(db.query(exists_query).scalar())
+
+        logger.debug(
+            "Access check complete",
+            user_id=str(user.id),
+            scope_id=str(scope_id),
+            has_access=result,
+        )
+        return result
+
+    @staticmethod
+    def get_user_scope_ids(
+        db: Session,
+        user: UserNew,
+        required_roles: list[str] | None = None,
+    ) -> list[UUID]:
+        """Get list of scope IDs user has access to.
+
+        Args:
+            db: Database session
+            user: Current user
+            required_roles: Optional list of required roles
+
+        Returns:
+            List of scope UUIDs user can access
+        """
+        logger.debug(
+            "Getting user scope IDs",
+            user_id=str(user.id),
+            required_roles=required_roles,
+        )
+
+        # Global admin gets all active scopes
+        if _is_global_admin(user):
+            logger.debug("Admin gets all scopes", user_id=str(user.id))
+            return [
+                row[0]
+                for row in db.query(Scope.id)
+                .filter(Scope.is_active == True)  # noqa: E712
+                .all()
+            ]
+
+        # Build membership query
+        query = (
+            db.query(ScopeMembership.scope_id)
+            .join(Scope, ScopeMembership.scope_id == Scope.id)
+            .filter(
+                ScopeMembership.user_id == user.id,
+                ScopeMembership.is_active == True,  # noqa: E712
+                Scope.is_active == True,  # noqa: E712 - Only return active scopes
+            )
+        )
+
+        # Add role filter if specified
+        if required_roles:
+            query = query.filter(ScopeMembership.role.in_(required_roles))
+
+        scope_ids = [row[0] for row in query.all()]
+        logger.debug(
+            "Retrieved user scope IDs",
+            user_id=str(user.id),
+            count=len(scope_ids),
+        )
+        return scope_ids
+
+    @staticmethod
+    def get_user_scope_role(
+        db: Session,
+        user_id: UUID,
+        scope_id: UUID,
+    ) -> str | None:
+        """Get user's role in a specific scope.
+
+        Args:
+            db: Database session
+            user_id: User UUID
+            scope_id: Scope UUID
+
+        Returns:
+            Role string or None if not a member
+        """
+        logger.debug(
+            "Getting user scope role",
+            user_id=str(user_id),
+            scope_id=str(scope_id),
+        )
+
+        membership = (
+            db.query(ScopeMembership)
+            .filter(
+                ScopeMembership.user_id == user_id,
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712
+            )
+            .first()
+        )
+
+        role = membership.role if membership else None
+        logger.debug(
+            "User scope role retrieved",
+            user_id=str(user_id),
+            scope_id=str(scope_id),
+            role=role,
+        )
+        return role
+
+    @staticmethod
+    def can_create_precuration(db: Session, user: UserNew, scope_id: UUID) -> bool:
+        """Check if user can create precuration in scope.
+
+        Requires curator or admin role in the scope.
+        """
+        return ScopePermissionService.has_scope_access(
+            db, user, scope_id, required_roles=["admin", "curator", "scope_admin"]
+        )
+
+    @staticmethod
+    def can_approve_precuration(
+        db: Session, user: UserNew, precuration: "PrecurationNew"
+    ) -> bool:
+        """Check if user can approve precuration (4-eyes principle).
+
+        Requirements:
+        - User must NOT be the creator (4-eyes principle)
+        - User must have reviewer, curator, or admin role in scope
+        """
+        # Cannot approve own work - 4-eyes principle
+        if precuration.created_by == user.id:
+            logger.debug(
+                "Cannot approve own precuration (4-eyes)",
+                user_id=str(user.id),
+                precuration_id=str(precuration.id),
+            )
+            return False
+
+        return ScopePermissionService.has_scope_access(
+            db,
+            user,
+            precuration.scope_id,
+            required_roles=["admin", "curator", "reviewer", "scope_admin"],
+        )
+
+    @staticmethod
+    def can_edit_gene_assignment(db: Session, user: UserNew, scope_id: UUID) -> bool:
+        """Check if user can edit gene assignments in scope.
+
+        Requires curator or admin role in the scope.
+        """
+        return ScopePermissionService.has_scope_access(
+            db, user, scope_id, required_roles=["admin", "curator", "scope_admin"]
+        )

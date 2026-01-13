@@ -54,6 +54,36 @@ export const assignmentsAPI = {
   },
 
   /**
+   * Update gene assignment (curator, priority, notes, etc.)
+   */
+  async updateAssignment(assignmentId, updateData) {
+    const response = await apiClient.put(`/gene-assignments/${assignmentId}`, updateData)
+    return response.data
+  },
+
+  /**
+   * Assign a curator to a gene-scope assignment
+   */
+  async assignCurator(assignmentId, curatorId) {
+    const response = await apiClient.post(`/gene-assignments/${assignmentId}/assign-curator`, {
+      curator_id: curatorId
+    })
+    return response.data
+  },
+
+  /**
+   * Remove a gene assignment from scope (deactivate)
+   * @param {string} assignmentId - Assignment UUID
+   * @param {string} reason - Reason for removal
+   */
+  async removeAssignment(assignmentId, reason = 'Removed from scope') {
+    const response = await apiClient.delete(`/gene-assignments/${assignmentId}`, {
+      data: { reason }
+    })
+    return response.data
+  },
+
+  /**
    * Get assignments by scope
    */
   async getAssignmentsByScope(scopeId, params = {}) {

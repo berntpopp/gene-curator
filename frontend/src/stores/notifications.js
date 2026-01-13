@@ -27,6 +27,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const loading = ref(false)
   const error = ref(null)
 
+  // Toast notification state
+  const toasts = ref([])
+  let toastIdCounter = 0
+
   // ========================================
   // Getters (Computed)
   // ========================================
@@ -252,6 +256,61 @@ export const useNotificationsStore = defineStore('notifications', () => {
   }
 
   // ========================================
+  // Toast Notifications
+  // ========================================
+
+  /**
+   * Add a toast notification (temporary snackbar message)
+   * @param {string} message - Toast message to display
+   * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
+   * @param {number} timeout - Auto-dismiss timeout in ms (default: 5000)
+   * @returns {number} Toast ID
+   */
+  const addToast = (message, type = 'info', timeout = 5000) => {
+    const id = ++toastIdCounter
+    const toast = {
+      id,
+      message,
+      type,
+      timeout,
+      visible: true
+    }
+
+    toasts.value.push(toast)
+
+    logService.debug('Toast notification added', { id, message, type })
+
+    // Auto-dismiss after timeout
+    if (timeout > 0) {
+      setTimeout(() => {
+        removeToast(id)
+      }, timeout)
+    }
+
+    return id
+  }
+
+  /**
+   * Remove a toast notification
+   * @param {number} toastId - Toast ID to remove
+   */
+  const removeToast = toastId => {
+    const index = toasts.value.findIndex(t => t.id === toastId)
+    if (index !== -1) {
+      toasts.value.splice(index, 1)
+      logService.debug('Toast notification removed', { toastId })
+    }
+  }
+
+  /**
+   * Clear all toast notifications
+   */
+  const clearToasts = () => {
+    toasts.value = []
+    logService.debug('All toasts cleared')
+  }
+
+  // ========================================
   // Return Public API
   // ========================================
 
@@ -260,6 +319,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     notifications,
     loading,
     error,
+    toasts,
 
     // Computed
     unreadNotifications,
@@ -281,7 +341,12 @@ export const useNotificationsStore = defineStore('notifications', () => {
     clearAll,
     clearError,
     initializeWebSocket,
-    disconnectWebSocket
+    disconnectWebSocket,
+
+    // Toast Actions
+    addToast,
+    removeToast,
+    clearToasts
   }
 })
 

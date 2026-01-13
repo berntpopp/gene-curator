@@ -10,10 +10,15 @@ from app.api.v1.endpoints import (
     evidence,
     external_validation,
     gene_assignments,
+    gene_catalogue,
     gene_summaries,
     genes,
     health,
+    invitations,
     logs,
+    ontology,
+    precurations,
+    publications,
     schema_validation,
     schemas,
     scope_memberships,
@@ -34,6 +39,9 @@ api_router.include_router(scopes.router, prefix="/scopes", tags=["scopes"])
 api_router.include_router(
     scope_memberships.router, prefix="/scopes", tags=["scope-memberships"]
 )
+api_router.include_router(
+    invitations.router, tags=["invitations"]
+)  # User-facing invitation endpoints (/me/invitations, /invitations/{id}/...)
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]
@@ -43,10 +51,18 @@ api_router.include_router(
 )
 api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"])
 api_router.include_router(curations.router, prefix="/curations", tags=["curations"])
+api_router.include_router(
+    precurations.router, prefix="/precurations", tags=["precurations"]
+)
 
 # Core entity endpoints
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+
+# Gene Catalogue - read-only aggregation view
+api_router.include_router(
+    gene_catalogue.router, prefix="/gene-catalogue", tags=["gene-catalogue"]
+)
 
 # ClinGen SOP v11 endpoints
 api_router.include_router(evidence.router, tags=["evidence"])
@@ -55,6 +71,16 @@ api_router.include_router(
     external_validation.router,
     prefix="/external-validation",
     tags=["external-validation"],
+)
+api_router.include_router(
+    ontology.router,
+    prefix="/ontology",
+    tags=["ontology"],
+)
+api_router.include_router(
+    publications.router,
+    prefix="/publications",
+    tags=["publications"],
 )
 
 # System monitoring endpoints

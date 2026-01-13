@@ -11,8 +11,14 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint, get_logger
 from app.models.models import UserNew
-from app.schemas.validation import ValidationRequest, ValidationResult
+from app.schemas.validation import (
+    HGNCSearchRequest,
+    HGNCSearchResponse,
+    ValidationRequest,
+    ValidationResult,
+)
 from app.services.validation_service import ValidationService
+from app.services.validators import HGNCValidator
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -295,6 +301,157 @@ async def validate_hpo(
     )
 
     return result
+
+
+@router.post(
+    "/hgnc/search",
+    response_model=HGNCSearchResponse,
+)
+@api_endpoint()
+async def search_hgnc_genes(
+    *,
+    request: HGNCSearchRequest,
+    current_user: UserNew = Depends(get_current_active_user),
+) -> HGNCSearchResponse:
+    """Search HGNC database for genes
+
+    Searches the HUGO Gene Nomenclature Committee (HGNC) database for genes
+    matching the query. Supports searching by:
+    - Gene symbol (exact or partial, e.g., "BRCA" matches BRCA1, BRCA2)
+    - HGNC ID (e.g., "HGNC:1100" or just "1100")
+    - Gene name (partial match)
+    - Alias symbols and previous symbols
+
+    Use this endpoint for gene autocomplete/typeahead functionality.
+
+    Rate limiting: HGNC API allows 10 requests/second. Results are returned
+    directly from HGNC without caching to ensure fresh data.
+
+    Args:
+        request: Search request with query and limit
+        current_user: Current authenticated user
+
+    Returns:
+        Search response with matching genes
+
+    Example request:
+        ```json
+        {
+            "query": "BRCA",
+            "limit": 10
+        }
+        ```
+
+    Example response:
+        ```json
+        {
+            "query": "BRCA",
+            "total_results": 2,
+            "results": [
+                {
+                    "hgnc_id": "HGNC:1100",
+                    "symbol": "BRCA1",
+                    "name": "BRCA1 DNA repair associated",
+                    "chromosome": "17",
+                    "location": "17q21.31",
+                    "status": "Approved"
+                },
+                {
+                    "hgnc_id": "HGNC:1101",
+                    "symbol": "BRCA2",
+                    "name": "BRCA2 DNA repair associated",
+                    "chromosome": "13",
+                    "location": "13q13.1",
+                    "status": "Approved"
+                }
+            ]
+        }
+        ```
+    """
+    logger.debug(
+        "HGNC search requested",
+        query=request.query,
+        limit=request.limit,
+        user_id=str(current_user.id),
+    )
+
+    # Use HGNCValidator directly for search (no caching needed for search)
+    validator = HGNCValidator()
+    try:
+        result = await validator.search(request.query, request.limit)
+
+        logger.info(
+            "HGNC search completed",
+            query=request.query,
+            results_count=result.total_results,
+            user_id=str(current_user.id),
+        )
+
+        return result
+    finally:
+        await validator.close()
+
+
+@router.get(
+    "/hgnc/fetch/{hgnc_id}",
+    response_model=HGNCSearchResponse,
+)
+@api_endpoint()
+async def fetch_hgnc_gene(
+    *,
+    hgnc_id: str,
+    current_user: UserNew = Depends(get_current_active_user),
+) -> HGNCSearchResponse:
+    """Fetch a single gene by HGNC ID
+
+    Retrieves complete gene information from HGNC by ID. Use this to
+    get full details after selecting a gene from search results.
+
+    Args:
+        hgnc_id: HGNC ID (e.g., "HGNC:1100" or "1100")
+        current_user: Current authenticated user
+
+    Returns:
+        Search response with single gene result
+
+    Example:
+        GET /external-validation/hgnc/fetch/HGNC:1100
+    """
+    logger.debug(
+        "HGNC fetch requested",
+        hgnc_id=hgnc_id,
+        user_id=str(current_user.id),
+    )
+
+    validator = HGNCValidator()
+    try:
+        gene = await validator.fetch_gene_by_id(hgnc_id)
+
+        if gene:
+            logger.info(
+                "HGNC gene fetched",
+                hgnc_id=hgnc_id,
+                symbol=gene.symbol,
+                user_id=str(current_user.id),
+            )
+            return HGNCSearchResponse(
+                query=hgnc_id,
+                total_results=1,
+                results=[gene],
+            )
+        else:
+            logger.warning(
+                "HGNC gene not found",
+                hgnc_id=hgnc_id,
+                user_id=str(current_user.id),
+            )
+            return HGNCSearchResponse(
+                query=hgnc_id,
+                total_results=0,
+                results=[],
+            )
+    finally:
+        await validator.close()
 
 
 @router.get(

@@ -5,7 +5,7 @@ export const genesAPI = {
    * Get all genes with assignment status
    */
   async getGenes(params = {}) {
-    const response = await apiClient.get('/genes', { params })
+    const response = await apiClient.get('/genes/', { params })
     return response.data
   },
 
@@ -42,6 +42,14 @@ export const genesAPI = {
   },
 
   /**
+   * Bulk create genes
+   */
+  async bulkCreateGenes(bulkData) {
+    const response = await apiClient.post('/genes/bulk', bulkData)
+    return response.data
+  },
+
+  /**
    * Get gene scope assignments
    */
   async getGeneAssignments(id) {
@@ -70,6 +78,36 @@ export const genesAPI = {
    */
   async getStatistics() {
     const response = await apiClient.get('/genes/statistics')
+    return response.data
+  },
+
+  /**
+   * Validate gene against HGNC and return validation result
+   * @param {string} geneId - Gene UUID to validate
+   * @returns {Promise<Object>} Validation result with is_valid, warnings, errors, external_data
+   */
+  async validateGene(geneId) {
+    const response = await apiClient.post(`/genes/${geneId}/validate`)
+    return response.data
+  },
+
+  /**
+   * Get gene by HGNC ID
+   * @param {string} hgncId - HGNC ID (e.g., "HGNC:1100")
+   * @returns {Promise<Object>} Gene data if found
+   */
+  async getGeneByHGNC(hgncId) {
+    const response = await apiClient.get(`/genes/hgnc/${hgncId}`)
+    return response.data
+  },
+
+  /**
+   * Get gene by symbol
+   * @param {string} symbol - Gene symbol (e.g., "BRCA1")
+   * @returns {Promise<Object>} Gene data if found
+   */
+  async getGeneBySymbol(symbol) {
+    const response = await apiClient.get(`/genes/symbol/${symbol}`)
     return response.data
   }
 }

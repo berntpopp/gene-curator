@@ -140,17 +140,60 @@ export const scopeService = {
    * Fetch scope members
    *
    * @param {string} scopeId - Scope UUID
-   * @returns {Promise<Array>} Array of membership objects
+   * @param {Object} options - Query options
+   * @param {boolean} [options.includePending=false] - Include pending invitations
+   * @returns {Promise<Object>} Member list response with statistics
    *
    * @example
-   * const members = await scopeService.fetchMembers(scopeId)
-   * // [{ user_id: 'uuid', role: 'admin', ... }, ...]
+   * const result = await scopeService.fetchMembers(scopeId, { includePending: true })
+   * // { members: [...], total, active_count, pending_count, role_counts }
    */
-  async fetchMembers(scopeId) {
-    const response = await apiClient.get(`/scopes/${scopeId}/members`)
-    // Extract members array from response
-    // API returns: { scope_id, total, members, active_count, pending_count, role_counts }
+  async fetchMembers(scopeId, options = {}) {
+    const params = {}
+    if (options.includePending) {
+      params.include_pending = true
+    }
+    const response = await apiClient.get(`/scopes/${scopeId}/members`, { params })
+    // Return full response for statistics access, or just members for backward compatibility
     return response.data.members || response.data
+  },
+
+  /**
+   * Fetch scope members with full statistics
+   *
+   * @param {string} scopeId - Scope UUID
+   * @param {boolean} includePending - Include pending invitations
+   * @returns {Promise<Object>} Full member list response with statistics
+   *
+   * @example
+   * const data = await scopeService.fetchMembersWithStats(scopeId, true)
+   * // { scope_id, total, members, active_count, pending_count, role_counts }
+   */
+  async fetchMembersWithStats(scopeId, includePending = false) {
+    const params = includePending ? { include_pending: true } : {}
+    const response = await apiClient.get(`/scopes/${scopeId}/members`, { params })
+    return response.data
+  },
+
+  /**
+   * Search users for invitation (scope admin only)
+   *
+   * Returns users who are NOT already members of the scope.
+   *
+   * @param {string} scopeId - Scope UUID
+   * @param {string} query - Search query (name, email, or institution)
+   * @param {number} [limit=10] - Maximum results
+   * @returns {Promise<Array>} Array of user objects matching query
+   *
+   * @example
+   * const users = await scopeService.searchUsersForInvite(scopeId, 'john')
+   * // [{ id: 'uuid', name: 'John Doe', email: 'john@example.com', ... }, ...]
+   */
+  async searchUsersForInvite(scopeId, query, limit = 10) {
+    const response = await apiClient.get(`/scopes/${scopeId}/users/search`, {
+      params: { q: query, limit }
+    })
+    return response.data
   },
 
   /**

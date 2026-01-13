@@ -1,12 +1,13 @@
 <!--
   Member Management Component
 
-  **New Component** - Built with DRY/SOLID principles from the start
+  **Updated** - Now uses GitHub-style invitation workflow
 
   **DRY Improvements**:
   - Uses useRoleColors composable (no duplicate role color logic)
   - Uses useScopePermissions composable (permission checking)
   - Uses logService (no console.log/console.error)
+  - Uses InviteMemberDialog (reusable invite component)
 
   **SOLID-SRP**:
   - Component: UI rendering and user interactions only
@@ -16,7 +17,8 @@
 
   **Features**:
   - List all scope members with roles
-  - Invite new members (email or existing user)
+  - Show pending invitations with "Invited" status
+  - Invite new members (user search with autocomplete)
   - Update member roles (admin only)
   - Remove members (admin only)
   - Role-based UI (different views for admin/curator/viewer)
@@ -65,6 +67,18 @@
           </v-list-item-subtitle>
 
           <template #append>
+            <!-- Pending/Invited chip -->
+            <v-chip
+              v-if="member.is_pending"
+              color="warning"
+              variant="outlined"
+              size="small"
+              class="mr-2"
+              prepend-icon="mdi-clock-outline"
+            >
+              Invited
+            </v-chip>
+
             <!-- Role chip -->
             <v-chip
               :color="getRoleColor(member.role)"
@@ -118,70 +132,13 @@
       </v-alert>
     </v-card-text>
 
-    <!-- Invite Member Dialog -->
-    <v-dialog v-model="showInviteDialog" max-width="600">
-      <v-card>
-        <v-card-title>Invite Member to Scope</v-card-title>
-
-        <v-card-text>
-          <v-form ref="inviteForm" v-model="inviteFormValid">
-            <v-radio-group v-model="inviteType" inline>
-              <v-radio label="By Email (New User)" value="email"></v-radio>
-              <v-radio label="By User ID (Existing User)" value="user_id"></v-radio>
-            </v-radio-group>
-
-            <v-text-field
-              v-if="inviteType === 'email'"
-              v-model="invitationData.email"
-              label="Email Address"
-              type="email"
-              :rules="emailRules"
-              prepend-icon="mdi-email"
-            ></v-text-field>
-
-            <v-text-field
-              v-else
-              v-model="invitationData.user_id"
-              label="User ID"
-              :rules="userIdRules"
-              prepend-icon="mdi-account"
-            ></v-text-field>
-
-            <v-select
-              v-model="invitationData.role"
-              :items="availableRoles"
-              label="Role"
-              :rules="roleRules"
-              prepend-icon="mdi-shield-account"
-            >
-              <template #item="{ props, item }">
-                <v-list-item v-bind="props">
-                  <template #prepend>
-                    <v-icon
-                      :icon="getRoleIcon(item.value)"
-                      :color="getRoleColor(item.value)"
-                    ></v-icon>
-                  </template>
-                </v-list-item>
-              </template>
-            </v-select>
-          </v-form>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="cancelInvite">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            :disabled="!inviteFormValid || inviting"
-            :loading="inviting"
-            @click="sendInvitation"
-          >
-            Send Invitation
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <!-- Invite Member Dialog (Reusable Component) -->
+    <InviteMemberDialog
+      v-model="showInviteDialog"
+      :scope-id="scopeId"
+      :existing-member-ids="existingMemberIds"
+      @invited="handleInvited"
+    />
 
     <!-- Confirm Remove Member Dialog -->
     <v-dialog v-model="showRemoveDialog" max-width="500">
@@ -223,6 +180,8 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
+  import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
+  import { scopeService } from '@/services/scopeService'
 
   // ============================================
   // PROPS
@@ -255,16 +214,7 @@
   const loading = ref(false)
   const showInviteDialog = ref(false)
   const showRemoveDialog = ref(false)
-  const inviting = ref(false)
   const removing = ref(false)
-
-  const inviteType = ref('email')
-  const inviteFormValid = ref(false)
-  const invitationData = ref({
-    email: '',
-    user_id: '',
-    role: 'viewer'
-  })
 
   const memberToRemove = ref(null)
 
@@ -272,6 +222,13 @@
   const showSnackbar = ref(false)
   const snackbarMessage = ref('')
   const snackbarColor = ref('success')
+
+  /**
+   * Existing member IDs (for excluding from search)
+   */
+  const existingMemberIds = computed(() => {
+    return members.value.map(m => m.user_id)
+  })
 
   // ============================================
   // COMPUTED
@@ -282,39 +239,25 @@
   const availableRoles = ['admin', 'curator', 'reviewer', 'viewer']
 
   // ============================================
-  // VALIDATION RULES
-  // ============================================
-
-  const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid'
-  ]
-
-  const userIdRules = [
-    v => !!v || 'User ID is required',
-    v => v.length > 0 || 'User ID must not be empty'
-  ]
-
-  const roleRules = [
-    v => !!v || 'Role is required',
-    v => availableRoles.includes(v) || 'Invalid role'
-  ]
-
-  // ============================================
   // METHODS
   // ============================================
 
   /**
-   * Fetch scope members
+   * Fetch scope members (including pending invitations)
    */
   const fetchMembers = async () => {
     loading.value = true
 
     try {
       logger.debug('Fetching scope members', { scope_id: props.scopeId })
-      const data = await scopeStore.fetchMembers(props.scopeId)
+      // Include pending invitations to show "Invited" status
+      const data = await scopeService.fetchMembers(props.scopeId, { includePending: true })
       members.value = data
-      logger.info('Members fetched successfully', { scope_id: props.scopeId, count: data.length })
+      logger.info('Members fetched successfully', {
+        scope_id: props.scopeId,
+        count: data.length,
+        pending: data.filter(m => m.is_pending).length
+      })
     } catch (error) {
       logger.error('Failed to fetch members', {
         scope_id: props.scopeId,
@@ -328,50 +271,22 @@
   }
 
   /**
-   * Send invitation to new member
+   * Handle successful invitation from InviteMemberDialog
    */
-  const sendInvitation = async () => {
-    if (!inviteFormValid.value) return
+  const handleInvited = async invitationResult => {
+    logger.info('Member invited successfully', {
+      scope_id: props.scopeId,
+      user_name: invitationResult.userName,
+      membership_id: invitationResult.id
+    })
 
-    inviting.value = true
+    showNotification(
+      `Invitation sent to ${invitationResult.userName || invitationResult.userEmail}`,
+      'success'
+    )
 
-    try {
-      const payload = {
-        role: invitationData.value.role
-      }
-
-      if (inviteType.value === 'email') {
-        payload.email = invitationData.value.email
-      } else {
-        payload.user_id = invitationData.value.user_id
-      }
-
-      logger.debug('Sending member invitation', {
-        scope_id: props.scopeId,
-        invite_type: inviteType.value,
-        role: payload.role
-      })
-
-      await scopeStore.inviteMember(props.scopeId, payload)
-
-      logger.info('Member invited successfully', {
-        scope_id: props.scopeId,
-        invite_type: inviteType.value
-      })
-
-      showNotification('Invitation sent successfully', 'success')
-      cancelInvite()
-      await fetchMembers()
-    } catch (error) {
-      logger.error('Failed to send invitation', {
-        scope_id: props.scopeId,
-        error: error.message,
-        stack: error.stack
-      })
-      showNotification(`Failed to send invitation: ${error.message}`, 'error')
-    } finally {
-      inviting.value = false
-    }
+    // Refresh member list to show new pending invitation
+    await fetchMembers()
   }
 
   /**
@@ -450,19 +365,6 @@
     } finally {
       removing.value = false
     }
-  }
-
-  /**
-   * Cancel invitation and reset form
-   */
-  const cancelInvite = () => {
-    showInviteDialog.value = false
-    invitationData.value = {
-      email: '',
-      user_id: '',
-      role: 'viewer'
-    }
-    inviteType.value = 'email'
   }
 
   /**

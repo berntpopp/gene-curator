@@ -199,7 +199,6 @@ export const useScopesStore = defineStore('scopes', () => {
 
   async function fetchUserRole(scopeId) {
     try {
-      const members = await scopeService.fetchMembers(scopeId)
       const authStore = useAuthStore()
       const currentUserId = authStore.user?.id
 
@@ -208,6 +207,15 @@ export const useScopesStore = defineStore('scopes', () => {
         return null
       }
 
+      // RBAC hierarchy: Application admins have implicit admin access to all scopes
+      if (authStore.isAdmin) {
+        currentUserRole.value = 'admin'
+        logService.debug('User role fetched (app admin)', { scope_id: scopeId, role: 'admin' })
+        return 'admin'
+      }
+
+      // For non-admin users, check scope membership
+      const members = await scopeService.fetchMembers(scopeId)
       const membership = members.find(m => m.user_id === currentUserId)
       currentUserRole.value = membership?.role || null
 

@@ -204,7 +204,9 @@
   ]
 
   // Defensive computed properties with defaults
-  const workflowPairs = computed(() => workflowStore.workflowPairs || [])
+  // Note: workflowPairs are in schemasStore (schema-related data)
+  // workflowStages are static configuration in workflowStore
+  const workflowPairs = computed(() => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
   const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas || [])
   const curationSchemas = computed(() => schemasStore.getCurationSchemas || [])
@@ -256,6 +258,7 @@
   }
 
   const formatStatus = status => {
+    if (!status || typeof status !== 'string') return 'Draft'
     return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
@@ -278,7 +281,8 @@
   const deleteWorkflow = async workflow => {
     if (confirm(`Are you sure you want to delete "${workflow.name}"?`)) {
       try {
-        await workflowStore.deleteWorkflowPair(workflow.id)
+        // workflowPairs CRUD is in schemasStore (schema-related data)
+        await schemasStore.deleteWorkflowPair(workflow.id)
         logger.info('Workflow deleted', { workflowId: workflow.id, workflowName: workflow.name })
         showSuccess('Workflow deleted successfully')
       } catch (error) {
@@ -304,7 +308,8 @@
 
     creating.value = true
     try {
-      await workflowStore.createWorkflowPair(newWorkflow.value)
+      // workflowPairs CRUD is in schemasStore (schema-related data)
+      await schemasStore.createWorkflowPair(newWorkflow.value)
       logger.info('Workflow created', { workflowName: newWorkflow.value.name })
       showSuccess('Workflow created successfully')
 
@@ -330,17 +335,21 @@
   onMounted(async () => {
     loading.value = true
     try {
-      // Call existing methods
+      // Fetch all required data in parallel
+      // - workflowPairs and schemas are in schemasStore
+      // - analytics and reviewers are in workflowStore
       await Promise.all([
-        workflowStore.fetchWorkflowAnalytics(),
-        workflowStore.fetchPeerReviewers(),
-        schemasStore.fetchSchemas()
+        schemasStore.fetchSchemas(),
+        schemasStore.fetchWorkflowPairs(),
+        workflowStore.fetchWorkflowAnalytics().catch(() => null), // Non-critical
+        workflowStore.fetchPeerReviewers().catch(() => null) // Non-critical
       ])
 
       logger.info('WorkflowManagement mounted', {
-        analyticsLoaded: !!workflowStore.analytics,
-        reviewersCount: workflowStore.peerReviewers?.length || 0,
-        schemasCount: schemasStore.schemas?.length || 0
+        workflowPairsCount: workflowPairs.value.length,
+        workflowStagesCount: workflowStages.value.length,
+        schemasCount: schemasStore.schemas?.length || 0,
+        analyticsLoaded: !!workflowStore.analytics
       })
     } catch (error) {
       logger.error('Failed to load workflow data', {
