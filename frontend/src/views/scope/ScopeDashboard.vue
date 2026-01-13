@@ -203,7 +203,12 @@
           <!-- Settings Tab -->
           <v-window-item v-if="canManageScope" value="settings">
             <v-card-text>
-              <ScopeSettings v-if="scope" :scope="scope" />
+              <ScopeSettings
+                v-if="scope"
+                :scope="scope"
+                :statistics="scopeStats"
+                @deleted="handleScopeDeleted"
+              />
             </v-card-text>
           </v-window-item>
         </v-window>
@@ -219,7 +224,7 @@
 
 <script setup>
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useScopeUtils } from '@/composables/useScopeUtils'
@@ -238,6 +243,7 @@
   // ============================================
 
   const route = useRoute()
+  const router = useRouter()
   const scopeStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
   const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
@@ -271,6 +277,14 @@
   // ============================================
   // METHODS
   // ============================================
+
+  /**
+   * Handle scope deletion - navigate to scopes list
+   */
+  const handleScopeDeleted = () => {
+    logger.info('Scope deleted, navigating to scopes list')
+    router.push({ name: 'scopes' })
+  }
 
   /**
    * Fetch scope data and statistics

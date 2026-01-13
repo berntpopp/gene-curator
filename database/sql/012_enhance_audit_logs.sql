@@ -49,9 +49,9 @@ SET change_type = 'legacy_action',
     )
 WHERE change_type IS NULL;
 
--- Make change_type NOT NULL after backfill
-ALTER TABLE audit_log
-ALTER COLUMN change_type SET NOT NULL;
+-- NOTE: change_type is intentionally kept nullable to support the audit trigger
+-- which logs INSERT/UPDATE/DELETE operations without a specific change_type.
+-- The SQLAlchemy model (AuditLogNew) also defines this as Optional[str].
 
 -- Create indexes for new columns
 CREATE INDEX idx_audit_logs_change_type ON audit_log(change_type);

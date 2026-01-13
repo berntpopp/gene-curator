@@ -215,6 +215,7 @@ RETURNS TRIGGER AS $$
 DECLARE
     operation_type TEXT;
     entity_scope_id UUID;
+    validated_scope_id UUID;
     current_workflow_stage workflow_stage;
     previous_status TEXT;
     new_status TEXT;
@@ -229,7 +230,7 @@ BEGIN
     ELSIF TG_OP = 'DELETE' THEN
         operation_type := 'DELETE';
     END IF;
-    
+
     -- Extract context based on table
     IF TG_TABLE_NAME = 'curations' THEN
         entity_scope_id := COALESCE(NEW.scope_id, OLD.scope_id);
@@ -245,12 +246,25 @@ BEGIN
         schema_context := COALESCE(NEW.precuration_schema_id, OLD.precuration_schema_id);
     ELSIF TG_TABLE_NAME = 'reviews' THEN
         -- Get scope from curation
-        SELECT c.scope_id INTO entity_scope_id 
-        FROM curations c 
+        SELECT c.scope_id INTO entity_scope_id
+        FROM curations c
         WHERE c.id = COALESCE(NEW.curation_id, OLD.curation_id);
         current_workflow_stage := 'review';
     END IF;
-    
+
+    -- Validate scope_id still exists (handles CASCADE delete scenario)
+    -- If scope is being deleted in the same transaction, set to NULL
+    IF entity_scope_id IS NOT NULL THEN
+        SELECT id INTO validated_scope_id
+        FROM scopes
+        WHERE id = entity_scope_id;
+
+        -- If scope not found, it's being deleted - set to NULL
+        IF validated_scope_id IS NULL THEN
+            entity_scope_id := NULL;
+        END IF;
+    END IF;
+
     -- Insert audit record
     INSERT INTO audit_log (
         entity_type,
@@ -267,9 +281,9 @@ BEGIN
     ) VALUES (
         TG_TABLE_NAME,
         COALESCE(NEW.id, OLD.id),
-        entity_scope_id,
+        entity_scope_id,  -- Will be NULL if scope is being deleted
         operation_type,
-        CASE 
+        CASE
             WHEN TG_OP = 'DELETE' THEN to_jsonb(OLD)
             ELSE to_jsonb(NEW)
         END,
@@ -280,7 +294,7 @@ BEGIN
         schema_context,
         workflow_pair_context
     );
-    
+
     RETURN COALESCE(NEW, OLD);
 END;
 $$ LANGUAGE plpgsql;

@@ -26,18 +26,22 @@ export const scopesAPI = {
   },
 
   /**
-   * Update scope
+   * Update scope (partial update)
    */
   async updateScope(id, scopeData) {
-    const response = await apiClient.put(`/scopes/${id}`, scopeData)
+    const response = await apiClient.patch(`/scopes/${id}`, scopeData)
     return response.data
   },
 
   /**
    * Delete scope
+   * @param {string} id - Scope ID
+   * @param {Object} options - Options
+   * @param {boolean} options.force - Force deletion even with active gene assignments
    */
-  async deleteScope(id) {
-    const response = await apiClient.delete(`/scopes/${id}`)
+  async deleteScope(id, { force = false } = {}) {
+    const params = force ? { force: true } : {}
+    const response = await apiClient.delete(`/scopes/${id}`, { params })
     return response.data
   },
 
