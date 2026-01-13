@@ -145,19 +145,25 @@ class Scope(Base):
         "WorkflowPair", foreign_keys=[default_workflow_pair_id]
     )
     gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
-        "GeneScopeAssignment", back_populates="scope"
+        "GeneScopeAssignment", back_populates="scope", passive_deletes=True
     )
     scope_memberships: Mapped[list["ScopeMembership"]] = relationship(
-        "ScopeMembership", back_populates="scope"
+        "ScopeMembership", back_populates="scope", passive_deletes=True
     )
     precurations: Mapped[list["PrecurationNew"]] = relationship(
-        "PrecurationNew", back_populates="scope"
+        "PrecurationNew", back_populates="scope", passive_deletes=True
     )
     curations: Mapped[list["CurationNew"]] = relationship(
-        "CurationNew", back_populates="scope"
+        "CurationNew", back_populates="scope", passive_deletes=True
     )
     active_curations: Mapped[list["ActiveCuration"]] = relationship(
-        "ActiveCuration", back_populates="scope"
+        "ActiveCuration", back_populates="scope", passive_deletes=True
+    )
+    audit_logs: Mapped[list["AuditLogNew"]] = relationship(
+        "AuditLogNew", back_populates="scope", passive_deletes=True
+    )
+    schema_selections: Mapped[list["SchemaSelection"]] = relationship(
+        "SchemaSelection", back_populates="scope", passive_deletes=True
     )
 
 
@@ -1066,7 +1072,7 @@ class AuditLogNew(Base):
 
     # Nullable fields
     scope_id: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("scopes.id")
+        compatible_uuid(), ForeignKey("scopes.id", ondelete="SET NULL")
     )
     changes: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
     user_id: Mapped[PyUUID | None] = mapped_column(
@@ -1115,7 +1121,7 @@ class AuditLogNew(Base):
     )  # ALCOA+ compliance fields
 
     # Relationships
-    scope: Mapped["Scope | None"] = relationship("Scope")
+    scope: Mapped["Scope | None"] = relationship("Scope", back_populates="audit_logs")
     user: Mapped["UserNew | None"] = relationship("UserNew")
     schema: Mapped["CurationSchema | None"] = relationship("CurationSchema")
     workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
@@ -1141,7 +1147,7 @@ class SchemaSelection(Base):
 
     # Required fields
     scope_id: Mapped[PyUUID] = mapped_column(
-        compatible_uuid(), ForeignKey("scopes.id"), nullable=False
+        compatible_uuid(), ForeignKey("scopes.id", ondelete="CASCADE"), nullable=False
     )
 
     # Nullable fields
@@ -1172,7 +1178,7 @@ class SchemaSelection(Base):
 
     # Relationships
     user: Mapped["UserNew | None"] = relationship("UserNew")
-    scope: Mapped["Scope"] = relationship("Scope")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="schema_selections")
     preferred_workflow_pair: Mapped["WorkflowPair | None"] = relationship(
         "WorkflowPair"
     )

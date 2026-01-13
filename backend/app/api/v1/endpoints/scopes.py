@@ -366,22 +366,28 @@ def delete_scope(
     *,
     db: Session = Depends(get_db),
     scope_id: UUID,
-    current_user: User = Depends(deps.get_current_admin_user),
+    force: bool = Query(
+        False,
+        description="Force deletion even if scope has active gene assignments",
+    ),
+    current_user: User = Depends(deps.get_current_active_user),
 ) -> None:
     """
-    Delete a scope (application admin only).
+    Delete a scope (application admin or scope owner only).
 
-    Only application administrators can delete scopes.
+    Application administrators and scope owners (creators) can delete scopes.
     This is a destructive operation that should be used with caution.
 
     Args:
         db: Database session
         scope_id: Scope UUID
-        current_user: Current user (must be application admin)
+        force: If True, delete even with active gene assignments (cascade delete)
+        current_user: Current user (must be app admin or scope owner)
 
     Raises:
         HTTPException 404: Scope not found
-        HTTPException 400: Scope has active assignments
+        HTTPException 403: Not authorized to delete
+        HTTPException 400: Scope has active assignments (unless force=True)
     """
     # Set RLS context
     deps.set_rls_context(db, current_user)
@@ -399,20 +405,47 @@ def delete_scope(
             detail="Scope not found",
         )
 
-    # Check if scope has active assignments (prevent accidental deletion)
-    if scope_crud.has_active_assignments(db, scope_id=scope_id):
+    # Check authorization: must be app admin or scope owner
+    is_app_admin = current_user.role.value == "admin"
+    is_scope_owner = scope.created_by == current_user.id
+
+    if not is_app_admin and not is_scope_owner:
         logger.warning(
-            "Delete scope failed: has active assignments",
+            "Delete scope failed: not authorized",
+            scope_id=str(scope_id),
+            scope_name=scope.name,
+            user_id=str(current_user.id),
+            is_app_admin=is_app_admin,
+            is_scope_owner=is_scope_owner,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only application administrators or scope owners can delete scopes",
+        )
+
+    # Check if scope has active assignments (prevent accidental deletion)
+    has_assignments = scope_crud.has_active_assignments(db, scope_id=scope_id)
+    if has_assignments and not force:
+        logger.warning(
+            "Delete scope failed: has active assignments (use force=true to override)",
             scope_id=str(scope_id),
             scope_name=scope.name,
             user_id=str(current_user.id),
         )
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete scope with active gene assignments",
+            detail="Cannot delete scope with active gene assignments. Use force=true to delete anyway.",
         )
 
-    # Delete scope (CASCADE will delete memberships)
+    if has_assignments and force:
+        logger.warning(
+            "Force deleting scope with active assignments",
+            scope_id=str(scope_id),
+            scope_name=scope.name,
+            user_id=str(current_user.id),
+        )
+
+    # Delete scope (CASCADE will delete memberships and assignments)
     scope_crud.remove(db, id=scope_id)
 
     logger.warning(
