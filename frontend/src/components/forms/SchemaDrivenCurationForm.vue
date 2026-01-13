@@ -1,6 +1,22 @@
 <template>
   <ErrorBoundary @error="handleFormError">
-    <v-form ref="formRef" @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <!-- ClinGen-specific form for ClinGen SOP schemas -->
+    <ClinGenCurationForm
+      v-if="isClinGenSchema && !loadingSchema"
+      :curation-id="curationId"
+      :gene="gene"
+      :precuration-data="precurationData"
+      :initial-data="evidenceData"
+      :readonly="readonly"
+      :status="curationStatus"
+      @submit="handleClinGenSubmit"
+      @save-draft="handleClinGenSaveDraft"
+      @cancel="handleCancel"
+      @update:model-value="handleEvidenceChange"
+    />
+
+    <!-- Generic schema-driven form for non-ClinGen schemas -->
+    <v-form v-else ref="formRef" @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
         <!-- Header: Kept inline per KISS principle -->
         <v-card-title class="d-flex align-center">
@@ -108,6 +124,7 @@
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { useCurationsStore } from '@/stores/curations'
+  import { usePrecurationsStore } from '@/stores/precurations'
   import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
@@ -118,6 +135,7 @@
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import ScorePreview from '@/components/evidence/ScorePreview.vue'
   import FormActions from '@/components/forms/FormActions.vue'
+  import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
 
   const props = defineProps({
     schemaId: {
@@ -152,6 +170,7 @@
   const router = useRouter()
   const schemasStore = useSchemasStore()
   const curationsStore = useCurationsStore()
+  const precurationsStore = usePrecurationsStore()
   const validationStore = useValidationStore()
   const notificationsStore = useNotificationsStore()
 
@@ -165,8 +184,18 @@
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
 
+  // ClinGen-specific state
+  const precurationData = ref({})
+  const curationStatus = ref('draft')
+
   // Schema data
   const schema = computed(() => schemasStore.getSchemaById(props.schemaId))
+
+  // Detect ClinGen schemas for specialized form rendering
+  const isClinGenSchema = computed(() => {
+    const schemaName = schema.value?.name?.toLowerCase() || ''
+    return schemaName.includes('clingen') || schemaName.includes('sop')
+  })
 
   // Evidence items for score preview (transform to expected format)
   const scoreEvidenceItems = computed(() => {
@@ -386,6 +415,107 @@
   }
 
   /**
+   * Handle ClinGen form submit
+   * Receives full evidence data from ClinGenCurationForm
+   */
+  async function handleClinGenSubmit(clingenEvidenceData) {
+    submitting.value = true
+    try {
+      if (props.curationId) {
+        // Update existing curation evidence and submit
+        await curationsStore.updateCuration(props.curationId, {
+          evidence_data: clingenEvidenceData,
+          lock_version: lockVersion.value
+        })
+        await curationsStore.submitCuration(props.curationId, {
+          lock_version: lockVersion.value + 1
+        })
+      } else {
+        // Create and submit new curation
+        const created = await curationsStore.createCuration({
+          gene_id: props.geneId,
+          scope_id: props.scopeId,
+          curation_schema_id: props.schemaId,
+          evidence_data: clingenEvidenceData
+        })
+        await curationsStore.submitCuration(created.id, { lock_version: 0 })
+      }
+
+      notificationsStore.addToast('Curation submitted for review', 'success')
+      clearRecovery()
+      emit('submit')
+    } catch (error) {
+      logger.error('Failed to submit ClinGen curation', { error: error.message })
+      notificationsStore.addToast('Failed to submit curation', 'error')
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  /**
+   * Handle ClinGen form save draft
+   */
+  async function handleClinGenSaveDraft(clingenEvidenceData) {
+    savingDraft.value = true
+    try {
+      if (props.curationId) {
+        const updated = await curationsStore.saveDraft(props.curationId, {
+          evidence_data: clingenEvidenceData,
+          lock_version: lockVersion.value
+        })
+        if (updated) {
+          lockVersion.value = updated.lock_version
+          emit('saved')
+        }
+      } else {
+        // Create new curation as draft
+        const created = await curationsStore.createCuration({
+          gene_id: props.geneId,
+          scope_id: props.scopeId,
+          curation_schema_id: props.schemaId,
+          evidence_data: clingenEvidenceData
+        })
+        // Navigate to edit the created curation
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: props.scopeId, curationId: created.id }
+        })
+      }
+
+      notificationsStore.addToast('Draft saved', 'success')
+      clearRecovery()
+    } catch (error) {
+      logger.error('Failed to save ClinGen draft', { error: error.message })
+      notificationsStore.addToast('Failed to save draft', 'error')
+    } finally {
+      savingDraft.value = false
+    }
+  }
+
+  /**
+   * Load precuration data if curation is linked to one
+   */
+  async function loadPrecurationData() {
+    if (!props.curationId) return
+
+    try {
+      const curation = curationsStore.currentCuration
+      if (curation?.precuration_id) {
+        const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
+        if (precuration) {
+          precurationData.value = precuration.evidence_data || {}
+          logger.debug('Loaded precuration data for ClinGen form', {
+            precuration_id: curation.precuration_id
+          })
+        }
+      }
+    } catch (error) {
+      logger.warn('Failed to load precuration data', { error: error.message })
+      // Non-fatal - continue without precuration data
+    }
+  }
+
+  /**
    * Format relative time
    */
   function formatRelativeTime(timestamp) {
@@ -412,6 +542,12 @@
         evidenceData.value = curation.evidence_data || {}
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
+        curationStatus.value = curation.status || 'draft'
+
+        // Load linked precuration data for ClinGen forms
+        if (curation.precuration_id) {
+          await loadPrecurationData()
+        }
       }
     } catch (error) {
       logger.error('Failed to load curation', { error: error.message })

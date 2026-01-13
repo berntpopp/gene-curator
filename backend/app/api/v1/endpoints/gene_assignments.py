@@ -97,7 +97,9 @@ def get_gene_assignments(
         gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
         gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
         scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = assignment.assigned_curator.name if assignment.assigned_curator else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
 
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
@@ -192,8 +194,12 @@ def get_gene_assignment(
     gene_chromosome = assignment.gene.chromosome if assignment.gene else None
     scope_name = assignment.scope.name if assignment.scope else None
     scope_display_name = assignment.scope.display_name if assignment.scope else None
-    curator_name = assignment.assigned_curator.name if assignment.assigned_curator else None
-    curator_email = assignment.assigned_curator.email if assignment.assigned_curator else None
+    curator_name = (
+        assignment.assigned_curator.name if assignment.assigned_curator else None
+    )
+    curator_email = (
+        assignment.assigned_curator.email if assignment.assigned_curator else None
+    )
 
     # Convert to detailed format with related data
     detailed_assignment = GeneScopeAssignmentWithDetails(
@@ -516,7 +522,9 @@ def get_curator_assignments(
         gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
         gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
         scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = assignment.assigned_curator.name if assignment.assigned_curator else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
 
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
@@ -576,7 +584,9 @@ def get_scope_assignments(
         gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
         gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
         scope_name = assignment.scope.name if assignment.scope else ""
-        curator_name = assignment.assigned_curator.name if assignment.assigned_curator else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
 
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,

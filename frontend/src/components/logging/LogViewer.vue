@@ -10,196 +10,198 @@
     <div class="drawer-container">
       <!-- Toolbar -->
       <v-toolbar color="primary" dark density="compact" class="drawer-header">
-      <v-toolbar-title class="text-subtitle-1">
-        <v-icon start>mdi-text-box-search-outline</v-icon>
-        Application Logs
-        <v-chip
-          v-if="logStore.logCount > 0"
-          size="x-small"
-          color="white"
-          text-color="primary"
-          class="ml-2"
-        >
-          {{ logStore.logCount }}
-        </v-chip>
-      </v-toolbar-title>
+        <v-toolbar-title class="text-subtitle-1">
+          <v-icon start>mdi-text-box-search-outline</v-icon>
+          Application Logs
+          <v-chip
+            v-if="logStore.logCount > 0"
+            size="x-small"
+            color="white"
+            text-color="primary"
+            class="ml-2"
+          >
+            {{ logStore.logCount }}
+          </v-chip>
+        </v-toolbar-title>
 
-      <v-spacer></v-spacer>
+        <v-spacer></v-spacer>
 
-      <!-- Toolbar Actions -->
-      <v-btn
-        icon="mdi-download"
-        size="small"
-        variant="text"
-        :disabled="logStore.logCount === 0"
-        title="Download logs as JSON"
-        @click="downloadLogs"
-      ></v-btn>
+        <!-- Toolbar Actions -->
+        <v-btn
+          icon="mdi-download"
+          size="small"
+          variant="text"
+          :disabled="logStore.logCount === 0"
+          title="Download logs as JSON"
+          @click="downloadLogs"
+        ></v-btn>
 
-      <v-btn
-        icon="mdi-delete-sweep"
-        size="small"
-        variant="text"
-        :disabled="logStore.logCount === 0"
-        title="Clear all logs"
-        @click="clearLogs"
-      ></v-btn>
+        <v-btn
+          icon="mdi-delete-sweep"
+          size="small"
+          variant="text"
+          :disabled="logStore.logCount === 0"
+          title="Clear all logs"
+          @click="clearLogs"
+        ></v-btn>
 
-      <v-btn
-        icon="mdi-close"
-        size="small"
-        variant="text"
-        title="Close log viewer"
-        @click="closeDrawer"
-      ></v-btn>
-    </v-toolbar>
+        <v-btn
+          icon="mdi-close"
+          size="small"
+          variant="text"
+          title="Close log viewer"
+          @click="closeDrawer"
+        ></v-btn>
+      </v-toolbar>
 
       <!-- Scrollable content area -->
       <div class="drawer-content">
         <!-- Filter Controls -->
         <v-container class="py-2" fluid>
-      <v-row dense>
-        <!-- Search Filter -->
-        <v-col cols="12" md="6">
-          <v-text-field
-            v-model="searchQuery"
-            label="Search logs..."
-            prepend-inner-icon="mdi-magnify"
-            variant="outlined"
-            density="compact"
-            clearable
-            hide-details
-            @update:model-value="updateSearch"
-          ></v-text-field>
-        </v-col>
+          <v-row dense>
+            <!-- Search Filter -->
+            <v-col cols="12" md="6">
+              <v-text-field
+                v-model="searchQuery"
+                label="Search logs..."
+                prepend-inner-icon="mdi-magnify"
+                variant="outlined"
+                density="compact"
+                clearable
+                hide-details
+                @update:model-value="updateSearch"
+              ></v-text-field>
+            </v-col>
 
-        <!-- Level Filter -->
-        <v-col cols="12" md="6">
-          <v-select
-            v-model="selectedLevels"
-            :items="logLevelOptions"
-            label="Filter by level"
-            prepend-inner-icon="mdi-filter"
-            variant="outlined"
-            density="compact"
-            multiple
-            chips
-            closable-chips
-            hide-details
-            @update:model-value="updateLevelFilter"
-          ></v-select>
-        </v-col>
-      </v-row>
+            <!-- Level Filter -->
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="selectedLevels"
+                :items="logLevelOptions"
+                label="Filter by level"
+                prepend-inner-icon="mdi-filter"
+                variant="outlined"
+                density="compact"
+                multiple
+                chips
+                closable-chips
+                hide-details
+                @update:model-value="updateLevelFilter"
+              ></v-select>
+            </v-col>
+          </v-row>
 
-      <!-- Log Configuration -->
-      <v-row dense class="mt-2">
-        <v-col cols="12" md="6">
-          <v-select
-            v-model="maxEntries"
-            :items="maxEntriesOptions"
-            label="Max log entries"
-            prepend-inner-icon="mdi-cog"
-            variant="outlined"
-            density="compact"
-            hide-details
-            @update:model-value="updateMaxEntries"
-          ></v-select>
-        </v-col>
-        <v-col cols="12" md="6" class="d-flex align-center">
-          <v-chip color="primary" size="x-small" variant="outlined" class="mr-2">
-            Memory: {{ logStore.memoryUsage.kb }}KB
-          </v-chip>
-          <v-chip
-            :color="logStore.logCount >= maxEntries * 0.8 ? 'warning' : 'success'"
-            size="x-small"
-            variant="outlined"
-          >
-            Usage: {{ logStore.logCount }}/{{ maxEntries }}
-          </v-chip>
-        </v-col>
-      </v-row>
-
-      <!-- Log Statistics -->
-      <v-row v-if="logStore.logCount > 0" dense class="mt-2">
-        <v-col cols="12">
-          <div class="d-flex gap-2 flex-wrap">
-            <template v-for="(count, level) in logStore.logsByLevel" :key="level">
+          <!-- Log Configuration -->
+          <v-row dense class="mt-2">
+            <v-col cols="12" md="6">
+              <v-select
+                v-model="maxEntries"
+                :items="maxEntriesOptions"
+                label="Max log entries"
+                prepend-inner-icon="mdi-cog"
+                variant="outlined"
+                density="compact"
+                hide-details
+                @update:model-value="updateMaxEntries"
+              ></v-select>
+            </v-col>
+            <v-col cols="12" md="6" class="d-flex align-center">
+              <v-chip color="primary" size="x-small" variant="outlined" class="mr-2">
+                Memory: {{ logStore.memoryUsage.kb }}KB
+              </v-chip>
               <v-chip
-                v-if="count > 0"
-                :color="getLogColor(level)"
+                :color="logStore.logCount >= maxEntries * 0.8 ? 'warning' : 'success'"
                 size="x-small"
                 variant="outlined"
               >
-                {{ level }}: {{ count }}
+                Usage: {{ logStore.logCount }}/{{ maxEntries }}
               </v-chip>
-            </template>
-          </div>
-        </v-col>
-      </v-row>
-    </v-container>
+            </v-col>
+          </v-row>
 
-    <v-divider></v-divider>
+          <!-- Log Statistics -->
+          <v-row v-if="logStore.logCount > 0" dense class="mt-2">
+            <v-col cols="12">
+              <div class="d-flex gap-2 flex-wrap">
+                <template v-for="(count, level) in logStore.logsByLevel" :key="level">
+                  <v-chip
+                    v-if="count > 0"
+                    :color="getLogColor(level)"
+                    size="x-small"
+                    variant="outlined"
+                  >
+                    {{ level }}: {{ count }}
+                  </v-chip>
+                </template>
+              </div>
+            </v-col>
+          </v-row>
+        </v-container>
 
-    <!-- Log Entries -->
-    <v-container class="log-entries pa-2" fluid>
-      <div v-if="filteredLogs.length === 0" class="text-center py-8 text-grey">
-        <v-icon size="48" class="mb-2">mdi-text-box-remove-outline</v-icon>
-        <p>{{ logStore.logCount === 0 ? 'No logs available' : 'No logs match your filters' }}</p>
-      </div>
+        <v-divider></v-divider>
 
-      <v-card
-        v-for="(log, index) in filteredLogs"
-        :key="`${log.timestamp}-${index}`"
-        class="mb-2 log-entry"
-        variant="outlined"
-        :color="getLogColor(log.level)"
-        density="compact"
-      >
-        <v-card-text class="py-2">
-          <!-- Log Header -->
-          <div class="d-flex align-center justify-space-between mb-1">
-            <div class="d-flex align-center gap-2">
-              <v-chip :color="getLogColor(log.level)" size="x-small" variant="flat">
-                {{ log.level }}
-              </v-chip>
-              <span class="text-caption text-grey">
-                {{ formatTimestamp(log.timestamp) }}
-              </span>
-              <v-chip v-if="log.correlationId" size="x-small" variant="outlined" color="grey">
-                {{ log.correlationId.substring(0, 8) }}
-              </v-chip>
-            </div>
-
-            <!-- Copy button -->
-            <v-btn
-              icon="mdi-content-copy"
-              size="x-small"
-              variant="text"
-              title="Copy log entry"
-              @click="copyLogEntry(log)"
-            ></v-btn>
+        <!-- Log Entries -->
+        <v-container class="log-entries pa-2" fluid>
+          <div v-if="filteredLogs.length === 0" class="text-center py-8 text-grey">
+            <v-icon size="48" class="mb-2">mdi-text-box-remove-outline</v-icon>
+            <p>
+              {{ logStore.logCount === 0 ? 'No logs available' : 'No logs match your filters' }}
+            </p>
           </div>
 
-          <!-- Log Message -->
-          <div class="log-message text-body-2 mb-1">
-            {{ log.message }}
-          </div>
+          <v-card
+            v-for="(log, index) in filteredLogs"
+            :key="`${log.timestamp}-${index}`"
+            class="mb-2 log-entry"
+            variant="outlined"
+            :color="getLogColor(log.level)"
+            density="compact"
+          >
+            <v-card-text class="py-2">
+              <!-- Log Header -->
+              <div class="d-flex align-center justify-space-between mb-1">
+                <div class="d-flex align-center gap-2">
+                  <v-chip :color="getLogColor(log.level)" size="x-small" variant="flat">
+                    {{ log.level }}
+                  </v-chip>
+                  <span class="text-caption text-grey">
+                    {{ formatTimestamp(log.timestamp) }}
+                  </span>
+                  <v-chip v-if="log.correlationId" size="x-small" variant="outlined" color="grey">
+                    {{ log.correlationId.substring(0, 8) }}
+                  </v-chip>
+                </div>
 
-          <!-- Log Data (if present) -->
-          <v-expansion-panels v-if="log.data" variant="accordion" class="log-data">
-            <v-expansion-panel>
-              <v-expansion-panel-title class="text-caption py-1">
-                <v-icon start size="small">mdi-code-json</v-icon>
-                Additional Data
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <pre class="log-data-content">{{ formatLogData(log.data) }}</pre>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
-        </v-card-text>
-      </v-card>
-    </v-container>
+                <!-- Copy button -->
+                <v-btn
+                  icon="mdi-content-copy"
+                  size="x-small"
+                  variant="text"
+                  title="Copy log entry"
+                  @click="copyLogEntry(log)"
+                ></v-btn>
+              </div>
+
+              <!-- Log Message -->
+              <div class="log-message text-body-2 mb-1">
+                {{ log.message }}
+              </div>
+
+              <!-- Log Data (if present) -->
+              <v-expansion-panels v-if="log.data" variant="accordion" class="log-data">
+                <v-expansion-panel>
+                  <v-expansion-panel-title class="text-caption py-1">
+                    <v-icon start size="small">mdi-code-json</v-icon>
+                    Additional Data
+                  </v-expansion-panel-title>
+                  <v-expansion-panel-text>
+                    <pre class="log-data-content">{{ formatLogData(log.data) }}</pre>
+                  </v-expansion-panel-text>
+                </v-expansion-panel>
+              </v-expansion-panels>
+            </v-card-text>
+          </v-card>
+        </v-container>
       </div>
     </div>
   </v-navigation-drawer>

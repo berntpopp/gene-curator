@@ -901,7 +901,6 @@ class WorkflowEngine:
         # For now, return a placeholder
         return 24.0  # 24 hours average
 
-
     def get_eligible_peer_reviewers(
         self,
         db: Session,
@@ -978,7 +977,9 @@ class WorkflowEngine:
                     "id": user.id,
                     "name": user.name or user.email.split("@")[0],
                     "email": user.email,
-                    "role": user.role.value if hasattr(user.role, "value") else user.role,
+                    "role": user.role.value
+                    if hasattr(user.role, "value")
+                    else user.role,
                     "institution": user.institution,
                     "expertise_areas": user.expertise_areas or [],
                     "is_active": user.is_active,

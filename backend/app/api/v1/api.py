@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     genes,
     health,
     logs,
+    precurations,
     schema_validation,
     schemas,
     scope_memberships,
@@ -43,6 +44,9 @@ api_router.include_router(
 )
 api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"])
 api_router.include_router(curations.router, prefix="/curations", tags=["curations"])
+api_router.include_router(
+    precurations.router, prefix="/precurations", tags=["precurations"]
+)
 
 # Core entity endpoints
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])

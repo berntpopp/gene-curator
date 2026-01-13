@@ -1140,9 +1140,9 @@ class SchemaValidator:
             if "properties" in field_config:
                 json_schema_prop["properties"] = {}
                 for prop_name, prop_config in field_config["properties"].items():
-                    json_schema_prop["properties"][
-                        prop_name
-                    ] = self._convert_field_to_json_schema(prop_config)
+                    json_schema_prop["properties"][prop_name] = (
+                        self._convert_field_to_json_schema(prop_config)
+                    )
             # Handle required properties within object
             if "required" in field_config and isinstance(
                 field_config["required"], list

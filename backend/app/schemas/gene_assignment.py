@@ -63,7 +63,9 @@ class GeneScopeAssignmentInDBBase(BaseModel):
     assigned_curator_id: UUID | None = Field(None, description="Assigned curator ID")
     workflow_pair_id: UUID | None = Field(None, description="Workflow pair ID")
     is_active: bool = Field(default=True, description="Whether assignment is active")
-    priority: str = Field("normal", description="Assignment priority (high, normal, low)")
+    priority: str = Field(
+        "normal", description="Assignment priority (high, normal, low)"
+    )
     due_date: datetime | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
     assigned_by: UUID | None = Field(None, description="User who created assignment")
@@ -165,7 +167,9 @@ class GeneScopeAssignmentSummary(BaseModel):
     scope_name: str
     assigned_curator_id: UUID | None
     curator_name: str | None
-    priority_level: str = Field(..., alias="priority", description="Assignment priority")
+    priority_level: str = Field(
+        ..., alias="priority", description="Assignment priority"
+    )
     is_active: bool
     assigned_at: datetime
     has_active_work: bool = Field(default=False, description="Has active work")

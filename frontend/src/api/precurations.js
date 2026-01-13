@@ -15,7 +15,7 @@ export const precurationsAPI = {
    * @returns {Promise<Array>} Array of precurations
    */
   async getPrecurations(params = {}) {
-    const response = await apiClient.get('/precurations', { params })
+    const response = await apiClient.get('/precurations/', { params })
     return response.data
   },
 
@@ -39,7 +39,7 @@ export const precurationsAPI = {
    * @returns {Promise<Object>} Created precuration
    */
   async createPrecuration(data) {
-    const response = await apiClient.post('/precurations', data)
+    const response = await apiClient.post('/precurations/', data)
     return response.data
   },
 
@@ -79,6 +79,28 @@ export const precurationsAPI = {
   },
 
   /**
+   * Approve precuration (creates curation if configured)
+   * @param {string} id - Precuration UUID
+   * @returns {Promise<Object>} Approval result with optional curation_id
+   */
+  async approvePrecuration(id) {
+    const response = await apiClient.post(`/precurations/${id}/approve`)
+    return response.data
+  },
+
+  /**
+   * Reject precuration
+   * @param {string} id - Precuration UUID
+   * @param {Object} data - Rejection data
+   * @param {string} data.reason - Rejection reason
+   * @returns {Promise<Object>} Rejected precuration
+   */
+  async rejectPrecuration(id, data) {
+    const response = await apiClient.post(`/precurations/${id}/reject`, data)
+    return response.data
+  },
+
+  /**
    * Delete precuration (soft delete)
    * @param {string} id - Precuration UUID
    * @returns {Promise<void>}
@@ -94,7 +116,7 @@ export const precurationsAPI = {
    * @returns {Promise<Array>} Array of precurations
    */
   async getPrecurationsByGeneAndScope(geneId, scopeId) {
-    const response = await apiClient.get('/precurations', {
+    const response = await apiClient.get('/precurations/', {
       params: { gene_id: geneId, scope_id: scopeId }
     })
     return response.data
@@ -106,7 +128,7 @@ export const precurationsAPI = {
    * @returns {Promise<Object>} Statistics object
    */
   async getPrecurationStatistics(params = {}) {
-    const response = await apiClient.get('/precurations/statistics', { params })
+    const response = await apiClient.get('/precurations/statistics/', { params })
     return response.data
   },
 

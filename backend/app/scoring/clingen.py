@@ -40,14 +40,20 @@ class ClinGenEngine(ScoringEngine):
 
     # Genetic evidence category limits
     MAX_CASE_LEVEL_SCORE: Final[float] = 12.0
-    MAX_SEGREGATION_SCORE: Final[float] = 3.0  # ClinGen SOP v11: max 3 points for segregation
+    MAX_SEGREGATION_SCORE: Final[float] = (
+        3.0  # ClinGen SOP v11: max 3 points for segregation
+    )
     MAX_CASE_CONTROL_SCORE: Final[float] = 6.0
 
-    # Experimental evidence category limits
-    MAX_EXPRESSION_SCORE: Final[float] = 2.0
-    MAX_FUNCTION_SCORE: Final[float] = 2.0
-    MAX_MODELS_SCORE: Final[float] = 4.0
-    MAX_RESCUE_SCORE: Final[float] = 2.0
+    # Experimental evidence category limits (SOP v11)
+    MAX_FUNCTION_SCORE: Final[float] = (
+        2.0  # biochemical + protein interaction + expression
+    )
+    MAX_FUNCTIONAL_ALTERATION_SCORE: Final[float] = 2.0  # patient + non-patient cells
+    MAX_MODELS_SCORE: Final[float] = 4.0  # organism + cell culture
+    MAX_RESCUE_SCORE: Final[float] = (
+        4.0  # human + organism + cell culture + patient cells
+    )
 
     # Classification thresholds
     THRESHOLDS: Final[dict[str, float]] = {
@@ -167,7 +173,7 @@ class ClinGenEngine(ScoringEngine):
         )
 
     def _calculate_genetic_evidence(
-        self, evidence_items: list[dict[str, Any]]
+        self, evidence_data: list[dict[str, Any]] | dict[str, Any]
     ) -> tuple[float, dict[str, Any]]:
         """Calculate genetic evidence score (max 12 points)
 
@@ -176,8 +182,221 @@ class ClinGenEngine(ScoringEngine):
         - Segregation evidence (family studies with LOD scores)
         - Case-control evidence (population studies)
 
+        Supports both legacy flat list format and new SOP v11 nested format.
+
         Args:
-            evidence_items: List of genetic evidence items
+            evidence_data: Genetic evidence - either nested dict (SOP v11)
+                          or flat list (legacy format)
+
+        Returns:
+            Tuple of (total_score, detailed_breakdown)
+        """
+        # Handle both nested (new) and flat list (legacy) formats
+        if isinstance(evidence_data, list):
+            return self._calculate_genetic_evidence_legacy(evidence_data)
+
+        # New nested format per ClinGen SOP v11
+        case_level_score = 0.0
+        segregation_score = 0.0
+        case_control_score = 0.0
+
+        case_level_details: dict[str, Any] = {}
+        segregation_details: list[dict[str, Any]] = []
+        case_control_details: dict[str, Any] = {}
+
+        # --- Case-Level Evidence ---
+        case_level_data = evidence_data.get("case_level", {})
+        if isinstance(case_level_data, dict):
+            # AD/X-linked evidence
+            ad_xl_data = case_level_data.get("autosomal_dominant_or_x_linked", {})
+            ad_xl_score, ad_xl_details = self._score_case_level_nested(
+                ad_xl_data, "AD/X-linked"
+            )
+
+            # Autosomal Recessive evidence
+            ar_data = case_level_data.get("autosomal_recessive", {})
+            ar_score, ar_details = self._score_case_level_nested(ar_data, "AR")
+
+            case_level_score = ad_xl_score + ar_score
+            case_level_details = {
+                "autosomal_dominant_or_x_linked": ad_xl_details,
+                "autosomal_recessive": ar_details,
+                "total": min(case_level_score, self.MAX_CASE_LEVEL_SCORE),
+            }
+
+        # --- Segregation Evidence ---
+        segregation_items = evidence_data.get("segregation", [])
+        if isinstance(segregation_items, list):
+            for item in segregation_items:
+                score = self._score_segregation_nested(item)
+                segregation_score += score
+                segregation_details.append({**item, "computed_score": score})
+
+        # --- Case-Control Evidence ---
+        case_control_data = evidence_data.get("case_control", {})
+        if isinstance(case_control_data, dict):
+            # Single variant analysis
+            single_items = case_control_data.get("single_variant_analysis", [])
+            single_score = sum(float(item.get("points", 0)) for item in single_items)
+
+            # Aggregate variant analysis
+            aggregate_items = case_control_data.get("aggregate_variant_analysis", [])
+            aggregate_score = sum(
+                float(item.get("points", 0)) for item in aggregate_items
+            )
+
+            # Max 6 from either method (not combined)
+            case_control_score = max(single_score, aggregate_score)
+            case_control_details = {
+                "single_variant_analysis": {
+                    "items": single_items,
+                    "score": single_score,
+                },
+                "aggregate_variant_analysis": {
+                    "items": aggregate_items,
+                    "score": aggregate_score,
+                },
+                "total": min(case_control_score, self.MAX_CASE_CONTROL_SCORE),
+            }
+
+        # Apply category-specific limits
+        case_level_score = min(case_level_score, self.MAX_CASE_LEVEL_SCORE)
+        segregation_score = min(segregation_score, self.MAX_SEGREGATION_SCORE)
+        case_control_score = min(case_control_score, self.MAX_CASE_CONTROL_SCORE)
+
+        # Total genetic score (overall max 12)
+        total = min(
+            case_level_score + segregation_score + case_control_score,
+            self.MAX_GENETIC_SCORE,
+        )
+
+        details = {
+            "case_level_score": case_level_score,
+            "segregation_score": segregation_score,
+            "case_control_score": case_control_score,
+            "total_genetic_score": total,
+            "case_level_details": case_level_details,
+            "segregation_items": segregation_details,
+            "case_control_details": case_control_details,
+        }
+
+        return total, details
+
+    def _score_case_level_nested(
+        self, inheritance_data: dict[str, Any], inheritance_type: str
+    ) -> tuple[float, dict[str, Any]]:
+        """Score case-level evidence from nested SOP v11 format.
+
+        Args:
+            inheritance_data: Dict with predicted_or_proven_null and other_variant_type
+            inheritance_type: 'AD/X-linked' or 'AR' for logging
+
+        Returns:
+            Tuple of (score, details)
+        """
+        null_score = 0.0
+        other_score = 0.0
+        null_items: list[dict[str, Any]] = []
+        other_items: list[dict[str, Any]] = []
+
+        # Predicted/proven null variants
+        null_variants = inheritance_data.get("predicted_or_proven_null", [])
+        for item in null_variants:
+            # Use proband_counted_points from the item (already scored by user)
+            points = float(item.get("proband_counted_points", 1.5))
+            null_score += points
+            null_items.append({**item, "computed_score": points})
+
+        # Other variant types
+        other_variants = inheritance_data.get("other_variant_type", [])
+        for item in other_variants:
+            points = float(item.get("proband_counted_points", 0.1))
+            other_score += points
+            other_items.append({**item, "computed_score": points})
+
+        total = null_score + other_score
+
+        logger.debug(
+            "Case-level scoring",
+            inheritance=inheritance_type,
+            null_count=len(null_items),
+            null_score=null_score,
+            other_count=len(other_items),
+            other_score=other_score,
+            total=total,
+        )
+
+        return total, {
+            "predicted_or_proven_null": {
+                "items": null_items,
+                "score": null_score,
+            },
+            "other_variant_type": {
+                "items": other_items,
+                "score": other_score,
+            },
+            "total": total,
+        }
+
+    def _score_segregation_nested(self, item: dict[str, Any]) -> float:
+        """Score segregation evidence from nested SOP v11 format.
+
+        Args:
+            item: Segregation evidence item with points or lod_score
+
+        Returns:
+            Points awarded
+        """
+        # If points provided directly, use that
+        if "points" in item:
+            return float(item["points"])
+
+        # Otherwise calculate from LOD score
+        lod_score = item.get("lod_score")
+        if lod_score is not None:
+            return self._lod_to_points_sop11(float(lod_score))
+
+        # Fall back to counting segregations
+        segregations = item.get("segregations_counted", 0)
+        if segregations > 0:
+            # Approximate LOD from segregation count
+            lod = segregations * math.log10(2)
+            return self._lod_to_points_sop11(lod)
+
+        return 0.0
+
+    def _lod_to_points_sop11(self, lod_score: float) -> float:
+        """Convert LOD score to points per SOP v11 thresholds.
+
+        SOP v11 segregation scoring:
+        - LOD 0.6-1.2: 1 point
+        - LOD 1.2-2.4: 2 points
+        - LOD > 2.4: 3 points (max)
+
+        Args:
+            lod_score: Calculated or provided LOD score
+
+        Returns:
+            Points (0-3)
+        """
+        if lod_score < 0.6:
+            return 0.0
+        elif lod_score < 1.2:
+            return 1.0
+        elif lod_score < 2.4:
+            return 2.0
+        else:
+            return 3.0
+
+    def _calculate_genetic_evidence_legacy(
+        self, evidence_items: list[dict[str, Any]]
+    ) -> tuple[float, dict[str, Any]]:
+        """Calculate genetic evidence from legacy flat list format.
+
+        Kept for backwards compatibility with existing curations.
+
+        Args:
+            evidence_items: Flat list of evidence items with evidence_category field
 
         Returns:
             Tuple of (total_score, detailed_breakdown)
@@ -435,28 +654,215 @@ class ClinGenEngine(ScoringEngine):
         return 3.0
 
     def _calculate_experimental_evidence(
-        self, evidence_items: list[dict[str, Any]]
+        self, evidence_data: list[dict[str, Any]] | dict[str, Any]
     ) -> tuple[float, dict[str, Any]]:
         """Calculate experimental evidence score (max 6 points)
 
-        Processes four categories:
-        - Expression evidence (tissue/cell type expression)
-        - Protein function evidence (biochemical assays)
-        - Model systems evidence (cell/animal models)
-        - Rescue evidence (complementation/rescue experiments)
+        Per ClinGen SOP v11, processes four main categories:
+        - Function (max 2 pts): biochemical function, protein interaction, expression
+        - Functional Alteration (max 2 pts): patient cells, non-patient cells
+        - Models (max 4 pts): non-human organism, cell culture
+        - Rescue (max 4 pts): human, organism, cell culture, patient cells
+
+        Total max: 6 points (despite subcategory maxes summing higher)
 
         Args:
-            evidence_items: List of experimental evidence items
+            evidence_data: Experimental evidence - either nested dict (new format)
+                          or flat list (legacy format)
 
         Returns:
             Tuple of (total_score, detailed_breakdown)
         """
-        expression_score = 0.0
+        # Handle both nested (new) and flat list (legacy) formats
+        if isinstance(evidence_data, list):
+            return self._calculate_experimental_evidence_legacy(evidence_data)
+
+        # New nested format per SOP v11
+        function_score = 0.0
+        functional_alteration_score = 0.0
+        models_score = 0.0
+        rescue_score = 0.0
+
+        function_details: dict[str, Any] = {}
+        functional_alteration_details: dict[str, Any] = {}
+        models_details: dict[str, Any] = {}
+        rescue_details: dict[str, Any] = {}
+
+        # --- Function Category (max 2 points combined) ---
+        function_data = evidence_data.get("function", {})
+        if isinstance(function_data, dict):
+            # Biochemical function (0.5-2 pts per item)
+            biochem_items = function_data.get("biochemical_function", [])
+            biochem_score = sum(
+                float(item.get("points", 0.5)) for item in biochem_items
+            )
+            function_details["biochemical_function"] = {
+                "items": biochem_items,
+                "score": biochem_score,
+            }
+
+            # Protein interaction (0.5-2 pts per item)
+            protein_items = function_data.get("protein_interaction", [])
+            protein_score = sum(
+                float(item.get("points", 0.5)) for item in protein_items
+            )
+            function_details["protein_interaction"] = {
+                "items": protein_items,
+                "score": protein_score,
+            }
+
+            # Expression (0.5-2 pts per item)
+            expression_items = function_data.get("expression", [])
+            expression_score = sum(
+                float(item.get("points", 0.5)) for item in expression_items
+            )
+            function_details["expression"] = {
+                "items": expression_items,
+                "score": expression_score,
+            }
+
+            function_score = min(
+                biochem_score + protein_score + expression_score,
+                self.MAX_FUNCTION_SCORE,
+            )
+
+        # --- Functional Alteration Category (max 2 points combined) ---
+        fa_data = evidence_data.get("functional_alteration", {})
+        if isinstance(fa_data, dict):
+            # Patient cells (1-2 pts per item)
+            patient_items = fa_data.get("patient_cells", [])
+            patient_score = sum(
+                float(item.get("points", 1.0)) for item in patient_items
+            )
+            functional_alteration_details["patient_cells"] = {
+                "items": patient_items,
+                "score": patient_score,
+            }
+
+            # Non-patient cells (0.5-1 pts per item)
+            non_patient_items = fa_data.get("non_patient_cells", [])
+            non_patient_score = sum(
+                float(item.get("points", 0.5)) for item in non_patient_items
+            )
+            functional_alteration_details["non_patient_cells"] = {
+                "items": non_patient_items,
+                "score": non_patient_score,
+            }
+
+            functional_alteration_score = min(
+                patient_score + non_patient_score,
+                self.MAX_FUNCTIONAL_ALTERATION_SCORE,
+            )
+
+        # --- Models Category (max 4 points combined) ---
+        models_data = evidence_data.get("models", {})
+        if isinstance(models_data, dict):
+            # Non-human model organism (2-4 pts per item)
+            organism_items = models_data.get("non_human_model_organism", [])
+            organism_score = sum(
+                float(item.get("points", 2.0)) for item in organism_items
+            )
+            models_details["non_human_model_organism"] = {
+                "items": organism_items,
+                "score": organism_score,
+            }
+
+            # Cell culture model (1-2 pts per item)
+            cell_items = models_data.get("cell_culture_model", [])
+            cell_score = sum(float(item.get("points", 1.0)) for item in cell_items)
+            models_details["cell_culture_model"] = {
+                "items": cell_items,
+                "score": cell_score,
+            }
+
+            models_score = min(
+                organism_score + cell_score,
+                self.MAX_MODELS_SCORE,
+            )
+
+        # --- Rescue Category (max 4 points combined) ---
+        rescue_data = evidence_data.get("rescue", {})
+        if isinstance(rescue_data, dict):
+            # Human rescue (2-4 pts)
+            human_items = rescue_data.get("human", [])
+            human_score = sum(float(item.get("points", 2.0)) for item in human_items)
+            rescue_details["human"] = {"items": human_items, "score": human_score}
+
+            # Non-human organism rescue (2-4 pts)
+            organism_rescue_items = rescue_data.get("non_human_model_organism", [])
+            organism_rescue_score = sum(
+                float(item.get("points", 2.0)) for item in organism_rescue_items
+            )
+            rescue_details["non_human_model_organism"] = {
+                "items": organism_rescue_items,
+                "score": organism_rescue_score,
+            }
+
+            # Cell culture rescue (1-2 pts)
+            cell_rescue_items = rescue_data.get("cell_culture", [])
+            cell_rescue_score = sum(
+                float(item.get("points", 1.0)) for item in cell_rescue_items
+            )
+            rescue_details["cell_culture"] = {
+                "items": cell_rescue_items,
+                "score": cell_rescue_score,
+            }
+
+            # Patient cells rescue (1-2 pts)
+            patient_rescue_items = rescue_data.get("patient_cells", [])
+            patient_rescue_score = sum(
+                float(item.get("points", 1.0)) for item in patient_rescue_items
+            )
+            rescue_details["patient_cells"] = {
+                "items": patient_rescue_items,
+                "score": patient_rescue_score,
+            }
+
+            rescue_score = min(
+                human_score
+                + organism_rescue_score
+                + cell_rescue_score
+                + patient_rescue_score,
+                self.MAX_RESCUE_SCORE,
+            )
+
+        # Total experimental score (max 6 per SOP v11)
+        total = min(
+            function_score + functional_alteration_score + models_score + rescue_score,
+            self.MAX_EXPERIMENTAL_SCORE,
+        )
+
+        details = {
+            "function_score": function_score,
+            "functional_alteration_score": functional_alteration_score,
+            "models_score": models_score,
+            "rescue_score": rescue_score,
+            "total_experimental_score": total,
+            "function_details": function_details,
+            "functional_alteration_details": functional_alteration_details,
+            "models_details": models_details,
+            "rescue_details": rescue_details,
+        }
+
+        return total, details
+
+    def _calculate_experimental_evidence_legacy(
+        self, evidence_items: list[dict[str, Any]]
+    ) -> tuple[float, dict[str, Any]]:
+        """Calculate experimental evidence from legacy flat list format.
+
+        Kept for backwards compatibility with existing curations.
+
+        Args:
+            evidence_items: Flat list of evidence items with evidence_category field
+
+        Returns:
+            Tuple of (total_score, detailed_breakdown)
+        """
         function_score = 0.0
         models_score = 0.0
         rescue_score = 0.0
 
-        expression_items = []
         function_items = []
         models_items = []
         rescue_items = []
@@ -466,51 +872,48 @@ class ClinGenEngine(ScoringEngine):
             model_system = item.get("model_system", "").lower()
             rescue_observed = item.get("rescue_observed", False)
 
-            if category == "expression":
-                # Expression evidence: patient cells (2.0) or other (1.0)
-                score = 2.0 if model_system == "patient_cells" else 1.0
-                expression_score += score
-                expression_items.append({**item, "computed_score": score})
-
-            elif category == "protein_function":
-                # Protein function evidence: patient cells (2.0) or other (1.0)
-                score = 2.0 if model_system == "patient_cells" else 1.0
+            if category in ["expression", "protein_function", "function"]:
+                # Function evidence: use provided points or default
+                score = float(item.get("points", 1.0))
                 function_score += score
                 function_items.append({**item, "computed_score": score})
 
             elif category == "models":
-                # Model systems: patient cells/animal models (4.0) or other (2.0)
-                score = (
-                    4.0 if model_system in ["patient_cells", "animal_model"] else 2.0
+                # Model systems: use provided points or default based on type
+                score = float(
+                    item.get(
+                        "points",
+                        4.0
+                        if model_system in ["patient_cells", "animal_model"]
+                        else 2.0,
+                    )
                 )
                 models_score += score
                 models_items.append({**item, "computed_score": score})
 
             elif category == "rescue":
-                # Rescue evidence: successful rescue (2.0) or no rescue (0.0)
-                score = 2.0 if rescue_observed else 0.0
+                # Rescue: use provided points or default based on rescue_observed
+                score = float(item.get("points", 2.0 if rescue_observed else 0.0))
                 rescue_score += score
                 rescue_items.append({**item, "computed_score": score})
 
         # Apply category-specific limits
-        expression_score = min(expression_score, self.MAX_EXPRESSION_SCORE)
         function_score = min(function_score, self.MAX_FUNCTION_SCORE)
         models_score = min(models_score, self.MAX_MODELS_SCORE)
         rescue_score = min(rescue_score, self.MAX_RESCUE_SCORE)
 
         # Total experimental score (max 6)
         total = min(
-            expression_score + function_score + models_score + rescue_score,
+            function_score + models_score + rescue_score,
             self.MAX_EXPERIMENTAL_SCORE,
         )
 
         details = {
-            "expression_score": expression_score,
             "function_score": function_score,
+            "functional_alteration_score": 0.0,  # Not in legacy format
             "models_score": models_score,
             "rescue_score": rescue_score,
             "total_experimental_score": total,
-            "expression_items": expression_items,
             "function_items": function_items,
             "models_items": models_items,
             "rescue_items": rescue_items,
@@ -596,31 +999,59 @@ class ClinGenEngine(ScoringEngine):
     def _check_warnings(
         self,
         genetic_evidence: list[dict[str, Any]],
-        experimental_evidence: list[dict[str, Any]],
+        experimental_evidence: list[dict[str, Any]] | dict[str, Any],
     ) -> list[str]:
         """Check for potential issues or warnings in evidence data
 
         Args:
             genetic_evidence: List of genetic evidence items
-            experimental_evidence: List of experimental evidence items
+            experimental_evidence: Experimental evidence (list or nested dict)
 
         Returns:
             List of warning messages
         """
         warnings = []
 
-        # Check for missing evidence
-        if not genetic_evidence:
-            warnings.append(
-                "No genetic evidence provided - at least one item recommended"
-            )
+        # Check genetic evidence
+        warnings.extend(self._check_genetic_evidence_warnings(genetic_evidence))
 
-        if not experimental_evidence:
+        # Check experimental evidence
+        if not self._has_experimental_evidence(experimental_evidence):
             warnings.append(
                 "No experimental evidence provided - may limit classification strength"
             )
 
-        # Check case-level evidence count
+        # Check PMIDs
+        missing_pmid_count = self._count_missing_pmids(
+            genetic_evidence, experimental_evidence
+        )
+        if missing_pmid_count > 0:
+            warnings.append(
+                f"{missing_pmid_count} evidence item(s) with invalid or missing PMID"
+            )
+
+        return warnings
+
+    def _check_genetic_evidence_warnings(
+        self, genetic_evidence: list[dict[str, Any]] | dict[str, Any]
+    ) -> list[str]:
+        """Check genetic evidence for warnings.
+
+        Handles both legacy flat list and new nested SOP v11 formats.
+        """
+        warnings = []
+
+        if not genetic_evidence:
+            warnings.append(
+                "No genetic evidence provided - at least one item recommended"
+            )
+            return warnings
+
+        # Handle nested format (SOP v11)
+        if isinstance(genetic_evidence, dict):
+            return self._check_genetic_evidence_warnings_nested(genetic_evidence)
+
+        # Legacy flat list format
         case_level_items = [
             item
             for item in genetic_evidence
@@ -632,27 +1063,12 @@ class ClinGenEngine(ScoringEngine):
                 "consider adding more for stronger support"
             )
 
-        # Check for missing PMIDs
-        all_items = genetic_evidence + experimental_evidence
-        missing_pmid_count = 0
-
-        for item in all_items:
-            pmid = str(item.get("pmid", ""))
-            if not pmid or not pmid.isdigit() or len(pmid) < 7:
-                missing_pmid_count += 1
-
-        if missing_pmid_count > 0:
-            warnings.append(
-                f"{missing_pmid_count} evidence item(s) with invalid or missing PMID"
-            )
-
         # Check for LOD scores in segregation evidence
         segregation_items = [
             item
             for item in genetic_evidence
             if item.get("evidence_category") == "segregation"
         ]
-
         for seg_item in segregation_items:
             if "lod_score" not in seg_item and "family_count" not in seg_item:
                 warnings.append(
@@ -662,10 +1078,113 @@ class ClinGenEngine(ScoringEngine):
 
         return warnings
 
+    def _check_genetic_evidence_warnings_nested(
+        self, genetic_evidence: dict[str, Any]
+    ) -> list[str]:
+        """Check nested genetic evidence for warnings."""
+        warnings = []
+
+        # Count case-level evidence items
+        case_level_count = 0
+        case_level_data = genetic_evidence.get("case_level", {})
+        if isinstance(case_level_data, dict):
+            for inheritance_type in [
+                "autosomal_dominant_or_x_linked",
+                "autosomal_recessive",
+            ]:
+                inh_data = case_level_data.get(inheritance_type, {})
+                if isinstance(inh_data, dict):
+                    null_items = inh_data.get("predicted_or_proven_null", [])
+                    other_items = inh_data.get("other_variant_type", [])
+                    case_level_count += len(null_items) + len(other_items)
+
+        if case_level_count < 2:
+            warnings.append(
+                f"Only {case_level_count} case-level evidence item(s) - "
+                "consider adding more for stronger support"
+            )
+
+        # Check segregation evidence
+        segregation_items = genetic_evidence.get("segregation", [])
+        if isinstance(segregation_items, list):
+            for seg_item in segregation_items:
+                has_score = (
+                    "lod_score" in seg_item
+                    or "points" in seg_item
+                    or "segregations_counted" in seg_item
+                )
+                if not has_score:
+                    warnings.append(
+                        "Segregation evidence missing lod_score, points, "
+                        "or segregations_counted"
+                    )
+                    break
+
+        return warnings
+
+    def _has_experimental_evidence(
+        self, experimental_evidence: list[dict[str, Any]] | dict[str, Any]
+    ) -> bool:
+        """Check if any experimental evidence exists."""
+        if isinstance(experimental_evidence, list):
+            return len(experimental_evidence) > 0
+
+        if isinstance(experimental_evidence, dict):
+            for category in ["function", "functional_alteration", "models", "rescue"]:
+                cat_data = experimental_evidence.get(category, {})
+                if isinstance(cat_data, dict):
+                    for items in cat_data.values():
+                        if isinstance(items, list) and len(items) > 0:
+                            return True
+        return False
+
+    def _count_missing_pmids(
+        self,
+        genetic_evidence: list[dict[str, Any]],
+        experimental_evidence: list[dict[str, Any]] | dict[str, Any],
+    ) -> int:
+        """Count evidence items with missing or invalid PMIDs."""
+        count = 0
+
+        # Check genetic evidence
+        for item in genetic_evidence:
+            if not self._is_valid_pmid(item.get("pmid", "")):
+                count += 1
+
+        # Check experimental evidence
+        if isinstance(experimental_evidence, dict):
+            count += self._count_missing_pmids_nested(experimental_evidence)
+        elif isinstance(experimental_evidence, list):
+            for item in experimental_evidence:
+                if not self._is_valid_pmid(item.get("pmid", "")):
+                    count += 1
+
+        return count
+
+    def _count_missing_pmids_nested(self, exp_data: dict[str, Any]) -> int:
+        """Count missing PMIDs in nested experimental evidence."""
+        count = 0
+        for category in ["function", "functional_alteration", "models", "rescue"]:
+            cat_data = exp_data.get(category, {})
+            if isinstance(cat_data, dict):
+                for items in cat_data.values():
+                    if isinstance(items, list):
+                        for item in items:
+                            if not self._is_valid_pmid(item.get("pmid", "")):
+                                count += 1
+        return count
+
+    def _is_valid_pmid(self, pmid: Any) -> bool:
+        """Check if a PMID is valid."""
+        pmid_str = str(pmid)
+        return pmid_str.isdigit() and len(pmid_str) >= 7
+
     def validate_evidence(  # noqa: C901
         self, evidence_data: dict[str, Any], schema_config: dict[str, Any]
     ) -> list[str]:
         """Validate evidence data structure and required fields
+
+        Supports both nested (SOP v11) and legacy flat list formats.
 
         Args:
             evidence_data: Evidence items organized by category
@@ -677,7 +1196,7 @@ class ClinGenEngine(ScoringEngine):
         errors = []
 
         genetic_evidence = evidence_data.get("genetic_evidence", [])
-        experimental_evidence = evidence_data.get("experimental_evidence", [])
+        experimental_evidence = evidence_data.get("experimental_evidence", {})
 
         # Validate genetic evidence items
         if not genetic_evidence:
@@ -731,8 +1250,27 @@ class ClinGenEngine(ScoringEngine):
                         f"Case-control evidence {idx + 1}: Missing computed_score"
                     )
 
-        # Validate experimental evidence items
-        for idx, item in enumerate(experimental_evidence):
+        # Validate experimental evidence - handle both formats
+        if isinstance(experimental_evidence, list):
+            # Legacy flat list format
+            errors.extend(
+                self._validate_experimental_evidence_legacy(experimental_evidence)
+            )
+        elif isinstance(experimental_evidence, dict):
+            # New nested format (SOP v11)
+            errors.extend(
+                self._validate_experimental_evidence_nested(experimental_evidence)
+            )
+
+        return errors
+
+    def _validate_experimental_evidence_legacy(
+        self, evidence_items: list[dict[str, Any]]
+    ) -> list[str]:
+        """Validate legacy flat list experimental evidence format."""
+        errors = []
+
+        for idx, item in enumerate(evidence_items):
             category = item.get("evidence_category")
 
             if not category:
@@ -742,7 +1280,13 @@ class ClinGenEngine(ScoringEngine):
                 continue
 
             # Validate category is one of the expected types
-            valid_categories = ["expression", "protein_function", "models", "rescue"]
+            valid_categories = [
+                "expression",
+                "protein_function",
+                "function",
+                "models",
+                "rescue",
+            ]
             if category not in valid_categories:
                 errors.append(
                     f"Experimental evidence {idx + 1}: Invalid category "
@@ -751,7 +1295,7 @@ class ClinGenEngine(ScoringEngine):
 
             # Model system validation for categories that use it
             if (
-                category in ["expression", "protein_function", "models"]
+                category in ["expression", "protein_function", "function", "models"]
                 and "model_system" not in item
             ):
                 errors.append(f"Experimental evidence {idx + 1}: Missing model_system")
@@ -761,6 +1305,52 @@ class ClinGenEngine(ScoringEngine):
                 errors.append(
                     f"Rescue evidence {idx + 1}: Missing rescue_observed field"
                 )
+
+        return errors
+
+    def _validate_experimental_evidence_nested(
+        self, evidence_data: dict[str, Any]
+    ) -> list[str]:
+        """Validate nested SOP v11 experimental evidence format."""
+        errors = []
+
+        # Define expected subcategories for each main category
+        expected_structure = {
+            "function": ["biochemical_function", "protein_interaction", "expression"],
+            "functional_alteration": ["patient_cells", "non_patient_cells"],
+            "models": ["non_human_model_organism", "cell_culture_model"],
+            "rescue": [
+                "human",
+                "non_human_model_organism",
+                "cell_culture",
+                "patient_cells",
+            ],
+        }
+
+        for category, subcategories in expected_structure.items():
+            cat_data = evidence_data.get(category, {})
+            if not isinstance(cat_data, dict):
+                continue
+
+            for subcategory in subcategories:
+                items = cat_data.get(subcategory, [])
+                if not isinstance(items, list):
+                    continue
+
+                for idx, item in enumerate(items):
+                    item_label = f"{category}.{subcategory}[{idx}]"
+
+                    # Validate PMID
+                    if "pmid" not in item:
+                        errors.append(f"{item_label}: Missing PMID")
+
+                    # Validate points
+                    if "points" not in item:
+                        errors.append(f"{item_label}: Missing points value")
+
+                    # Validate rationale
+                    if "rationale" not in item:
+                        errors.append(f"{item_label}: Missing rationale")
 
         return errors
 

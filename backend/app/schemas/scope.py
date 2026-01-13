@@ -86,15 +86,21 @@ class Scope(ScopeInDBBase):
 class ScopeListStats(BaseModel):
     """Basic statistics for scope list views."""
 
-    total_genes: int = Field(default=0, description="Total genes assigned to this scope")
-    member_count: int = Field(default=0, description="Number of active members in this scope")
+    total_genes: int = Field(
+        default=0, description="Total genes assigned to this scope"
+    )
+    member_count: int = Field(
+        default=0, description="Number of active members in this scope"
+    )
 
 
 # Scope List Item with basic counts
 class ScopeListItem(ScopeInDBBase):
     """Scope with basic counts for list views."""
 
-    stats: ScopeListStats | None = Field(default=None, description="Basic scope statistics")
+    stats: ScopeListStats | None = Field(
+        default=None, description="Basic scope statistics"
+    )
 
 
 # Scope with Statistics

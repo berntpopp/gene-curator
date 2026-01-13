@@ -82,7 +82,9 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
+  import { useScopesStore } from '@/stores/scopes'
   import { useCurationsStore } from '@/stores/curations'
+  import { usePrecurationsStore } from '@/stores/precurations'
   import { useGenesStore } from '@/stores/genes'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
@@ -93,7 +95,9 @@
   const route = useRoute()
   const logger = useLogger()
   const schemasStore = useSchemasStore()
+  const scopesStore = useScopesStore()
   const curationsStore = useCurationsStore()
+  const precurationsStore = usePrecurationsStore()
   const genesStore = useGenesStore()
   const notificationsStore = useNotificationsStore()
 
@@ -107,6 +111,8 @@
   const selectedSchemaId = ref(null)
   const curation = ref(null)
   const gene = ref(null)
+  const scope = ref(null)
+  const precurationStatus = ref(null) // 'approved', 'pending', 'none'
 
   // Determine if edit mode
   const isEdit = computed(() => !!curationId.value)
@@ -131,10 +137,14 @@
       return route.query.schema_id
     }
 
-    // Priority 4: Workflow pair default for scope
-    const workflowPair = schemasStore.workflowPairs.find(wp => wp.scope_id === scopeId.value)
-    if (workflowPair?.curation_schema_id) {
-      return workflowPair.curation_schema_id
+    // Priority 4: Workflow pair default for scope (FIXED: use scope.default_workflow_pair_id)
+    if (scope.value?.default_workflow_pair_id) {
+      const workflowPair = schemasStore.workflowPairs.find(
+        wp => wp.id === scope.value.default_workflow_pair_id
+      )
+      if (workflowPair?.curation_schema_id) {
+        return workflowPair.curation_schema_id
+      }
     }
 
     // Priority 5: Only one schema available - auto-select it
@@ -180,8 +190,12 @@
   async function loadData() {
     loading.value = true
     try {
-      // Load schemas and workflow pairs in parallel
-      await Promise.all([schemasStore.fetchSchemas(), schemasStore.fetchWorkflowPairs()])
+      // Load schemas, workflow pairs, and scope in parallel
+      await Promise.all([
+        schemasStore.fetchSchemas(),
+        schemasStore.fetchWorkflowPairs(),
+        loadScope()
+      ])
 
       // Load existing curation if editing
       if (curationId.value) {
@@ -193,17 +207,74 @@
         gene.value = await genesStore.fetchGeneById(geneId.value)
       }
 
+      // Check precuration status for new curations (not edits)
+      if (!curationId.value && geneId.value) {
+        await checkPrecurationStatus()
+
+        // Redirect if no approved precuration exists
+        if (precurationStatus.value !== 'approved') {
+          notificationsStore.addToast(
+            'Please complete and approve a precuration before starting curation',
+            'warning'
+          )
+          router.push({
+            name: 'gene-precuration-create',
+            params: { scopeId: scopeId.value, geneId: geneId.value }
+          })
+          return
+        }
+      }
+
       logger.debug('CurationFormView data loaded', {
         schemasCount: schemasStore.schemas.length,
         curationId: curationId.value,
         geneId: geneId.value,
-        resolvedSchemaId: resolvedSchemaId.value
+        resolvedSchemaId: resolvedSchemaId.value,
+        precurationStatus: precurationStatus.value
       })
     } catch (error) {
       logger.error('Failed to load curation data', { error: error.message })
       notificationsStore.addToast('Failed to load data', 'error')
     } finally {
       loading.value = false
+    }
+  }
+
+  async function loadScope() {
+    try {
+      scope.value = await scopesStore.fetchScopeById(scopeId.value)
+    } catch (error) {
+      logger.error('Failed to load scope', { error: error.message })
+    }
+  }
+
+  async function checkPrecurationStatus() {
+    try {
+      // Fetch precurations for this gene in this scope
+      await precurationsStore.fetchPrecurations({
+        scope_id: scopeId.value,
+        gene_id: geneId.value
+      })
+
+      // Check for approved precuration
+      const precurations = precurationsStore.precurations || []
+      const approvedPrecuration = precurations.find(p => p.status === 'approved')
+
+      if (approvedPrecuration) {
+        precurationStatus.value = 'approved'
+      } else if (precurations.length > 0) {
+        precurationStatus.value = 'pending'
+      } else {
+        precurationStatus.value = 'none'
+      }
+
+      logger.debug('Precuration status checked', {
+        status: precurationStatus.value,
+        precurationCount: precurations.length
+      })
+    } catch (error) {
+      logger.error('Failed to check precuration status', { error: error.message })
+      precurationStatus.value = 'none'
     }
   }
 
