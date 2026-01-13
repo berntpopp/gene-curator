@@ -59,6 +59,52 @@ class WorkflowEngine:
             ],  # Can be sent back for re-review
         }
 
+    def _load_item_for_validation(
+        self,
+        db: Session,
+        item_id: UUID,
+        item_type: str,
+    ) -> tuple[CurationNew | PrecurationNew | None, UUID | None]:
+        """Load item and return (item, scope_id) for validation."""
+        if item_type == "curation":
+            curation = (
+                db.execute(select(CurationNew).where(CurationNew.id == item_id))
+                .scalars()
+                .first()
+            )
+            return (curation, curation.scope_id) if curation else (None, None)
+        elif item_type == "precuration":
+            precuration = (
+                db.execute(select(PrecurationNew).where(PrecurationNew.id == item_id))
+                .scalars()
+                .first()
+            )
+            return (precuration, precuration.scope_id) if precuration else (None, None)
+        return (None, None)
+
+    def _validate_4_eyes_principle(
+        self,
+        db: Session,
+        user: UserNew,
+        user_id: UUID,
+        item: CurationNew | PrecurationNew | None,
+        item_type: str,
+    ) -> list[str]:
+        """Validate 4-eyes principle and return list of errors."""
+        errors: list[str] = []
+        if not item:
+            return errors
+
+        # Check if user is reviewing their own work
+        if item.created_by == user_id:
+            errors.append("4-eyes principle violation: Cannot review your own work")
+
+        # Check review permissions for curations
+        if item_type == "curation" and not self._has_review_permissions(db, user, item):
+            errors.append("Insufficient permissions for peer review")
+
+        return errors
+
     def validate_transition(
         self,
         db: Session,
@@ -86,38 +132,15 @@ class WorkflowEngine:
         if not user:
             errors.append("User not found")
             return WorkflowValidationResult(
-                is_valid=False,
-                errors=errors,
-                warnings=warnings,
-                requirements=requirements,
+                is_valid=False, errors=errors, warnings=warnings, requirements=requirements
             )
 
         # Load item to get scope_id for scope-specific role check
-        item = None
-        scope_id = None
-        if item_type == "curation":
-            item = (
-                db.execute(select(CurationNew).where(CurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if item:
-                scope_id = item.scope_id
-        elif item_type == "precuration":
-            item = (
-                db.execute(select(PrecurationNew).where(PrecurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if item:
-                scope_id = item.scope_id
+        item, scope_id = self._load_item_for_validation(db, item_id, item_type)
 
         # Role-based transition validation (check global OR scope-specific role)
         role_requirements = self._get_role_requirements(current_stage, target_stage)
-        has_role_authorization = self._check_role_authorization(
-            db, user, role_requirements, scope_id
-        )
-        if not has_role_authorization:
+        if not self._check_role_authorization(db, user, role_requirements, scope_id):
             errors.append(
                 f"User not authorized for this transition (requires one of: "
                 f"{', '.join(role_requirements)})"
@@ -125,29 +148,10 @@ class WorkflowEngine:
 
         # 4-eyes principle validation
         if self._requires_peer_review(current_stage, target_stage):
-            if item_type == "curation" and item:
-                # Check if different user created the curation
-                if item.created_by == user_id:
-                    errors.append(
-                        "4-eyes principle violation: Cannot review your own work"
-                    )
-
-                # Check if user has required review permissions
-                if not self._has_review_permissions(db, user, item):
-                    errors.append("Insufficient permissions for peer review")
-
-            elif item_type == "precuration" and item:
-                # Similar checks for precuration (item already loaded above)
-                if item.created_by == user_id:
-                    errors.append(
-                        "4-eyes principle violation: Cannot review your own work"
-                    )
+            errors.extend(self._validate_4_eyes_principle(db, user, user_id, item, item_type))
 
         # Content validation requirements
-        content_requirements = self._get_content_requirements(
-            current_stage, target_stage
-        )
-        requirements.extend(content_requirements)
+        requirements.extend(self._get_content_requirements(current_stage, target_stage))
 
         # Stage-specific validations
         stage_validation = self._validate_stage_requirements(

@@ -183,8 +183,8 @@ class CurationDetail(CurationInDBBase):
             data["curator_id"] = curation.creator.id
 
         # Extract from evidence_data OR precuration for convenience
-        evidence = curation.evidence_data or {}
-        precuration_data = {}
+        evidence: dict[str, Any] = curation.evidence_data or {}
+        precuration_data: dict[str, Any] = {}
         if hasattr(curation, "precuration") and curation.precuration:
             precuration_data = curation.precuration.evidence_data or {}
 
