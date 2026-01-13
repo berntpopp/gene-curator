@@ -107,7 +107,7 @@ const routes = [
     }
   },
   {
-    path: '/scopes/:scopeId',
+    path: '/scopes/:scopeId/:tab?',
     name: 'scope-dashboard',
     component: ScopeDashboard,
     props: true,
