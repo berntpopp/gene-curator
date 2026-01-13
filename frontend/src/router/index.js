@@ -11,6 +11,7 @@ const ScopeSelection = () => import('@/views/ScopeSelection.vue')
 const ScopeList = () => import('@/views/scope/ScopeList.vue')
 const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
 const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
+const GeneCatalogueView = () => import('@/views/GeneCatalogueView.vue')
 const GenesTable = () => import('@/views/GenesTable.vue')
 const GeneDetail = () => import('@/views/GeneDetail.vue')
 const GeneAssignments = () => import('@/views/GeneAssignments.vue')
@@ -188,15 +189,25 @@ const routes = [
   },
   {
     path: '/genes',
-    name: 'Genes',
-    component: GenesTable,
+    name: 'GeneCatalogue',
+    component: GeneCatalogueView,
     meta: {
-      title: 'Gene Catalog',
+      title: 'Gene Catalogue',
       requiresAuth: false,
       showInMainMenu: true,
       icon: 'mdi-dna',
-      label: 'Gene Catalog',
+      label: 'Gene Catalogue',
       order: 2
+    }
+  },
+  {
+    path: '/admin/genes',
+    name: 'GeneAdmin',
+    component: GenesTable,
+    meta: {
+      title: 'Gene Database',
+      requiresAuth: true,
+      requiredRoles: ['curator', 'admin']
     }
   },
   {

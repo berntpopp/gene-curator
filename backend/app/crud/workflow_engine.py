@@ -92,39 +92,53 @@ class WorkflowEngine:
                 requirements=requirements,
             )
 
-        # Role-based transition validation
+        # Load item to get scope_id for scope-specific role check
+        item = None
+        scope_id = None
+        if item_type == "curation":
+            item = (
+                db.execute(select(CurationNew).where(CurationNew.id == item_id))
+                .scalars()
+                .first()
+            )
+            if item:
+                scope_id = item.scope_id
+        elif item_type == "precuration":
+            item = (
+                db.execute(select(PrecurationNew).where(PrecurationNew.id == item_id))
+                .scalars()
+                .first()
+            )
+            if item:
+                scope_id = item.scope_id
+
+        # Role-based transition validation (check global OR scope-specific role)
         role_requirements = self._get_role_requirements(current_stage, target_stage)
-        if user.role not in role_requirements:
-            errors.append(f"User role '{user.role}' not authorized for this transition")
+        has_role_authorization = self._check_role_authorization(
+            db, user, role_requirements, scope_id
+        )
+        if not has_role_authorization:
+            errors.append(
+                f"User not authorized for this transition (requires one of: "
+                f"{', '.join(role_requirements)})"
+            )
 
         # 4-eyes principle validation
         if self._requires_peer_review(current_stage, target_stage):
-            if item_type == "curation":
+            if item_type == "curation" and item:
                 # Check if different user created the curation
-                curation = (
-                    db.execute(select(CurationNew).where(CurationNew.id == item_id))
-                    .scalars()
-                    .first()
-                )
-                if curation and curation.created_by == user_id:
+                if item.created_by == user_id:
                     errors.append(
                         "4-eyes principle violation: Cannot review your own work"
                     )
 
                 # Check if user has required review permissions
-                if not self._has_review_permissions(user, curation):
+                if not self._has_review_permissions(db, user, item):
                     errors.append("Insufficient permissions for peer review")
 
-            elif item_type == "precuration":
-                # Similar checks for precuration
-                precuration = (
-                    db.execute(
-                        select(PrecurationNew).where(PrecurationNew.id == item_id)
-                    )
-                    .scalars()
-                    .first()
-                )
-                if precuration and precuration.created_by == user_id:
+            elif item_type == "precuration" and item:
+                # Similar checks for precuration (item already loaded above)
+                if item.created_by == user_id:
                     errors.append(
                         "4-eyes principle violation: Cannot review your own work"
                     )
@@ -526,6 +540,18 @@ class WorkflowEngine:
 
     # Private helper methods
 
+    def _get_stage_from_curation_status(
+        self, curation_item: CurationNew
+    ) -> WorkflowStage:
+        """Derive workflow stage from curation status (backwards compatibility)."""
+        status_to_stage = {
+            CurationStatus.DRAFT: WorkflowStage.CURATION,
+            CurationStatus.SUBMITTED: WorkflowStage.CURATION,
+            CurationStatus.IN_REVIEW: WorkflowStage.REVIEW,
+            CurationStatus.ACTIVE: WorkflowStage.ACTIVE,
+        }
+        return status_to_stage.get(curation_item.status, WorkflowStage.CURATION)
+
     def _get_current_stage_and_item(
         self, db: Session, item_id: UUID, item_type: str
     ) -> tuple[WorkflowStage | None, Any]:
@@ -537,7 +563,8 @@ class WorkflowEngine:
                 .first()
             )
             if precuration_item:
-                return WorkflowStage.PRECURATION, precuration_item
+                stage = getattr(precuration_item, "workflow_stage", None)
+                return stage or WorkflowStage.PRECURATION, precuration_item
 
         elif item_type == "curation":
             curation_item = (
@@ -546,13 +573,11 @@ class WorkflowEngine:
                 .first()
             )
             if curation_item:
-                if curation_item.status in [
-                    CurationStatus.DRAFT,
-                    CurationStatus.SUBMITTED,
-                ]:
-                    return WorkflowStage.CURATION, curation_item
-                elif curation_item.status == CurationStatus.IN_REVIEW:
-                    return WorkflowStage.REVIEW, curation_item
+                # Use workflow_stage field if set, else derive from status
+                stage = getattr(curation_item, "workflow_stage", None)
+                if not stage:
+                    stage = self._get_stage_from_curation_status(curation_item)
+                return stage, curation_item
 
         elif item_type == "active":
             active_item = (
@@ -614,6 +639,54 @@ class WorkflowEngine:
 
         return role_matrix.get((current_stage, target_stage), ["admin"])
 
+    def _check_role_authorization(
+        self,
+        db: Session,
+        user: UserNew,
+        role_requirements: list[str],
+        scope_id: UUID | None,
+    ) -> bool:
+        """
+        Check if user has authorization based on global role OR scope-specific role.
+        Uses scope_memberships table for scope-specific roles.
+        """
+        from app.models import ScopeMembership
+
+        # Admin always has authorization
+        if user.role == "admin":
+            return True
+
+        # Check global user role
+        if user.role in role_requirements:
+            return True
+
+        # Check scope-specific role if scope_id is provided
+        if scope_id:
+            # Valid scope roles: admin, curator, reviewer, viewer
+            # Map global role requirements to valid scope roles
+            valid_scope_roles = ["admin", "curator", "reviewer", "viewer"]
+            scope_role_requirements = [
+                r for r in role_requirements if r in valid_scope_roles
+            ]
+            # Always include "reviewer" for scope-specific checks as they can review
+            if "reviewer" not in scope_role_requirements:
+                scope_role_requirements.append("reviewer")
+
+            membership = (
+                db.query(ScopeMembership)
+                .filter(
+                    ScopeMembership.user_id == user.id,
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.role.in_(scope_role_requirements),
+                )
+                .first()
+            )
+            if membership:
+                return True
+
+        return False
+
     def _requires_peer_review(
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
     ) -> bool:
@@ -630,16 +703,33 @@ class WorkflowEngine:
         ]
         return (current_stage, target_stage) in peer_review_transitions
 
-    def _has_review_permissions(self, user: UserNew, item: Any) -> bool:
-        """Check if user has permissions to review this item."""
-        # User must have curator+ role
-        if user.role not in ["curator", "admin", "scope_admin"]:
-            return False
+    def _has_review_permissions(self, db: Session, user: UserNew, item: Any) -> bool:
+        """
+        Check if user has permissions to review this item.
+        Uses scope_memberships table for scope-specific role checking.
+        """
+        from app.models import ScopeMembership
 
-        # User must have access to the item's scope
-        if hasattr(item, "scope_id"):
-            user_scopes: list[UUID] = user.assigned_scopes or []
-            if user.role != "admin" and item.scope_id not in user_scopes:
+        # Admin always has review permissions
+        if user.role == "admin":
+            return True
+
+        # User must have access to the item's scope via scope_memberships
+        if hasattr(item, "scope_id") and item.scope_id:
+            # Check scope membership with eligible review role
+            # Valid scope roles: admin, curator, reviewer, viewer
+            eligible_scope_roles = ["admin", "curator", "reviewer"]
+            membership = (
+                db.query(ScopeMembership)
+                .filter(
+                    ScopeMembership.user_id == user.id,
+                    ScopeMembership.scope_id == item.scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.role.in_(eligible_scope_roles),
+                )
+                .first()
+            )
+            if not membership:
                 return False
 
         return True
@@ -725,7 +815,10 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to precuration stage."""
-        # Implementation would depend on specific business logic
+        # Update workflow stage
+        if hasattr(item, "workflow_stage"):
+            item.workflow_stage = WorkflowStage.PRECURATION
+        db.commit()
         return {"success": True, "message": "Transitioned to precuration"}
 
     def _transition_to_curation(
@@ -737,6 +830,12 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to curation stage."""
+        # Update workflow stage and status (when returning from review)
+        if hasattr(item, "workflow_stage"):
+            item.workflow_stage = WorkflowStage.CURATION
+        if hasattr(item, "status"):
+            item.status = CurationStatus.DRAFT
+        db.commit()
         return {"success": True, "message": "Transitioned to curation"}
 
     def _transition_to_review(
@@ -748,9 +847,13 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to review stage."""
+        # Update workflow stage
+        if hasattr(item, "workflow_stage"):
+            item.workflow_stage = WorkflowStage.REVIEW
+        # Update status
         if hasattr(item, "status"):
             item.status = CurationStatus.IN_REVIEW
-            db.commit()
+        db.commit()
         return {"success": True, "message": "Transitioned to review"}
 
     def _transition_to_active(
@@ -762,21 +865,48 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to active stage."""
+        # Update workflow stage and status on the item
+        if hasattr(item, "workflow_stage"):
+            item.workflow_stage = WorkflowStage.ACTIVE
+        if hasattr(item, "status"):
+            item.status = CurationStatus.ACTIVE
+
         # Create active curation record
         if hasattr(item, "gene_id") and hasattr(item, "scope_id"):
+            # Check for existing active curation for this gene-scope pair
+            existing_active = (
+                db.query(ActiveCuration)
+                .filter(
+                    ActiveCuration.gene_id == item.gene_id,
+                    ActiveCuration.scope_id == item.scope_id,
+                    ActiveCuration.archived_at.is_(None),
+                )
+                .first()
+            )
+
+            replaced_curation_id = None
+            if existing_active:
+                # Archive the existing active curation
+                existing_active.archived_at = datetime.utcnow()
+                existing_active.archived_by = user_id
+                existing_active.archive_reason = "Replaced by new active curation"
+                replaced_curation_id = existing_active.curation_id
+
+            # Create new active curation record
             active_curation = ActiveCuration(
                 gene_id=item.gene_id,
                 scope_id=item.scope_id,
-                precuration_id=getattr(item, "precuration_id", None),
                 curation_id=item.id if hasattr(item, "id") else None,
                 activated_by=user_id,
                 activated_at=datetime.utcnow(),
-                final_classification=getattr(item, "final_classification", None),
-                evidence_summary=getattr(item, "evidence_summary", None),
+                replaced_curation_id=replaced_curation_id,
+                # Audit fields required by audit trigger
+                created_by=user_id,
+                updated_by=user_id,
             )
             db.add(active_curation)
-            db.commit()
 
+        db.commit()
         return {"success": True, "message": "Transitioned to active"}
 
     def _transition_to_entry(
@@ -788,6 +918,10 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition back to entry stage."""
+        # Update workflow stage
+        if hasattr(item, "workflow_stage"):
+            item.workflow_stage = WorkflowStage.ENTRY
+        db.commit()
         return {"success": True, "message": "Transitioned back to entry"}
 
     def _log_workflow_transition(

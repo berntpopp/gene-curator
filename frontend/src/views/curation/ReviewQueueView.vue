@@ -296,12 +296,13 @@
         total_score: c.computed_scores?.total_score || 0,
         classification: c.computed_verdict,
         updated_at: c.updated_at,
-        created_at: c.created_at
+        created_at: c.created_at,
+        created_by: c.created_by
       }))
 
-      // Filter out curations created by current user (can't review your own)
-      const userId = authStore.user?.user_id
-      curations.value = curations.value.filter(c => c.curator_id !== userId)
+      // Filter out curations created by current user (can't review your own - 4-eyes principle)
+      const userId = authStore.user?.id
+      curations.value = curations.value.filter(c => c.created_by !== userId)
 
       // Extract unique scopes for filter
       const scopeMap = new Map()

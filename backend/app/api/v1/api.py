@@ -10,6 +10,7 @@ from app.api.v1.endpoints import (
     evidence,
     external_validation,
     gene_assignments,
+    gene_catalogue,
     gene_summaries,
     genes,
     health,
@@ -57,6 +58,11 @@ api_router.include_router(
 # Core entity endpoints
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
+
+# Gene Catalogue - read-only aggregation view
+api_router.include_router(
+    gene_catalogue.router, prefix="/gene-catalogue", tags=["gene-catalogue"]
+)
 
 # ClinGen SOP v11 endpoints
 api_router.include_router(evidence.router, tags=["evidence"])

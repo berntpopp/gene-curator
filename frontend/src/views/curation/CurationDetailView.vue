@@ -650,12 +650,10 @@
     return colors[classification.value] || 'grey'
   })
 
-  // Permissions
+  // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => {
-    const userRole = authStore.user?.role
-    return (
-      ['admin', 'scope_admin', 'curator'].includes(userRole) && curation.value?.status === 'draft'
-    )
+    // Use backend-provided permission if available
+    return curation.value?.can_edit ?? false
   })
 
   const canSubmitForReview = computed(() => {
@@ -663,26 +661,14 @@
   })
 
   const canDelete = computed(() => {
-    const userRole = authStore.user?.role
-    const userId = authStore.user?.user_id
-    return (
-      ['admin', 'scope_admin'].includes(userRole) ||
-      (curation.value?.curator_id === userId && curation.value?.status === 'draft')
-    )
+    // Use backend-provided permission if available
+    return curation.value?.can_delete ?? false
   })
 
-  // Can review: user has reviewer/admin role and curation is submitted
-  // Note: 4-eyes principle - user cannot review their own work
+  // Can review: backend checks scope-specific roles and 4-eyes principle
   const canReview = computed(() => {
-    const userRole = authStore.user?.role
-    const userId = authStore.user?.user_id
-    const curatorId = curation.value?.curator_id || curation.value?.created_by
-    const isSubmitted = curation.value?.status === 'submitted'
-    const isInReview = curation.value?.workflow_stage === 'review'
-    const hasReviewRole = ['admin', 'scope_admin', 'reviewer', 'curator'].includes(userRole)
-    const isNotCreator = userId !== curatorId
-
-    return hasReviewRole && (isSubmitted || isInReview) && isNotCreator
+    // Use backend-provided permission if available
+    return curation.value?.can_review ?? false
   })
 
   // Utility functions

@@ -341,6 +341,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                     created_at=row.CurationNew.created_at,
                     updated_at=row.CurationNew.updated_at,
                     curator_name=row.curator_name,
+                    created_by=row.CurationNew.created_by,
                 )
             )
 
@@ -493,7 +494,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
-        # Execute transition
+        # Execute transition (this sets workflow_stage to REVIEW and status to IN_REVIEW)
         workflow_engine.execute_transition(
             db,
             db_obj.id,
@@ -503,9 +504,12 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             submit_data.notes,
         )
 
-        # Update curation status
+        # Update additional submission metadata
+        # Note: workflow_engine already sets status to IN_REVIEW and commits
+        # We refresh to get the updated state, then add submission metadata
+        db.refresh(db_obj)
+
         now = _utc_now()
-        db_obj.status = CurationStatus.SUBMITTED
         db_obj.is_draft = False
         db_obj.submitted_at = now
         db_obj.submitted_by = user_id

@@ -1025,6 +1025,23 @@ class ActiveCuration(Base):
     )
     archive_reason: Mapped[str | None] = mapped_column(Text)
 
+    # Audit fields (required by audit trigger)
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    updated_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
     # Relationships
     gene: Mapped["Gene"] = relationship("Gene", back_populates="active_curations")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="active_curations")
