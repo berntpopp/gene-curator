@@ -42,7 +42,7 @@ describe('componentRegistry', () => {
     })
 
     it('each registered component is a valid Vue component', () => {
-      Object.entries(componentRegistry).forEach(([name, component]) => {
+      Object.values(componentRegistry).forEach(component => {
         expect(component).toBeDefined()
         // Vue components are objects with a name or __name property
         expect(typeof component).toBe('object')
