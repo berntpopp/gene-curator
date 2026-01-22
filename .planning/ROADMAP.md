@@ -75,10 +75,11 @@ Plans:
   2. Fields enforce min/max length, minimum/maximum value, pattern, and enum constraints
   3. Backend validation errors appear inline on affected fields
   4. Form submission is blocked when validation fails
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md — Create useValidationRules composable and integrate into DynamicField for client-side validation
+- [ ] 04-02-PLAN.md — Wire backend errors to fields, add tab error badges, implement form submission blocking
 
 ### Phase 5: Scoring and Integration
 **Goal**: DynamicForm displays live scores and replaces hardcoded form views
@@ -107,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Field Rendering | 2/2 | ✓ Complete | 2026-01-22 |
 | 2. Tab Structure | 2/2 | ✓ Complete | 2026-01-22 |
 | 3. Field Metadata | 2/2 | ✓ Complete | 2026-01-22 |
-| 4. Validation | 0/TBD | Not started | - |
+| 4. Validation | 0/2 | In progress | - |
 | 5. Scoring and Integration | 0/TBD | Not started | - |
 
 ---
@@ -118,4 +119,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 2 completed: 2026-01-22*
 *Phase 3 planned: 2026-01-22*
 *Phase 3 completed: 2026-01-22*
+*Phase 4 planned: 2026-01-23*
 *Total requirements: 32 | Phases: 5 | Coverage: 100%*
