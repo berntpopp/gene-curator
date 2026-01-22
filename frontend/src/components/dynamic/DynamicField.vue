@@ -19,7 +19,7 @@
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"
       :variant="variant"
-      :rules="getValidationRules()"
+      :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :disabled="disabled"
@@ -80,7 +80,7 @@
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"
       :variant="variant"
-      :rules="getValidationRules()"
+      :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :rows="fieldSchema.rows || 3"
@@ -143,7 +143,7 @@
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"
       :variant="variant"
-      :rules="getValidationRules()"
+      :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :clearable="!fieldSchema.required"
@@ -204,7 +204,7 @@
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"
       :variant="variant"
-      :rules="getValidationRules()"
+      :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       type="number"
@@ -279,7 +279,7 @@
       <v-checkbox
         :model-value="modelValue"
         :label="getFieldLabel()"
-        :rules="getValidationRules()"
+        :rules="validationRules"
         :error-messages="getErrorMessages()"
         :disabled="disabled"
         :hint="fieldSchema.hint"
@@ -305,7 +305,7 @@
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder || 'YYYY-MM-DD'"
       :variant="variant"
-      :rules="getValidationRules()"
+      :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       type="date"
@@ -500,6 +500,7 @@
   import { ref, computed, watch } from 'vue'
   import { componentRegistry } from './componentRegistry'
   import { useLogger } from '@/composables/useLogger'
+  import { useValidationRules } from './composables/useValidationRules'
 
   const logger = useLogger()
 
@@ -671,6 +672,9 @@
     )
   }
 
+  // Initialize validation rules from composable
+  const { validationRules } = useValidationRules(() => props.fieldSchema)
+
   const getSelectItems = () => {
     if (props.fieldSchema.enumOptions) {
       return props.fieldSchema.enumOptions.map(option => ({
@@ -685,57 +689,6 @@
         value
       })) || []
     )
-  }
-
-  const getValidationRules = () => {
-    const rules = []
-
-    if (props.fieldSchema.required) {
-      rules.push(value => {
-        if (value === null || value === undefined || value === '') {
-          return `${getFieldLabel()} is required`
-        }
-        return true
-      })
-    }
-
-    if (props.fieldSchema.minLength) {
-      rules.push(value => {
-        if (value && value.length < props.fieldSchema.minLength) {
-          return `${getFieldLabel()} must be at least ${props.fieldSchema.minLength} characters`
-        }
-        return true
-      })
-    }
-
-    if (props.fieldSchema.maxLength) {
-      rules.push(value => {
-        if (value && value.length > props.fieldSchema.maxLength) {
-          return `${getFieldLabel()} must not exceed ${props.fieldSchema.maxLength} characters`
-        }
-        return true
-      })
-    }
-
-    if (props.fieldSchema.minimum !== undefined) {
-      rules.push(value => {
-        if (value !== null && value !== undefined && value < props.fieldSchema.minimum) {
-          return `${getFieldLabel()} must be at least ${props.fieldSchema.minimum}`
-        }
-        return true
-      })
-    }
-
-    if (props.fieldSchema.maximum !== undefined) {
-      rules.push(value => {
-        if (value !== null && value !== undefined && value > props.fieldSchema.maximum) {
-          return `${getFieldLabel()} must not exceed ${props.fieldSchema.maximum}`
-        }
-        return true
-      })
-    }
-
-    return rules
   }
 
   const getErrorMessages = () => {

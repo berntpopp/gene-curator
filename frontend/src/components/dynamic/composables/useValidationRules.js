@@ -16,16 +16,12 @@ import { computed } from 'vue'
  * Empty values skip non-required validations to avoid confusing error stacking.
  *
  * @param {Function} fieldSchemaGetter - Reactive getter for field schema object
- * @param {Function} getFieldLabel - Function to get field label for error messages
  * @returns {Object} { validationRules: ComputedRef<Function[]> }
  *
  * @example
- * const { validationRules } = useValidationRules(
- *   () => props.fieldSchema,
- *   getFieldLabel
- * )
+ * const { validationRules } = useValidationRules(() => props.fieldSchema)
  */
-export function useValidationRules(fieldSchemaGetter, getFieldLabel) {
+export function useValidationRules(fieldSchemaGetter) {
   const validationRules = computed(() => {
     const fieldSchema = fieldSchemaGetter()
     const rules = []
