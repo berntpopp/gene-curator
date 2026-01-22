@@ -23,9 +23,56 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :disabled="disabled"
+      :hint="needsHintTruncation ? undefined : fieldSchema.hint"
+      :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
       @blur="handleBlur"
-    />
+    >
+      <template v-if="hasIcon" #prepend-inner>
+        <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon
+              v-bind="tooltipProps"
+              :icon="iconName"
+              color="grey-darken-1"
+              size="small"
+            />
+          </template>
+          <span>{{ fieldSchema.tooltip }}</span>
+        </v-tooltip>
+      </template>
+
+      <template v-if="hasHelpUrl" #append-inner>
+        <v-icon
+          icon="mdi-help-circle-outline"
+          color="primary"
+          size="small"
+          style="cursor: pointer"
+          @click.stop="openHelpUrl"
+        />
+      </template>
+
+      <template v-if="needsHintTruncation" #details>
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="!hintExpanded">
+            {{ truncatedHint }}
+            <a class="text-primary ml-1" style="cursor: pointer" @click.prevent="hintExpanded = true">
+              show more
+            </a>
+          </span>
+          <span v-else>
+            {{ fieldSchema.hint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = false"
+            >
+              show less
+            </a>
+          </span>
+        </div>
+      </template>
+    </v-text-field>
 
     <!-- Textarea Fields -->
     <v-textarea
