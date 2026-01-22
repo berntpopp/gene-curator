@@ -64,7 +64,7 @@ vi.mock('../componentRegistry', () => ({
 const vuetifyStubs = {
   'v-text-field': {
     template:
-      '<div class="v-text-field"><label>{{ label }}</label><input :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled" /><span v-if="hint" class="v-messages">{{ hint }}</span></div>',
+      '<div class="v-text-field"><slot name="prepend-inner"></slot><label>{{ label }}</label><input :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled" /><slot name="append-inner"></slot><span v-if="hint" class="v-messages">{{ hint }}</span><slot name="details"></slot></div>',
     props: [
       'modelValue',
       'label',
@@ -82,9 +82,15 @@ const vuetifyStubs = {
       'persistentHint'
     ]
   },
+  'v-tooltip': {
+    name: 'VTooltip',
+    template:
+      '<div class="v-tooltip" :class="{ disabled: disabled }"><slot name="activator" :props="{ class: \'tooltip-activator\' }"></slot><span class="v-tooltip-content"><slot></slot></span></div>',
+    props: ['location', 'openDelay', 'disabled', 'text']
+  },
   'v-textarea': {
     template:
-      '<div class="v-textarea"><label>{{ label }}</label><textarea :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></textarea></div>',
+      '<div class="v-textarea"><slot name="prepend-inner"></slot><label>{{ label }}</label><textarea :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></textarea><slot name="append-inner"></slot><slot name="details"></slot></div>',
     props: [
       'modelValue',
       'label',
@@ -94,12 +100,14 @@ const vuetifyStubs = {
       'errorMessages',
       'required',
       'rows',
-      'disabled'
+      'disabled',
+      'hint',
+      'persistentHint'
     ]
   },
   'v-select': {
     template:
-      '<div class="v-select"><label>{{ label }}</label><select :value="modelValue" @change="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></select></div>',
+      '<div class="v-select"><slot name="prepend-inner"></slot><label>{{ label }}</label><select :value="modelValue" @change="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></select><slot name="append-inner"></slot><slot name="details"></slot></div>',
     props: [
       'modelValue',
       'items',
@@ -110,7 +118,9 @@ const vuetifyStubs = {
       'errorMessages',
       'required',
       'clearable',
-      'disabled'
+      'disabled',
+      'hint',
+      'persistentHint'
     ]
   },
   'v-checkbox': {
@@ -134,7 +144,8 @@ const vuetifyStubs = {
     template: '<button class="v-btn" @click="$emit(\'click\')"><slot /></button>'
   },
   'v-icon': {
-    template: '<i class="v-icon"></i>'
+    template: '<i class="v-icon" :data-icon="icon" :data-color="color">{{ icon }}</i>',
+    props: ['icon', 'color', 'size', 'start']
   },
   'v-label': {
     template: '<label class="v-label"><slot /></label>'
@@ -669,6 +680,104 @@ describe('DynamicField', () => {
       const emitted = wrapper.emitted('update:model-value')
       expect(emitted).toBeDefined()
       expect(emitted[0]).toEqual(['new value'])
+    })
+  })
+
+  describe('Field Metadata - Icons and Tooltips', () => {
+    it('renders icon when icon property is defined', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          icon: 'mdi-account'
+        },
+        modelValue: ''
+      })
+
+      // Icon should be rendered in prepend-inner
+      expect(wrapper.html()).toContain('mdi-account')
+    })
+
+    it('renders default icon when tooltip defined but no icon', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          tooltip: 'This is a tooltip'
+        },
+        modelValue: ''
+      })
+
+      // Default icon should appear
+      expect(wrapper.html()).toContain('mdi-information-outline')
+    })
+
+    it('does not render icon when no icon or tooltip defined', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field'
+        },
+        modelValue: ''
+      })
+
+      // No icons in prepend area
+      expect(wrapper.html()).not.toContain('mdi-information-outline')
+      expect(wrapper.html()).not.toContain('mdi-account')
+    })
+
+    it('renders v-tooltip around icon when tooltip defined', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          icon: 'mdi-account',
+          tooltip: 'This is helpful context'
+        },
+        modelValue: ''
+      })
+
+      // Tooltip component should be present
+      expect(wrapper.find('.v-tooltip').exists()).toBe(true)
+      expect(wrapper.html()).toContain('This is helpful context')
+    })
+
+    it('disables tooltip when no tooltip text provided', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          icon: 'mdi-account'
+          // No tooltip property
+        },
+        modelValue: ''
+      })
+
+      // Tooltip should be disabled
+      const tooltip = wrapper.find('.v-tooltip')
+      if (tooltip.exists()) {
+        expect(tooltip.classes()).toContain('disabled')
+      }
+    })
+
+    it('uses grey-darken-1 color for icon accessibility', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          icon: 'mdi-account'
+        },
+        modelValue: ''
+      })
+
+      // Icon should have correct color attribute (data-color due to stub)
+      expect(wrapper.html()).toContain('data-color="grey-darken-1"')
     })
   })
 })
