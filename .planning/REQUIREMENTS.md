@@ -112,48 +112,48 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FRND-01 | TBD | Pending |
-| FRND-02 | TBD | Pending |
-| FRND-03 | TBD | Pending |
-| FRND-04 | TBD | Pending |
-| FRND-05 | TBD | Pending |
-| FRND-06 | TBD | Pending |
-| TABS-01 | TBD | Pending |
-| TABS-02 | TBD | Pending |
-| TABS-03 | TBD | Pending |
-| TABS-04 | TBD | Pending |
-| TABS-05 | TBD | Pending |
-| TABS-06 | TBD | Pending |
-| TABS-07 | TBD | Pending |
-| META-01 | TBD | Pending |
-| META-02 | TBD | Pending |
-| META-03 | TBD | Pending |
-| META-04 | TBD | Pending |
-| META-05 | TBD | Pending |
-| VALD-01 | TBD | Pending |
-| VALD-02 | TBD | Pending |
-| VALD-03 | TBD | Pending |
-| VALD-04 | TBD | Pending |
-| VALD-05 | TBD | Pending |
-| VALD-06 | TBD | Pending |
-| SCOR-01 | TBD | Pending |
-| SCOR-02 | TBD | Pending |
-| SCOR-03 | TBD | Pending |
-| SCOR-04 | TBD | Pending |
-| SCOR-05 | TBD | Pending |
-| INTG-01 | TBD | Pending |
-| INTG-02 | TBD | Pending |
-| INTG-03 | TBD | Pending |
-| INTG-04 | TBD | Pending |
-| INTG-05 | TBD | Pending |
-| INTG-06 | TBD | Pending |
-| INTG-07 | TBD | Pending |
+| FRND-01 | Phase 1 | Pending |
+| FRND-02 | Phase 1 | Pending |
+| FRND-03 | Phase 1 | Pending |
+| FRND-04 | Phase 1 | Pending |
+| FRND-05 | Phase 1 | Pending |
+| FRND-06 | Phase 1 | Pending |
+| TABS-01 | Phase 2 | Pending |
+| TABS-02 | Phase 2 | Pending |
+| TABS-03 | Phase 2 | Pending |
+| TABS-04 | Phase 2 | Pending |
+| TABS-05 | Phase 2 | Pending |
+| TABS-06 | Phase 2 | Pending |
+| TABS-07 | Phase 2 | Pending |
+| META-01 | Phase 3 | Pending |
+| META-02 | Phase 3 | Pending |
+| META-03 | Phase 3 | Pending |
+| META-04 | Phase 3 | Pending |
+| META-05 | Phase 3 | Pending |
+| VALD-01 | Phase 4 | Pending |
+| VALD-02 | Phase 4 | Pending |
+| VALD-03 | Phase 4 | Pending |
+| VALD-04 | Phase 4 | Pending |
+| VALD-05 | Phase 4 | Pending |
+| VALD-06 | Phase 4 | Pending |
+| SCOR-01 | Phase 5 | Pending |
+| SCOR-02 | Phase 5 | Pending |
+| SCOR-03 | Phase 5 | Pending |
+| SCOR-04 | Phase 5 | Pending |
+| SCOR-05 | Phase 5 | Pending |
+| INTG-01 | Phase 5 | Pending |
+| INTG-02 | Phase 5 | Pending |
+| INTG-03 | Phase 5 | Pending |
+| INTG-04 | Phase 5 | Pending |
+| INTG-05 | Phase 5 | Pending |
+| INTG-06 | Phase 5 | Pending |
+| INTG-07 | Phase 5 | Pending |
 
 **Coverage:**
 - v0.1 requirements: 32 total
-- Mapped to phases: 0
-- Unmapped: 32 ⚠️
+- Mapped to phases: 32
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 after initial definition*
+*Last updated: 2026-01-22 after roadmap creation*
