@@ -1,8 +1,20 @@
 <template>
   <div class="dynamic-field">
+    <!-- Custom Component from Registry -->
+    <component
+      :is="customComponent"
+      v-if="customComponent"
+      :model-value="modelValue"
+      :label="fieldSchema.title || fieldSchema.label || getFieldLabel()"
+      :hint="fieldSchema.description || fieldSchema.hint"
+      :required="fieldSchema.required"
+      :disabled="disabled"
+      @update:model-value="updateValue"
+    />
+
     <!-- Text Fields -->
     <v-text-field
-      v-if="fieldSchema.type === 'string' && !fieldSchema.multiline && !fieldSchema.enum"
+      v-else-if="fieldSchema.type === 'string' && !fieldSchema.multiline && !fieldSchema.enum"
       :model-value="modelValue"
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"
@@ -94,13 +106,13 @@
     />
 
     <!-- Array Fields (Dynamic Table) -->
-    <div v-else-if="fieldSchema.type === 'array'">
+    <div v-else-if="fieldSchema.type === 'array' && canRenderNested">
       <v-label class="text-body-2 font-weight-medium mb-2">
         {{ getFieldLabel() }}
         <span v-if="fieldSchema.required" class="text-error ml-1">*</span>
       </v-label>
 
-      <v-card variant="outlined">
+      <v-card variant="outlined" :style="getNestedStyle(depth)">
         <v-card-text>
           <div v-if="!arrayValue.length" class="text-center py-4 text-medium-emphasis">
             No items added yet
@@ -131,9 +143,11 @@
                     :field-name="subFieldName"
                     :field-schema="subFieldSchema"
                     :model-value="item[subFieldName]"
+                    :depth="depth + 1"
                     variant="outlined"
                     :disabled="disabled"
                     @update:model-value="updateArrayItem(index, subFieldName, $event)"
+                    @component-fallback="$emit('component-fallback', $event)"
                   />
                 </v-col>
               </v-row>
@@ -159,13 +173,13 @@
     </div>
 
     <!-- Object Fields -->
-    <div v-else-if="fieldSchema.type === 'object'">
+    <div v-else-if="fieldSchema.type === 'object' && canRenderNested">
       <v-label class="text-body-2 font-weight-medium mb-2">
         {{ getFieldLabel() }}
         <span v-if="fieldSchema.required" class="text-error ml-1">*</span>
       </v-label>
 
-      <v-card variant="outlined">
+      <v-card variant="outlined" :style="getNestedStyle(depth)">
         <v-card-text>
           <v-row>
             <v-col
@@ -178,9 +192,11 @@
                 :field-name="subFieldName"
                 :field-schema="subFieldSchema"
                 :model-value="objectValue[subFieldName]"
+                :depth="depth + 1"
                 variant="outlined"
                 :disabled="disabled"
                 @update:model-value="updateObjectField(subFieldName, $event)"
+                @component-fallback="$emit('component-fallback', $event)"
               />
             </v-col>
           </v-row>
@@ -192,14 +208,27 @@
       </div>
     </div>
 
+    <!-- Max Depth Warning for Nested Types -->
+    <v-alert
+      v-else-if="
+        !canRenderNested && (fieldSchema.type === 'object' || fieldSchema.type === 'array')
+      "
+      type="warning"
+      density="compact"
+    >
+      Maximum nesting depth reached ({{ MAX_DEPTH }} levels)
+    </v-alert>
+
     <!-- Fallback for unsupported types -->
     <v-text-field
       v-else
       :model-value="modelValue"
-      :label="getFieldLabel() + ' (Unknown Type)'"
+      :label="getFieldLabel() + ' (Unknown Type: ' + fieldSchema.type + ')'"
       :variant="variant"
-      readonly
-      :error-messages="['Unsupported field type: ' + fieldSchema.type]"
+      :hint="'Field type not recognized - using text input'"
+      persistent-hint
+      :disabled="disabled"
+      @update:model-value="updateValue"
     />
 
     <!-- Help Text -->
@@ -210,7 +239,17 @@
 </template>
 
 <script setup>
-  import { ref, watch } from 'vue'
+  import { ref, computed, watch } from 'vue'
+  import { componentRegistry } from './componentRegistry'
+  import { useLogger } from '@/composables/useLogger'
+
+  const logger = useLogger()
+
+  /**
+   * Maximum recursion depth for nested object/array fields.
+   * Prevents infinite recursion and stack overflow.
+   */
+  const MAX_DEPTH = 10
 
   const props = defineProps({
     fieldName: {
@@ -236,10 +275,14 @@
     disabled: {
       type: Boolean,
       default: false
+    },
+    depth: {
+      type: Number,
+      default: 0
     }
   })
 
-  const emit = defineEmits(['update:model-value', 'validate'])
+  const emit = defineEmits(['update:model-value', 'validate', 'component-fallback'])
 
   // Reactive refs for complex types
   const arrayValue = ref(Array.isArray(props.modelValue) ? [...props.modelValue] : [])
@@ -260,6 +303,54 @@
       }
     }
   )
+
+  /**
+   * Lookup custom component from registry when fieldSchema.component is specified.
+   * Logs warning and emits component-fallback event when component not found.
+   */
+  const customComponent = computed(() => {
+    if (!props.fieldSchema.component) return null
+
+    const comp = componentRegistry[props.fieldSchema.component]
+
+    if (!comp) {
+      logger.warn('Component not found in registry', {
+        component: props.fieldSchema.component,
+        fieldName: props.fieldName,
+        availableComponents: Object.keys(componentRegistry)
+      })
+      // Emit fallback event when component specified but not found
+      emit('component-fallback', {
+        requestedComponent: props.fieldSchema.component,
+        fieldName: props.fieldName,
+        fallbackType: 'text-field'
+      })
+    }
+
+    return comp
+  })
+
+  /**
+   * Check if nested rendering is allowed based on current depth.
+   * Prevents infinite recursion by stopping at MAX_DEPTH.
+   */
+  const canRenderNested = computed(() => props.depth < MAX_DEPTH)
+
+  /**
+   * Generate progressive background styling for nested objects/arrays.
+   * Applies subtle tinting at depth 2+ for visual hierarchy.
+   *
+   * @param {number} depth - Current nesting depth
+   * @returns {Object} CSS style object
+   */
+  function getNestedStyle(depth) {
+    if (depth < 2) return {}
+    const opacity = Math.min(0.02 + (depth - 2) * 0.01, 0.06)
+    return {
+      backgroundColor: `rgba(var(--v-theme-surface-variant), ${opacity})`,
+      transition: 'background-color 0.2s ease'
+    }
+  }
 
   const getFieldLabel = () => {
     return (
