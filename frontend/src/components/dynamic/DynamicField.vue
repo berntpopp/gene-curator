@@ -251,6 +251,11 @@
    */
   const MAX_DEPTH = 10
 
+  /**
+   * Maximum hint length before truncation with show more/less toggle
+   */
+  const HINT_TRUNCATE_LENGTH = 100
+
   const props = defineProps({
     fieldName: {
       type: String,
@@ -286,6 +291,7 @@
 
   // Reactive refs for complex types
   const arrayValue = ref(Array.isArray(props.modelValue) ? [...props.modelValue] : [])
+  const hintExpanded = ref(false)
   const objectValue = ref(
     props.modelValue && typeof props.modelValue === 'object' && !Array.isArray(props.modelValue)
       ? { ...props.modelValue }
@@ -335,6 +341,54 @@
    * Prevents infinite recursion by stopping at MAX_DEPTH.
    */
   const canRenderNested = computed(() => props.depth < MAX_DEPTH)
+
+  /**
+   * Show icon in prepend slot when icon OR tooltip defined
+   */
+  const hasIcon = computed(() => props.fieldSchema.icon || props.fieldSchema.tooltip)
+
+  /**
+   * Get icon name, defaulting to info icon when tooltip exists without icon
+   */
+  const iconName = computed(() => props.fieldSchema.icon || 'mdi-information-outline')
+
+  /**
+   * Check if hint exists and is non-empty
+   */
+  const hasHint = computed(() => props.fieldSchema.hint && props.fieldSchema.hint.trim().length > 0)
+
+  /**
+   * Check if hint needs truncation
+   */
+  const needsHintTruncation = computed(
+    () => hasHint.value && props.fieldSchema.hint.length > HINT_TRUNCATE_LENGTH
+  )
+
+  /**
+   * Get truncated hint text
+   */
+  const truncatedHint = computed(() =>
+    needsHintTruncation.value
+      ? `${props.fieldSchema.hint.substring(0, HINT_TRUNCATE_LENGTH)}...`
+      : props.fieldSchema.hint
+  )
+
+  /**
+   * Check if tooltip exists and is non-empty
+   */
+  const hasTooltip = computed(
+    () => props.fieldSchema.tooltip && props.fieldSchema.tooltip.trim().length > 0
+  )
+
+  /**
+   * Check if helpUrl exists and is valid URL
+   */
+  const hasHelpUrl = computed(
+    () =>
+      props.fieldSchema.helpUrl &&
+      (props.fieldSchema.helpUrl.startsWith('http://') ||
+        props.fieldSchema.helpUrl.startsWith('https://'))
+  )
 
   /**
    * Generate progressive background styling for nested objects/arrays.
@@ -439,6 +493,21 @@
 
   const handleBlur = event => {
     emit('validate', event.target.value)
+  }
+
+  /**
+   * Open help URL in new tab with security flags
+   */
+  const openHelpUrl = () => {
+    if (!props.fieldSchema.helpUrl) {
+      logger.warn('Help URL not defined', { fieldName: props.fieldName })
+      return
+    }
+    window.open(props.fieldSchema.helpUrl, '_blank', 'noopener,noreferrer')
+    logger.info('Help documentation opened', {
+      fieldName: props.fieldName,
+      helpUrl: props.fieldSchema.helpUrl
+    })
   }
 
   // Array field methods
