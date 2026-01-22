@@ -230,10 +230,7 @@ describe('DynamicForm Validation', () => {
 
       const tab = {
         id: 'test-tab',
-        sections: [
-          { fields: ['field1', 'field2'] },
-          { fields: ['field3'] }
-        ]
+        sections: [{ fields: ['field1', 'field2'] }, { fields: ['field3'] }]
       }
 
       const paths = wrapper.vm.getTabFieldPaths(tab)
