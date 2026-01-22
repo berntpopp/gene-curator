@@ -825,7 +825,7 @@ describe('DynamicField', () => {
       })
 
       // Check that truncated text is rendered
-      expect(wrapper.text()).toContain('A'.repeat(100) + '...')
+      expect(wrapper.text()).toContain(`${'A'.repeat(100)}...`)
       expect(wrapper.text()).toContain('show more')
     })
 
@@ -872,7 +872,7 @@ describe('DynamicField', () => {
       await link.trigger('click')
 
       // Should be truncated again
-      expect(wrapper.text()).toContain('A'.repeat(100) + '...')
+      expect(wrapper.text()).toContain(`${'A'.repeat(100)}...`)
       expect(wrapper.text()).toContain('show more')
     })
 
