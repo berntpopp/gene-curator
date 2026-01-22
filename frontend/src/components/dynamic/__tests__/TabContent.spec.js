@@ -61,7 +61,8 @@ const vuetifyStubs = {
   },
   DynamicField: {
     name: 'DynamicField',
-    template: '<div class="dynamic-field" :data-field-name="fieldName" :data-model-value="modelValue"></div>',
+    template:
+      '<div class="dynamic-field" :data-field-name="fieldName" :data-model-value="modelValue"></div>',
     props: ['fieldName', 'fieldSchema', 'modelValue', 'validationResult', 'disabled']
   }
 }
@@ -203,7 +204,9 @@ describe('TabContent Section Rendering', () => {
     const wrapper = mountComponent({ tab, schema })
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.text()).toContain('This section contains important information about genetic evidence.')
+    expect(wrapper.text()).toContain(
+      'This section contains important information about genetic evidence.'
+    )
   })
 
   it('renders DynamicField for each field in section.fields', async () => {
@@ -532,7 +535,8 @@ describe('Field Path Resolution', () => {
           ...vuetifyStubs,
           DynamicField: {
             name: 'DynamicField',
-            template: '<div class="dynamic-field" @click="$emit(\'update:model-value\', \'new value\')"></div>',
+            template:
+              '<div class="dynamic-field" @click="$emit(\'update:model-value\', \'new value\')"></div>',
             props: ['fieldName', 'fieldSchema', 'modelValue', 'validationResult', 'disabled'],
             emits: ['update:model-value']
           }
@@ -580,7 +584,8 @@ describe('Field Path Resolution', () => {
           ...vuetifyStubs,
           DynamicField: {
             name: 'DynamicField',
-            template: '<div class="dynamic-field" @click="$emit(\'update:model-value\', 42)"></div>',
+            template:
+              '<div class="dynamic-field" @click="$emit(\'update:model-value\', 42)"></div>',
             props: ['fieldName', 'fieldSchema', 'modelValue', 'validationResult', 'disabled'],
             emits: ['update:model-value']
           }
