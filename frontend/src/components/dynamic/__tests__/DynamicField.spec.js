@@ -90,7 +90,7 @@ const vuetifyStubs = {
   },
   'v-textarea': {
     template:
-      '<div class="v-textarea"><slot name="prepend-inner"></slot><label>{{ label }}</label><textarea :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></textarea><slot name="append-inner"></slot><slot name="details"></slot></div>',
+      '<div class="v-textarea"><slot name="prepend-inner"></slot><label>{{ label }}</label><textarea :value="modelValue" @input="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></textarea><slot name="append-inner"></slot><span v-if="hint" class="v-messages">{{ hint }}</span><slot name="details"></slot></div>',
     props: [
       'modelValue',
       'label',
@@ -107,7 +107,7 @@ const vuetifyStubs = {
   },
   'v-select': {
     template:
-      '<div class="v-select"><slot name="prepend-inner"></slot><label>{{ label }}</label><select :value="modelValue" @change="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></select><slot name="append-inner"></slot><slot name="details"></slot></div>',
+      '<div class="v-select"><slot name="prepend-inner"></slot><label>{{ label }}</label><select :value="modelValue" @change="$emit(\'update:model-value\', $event.target.value)" :disabled="disabled"></select><slot name="append-inner"></slot><span v-if="hint" class="v-messages">{{ hint }}</span><slot name="details"></slot></div>',
     props: [
       'modelValue',
       'items',
@@ -906,6 +906,254 @@ describe('DynamicField', () => {
 
       expect(wrapper.text()).toContain(exactHint)
       expect(wrapper.text()).not.toContain('show more')
+    })
+  })
+
+  describe('Field Metadata - Help Links', () => {
+    it('renders help icon when helpUrl property defined', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          helpUrl: 'https://docs.example.com/help'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.html()).toContain('mdi-help-circle-outline')
+    })
+
+    it('does not render help icon when helpUrl absent', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.html()).not.toContain('mdi-help-circle-outline')
+    })
+
+    it('opens help URL in new tab when help icon clicked', async () => {
+      const mockOpen = vi.spyOn(window, 'open').mockImplementation(() => null)
+
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          helpUrl: 'https://docs.example.com/help'
+        },
+        modelValue: ''
+      })
+
+      // Find and click help icon
+      const icons = wrapper.findAll('.v-icon')
+      const helpIcon = icons.find(icon => icon.html().includes('mdi-help-circle-outline'))
+      expect(helpIcon).toBeDefined()
+      await helpIcon.trigger('click')
+
+      expect(mockOpen).toHaveBeenCalledWith(
+        'https://docs.example.com/help',
+        '_blank',
+        'noopener,noreferrer'
+      )
+
+      mockOpen.mockRestore()
+    })
+
+    it('does not render help icon for invalid URL (not http/https)', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          helpUrl: 'not-a-url'
+        },
+        modelValue: ''
+      })
+
+      // Invalid URL should not render help icon
+      expect(wrapper.html()).not.toContain('mdi-help-circle-outline')
+    })
+
+    it('accepts http URLs', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          helpUrl: 'http://docs.example.com/help'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.html()).toContain('mdi-help-circle-outline')
+    })
+
+    it('logs info when help URL opened', async () => {
+      const mockOpen = vi.spyOn(window, 'open').mockImplementation(() => null)
+
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          helpUrl: 'https://docs.example.com/help'
+        },
+        modelValue: ''
+      })
+
+      const icons = wrapper.findAll('.v-icon')
+      const helpIcon = icons.find(icon => icon.html().includes('mdi-help-circle-outline'))
+      await helpIcon.trigger('click')
+
+      expect(mockLogger.info).toHaveBeenCalledWith(
+        'Help documentation opened',
+        expect.objectContaining({
+          fieldName: 'test_field',
+          helpUrl: 'https://docs.example.com/help'
+        })
+      )
+
+      mockOpen.mockRestore()
+    })
+  })
+
+  describe('Field Metadata - Combined Scenarios', () => {
+    it('renders all metadata types together correctly', () => {
+      const wrapper = mountComponent({
+        fieldName: 'full_metadata_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Full Metadata Field',
+          icon: 'mdi-star',
+          tooltip: 'Star tooltip',
+          hint: 'This is a hint',
+          helpUrl: 'https://example.com/help'
+        },
+        modelValue: ''
+      })
+
+      // Icon present
+      expect(wrapper.html()).toContain('mdi-star')
+
+      // Tooltip content present
+      expect(wrapper.html()).toContain('Star tooltip')
+
+      // Help icon present
+      expect(wrapper.html()).toContain('mdi-help-circle-outline')
+
+      // Hint present
+      expect(wrapper.text()).toContain('This is a hint')
+    })
+
+    it('renders field correctly with no metadata', () => {
+      const wrapper = mountComponent({
+        fieldName: 'plain_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Plain Field'
+        },
+        modelValue: ''
+      })
+
+      // Field renders without errors
+      expect(wrapper.exists()).toBe(true)
+      expect(wrapper.find('.v-text-field').exists()).toBe(true)
+
+      // No metadata elements
+      expect(wrapper.html()).not.toContain('mdi-help-circle-outline')
+      expect(wrapper.html()).not.toContain('mdi-information-outline')
+    })
+
+    it('renders metadata correctly for select field type', () => {
+      const wrapper = mountComponent({
+        fieldName: 'select_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Select Field',
+          enum: ['option1', 'option2'],
+          icon: 'mdi-format-list-bulleted',
+          hint: 'Select an option',
+          helpUrl: 'https://example.com/help'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.html()).toContain('mdi-format-list-bulleted')
+      expect(wrapper.text()).toContain('Select an option')
+      expect(wrapper.html()).toContain('mdi-help-circle-outline')
+    })
+
+    it('renders metadata correctly for number field type', () => {
+      const wrapper = mountComponent({
+        fieldName: 'number_field',
+        fieldSchema: {
+          type: 'number',
+          title: 'Number Field',
+          icon: 'mdi-numeric',
+          hint: 'Enter a number',
+          tooltip: 'Must be between 0 and 100'
+        },
+        modelValue: 0
+      })
+
+      expect(wrapper.html()).toContain('mdi-numeric')
+      expect(wrapper.text()).toContain('Enter a number')
+      expect(wrapper.html()).toContain('Must be between 0 and 100')
+    })
+
+    it('renders metadata correctly for textarea field type', () => {
+      const wrapper = mountComponent({
+        fieldName: 'textarea_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Textarea Field',
+          multiline: true,
+          icon: 'mdi-text-box',
+          hint: 'Enter detailed notes',
+          helpUrl: 'https://example.com/notes-help'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.html()).toContain('mdi-text-box')
+      expect(wrapper.text()).toContain('Enter detailed notes')
+      expect(wrapper.html()).toContain('mdi-help-circle-outline')
+    })
+
+    it('shows description when hint not provided (backward compatibility)', () => {
+      const wrapper = mountComponent({
+        fieldName: 'legacy_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Legacy Field',
+          description: 'This is a legacy description'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.text()).toContain('This is a legacy description')
+    })
+
+    it('hides description when hint is provided', () => {
+      const wrapper = mountComponent({
+        fieldName: 'modern_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Modern Field',
+          description: 'Legacy description',
+          hint: 'Modern hint'
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.text()).toContain('Modern hint')
+      expect(wrapper.text()).not.toContain('Legacy description')
     })
   })
 })
