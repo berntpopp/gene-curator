@@ -10,18 +10,18 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 ## Current Position
 
 Phase: 4 of 5 (Validation)
-Plan: 1 of 3
-Status: In progress
-Last activity: 2026-01-22 — Completed 04-01-PLAN.md
+Plan: 2 of 2
+Status: Phase complete
+Last activity: 2026-01-23 — Completed 04-02-PLAN.md
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 3 min 43 sec
-- Total execution time: 0.43 hours
+- Total plans completed: 8
+- Average duration: 3 min 57 sec
+- Total execution time: 0.53 hours
 
 **By Phase:**
 
@@ -30,11 +30,11 @@ Progress: [███████░░░] 70%
 | 01-field-rendering | 2 | 8 min 44 sec | 4 min 22 sec |
 | 02-tab-structure | 2 | 8 min 47 sec | 4 min 24 sec |
 | 03-field-metadata | 2 | 7 min 4 sec | 3 min 32 sec |
-| 04-validation | 1 | 2 min 58 sec | 2 min 58 sec |
+| 04-validation | 2 | 8 min 27 sec | 4 min 14 sec |
 
 **Recent Trend:**
-- Last 5 plans: 02-02 (6 min 4 sec), 03-01 (3 min 21 sec), 03-02 (3 min 43 sec), 04-01 (2 min 58 sec)
-- Trend: Improving efficiency, latest plan under 3 minutes
+- Last 5 plans: 03-01 (3 min 21 sec), 03-02 (3 min 43 sec), 04-01 (2 min 58 sec), 04-02 (5 min 29 sec)
+- Trend: Consistent mid-range performance, Phase 4 complete
 
 *Updated after each plan completion*
 
@@ -73,6 +73,9 @@ Recent decisions affecting current work:
 - [04-01]: Skip non-required validations on empty values to avoid confusing error stacking
 - [04-01]: Schema errorMessage override for methodology-specific messages
 - [04-01]: Remove getFieldLabel parameter - generic defaults clearer than field-specific messages
+- [04-02]: Backend errors passed via error-messages prop (shown after client rules pass)
+- [04-02]: Clear backend error immediately on field value change for instant feedback
+- [04-02]: First error only for backend errors (consistent with client-side pattern)
 
 ### Pending Todos
 
@@ -84,6 +87,13 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-22
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-01-23
+Stopped at: Completed Phase 4 (Validation) - 04-02-PLAN.md
 Resume file: None
+
+Phase 4 context:
+- Client-side validation with 7 rule types (04-01)
+- Backend error display with tab badges (04-02)
+- Form submission blocking and error navigation (04-02)
+- 13 validation integration tests passing
+- Ready for Phase 5 (Form Generation)
