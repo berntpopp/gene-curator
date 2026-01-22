@@ -82,7 +82,8 @@ const vuetifyStubs = {
     props: ['icon', 'start']
   },
   'v-chip': {
-    template: '<span class="v-chip" :data-color="color">{{ $slots.default ? $slots.default()[0].children : "" }}</span>',
+    template:
+      '<span class="v-chip" :data-color="color">{{ $slots.default ? $slots.default()[0].children : "" }}</span>',
     props: ['color', 'size', 'variant']
   },
   'v-row': {
@@ -389,7 +390,10 @@ describe('DynamicForm Tab Rendering', () => {
       const tabElements = wrapper.findAll('.v-tab')
       expect(tabElements).toHaveLength(2)
 
-      expect(mockLogger.warn).toHaveBeenCalledWith('Tab missing required fields', expect.any(Object))
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        'Tab missing required fields',
+        expect.any(Object)
+      )
     })
 
     it('filters out tabs with no sections', async () => {
