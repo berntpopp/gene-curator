@@ -780,4 +780,132 @@ describe('DynamicField', () => {
       expect(wrapper.html()).toContain('data-color="grey-darken-1"')
     })
   })
+
+  describe('Field Metadata - Hints', () => {
+    it('renders persistent hint when hint property defined', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: 'This is a helpful hint'
+        },
+        modelValue: ''
+      })
+
+      // Hint should be in the output
+      expect(wrapper.html()).toContain('This is a helpful hint')
+    })
+
+    it('does not render hint when hint property absent', () => {
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field'
+        },
+        modelValue: ''
+      })
+
+      // No hint messages div
+      const messagesDiv = wrapper.find('.v-messages')
+      expect(messagesDiv.exists()).toBe(false)
+    })
+
+    it('truncates long hints over 100 characters', () => {
+      const longHint = 'A'.repeat(150)
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: longHint
+        },
+        modelValue: ''
+      })
+
+      // Check that truncated text is rendered
+      expect(wrapper.text()).toContain('A'.repeat(100) + '...')
+      expect(wrapper.text()).toContain('show more')
+    })
+
+    it('expands truncated hint when show more clicked', async () => {
+      const longHint = 'A'.repeat(150)
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: longHint
+        },
+        modelValue: ''
+      })
+
+      // Click show more
+      const showMoreLink = wrapper.find('a.text-primary')
+      expect(showMoreLink.exists()).toBe(true)
+      await showMoreLink.trigger('click')
+
+      // Full hint should now be visible
+      expect(wrapper.text()).toContain(longHint)
+      expect(wrapper.text()).toContain('show less')
+    })
+
+    it('collapses expanded hint when show less clicked', async () => {
+      const longHint = 'A'.repeat(150)
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: longHint
+        },
+        modelValue: ''
+      })
+
+      // Expand first
+      let link = wrapper.find('a.text-primary')
+      await link.trigger('click')
+
+      // Now collapse
+      link = wrapper.find('a.text-primary')
+      await link.trigger('click')
+
+      // Should be truncated again
+      expect(wrapper.text()).toContain('A'.repeat(100) + '...')
+      expect(wrapper.text()).toContain('show more')
+    })
+
+    it('does not truncate hints under 100 characters', () => {
+      const shortHint = 'A'.repeat(50)
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: shortHint
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.text()).toContain(shortHint)
+      expect(wrapper.text()).not.toContain('show more')
+    })
+
+    it('handles exactly 100 character hint without truncation', () => {
+      const exactHint = 'A'.repeat(100)
+      const wrapper = mountComponent({
+        fieldName: 'test_field',
+        fieldSchema: {
+          type: 'string',
+          title: 'Test Field',
+          hint: exactHint
+        },
+        modelValue: ''
+      })
+
+      expect(wrapper.text()).toContain(exactHint)
+      expect(wrapper.text()).not.toContain('show more')
+    })
+  })
 })
