@@ -30,8 +30,10 @@
                 :field-schema="getFieldSchema(fieldPath)"
                 :model-value="getFieldValue(fieldPath)"
                 :validation-result="getFieldValidation(fieldPath)"
+                :backend-errors="backendErrors[fieldPath] || []"
                 :disabled="readonly"
                 @update:model-value="$emit('update:field', fieldPath, $event)"
+                @clear-backend-error="$emit('clear-backend-error', fieldPath)"
               />
             </v-col>
           </v-row>
@@ -65,13 +67,17 @@
       type: Object,
       default: null
     },
+    backendErrors: {
+      type: Object,
+      default: () => ({})
+    },
     readonly: {
       type: Boolean,
       default: false
     }
   })
 
-  defineEmits(['update:field'])
+  defineEmits(['update:field', 'clear-backend-error'])
 
   // Initialize open sections based on schema defaults
   // Sections with collapsed: true start closed
