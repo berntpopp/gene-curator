@@ -118,13 +118,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FRND-04 | Phase 1 | Complete |
 | FRND-05 | Phase 1 | Complete |
 | FRND-06 | Phase 1 | Complete |
-| TABS-01 | Phase 2 | Pending |
-| TABS-02 | Phase 2 | Pending |
-| TABS-03 | Phase 2 | Pending |
-| TABS-04 | Phase 2 | Pending |
-| TABS-05 | Phase 2 | Pending |
-| TABS-06 | Phase 2 | Pending |
-| TABS-07 | Phase 2 | Pending |
+| TABS-01 | Phase 2 | Complete |
+| TABS-02 | Phase 2 | Complete |
+| TABS-03 | Phase 2 | Complete |
+| TABS-04 | Phase 2 | Complete |
+| TABS-05 | Phase 2 | Complete |
+| TABS-06 | Phase 2 | Complete |
+| TABS-07 | Phase 2 | Complete |
 | META-01 | Phase 3 | Pending |
 | META-02 | Phase 3 | Pending |
 | META-03 | Phase 3 | Pending |
@@ -156,4 +156,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 after Phase 1 completion*
+*Last updated: 2026-01-22 after Phase 2 completion*
