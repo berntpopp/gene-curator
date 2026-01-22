@@ -60,10 +60,11 @@ Plans:
   3. Tooltip shows on icon hover when tooltip property is defined
   4. Help icon links to external documentation when helpUrl property is defined
   5. Fields render correctly when any metadata property is absent
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
+- [ ] 03-01-PLAN.md — Add metadata computed properties and slots to DynamicField (icon, hint, tooltip, helpUrl)
+- [ ] 03-02-PLAN.md — Add test coverage for field metadata features
 
 ### Phase 4: Validation
 **Goal**: DynamicForm enforces schema validation rules with inline error display
@@ -105,7 +106,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Field Rendering | 2/2 | ✓ Complete | 2026-01-22 |
 | 2. Tab Structure | 2/2 | ✓ Complete | 2026-01-22 |
-| 3. Field Metadata | 0/TBD | Not started | - |
+| 3. Field Metadata | 0/2 | Planned | - |
 | 4. Validation | 0/TBD | Not started | - |
 | 5. Scoring and Integration | 0/TBD | Not started | - |
 
@@ -115,4 +116,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 1 completed: 2026-01-22*
 *Phase 2 planned: 2026-01-22*
 *Phase 2 completed: 2026-01-22*
+*Phase 3 planned: 2026-01-22*
 *Total requirements: 32 | Phases: 5 | Coverage: 100%*
