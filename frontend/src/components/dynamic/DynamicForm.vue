@@ -92,6 +92,22 @@
           </ul>
         </v-alert>
 
+        <!-- Non-field Backend Errors -->
+        <v-alert
+          v-if="nonFieldErrors.length > 0"
+          type="error"
+          variant="tonal"
+          class="mt-4"
+          closable
+          @click:close="nonFieldErrors = []"
+        >
+          <template #prepend>
+            <v-icon>mdi-alert-circle</v-icon>
+          </template>
+          <div class="font-weight-medium">Form Error</div>
+          <div v-for="(msg, idx) in nonFieldErrors" :key="idx">{{ msg }}</div>
+        </v-alert>
+
         <v-alert
           v-if="validationResult && validationResult.warnings?.length"
           type="warning"
@@ -199,6 +215,8 @@
   const saving = ref(false)
   const submitting = ref(false)
   const activeTab = ref(null)
+  const backendErrors = ref({})       // { fieldPath: [error messages] }
+  const nonFieldErrors = ref([])      // Errors not mapped to specific fields
 
   const loading = computed(() => validationStore.loading)
   const error = computed(() => validationStore.error)
@@ -309,6 +327,37 @@
   }
 
   /**
+   * Track which tabs have validation errors
+   */
+  const tabValidationErrors = computed(() => {
+    const errors = {}
+
+    validTabs.value.forEach(tab => {
+      // Get all field paths in this tab
+      const fieldsInTab = getTabFieldPaths(tab)
+      const hasErrors = fieldsInTab.some(fieldPath =>
+        backendErrors.value[fieldPath]?.length > 0
+      )
+      errors[tab.id] = hasErrors
+    })
+
+    return errors
+  })
+
+  /**
+   * Extract all field paths from a tab's sections
+   */
+  const getTabFieldPaths = (tab) => {
+    const paths = []
+    tab.sections?.forEach(section => {
+      section.fields?.forEach(fieldPath => {
+        paths.push(fieldPath)
+      })
+    })
+    return paths
+  }
+
+  /**
    * Determine color for score badge based on value
    * @param {number|null} score - Score value
    * @returns {string} Vuetify color name
@@ -321,6 +370,7 @@
   }
 
   const updateField = (fieldName, value) => {
+    clearFieldBackendError(fieldName)
     formData.value[fieldName] = value
     // Trigger validation debounced
     clearTimeout(updateField.timeout)
@@ -351,6 +401,8 @@
    * @param {*} value - New field value
    */
   const handleTabFieldUpdate = (fieldPath, value) => {
+    clearFieldBackendError(fieldPath)
+
     // Handle nested paths using dot notation
     if (fieldPath.includes('.')) {
       setNestedValue(formData.value, fieldPath, value)
@@ -380,9 +432,50 @@
     }
   }
 
+  /**
+   * Process backend validation result and map errors to fields
+   * @param {Object} result - Validation result from backend
+   */
+  const handleBackendValidation = (result) => {
+    backendErrors.value = {}
+    nonFieldErrors.value = []
+
+    if (!result || result.is_valid) return
+
+    // Map field-specific errors
+    if (result.field_validations) {
+      Object.entries(result.field_validations).forEach(([field, validation]) => {
+        if (validation.errors && validation.errors.length > 0) {
+          // Take first error only per CONTEXT.md decision
+          backendErrors.value[field] = [validation.errors[0].message]
+        }
+      })
+    }
+
+    // Collect non-field errors (errors without field mapping)
+    if (result.errors) {
+      result.errors.forEach(error => {
+        if (!error.field || !result.field_validations?.[error.field]) {
+          nonFieldErrors.value.push(error.message)
+        }
+      })
+    }
+  }
+
+  /**
+   * Clear backend error for a specific field
+   * @param {string} fieldPath - Field path (supports dot notation)
+   */
+  const clearFieldBackendError = (fieldPath) => {
+    if (backendErrors.value[fieldPath]) {
+      delete backendErrors.value[fieldPath]
+    }
+  }
+
   const validateForm = async () => {
     try {
-      await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      handleBackendValidation(result)
     } catch (error) {
       logger.error('Form validation error:', { error: error.message, stack: error.stack })
     }
