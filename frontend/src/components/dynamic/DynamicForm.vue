@@ -27,6 +27,8 @@
               >
                 {{ tabScores[tab.id] }}
               </v-chip>
+              <!-- Error badge -->
+              <v-badge v-if="tabValidationErrors[tab.id]" color="error" dot inline class="ml-2" />
             </v-tab>
           </v-tabs>
 
@@ -187,7 +189,7 @@
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed, onMounted, watch, nextTick } from 'vue'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
@@ -232,7 +234,13 @@
   })
 
   const canSubmit = computed(() => {
-    return validationResult.value?.is_valid !== false && hasChanges.value
+    // Block if backend validation failed
+    if (validationResult.value?.is_valid === false) return false
+    // Block if any backend errors present
+    if (Object.keys(backendErrors.value).length > 0) return false
+    // Block if no changes
+    if (!hasChanges.value) return false
+    return true
   })
 
   const hasTabs = computed(() => {
@@ -527,10 +535,49 @@
     }
   }
 
+  /**
+   * Find first tab containing validation errors
+   */
+  const findFirstInvalidTab = () => {
+    for (const tab of validTabs.value) {
+      if (tabValidationErrors.value[tab.id]) {
+        return tab.id
+      }
+    }
+    return null
+  }
+
+  /**
+   * Focus first field with validation error in current tab
+   */
+  const focusFirstInvalidField = () => {
+    // Query for Vuetify input with error state
+    const errorInput = document.querySelector('.v-input--error input, .v-input--error textarea')
+    if (errorInput) {
+      errorInput.focus()
+      logger.debug('Focused first invalid field')
+    }
+  }
+
   const handleSubmit = async () => {
     submitting.value = true
     try {
-      // Final validation
+      // Validate using v-form ref (VALD-06)
+      const { valid } = await formRef.value.validate()
+
+      if (!valid) {
+        // Find first tab with error and navigate to it
+        const firstErrorTab = findFirstInvalidTab()
+        if (firstErrorTab) {
+          activeTab.value = firstErrorTab
+          // Focus first invalid field after tab switch
+          await nextTick()
+          focusFirstInvalidField()
+        }
+        return
+      }
+
+      // Also check backend validation
       await validateForm()
 
       if (validationResult.value?.is_valid !== false) {
