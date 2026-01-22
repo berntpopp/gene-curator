@@ -264,7 +264,10 @@ describe('useValidationRules', () => {
     })
 
     it('uses schema errorMessage when provided', () => {
-      const rules = getRules({ pattern: '^[A-Z]+$', errorMessage: 'Must be uppercase letters only' })
+      const rules = getRules({
+        pattern: '^[A-Z]+$',
+        errorMessage: 'Must be uppercase letters only'
+      })
       const result = rules[0]('abc')
       expect(result).toBe('Must be uppercase letters only')
     })
