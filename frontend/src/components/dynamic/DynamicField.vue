@@ -31,12 +31,7 @@
       <template v-if="hasIcon" #prepend-inner>
         <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
           <template #activator="{ props: tooltipProps }">
-            <v-icon
-              v-bind="tooltipProps"
-              :icon="iconName"
-              color="grey-darken-1"
-              size="small"
-            />
+            <v-icon v-bind="tooltipProps" :icon="iconName" color="grey-darken-1" size="small" />
           </template>
           <span>{{ fieldSchema.tooltip }}</span>
         </v-tooltip>
@@ -56,7 +51,11 @@
         <div class="text-caption text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
-            <a class="text-primary ml-1" style="cursor: pointer" @click.prevent="hintExpanded = true">
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = true"
+            >
               show more
             </a>
           </span>
@@ -86,9 +85,55 @@
       :required="fieldSchema.required"
       :rows="fieldSchema.rows || 3"
       :disabled="disabled"
+      :hint="needsHintTruncation ? undefined : fieldSchema.hint"
+      :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
       @blur="handleBlur"
-    />
+    >
+      <template v-if="hasIcon" #prepend-inner>
+        <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" :icon="iconName" color="grey-darken-1" size="small" />
+          </template>
+          <span>{{ fieldSchema.tooltip }}</span>
+        </v-tooltip>
+      </template>
+
+      <template v-if="hasHelpUrl" #append-inner>
+        <v-icon
+          icon="mdi-help-circle-outline"
+          color="primary"
+          size="small"
+          style="cursor: pointer"
+          @click.stop="openHelpUrl"
+        />
+      </template>
+
+      <template v-if="needsHintTruncation" #details>
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="!hintExpanded">
+            {{ truncatedHint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = true"
+            >
+              show more
+            </a>
+          </span>
+          <span v-else>
+            {{ fieldSchema.hint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = false"
+            >
+              show less
+            </a>
+          </span>
+        </div>
+      </template>
+    </v-textarea>
 
     <!-- Select Fields -->
     <v-select
@@ -103,8 +148,54 @@
       :required="fieldSchema.required"
       :clearable="!fieldSchema.required"
       :disabled="disabled"
+      :hint="needsHintTruncation ? undefined : fieldSchema.hint"
+      :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
-    />
+    >
+      <template v-if="hasIcon" #prepend-inner>
+        <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" :icon="iconName" color="grey-darken-1" size="small" />
+          </template>
+          <span>{{ fieldSchema.tooltip }}</span>
+        </v-tooltip>
+      </template>
+
+      <template v-if="hasHelpUrl" #append-inner>
+        <v-icon
+          icon="mdi-help-circle-outline"
+          color="primary"
+          size="small"
+          style="cursor: pointer"
+          @click.stop="openHelpUrl"
+        />
+      </template>
+
+      <template v-if="needsHintTruncation" #details>
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="!hintExpanded">
+            {{ truncatedHint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = true"
+            >
+              show more
+            </a>
+          </span>
+          <span v-else>
+            {{ fieldSchema.hint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = false"
+            >
+              show less
+            </a>
+          </span>
+        </div>
+      </template>
+    </v-select>
 
     <!-- Number Fields -->
     <v-text-field
@@ -121,20 +212,91 @@
       :max="fieldSchema.maximum"
       :step="fieldSchema.type === 'integer' ? 1 : fieldSchema.step || 0.1"
       :disabled="disabled"
+      :hint="needsHintTruncation ? undefined : fieldSchema.hint"
+      :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
       @blur="handleBlur"
-    />
+    >
+      <template v-if="hasIcon" #prepend-inner>
+        <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" :icon="iconName" color="grey-darken-1" size="small" />
+          </template>
+          <span>{{ fieldSchema.tooltip }}</span>
+        </v-tooltip>
+      </template>
+
+      <template v-if="hasHelpUrl" #append-inner>
+        <v-icon
+          icon="mdi-help-circle-outline"
+          color="primary"
+          size="small"
+          style="cursor: pointer"
+          @click.stop="openHelpUrl"
+        />
+      </template>
+
+      <template v-if="needsHintTruncation" #details>
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="!hintExpanded">
+            {{ truncatedHint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = true"
+            >
+              show more
+            </a>
+          </span>
+          <span v-else>
+            {{ fieldSchema.hint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = false"
+            >
+              show less
+            </a>
+          </span>
+        </div>
+      </template>
+    </v-text-field>
 
     <!-- Boolean Fields -->
-    <v-checkbox
-      v-else-if="fieldSchema.type === 'boolean'"
-      :model-value="modelValue"
-      :label="getFieldLabel()"
-      :rules="getValidationRules()"
-      :error-messages="getErrorMessages()"
-      :disabled="disabled"
-      @update:model-value="updateValue"
-    />
+    <div v-else-if="fieldSchema.type === 'boolean'" class="d-flex align-center">
+      <v-tooltip v-if="hasIcon" location="top" :open-delay="250" :disabled="!hasTooltip">
+        <template #activator="{ props: tooltipProps }">
+          <v-icon
+            v-bind="tooltipProps"
+            :icon="iconName"
+            color="grey-darken-1"
+            size="small"
+            class="mr-2"
+          />
+        </template>
+        <span>{{ fieldSchema.tooltip }}</span>
+      </v-tooltip>
+      <v-checkbox
+        :model-value="modelValue"
+        :label="getFieldLabel()"
+        :rules="getValidationRules()"
+        :error-messages="getErrorMessages()"
+        :disabled="disabled"
+        :hint="fieldSchema.hint"
+        :persistent-hint="hasHint"
+        hide-details="auto"
+        @update:model-value="updateValue"
+      />
+      <v-icon
+        v-if="hasHelpUrl"
+        icon="mdi-help-circle-outline"
+        color="primary"
+        size="small"
+        class="ml-2"
+        style="cursor: pointer"
+        @click.stop="openHelpUrl"
+      />
+    </div>
 
     <!-- Date Fields -->
     <v-text-field
@@ -148,9 +310,55 @@
       :required="fieldSchema.required"
       type="date"
       :disabled="disabled"
+      :hint="needsHintTruncation ? undefined : fieldSchema.hint"
+      :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
       @blur="handleBlur"
-    />
+    >
+      <template v-if="hasIcon" #prepend-inner>
+        <v-tooltip location="top" :open-delay="250" :disabled="!hasTooltip">
+          <template #activator="{ props: tooltipProps }">
+            <v-icon v-bind="tooltipProps" :icon="iconName" color="grey-darken-1" size="small" />
+          </template>
+          <span>{{ fieldSchema.tooltip }}</span>
+        </v-tooltip>
+      </template>
+
+      <template v-if="hasHelpUrl" #append-inner>
+        <v-icon
+          icon="mdi-help-circle-outline"
+          color="primary"
+          size="small"
+          style="cursor: pointer"
+          @click.stop="openHelpUrl"
+        />
+      </template>
+
+      <template v-if="needsHintTruncation" #details>
+        <div class="text-caption text-medium-emphasis">
+          <span v-if="!hintExpanded">
+            {{ truncatedHint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = true"
+            >
+              show more
+            </a>
+          </span>
+          <span v-else>
+            {{ fieldSchema.hint }}
+            <a
+              class="text-primary ml-1"
+              style="cursor: pointer"
+              @click.prevent="hintExpanded = false"
+            >
+              show less
+            </a>
+          </span>
+        </div>
+      </template>
+    </v-text-field>
 
     <!-- Array Fields (Dynamic Table) -->
     <div v-else-if="fieldSchema.type === 'array' && canRenderNested">
@@ -279,7 +487,10 @@
     />
 
     <!-- Help Text -->
-    <div v-if="fieldSchema.description" class="text-caption text-medium-emphasis mt-1">
+    <div
+      v-if="fieldSchema.description && !fieldSchema.hint"
+      class="text-caption text-medium-emphasis mt-1"
+    >
       {{ fieldSchema.description }}
     </div>
   </div>
