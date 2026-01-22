@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-01-22)
 
 **Core value:** Every scope can use their own curation methodology with dynamically rendered forms
-**Current focus:** Phase 3 - Field Metadata
+**Current focus:** Phase 4 - Validation
 
 ## Current Position
 
-Phase: 3 of 5 (Field Metadata)
-Plan: 2 of 2
-Status: Complete
-Last activity: 2026-01-22 — Phase 3 verified and complete
+Phase: 4 of 5 (Validation)
+Plan: 1 of 3
+Status: In progress
+Last activity: 2026-01-22 — Completed 04-01-PLAN.md
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 3 min 54 sec
-- Total execution time: 0.39 hours
+- Total plans completed: 7
+- Average duration: 3 min 43 sec
+- Total execution time: 0.43 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [██████░░░░] 60%
 | 01-field-rendering | 2 | 8 min 44 sec | 4 min 22 sec |
 | 02-tab-structure | 2 | 8 min 47 sec | 4 min 24 sec |
 | 03-field-metadata | 2 | 7 min 4 sec | 3 min 32 sec |
+| 04-validation | 1 | 2 min 58 sec | 2 min 58 sec |
 
 **Recent Trend:**
-- Last 5 plans: 02-01 (2 min 43 sec), 02-02 (6 min 4 sec), 03-01 (3 min 21 sec), 03-02 (3 min 43 sec)
-- Trend: Consistent 3-4 minute execution for focused implementation and test tasks
+- Last 5 plans: 02-02 (6 min 4 sec), 03-01 (3 min 21 sec), 03-02 (3 min 43 sec), 04-01 (2 min 58 sec)
+- Trend: Improving efficiency, latest plan under 3 minutes
 
 *Updated after each plan completion*
 
@@ -68,6 +69,10 @@ Recent decisions affecting current work:
 - [03-02]: Slot-supporting stubs for Vuetify components in tests
 - [03-02]: v-icon stub renders icon name and color as data attributes
 - [03-02]: window.open mocking pattern for external link tests
+- [04-01]: Show first error only - Vuetify native behavior prevents error message clutter
+- [04-01]: Skip non-required validations on empty values to avoid confusing error stacking
+- [04-01]: Schema errorMessage override for methodology-specific messages
+- [04-01]: Remove getFieldLabel parameter - generic defaults clearer than field-specific messages
 
 ### Pending Todos
 
@@ -80,5 +85,5 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-22
-Stopped at: Phase 3 complete, ready for Phase 4 planning
+Stopped at: Completed 04-01-PLAN.md
 Resume file: None
