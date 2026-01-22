@@ -532,6 +532,10 @@
       type: Object,
       default: null
     },
+    backendErrors: {
+      type: Array,
+      default: () => []
+    },
     variant: {
       type: String,
       default: 'filled'
@@ -546,7 +550,12 @@
     }
   })
 
-  const emit = defineEmits(['update:model-value', 'validate', 'component-fallback'])
+  const emit = defineEmits([
+    'update:model-value',
+    'validate',
+    'component-fallback',
+    'clear-backend-error'
+  ])
 
   // Reactive refs for complex types
   const arrayValue = ref(Array.isArray(props.modelValue) ? [...props.modelValue] : [])
@@ -692,6 +701,12 @@
   }
 
   const getErrorMessages = () => {
+    // Backend errors passed via prop (from DynamicForm)
+    if (props.backendErrors && props.backendErrors.length > 0) {
+      return props.backendErrors
+    }
+
+    // Fallback to validationResult (existing pattern)
     if (props.validationResult?.errors) {
       return props.validationResult.errors.map(error => error.message)
     }
@@ -700,6 +715,7 @@
 
   const updateValue = value => {
     emit('update:model-value', value)
+    emit('clear-backend-error') // Signal to parent to clear backend error
   }
 
   const handleBlur = event => {

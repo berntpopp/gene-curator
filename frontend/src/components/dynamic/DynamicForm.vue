@@ -38,8 +38,10 @@
                   :schema="jsonSchema"
                   :form-data="formData"
                   :validation-result="validationResult"
+                  :backend-errors="backendErrors"
                   :readonly="readonly"
                   @update:field="handleTabFieldUpdate"
+                  @clear-backend-error="clearFieldBackendError"
                 />
               </KeepAlive>
             </v-window-item>
@@ -59,9 +61,11 @@
                 :field-schema="field"
                 :model-value="formData[fieldName]"
                 :validation-result="getFieldValidation(fieldName)"
+                :backend-errors="backendErrors[fieldName] || []"
                 :disabled="readonly"
                 @update:model-value="updateField(fieldName, $event)"
                 @validate="validateField(fieldName, $event)"
+                @clear-backend-error="clearFieldBackendError(fieldName)"
               />
             </v-col>
           </v-row>
@@ -215,8 +219,8 @@
   const saving = ref(false)
   const submitting = ref(false)
   const activeTab = ref(null)
-  const backendErrors = ref({})       // { fieldPath: [error messages] }
-  const nonFieldErrors = ref([])      // Errors not mapped to specific fields
+  const backendErrors = ref({}) // { fieldPath: [error messages] }
+  const nonFieldErrors = ref([]) // Errors not mapped to specific fields
 
   const loading = computed(() => validationStore.loading)
   const error = computed(() => validationStore.error)
@@ -335,9 +339,7 @@
     validTabs.value.forEach(tab => {
       // Get all field paths in this tab
       const fieldsInTab = getTabFieldPaths(tab)
-      const hasErrors = fieldsInTab.some(fieldPath =>
-        backendErrors.value[fieldPath]?.length > 0
-      )
+      const hasErrors = fieldsInTab.some(fieldPath => backendErrors.value[fieldPath]?.length > 0)
       errors[tab.id] = hasErrors
     })
 
@@ -347,7 +349,7 @@
   /**
    * Extract all field paths from a tab's sections
    */
-  const getTabFieldPaths = (tab) => {
+  const getTabFieldPaths = tab => {
     const paths = []
     tab.sections?.forEach(section => {
       section.fields?.forEach(fieldPath => {
@@ -436,7 +438,7 @@
    * Process backend validation result and map errors to fields
    * @param {Object} result - Validation result from backend
    */
-  const handleBackendValidation = (result) => {
+  const handleBackendValidation = result => {
     backendErrors.value = {}
     nonFieldErrors.value = []
 
@@ -466,7 +468,7 @@
    * Clear backend error for a specific field
    * @param {string} fieldPath - Field path (supports dot notation)
    */
-  const clearFieldBackendError = (fieldPath) => {
+  const clearFieldBackendError = fieldPath => {
     if (backendErrors.value[fieldPath]) {
       delete backendErrors.value[fieldPath]
     }
