@@ -18,10 +18,19 @@
             <v-tab v-for="tab in validTabs" :key="tab.id" :value="tab.id">
               <v-icon v-if="tab.icon" :icon="tab.icon" start />
               {{ tab.name }}
+              <v-chip
+                v-if="tab.show_score_badge && tabScores[tab.id] !== undefined"
+                :color="getScoreColor(tabScores[tab.id])"
+                size="small"
+                variant="flat"
+                class="ml-2"
+              >
+                {{ tabScores[tab.id] }}
+              </v-chip>
             </v-tab>
           </v-tabs>
 
-          <v-window v-model="activeTab">
+          <v-window v-model="activeTab" :touch="{ left: nextTab, right: prevTab }">
             <v-window-item v-for="tab in validTabs" :key="tab.id" :value="tab.id">
               <KeepAlive>
                 <TabContent
@@ -252,6 +261,65 @@
     return tabs
   })
 
+  /**
+   * Calculate score for each tab with show_score_badge enabled
+   * Maps tab IDs to their corresponding score from validationResult
+   */
+  const tabScores = computed(() => {
+    if (!validationResult.value?.score_calculations) return {}
+
+    const scores = {}
+    validTabs.value.forEach(tab => {
+      if (tab.show_score_badge) {
+        scores[tab.id] = calculateTabScore(tab)
+      }
+    })
+
+    return scores
+  })
+
+  /**
+   * Map tab ID to score calculation field
+   * Convention: tab.id maps to score_calculations[tab.id + '_score']
+   * Special cases: genetic -> genetic_evidence_score, experimental -> experimental_evidence_score
+   */
+  function calculateTabScore(tab) {
+    const scoreCalcs = validationResult.value?.score_calculations
+    if (!scoreCalcs) return null
+
+    // Check for direct mapping with _score suffix
+    const scoreKey = `${tab.id}_score`
+    if (scoreCalcs[scoreKey] !== undefined) {
+      return scoreCalcs[scoreKey]
+    }
+
+    // Check for special cases
+    const specialMappings = {
+      genetic: 'genetic_evidence_score',
+      experimental: 'experimental_evidence_score',
+      clinical: 'clinical_evidence_score'
+    }
+
+    const specialKey = specialMappings[tab.id]
+    if (specialKey && scoreCalcs[specialKey] !== undefined) {
+      return scoreCalcs[specialKey]
+    }
+
+    return null
+  }
+
+  /**
+   * Determine color for score badge based on value
+   * @param {number|null} score - Score value
+   * @returns {string} Vuetify color name
+   */
+  function getScoreColor(score) {
+    if (score === null || score === undefined) return 'grey'
+    if (score >= 7) return 'success'
+    if (score >= 2) return 'warning'
+    return 'info'
+  }
+
   const updateField = (fieldName, value) => {
     formData.value[fieldName] = value
     // Trigger validation debounced
@@ -342,6 +410,26 @@
 
   const formatScoreCategory = category => {
     return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
+  /**
+   * Navigate to next tab (for mobile swipe gesture)
+   */
+  function nextTab() {
+    const currentIndex = validTabs.value.findIndex(t => t.id === activeTab.value)
+    if (currentIndex < validTabs.value.length - 1) {
+      activeTab.value = validTabs.value[currentIndex + 1].id
+    }
+  }
+
+  /**
+   * Navigate to previous tab (for mobile swipe gesture)
+   */
+  function prevTab() {
+    const currentIndex = validTabs.value.findIndex(t => t.id === activeTab.value)
+    if (currentIndex > 0) {
+      activeTab.value = validTabs.value[currentIndex - 1].id
+    }
   }
 
   const handleSubmit = async () => {
