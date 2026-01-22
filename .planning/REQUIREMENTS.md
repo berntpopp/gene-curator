@@ -130,12 +130,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | META-03 | Phase 3 | Complete |
 | META-04 | Phase 3 | Complete |
 | META-05 | Phase 3 | Complete |
-| VALD-01 | Phase 4 | Pending |
-| VALD-02 | Phase 4 | Pending |
-| VALD-03 | Phase 4 | Pending |
-| VALD-04 | Phase 4 | Pending |
-| VALD-05 | Phase 4 | Pending |
-| VALD-06 | Phase 4 | Pending |
+| VALD-01 | Phase 4 | Complete |
+| VALD-02 | Phase 4 | Complete |
+| VALD-03 | Phase 4 | Complete |
+| VALD-04 | Phase 4 | Complete |
+| VALD-05 | Phase 4 | Complete |
+| VALD-06 | Phase 4 | Complete |
 | SCOR-01 | Phase 5 | Pending |
 | SCOR-02 | Phase 5 | Pending |
 | SCOR-03 | Phase 5 | Pending |
@@ -156,4 +156,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-22 after Phase 3 completion*
+*Last updated: 2026-01-23 after Phase 4 completion*
