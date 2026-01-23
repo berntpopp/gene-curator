@@ -1,6 +1,56 @@
 import { defineStore } from 'pinia'
 import { workflowAPI } from '@/api'
 
+/**
+ * Static workflow stages configuration
+ * These represent the 5-stage curation workflow:
+ * Entry → Precuration → Curation → Review → Active
+ *
+ * @see plan/enhancements/tracking/011-IMPROVEMENT-PLAN.md
+ */
+export const WORKFLOW_STAGES = [
+  {
+    id: 'entry',
+    stage_type: 'entry',
+    name: 'Entry',
+    description: 'Initial gene entry into the curation pipeline',
+    required_roles: ['curator', 'scope_admin', 'admin'],
+    order: 1
+  },
+  {
+    id: 'precuration',
+    stage_type: 'precuration',
+    name: 'Precuration',
+    description: 'Preliminary data gathering and evidence collection',
+    required_roles: ['curator', 'scope_admin', 'admin'],
+    order: 2
+  },
+  {
+    id: 'curation',
+    stage_type: 'curation',
+    name: 'Curation',
+    description: 'Full curation with classification and scoring',
+    required_roles: ['curator', 'scope_admin', 'admin'],
+    order: 3
+  },
+  {
+    id: 'review',
+    stage_type: 'review',
+    name: 'Peer Review',
+    description: 'Four-eyes principle review by another curator',
+    required_roles: ['reviewer', 'scope_admin', 'admin'],
+    order: 4
+  },
+  {
+    id: 'active',
+    stage_type: 'active',
+    name: 'Active',
+    description: 'Approved and active curation record',
+    required_roles: ['admin'],
+    order: 5
+  }
+]
+
 export const useWorkflowStore = defineStore('workflow', {
   state: () => ({
     analytics: null,
@@ -10,10 +60,18 @@ export const useWorkflowStore = defineStore('workflow', {
     curationHistory: {},
     loading: false,
     error: null,
-    currentWorkflowStage: null
+    currentWorkflowStage: null,
+    // Static workflow stages - exposed via getter for consistency
+    _workflowStages: WORKFLOW_STAGES
   }),
 
   getters: {
+    /**
+     * Get static workflow stages configuration
+     * @returns {Array} Array of workflow stage objects
+     */
+    workflowStages: state => state._workflowStages,
+
     getCurationTransitions: state => curationId => {
       return state.curationTransitions[curationId] || []
     },

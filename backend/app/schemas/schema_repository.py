@@ -22,8 +22,27 @@ class CurationSchemaBase(BaseModel):
     description: str | None = Field(
         None, max_length=500, description="Schema description"
     )
-    schema_data: dict[str, Any] = Field(..., description="JSON schema definition")
+    # Schema definition fields (matching database model)
+    field_definitions: dict[str, Any] = Field(
+        ..., description="Field definitions for the schema"
+    )
+    validation_rules: dict[str, Any] = Field(
+        default_factory=dict, description="Validation rules"
+    )
+    workflow_states: dict[str, Any] = Field(
+        ..., description="Workflow state definitions"
+    )
+    ui_configuration: dict[str, Any] = Field(
+        ..., description="UI configuration for form rendering"
+    )
+    scoring_configuration: dict[str, Any] | None = Field(
+        None, description="Scoring configuration for evidence scoring"
+    )
+    schema_hash: str | None = Field(None, description="Schema validation checksum")
     is_active: bool = Field(True, description="Whether schema is active")
+    use_dynamic_form: bool = Field(
+        False, description="When true, use DynamicForm instead of legacy form"
+    )
 
 
 class CurationSchemaCreate(CurationSchemaBase):
@@ -38,17 +57,22 @@ class CurationSchemaUpdate(BaseModel):
     name: str | None = Field(None, min_length=1, max_length=100)
     version: str | None = Field(None, min_length=1, max_length=20)
     description: str | None = Field(None, max_length=500)
-    schema_data: dict[str, Any] | None = None
+    field_definitions: dict[str, Any] | None = None
+    validation_rules: dict[str, Any] | None = None
+    workflow_states: dict[str, Any] | None = None
+    ui_configuration: dict[str, Any] | None = None
+    scoring_configuration: dict[str, Any] | None = None
     is_active: bool | None = None
+    use_dynamic_form: bool | None = None
 
 
 class CurationSchemaInDBBase(CurationSchemaBase):
     """Base schema with database fields."""
 
     id: UUID
-    created_at: datetime
-    updated_at: datetime
-    created_by: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    created_by: UUID | None = None
 
     class Config:
         from_attributes = True
@@ -107,9 +131,9 @@ class WorkflowPairInDBBase(WorkflowPairBase):
     """Base schema with database fields."""
 
     id: UUID
-    created_at: datetime
-    updated_at: datetime
-    created_by: UUID
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    created_by: UUID | None = None
 
     class Config:
         from_attributes = True

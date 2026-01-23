@@ -77,7 +77,7 @@
                 <v-icon icon="mdi-dna" color="primary" class="mr-2"></v-icon>
                 <div class="text-overline">Total Genes</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.total_genes || 0 }}</div>
+              <div class="text-h4">{{ scopeStats?.total_genes_assigned || 0 }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -89,7 +89,7 @@
                 <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
                 <div class="text-overline">Completed</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.completed_genes || 0 }}</div>
+              <div class="text-h4">{{ scopeStats?.active_curations || 0 }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -101,7 +101,7 @@
                 <v-icon icon="mdi-progress-clock" color="warning" class="mr-2"></v-icon>
                 <div class="text-overline">In Progress</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.in_progress_genes || 0 }}</div>
+              <div class="text-h4">{{ inProgressCount }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -134,8 +134,8 @@
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ scopeStats?.completed_genes || 0 }} of {{ scopeStats?.total_genes || 0 }} genes
-                curated
+                {{ scopeStats?.active_curations || 0 }} of
+                {{ scopeStats?.total_genes_assigned || 0 }} genes curated
               </div>
             </v-card-text>
           </v-card>
@@ -153,16 +153,43 @@
           <v-tab value="genes">
             <v-icon start>mdi-dna</v-icon>
             Genes
+            <v-chip
+              v-if="scopeStats?.total_genes_assigned"
+              size="x-small"
+              class="ml-2"
+              color="white"
+              variant="flat"
+            >
+              {{ scopeStats.total_genes_assigned }}
+            </v-chip>
           </v-tab>
 
           <v-tab value="curations">
             <v-icon start>mdi-file-document-multiple</v-icon>
             Curations
+            <v-chip
+              v-if="scopeStats?.total_curations"
+              size="x-small"
+              class="ml-2"
+              color="white"
+              variant="flat"
+            >
+              {{ scopeStats.total_curations }}
+            </v-chip>
           </v-tab>
 
           <v-tab v-if="canViewMembers" value="members">
             <v-icon start>mdi-account-group</v-icon>
             Members
+            <v-chip
+              v-if="scopeStats?.member_count"
+              size="x-small"
+              class="ml-2"
+              color="white"
+              variant="flat"
+            >
+              {{ scopeStats.member_count }}
+            </v-chip>
           </v-tab>
 
           <v-tab v-if="canManageScope" value="settings">
@@ -203,7 +230,12 @@
           <!-- Settings Tab -->
           <v-window-item v-if="canManageScope" value="settings">
             <v-card-text>
-              <ScopeSettings v-if="scope" :scope="scope" />
+              <ScopeSettings
+                v-if="scope"
+                :scope="scope"
+                :statistics="scopeStats"
+                @deleted="handleScopeDeleted"
+              />
             </v-card-text>
           </v-window-item>
         </v-window>
@@ -219,7 +251,7 @@
 
 <script setup>
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useScopeUtils } from '@/composables/useScopeUtils'
@@ -238,6 +270,7 @@
   // ============================================
 
   const route = useRoute()
+  const router = useRouter()
   const scopeStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
   const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
@@ -247,7 +280,6 @@
   // STATE
   // ============================================
 
-  const activeTab = ref('overview')
   const scopeStats = ref(null)
 
   // ============================================
@@ -255,6 +287,23 @@
   // ============================================
 
   const scopeId = computed(() => route.params.scopeId)
+
+  // Valid tab values
+  const validTabs = ['overview', 'genes', 'curations', 'members', 'settings']
+
+  // Active tab synced with route (must be after scopeId)
+  const activeTab = computed({
+    get: () => {
+      const tab = route.params.tab
+      return validTabs.includes(tab) ? tab : 'overview'
+    },
+    set: tabValue => {
+      router.push({
+        name: 'scope-dashboard',
+        params: { scopeId: scopeId.value, tab: tabValue }
+      })
+    }
+  })
   const scope = computed(() => scopeStore.currentScope)
   const userRole = computed(() => scopeStore.currentUserRole)
   const loading = computed(() => scopeStore.loading)
@@ -263,14 +312,35 @@
   // Composable for permissions
   const { canManageScope, canViewMembers } = useScopePermissions(userRole)
 
+  // In-progress count: draft + submitted + in_review curations
+  const inProgressCount = computed(() => {
+    if (!scopeStats.value) return 0
+    return (
+      (scopeStats.value.draft_curations || 0) +
+      (scopeStats.value.submitted_curations || 0) +
+      (scopeStats.value.curations_in_review || 0)
+    )
+  })
+
   const curationProgress = computed(() => {
     if (!scopeStats.value) return 0
-    return calculateProgress(scopeStats.value.completed_genes, scopeStats.value.total_genes)
+    return calculateProgress(
+      scopeStats.value.active_curations,
+      scopeStats.value.total_genes_assigned
+    )
   })
 
   // ============================================
   // METHODS
   // ============================================
+
+  /**
+   * Handle scope deletion - navigate to scopes list
+   */
+  const handleScopeDeleted = () => {
+    logger.info('Scope deleted, navigating to scopes list')
+    router.push({ name: 'scopes' })
+  }
 
   /**
    * Fetch scope data and statistics
@@ -307,6 +377,13 @@
   // ============================================
 
   onMounted(async () => {
+    // Redirect to default tab if none specified
+    if (!route.params.tab) {
+      router.replace({
+        name: 'scope-dashboard',
+        params: { scopeId: scopeId.value, tab: 'overview' }
+      })
+    }
     await fetchScopeData()
   })
 </script>

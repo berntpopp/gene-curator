@@ -128,6 +128,27 @@ class PeerReviewResult(BaseModel):
     model_config = ConfigDict(use_enum_values=True)
 
 
+class PeerReviewerResponse(BaseModel):
+    """Available peer reviewer for assignment."""
+
+    id: UUID
+    name: str
+    email: str
+    role: str = Field(..., description="Application-level role (admin/user)")
+    institution: str | None = None
+    expertise_areas: list[str] = Field(default_factory=list)
+    is_active: bool = True
+    pending_review_count: int = Field(
+        default=0, description="Number of pending reviews assigned to this user"
+    )
+    scope_roles: list[str] = Field(
+        default_factory=list,
+        description="Roles within scopes (curator, reviewer, admin)",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Workflow Statistics
 class WorkflowStatistics(BaseModel):
     """Workflow performance statistics."""

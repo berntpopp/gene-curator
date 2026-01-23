@@ -31,7 +31,6 @@ from sqlalchemy.sql import func
 from app.core.database import Base
 from app.core.db_types import (
     compatible_array_text,
-    compatible_array_uuid,
     compatible_inet,
     compatible_jsonb,
     compatible_uuid,
@@ -145,19 +144,25 @@ class Scope(Base):
         "WorkflowPair", foreign_keys=[default_workflow_pair_id]
     )
     gene_assignments: Mapped[list["GeneScopeAssignment"]] = relationship(
-        "GeneScopeAssignment", back_populates="scope"
+        "GeneScopeAssignment", back_populates="scope", passive_deletes=True
     )
     scope_memberships: Mapped[list["ScopeMembership"]] = relationship(
-        "ScopeMembership", back_populates="scope"
+        "ScopeMembership", back_populates="scope", passive_deletes=True
     )
     precurations: Mapped[list["PrecurationNew"]] = relationship(
-        "PrecurationNew", back_populates="scope"
+        "PrecurationNew", back_populates="scope", passive_deletes=True
     )
     curations: Mapped[list["CurationNew"]] = relationship(
-        "CurationNew", back_populates="scope"
+        "CurationNew", back_populates="scope", passive_deletes=True
     )
     active_curations: Mapped[list["ActiveCuration"]] = relationship(
-        "ActiveCuration", back_populates="scope"
+        "ActiveCuration", back_populates="scope", passive_deletes=True
+    )
+    audit_logs: Mapped[list["AuditLogNew"]] = relationship(
+        "AuditLogNew", back_populates="scope", passive_deletes=True
+    )
+    schema_selections: Mapped[list["SchemaSelection"]] = relationship(
+        "SchemaSelection", back_populates="scope", passive_deletes=True
     )
 
 
@@ -186,9 +191,6 @@ class UserNew(Base):
 
     # Nullable fields
     institution: Mapped[str | None] = mapped_column(String(255), index=True)
-    assigned_scopes: Mapped[list[PyUUID]] = mapped_column(
-        compatible_array_uuid(), default=[]
-    )
 
     # Enhanced profile (nullable)
     orcid_id: Mapped[str | None] = mapped_column(String(50))
@@ -296,6 +298,9 @@ class ScopeMembership(Base):
     accepted_at: Mapped[dt | None] = mapped_column(
         DateTime(timezone=True)
     )  # NULL = pending invitation
+    expires_at: Mapped[dt | None] = mapped_column(
+        DateTime(timezone=True)
+    )  # Invitation expiry (GitHub-style)
 
     # Status
     is_active: Mapped[bool] = mapped_column(
@@ -397,6 +402,12 @@ class CurationSchema(Base):
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    use_dynamic_form: Mapped[bool] = mapped_column(
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="When true, use DynamicForm instead of legacy ClinGen form",
+    )
 
     # Schema validation checksum
     schema_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1016,6 +1027,23 @@ class ActiveCuration(Base):
     )
     archive_reason: Mapped[str | None] = mapped_column(Text)
 
+    # Audit fields (required by audit trigger)
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    created_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+    updated_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
     # Relationships
     gene: Mapped["Gene"] = relationship("Gene", back_populates="active_curations")
     scope: Mapped["Scope"] = relationship("Scope", back_populates="active_curations")
@@ -1066,7 +1094,7 @@ class AuditLogNew(Base):
 
     # Nullable fields
     scope_id: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("scopes.id")
+        compatible_uuid(), ForeignKey("scopes.id", ondelete="SET NULL")
     )
     changes: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
     user_id: Mapped[PyUUID | None] = mapped_column(
@@ -1115,7 +1143,7 @@ class AuditLogNew(Base):
     )  # ALCOA+ compliance fields
 
     # Relationships
-    scope: Mapped["Scope | None"] = relationship("Scope")
+    scope: Mapped["Scope | None"] = relationship("Scope", back_populates="audit_logs")
     user: Mapped["UserNew | None"] = relationship("UserNew")
     schema: Mapped["CurationSchema | None"] = relationship("CurationSchema")
     workflow_pair: Mapped["WorkflowPair | None"] = relationship("WorkflowPair")
@@ -1141,7 +1169,7 @@ class SchemaSelection(Base):
 
     # Required fields
     scope_id: Mapped[PyUUID] = mapped_column(
-        compatible_uuid(), ForeignKey("scopes.id"), nullable=False
+        compatible_uuid(), ForeignKey("scopes.id", ondelete="CASCADE"), nullable=False
     )
 
     # Nullable fields
@@ -1172,7 +1200,7 @@ class SchemaSelection(Base):
 
     # Relationships
     user: Mapped["UserNew | None"] = relationship("UserNew")
-    scope: Mapped["Scope"] = relationship("Scope")
+    scope: Mapped["Scope"] = relationship("Scope", back_populates="schema_selections")
     preferred_workflow_pair: Mapped["WorkflowPair | None"] = relationship(
         "WorkflowPair"
     )
@@ -1489,5 +1517,94 @@ class ValidationCache(Base):
             "idx_validation_cache_cleanup",
             "expires_at",
             postgresql_where="expires_at < NOW()",
+        ),
+    )
+
+
+# ========================================
+# PUBLICATION CACHE
+# ========================================
+
+
+class Publication(Base):
+    """
+    Cached publication data from PubMed/Europe PMC.
+    Stores validated publication metadata for association with curations
+    and evidence items without repeated API calls.
+    """
+
+    __tablename__ = "publications"
+
+    # Primary key - using PMID as natural key
+    id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
+    )
+
+    # PubMed identifier (unique)
+    pmid: Mapped[str] = mapped_column(
+        String(20), nullable=False, unique=True, index=True
+    )
+
+    # Core publication data
+    title: Mapped[str] = mapped_column(Text, nullable=False)
+    authors: Mapped[list[str]] = mapped_column(
+        compatible_array_text(), nullable=False, default=[]
+    )
+    author_string: Mapped[str | None] = mapped_column(Text)  # Formatted author list
+
+    # Journal information
+    journal: Mapped[str] = mapped_column(String(500), nullable=False)
+    journal_abbrev: Mapped[str | None] = mapped_column(String(100))
+    volume: Mapped[str | None] = mapped_column(String(50))
+    issue: Mapped[str | None] = mapped_column(String(50))
+    pages: Mapped[str | None] = mapped_column(String(50))
+
+    # Date information
+    pub_year: Mapped[int | None] = mapped_column(Integer, index=True)
+    pub_date: Mapped[str | None] = mapped_column(String(50))  # Full date string
+
+    # External identifiers
+    doi: Mapped[str | None] = mapped_column(String(200), index=True)
+    pmcid: Mapped[str | None] = mapped_column(String(20), index=True)
+
+    # Extended metadata
+    abstract: Mapped[str | None] = mapped_column(Text)
+    pub_type: Mapped[str | None] = mapped_column(String(100))
+    is_open_access: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    cited_by_count: Mapped[int | None] = mapped_column(Integer)
+
+    # Raw API response for reference
+    api_response: Mapped[dict[str, Any] | None] = mapped_column(compatible_jsonb())
+
+    # Cache control
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        onupdate=func.now(),
+        nullable=False,
+    )
+    last_fetched_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Track who first added this publication
+    added_by: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
+    )
+
+    # Relationships
+    adder: Mapped["UserNew | None"] = relationship("UserNew", foreign_keys=[added_by])
+
+    __table_args__ = (
+        Index("idx_publications_year", "pub_year"),
+        Index("idx_publications_journal", "journal"),
+        Index(
+            "idx_publications_search",
+            "pmid",
+            "doi",
+            "title",
         ),
     )

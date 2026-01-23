@@ -18,6 +18,7 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
+    PrecurationNew,
     Scope,
     UserNew,
     WorkflowPair,
@@ -38,6 +39,144 @@ logger = get_logger(__name__)
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
     return datetime.now(timezone.utc)
+
+
+def _sum_points_from_items(items: list[dict[str, Any]], key: str = "points") -> float:
+    """Sum points from a list of evidence items."""
+    return sum(float(item.get(key, 0)) for item in items)
+
+
+def _calculate_case_level_score(case_level: dict[str, Any]) -> float:
+    """Calculate case-level genetic score from nested structure."""
+    score = 0.0
+    for inheritance_key in ["autosomal_dominant_or_x_linked", "autosomal_recessive"]:
+        inheritance = case_level.get(inheritance_key, {})
+        if isinstance(inheritance, dict):
+            score += _sum_points_from_items(
+                inheritance.get("predicted_or_proven_null", []),
+                "proband_counted_points",
+            )
+            score += _sum_points_from_items(
+                inheritance.get("other_variant_type", []),
+                "proband_counted_points",
+            )
+    return score
+
+
+def _calculate_genetic_score(genetic: dict[str, Any]) -> float:
+    """Calculate total genetic evidence score."""
+    score = 0.0
+
+    # Case-level evidence
+    case_level = genetic.get("case_level", {})
+    if isinstance(case_level, dict):
+        score += _calculate_case_level_score(case_level)
+
+    # Segregation
+    score += _sum_points_from_items(genetic.get("segregation", []))
+
+    # Case-control
+    case_control = genetic.get("case_control", {})
+    if isinstance(case_control, dict):
+        score += _sum_points_from_items(case_control.get("single_variant_analysis", []))
+        score += _sum_points_from_items(
+            case_control.get("aggregate_variant_analysis", [])
+        )
+
+    return min(score, 12.0)
+
+
+def _calculate_experimental_score(experimental: dict[str, Any]) -> float:
+    """Calculate total experimental evidence score."""
+    score = 0.0
+
+    # Function
+    func = experimental.get("function", {})
+    if isinstance(func, dict):
+        for key in ["biochemical_function", "protein_interaction", "expression"]:
+            score += _sum_points_from_items(func.get(key, []))
+
+    # Functional alteration
+    fa = experimental.get("functional_alteration", {})
+    if isinstance(fa, dict):
+        for key in ["patient_cells", "non_patient_cells"]:
+            score += _sum_points_from_items(fa.get(key, []))
+
+    # Models
+    models = experimental.get("models", {})
+    if isinstance(models, dict):
+        for key in ["non_human_model_organism", "cell_culture_model"]:
+            score += _sum_points_from_items(models.get(key, []))
+
+    # Rescue
+    rescue = experimental.get("rescue", {})
+    if isinstance(rescue, dict):
+        for key in [
+            "human",
+            "non_human_model_organism",
+            "cell_culture",
+            "patient_cells",
+        ]:
+            score += _sum_points_from_items(rescue.get(key, []))
+
+    return min(score, 6.0)
+
+
+def _get_classification(total_score: float) -> str:
+    """Get ClinGen SOP v11 classification from total score."""
+    if total_score >= 12:
+        return "Definitive"
+    elif total_score >= 7:
+        return "Strong"
+    elif total_score >= 2:
+        return "Moderate"
+    elif total_score >= 0.1:
+        return "Limited"
+    return "No Known Disease Relationship"
+
+
+def _calculate_score_from_evidence(
+    evidence_data: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """
+    Calculate ClinGen SOP v11 scores from evidence_data.
+
+    This is a lightweight calculation for list views, matching the frontend logic.
+    For full scoring with detailed breakdown, use the ClinGenEngine.
+
+    Args:
+        evidence_data: Evidence data dict from curation
+
+    Returns:
+        Dict with total_score, genetic_score, experimental_score, and classification
+    """
+    if not evidence_data:
+        return {
+            "total_score": 0.0,
+            "genetic_score": 0.0,
+            "experimental_score": 0.0,
+            "classification": "No Known Disease Relationship",
+        }
+
+    genetic = evidence_data.get("genetic_evidence", {})
+    experimental = evidence_data.get("experimental_evidence", {})
+
+    genetic_score = (
+        _calculate_genetic_score(genetic) if isinstance(genetic, dict) else 0.0
+    )
+    experimental_score = (
+        _calculate_experimental_score(experimental)
+        if isinstance(experimental, dict)
+        else 0.0
+    )
+    total_score = genetic_score + experimental_score
+
+    return {
+        "total_score": round(total_score, 2),
+        "genetic_score": round(genetic_score, 2),
+        "experimental_score": round(experimental_score, 2),
+        "classification": _get_classification(total_score),
+    }
 
 
 class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
@@ -63,6 +202,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                 joinedload(CurationNew.gene),
                 joinedload(CurationNew.scope),
                 joinedload(CurationNew.creator),
+                joinedload(CurationNew.precuration),
             )
             .where(CurationNew.id == id)
         )
@@ -117,23 +257,33 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         gene_id: UUID | None = None,
         status: CurationStatus | None = None,
         curator_id: UUID | None = None,
+        include_archived: bool = False,
     ) -> tuple[list[CurationSummary], int]:
         """
         Get curation summaries with joined data for list views.
         Returns lightweight summaries (no evidence_data) for performance.
+        Excludes archived curations by default unless include_archived=True.
+        Calculates scores dynamically from evidence_data.
+        Gets disease_name from linked precuration if not in curation.
         """
-        # Base query with joins
+        # Base query with joins (including precuration for disease_name)
         stmt = (
             select(
                 CurationNew,
                 Gene.approved_symbol.label("gene_symbol"),
                 Scope.name.label("scope_name"),
                 UserNew.name.label("curator_name"),
+                PrecurationNew.evidence_data.label("precuration_evidence"),
             )
             .join(Gene, CurationNew.gene_id == Gene.id)
             .join(Scope, CurationNew.scope_id == Scope.id)
             .outerjoin(UserNew, CurationNew.created_by == UserNew.id)
+            .outerjoin(PrecurationNew, CurationNew.precuration_id == PrecurationNew.id)
         )
+
+        # Exclude archived curations by default
+        if not include_archived:
+            stmt = stmt.where(CurationNew.status != CurationStatus.ARCHIVED)
 
         # Apply filters
         if scope_id:
@@ -158,24 +308,42 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
 
         results = db.execute(stmt).all()
 
-        # Map to summary schema
-        summaries = [
-            CurationSummary(
-                id=row.CurationNew.id,
-                gene_id=row.CurationNew.gene_id,
-                gene_symbol=row.gene_symbol,
-                scope_id=row.CurationNew.scope_id,
-                scope_name=row.scope_name,
-                status=row.CurationNew.status,
-                workflow_stage=row.CurationNew.workflow_stage,
-                computed_verdict=row.CurationNew.computed_verdict,
-                is_draft=row.CurationNew.is_draft,
-                created_at=row.CurationNew.created_at,
-                updated_at=row.CurationNew.updated_at,
-                curator_name=row.curator_name,
+        # Map to summary schema with dynamic score calculation
+        summaries = []
+        for row in results:
+            # Calculate scores from evidence_data
+            scores = _calculate_score_from_evidence(row.CurationNew.evidence_data)
+
+            # Get disease_name: first try curation, then precuration
+            curation_evidence = row.CurationNew.evidence_data or {}
+            precuration_evidence = row.precuration_evidence or {}
+            disease_name = curation_evidence.get(
+                "disease_name"
+            ) or precuration_evidence.get("disease_name")
+
+            summaries.append(
+                CurationSummary(
+                    id=row.CurationNew.id,
+                    gene_id=row.CurationNew.gene_id,
+                    gene_symbol=row.gene_symbol,
+                    scope_id=row.CurationNew.scope_id,
+                    scope_name=row.scope_name,
+                    status=row.CurationNew.status,
+                    workflow_stage=row.CurationNew.workflow_stage,
+                    computed_verdict=scores["classification"],
+                    computed_scores={
+                        "total_score": scores["total_score"],
+                        "genetic_score": scores["genetic_score"],
+                        "experimental_score": scores["experimental_score"],
+                    },
+                    disease_name=disease_name,
+                    is_draft=row.CurationNew.is_draft,
+                    created_at=row.CurationNew.created_at,
+                    updated_at=row.CurationNew.updated_at,
+                    curator_name=row.curator_name,
+                    created_by=row.CurationNew.created_by,
+                )
             )
-            for row in results
-        ]
 
         return summaries, total
 
@@ -326,7 +494,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
-        # Execute transition
+        # Execute transition (this sets workflow_stage to REVIEW and status to IN_REVIEW)
         workflow_engine.execute_transition(
             db,
             db_obj.id,
@@ -336,9 +504,12 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             submit_data.notes,
         )
 
-        # Update curation status
+        # Update additional submission metadata
+        # Note: workflow_engine already sets status to IN_REVIEW and commits
+        # We refresh to get the updated state, then add submission metadata
+        db.refresh(db_obj)
+
         now = _utc_now()
-        db_obj.status = CurationStatus.SUBMITTED
         db_obj.is_draft = False
         db_obj.submitted_at = now
         db_obj.submitted_by = user_id

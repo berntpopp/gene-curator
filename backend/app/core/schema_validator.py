@@ -1057,6 +1057,7 @@ class SchemaValidator:
         # Map field types to JSON Schema types
         type_mapping = {
             "text": "string",
+            "string": "string",
             "number": "number",
             "boolean": "boolean",
             "array": "array",
@@ -1069,6 +1070,7 @@ class SchemaValidator:
             "pmid": "string",
             "hgnc_id": "string",
             "score": "number",
+            "enum": "string",
         }
 
         json_schema_prop["type"] = type_mapping.get(field_type, "string")
@@ -1083,18 +1085,25 @@ class SchemaValidator:
                 json_schema_prop["pattern"] = field_config["pattern"]
 
         elif field_type == "number" or field_type == "score":
+            # Handle both min/max and min_value/max_value formats
             if "min_value" in field_config:
                 json_schema_prop["minimum"] = field_config["min_value"]
+            elif "min" in field_config:
+                json_schema_prop["minimum"] = field_config["min"]
             if "max_value" in field_config:
                 json_schema_prop["maximum"] = field_config["max_value"]
+            elif "max" in field_config:
+                json_schema_prop["maximum"] = field_config["max"]
+            if "step" in field_config:
+                json_schema_prop["multipleOf"] = field_config["step"]
 
-        elif field_type in ["select", "multiselect"]:
+        elif field_type in ["select", "multiselect", "enum"]:
             options = field_config.get("options", [])
             if options:
                 enum_values = [
                     opt["value"] if isinstance(opt, dict) else opt for opt in options
                 ]
-                if field_type == "select":
+                if field_type in ["select", "enum"]:
                     json_schema_prop["enum"] = enum_values
                 else:  # multiselect
                     json_schema_prop["items"] = {"enum": enum_values}
@@ -1104,10 +1113,41 @@ class SchemaValidator:
                 json_schema_prop["minItems"] = field_config["min_items"]
             if "max_items" in field_config:
                 json_schema_prop["maxItems"] = field_config["max_items"]
+            # Handle both "items" and "item_schema" (used in ClinGen schema)
             if "items" in field_config:
                 json_schema_prop["items"] = self._convert_field_to_json_schema(
                     field_config["items"]
                 )
+            elif "item_schema" in field_config:
+                # item_schema is a flat dict of field definitions, convert to object
+                item_props = {}
+                item_required = []
+                for item_name, item_config in field_config["item_schema"].items():
+                    item_props[item_name] = self._convert_field_to_json_schema(
+                        item_config
+                    )
+                    if item_config.get("required"):
+                        item_required.append(item_name)
+                json_schema_prop["items"] = {
+                    "type": "object",
+                    "properties": item_props,
+                }
+                if item_required:
+                    json_schema_prop["items"]["required"] = item_required
+
+        elif field_type == "object":
+            # Recursively convert nested object properties
+            if "properties" in field_config:
+                json_schema_prop["properties"] = {}
+                for prop_name, prop_config in field_config["properties"].items():
+                    json_schema_prop["properties"][prop_name] = (
+                        self._convert_field_to_json_schema(prop_config)
+                    )
+            # Handle required properties within object
+            if "required" in field_config and isinstance(
+                field_config["required"], list
+            ):
+                json_schema_prop["required"] = field_config["required"]
 
         # Add description
         if "description" in field_config:

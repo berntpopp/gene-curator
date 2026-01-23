@@ -35,6 +35,7 @@ from app.schemas.gene_assignment import (
     GeneScopeAssignmentWithDetails,
     ScopeAssignmentOverview,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 
@@ -69,16 +70,16 @@ def get_gene_assignments(
     # RLS policies + scope membership checks handle access control
 
     # Regular users can only see assignments in their scopes
-    if current_user.role not in ["admin"] and scope_id:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
-            )
+    if scope_id and not ScopePermissionService.has_scope_access(
+        db, current_user, scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
+        )
 
-    # Get assignments with filtering
+    # Get assignments with related entity details using eager loading
     if is_active:
-        assignments = gene_assignment_crud.get_active_assignments(
+        assignments = gene_assignment_crud.get_active_assignments_with_details(
             db,
             skip=skip,
             limit=limit,
@@ -90,19 +91,26 @@ def get_gene_assignments(
         # Implementation would need to be added to CRUD for inactive assignments
         assignments = gene_assignment_crud.get_multi(db, skip=skip, limit=limit)
 
-    # Convert to summary format (would need to join with related data)
+    # Convert to summary format with related data from eager loading
     assignment_summaries = []
     for assignment in assignments:
-        # This would need proper JOIN queries in a real implementation
+        # Extract related entity data from eager-loaded relationships
+        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
+        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
+        scope_name = assignment.scope.name if assignment.scope else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
+
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
             gene_id=assignment.gene_id,
-            gene_symbol="",  # Would be populated from JOIN
-            gene_hgnc_id="",  # Would be populated from JOIN
+            gene_symbol=gene_symbol,
+            gene_hgnc_id=gene_hgnc_id,
             scope_id=assignment.scope_id,
-            scope_name="",  # Would be populated from JOIN
+            scope_name=scope_name,
             assigned_curator_id=assignment.assigned_curator_id,
-            curator_name="",  # Would be populated from JOIN
+            curator_name=curator_name,
             priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
@@ -112,9 +120,7 @@ def get_gene_assignments(
         )
         assignment_summaries.append(summary)
 
-    total = len(
-        assignments
-    )  # This would be a proper count query in real implementation
+    total = len(assignments)
 
     return GeneScopeAssignmentListResponse(
         assignments=assignment_summaries,
@@ -138,13 +144,13 @@ def create_gene_assignment(
     """
     # All authenticated users can create assignments in their scopes
     # Check if user has access to the target scope
-    if current_user.role not in ["admin"]:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if assignment_in.scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions for this scope",
-            )
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment_in.scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions for this scope",
+        )
 
     try:
         assignment_model = gene_assignment_crud.create_assignment(
@@ -168,30 +174,55 @@ def get_gene_assignment(
     """
     Get gene-scope assignment by ID with detailed information.
     """
-    assignment = gene_assignment_crud.get(db, id=assignment_id)
+    # Use eager loading to fetch related entity data
+    assignment = gene_assignment_crud.get_with_details(db, assignment_id=assignment_id)
     if not assignment:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
     # Check user permissions
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    # Convert to detailed format (would need JOIN queries in real implementation)
+    # Extract related entity data from eager-loaded relationships
+    gene_symbol = assignment.gene.approved_symbol if assignment.gene else None
+    gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else None
+    gene_chromosome = assignment.gene.chromosome if assignment.gene else None
+    scope_name = assignment.scope.name if assignment.scope else None
+    scope_display_name = assignment.scope.display_name if assignment.scope else None
+    curator_name = (
+        assignment.assigned_curator.name if assignment.assigned_curator else None
+    )
+    curator_email = (
+        assignment.assigned_curator.email if assignment.assigned_curator else None
+    )
+
+    # Convert to detailed format with related data
     detailed_assignment = GeneScopeAssignmentWithDetails(
-        **assignment.__dict__,
-        gene_symbol="",  # Would be populated from JOIN
-        gene_hgnc_id="",  # Would be populated from JOIN
-        gene_chromosome="",  # Would be populated from JOIN
-        scope_name="",  # Would be populated from JOIN
-        scope_display_name="",  # Would be populated from JOIN
-        curator_name="",  # Would be populated from JOIN
-        curator_email="",  # Would be populated from JOIN
+        id=assignment.id,
+        gene_id=assignment.gene_id,
+        scope_id=assignment.scope_id,
+        assigned_curator_id=assignment.assigned_curator_id,
+        workflow_pair_id=assignment.workflow_pair_id,
+        is_active=assignment.is_active,
+        priority=assignment.priority,
+        due_date=assignment.due_date,
+        assignment_notes=assignment.assignment_notes,
+        assigned_by=assignment.assigned_by,
+        assigned_at=assignment.assigned_at,
+        updated_at=assignment.updated_at,
+        gene_symbol=gene_symbol,
+        gene_hgnc_id=gene_hgnc_id,
+        gene_chromosome=gene_chromosome,
+        scope_name=scope_name,
+        scope_display_name=scope_display_name,
+        curator_name=curator_name,
+        curator_email=curator_email,
     )
 
     return detailed_assignment
@@ -216,8 +247,8 @@ def update_gene_assignment(
 
     # All authenticated users can update assignments in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -312,8 +343,8 @@ def get_assignment_statistics(
         )
 
     # Check permissions
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -342,13 +373,13 @@ def bulk_create_gene_assignments(
     """
     # All authenticated users can bulk create assignments in their scopes
     # Check scope access
-    if current_user.role not in ["admin"]:
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if bulk_request.scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions for this scope",
-            )
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, bulk_request.scope_id
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not enough permissions for this scope",
+        )
 
     result = gene_assignment_crud.bulk_assign_genes(
         db,
@@ -385,8 +416,8 @@ def assign_curator_to_gene(
 
     # All authenticated users can assign curators in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -424,8 +455,8 @@ def unassign_curator_from_gene(
 
     # All authenticated users can unassign curators in their scopes
     # Check scope access
-    if current_user.role not in ["admin"] and assignment.scope_id not in (
-        current_user.assigned_scopes or []
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -481,22 +512,30 @@ def get_curator_assignments(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    assignments = gene_assignment_crud.get_curator_assignments(
+    # Use eager loading to fetch related entity data
+    assignments = gene_assignment_crud.get_curator_assignments_with_details(
         db, curator_id=curator_id, skip=skip, limit=limit, scope_id=scope_id
     )
 
-    # Convert to summary format (would need JOIN queries in real implementation)
+    # Convert to summary format with related data from eager loading
     summaries: list[GeneScopeAssignmentSummary] = []
     for assignment in assignments:
+        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
+        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
+        scope_name = assignment.scope.name if assignment.scope else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
+
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
             gene_id=assignment.gene_id,
-            gene_symbol="",  # Would be populated from JOIN
-            gene_hgnc_id="",  # Would be populated from JOIN
+            gene_symbol=gene_symbol,
+            gene_hgnc_id=gene_hgnc_id,
             scope_id=assignment.scope_id,
-            scope_name="",  # Would be populated from JOIN
+            scope_name=scope_name,
             assigned_curator_id=assignment.assigned_curator_id,
-            curator_name="",  # Would be populated from JOIN
+            curator_name=curator_name,
             priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
@@ -528,29 +567,35 @@ def get_scope_assignments(
     Get all assignments for a specific scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    assignments = gene_assignment_crud.get_scope_assignments(
+    # Use eager loading to fetch related entity data
+    assignments = gene_assignment_crud.get_scope_assignments_with_details(
         db, scope_id=scope_id, skip=skip, limit=limit, include_inactive=include_inactive
     )
 
-    # Convert to summary format (would need JOIN queries in real implementation)
+    # Convert to summary format with related data from eager loading
     summaries: list[GeneScopeAssignmentSummary] = []
     for assignment in assignments:
+        gene_symbol = assignment.gene.approved_symbol if assignment.gene else ""
+        gene_hgnc_id = assignment.gene.hgnc_id if assignment.gene else ""
+        scope_name = assignment.scope.name if assignment.scope else ""
+        curator_name = (
+            assignment.assigned_curator.name if assignment.assigned_curator else ""
+        )
+
         summary = GeneScopeAssignmentSummary(
             id=assignment.id,
             gene_id=assignment.gene_id,
-            gene_symbol="",  # Would be populated from JOIN
-            gene_hgnc_id="",  # Would be populated from JOIN
+            gene_symbol=gene_symbol,
+            gene_hgnc_id=gene_hgnc_id,
             scope_id=assignment.scope_id,
-            scope_name="",  # Would be populated from JOIN
+            scope_name=scope_name,
             assigned_curator_id=assignment.assigned_curator_id,
-            curator_name="",  # Would be populated from JOIN
+            curator_name=curator_name,
             priority_level=assignment.priority,
             is_active=assignment.is_active,
             assigned_at=assignment.assigned_at,
@@ -576,9 +621,7 @@ def get_available_genes_for_scope(
     Get genes available for assignment to a scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
@@ -612,14 +655,13 @@ def get_scope_assignment_overview(
     Get assignment overview for a scope.
     """
     # Check scope access
-    if current_user.role not in ["admin"] and scope_id not in (
-        current_user.assigned_scopes or []
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    assignments = gene_assignment_crud.get_scope_assignments(
+    # Use eager loading to get assignments with scope data
+    assignments = gene_assignment_crud.get_scope_assignments_with_details(
         db,
         scope_id=scope_id,
         skip=DEFAULT_SKIP,
@@ -632,10 +674,20 @@ def get_scope_assignment_overview(
     assigned_genes = sum(1 for a in assignments if a.assigned_curator_id is not None)
     unassigned_genes = total_assignments - assigned_genes
 
+    # Get scope name from first assignment's relationship (all share same scope)
+    scope_name = ""
+    scope_display_name = ""
+    if assignments and assignments[0].scope:
+        scope_name = assignments[0].scope.name
+        scope_display_name = assignments[0].scope.display_name or scope_name
+
     # Priority distribution
     priority_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
     for assignment in assignments:
         priority = assignment.priority or "medium"
+        # Map "normal" to "medium" for display
+        if priority == "normal":
+            priority = "medium"
         priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
     # Work status
@@ -657,11 +709,10 @@ def get_scope_assignment_overview(
         assigned_genes / active_curators if active_curators > 0 else None
     )
 
-    # This would need proper scope name lookup in real implementation
     overview = ScopeAssignmentOverview(
         scope_id=scope_id,
-        scope_name="",  # Would be populated from scope lookup
-        scope_display_name="",  # Would be populated from scope lookup
+        scope_name=scope_name,
+        scope_display_name=scope_display_name,
         total_assignments=total_assignments,
         assigned_genes=assigned_genes,
         unassigned_genes=unassigned_genes,

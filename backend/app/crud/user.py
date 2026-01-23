@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.logging import get_logger
 from app.core.security import get_password_hash, verify_password
 from app.crud.base import CRUDBase
-from app.models import UserNew as User, UserRoleNew as UserRole
+from app.models import ScopeMembership, UserNew as User, UserRoleNew as UserRole
 from app.schemas.auth import UserCreate, UserUpdate
 
 logger = get_logger(__name__)
@@ -36,7 +36,6 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             institution=obj_in.institution,
             orcid_id=obj_in.orcid_id,
             expertise_areas=obj_in.expertise_areas or [],
-            assigned_scopes=obj_in.assigned_scopes or [],
             is_active=obj_in.is_active,
         )
         db.add(db_obj)
@@ -190,14 +189,22 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not user:
             return {}
 
-        # This would be expanded with actual activity tracking
+        scope_count = (
+            db.query(func.count(ScopeMembership.id))
+            .filter(
+                ScopeMembership.user_id == user.id,
+                ScopeMembership.is_active == True,  # noqa: E712
+            )
+            .scalar()
+        )
+
         return {
             "user_id": str(user.id),
             "name": user.name,
             "email": user.email,
             "role": user.role.value,
             "last_login": user.last_login,
-            "assigned_scopes": len(user.assigned_scopes) if user.assigned_scopes else 0,
+            "scope_count": scope_count or 0,
             "expertise_areas": len(user.expertise_areas) if user.expertise_areas else 0,
             "is_active": user.is_active,
         }
@@ -205,47 +212,86 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
     def get_users_by_scope(
         self, db: Session, *, scope_id: UUID, skip: int = 0, limit: int = 100
     ) -> Sequence[User]:
-        """Get users assigned to a specific scope."""
+        """Get users assigned to a specific scope via scope_memberships."""
+        # Use subquery to find user IDs with active membership in the scope
+        user_ids_subquery = (
+            db.query(ScopeMembership.user_id)
+            .filter(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+            )
+            .subquery()
+        )
+
         stmt = (
             select(User)
-            .where(User.assigned_scopes.contains([str(scope_id)]))
-            .where(User.is_active)
+            .where(User.id.in_(select(user_ids_subquery)))
+            .where(User.is_active == True)  # noqa: E712
             .offset(skip)
             .limit(limit)
         )
         return db.execute(stmt).scalars().all()
 
-    def assign_to_scope(self, db: Session, *, user_id: str, scope_id: UUID) -> bool:
-        """Assign user to a scope."""
-        user = self.get(db, id=user_id)
+    def assign_to_scope(
+        self, db: Session, *, user_id: UUID, scope_id: UUID, role: str = "viewer"
+    ) -> User | None:
+        """Assign user to scope via scope_memberships table."""
+        user = self.get(db, user_id)
         if not user:
-            return False
+            return None
 
-        scope_id_str = str(scope_id)
-        current_scopes: list[str] = [str(s) for s in (user.assigned_scopes or [])]
+        # Check if membership already exists
+        existing = (
+            db.query(ScopeMembership)
+            .filter(
+                ScopeMembership.user_id == user_id,
+                ScopeMembership.scope_id == scope_id,
+            )
+            .first()
+        )
 
-        if scope_id_str not in current_scopes:
-            current_scopes.append(scope_id_str)
-            user.assigned_scopes = [UUID(s) for s in current_scopes]
+        if existing:
+            # Reactivate if inactive
+            if not existing.is_active:
+                existing.is_active = True
+                existing.role = role
+                db.commit()
+            return user
+
+        # Create new membership
+        membership = ScopeMembership(
+            user_id=user_id,
+            scope_id=scope_id,
+            role=role,
+            is_active=True,
+        )
+        db.add(membership)
+        db.commit()
+        db.refresh(user)
+        return user
+
+    def remove_from_scope(
+        self, db: Session, *, user_id: UUID, scope_id: UUID
+    ) -> User | None:
+        """Remove user from scope via scope_memberships table (soft delete)."""
+        user = self.get(db, user_id)
+        if not user:
+            return None
+
+        membership = (
+            db.query(ScopeMembership)
+            .filter(
+                ScopeMembership.user_id == user_id,
+                ScopeMembership.scope_id == scope_id,
+            )
+            .first()
+        )
+
+        if membership:
+            membership.is_active = False
             db.commit()
 
-        return True
-
-    def remove_from_scope(self, db: Session, *, user_id: str, scope_id: UUID) -> bool:
-        """Remove user from a scope."""
-        user = self.get(db, id=user_id)
-        if not user:
-            return False
-
-        scope_id_str = str(scope_id)
-        current_scopes: list[str] = [str(s) for s in (user.assigned_scopes or [])]
-
-        if scope_id_str in current_scopes:
-            current_scopes.remove(scope_id_str)
-            user.assigned_scopes = [UUID(s) for s in current_scopes]
-            db.commit()
-
-        return True
+        return user
 
     def update_last_login(self, db: Session, user_id: str) -> bool:
         """Update user's last login timestamp."""

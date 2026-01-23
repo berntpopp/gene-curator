@@ -1,436 +1,339 @@
 <template>
   <v-card>
-    <v-card-title class="d-flex align-center">
+    <v-card-title>
       <v-icon start>mdi-calculator</v-icon>
-      Evidence Scoring
-      <v-spacer />
-      <v-chip
-        v-if="totalScore !== null"
-        :color="getScoreColor(totalScore)"
-        size="large"
-        variant="flat"
-      >
-        Total: {{ totalScore.toFixed(2) }}
-      </v-chip>
+      Live Scoring
     </v-card-title>
-
     <v-card-text>
-      <div v-if="loading" class="text-center py-8">
-        <v-progress-circular indeterminate color="primary" />
-        <div class="mt-4">Calculating scores...</div>
-      </div>
+      <!-- Skeleton loader during loading -->
+      <v-skeleton-loader v-if="loading" type="list-item-avatar@3" :boilerplate="false" />
 
-      <div v-else-if="scoreCalculations">
-        <!-- Score Categories -->
-        <v-row class="mb-6">
-          <v-col
-            v-for="(score, category) in scoreCalculations"
-            :key="category"
-            cols="12"
-            sm="6"
-            md="4"
+      <template v-else>
+        <!-- Total score display with progress -->
+        <div class="text-center mb-4">
+          <div class="d-flex align-center justify-center gap-2">
+            <div :class="`text-h2 font-weight-bold text-${classificationColor}`">
+              {{ totalScore.toFixed(2) }}
+            </div>
+            <div class="text-caption text-medium-emphasis">
+              <div>out of</div>
+              <div class="font-weight-bold">{{ maxScore.toFixed(2) }}</div>
+            </div>
+          </div>
+
+          <v-progress-linear
+            :model-value="progressPercentage"
+            :color="classificationColor"
+            height="8"
+            rounded
+            class="mt-2"
           >
-            <v-card variant="outlined" :class="{ 'border-primary': score.value > 0 }">
-              <v-card-text class="text-center">
-                <div class="text-h3 font-weight-bold" :class="getScoreTextClass(score.value)">
-                  {{ score.value.toFixed(2) }}
-                </div>
-                <div class="text-subtitle-1 font-weight-medium mb-2">
-                  {{ formatCategoryName(category) }}
-                </div>
-                <div class="text-caption text-medium-emphasis">
-                  Max: {{ score.max_possible || 'N/A' }}
-                </div>
+            <template #default>
+              <div class="text-caption font-weight-bold">{{ progressPercentage.toFixed(0) }}%</div>
+            </template>
+          </v-progress-linear>
+        </div>
 
-                <!-- Score Progress -->
-                <v-progress-linear
-                  v-if="score.max_possible"
-                  :model-value="(score.value / score.max_possible) * 100"
-                  :color="getScoreColor(score.value)"
-                  class="mt-2"
-                  height="6"
-                  rounded
-                />
-              </v-card-text>
-            </v-card>
-          </v-col>
-        </v-row>
+        <!-- Classification chip with color -->
+        <v-chip
+          v-if="classification"
+          :color="classificationColor"
+          size="large"
+          variant="flat"
+          class="mb-4"
+          block
+        >
+          <v-icon start>{{ getClassificationIcon(classification) }}</v-icon>
+          {{ classification }}
+        </v-chip>
 
-        <!-- Score Breakdown -->
-        <v-expansion-panels class="mb-6">
-          <v-expansion-panel v-for="(score, category) in scoreCalculations" :key="category">
+        <!-- Near-threshold indicator -->
+        <v-alert
+          v-if="nearThreshold"
+          type="info"
+          variant="tonal"
+          density="compact"
+          icon="mdi-alert-circle"
+          class="mb-3"
+        >
+          <div class="text-caption">
+            <strong>Near threshold:</strong> Within 1 point of next classification
+          </div>
+        </v-alert>
+
+        <!-- Category breakdown (expandable) -->
+        <v-expansion-panels v-if="hasCategoryScores" variant="accordion" class="mb-3">
+          <v-expansion-panel>
             <v-expansion-panel-title>
-              <div class="d-flex align-center">
-                <v-icon :color="getScoreColor(score.value)" class="mr-3">
-                  {{ getCategoryIcon(category) }}
-                </v-icon>
-                <div>
-                  <div class="font-weight-medium">{{ formatCategoryName(category) }}</div>
-                  <div class="text-caption">{{ score.breakdown?.length || 0 }} evidence items</div>
-                </div>
-                <v-spacer />
-                <v-chip :color="getScoreColor(score.value)" size="small" variant="flat">
-                  {{ score.value.toFixed(2) }}
-                </v-chip>
-              </div>
+              <v-icon start size="small">mdi-view-list</v-icon>
+              <span class="text-caption">Category Breakdown</span>
             </v-expansion-panel-title>
-
             <v-expansion-panel-text>
-              <div v-if="score.breakdown?.length">
-                <v-list density="compact">
-                  <v-list-item
-                    v-for="(item, index) in score.breakdown"
-                    :key="index"
-                    :class="{ 'bg-grey-lighten-5': index % 2 === 0 }"
-                  >
-                    <template #prepend>
-                      <v-icon :color="item.points > 0 ? 'success' : 'grey'" size="small">
-                        {{ item.points > 0 ? 'mdi-plus-circle' : 'mdi-circle-outline' }}
+              <v-row dense>
+                <v-col v-for="(score, category) in categoryScores" :key="category" cols="12">
+                  <v-card variant="outlined">
+                    <v-card-text class="d-flex align-center pa-2">
+                      <div class="flex-grow-1">
+                        <div class="text-caption text-medium-emphasis">
+                          {{ formatCategory(category) }}
+                        </div>
+                        <div
+                          class="text-h6 font-weight-bold score-value"
+                          :class="getScoreColorClass(score)"
+                        >
+                          {{ score.toFixed(2) }}
+                        </div>
+                      </div>
+                      <v-icon :color="getCategoryIconColor(score)" size="large">
+                        {{ getCategoryIcon(category) }}
                       </v-icon>
-                    </template>
-
-                    <v-list-item-title>
-                      {{ item.evidence_type || item.description }}
-                    </v-list-item-title>
-
-                    <v-list-item-subtitle v-if="item.rationale">
-                      {{ item.rationale }}
-                    </v-list-item-subtitle>
-
-                    <template #append>
-                      <v-chip
-                        :color="item.points > 0 ? 'success' : 'grey'"
-                        size="small"
-                        variant="outlined"
-                      >
-                        {{ item.points > 0 ? '+' : '' }}{{ item.points.toFixed(2) }}
-                      </v-chip>
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </div>
-
-              <div v-else class="text-center py-4 text-medium-emphasis">
-                No evidence items in this category yet
-              </div>
-
-              <div v-if="score.notes" class="mt-4 pa-3 bg-blue-lighten-5 rounded">
-                <div class="text-subtitle-2 mb-1">Scoring Notes</div>
-                <div class="text-body-2">{{ score.notes }}</div>
-              </div>
+                    </v-card-text>
+                  </v-card>
+                </v-col>
+              </v-row>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
 
-        <!-- Classification Result -->
-        <v-card
-          v-if="classification"
-          variant="tonal"
-          :color="getClassificationColor(classification.verdict)"
-        >
-          <v-card-title class="d-flex align-center">
-            <v-icon start>{{ getClassificationIcon(classification.verdict) }}</v-icon>
-            Gene-Disease Classification
-          </v-card-title>
-          <v-card-text>
-            <div class="d-flex align-center mb-4">
-              <div>
-                <div class="text-h5 font-weight-bold">{{ classification.verdict }}</div>
-                <div class="text-body-1">{{ classification.description }}</div>
-              </div>
-              <v-spacer />
-              <v-chip
-                :color="getClassificationColor(classification.verdict)"
-                size="x-large"
-                variant="flat"
-              >
-                {{ totalScore.toFixed(2) }} points
-              </v-chip>
-            </div>
-
-            <div v-if="classification.rationale" class="mb-4">
-              <div class="text-subtitle-2 mb-2">Classification Rationale</div>
-              <div class="text-body-2">{{ classification.rationale }}</div>
-            </div>
-
-            <div v-if="classification.confidence_level">
-              <div class="text-subtitle-2 mb-2">Confidence Level</div>
-              <v-progress-linear
-                :model-value="classification.confidence_score * 100"
-                :color="getClassificationColor(classification.verdict)"
-                height="8"
-                rounded
-              >
-                <template #default>
-                  <strong
-                    >{{ classification.confidence_level }} ({{
-                      (classification.confidence_score * 100).toFixed(0)
-                    }}%)</strong
-                  >
-                </template>
-              </v-progress-linear>
-            </div>
-          </v-card-text>
-        </v-card>
-
-        <!-- Contradictory Evidence -->
-        <v-card v-if="contradictoryEvidence?.length" variant="outlined" class="mt-4 border-warning">
-          <v-card-title class="d-flex align-center text-warning">
-            <v-icon start>mdi-alert-triangle</v-icon>
-            Contradictory Evidence
-          </v-card-title>
-          <v-card-text>
-            <v-list density="compact">
-              <v-list-item v-for="(item, index) in contradictoryEvidence" :key="index">
-                <template #prepend>
-                  <v-icon color="warning" size="small">mdi-minus-circle</v-icon>
-                </template>
-
-                <v-list-item-title>{{ item.evidence_type }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.description }}</v-list-item-subtitle>
-
-                <template #append>
-                  <v-chip color="warning" size="small" variant="outlined">
-                    -{{ item.impact.toFixed(2) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
-
-        <!-- Scoring Engine Info -->
-        <v-card variant="outlined" class="mt-4">
-          <v-card-title class="text-subtitle-1">
-            <v-icon start>mdi-cog</v-icon>
-            Scoring Engine Details
-          </v-card-title>
-          <v-card-text>
-            <v-row dense>
-              <v-col cols="12" sm="6">
-                <div class="text-caption text-medium-emphasis">Engine</div>
-                <div class="text-body-2">{{ scoringEngine?.name || 'Unknown' }}</div>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <div class="text-caption text-medium-emphasis">Version</div>
-                <div class="text-body-2">{{ scoringEngine?.version || 'Unknown' }}</div>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <div class="text-caption text-medium-emphasis">Last Updated</div>
-                <div class="text-body-2">{{ formatDate(lastCalculated) }}</div>
-              </v-col>
-              <v-col cols="12" sm="6">
-                <div class="text-caption text-medium-emphasis">Calculation Time</div>
-                <div class="text-body-2">{{ calculationTime || 'N/A' }}ms</div>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </v-card>
-      </div>
-
-      <v-alert v-else-if="error" type="error" variant="tonal">
-        <template #prepend>
-          <v-icon>mdi-alert-circle</v-icon>
-        </template>
-        Failed to calculate scores: {{ error }}
-      </v-alert>
-
-      <v-alert v-else type="info" variant="tonal">
-        <template #prepend>
-          <v-icon>mdi-information</v-icon>
-        </template>
-        No scoring data available. Add evidence to see live scoring.
-      </v-alert>
+        <!-- Threshold reference (collapsed by default) -->
+        <v-expansion-panels v-if="hasThresholds" variant="accordion">
+          <v-expansion-panel>
+            <v-expansion-panel-title>
+              <v-icon start size="small">mdi-information</v-icon>
+              <span class="text-caption">Classification Thresholds</span>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-list density="compact">
+                <v-list-item v-for="(threshold, level) in sortedThresholds" :key="level">
+                  <template #prepend>
+                    <v-chip
+                      :color="getClassificationColorForLevel(level)"
+                      size="small"
+                      variant="flat"
+                    />
+                  </template>
+                  <v-list-item-title>{{ level }}</v-list-item-title>
+                  <v-list-item-subtitle>≥ {{ threshold }} points</v-list-item-subtitle>
+                </v-list-item>
+              </v-list>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </template>
     </v-card-text>
-
-    <v-card-actions v-if="scoreCalculations">
-      <v-spacer />
-      <v-btn variant="outlined" :loading="refreshing" @click="refreshScores">
-        <v-icon start>mdi-refresh</v-icon>
-        Recalculate
-      </v-btn>
-      <v-btn variant="outlined" :loading="exporting" @click="exportScores">
-        <v-icon start>mdi-download</v-icon>
-        Export
-      </v-btn>
-    </v-card-actions>
   </v-card>
 </template>
 
 <script setup>
-  import { useLogger } from '@/composables/useLogger'
+  /**
+   * ScoreDisplay Component
+   *
+   * Schema-agnostic score display sidebar for DynamicForm.
+   * Works with any scoring engine (ClinGen, GenCC, Qualitative).
+   *
+   * Design principles:
+   * - Real-time updates with smooth transitions
+   * - Schema-agnostic (derives all from props)
+   * - Progressive disclosure (expandable details)
+   * - Accessible (color + text, semantic HTML)
+   *
+   * @example
+   * <ScoreDisplay
+   *   :score-calculations="validationResult.score_calculations"
+   *   :scoring-configuration="schema.scoring_configuration"
+   *   :loading="validating"
+   * />
+   */
 
-  const logger = useLogger()
-  import { ref, computed, watch } from 'vue'
-  import { useValidationStore } from '@/stores'
+  import { computed } from 'vue'
+  import { useSchemaScoring } from '@/composables/useSchemaScoring'
 
   const props = defineProps({
-    evidenceData: {
+    /**
+     * Score calculations from validation result
+     * Object mapping category names to score values
+     */
+    scoreCalculations: {
       type: Object,
-      required: true
+      default: () => ({})
     },
-    schemaId: {
-      type: String,
-      required: true
+    /**
+     * Scoring configuration from schema
+     * Contains engine, thresholds, max_scores
+     */
+    scoringConfiguration: {
+      type: Object,
+      default: () => ({})
     },
-    autoRefresh: {
+    /**
+     * Loading state (validation in progress)
+     */
+    loading: {
       type: Boolean,
-      default: true
+      default: false
     }
   })
 
-  const emit = defineEmits(['score-updated', 'classification-changed'])
+  // Convert props to refs for composable
+  const scoreCalculationsRef = computed(() => props.scoreCalculations || {})
+  const scoringConfigurationRef = computed(() => props.scoringConfiguration || {})
 
-  const validationStore = useValidationStore()
-  const refreshing = ref(false)
-  const exporting = ref(false)
+  // Use schema scoring composable for calculations
+  const {
+    totalScore,
+    categoryScores,
+    classification,
+    classificationColor,
+    nearThreshold,
+    maxScore,
+    progressPercentage
+  } = useSchemaScoring(scoreCalculationsRef, scoringConfigurationRef)
 
-  const loading = computed(() => validationStore.loading)
-  const error = computed(() => validationStore.error)
-  const validationResult = computed(() => validationStore.getValidationResult('scoring'))
-
-  const scoreCalculations = computed(() => validationResult.value?.score_calculations)
-  const classification = computed(() => validationResult.value?.classification)
-  const contradictoryEvidence = computed(() => validationResult.value?.contradictory_evidence)
-  const scoringEngine = computed(() => validationResult.value?.scoring_engine)
-  const lastCalculated = computed(() => validationResult.value?.calculated_at)
-  const calculationTime = computed(() => validationResult.value?.calculation_time_ms)
-
-  const totalScore = computed(() => {
-    if (!scoreCalculations.value) return null
-    return Object.values(scoreCalculations.value).reduce((sum, score) => sum + score.value, 0)
+  // Check if category scores exist
+  const hasCategoryScores = computed(() => {
+    return Object.keys(categoryScores.value).length > 0
   })
 
-  const getScoreColor = score => {
-    if (score >= 12) return 'success'
-    if (score >= 7) return 'primary'
-    if (score >= 3) return 'warning'
-    return 'grey'
-  }
+  // Check if thresholds exist
+  const hasThresholds = computed(() => {
+    const thresholds = props.scoringConfiguration?.classification_thresholds
+    return thresholds && Object.keys(thresholds).length > 0
+  })
 
-  const getScoreTextClass = score => {
-    if (score >= 12) return 'text-success'
-    if (score >= 7) return 'text-primary'
-    if (score >= 3) return 'text-warning'
-    return 'text-medium-emphasis'
-  }
+  // Sort thresholds by value (descending)
+  const sortedThresholds = computed(() => {
+    const thresholds = props.scoringConfiguration?.classification_thresholds
+    if (!thresholds) return {}
 
-  const getClassificationColor = verdict => {
-    const colorMap = {
-      Definitive: 'success',
-      Strong: 'primary',
-      Moderate: 'info',
-      Limited: 'warning',
-      'No Known Disease Relationship': 'grey',
-      Disputed: 'orange',
-      Refuted: 'error'
-    }
-    return colorMap[verdict] || 'grey'
-  }
+    return Object.entries(thresholds)
+      .sort(([, a], [, b]) => b - a)
+      .reduce((acc, [level, value]) => {
+        acc[level] = value
+        return acc
+      }, {})
+  })
 
-  const getClassificationIcon = verdict => {
-    const iconMap = {
-      Definitive: 'mdi-star',
-      Strong: 'mdi-star-three-points',
-      Moderate: 'mdi-star-half',
-      Limited: 'mdi-star-outline',
-      'No Known Disease Relationship': 'mdi-minus-circle',
-      Disputed: 'mdi-help-circle',
-      Refuted: 'mdi-close-circle'
-    }
-    return iconMap[verdict] || 'mdi-help-circle'
-  }
-
-  const getCategoryIcon = category => {
-    const iconMap = {
-      genetic_evidence: 'mdi-dna',
-      experimental_evidence: 'mdi-flask',
-      case_level: 'mdi-account-group',
-      segregation: 'mdi-family-tree',
-      case_control: 'mdi-chart-bar',
-      functional: 'mdi-cog',
-      model_systems: 'mdi-rat',
-      rescue: 'mdi-medical-bag'
-    }
-    return iconMap[category] || 'mdi-file-document'
-  }
-
-  const formatCategoryName = category => {
+  /**
+   * Format category name: snake_case -> Title Case
+   */
+  function formatCategory(category) {
     return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatDate = dateString => {
-    if (!dateString) return 'Never'
-    return new Date(dateString).toLocaleString()
+  /**
+   * Get Vuetify color class for score value
+   */
+  function getScoreColorClass(score) {
+    if (score >= 7) return 'text-success'
+    if (score >= 2) return 'text-warning'
+    return 'text-info'
   }
 
-  const refreshScores = async () => {
-    refreshing.value = true
-    try {
-      await validationStore.validateEvidence(props.evidenceData, props.schemaId, 'scoring')
-      emit('score-updated', validationResult.value)
-    } catch (error) {
-      logger.error('Failed to refresh scores:', { error: error.message, stack: error.stack })
-    } finally {
-      refreshing.value = false
+  /**
+   * Get icon color for category (based on score)
+   */
+  function getCategoryIconColor(score) {
+    if (score >= 7) return 'success'
+    if (score >= 2) return 'warning'
+    return 'info'
+  }
+
+  /**
+   * Get icon for category based on name
+   */
+  function getCategoryIcon(category) {
+    const catLower = category.toLowerCase()
+
+    if (catLower.includes('genetic') || catLower.includes('gene')) {
+      return 'mdi-dna'
     }
-  }
 
-  const exportScores = async () => {
-    exporting.value = true
-    try {
-      // Create export data
-      const exportData = {
-        total_score: totalScore.value,
-        classification: classification.value,
-        score_calculations: scoreCalculations.value,
-        contradictory_evidence: contradictoryEvidence.value,
-        scoring_engine: scoringEngine.value,
-        calculated_at: lastCalculated.value
-      }
-
-      // Create and download file
-      const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `evidence-scores-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-    } catch (error) {
-      logger.error('Failed to export scores:', { error: error.message, stack: error.stack })
-    } finally {
-      exporting.value = false
+    if (
+      catLower.includes('experimental') ||
+      catLower.includes('function') ||
+      catLower.includes('model')
+    ) {
+      return 'mdi-flask'
     }
+
+    if (catLower.includes('clinical') || catLower.includes('phenotype')) {
+      return 'mdi-hospital-box'
+    }
+
+    if (catLower.includes('qualitative') || catLower.includes('literature')) {
+      return 'mdi-chart-bar'
+    }
+
+    return 'mdi-chart-box'
   }
 
-  // Watch for evidence data changes and auto-refresh scores
-  watch(
-    () => props.evidenceData,
-    async newData => {
-      if (props.autoRefresh && newData && Object.keys(newData).length > 0) {
-        try {
-          await validationStore.validateEvidence(newData, props.schemaId, 'scoring')
-          emit('score-updated', validationResult.value)
+  /**
+   * Get icon for classification level
+   */
+  function getClassificationIcon(cls) {
+    const clsLower = cls.toLowerCase()
 
-          if (classification.value) {
-            emit('classification-changed', classification.value)
-          }
-        } catch (error) {
-          logger.error('Auto-refresh scoring failed:', { error: error.message, stack: error.stack })
-        }
-      }
-    },
-    { deep: true }
-  )
+    if (clsLower.includes('definitive') || clsLower.includes('strong')) {
+      return 'mdi-check-circle'
+    }
+
+    if (clsLower.includes('moderate')) {
+      return 'mdi-check'
+    }
+
+    if (clsLower.includes('limited') || clsLower.includes('disputed')) {
+      return 'mdi-alert'
+    }
+
+    return 'mdi-minus-circle'
+  }
+
+  /**
+   * Get color for a specific classification level (for threshold display)
+   */
+  function getClassificationColorForLevel(level) {
+    const levelLower = level.toLowerCase()
+
+    if (levelLower.includes('definitive') || levelLower.includes('strong')) {
+      return 'success'
+    }
+
+    if (levelLower.includes('moderate')) {
+      return 'info'
+    }
+
+    if (levelLower.includes('limited') || levelLower.includes('disputed')) {
+      return 'warning'
+    }
+
+    return 'grey'
+  }
 </script>
 
 <style scoped>
-  .border-primary {
-    border-color: rgb(var(--v-theme-primary)) !important;
+  /* Gap utility */
+  .gap-2 {
+    gap: 8px;
   }
 
-  .border-warning {
-    border-color: rgb(var(--v-theme-warning)) !important;
+  /* Smooth transitions for score changes (300ms per CONTEXT.md) */
+  .text-h2 {
+    transition:
+      color 0.3s ease,
+      transform 0.3s ease;
+  }
+
+  .score-value {
+    transition: color 0.3s ease;
+  }
+
+  :deep(.v-progress-linear) {
+    transition: all 0.3s ease;
+  }
+
+  /* Prevent layout shift during transitions */
+  .text-h2 {
+    min-width: 80px;
+    text-align: center;
   }
 </style>

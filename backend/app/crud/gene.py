@@ -352,8 +352,10 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
     def get_statistics(
         self, db: Session, *, scope_id: UUID | None = None
     ) -> dict[str, Any]:
-        """Get gene database statistics."""
+        """Get gene database statistics with curation-focused metrics."""
         from datetime import datetime, timedelta
+
+        from app.models import ActiveCuration, Scope
 
         base_stmt = select(Gene)
 
@@ -368,35 +370,74 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
                 ),
             )
 
-        # Total genes
+        # Total genes in database
         total_genes = (
             db.execute(select(func.count()).select_from(base_stmt.subquery())).scalar()
             or 0
         )
 
-        # Recent additions (last 30 days)
+        # ---- Curation-focused statistics ----
+
+        # Count genes with active (non-archived) curations
+        curated_genes_count = (
+            db.execute(
+                select(func.count(func.distinct(ActiveCuration.gene_id))).where(
+                    ActiveCuration.archived_at.is_(None)
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Count total active curations
+        active_curations_count = (
+            db.execute(
+                select(func.count(ActiveCuration.id)).where(
+                    ActiveCuration.archived_at.is_(None)
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Count scopes with active curations
+        scopes_with_curations = (
+            db.execute(
+                select(func.count(func.distinct(ActiveCuration.scope_id))).where(
+                    ActiveCuration.archived_at.is_(None)
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Count total scopes
+        total_scopes = db.execute(select(func.count(Scope.id))).scalar() or 0
+
+        # Recent curations activated (last 30 days)
         thirty_days_ago = datetime.utcnow() - timedelta(days=30)
-        recent_additions = (
+        recent_curations = (
             db.execute(
-                select(func.count()).select_from(
-                    base_stmt.where(Gene.created_at >= thirty_days_ago).subquery()
+                select(func.count(ActiveCuration.id)).where(
+                    and_(
+                        ActiveCuration.archived_at.is_(None),
+                        ActiveCuration.activated_at >= thirty_days_ago,
+                    )
                 )
             ).scalar()
             or 0
         )
 
-        # Updated last week
-        week_ago = datetime.utcnow() - timedelta(days=7)
-        updated_last_week = (
+        # Curations pending review (workflow stage = review)
+        from app.models import WorkflowStage
+
+        pending_review_count = (
             db.execute(
-                select(func.count()).select_from(
-                    base_stmt.where(Gene.updated_at >= week_ago).subquery()
+                select(func.count(CurationNew.id)).where(
+                    CurationNew.workflow_stage == WorkflowStage.REVIEW
                 )
             ).scalar()
             or 0
         )
 
-        # Genes with detailed information
+        # ---- Gene database statistics (kept for admin use) ----
         genes_with_details = (
             db.execute(
                 select(func.count()).select_from(
@@ -442,9 +483,15 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
 
         result = {
             "scope_id": scope_id,
+            # Curation-focused stats (primary)
+            "curated_genes": curated_genes_count,
+            "active_curations": active_curations_count,
+            "scopes_with_curations": scopes_with_curations,
+            "total_scopes": total_scopes,
+            "recent_curations": recent_curations,
+            "pending_review": pending_review_count,
+            # Gene database stats (secondary, for admin)
             "total_genes": total_genes,
-            "recent_additions": recent_additions,
-            "updated_last_week": updated_last_week,
             "genes_with_details": genes_with_details,
             **assignment_stats,
         }

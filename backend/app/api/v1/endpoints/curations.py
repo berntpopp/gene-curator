@@ -18,17 +18,20 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.curation import curation_crud
-from app.models import CurationStatus, UserNew
+from app.crud.precuration import precuration_crud
+from app.models import CurationNew, CurationStatus, UserNew
 from app.schemas.curation import (
     Curation,
     CurationConflictResponse,
     CurationCreate,
+    CurationDetail,
     CurationDraftSave,
     CurationListResponse,
     CurationScoreResponse,
     CurationSubmit,
     CurationUpdate,
 )
+from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 logger = get_logger(__name__)
@@ -39,21 +42,109 @@ logger = get_logger(__name__)
 # ========================================
 
 
+def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | None:
+    """Get user's role for a specific scope from scope_memberships."""
+    from app.models import ScopeMembership
+
+    membership = (
+        db.query(ScopeMembership)
+        .filter(
+            ScopeMembership.user_id == user_id,
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.is_active,
+        )
+        .first()
+    )
+    return membership.role if membership else None
+
+
+def _can_user_edit_curation(
+    db: Session, user: UserNew, curation: "CurationNew"
+) -> bool:
+    """Check if user can edit this curation."""
+    # Admin can edit draft/rejected curations regardless of scope role
+    if user.role == "admin":
+        return curation.status in [CurationStatus.DRAFT, CurationStatus.REJECTED]
+
+    # Must be editable status
+    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+        return False
+
+    # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
+    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
+    return scope_role in ["admin", "curator"]
+
+
+def _can_user_review_curation(
+    db: Session, user: UserNew, curation: "CurationNew"
+) -> bool:
+    """
+    Check if user can review (approve/reject) this curation.
+    Enforces 4-eyes principle: user cannot review their own work.
+    """
+    # Cannot review own work (4-eyes principle)
+    if curation.created_by == user.id:
+        return False
+
+    # Must be in review status/stage
+    if curation.status != CurationStatus.SUBMITTED:
+        return False
+
+    # Admin can always review (others' work)
+    if user.role == "admin":
+        return True
+
+    # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
+    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
+    return scope_role in ["admin", "curator", "reviewer"]
+
+
+def _can_user_delete_curation(
+    db: Session, user: UserNew, curation: "CurationNew"
+) -> bool:
+    """Check if user can delete this curation."""
+    # Admin can delete anything
+    if user.role == "admin":
+        return True
+
+    # Only drafts can be deleted by non-admins
+    if curation.status != CurationStatus.DRAFT:
+        return False
+
+    # Creator can delete their own drafts
+    if curation.created_by == user.id:
+        return True
+
+    # Scope admin (admin role within scope) can delete drafts in their scope
+    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
+    return scope_role == "admin"
+
+
 def _check_scope_access(
+    db: Session,
     current_user: UserNew,
     scope_id: UUID,
     action: str = "access",
 ) -> None:
     """
-    Check if user has access to the specified scope.
+    Check if user has access to the specified scope using ScopePermissionService.
     Raises HTTPException if access denied.
-    Matches pattern from gene_assignments.py and workflow.py.
+    Uses scope_memberships table for proper scope-specific role checking.
     """
     if current_user.role == "admin":
         return  # Admin bypasses scope checks
 
-    user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-    if scope_id not in user_scope_ids:
+    # Use ScopePermissionService to check membership via scope_memberships table
+    from app.models import Scope
+
+    scope = db.query(Scope).filter(Scope.id == scope_id).first()
+    if not scope:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Scope not found",
+        )
+
+    if not ScopePermissionService.can_view_scope(db, current_user, scope):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=f"Not authorized to {action} curations in this scope",
@@ -91,23 +182,28 @@ def list_curations(
     # Set RLS context for current user
     set_rls_context(db, current_user)
 
-    # Determine scope filtering (matches workflow.py and genes.py pattern)
+    # Determine scope filtering using scope_memberships
+    from app.models import ScopeMembership
+
     scope_ids = None
     if current_user.role != "admin" and not scope_id:
-        # Non-admin without specific scope: filter to their scopes
-        scope_ids = current_user.assigned_scopes or []
+        # Non-admin without specific scope: filter to their scopes from memberships
+        memberships = (
+            db.query(ScopeMembership.scope_id)
+            .filter(
+                ScopeMembership.user_id == current_user.id,
+                ScopeMembership.is_active,
+            )
+            .all()
+        )
+        scope_ids = [m.scope_id for m in memberships]
         if not scope_ids:
-            # User has no scopes assigned
+            # User has no scope memberships
             return CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
 
-    # If specific scope requested, verify access
+    # If specific scope requested, verify access via membership
     if scope_id and current_user.role != "admin":
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions",
-            )
+        _check_scope_access(db, current_user, scope_id, "list")
 
     summaries, total = curation_crud.get_multi_filtered(
         db,
@@ -128,14 +224,14 @@ def list_curations(
     )
 
 
-@router.get("/{curation_id}", response_model=Curation)
+@router.get("/{curation_id}", response_model=CurationDetail)
 @api_endpoint()
 def get_curation(
     curation_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation:
-    """Get a single curation by ID."""
+) -> CurationDetail:
+    """Get a single curation by ID with expanded relations."""
     # Set RLS context
     set_rls_context(db, current_user)
 
@@ -147,16 +243,42 @@ def get_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access (matches gene_assignments.py pattern)
-    if current_user.role != "admin":
-        user_scope_ids: list[UUID] = current_user.assigned_scopes or []
-        if curation.scope_id not in user_scope_ids:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not enough permissions",
-            )
+    # Verify scope access using scope_memberships
+    if current_user.role != "admin" and not ScopePermissionService.can_view_curation(
+        db, current_user, curation
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this scope",
+        )
 
-    return Curation.model_validate(curation)
+    # If no precuration linked, try to find approved one for this gene+scope
+    # Note: We use db.expire() to prevent the temporary assignment from being
+    # persisted, avoiding unintended flush/side effects in the session
+    effective_precuration = curation.precuration
+    if not effective_precuration:
+        approved_precuration = precuration_crud.get_approved_for_gene_scope(
+            db, curation.gene_id, curation.scope_id
+        )
+        if approved_precuration:
+            effective_precuration = approved_precuration
+            # Temporarily attach for serialization (will be expired after)
+            curation.precuration = approved_precuration
+
+    # Build response with permission flags
+    response = CurationDetail.from_orm_with_relations(curation)
+
+    # Expire the precuration relationship to prevent unintended flush/side effects
+    # This ensures the temporary assignment doesn't persist to the database
+    if effective_precuration and effective_precuration != curation.precuration:
+        db.expire(curation, ["precuration"])
+
+    # Compute user permissions for this curation based on scope-specific roles
+    response.can_edit = _can_user_edit_curation(db, current_user, curation)
+    response.can_review = _can_user_review_curation(db, current_user, curation)
+    response.can_delete = _can_user_delete_curation(db, current_user, curation)
+
+    return response
 
 
 # ========================================
@@ -178,8 +300,8 @@ def create_curation(
     # Set RLS context
     set_rls_context(db, current_user)
 
-    # Verify scope access (matches gene_assignments.py pattern)
-    _check_scope_access(current_user, curation_in.scope_id, "create")
+    # Verify scope access using scope_memberships
+    _check_scope_access(db, current_user, curation_in.scope_id, "create")
 
     try:
         curation = curation_crud.create_curation(
@@ -228,8 +350,8 @@ def update_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access
-    _check_scope_access(current_user, curation.scope_id, "update")
+    # Verify scope access using scope_memberships
+    _check_scope_access(db, current_user, curation.scope_id, "update")
 
     # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -379,8 +501,8 @@ def calculate_score(
             detail="Curation not found",
         )
 
-    # Verify scope access
-    _check_scope_access(current_user, curation.scope_id, "calculate score for")
+    # Verify scope access using scope_memberships
+    _check_scope_access(db, current_user, curation.scope_id, "calculate score for")
 
     return curation_crud.calculate_score(db, curation)
 
@@ -404,8 +526,8 @@ def delete_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access
-    _check_scope_access(current_user, curation.scope_id, "delete")
+    # Verify scope access using scope_memberships
+    _check_scope_access(db, current_user, curation.scope_id, "delete")
 
     # Only allow deletion of drafts (or by admin)
     if curation.status != CurationStatus.DRAFT and current_user.role != "admin":

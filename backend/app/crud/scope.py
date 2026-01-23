@@ -13,10 +13,12 @@ from app.crud.base import CRUDBase
 from app.models import (
     ActiveCuration,
     CurationNew,
+    CurationStatus,
     GeneScopeAssignment,
     PrecurationNew,
     Review,
     Scope,
+    ScopeMembership,
     UserNew,
     WorkflowPair,
 )
@@ -124,6 +126,72 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
+    def get_multi_with_counts(
+        self,
+        db: Session,
+        *,
+        skip: int = 0,
+        limit: int = 100,
+        active_only: bool = True,
+        institution: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Get multiple scopes with gene and member counts."""
+        stmt = select(Scope)
+
+        if active_only:
+            stmt = stmt.where(Scope.is_active)
+
+        if institution:
+            stmt = stmt.where(Scope.institution == institution)
+
+        scopes = db.execute(stmt.offset(skip).limit(limit)).scalars().all()
+
+        result = []
+        for scope in scopes:
+            # Get gene count for this scope
+            gene_count = (
+                db.execute(
+                    select(func.count(GeneScopeAssignment.id)).where(
+                        GeneScopeAssignment.scope_id == scope.id,
+                        GeneScopeAssignment.is_active,
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Get member count for this scope
+            member_count = (
+                db.execute(
+                    select(func.count(ScopeMembership.id)).where(
+                        ScopeMembership.scope_id == scope.id,
+                        ScopeMembership.is_active,
+                        ScopeMembership.accepted_at.isnot(None),
+                    )
+                ).scalar()
+                or 0
+            )
+
+            # Convert scope to dict and add counts
+            scope_dict = {
+                "id": scope.id,
+                "name": scope.name,
+                "display_name": scope.display_name,
+                "description": scope.description,
+                "institution": scope.institution,
+                "is_public": scope.is_public,
+                "scope_config": scope.scope_config,
+                "is_active": scope.is_active,
+                "default_workflow_pair_id": scope.default_workflow_pair_id,
+                "created_at": scope.created_at,
+                "updated_at": scope.updated_at,
+                "created_by": scope.created_by,
+                "gene_count": gene_count,
+                "member_count": member_count,
+            }
+            result.append(scope_dict)
+
+        return result
+
     def get_user_scopes(
         self, db: Session, *, user_scope_ids: list[UUID], active_only: bool = True
     ) -> Sequence[Scope]:
@@ -193,10 +261,12 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             or 0
         )
 
+        # Count curations excluding archived
         curation_count = (
             db.execute(
                 select(func.count(CurationNew.id)).where(
-                    CurationNew.scope_id == scope_id
+                    CurationNew.scope_id == scope_id,
+                    CurationNew.status != CurationStatus.ARCHIVED,
                 )
             ).scalar()
             or 0
@@ -265,8 +335,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         # Team metrics
         # Total scope members (from scope_memberships table)
-        from app.models import ScopeMembership
-
         member_count = (
             db.execute(
                 select(func.count(ScopeMembership.id)).where(
@@ -414,68 +482,105 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         return result
 
     def assign_users(self, db: Session, *, scope_id: UUID, user_ids: list[UUID]) -> int:
-        """Assign users to a scope."""
+        """Assign users to a scope via scope_memberships table."""
+        from datetime import UTC, datetime
+
         assigned_count = 0
 
         for user_id in user_ids:
+            # Check if user exists
             user = (
                 db.execute(select(UserNew).where(UserNew.id == user_id))
                 .scalars()
                 .first()
             )
-            if user:
-                # Add scope to user's assigned_scopes if not already there
-                current_scopes: list[UUID] = user.assigned_scopes or []
-                if scope_id not in current_scopes:
-                    current_scopes.append(scope_id)
-                    user.assigned_scopes = current_scopes
+            if not user:
+                continue
+
+            # Check if membership already exists
+            existing = (
+                db.execute(
+                    select(ScopeMembership).where(
+                        ScopeMembership.scope_id == scope_id,
+                        ScopeMembership.user_id == user_id,
+                    )
+                )
+                .scalars()
+                .first()
+            )
+
+            if existing:
+                # Reactivate if inactive
+                if not existing.is_active:
+                    existing.is_active = True
+                    existing.accepted_at = datetime.now(UTC)
                     assigned_count += 1
+            else:
+                # Create new membership with default role 'viewer'
+                membership = ScopeMembership(
+                    scope_id=scope_id,
+                    user_id=user_id,
+                    role="viewer",
+                    is_active=True,
+                    invited_at=datetime.now(UTC),
+                    accepted_at=datetime.now(UTC),
+                )
+                db.add(membership)
+                assigned_count += 1
 
         db.commit()
         return assigned_count
 
     def remove_users(self, db: Session, *, scope_id: UUID, user_ids: list[UUID]) -> int:
-        """Remove users from a scope."""
+        """Remove users from a scope via scope_memberships table (soft delete)."""
         removed_count = 0
 
         for user_id in user_ids:
-            user = (
-                db.execute(select(UserNew).where(UserNew.id == user_id))
+            # Find active membership
+            membership = (
+                db.execute(
+                    select(ScopeMembership).where(
+                        ScopeMembership.scope_id == scope_id,
+                        ScopeMembership.user_id == user_id,
+                        ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+                    )
+                )
                 .scalars()
                 .first()
             )
-            if user and user.assigned_scopes:
-                # Remove scope from user's assigned_scopes
-                current_scopes = user.assigned_scopes
-                if scope_id in current_scopes:
-                    current_scopes.remove(scope_id)
-                    user.assigned_scopes = current_scopes
-                    removed_count += 1
+
+            if membership:
+                # Soft delete the membership
+                membership.is_active = False
+                removed_count += 1
 
         db.commit()
         return removed_count
 
     def get_scope_users(self, db: Session, *, scope_id: UUID) -> list[dict[str, Any]]:
-        """Get users assigned to a scope."""
-        users = (
-            db.execute(
-                select(UserNew).where(
-                    UserNew.assigned_scopes.contains([str(scope_id)]), UserNew.is_active
-                )  # Fixed: use == instead of is
+        """Get users assigned to a scope via scope_memberships table."""
+        # Query users through scope_memberships join
+        memberships = db.execute(
+            select(ScopeMembership, UserNew)
+            .join(UserNew, ScopeMembership.user_id == UserNew.id)
+            .where(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+                ScopeMembership.accepted_at.isnot(None),
+                UserNew.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
             )
-            .scalars()
-            .all()
-        )
+        ).all()
 
         result = []
-        for user in users:
+        for membership, user in memberships:
             result.append(
                 {
                     "user_id": user.id,
                     "user_name": user.name,
                     "user_email": user.email,
                     "user_role": user.role,
-                    "assigned_at": user.created_at,  # Approximation
+                    "scope_role": membership.role,
+                    "assigned_at": membership.accepted_at or membership.invited_at,
                 }
             )
 

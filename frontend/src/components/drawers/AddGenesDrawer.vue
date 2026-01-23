@@ -5,16 +5,17 @@
     temporary
     width="600"
     class="add-genes-drawer"
+    @keydown.escape="close"
   >
-    <v-card flat>
-      <v-card-title class="d-flex align-center">
+    <div class="drawer-container">
+      <v-card-title class="drawer-header d-flex align-center">
         <v-icon start>mdi-dna</v-icon>
         Add Genes to Catalog
         <v-spacer />
         <v-btn icon="mdi-close" variant="text" aria-label="Close" @click="close" />
       </v-card-title>
 
-      <v-card-text>
+      <div class="drawer-content">
         <v-form ref="formRef" v-model="formValid" @submit.prevent="handleSubmit">
           <!-- Mode Selection -->
           <v-btn-toggle
@@ -128,9 +129,9 @@
             </v-alert>
           </div>
         </v-form>
-      </v-card-text>
+      </div>
 
-      <v-card-actions>
+      <div class="drawer-footer">
         <v-btn variant="outlined" @click="close"> Cancel </v-btn>
         <v-spacer />
         <v-btn
@@ -142,8 +143,8 @@
           <v-icon start>mdi-plus</v-icon>
           {{ mode === 'single' ? 'Add Gene' : `Add ${parsedGenesCount} Genes` }}
         </v-btn>
-      </v-card-actions>
-    </v-card>
+      </div>
+    </div>
   </v-navigation-drawer>
 </template>
 
@@ -361,6 +362,44 @@
 </script>
 
 <style scoped>
+  /* Ensure drawer doesn't overlap with page footer or header */
+  .add-genes-drawer {
+    top: 64px !important; /* Below app header */
+    bottom: 77px !important; /* Above page footer */
+    height: calc(100vh - 64px - 77px) !important; /* Viewport minus header and footer */
+  }
+
+  /* Flex container for full-height drawer layout */
+  .drawer-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  /* Fixed header */
+  .drawer-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+
+  /* Scrollable content area */
+  .drawer-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+  }
+
+  /* Sticky footer */
+  .drawer-footer {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    padding: 16px;
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    background: rgb(var(--v-theme-surface));
+  }
+
   .add-genes-drawer .v-text-field,
   .add-genes-drawer .v-textarea {
     margin-bottom: 16px;

@@ -1,234 +1,319 @@
+<!--
+  GeneDetail View
+
+  Full page view displaying comprehensive HGNC gene information.
+  Fetches fresh data from HGNC API via backend proxy.
+
+  **Features**:
+  - Displays all available HGNC gene fields
+  - Organized into logical sections matching GeneDetailModal design
+  - Loading state while fetching
+  - Error handling for failed fetches
+  - External link to HGNC website
+  - Shows local database metadata (created/updated dates)
+
+  @example
+  // Route: /genes/:id
+-->
+
 <template>
-  <div>
-    <v-container v-if="loading" class="loading-container">
+  <v-container>
+    <!-- Loading State -->
+    <div v-if="loading" class="d-flex flex-column align-center py-16">
       <v-progress-circular indeterminate color="primary" size="64" />
-      <p class="mt-4 text-h6">Loading gene details...</p>
-    </v-container>
+      <div class="text-body-1 text-medium-emphasis mt-6">Loading gene information...</div>
+    </div>
 
-    <v-container v-else-if="error" class="error-container">
-      <v-alert type="error" variant="tonal" class="mb-4">
-        {{ error }}
-      </v-alert>
-      <v-btn :to="{ name: 'Genes' }" color="primary"> Back to Genes </v-btn>
-    </v-container>
+    <!-- Error State -->
+    <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
+      <v-alert-title>Failed to load gene information</v-alert-title>
+      {{ error }}
+      <template #append>
+        <v-btn :to="{ name: 'Genes' }" variant="text" color="error"> Back to Genes </v-btn>
+      </template>
+    </v-alert>
 
-    <v-container v-else-if="gene">
+    <!-- Gene Information -->
+    <template v-else-if="localGene">
       <!-- Header -->
-      <v-row class="mb-6">
-        <v-col cols="12">
-          <div class="d-flex align-center mb-4">
-            <v-btn :to="{ name: 'Genes' }" icon="mdi-arrow-left" variant="text" class="mr-3" />
-            <div class="flex-grow-1">
-              <h1 class="text-h3 mb-2">{{ gene.approved_symbol }}</h1>
-              <p class="text-subtitle-1 text-medium-emphasis">
-                {{ gene.hgnc_id }} •
-                {{ gene.details?.gene_description || 'No description available' }}
-              </p>
-            </div>
-            <div v-if="authStore.isCurator">
-              <v-btn color="primary" prepend-icon="mdi-pencil" @click="editGene"> Edit Gene </v-btn>
-            </div>
+      <div class="d-flex align-center mb-6">
+        <v-btn :to="{ name: 'Genes' }" icon="mdi-arrow-left" variant="text" class="mr-3" />
+        <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
+        <div class="flex-grow-1">
+          <div class="d-flex align-center">
+            <h1 class="text-h4 font-weight-bold">
+              {{ hgncData?.symbol || localGene.approved_symbol }}
+            </h1>
+            <v-chip
+              v-if="hgncData?.status"
+              :color="hgncData.status === 'Approved' ? 'success' : 'grey'"
+              size="small"
+              variant="tonal"
+              class="ml-3"
+            >
+              {{ hgncData.status }}
+            </v-chip>
           </div>
-        </v-col>
-      </v-row>
+          <p class="text-body-1 text-medium-emphasis mt-1">
+            {{ hgncData?.name || 'Loading gene details from HGNC...' }}
+          </p>
+        </div>
+      </div>
 
-      <!-- Basic Information -->
-      <v-row class="mb-6">
+      <v-row>
+        <!-- Main Content -->
         <v-col cols="12" lg="8">
+          <!-- Basic Information Section -->
           <v-card class="mb-4">
-            <v-card-title>
-              <v-icon start>mdi-information</v-icon>
+            <v-card-title class="d-flex align-center">
+              <v-icon start size="20">mdi-information</v-icon>
               Basic Information
             </v-card-title>
             <v-card-text>
-              <v-row>
-                <v-col cols="12" md="6">
-                  <InfoField label="HGNC ID" :value="gene.hgnc_id" />
-                  <InfoField label="Approved Symbol" :value="gene.approved_symbol" />
-                  <InfoField
-                    label="Previous Symbols"
-                    :value="gene.previous_symbols?.join(', ') || 'None'"
-                  />
-                  <InfoField
-                    label="Alias Symbols"
-                    :value="gene.alias_symbols?.join(', ') || 'None'"
-                  />
+              <v-row dense>
+                <v-col cols="6" sm="4">
+                  <div class="text-caption text-medium-emphasis">HGNC ID</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.hgnc_id || localGene.hgnc_id }}
+                  </div>
                 </v-col>
-                <v-col cols="12" md="6">
-                  <InfoField label="Chromosome" :value="gene.chromosome || 'Unknown'" />
-                  <InfoField label="Location" :value="gene.location || 'Unknown'" />
-                  <InfoField
-                    label="Gene Families"
-                    :value="gene.gene_family?.join(', ') || 'None'"
-                  />
-                  <InfoField
-                    label="Current Dyadic Name"
-                    :value="gene.current_dyadic_name || 'Not assigned'"
-                  />
+                <v-col cols="6" sm="4">
+                  <div class="text-caption text-medium-emphasis">Symbol</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.symbol || localGene.approved_symbol }}
+                  </div>
+                </v-col>
+                <v-col cols="12" sm="4">
+                  <div class="text-caption text-medium-emphasis">Locus Type</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.locus_type || '—' }}
+                  </div>
+                </v-col>
+                <v-col cols="12" class="mt-2">
+                  <div class="text-caption text-medium-emphasis">Full Name</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.name || '—' }}
+                  </div>
                 </v-col>
               </v-row>
             </v-card-text>
           </v-card>
-        </v-col>
 
-        <!-- Quick Stats -->
-        <v-col cols="12" lg="4">
+          <!-- Location Section -->
           <v-card class="mb-4">
-            <v-card-title>
-              <v-icon start>mdi-chart-line</v-icon>
-              ClinGen Metrics
+            <v-card-title class="d-flex align-center">
+              <v-icon start size="20">mdi-map-marker</v-icon>
+              Genomic Location
             </v-card-title>
             <v-card-text>
-              <div class="text-center">
-                <div
-                  class="text-h2 font-weight-bold mb-2"
-                  :class="getScoreColorClass(gene.details?.clingen_score)"
-                >
-                  {{ gene.details?.clingen_score ?? 'N/A' }}
-                </div>
-                <p class="text-body-1 mb-4">ClinGen Score</p>
+              <v-row dense>
+                <v-col cols="6">
+                  <div class="text-caption text-medium-emphasis">Chromosome</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.chromosome || localGene.chromosome || '—' }}
+                  </div>
+                </v-col>
+                <v-col cols="6">
+                  <div class="text-caption text-medium-emphasis">Cytogenetic Band</div>
+                  <div class="font-weight-medium">
+                    {{ hgncData?.location || localGene.location || '—' }}
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card-text>
+          </v-card>
 
-                <v-divider class="my-4" />
+          <!-- Aliases Section -->
+          <v-card class="mb-4">
+            <v-card-title class="d-flex align-center">
+              <v-icon start size="20">mdi-tag-multiple</v-icon>
+              Alternative Names
+            </v-card-title>
+            <v-card-text>
+              <template v-if="hasAliases">
+                <v-row dense>
+                  <v-col v-if="aliasSymbols?.length" cols="12" sm="6">
+                    <div class="text-caption text-medium-emphasis mb-2">Alias Symbols</div>
+                    <div class="d-flex flex-wrap gap-1">
+                      <v-chip
+                        v-for="alias in aliasSymbols"
+                        :key="alias"
+                        size="small"
+                        variant="outlined"
+                      >
+                        {{ alias }}
+                      </v-chip>
+                    </div>
+                  </v-col>
+                  <v-col v-if="previousSymbols?.length" cols="12" sm="6">
+                    <div class="text-caption text-medium-emphasis mb-2">Previous Symbols</div>
+                    <div class="d-flex flex-wrap gap-1">
+                      <v-chip
+                        v-for="prev in previousSymbols"
+                        :key="prev"
+                        size="small"
+                        variant="outlined"
+                        color="grey"
+                      >
+                        {{ prev }}
+                      </v-chip>
+                    </div>
+                  </v-col>
+                </v-row>
+              </template>
+              <div v-else class="text-body-2 text-medium-emphasis">
+                No alias or previous symbols recorded.
+              </div>
+            </v-card-text>
+          </v-card>
+        </v-col>
 
-                <div class="d-flex justify-space-between text-body-2">
-                  <span>pLI Score:</span>
-                  <span class="font-weight-medium">
-                    {{ gene.details?.pli_score ?? 'N/A' }}
-                  </span>
+        <!-- Sidebar -->
+        <v-col cols="12" lg="4">
+          <!-- External Links -->
+          <v-card class="mb-4">
+            <v-card-title class="d-flex align-center">
+              <v-icon start size="20">mdi-link-variant</v-icon>
+              External Links
+            </v-card-title>
+            <v-card-text>
+              <v-btn
+                v-if="hgncUrl"
+                :href="hgncUrl"
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="outlined"
+                color="primary"
+                block
+                class="mb-2"
+              >
+                <v-icon start>mdi-open-in-new</v-icon>
+                View on HGNC
+              </v-btn>
+              <div v-else class="text-body-2 text-medium-emphasis text-center py-2">
+                No external links available
+              </div>
+            </v-card-text>
+          </v-card>
+
+          <!-- Database Metadata -->
+          <v-card>
+            <v-card-title class="d-flex align-center">
+              <v-icon start size="20">mdi-database</v-icon>
+              Database Record
+            </v-card-title>
+            <v-card-text>
+              <div class="mb-3">
+                <div class="text-caption text-medium-emphasis">Record ID</div>
+                <div class="font-weight-medium text-truncate" :title="localGene.id">
+                  {{ localGene.id }}
                 </div>
-                <div class="d-flex justify-space-between text-body-2">
-                  <span>Constraint Score:</span>
-                  <span class="font-weight-medium">
-                    {{ gene.details?.constraint_score ?? 'N/A' }}
-                  </span>
+              </div>
+              <div class="mb-3">
+                <div class="text-caption text-medium-emphasis">Created</div>
+                <div class="font-weight-medium">
+                  {{ formatDate(localGene.created_at) }}
+                </div>
+              </div>
+              <div>
+                <div class="text-caption text-medium-emphasis">Last Updated</div>
+                <div class="font-weight-medium">
+                  {{ formatDate(localGene.updated_at) }}
                 </div>
               </div>
             </v-card-text>
           </v-card>
         </v-col>
       </v-row>
-
-      <!-- Extended Details -->
-      <v-row>
-        <v-col cols="12">
-          <v-card>
-            <v-card-title>
-              <v-icon start>mdi-details</v-icon>
-              Extended Details
-            </v-card-title>
-            <v-card-text>
-              <v-expansion-panels variant="accordion">
-                <!-- Gene Details -->
-                <v-expansion-panel>
-                  <v-expansion-panel-title>
-                    <v-icon start>mdi-dna</v-icon>
-                    Gene Details
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <v-row>
-                      <v-col cols="12" md="6">
-                        <InfoField
-                          label="Gene Type"
-                          :value="gene.details?.gene_type || 'Unknown'"
-                        />
-                        <InfoField label="OMIM ID" :value="gene.details?.omim_id || 'None'" />
-                        <InfoField label="Ensembl ID" :value="gene.details?.ensembl_id || 'None'" />
-                      </v-col>
-                      <v-col cols="12" md="6">
-                        <InfoField label="RefSeq ID" :value="gene.details?.refseq_id || 'None'" />
-                        <InfoField label="UniProt ID" :value="gene.details?.uniprot_id || 'None'" />
-                      </v-col>
-                    </v-row>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-
-                <!-- Panels -->
-                <v-expansion-panel v-if="gene.details?.panelapp_panels">
-                  <v-expansion-panel-title>
-                    <v-icon start>mdi-view-dashboard</v-icon>
-                    PanelApp Panels
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <v-chip
-                      v-for="panel in gene.details.panelapp_panels"
-                      :key="panel"
-                      class="ma-1"
-                      color="info"
-                      variant="tonal"
-                    >
-                      {{ panel }}
-                    </v-chip>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-
-                <!-- Metadata -->
-                <v-expansion-panel>
-                  <v-expansion-panel-title>
-                    <v-icon start>mdi-information-outline</v-icon>
-                    Metadata
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <v-row>
-                      <v-col cols="12" md="6">
-                        <InfoField label="Record Hash" :value="gene.record_hash" monospace />
-                        <InfoField label="Created" :value="formatDate(gene.created_at)" />
-                      </v-col>
-                      <v-col cols="12" md="6">
-                        <InfoField label="Last Updated" :value="formatDate(gene.updated_at)" />
-                        <InfoField label="Created By" :value="gene.created_by_email || 'Unknown'" />
-                      </v-col>
-                    </v-row>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
-  </div>
+    </template>
+  </v-container>
 </template>
 
 <script setup>
+  /**
+   * GeneDetail View
+   *
+   * Displays comprehensive gene information fetched from HGNC API,
+   * combined with local database metadata.
+   */
+
+  import { ref, computed, onMounted } from 'vue'
+  import { useRoute } from 'vue-router'
+  import { useGenesStore } from '@/stores/genes.js'
+  import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
 
-  const logger = useLogger()
-  import { ref, onMounted, computed } from 'vue'
-  import { useRoute, useRouter } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useGenesStore } from '@/stores/genes.js'
-  import { showError } from '@/composables/useNotifications.js'
-  import InfoField from '@/components/InfoField.vue'
-
   const route = useRoute()
-  const router = useRouter()
-  const authStore = useAuthStore()
   const genesStore = useGenesStore()
+  const logger = useLogger()
 
+  // State
   const loading = ref(true)
   const error = ref(null)
+  const hgncData = ref(null)
 
-  const gene = computed(() => genesStore.currentGene)
+  // Local gene data from database
+  const localGene = computed(() => genesStore.currentGene)
 
-  const getScoreColorClass = score => {
-    if (score === null || score === undefined) return 'text-medium-emphasis'
-    if (score >= 8) return 'text-success'
-    if (score >= 5) return 'text-warning'
-    if (score >= 2) return 'text-info'
-    return 'text-error'
-  }
+  // Computed properties for aliases (prefer HGNC data, fallback to local)
+  const aliasSymbols = computed(() => {
+    return hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
+  })
 
-  const formatDate = dateString => {
-    if (!dateString) return 'Unknown'
+  const previousSymbols = computed(() => {
+    return hgncData.value?.previous_symbols || localGene.value?.previous_symbols || []
+  })
+
+  const hasAliases = computed(() => {
+    return aliasSymbols.value?.length > 0 || previousSymbols.value?.length > 0
+  })
+
+  // HGNC external URL
+  const hgncUrl = computed(() => {
+    const hgncId = hgncData.value?.hgnc_id || localGene.value?.hgnc_id
+    if (!hgncId) return ''
+    const numericId = hgncId.replace('HGNC:', '')
+    return `https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:${numericId}`
+  })
+
+  /**
+   * Format date for display
+   */
+  function formatDate(dateString) {
+    if (!dateString) return '—'
     const date = new Date(dateString)
-    return date.toLocaleString()
+    return date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    })
   }
 
-  const editGene = () => {
-    router.push({
-      name: 'GeneAdmin',
-      query: { edit: gene.value.id }
-    })
+  /**
+   * Fetch HGNC data for the gene
+   */
+  async function fetchHgncData(hgncId) {
+    if (!hgncId) return
+
+    try {
+      const response = await externalValidationAPI.fetchHGNCGene(hgncId)
+
+      if (response.results && response.results.length > 0) {
+        hgncData.value = response.results[0]
+        logger.debug('HGNC data fetched', {
+          hgnc_id: hgncId,
+          symbol: hgncData.value.symbol
+        })
+      }
+    } catch (e) {
+      logger.warn('Failed to fetch HGNC data, using local data', {
+        hgnc_id: hgncId,
+        error: e.message
+      })
+      // Don't set error - we can still show local data
+    }
   }
 
   onMounted(async () => {
@@ -239,13 +324,26 @@
       const geneId = route.params.id
       await genesStore.fetchGeneById(geneId)
 
-      if (!gene.value) {
-        error.value = 'Gene not found'
+      if (!localGene.value) {
+        error.value = 'Gene not found in database'
+        return
       }
+
+      // Fetch HGNC data for enhanced information
+      if (localGene.value.hgnc_id) {
+        await fetchHgncData(localGene.value.hgnc_id)
+      }
+
+      logger.info('Gene details loaded', {
+        gene_id: geneId,
+        symbol: localGene.value.approved_symbol
+      })
     } catch (err) {
-      logger.error('Failed to load gene:', { error: err.message, stack: err.stack })
+      logger.error('Failed to load gene details', {
+        error: err.message,
+        stack: err.stack
+      })
       error.value = 'Failed to load gene details'
-      showError('Failed to load gene details')
     } finally {
       loading.value = false
     }
@@ -253,25 +351,7 @@
 </script>
 
 <style scoped>
-  .loading-container {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    min-height: 400px;
-  }
-
-  .error-container {
-    text-align: center;
-    padding: 2rem;
-  }
-
-  .font-monospace {
-    font-family: 'Courier New', monospace;
-    font-size: 0.875rem;
-  }
-
-  .v-expansion-panels {
-    border-radius: 8px;
+  .gap-1 {
+    gap: 4px;
   }
 </style>
