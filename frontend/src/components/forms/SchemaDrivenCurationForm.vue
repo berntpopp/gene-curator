@@ -2,7 +2,7 @@
   <ErrorBoundary @error="handleFormError">
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
-      v-if="isClinGenSchema && !loadingSchema"
+      v-if="!useDynamicForm && !loadingSchema"
       :curation-id="curationId"
       :gene="gene"
       :precuration-data="precurationData"
@@ -130,6 +130,7 @@
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
+  import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -195,10 +196,15 @@
   // Schema data
   const schema = computed(() => schemasStore.getSchemaById(props.schemaId))
 
-  // Detect ClinGen schemas for specialized form rendering
-  const isClinGenSchema = computed(() => {
+  // Determine form component based on feature flag
+  const useDynamicForm = computed(() => {
+    // Feature flag takes precedence
+    if (schema.value?.use_dynamic_form !== undefined) {
+      return schema.value.use_dynamic_form
+    }
+    // Fallback: non-ClinGen schemas always use DynamicForm
     const schemaName = schema.value?.name?.toLowerCase() || ''
-    return schemaName.includes('clingen') || schemaName.includes('sop')
+    return !schemaName.includes('clingen') && !schemaName.includes('sop')
   })
 
   // Evidence items for score preview (transform to expected format)
@@ -213,7 +219,7 @@
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
-    () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}`
+    () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}-v2`
   )
 
   const {
@@ -577,7 +583,14 @@
     try {
       const curation = await curationsStore.fetchCurationById(props.curationId)
       if (curation) {
-        evidenceData.value = curation.evidence_data || {}
+        // Auto-migrate legacy format if needed
+        if (isLegacyFormat(curation.evidence_data)) {
+          logger.info('Migrating legacy evidence_data format', { curationId: props.curationId })
+          evidenceData.value = migrateLegacyFormat(curation.evidence_data)
+        } else {
+          evidenceData.value = curation.evidence_data || {}
+        }
+
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
         curationStatus.value = curation.status || 'draft'
