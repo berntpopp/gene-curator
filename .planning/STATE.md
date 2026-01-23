@@ -9,19 +9,19 @@ See: .planning/PROJECT.md (updated 2026-01-22)
 
 ## Current Position
 
-Phase: 4 of 5 (Validation)
-Plan: 2 of 2
-Status: Phase verified and complete
-Last activity: 2026-01-23 — Phase 4 verified, 15/15 must-haves passed
+Phase: 5 of 5 (Scoring and Integration)
+Plan: 1 of 3
+Status: In progress
+Last activity: 2026-01-23 — Completed 05-01-PLAN.md
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 8
-- Average duration: 3 min 57 sec
-- Total execution time: 0.53 hours
+- Total plans completed: 9
+- Average duration: 4 min 0 sec
+- Total execution time: 0.60 hours
 
 **By Phase:**
 
@@ -31,10 +31,11 @@ Progress: [████████░░] 80%
 | 02-tab-structure | 2 | 8 min 47 sec | 4 min 24 sec |
 | 03-field-metadata | 2 | 7 min 4 sec | 3 min 32 sec |
 | 04-validation | 2 | 8 min 27 sec | 4 min 14 sec |
+| 05-scoring-and-integration | 1 | 4 min 38 sec | 4 min 38 sec |
 
 **Recent Trend:**
-- Last 5 plans: 03-01 (3 min 21 sec), 03-02 (3 min 43 sec), 04-01 (2 min 58 sec), 04-02 (5 min 29 sec)
-- Trend: Consistent mid-range performance, Phase 4 complete
+- Last 5 plans: 03-02 (3 min 43 sec), 04-01 (2 min 58 sec), 04-02 (5 min 29 sec), 05-01 (4 min 38 sec)
+- Trend: Consistent performance, Phase 5 started
 
 *Updated after each plan completion*
 
@@ -76,6 +77,11 @@ Recent decisions affecting current work:
 - [04-02]: Backend errors passed via error-messages prop (shown after client rules pass)
 - [04-02]: Clear backend error immediately on field value change for instant feedback
 - [04-02]: First error only for backend errors (consistent with client-side pattern)
+- [05-01]: Schema-agnostic design: no hardcoded engine checks, all derived from scoring_configuration
+- [05-01]: Sticky sidebar only on lg+ (1280px), static on mobile for better UX
+- [05-01]: Category icons based on name patterns: mdi-dna (genetic), mdi-flask (experimental), mdi-chart-bar (qualitative)
+- [05-01]: Near-threshold indicator when within 1 point of next classification level
+- [05-01]: Classification color mapping: Definitive/Strong=success, Moderate=info, Limited=warning, None=grey
 
 ### Pending Todos
 
@@ -88,13 +94,12 @@ None.
 ## Session Continuity
 
 Last session: 2026-01-23
-Stopped at: Phase 4 verified and complete, ready for Phase 5
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
 
-Phase 4 complete:
-- Client-side validation with 7 rule types (04-01)
-- Backend error display with tab badges (04-02)
-- Form submission blocking and error navigation (04-02)
-- 75 total test cases passing (62 + 13)
-- Verification: 15/15 must-haves confirmed
-- Ready for Phase 5 (Scoring and Integration)
+Phase 5 in progress:
+- Plan 05-01 complete: Schema-agnostic score sidebar with live updates (4 min 38 sec)
+- useSchemaScoring composable for multi-engine scoring
+- ScoreDisplay component with sticky sidebar integration
+- DynamicForm responsive layout (8/4 split on desktop, full-width on mobile)
+- Ready for plan 05-02: Multi-engine testing
