@@ -20,11 +20,6 @@ describe('useSchemaScoring', () => {
     }
   }
 
-  const genccScores = {
-    supporting_score: 3,
-    moderate_score: 2
-  }
-
   const genccConfig = {
     engine: 'gencc',
     max_score: 8,
