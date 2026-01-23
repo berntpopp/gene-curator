@@ -148,3 +148,14 @@ class GeneCatalogueFilters(BaseModel):
     sort_order: str = Field(default="asc", description="Sort order: asc or desc")
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ScopeFilterOption(BaseModel):
+    """Scope option for catalogue filter dropdowns."""
+
+    id: str = Field(..., description="Scope UUID as string")
+    name: str = Field(..., description="Scope slug (e.g., kidney-genetics)")
+    display_name: str = Field(..., description="Human-readable scope name")
+    is_active: bool = Field(default=True, description="Whether scope is active")
+
+    model_config = ConfigDict(from_attributes=True)

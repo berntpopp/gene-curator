@@ -62,7 +62,7 @@ def _can_user_edit_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
     """Check if user can edit this curation."""
-    # Admin can always edit
+    # Admin can edit draft/rejected curations regardless of scope role
     if user.role == "admin":
         return curation.status in [CurationStatus.DRAFT, CurationStatus.REJECTED]
 
@@ -249,20 +249,29 @@ def get_curation(
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not enough permissions",
+            detail="Not authorized to access this scope",
         )
 
     # If no precuration linked, try to find approved one for this gene+scope
-    if not curation.precuration:
+    # Note: We use db.expire() to prevent the temporary assignment from being
+    # persisted, avoiding unintended flush/side effects in the session
+    effective_precuration = curation.precuration
+    if not effective_precuration:
         approved_precuration = precuration_crud.get_approved_for_gene_scope(
             db, curation.gene_id, curation.scope_id
         )
         if approved_precuration:
-            # Temporarily attach for serialization
+            effective_precuration = approved_precuration
+            # Temporarily attach for serialization (will be expired after)
             curation.precuration = approved_precuration
 
     # Build response with permission flags
     response = CurationDetail.from_orm_with_relations(curation)
+
+    # Expire the precuration relationship to prevent unintended flush/side effects
+    # This ensures the temporary assignment doesn't persist to the database
+    if effective_precuration and effective_precuration != curation.precuration:
+        db.expire(curation, ["precuration"])
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)

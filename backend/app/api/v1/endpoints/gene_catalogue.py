@@ -22,6 +22,7 @@ from app.crud import gene_catalogue as catalogue_crud
 from app.schemas.gene_catalogue import (
     GeneCatalogueFilters,
     GeneCatalogueResponse,
+    ScopeFilterOption,
 )
 
 router = APIRouter()
@@ -117,11 +118,11 @@ def get_available_diseases(
     return catalogue_crud.get_available_diseases(db, limit=limit)
 
 
-@router.get("/filters/scopes", response_model=list[dict[str, str | bool]])
+@router.get("/filters/scopes", response_model=list[ScopeFilterOption])
 @api_endpoint()
 def get_available_scopes(
     db: Session = Depends(get_db),
-) -> list[dict[str, str | bool]]:
+) -> list[ScopeFilterOption]:
     """
     Get scopes available for filtering.
 
@@ -129,4 +130,5 @@ def get_available_scopes(
 
     Public endpoint - no authentication required.
     """
-    return catalogue_crud.get_available_scopes_for_catalogue(db)
+    scopes_data = catalogue_crud.get_available_scopes_for_catalogue(db)
+    return [ScopeFilterOption(**scope) for scope in scopes_data]
