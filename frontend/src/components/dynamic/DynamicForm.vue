@@ -1,187 +1,183 @@
 <template>
   <v-form ref="formRef" @submit.prevent="handleSubmit">
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-form-select</v-icon>
-        {{ title }}
-      </v-card-title>
+    <v-row>
+      <!-- Main form content -->
+      <v-col cols="12" :lg="showScoring ? 8 : 12">
+        <v-card>
+          <v-card-title class="d-flex align-center">
+            <v-icon start>mdi-form-select</v-icon>
+            {{ title }}
+          </v-card-title>
 
-      <v-card-text>
-        <div v-if="loading" class="text-center py-8">
-          <v-progress-circular indeterminate color="primary" />
-          <div class="mt-4">Loading form schema...</div>
-        </div>
+          <v-card-text>
+            <div v-if="loading" class="text-center py-8">
+              <v-progress-circular indeterminate color="primary" />
+              <div class="mt-4">Loading form schema...</div>
+            </div>
 
-        <!-- Tabbed Layout -->
-        <div v-else-if="hasTabs">
-          <v-tabs v-model="activeTab" show-arrows color="primary" density="comfortable">
-            <v-tab v-for="tab in validTabs" :key="tab.id" :value="tab.id">
-              <v-icon v-if="tab.icon" :icon="tab.icon" start />
-              {{ tab.name }}
-              <v-chip
-                v-if="tab.show_score_badge && tabScores[tab.id] !== undefined"
-                :color="getScoreColor(tabScores[tab.id])"
-                size="small"
-                variant="flat"
-                class="ml-2"
-              >
-                {{ tabScores[tab.id] }}
-              </v-chip>
-              <!-- Error badge -->
-              <v-badge v-if="tabValidationErrors[tab.id]" color="error" dot inline class="ml-2" />
-            </v-tab>
-          </v-tabs>
+            <!-- Tabbed Layout -->
+            <div v-else-if="hasTabs">
+              <v-tabs v-model="activeTab" show-arrows color="primary" density="comfortable">
+                <v-tab v-for="tab in validTabs" :key="tab.id" :value="tab.id">
+                  <v-icon v-if="tab.icon" :icon="tab.icon" start />
+                  {{ tab.name }}
+                  <v-chip
+                    v-if="tab.show_score_badge && tabScores[tab.id] !== undefined"
+                    :color="getScoreColor(tabScores[tab.id])"
+                    size="small"
+                    variant="flat"
+                    class="ml-2"
+                  >
+                    {{ tabScores[tab.id] }}
+                  </v-chip>
+                  <!-- Error badge -->
+                  <v-badge
+                    v-if="tabValidationErrors[tab.id]"
+                    color="error"
+                    dot
+                    inline
+                    class="ml-2"
+                  />
+                </v-tab>
+              </v-tabs>
 
-          <v-window v-model="activeTab" :touch="{ left: nextTab, right: prevTab }">
-            <v-window-item v-for="tab in validTabs" :key="tab.id" :value="tab.id">
-              <KeepAlive>
-                <TabContent
-                  :tab="tab"
-                  :schema="jsonSchema"
-                  :form-data="formData"
-                  :validation-result="validationResult"
-                  :backend-errors="backendErrors"
-                  :readonly="readonly"
-                  @update:field="handleTabFieldUpdate"
-                  @clear-backend-error="clearFieldBackendError"
-                />
-              </KeepAlive>
-            </v-window-item>
-          </v-window>
-        </div>
+              <v-window v-model="activeTab" :touch="{ left: nextTab, right: prevTab }">
+                <v-window-item v-for="tab in validTabs" :key="tab.id" :value="tab.id">
+                  <KeepAlive>
+                    <TabContent
+                      :tab="tab"
+                      :schema="jsonSchema"
+                      :form-data="formData"
+                      :validation-result="validationResult"
+                      :backend-errors="backendErrors"
+                      :readonly="readonly"
+                      @update:field="handleTabFieldUpdate"
+                      @clear-backend-error="clearFieldBackendError"
+                    />
+                  </KeepAlive>
+                </v-window-item>
+              </v-window>
+            </div>
 
-        <!-- Flat Fallback -->
-        <div v-else-if="jsonSchema && jsonSchema.properties">
-          <v-row>
-            <v-col
-              v-for="(field, fieldName) in jsonSchema.properties"
-              :key="fieldName"
-              :cols="getFieldCols(field)"
+            <!-- Flat Fallback -->
+            <div v-else-if="jsonSchema && jsonSchema.properties">
+              <v-row>
+                <v-col
+                  v-for="(field, fieldName) in jsonSchema.properties"
+                  :key="fieldName"
+                  :cols="getFieldCols(field)"
+                >
+                  <DynamicField
+                    :field-name="fieldName"
+                    :field-schema="field"
+                    :model-value="formData[fieldName]"
+                    :validation-result="getFieldValidation(fieldName)"
+                    :backend-errors="backendErrors[fieldName] || []"
+                    :disabled="readonly"
+                    @update:model-value="updateField(fieldName, $event)"
+                    @validate="validateField(fieldName, $event)"
+                    @clear-backend-error="clearFieldBackendError(fieldName)"
+                  />
+                </v-col>
+              </v-row>
+            </div>
+
+            <v-alert v-else-if="error" type="error" variant="tonal">
+              <template #prepend>
+                <v-icon>mdi-alert-circle</v-icon>
+              </template>
+              Failed to load form schema: {{ error }}
+            </v-alert>
+
+            <!-- Validation Errors (shown for both layouts) -->
+            <v-alert
+              v-if="validationResult && !validationResult.is_valid"
+              type="error"
+              variant="tonal"
+              class="mt-4"
             >
-              <DynamicField
-                :field-name="fieldName"
-                :field-schema="field"
-                :model-value="formData[fieldName]"
-                :validation-result="getFieldValidation(fieldName)"
-                :backend-errors="backendErrors[fieldName] || []"
-                :disabled="readonly"
-                @update:model-value="updateField(fieldName, $event)"
-                @validate="validateField(fieldName, $event)"
-                @clear-backend-error="clearFieldBackendError(fieldName)"
-              />
-            </v-col>
-          </v-row>
-        </div>
+              <template #prepend>
+                <v-icon>mdi-alert-circle</v-icon>
+              </template>
+              <div class="font-weight-medium mb-2">Form Validation Errors</div>
+              <ul class="pl-4">
+                <li v-for="error in validationResult.errors" :key="error.field">
+                  <strong>{{ error.field }}:</strong> {{ error.message }}
+                </li>
+              </ul>
+            </v-alert>
 
-        <v-alert v-else-if="error" type="error" variant="tonal">
-          <template #prepend>
-            <v-icon>mdi-alert-circle</v-icon>
-          </template>
-          Failed to load form schema: {{ error }}
-        </v-alert>
-
-        <!-- Validation Errors (shown for both layouts) -->
-        <v-alert
-          v-if="validationResult && !validationResult.is_valid"
-          type="error"
-          variant="tonal"
-          class="mt-4"
-        >
-          <template #prepend>
-            <v-icon>mdi-alert-circle</v-icon>
-          </template>
-          <div class="font-weight-medium mb-2">Form Validation Errors</div>
-          <ul class="pl-4">
-            <li v-for="error in validationResult.errors" :key="error.field">
-              <strong>{{ error.field }}:</strong> {{ error.message }}
-            </li>
-          </ul>
-        </v-alert>
-
-        <!-- Non-field Backend Errors -->
-        <v-alert
-          v-if="nonFieldErrors.length > 0"
-          type="error"
-          variant="tonal"
-          class="mt-4"
-          closable
-          @click:close="nonFieldErrors = []"
-        >
-          <template #prepend>
-            <v-icon>mdi-alert-circle</v-icon>
-          </template>
-          <div class="font-weight-medium">Form Error</div>
-          <div v-for="(msg, idx) in nonFieldErrors" :key="idx">{{ msg }}</div>
-        </v-alert>
-
-        <v-alert
-          v-if="validationResult && validationResult.warnings?.length"
-          type="warning"
-          variant="tonal"
-          class="mt-4"
-        >
-          <template #prepend>
-            <v-icon>mdi-alert</v-icon>
-          </template>
-          <div class="font-weight-medium mb-2">Form Warnings</div>
-          <ul class="pl-4">
-            <li v-for="warning in validationResult.warnings" :key="warning.field">
-              <strong>{{ warning.field }}:</strong> {{ warning.message }}
-            </li>
-          </ul>
-        </v-alert>
-
-        <div v-if="validationResult && validationResult.score_calculations">
-          <v-divider class="my-6" />
-          <h3 class="text-h6 mb-4 d-flex align-center">
-            <v-icon start>mdi-calculator</v-icon>
-            Live Scoring
-          </h3>
-          <v-row>
-            <v-col
-              v-for="(score, category) in validationResult.score_calculations"
-              :key="category"
-              cols="12"
-              sm="6"
-              md="4"
+            <!-- Non-field Backend Errors -->
+            <v-alert
+              v-if="nonFieldErrors.length > 0"
+              type="error"
+              variant="tonal"
+              class="mt-4"
+              closable
+              @click:close="nonFieldErrors = []"
             >
-              <v-card variant="outlined">
-                <v-card-text class="text-center">
-                  <div class="text-h4 text-primary font-weight-bold">{{ score }}</div>
-                  <div class="text-caption text-uppercase text-medium-emphasis">
-                    {{ formatScoreCategory(category) }}
-                  </div>
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </div>
-      </v-card-text>
+              <template #prepend>
+                <v-icon>mdi-alert-circle</v-icon>
+              </template>
+              <div class="font-weight-medium">Form Error</div>
+              <div v-for="(msg, idx) in nonFieldErrors" :key="idx">{{ msg }}</div>
+            </v-alert>
 
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          color="secondary"
-          variant="outlined"
-          :loading="saving"
-          :disabled="!hasChanges"
-          @click="saveDraft"
-        >
-          <v-icon start>mdi-content-save</v-icon>
-          Save Draft
-        </v-btn>
-        <v-btn
-          type="submit"
-          color="primary"
-          variant="flat"
-          :loading="submitting"
-          :disabled="!canSubmit"
-        >
-          <v-icon start>mdi-check</v-icon>
-          Submit
-        </v-btn>
-      </v-card-actions>
-    </v-card>
+            <v-alert
+              v-if="validationResult && validationResult.warnings?.length"
+              type="warning"
+              variant="tonal"
+              class="mt-4"
+            >
+              <template #prepend>
+                <v-icon>mdi-alert</v-icon>
+              </template>
+              <div class="font-weight-medium mb-2">Form Warnings</div>
+              <ul class="pl-4">
+                <li v-for="warning in validationResult.warnings" :key="warning.field">
+                  <strong>{{ warning.field }}:</strong> {{ warning.message }}
+                </li>
+              </ul>
+            </v-alert>
+          </v-card-text>
+
+          <v-card-actions>
+            <v-spacer />
+            <v-btn
+              color="secondary"
+              variant="outlined"
+              :loading="saving"
+              :disabled="!hasChanges"
+              @click="saveDraft"
+            >
+              <v-icon start>mdi-content-save</v-icon>
+              Save Draft
+            </v-btn>
+            <v-btn
+              type="submit"
+              color="primary"
+              variant="flat"
+              :loading="submitting"
+              :disabled="!canSubmit"
+            >
+              <v-icon start>mdi-check</v-icon>
+              Submit
+            </v-btn>
+          </v-card-actions>
+        </v-card>
+      </v-col>
+
+      <!-- Scoring sidebar -->
+      <v-col v-if="showScoring" cols="12" lg="4">
+        <div class="sticky-sidebar">
+          <ScoreDisplay
+            :score-calculations="validationResult?.score_calculations"
+            :scoring-configuration="jsonSchema?.scoring_configuration"
+            :loading="validating"
+          />
+        </div>
+      </v-col>
+    </v-row>
   </v-form>
 </template>
 
@@ -193,6 +189,7 @@
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
+  import ScoreDisplay from './ScoreDisplay.vue'
 
   const props = defineProps({
     schemaId: {
@@ -220,6 +217,7 @@
   const formData = ref({ ...props.initialData })
   const saving = ref(false)
   const submitting = ref(false)
+  const validating = ref(false)
   const activeTab = ref(null)
   const backendErrors = ref({}) // { fieldPath: [error messages] }
   const nonFieldErrors = ref([]) // Errors not mapped to specific fields
@@ -228,6 +226,10 @@
   const error = computed(() => validationStore.error)
   const jsonSchema = computed(() => validationStore.getJsonSchema(props.schemaId))
   const validationResult = computed(() => validationStore.getValidationResult('form'))
+
+  const showScoring = computed(() => {
+    return jsonSchema.value?.scoring_configuration?.engine != null
+  })
 
   const hasChanges = computed(() => {
     return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
@@ -483,11 +485,14 @@
   }
 
   const validateForm = async () => {
+    validating.value = true
     try {
       const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
       handleBackendValidation(result)
     } catch (error) {
       logger.error('Form validation error:', { error: error.message, stack: error.stack })
+    } finally {
+      validating.value = false
     }
   }
 
@@ -509,10 +514,6 @@
       default:
         return 6
     }
-  }
-
-  const formatScoreCategory = category => {
-    return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   /**
@@ -673,3 +674,20 @@
     }
   })
 </script>
+
+<style scoped>
+  .sticky-sidebar {
+    position: sticky;
+    top: 80px;
+    max-height: calc(100vh - 100px);
+    overflow-y: auto;
+    transition: all 0.3s ease;
+  }
+
+  @media (max-width: 1280px) {
+    .sticky-sidebar {
+      position: static;
+      max-height: none;
+    }
+  }
+</style>
