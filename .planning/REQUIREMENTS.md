@@ -45,21 +45,21 @@ Requirements for milestone v0.1. Each maps to roadmap phases.
 
 ### Scoring
 
-- [ ] **SCOR-01**: DynamicForm displays score_calculations from validation response when available
-- [ ] **SCOR-02**: Score calculation works for any schema type by using schema's scoring_configuration.engine
-- [ ] **SCOR-03**: ScorePreview component renders score breakdown based on schema type (ClinGen categories, GenCC levels, Qualitative ratings)
-- [ ] **SCOR-04**: Score updates live as user modifies evidence data (via debounced validation)
-- [ ] **SCOR-05**: Classification label derived from schema's scoring_configuration.classification_thresholds
+- [x] **SCOR-01**: DynamicForm displays score_calculations from validation response when available
+- [x] **SCOR-02**: Score calculation works for any schema type by using schema's scoring_configuration.engine
+- [x] **SCOR-03**: ScorePreview component renders score breakdown based on schema type (ClinGen categories, GenCC levels, Qualitative ratings)
+- [x] **SCOR-04**: Score updates live as user modifies evidence data (via debounced validation)
+- [x] **SCOR-05**: Classification label derived from schema's scoring_configuration.classification_thresholds
 
 ### Integration
 
-- [ ] **INTG-01**: Remove isClinGenSchema check from SchemaDrivenCurationForm.vue
-- [ ] **INTG-02**: SchemaDrivenCurationForm passes full schema (field_definitions + ui_configuration) to DynamicForm
-- [ ] **INTG-03**: CurationFormView loads curations using DynamicForm for all schema types
-- [ ] **INTG-04**: PrecurationFormView replaced with DynamicForm-based rendering
-- [ ] **INTG-05**: Existing ClinGen curations load and save correctly through DynamicForm
-- [ ] **INTG-06**: Existing precurations load and save correctly through DynamicForm
-- [ ] **INTG-07**: Form recovery (localStorage auto-save) works with DynamicForm
+- [x] **INTG-01**: Remove isClinGenSchema check from SchemaDrivenCurationForm.vue
+- [x] **INTG-02**: SchemaDrivenCurationForm passes full schema (field_definitions + ui_configuration) to DynamicForm
+- [x] **INTG-03**: CurationFormView loads curations using DynamicForm for all schema types
+- [x] **INTG-04**: PrecurationFormView replaced with DynamicForm-based rendering
+- [x] **INTG-05**: Existing ClinGen curations load and save correctly through DynamicForm
+- [x] **INTG-06**: Existing precurations load and save correctly through DynamicForm
+- [x] **INTG-07**: Form recovery (localStorage auto-save) works with DynamicForm
 
 ## Future Requirements (v0.2+)
 
@@ -136,18 +136,18 @@ Which phases cover which requirements. Updated during roadmap creation.
 | VALD-04 | Phase 4 | Complete |
 | VALD-05 | Phase 4 | Complete |
 | VALD-06 | Phase 4 | Complete |
-| SCOR-01 | Phase 5 | Pending |
-| SCOR-02 | Phase 5 | Pending |
-| SCOR-03 | Phase 5 | Pending |
-| SCOR-04 | Phase 5 | Pending |
-| SCOR-05 | Phase 5 | Pending |
-| INTG-01 | Phase 5 | Pending |
-| INTG-02 | Phase 5 | Pending |
-| INTG-03 | Phase 5 | Pending |
-| INTG-04 | Phase 5 | Pending |
-| INTG-05 | Phase 5 | Pending |
-| INTG-06 | Phase 5 | Pending |
-| INTG-07 | Phase 5 | Pending |
+| SCOR-01 | Phase 5 | Complete |
+| SCOR-02 | Phase 5 | Complete |
+| SCOR-03 | Phase 5 | Complete |
+| SCOR-04 | Phase 5 | Complete |
+| SCOR-05 | Phase 5 | Complete |
+| INTG-01 | Phase 5 | Complete |
+| INTG-02 | Phase 5 | Complete |
+| INTG-03 | Phase 5 | Complete |
+| INTG-04 | Phase 5 | Complete |
+| INTG-05 | Phase 5 | Complete |
+| INTG-06 | Phase 5 | Complete |
+| INTG-07 | Phase 5 | Complete |
 
 **Coverage:**
 - v0.1 requirements: 32 total
@@ -156,4 +156,5 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-01-22*
-*Last updated: 2026-01-23 after Phase 4 completion*
+*Last updated: 2026-01-23 after Phase 5 completion*
+*Milestone complete: 2026-01-23 — All 32 requirements satisfied*
