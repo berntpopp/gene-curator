@@ -93,10 +93,13 @@ Plans:
   5. Existing ClinGen curations load and save correctly through DynamicForm
   6. PrecurationFormView uses DynamicForm instead of hardcoded panels
   7. Form recovery (localStorage auto-save) works with DynamicForm
-**Plans**: TBD
+**Plans**: 4 plans
 
 Plans:
-- [ ] 05-01: TBD
+- [ ] 05-01-PLAN.md — Create ScoreDisplay component and integrate live scoring into DynamicForm sidebar
+- [ ] 05-02-PLAN.md — Remove ClinGen bypass from SchemaDrivenCurationForm using feature flag transition
+- [ ] 05-03-PLAN.md — Migrate PrecurationFormView to use DynamicForm-based rendering
+- [ ] 05-04-PLAN.md — Add comprehensive test coverage for scoring and integration features
 
 ## Progress
 
@@ -109,7 +112,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Tab Structure | 2/2 | ✓ Complete | 2026-01-22 |
 | 3. Field Metadata | 2/2 | ✓ Complete | 2026-01-22 |
 | 4. Validation | 2/2 | ✓ Complete | 2026-01-23 |
-| 5. Scoring and Integration | 0/TBD | Not started | - |
+| 5. Scoring and Integration | 0/4 | Planned | - |
 
 ---
 *Roadmap created: 2026-01-22*
@@ -121,4 +124,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 *Phase 3 completed: 2026-01-22*
 *Phase 4 planned: 2026-01-23*
 *Phase 4 completed: 2026-01-23*
+*Phase 5 planned: 2026-01-23*
 *Total requirements: 32 | Phases: 5 | Coverage: 100%*
