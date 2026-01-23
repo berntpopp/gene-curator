@@ -142,12 +142,12 @@ class TestPrecurationsList:
         self,
         client: TestClient,
     ):
-        """Test listing precurations without authentication returns 403."""
+        """Test listing precurations without authentication returns 401."""
         # Act
         response = client.get("/api/v1/precurations/")
 
         # Assert
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_list_precurations_with_scope_user(
         self,
@@ -308,7 +308,7 @@ class TestPrecurationCreate:
         test_gene: Gene,
         test_precuration_schema: CurationSchema,
     ):
-        """Test creating precuration without auth returns 403."""
+        """Test creating precuration without auth returns 401."""
         # Arrange
         precuration_data = {
             "gene_id": str(test_gene.id),
@@ -324,7 +324,7 @@ class TestPrecurationCreate:
         )
 
         # Assert
-        assert response.status_code == 403
+        assert response.status_code == 401
 
 
 class TestPrecurationUpdate:

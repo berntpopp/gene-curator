@@ -142,16 +142,16 @@ class TestCurationsList:
         self,
         client: TestClient,
     ):
-        """Test listing curations without authentication returns 403.
+        """Test listing curations without authentication returns 401.
 
-        Note: FastAPI's HTTPBearer returns 403 (not 401) when no credentials
-        are provided, per OAuth 2.0 Bearer Token spec (RFC 6750).
+        Note: Per HTTP spec and RFC 6750, missing credentials should return
+        401 Unauthorized with WWW-Authenticate header.
         """
         # Act
         response = client.get("/api/v1/curations/")
 
         # Assert
-        assert response.status_code == 403
+        assert response.status_code == 401
 
     def test_list_curations_with_scope_user(
         self,
@@ -309,7 +309,7 @@ class TestCurationCreate:
         test_gene: Gene,
         test_workflow_pair: WorkflowPair,
     ):
-        """Test creating curation without auth returns 403."""
+        """Test creating curation without auth returns 401."""
         # Arrange
         curation_data = {
             "gene_id": str(test_gene.id),
@@ -325,7 +325,7 @@ class TestCurationCreate:
         )
 
         # Assert
-        assert response.status_code == 403
+        assert response.status_code == 401
 
 
 class TestCurationUpdate:

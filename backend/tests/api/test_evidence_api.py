@@ -55,8 +55,8 @@ class TestEvidenceCreate:
     ):
         """Test evidence creation without authentication
 
-        Note: FastAPI's HTTPBearer returns 403 (not 401) when no credentials
-        are provided, per OAuth 2.0 Bearer Token spec (RFC 6750).
+        Note: Per HTTP spec and RFC 6750, missing credentials should return
+        401 Unauthorized with WWW-Authenticate header.
         """
         # Arrange
         evidence_data = {
@@ -71,8 +71,8 @@ class TestEvidenceCreate:
             json=evidence_data,
         )
 
-        # Assert - HTTPBearer returns 403 for missing credentials
-        assert response.status_code == 403
+        # Assert - Missing credentials returns 401
+        assert response.status_code == 401
 
     def test_create_evidence_forbidden_viewer(
         self,
