@@ -40,6 +40,7 @@ class CurationSchemaBase(BaseModel):
     )
     schema_hash: str | None = Field(None, description="Schema validation checksum")
     is_active: bool = Field(True, description="Whether schema is active")
+    use_dynamic_form: bool = Field(False, description="When true, use DynamicForm instead of legacy form")
 
 
 class CurationSchemaCreate(CurationSchemaBase):
@@ -60,6 +61,7 @@ class CurationSchemaUpdate(BaseModel):
     ui_configuration: dict[str, Any] | None = None
     scoring_configuration: dict[str, Any] | None = None
     is_active: bool | None = None
+    use_dynamic_form: bool | None = None
 
 
 class CurationSchemaInDBBase(CurationSchemaBase):
