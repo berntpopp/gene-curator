@@ -70,11 +70,7 @@
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-row dense>
-                <v-col
-                  v-for="(score, category) in categoryScores"
-                  :key="category"
-                  cols="12"
-                >
+                <v-col v-for="(score, category) in categoryScores" :key="category" cols="12">
                   <v-card variant="outlined">
                     <v-card-text class="d-flex align-center pa-2">
                       <div class="flex-grow-1">
@@ -108,10 +104,7 @@
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-list density="compact">
-                <v-list-item
-                  v-for="(threshold, level) in sortedThresholds"
-                  :key="level"
-                >
+                <v-list-item v-for="(threshold, level) in sortedThresholds" :key="level">
                   <template #prepend>
                     <v-chip
                       :color="getClassificationColorForLevel(level)"
@@ -132,211 +125,215 @@
 </template>
 
 <script setup>
-/**
- * ScoreDisplay Component
- *
- * Schema-agnostic score display sidebar for DynamicForm.
- * Works with any scoring engine (ClinGen, GenCC, Qualitative).
- *
- * Design principles:
- * - Real-time updates with smooth transitions
- * - Schema-agnostic (derives all from props)
- * - Progressive disclosure (expandable details)
- * - Accessible (color + text, semantic HTML)
- *
- * @example
- * <ScoreDisplay
- *   :score-calculations="validationResult.score_calculations"
- *   :scoring-configuration="schema.scoring_configuration"
- *   :loading="validating"
- * />
- */
-
-import { computed } from 'vue'
-import { useSchemaScoring } from '@/composables/useSchemaScoring'
-
-const props = defineProps({
   /**
-   * Score calculations from validation result
-   * Object mapping category names to score values
+   * ScoreDisplay Component
+   *
+   * Schema-agnostic score display sidebar for DynamicForm.
+   * Works with any scoring engine (ClinGen, GenCC, Qualitative).
+   *
+   * Design principles:
+   * - Real-time updates with smooth transitions
+   * - Schema-agnostic (derives all from props)
+   * - Progressive disclosure (expandable details)
+   * - Accessible (color + text, semantic HTML)
+   *
+   * @example
+   * <ScoreDisplay
+   *   :score-calculations="validationResult.score_calculations"
+   *   :scoring-configuration="schema.scoring_configuration"
+   *   :loading="validating"
+   * />
    */
-  scoreCalculations: {
-    type: Object,
-    default: () => ({})
-  },
+
+  import { computed } from 'vue'
+  import { useSchemaScoring } from '@/composables/useSchemaScoring'
+
+  const props = defineProps({
+    /**
+     * Score calculations from validation result
+     * Object mapping category names to score values
+     */
+    scoreCalculations: {
+      type: Object,
+      default: () => ({})
+    },
+    /**
+     * Scoring configuration from schema
+     * Contains engine, thresholds, max_scores
+     */
+    scoringConfiguration: {
+      type: Object,
+      default: () => ({})
+    },
+    /**
+     * Loading state (validation in progress)
+     */
+    loading: {
+      type: Boolean,
+      default: false
+    }
+  })
+
+  // Convert props to refs for composable
+  const scoreCalculationsRef = computed(() => props.scoreCalculations || {})
+  const scoringConfigurationRef = computed(() => props.scoringConfiguration || {})
+
+  // Use schema scoring composable for calculations
+  const {
+    totalScore,
+    categoryScores,
+    classification,
+    classificationColor,
+    nearThreshold,
+    maxScore,
+    progressPercentage
+  } = useSchemaScoring(scoreCalculationsRef, scoringConfigurationRef)
+
+  // Check if category scores exist
+  const hasCategoryScores = computed(() => {
+    return Object.keys(categoryScores.value).length > 0
+  })
+
+  // Check if thresholds exist
+  const hasThresholds = computed(() => {
+    const thresholds = props.scoringConfiguration?.classification_thresholds
+    return thresholds && Object.keys(thresholds).length > 0
+  })
+
+  // Sort thresholds by value (descending)
+  const sortedThresholds = computed(() => {
+    const thresholds = props.scoringConfiguration?.classification_thresholds
+    if (!thresholds) return {}
+
+    return Object.entries(thresholds)
+      .sort(([, a], [, b]) => b - a)
+      .reduce((acc, [level, value]) => {
+        acc[level] = value
+        return acc
+      }, {})
+  })
+
   /**
-   * Scoring configuration from schema
-   * Contains engine, thresholds, max_scores
+   * Format category name: snake_case -> Title Case
    */
-  scoringConfiguration: {
-    type: Object,
-    default: () => ({})
-  },
+  function formatCategory(category) {
+    return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+  }
+
   /**
-   * Loading state (validation in progress)
+   * Get Vuetify color class for score value
    */
-  loading: {
-    type: Boolean,
-    default: false
-  }
-})
-
-// Convert props to refs for composable
-const scoreCalculationsRef = computed(() => props.scoreCalculations || {})
-const scoringConfigurationRef = computed(() => props.scoringConfiguration || {})
-
-// Use schema scoring composable for calculations
-const {
-  totalScore,
-  categoryScores,
-  classification,
-  classificationColor,
-  nearThreshold,
-  maxScore,
-  progressPercentage
-} = useSchemaScoring(scoreCalculationsRef, scoringConfigurationRef)
-
-// Check if category scores exist
-const hasCategoryScores = computed(() => {
-  return Object.keys(categoryScores.value).length > 0
-})
-
-// Check if thresholds exist
-const hasThresholds = computed(() => {
-  const thresholds = props.scoringConfiguration?.classification_thresholds
-  return thresholds && Object.keys(thresholds).length > 0
-})
-
-// Sort thresholds by value (descending)
-const sortedThresholds = computed(() => {
-  const thresholds = props.scoringConfiguration?.classification_thresholds
-  if (!thresholds) return {}
-
-  return Object.entries(thresholds)
-    .sort(([, a], [, b]) => b - a)
-    .reduce((acc, [level, value]) => {
-      acc[level] = value
-      return acc
-    }, {})
-})
-
-/**
- * Format category name: snake_case -> Title Case
- */
-function formatCategory(category) {
-  return category
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, l => l.toUpperCase())
-}
-
-/**
- * Get Vuetify color class for score value
- */
-function getScoreColorClass(score) {
-  if (score >= 7) return 'text-success'
-  if (score >= 2) return 'text-warning'
-  return 'text-info'
-}
-
-/**
- * Get icon color for category (based on score)
- */
-function getCategoryIconColor(score) {
-  if (score >= 7) return 'success'
-  if (score >= 2) return 'warning'
-  return 'info'
-}
-
-/**
- * Get icon for category based on name
- */
-function getCategoryIcon(category) {
-  const catLower = category.toLowerCase()
-
-  if (catLower.includes('genetic') || catLower.includes('gene')) {
-    return 'mdi-dna'
+  function getScoreColorClass(score) {
+    if (score >= 7) return 'text-success'
+    if (score >= 2) return 'text-warning'
+    return 'text-info'
   }
 
-  if (catLower.includes('experimental') || catLower.includes('function') || catLower.includes('model')) {
-    return 'mdi-flask'
-  }
-
-  if (catLower.includes('clinical') || catLower.includes('phenotype')) {
-    return 'mdi-hospital-box'
-  }
-
-  if (catLower.includes('qualitative') || catLower.includes('literature')) {
-    return 'mdi-chart-bar'
-  }
-
-  return 'mdi-chart-box'
-}
-
-/**
- * Get icon for classification level
- */
-function getClassificationIcon(cls) {
-  const clsLower = cls.toLowerCase()
-
-  if (clsLower.includes('definitive') || clsLower.includes('strong')) {
-    return 'mdi-check-circle'
-  }
-
-  if (clsLower.includes('moderate')) {
-    return 'mdi-check'
-  }
-
-  if (clsLower.includes('limited') || clsLower.includes('disputed')) {
-    return 'mdi-alert'
-  }
-
-  return 'mdi-minus-circle'
-}
-
-/**
- * Get color for a specific classification level (for threshold display)
- */
-function getClassificationColorForLevel(level) {
-  const levelLower = level.toLowerCase()
-
-  if (levelLower.includes('definitive') || levelLower.includes('strong')) {
-    return 'success'
-  }
-
-  if (levelLower.includes('moderate')) {
+  /**
+   * Get icon color for category (based on score)
+   */
+  function getCategoryIconColor(score) {
+    if (score >= 7) return 'success'
+    if (score >= 2) return 'warning'
     return 'info'
   }
 
-  if (levelLower.includes('limited') || levelLower.includes('disputed')) {
-    return 'warning'
+  /**
+   * Get icon for category based on name
+   */
+  function getCategoryIcon(category) {
+    const catLower = category.toLowerCase()
+
+    if (catLower.includes('genetic') || catLower.includes('gene')) {
+      return 'mdi-dna'
+    }
+
+    if (
+      catLower.includes('experimental') ||
+      catLower.includes('function') ||
+      catLower.includes('model')
+    ) {
+      return 'mdi-flask'
+    }
+
+    if (catLower.includes('clinical') || catLower.includes('phenotype')) {
+      return 'mdi-hospital-box'
+    }
+
+    if (catLower.includes('qualitative') || catLower.includes('literature')) {
+      return 'mdi-chart-bar'
+    }
+
+    return 'mdi-chart-box'
   }
 
-  return 'grey'
-}
+  /**
+   * Get icon for classification level
+   */
+  function getClassificationIcon(cls) {
+    const clsLower = cls.toLowerCase()
+
+    if (clsLower.includes('definitive') || clsLower.includes('strong')) {
+      return 'mdi-check-circle'
+    }
+
+    if (clsLower.includes('moderate')) {
+      return 'mdi-check'
+    }
+
+    if (clsLower.includes('limited') || clsLower.includes('disputed')) {
+      return 'mdi-alert'
+    }
+
+    return 'mdi-minus-circle'
+  }
+
+  /**
+   * Get color for a specific classification level (for threshold display)
+   */
+  function getClassificationColorForLevel(level) {
+    const levelLower = level.toLowerCase()
+
+    if (levelLower.includes('definitive') || levelLower.includes('strong')) {
+      return 'success'
+    }
+
+    if (levelLower.includes('moderate')) {
+      return 'info'
+    }
+
+    if (levelLower.includes('limited') || levelLower.includes('disputed')) {
+      return 'warning'
+    }
+
+    return 'grey'
+  }
 </script>
 
 <style scoped>
-/* Gap utility */
-.gap-2 {
-  gap: 8px;
-}
+  /* Gap utility */
+  .gap-2 {
+    gap: 8px;
+  }
 
-/* Smooth transitions for score changes (300ms per CONTEXT.md) */
-.text-h2 {
-  transition: color 0.3s ease, transform 0.3s ease;
-}
+  /* Smooth transitions for score changes (300ms per CONTEXT.md) */
+  .text-h2 {
+    transition:
+      color 0.3s ease,
+      transform 0.3s ease;
+  }
 
-.score-value {
-  transition: color 0.3s ease;
-}
+  .score-value {
+    transition: color 0.3s ease;
+  }
 
-:deep(.v-progress-linear) {
-  transition: all 0.3s ease;
-}
+  :deep(.v-progress-linear) {
+    transition: all 0.3s ease;
+  }
 
-/* Prevent layout shift during transitions */
-.text-h2 {
-  min-width: 80px;
-  text-align: center;
-}
+  /* Prevent layout shift during transitions */
+  .text-h2 {
+    min-width: 80px;
+    text-align: center;
+  }
 </style>

@@ -61,8 +61,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
     }
 
     // Sort thresholds by value (descending) to check highest first
-    const sortedLevels = Object.entries(thresh)
-      .sort(([, a], [, b]) => b - a)
+    const sortedLevels = Object.entries(thresh).sort(([, a], [, b]) => b - a)
 
     // Find first threshold that score meets or exceeds
     for (const [level, requiredScore] of sortedLevels) {
@@ -130,7 +129,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
     if (!nextThreshold) return false
 
     // Check if within 1 point
-    return (nextThreshold - score) <= 1
+    return nextThreshold - score <= 1
   })
 
   /**
