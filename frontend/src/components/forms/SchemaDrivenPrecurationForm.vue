@@ -280,13 +280,9 @@
   async function handleSaveDraft() {
     savingDraft.value = true
     try {
-      const payload = {
-        evidence_data: evidenceData.value,
-        lock_version: lockVersion.value
-      }
-
       if (props.precurationId) {
-        const updated = await precurationsStore.saveDraft(props.precurationId, payload)
+        // Update existing precuration draft
+        const updated = await precurationsStore.saveDraft(props.precurationId, evidenceData.value)
         if (updated) {
           lockVersion.value = updated.lock_version || 0
           emit('saved')
