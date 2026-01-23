@@ -403,7 +403,10 @@ class CurationSchema(Base):
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     use_dynamic_form: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, comment="When true, use DynamicForm instead of legacy ClinGen form"
+        Boolean,
+        default=False,
+        nullable=False,
+        comment="When true, use DynamicForm instead of legacy ClinGen form",
     )
 
     # Schema validation checksum

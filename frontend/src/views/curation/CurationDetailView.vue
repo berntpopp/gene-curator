@@ -504,13 +504,11 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, workflowAPI } from '@/api'
-  import { useAuthStore } from '@/stores/auth'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
 
   const router = useRouter()
   const route = useRoute()
-  const authStore = useAuthStore()
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
 
