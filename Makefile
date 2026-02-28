@@ -25,8 +25,9 @@ include .env.dev
 export
 
 # Docker Compose files (using integrated 'docker compose' command)
+DOCKER_COMPOSE_INFRA := docker compose -f docker-compose.yml --env-file .env.dev
 DOCKER_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev
-DOCKER_COMPOSE_PROD := docker compose -f docker-compose.yml
+DOCKER_COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.dev
 
 # Container names (from .env.dev)
 POSTGRES_CONTAINER := gene_curator_postgres
@@ -71,6 +72,12 @@ help: ## Show this help message
 	@echo "  make dev-logs-api    - Show backend API logs only"
 	@echo "  make dev-logs-ui     - Show frontend logs only"
 	@echo "  make dev-logs-db     - Show database logs only"
+	@echo ""
+	@echo "🚀 PRODUCTION DOCKER:"
+	@echo "  make prod            - Start production stack"
+	@echo "  make prod-build      - Build and start production images"
+	@echo "  make prod-down       - Stop production stack"
+	@echo "  make prod-logs       - Show production logs"
 	@echo ""
 	@echo "🗄️  DATABASE MANAGEMENT:"
 	@echo "  make db-init         - Initialize database with seed data"
@@ -176,7 +183,7 @@ hybrid-down: ## Stop hybrid development environment
 
 services-up: ## Start only database services in Docker
 	@echo "$(BLUE)Starting database services...$(NC)"
-	@$(DOCKER_COMPOSE) up -d postgres redis
+	@$(DOCKER_COMPOSE_INFRA) up -d postgres redis
 	@echo "$(GREEN)✅ Database services started$(NC)"
 	@echo "$(BLUE)Waiting for PostgreSQL to be ready...$(NC)"
 	@sleep 5
@@ -186,7 +193,7 @@ services-up: ## Start only database services in Docker
 
 services-down: ## Stop only database services
 	@echo "$(YELLOW)Stopping database services...$(NC)"
-	@$(DOCKER_COMPOSE) stop postgres redis
+	@$(DOCKER_COMPOSE_INFRA) stop postgres redis
 	@echo "$(GREEN)✅ Database services stopped$(NC)"
 
 backend: ## Start backend API locally (hybrid mode)
@@ -245,6 +252,34 @@ dev-logs-ui: ## Show frontend logs only
 
 dev-logs-db: ## Show database logs only
 	@$(DOCKER_COMPOSE) logs -f postgres
+
+# ═══════════════════════════════════════════════════════════════
+# PRODUCTION DOCKER
+# ═══════════════════════════════════════════════════════════════
+
+prod: ## Start production stack
+	@echo "$(BLUE)Starting Gene Curator production environment...$(NC)"
+	@$(DOCKER_COMPOSE_PROD) up -d
+	@echo ""
+	@echo "$(GREEN)✅ Production environment started!$(NC)"
+	@echo ""
+	@echo "$(BLUE)🌐 Access points:$(NC)"
+	@echo "   Frontend:  $(GREEN)http://localhost:$(FRONTEND_PORT)$(NC)"
+	@echo "   Backend:   $(GREEN)http://localhost:$(BACKEND_PORT)/docs$(NC)"
+	@echo ""
+
+prod-build: ## Build and start production environment
+	@echo "$(BLUE)Building and starting production environment...$(NC)"
+	@$(DOCKER_COMPOSE_PROD) up -d --build
+	@echo "$(GREEN)✅ Production environment built and started!$(NC)"
+
+prod-down: ## Stop production stack
+	@echo "$(YELLOW)Stopping production environment...$(NC)"
+	@$(DOCKER_COMPOSE_PROD) down
+	@echo "$(GREEN)✅ Production environment stopped$(NC)"
+
+prod-logs: ## Show production Docker logs
+	@$(DOCKER_COMPOSE_PROD) logs -f
 
 # ═══════════════════════════════════════════════════════════════
 # DATABASE MANAGEMENT

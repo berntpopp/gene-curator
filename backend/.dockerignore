@@ -18,6 +18,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+tests/
 
 # Logs
 *.log
@@ -31,11 +32,20 @@ Thumbs.db
 .mypy_cache/
 .ruff_cache/
 
+# Git
+.git/
+.gitignore
+
 # Development files
-poetry.lock
 .env.local
 .env.development
 .env.test
+
+# Documentation
+*.md
+
+# CI/CD
+.github/
 
 # Legacy config from migration
 legacy_config/

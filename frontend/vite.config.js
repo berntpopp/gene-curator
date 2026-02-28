@@ -15,13 +15,19 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 3000,
+    port: parseInt(process.env.VITE_DEV_PORT || process.env.PORT || '3000'),
     proxy: {
       '/api': {
-        target: 'http://localhost:8001',
+        target: process.env.VITE_API_BASE_URL || 'http://localhost:8051',
         changeOrigin: true,
         secure: false
       }
+    },
+    watch: {
+      usePolling: !!process.env.DOCKER_POLLING
+    },
+    hmr: {
+      overlay: true
     }
   },
   build: {

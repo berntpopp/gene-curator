@@ -1,44 +1,43 @@
 # ═══════════════════════════════════════════════════════════════
-# Gene Curator - Full Development Environment
+# Gene Curator - Production Environment
 # ═══════════════════════════════════════════════════════════════
 #
-# Extends infrastructure (docker-compose.yml) with backend and
-# frontend services for full Docker development with hot reload.
+# Extends infrastructure (docker-compose.yml) with production
+# backend and frontend services. No volume mounts, no reload.
 #
 # Usage:
-#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up
 #
 # Or use Makefile:
-#   make dev        # Start all services
-#   make dev-build  # Build and start
+#   make prod        # Start production stack
+#   make prod-build  # Build and start
+#
+# Note: For true production deployments, consider overriding
+# postgres/redis ports in your .env to avoid external exposure,
+# or use a dedicated production docker-compose.yml without ports.
 #
 # ═══════════════════════════════════════════════════════════════
 
 services:
   # ───────────────────────────────────────────────────────────────
-  # FastAPI Backend (Development)
+  # FastAPI Backend (Production)
   # ───────────────────────────────────────────────────────────────
   backend:
     container_name: ${BACKEND_CONTAINER:-gene_curator_backend}
     build:
       context: ./backend
       dockerfile: Dockerfile
-      target: development
+      target: production
     environment:
       DATABASE_URL: ${DATABASE_URL_DOCKER:-postgresql://dev_user:dev_password@postgres:5432/gene_curator_dev}
-      ENVIRONMENT: ${ENVIRONMENT:-development}
-      DEBUG: ${DEBUG:-true}
-      LOG_LEVEL: ${LOG_LEVEL:-debug}
-      SECRET_KEY: ${SECRET_KEY:-dev_secret_key_change_in_production}
+      ENVIRONMENT: ${ENVIRONMENT:-production}
+      SECRET_KEY: ${SECRET_KEY:-change_me_in_production}
       ALGORITHM: ${ALGORITHM:-HS256}
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-["http://localhost:3051","http://localhost:5193"]}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
     ports:
       - "${BACKEND_PORT:-8051}:8000"
-    volumes:
-      - ./backend:/app
-      - backend_venv:/app/.venv
     depends_on:
       postgres:
         condition: service_healthy
@@ -48,37 +47,24 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-    command: ["/app/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+    restart: unless-stopped
     networks:
       - gene_curator_network
 
   # ───────────────────────────────────────────────────────────────
-  # Vue 3 + Vite Frontend (Development)
+  # Vue 3 + Nginx Frontend (Production)
   # ───────────────────────────────────────────────────────────────
   frontend:
     container_name: ${FRONTEND_CONTAINER:-gene_curator_frontend}
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8051}
     ports:
-      - "${FRONTEND_PORT:-3051}:3000"
-    environment:
-      VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8051}
-      VITE_APP_TITLE: ${VITE_APP_TITLE:-Gene Curator (Dev)}
-      VITE_ENVIRONMENT: ${VITE_ENVIRONMENT:-development}
-      DOCKER_POLLING: ${DOCKER_POLLING:-true}
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
+      - "${FRONTEND_PORT:-3051}:80"
     depends_on:
       - backend
-    command: npm run dev -- --host 0.0.0.0 --port 3000
+    restart: unless-stopped
     networks:
       - gene_curator_network
-
-# ───────────────────────────────────────────────────────────────
-# Development Volumes
-# ───────────────────────────────────────────────────────────────
-volumes:
-  backend_venv:
-    driver: local
