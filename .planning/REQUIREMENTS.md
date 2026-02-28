@@ -60,22 +60,22 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| COND-01 | Pending | Pending |
-| COND-02 | Pending | Pending |
-| COND-03 | Pending | Pending |
-| COND-04 | Pending | Pending |
-| COND-05 | Pending | Pending |
-| XVAL-01 | Pending | Pending |
-| XVAL-02 | Pending | Pending |
-| XVAL-03 | Pending | Pending |
-| DEPS-01 | Pending | Pending |
-| DEPS-02 | Pending | Pending |
+| COND-01 | Phase 6 | Pending |
+| COND-02 | Phase 6 | Pending |
+| COND-03 | Phase 6 | Pending |
+| COND-04 | Phase 6 | Pending |
+| COND-05 | Phase 6 | Pending |
+| XVAL-01 | Phase 7 | Pending |
+| XVAL-02 | Phase 7 | Pending |
+| XVAL-03 | Phase 7 | Pending |
+| DEPS-01 | Phase 8 | Pending |
+| DEPS-02 | Phase 8 | Pending |
 
 **Coverage:**
 - v0.2 requirements: 10 total
-- Mapped to phases: 0
-- Unmapped: 10 ⚠️
+- Mapped to phases: 10
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 after roadmap creation — traceability complete*
