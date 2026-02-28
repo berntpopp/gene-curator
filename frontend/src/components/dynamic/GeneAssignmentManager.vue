@@ -71,22 +71,30 @@
             Bulk Assign ({{ selectedAssignments.length }})
           </v-btn>
 
-          <v-btn
-            color="secondary"
-            variant="outlined"
-            :loading="rebalancing"
-            @click="rebalanceWorkload"
-          >
-            <v-icon start>mdi-scale-balance</v-icon>
-            Rebalance Workload
-          </v-btn>
+          <v-tooltip text="Coming soon" location="top">
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                color="secondary"
+                variant="outlined"
+                disabled
+              >
+                <v-icon start>mdi-scale-balance</v-icon>
+                Rebalance Workload
+              </v-btn>
+            </template>
+          </v-tooltip>
         </div>
 
         <div class="d-flex gap-2">
-          <v-btn variant="outlined" :loading="exporting" @click="exportAssignments">
-            <v-icon start>mdi-download</v-icon>
-            Export
-          </v-btn>
+          <v-tooltip text="Coming soon" location="top">
+            <template #activator="{ props }">
+              <v-btn v-bind="props" variant="outlined" disabled>
+                <v-icon start>mdi-download</v-icon>
+                Export
+              </v-btn>
+            </template>
+          </v-tooltip>
 
           <v-btn variant="outlined" :loading="loading" @click="refreshAssignments">
             <v-icon start>mdi-refresh</v-icon>
@@ -191,35 +199,6 @@
         </template>
       </v-data-table>
 
-      <!-- Workload Summary -->
-      <v-card variant="outlined" class="mt-6">
-        <v-card-title class="text-h6">
-          <v-icon start>mdi-chart-bar</v-icon>
-          Workload Summary
-        </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col v-for="user in workloadSummary" :key="user.id" cols="12" sm="6" md="4">
-              <v-card variant="tonal">
-                <v-card-text class="text-center">
-                  <v-avatar class="mb-2">
-                    <v-icon>mdi-account</v-icon>
-                  </v-avatar>
-                  <div class="font-weight-medium">{{ user.full_name }}</div>
-                  <div class="text-caption text-medium-emphasis mb-2">{{ user.role }}</div>
-                  <div class="text-h4 text-primary">{{ user.assignment_count }}</div>
-                  <div class="text-caption">Active Assignments</div>
-                  <v-progress-linear
-                    :model-value="getWorkloadPercentage(user.assignment_count)"
-                    :color="getWorkloadColor(user.assignment_count)"
-                    class="mt-2"
-                  />
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
     </v-card-text>
 
     <!-- Bulk Assignment Dialog -->
@@ -451,8 +430,6 @@
   const bulkPriority = ref(null)
   const bulkDueDate = ref('')
   const bulkComment = ref('')
-  const rebalancing = ref(false)
-  const exporting = ref(false)
   const bulkAssigning = ref(false)
   const viewDialog = ref(false)
   const selectedAssignment = ref(null)
@@ -479,8 +456,6 @@
   const availableUsers = computed(() =>
     (usersStore.users || []).filter(user => user.role !== 'viewer')
   )
-  const workloadSummary = computed(() => assignmentsStore.workloadSummary || [])
-
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
     logger.error('GeneAssignmentManager error', {
@@ -579,17 +554,6 @@
     return colorMap[priority] || 'grey'
   }
 
-  const getWorkloadColor = count => {
-    if (count > 20) return 'red'
-    if (count > 15) return 'orange'
-    if (count > 10) return 'yellow'
-    return 'green'
-  }
-
-  const getWorkloadPercentage = count => {
-    const maxWorkload = Math.max(...workloadSummary.value.map(u => u.assignment_count), 25)
-    return (count / maxWorkload) * 100
-  }
 
   const formatStatus = status => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
@@ -667,50 +631,6 @@
       showError('Bulk assignment failed')
     } finally {
       bulkAssigning.value = false
-    }
-  }
-
-  const rebalanceWorkload = async () => {
-    rebalancing.value = true
-    try {
-      await assignmentsStore.rebalanceWorkload({
-        scope_id: selectedScope.value
-      })
-      logger.info('Workload rebalanced', { scopeId: selectedScope.value })
-      showSuccess('Workload rebalanced successfully')
-    } catch (error) {
-      logger.error('Workload rebalancing failed', {
-        scopeId: selectedScope.value,
-        error: error.message,
-        stack: error.stack
-      })
-      showError('Workload rebalancing failed')
-    } finally {
-      rebalancing.value = false
-    }
-  }
-
-  const exportAssignments = async () => {
-    exporting.value = true
-    try {
-      await assignmentsStore.exportAssignments({
-        scope_id: selectedScope.value,
-        status: selectedStatus.value,
-        assigned_to: selectedAssignee.value
-      })
-      logger.info('Assignments exported', {
-        scopeId: selectedScope.value,
-        status: selectedStatus.value
-      })
-      showSuccess('Assignments exported successfully')
-    } catch (error) {
-      logger.error('Export failed', {
-        error: error.message,
-        stack: error.stack
-      })
-      showError('Export failed')
-    } finally {
-      exporting.value = false
     }
   }
 
