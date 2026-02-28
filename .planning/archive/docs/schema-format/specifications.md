@@ -1,3 +1,12 @@
+> **ARCHIVED PLANNING/DESIGN DOCUMENT**
+> This file was originally located in `docs/` and has been moved to `.planning/archive/docs/schema-format/` for archival.
+> It represents an early design specification and **may not match the current implementation**.
+> Known divergences from the actual implementation include:
+> - Field types: spec uses `string`/`enum`; actual validator (`backend/app/core/schema_validator.py`) uses `text`/`select`/`multiselect`/`email`/`url`/`pmid`/`hgnc_id`/`score`
+> - Workflow states: spec defines `Draft`/`In_Primary_Review`/`In_Secondary_Review`/`Approved`/`Published`; actual system uses Entry/Precuration/Curation/Review/Active (5 stages)
+> - Roles: spec defines `primary_reviewer`/`secondary_reviewer`; actual RBAC uses `admin`/`scope_admin`/`curator`/`reviewer`/`viewer`
+> Refer to `backend/app/core/schema_validator.py` and `database/sql/004_seed_data.sql` for authoritative schema format details.
+
 # Schema Specifications: Technical Format Guide
 
 This document defines the technical format and structure for curation methodology schemas in Gene Curator. Schemas are JSON documents that completely define how a curation methodology works, from data collection to scoring to UI generation.

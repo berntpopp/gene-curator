@@ -1,3 +1,13 @@
+> **ARCHIVE NOTICE**
+> This document was originally located in `docs/ARCHITECTURE.md` and has been moved to `.planning/archive/docs/` for historical reference. It was written as a planning and design document describing the intended schema-agnostic architecture. It does **not** fully reflect the current implementation state. Key divergences from the actual codebase:
+>
+> - The PostgreSQL trigger (`calculate_dynamic_scores`) described in the "Dynamic Triggers" section is **not implemented**. Scoring is performed in Python via `backend/app/scoring/registry.py` using the `ScoringEngineRegistry` class, not SQL functions.
+> - The `custom_*` engine type mentioned under "Supported Engines" is **not implemented**. Custom engines can be registered programmatically via `ScoringEngineRegistry.register()`, but there is no built-in `custom_*` naming scheme.
+> - The "Component Types" list under "Dynamic User Interface" is incomplete and partially inaccurate. The actual component `EvidenceTable` does not exist; the real component is `EvidenceDataTable` (under `frontend/src/components/clingen/`). Additional dynamic components exist in production that are not listed here: `DynamicField`, `DynamicForm`, `SchemaSelector`, `ScoreDisplay`, `SchemaDrivenCurationForm`, `SchemaDrivenPrecurationForm`.
+> - Several API endpoints listed under "API Architecture" may not be implemented or may have different routes.
+>
+> For current implementation details, refer to the live codebase, `CLAUDE.md`, and `docs/`.
+
 # Gene Curator: Schema-Agnostic Architecture
 
 ## Overview

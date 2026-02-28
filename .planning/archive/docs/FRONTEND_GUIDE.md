@@ -1,3 +1,5 @@
+> **ARCHIVE NOTICE**: This document was originally located in `docs/` and is a planning/design document. It may not accurately reflect the current frontend implementation. The actual component structure, store files, and composables may differ from what is described here. For the current state of the codebase, refer directly to `frontend/src/`. This document is preserved for historical reference only.
+
 # Gene Curator - Frontend Development Guide
 
 ## Overview

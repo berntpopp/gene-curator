@@ -150,7 +150,7 @@ Gene Curator uses a **schema-agnostic, scope-based architecture**:
 - **Multi-Stage Workflow**: Entry → Precuration → Curation → Review (4-eyes) → Active
 - **Pluggable Scoring**: ClinGen SOP v11, GenCC, Qualitative engines
 
-See `docs/ARCHITECTURE.md` for complete architecture details.
+See `CLAUDE.md` for complete architecture details.
 
 ## Common Tasks
 
@@ -174,7 +174,7 @@ See `docs/ARCHITECTURE.md` for complete architecture details.
 2. Register in `backend/app/scoring/registry.py`
 3. Add schema example to database
 4. Write tests for scoring logic
-5. Document in `docs/`
+5. Write tests for the new engine
 
 ### Update Database Schema
 1. Create migration in `database/sql/`
@@ -202,18 +202,16 @@ Use the API docs at http://localhost:8051/docs for interactive testing.
 ## Documentation
 
 When adding features:
-1. Update relevant files in `docs/`
-2. Update `CLAUDE.md` if changing core patterns
-3. Update `PLAN.md` if changing architecture
-4. Add inline code documentation
-5. Update this `CONTRIBUTING.md` if changing workflow
+1. Update `CLAUDE.md` if changing core patterns
+2. Update this `CONTRIBUTING.md` if changing workflow
+3. Add inline code documentation
 
 ## Getting Help
 
 - **Questions**: Open a GitHub issue with the "question" label
 - **Bugs**: Open a GitHub issue with the "bug" label
 - **Feature Requests**: Open a GitHub issue with the "enhancement" label
-- **Documentation**: Check `docs/` folder or `CLAUDE.md`
+- **Documentation**: Check `CLAUDE.md`
 
 ## Code Review Process
 

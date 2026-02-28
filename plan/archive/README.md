@@ -25,25 +25,15 @@ This directory contains historical planning and status documents that have been 
 - Planned: 004-007_schema_agnostic_*.sql (separate files)
 - Actual: Schema-agnostic tables integrated into 001_schema_foundation.sql
 
-## Documents Moved to Reference Documentation
+## Documents Moved to Archive
 
-The following planning documents were moved to `docs/` as they now serve as reference documentation:
+The following planning documents were moved to `.planning/archive/docs/` as archived design documents:
 
-### SCORING_ENGINE_GUIDE.md → docs/architecture/scoring-engines.md
-Complete guide for the pluggable scoring engine system. Describes:
-- Abstract base class pattern
-- ClinGen SOP v11 engine implementation
-- GenCC classification engine
-- Qualitative assessment engine
-- Registry pattern and API integration
+### SCORING_ENGINE_GUIDE.md → .planning/archive/docs/architecture/scoring-engines.md
+Design guide for the pluggable scoring engine system.
 
-### SCHEMA_SPECIFICATIONS.md → docs/schema-format/specifications.md
-Technical specification for schema format. Defines:
-- 13 supported field types
-- Validation rules and business logic
-- Scoring configuration
-- Workflow states
-- UI configuration and JSON Schema generation
+### SCHEMA_SPECIFICATIONS.md → .planning/archive/docs/schema-format/specifications.md
+Technical specification for schema format.
 
 ---
 

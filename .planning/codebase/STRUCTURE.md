@@ -52,12 +52,6 @@ gene-curator/
 │   │   └── *.sql               # Seed data
 │   └── init.sh                 # Database initialization script
 │
-├── docs/                       # User-facing documentation
-│   ├── API_REFERENCE.md        # API endpoint documentation
-│   ├── SETUP.md                # Installation & configuration
-│   ├── CLINGEN_SOP.md          # ClinGen SOP v11 methodology
-│   ├── SCHEMA_AGNOSTIC.md      # Schema-agnostic design explanation
-│   └── *.md                    # Other feature docs
 │
 ├── plan/                       # Planning & tracking (NOT code)
 │   ├── enhancements/           # Feature proposals
@@ -211,11 +205,6 @@ gene-curator/
 - Contains: 25+ SQL files defining tables, indexes, triggers, seed data
 - Numbering: 001-010 (core), 011-020 (workflow), 021-030 (migrations)
 - Seed files: `006_test_user_setup.sql`, `014_seed_clingen_schema.sql`
-
-**`docs/`:**
-- Purpose: User and developer documentation
-- Contains: API references, setup guides, methodology explanations
-- Key files: `API_REFERENCE.md`, `SETUP.md`, `CLINGEN_SOP.md`, `SCHEMA_AGNOSTIC.md`
 
 **`plan/`:**
 - Purpose: Planning and tracking (NOT production code)

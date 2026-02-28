@@ -223,7 +223,7 @@ database/sql/             # 25 migration files (001-025), seed data in 004
 - **Backend**: ruff + mypy + bandit. Python 3.12. Dependencies in `backend/pyproject.toml`.
 - **Frontend**: ESLint + Prettier. Node 20. Dependencies in `frontend/package.json`.
 - **Branches**: `feature/description` or `fix/description`
-- **docs/** = existing system documentation; **plan/** = future work planning and tracking
+- **plan/** = future work planning and tracking; **`.planning/archive/docs/`** = archived design documents (moved from former `docs/`)
 
 ---
 

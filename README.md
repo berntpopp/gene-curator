@@ -102,8 +102,8 @@ gene-curator/
 ## Documentation
 
 - **API Documentation**: http://localhost:8051/docs (interactive OpenAPI)
-- **Architecture Details**: See `CLAUDE.md` for development guidelines
-- **Schema Specifications**: See `plan/SCHEMA_SPECIFICATIONS.md`
+- **Development Guide**: See `CLAUDE.md` for architecture and developer guidelines
+- **Contributing**: See `CONTRIBUTING.md` for contributor onboarding
 
 ## License
 

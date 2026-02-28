@@ -1,3 +1,23 @@
+> **ARCHIVE NOTICE**
+> This document is an archived planning/design document originally from `docs/WORKFLOW.md`.
+> It was written during the design phase and **may not accurately reflect the current implementation**.
+>
+> Known divergences from the actual implementation (as of 2026-02-28):
+> - **CurationStatus enum** has additional values not described here: `SUBMITTED`, `APPROVED`, `REJECTED`, `ARCHIVED`
+>   (see `backend/app/models/models.py`).
+> - **ReviewStatus enum** uses `NEEDS_REVISION` (not "Request Revision") and also includes `REJECTED`
+>   (see `backend/app/models/models.py`).
+> - **Backward transitions** are implemented in the workflow engine (e.g., REVIEW → CURATION, ACTIVE → REVIEW)
+>   but are not prominently described in this document
+>   (see `backend/app/crud/workflow_engine.py`).
+> - **4-eyes principle** applies only at the REVIEW → ACTIVE transition in the actual engine;
+>   a curator may submit their own work for review (CURATION → REVIEW does NOT require a different user)
+>   (see `backend/app/crud/workflow_engine.py`, `_requires_peer_review`).
+> - **Dynamic scoring via PostgreSQL trigger** (shown in the "Dynamic Scoring System" section) is not
+>   implemented; scoring is performed in Python via the scoring engines in `backend/app/scoring/`.
+> - **Auto-save / draft auto-save** described throughout this document is listed as pending (not yet
+>   implemented in the frontend) in `CLAUDE.md`.
+
 # Gene Curator - Workflow Documentation
 
 ## Overview

@@ -1,4 +1,66 @@
+> **ARCHIVE NOTICE**
+> This document was originally located in `docs/DATABASE_SCHEMA.md` and has been moved to `.planning/archive/docs/` as a historical planning and design artifact. It reflects an earlier design iteration and **does not accurately represent the current implementation** in several important areas. See the "Known Differences from Current Implementation" section below before relying on any details here.
+
+---
+
 # Gene Curator - Database Schema Documentation
+
+## Known Differences from Current Implementation
+
+The following differences between this document and the actual codebase have been identified. The actual schema is defined in `database/sql/001_schema_foundation.sql` and the models in `backend/app/models/models.py`.
+
+### 1. Role System: Dual-Role Architecture (NOT a single `user_role` enum)
+
+This document describes a single `user_role` enum with values `viewer`, `curator`, `admin`. The actual implementation uses a **dual-role system**:
+
+- **ApplicationRole** (Python: `app.core.enums.ApplicationRole`, DB type: `application_role`): Two values only - `admin` and `user`. This is stored on the `users.role` column.
+- **ScopeRole** (Python: `app.core.enums.ScopeRole`, DB type: `scope_role`): Four values - `admin`, `curator`, `reviewer`, `viewer`. This is stored in the `scope_memberships` table.
+
+The `user_role` enum described in this document does not exist in the actual database.
+
+### 2. User-Scope Relationship: `scope_memberships` Table (NOT `assigned_scopes` UUID array)
+
+This document describes an `assigned_scopes UUID[]` array column on the `users` table for scope access control. The actual implementation uses a dedicated **`scope_memberships` table** for the many-to-many user-scope relationship:
+
+```sql
+CREATE TABLE scope_memberships (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    scope_id UUID NOT NULL REFERENCES scopes(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    role scope_role NOT NULL,                          -- admin|curator|reviewer|viewer
+    invited_by UUID REFERENCES users(id),
+    invited_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    accepted_at TIMESTAMPTZ,                           -- NULL = pending invitation
+    invitation_status VARCHAR(20) DEFAULT 'pending',   -- pending, accepted, rejected
+    is_active BOOLEAN DEFAULT true NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE(scope_id, user_id)
+);
+```
+
+The `assigned_scopes UUID[]` column does exist on the `users` table in the actual DB but is explicitly marked `-- DEPRECATED: Use scope_memberships table instead`.
+
+### 3. Additional Enums in Actual Implementation
+
+The actual schema defines two additional enums not present in this document:
+
+- `workflow_stage`: `entry`, `precuration`, `curation`, `review`, `active`
+- `curation_status`: `draft`, `submitted`, `in_review`, `approved`, `rejected`, `active`, `archived`
+
+### 4. Additional Columns on `users` Table
+
+The actual `users` table includes additional columns not shown here:
+- `orcid_id VARCHAR(50)` - ORCID identifier for scientific attribution
+- `expertise_areas TEXT[]` - Areas of expertise
+
+### 5. Additional Columns on `scopes` Table
+
+The actual `scopes` table includes additional columns not shown here:
+- `is_public BOOLEAN DEFAULT false` - Whether the scope is visible to all authenticated users
+- `scope_config JSONB DEFAULT '{}'` - Scope-specific configuration
+
+---
 
 ## Overview
 
@@ -51,28 +113,31 @@ CREATE TABLE scopes (
 ### 2. Users Table (RBAC Foundation)
 
 ```sql
+-- NOTE: The design below is outdated. See "Known Differences from Current Implementation" above.
+-- Actual implementation uses application_role enum ('admin'|'user') for users.role,
+-- and scope_memberships table for user-scope relationships with scope_role ('admin'|'curator'|'reviewer'|'viewer').
 CREATE TABLE users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     email VARCHAR(255) UNIQUE NOT NULL,
     hashed_password VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    role user_role NOT NULL DEFAULT 'viewer', -- viewer|curator|admin
+    role user_role NOT NULL DEFAULT 'viewer', -- OUTDATED: actual type is application_role ('admin'|'user')
     institution VARCHAR(255),                  -- User's institutional affiliation
     is_active BOOLEAN DEFAULT true,
-    
+
     -- Scope assignments (users can work in multiple scopes)
-    assigned_scopes UUID[] DEFAULT '{}',       -- Array of scope_ids user can access
+    assigned_scopes UUID[] DEFAULT '{}',       -- DEPRECATED in actual impl: use scope_memberships table instead
     last_login TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
+
     CONSTRAINT valid_email CHECK (email ~* '^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$')
 );
 ```
 
 **Key Features:**
-- **Role-Based Access Control**: `viewer` (read-only), `curator` (create/edit), `admin` (all permissions)
-- **Scope-Based Access**: Users assigned to specific clinical specialties
+- **Role-Based Access Control**: `viewer` (read-only), `curator` (create/edit), `admin` (all permissions) -- OUTDATED: actual application-level roles are only `admin` and `user`; granular scope roles (admin/curator/reviewer/viewer) are stored in the `scope_memberships` table
+- **Scope-Based Access**: Users assigned to specific clinical specialties via `scope_memberships` table (not `assigned_scopes` array)
 - **Multi-Scope Support**: Users can work across multiple clinical domains
 - **Institutional Affiliation**: Links users to organizations for schema preferences
 - **JWT Integration**: Works with FastAPI Security for token-based auth
@@ -385,18 +450,29 @@ CREATE TABLE active_curations (
 
 ## Database Enums
 
+> **NOTE**: The enum definitions below are outdated. See "Known Differences from Current Implementation" above for the actual enum architecture.
+
 ```sql
--- User roles for RBAC
+-- OUTDATED: user_role does not exist in the actual implementation.
+-- Actual implementation uses two separate types:
+--   application_role AS ENUM ('admin', 'user')  -- stored on users.role
+--   scope_role AS ENUM ('admin', 'curator', 'reviewer', 'viewer')  -- stored in scope_memberships.role
 CREATE TYPE user_role AS ENUM ('viewer', 'curator', 'admin');
 
--- Schema types
+-- Schema types (matches actual implementation)
 CREATE TYPE schema_type AS ENUM ('precuration', 'curation', 'combined');
 
--- Review status for 4-eyes principle
+-- Review status for 4-eyes principle (matches actual implementation)
 CREATE TYPE review_status AS ENUM ('pending', 'approved', 'rejected', 'needs_revision');
+
+-- Additional enums present in actual implementation but NOT described in this document:
+-- CREATE TYPE application_role AS ENUM ('admin', 'user');
+-- CREATE TYPE scope_role AS ENUM ('admin', 'curator', 'reviewer', 'viewer');
+-- CREATE TYPE workflow_stage AS ENUM ('entry', 'precuration', 'curation', 'review', 'active');
+-- CREATE TYPE curation_status AS ENUM ('draft', 'submitted', 'in_review', 'approved', 'rejected', 'active', 'archived');
 ```
 
-**Note**: 
+**Note**:
 - Verdict enums and workflow status enums are **NOT** defined at database level - they are defined within schema configurations to maintain methodology flexibility
 - The `current_stage` enum has been removed as workflow stages are now handled by separate tables
 - Draft states and workflow statuses are managed as VARCHAR fields to allow schema-driven customization
@@ -648,8 +724,8 @@ CREATE INDEX idx_workflow_pairs_schemas ON workflow_pairs(precuration_schema_id,
 CREATE INDEX idx_schema_selections_user ON schema_selections(user_id);
 CREATE INDEX idx_schema_selections_default ON schema_selections(user_id, is_default) WHERE is_default = true;
 
--- User scope access indexes
-CREATE INDEX idx_users_assigned_scopes ON users USING GIN (assigned_scopes);
+-- OUTDATED: assigned_scopes is deprecated; actual scope access uses scope_memberships table.
+-- CREATE INDEX idx_users_assigned_scopes ON users USING GIN (assigned_scopes);
 
 -- Gene indexes
 CREATE INDEX idx_genes_hgnc_id ON genes(hgnc_id);

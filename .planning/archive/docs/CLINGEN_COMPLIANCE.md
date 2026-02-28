@@ -1,3 +1,18 @@
+> **ARCHIVED PLANNING/DESIGN DOCUMENT**
+> This file was originally located in `docs/` and is preserved here for historical reference.
+> It was written as a design/planning document and may not accurately reflect the current implementation.
+> Key divergences from the actual codebase:
+> - The ClinGen scoring engine is implemented in Python (`backend/app/scoring/clingen.py`
+>   as the `ClinGenEngine` class), NOT as PostgreSQL triggers as described in the
+>   "Database-Level Implementation" section below.
+> - Classification thresholds differ: the actual implementation uses Moderate >= 2.0 and
+>   Limited >= 0.1 (not 4.0 and 1.0 as shown in the pseudocode below).
+> - Segregation LOD thresholds in the actual implementation differ from those described here;
+>   consult `backend/app/scoring/clingen.py` for the authoritative values.
+> - Several code snippets (generate_evidence_summary, GCEPWorkflow, prepare_gencc_submission,
+>   check_sop_compliance, etc.) are illustrative pseudocode and are not present verbatim in
+>   the codebase.
+
 # Gene Curator - ClinGen SOP v11 Compliance
 
 ## Overview
@@ -159,7 +174,12 @@ Evidence from functional studies demonstrating the biological mechanism.
 
 #### Database-Level Implementation
 
-The scoring engine is implemented as PostgreSQL triggers that automatically calculate evidence scores:
+> **Note**: The description below (PostgreSQL trigger approach) was the original design intent
+> and does NOT match the actual implementation. The scoring engine is implemented as a Python
+> class (`ClinGenEngine`) in `backend/app/scoring/clingen.py`, not as database triggers.
+> The pseudocode below is retained for historical context only.
+
+The scoring engine was originally designed as PostgreSQL triggers that would automatically calculate evidence scores:
 
 ```sql
 CREATE OR REPLACE FUNCTION calculate_clingen_scores()
@@ -218,34 +238,34 @@ $$ LANGUAGE plpgsql;
 
 #### Classification Logic
 
-**Automated Verdict Assignment**:
+**Automated Verdict Assignment** (illustrative pseudocode - see actual thresholds below):
 ```python
 def assign_verdict(total_score: float, has_contradictory: bool) -> CurationVerdict:
     """Assign ClinGen verdict based on evidence scores."""
     if has_contradictory:
         return CurationVerdict.DISPUTED
-    
+
     if total_score >= 12.0:
         return CurationVerdict.DEFINITIVE
     elif total_score >= 7.0:
         return CurationVerdict.STRONG
-    elif total_score >= 4.0:
+    elif total_score >= 2.0:     # actual implementation: 2.0, not 4.0
         return CurationVerdict.MODERATE
-    elif total_score >= 1.0:
+    elif total_score >= 0.1:     # actual implementation: 0.1, not 1.0
         return CurationVerdict.LIMITED
     else:
         return CurationVerdict.NO_KNOWN_DISEASE_RELATIONSHIP
 ```
 
-**Classification Thresholds**:
+**Classification Thresholds** (actual values from `backend/app/scoring/clingen.py`):
 
 | Score Range | Contradictory Evidence | Classification | Confidence Level |
 |-------------|------------------------|----------------|------------------|
 | ≥12.0       | No                     | Definitive     | High             |
 | 7.0-11.99   | No                     | Strong         | High             |
-| 4.0-6.99    | No                     | Moderate       | Medium           |
-| 1.0-3.99    | No                     | Limited        | Low              |
-| 0.0-0.99    | No                     | No Known       | N/A              |
+| 2.0-6.99    | No                     | Moderate       | Medium           |
+| 0.1-1.99    | No                     | Limited        | Low              |
+| 0.0-0.09    | No                     | No Known       | N/A              |
 | Any         | Yes                    | Disputed       | Conflicted       |
 
 ### Evidence Summary Generation

@@ -1,5 +1,7 @@
 # Gene Curator - API Reference
 
+> **ARCHIVE NOTICE**: This document was originally located in `docs/` and is now archived under `.planning/archive/docs/`. It was written as a planning/design document and may not accurately reflect the current implementation. Known discrepancies are noted inline below. Do not rely on this document as an authoritative reference for the live API - use the auto-generated OpenAPI docs at `http://localhost:8051/docs` instead.
+
 ## Overview
 
 Gene Curator provides comprehensive RESTful API endpoints built with FastAPI for a **scope-based, schema-agnostic** curation platform. This document details all available endpoints including clinical specialty management, multi-stage workflows with 4-eyes principle review, schema management, dynamic validation, multi-methodology scoring, and flexible curation workflows that adapt to any scientific approach.
@@ -7,7 +9,7 @@ Gene Curator provides comprehensive RESTful API endpoints built with FastAPI for
 ## Base URL and Versioning
 
 **Production**: `https://gene-curator.org/api/v1`  
-**Development**: `http://localhost:8000/api/v1`
+**Development**: `http://localhost:8051/api/v1`
 
 All API endpoints are versioned and follow RESTful conventions with automatic OpenAPI/Swagger documentation available at `/docs`.
 
@@ -32,10 +34,12 @@ Register a new user account.
   "email": "curator@example.org",
   "password": "SecurePassword123!",
   "name": "Dr. Jane Curator",
-  "role": "curator",
+  "role": "user",
   "assigned_scopes": ["123e4567-e89b-12d3-a456-scope001", "123e4567-e89b-12d3-a456-scope002"]
 }
 ```
+
+> **Note**: The application-level `role` field only accepts `"admin"` or `"user"`. Fine-grained roles (curator, reviewer, viewer) are scope-level roles managed through scope memberships, not user accounts.
 
 **Response** (201 Created):
 ```json
@@ -43,7 +47,7 @@ Register a new user account.
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "email": "curator@example.org",
   "name": "Dr. Jane Curator",
-  "role": "curator",
+  "role": "user",
   "is_active": true,
   "assigned_scopes": ["123e4567-e89b-12d3-a456-scope001", "123e4567-e89b-12d3-a456-scope002"],
   "created_at": "2024-01-15T10:30:00Z"
@@ -72,7 +76,7 @@ Authenticate and receive JWT tokens.
     "id": "123e4567-e89b-12d3-a456-426614174000",
     "email": "curator@example.org",
     "name": "Dr. Jane Curator",
-    "role": "curator",
+    "role": "user",
     "assigned_scopes": ["123e4567-e89b-12d3-a456-scope001", "123e4567-e89b-12d3-a456-scope002"]
   }
 }
@@ -106,7 +110,7 @@ Get current user information.
   "id": "123e4567-e89b-12d3-a456-426614174000",
   "email": "curator@example.org",
   "name": "Dr. Jane Curator",
-  "role": "curator",
+  "role": "user",
   "is_active": true,
   "assigned_scopes": ["123e4567-e89b-12d3-a456-scope001", "123e4567-e89b-12d3-a456-scope002"],
   "last_login": "2024-01-15T10:30:00Z",
@@ -2184,7 +2188,7 @@ List users (Admin only).
       "id": "123e4567-e89b-12d3-a456-426614174000",
       "email": "curator@example.org",
       "name": "Dr. Jane Curator",
-      "role": "curator",
+      "role": "user",
       "is_active": true,
       "last_login": "2024-01-15T10:30:00Z",
       "created_at": "2024-01-01T00:00:00Z"

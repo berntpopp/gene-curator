@@ -1,3 +1,6 @@
+> **ARCHIVED PLANNING/DESIGN DOCUMENT**
+> This file was originally located in `docs/architecture/scoring-engines.md` and has been moved to the planning archive. It represents the initial design specification for the scoring engine subsystem and may not accurately reflect the current implementation. Known divergences from the actual code include: the `ScoringEngine.calculate_scores` method signature has an additional `scope_context` parameter; `ScoringEngine` exposes `get_supported_verdicts()` and `get_scoring_categories()` methods not present in this design; `ScoringEngineRegistry.list_engines()` returns `list[dict[str, Any]]` (not `list[str]`), and the registry implements additional methods (`calculate_scores`, `validate_evidence`, `get_supported_verdicts`, `get_scoring_categories`, `find_engines_for_schema`, `get_engine_info`, `get_engine_names`). Refer to `backend/app/scoring/` for the authoritative implementation.
+
 # Scoring Engine Development Guide
 
 This guide explains how to create pluggable scoring engines for Gene Curator's schema-agnostic architecture. Scoring engines calculate verdicts/classifications from evidence data according to specific methodological rules.
