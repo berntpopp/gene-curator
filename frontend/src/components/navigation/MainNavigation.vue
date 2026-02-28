@@ -69,7 +69,7 @@
    * @see src/composables/useNavigation.js
    */
 
-  import { computed, ref, onMounted, onUnmounted } from 'vue'
+  import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { usePermissions } from '@/composables/usePermissions'
   import { useWorkflowStore } from '@/stores/workflow'
@@ -90,18 +90,37 @@
     }
   }
 
-  onMounted(async () => {
-    if (isAuthenticated.value) {
-      await refreshBadgeCount()
+  function startBadgeRefresh() {
+    if (!badgeRefreshInterval) {
+      refreshBadgeCount()
       badgeRefreshInterval = setInterval(refreshBadgeCount, 60000)
     }
-  })
+  }
 
-  onUnmounted(() => {
+  function stopBadgeRefresh() {
     if (badgeRefreshInterval) {
       clearInterval(badgeRefreshInterval)
       badgeRefreshInterval = null
     }
+    pendingReviewCount.value = 0
+  }
+
+  onMounted(() => {
+    if (isAuthenticated.value) {
+      startBadgeRefresh()
+    }
+  })
+
+  watch(isAuthenticated, newVal => {
+    if (newVal) {
+      startBadgeRefresh()
+    } else {
+      stopBadgeRefresh()
+    }
+  })
+
+  onUnmounted(() => {
+    stopBadgeRefresh()
   })
 
   /**
