@@ -76,8 +76,8 @@ Plans:
 - [x] M1-01-PLAN.md -- SQL injection fix + input validation (backend)
 - [x] M1-02-PLAN.md -- ReviewQueue fix + workflow store wiring (frontend)
 - [x] M1-03-PLAN.md -- Navigation badge + end-to-end verification
-- [ ] M1-04-PLAN.md -- Gap closure: fix can_review status check + tests (backend)
-- [ ] M1-05-PLAN.md -- Gap closure: read-only DynamicForm evidence display (frontend)
+- [x] M1-04-PLAN.md -- Gap closure: fix can_review status check + tests (backend)
+- [x] M1-05-PLAN.md -- Gap closure: read-only DynamicForm evidence display (frontend)
 
 **Success Criteria** (what must be TRUE):
   1. Gene search uses parameterized queries (no SQL injection)
@@ -145,7 +145,7 @@ MVP phases: M1 -> M2 (+ M3 in parallel) -> M4
 | 3. Field Metadata | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 4. Validation | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 5. Scoring and Integration | v0.1 | 3/3 | Complete | 2026-01-23 |
-| M1. Security + Review Workflow | MVP | 3/5 | In progress | - |
+| M1. Security + Review Workflow | MVP | 5/5 | Complete | 2026-02-28 |
 | M2. Curation Enhancements | MVP | 0/3 | Not started | - |
 | M3. Admin Management UI | MVP | 0/2 | Not started | - |
 | M4. MVP Hardening | MVP | 0/4 | Not started | - |

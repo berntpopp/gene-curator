@@ -10,12 +10,12 @@ See: .planning/MVP-PLAN.md (created 2026-02-28)
 
 ## Current Position
 
-Phase: MVP Phase M1 (Security Fix + Review Workflow)
-Plan: M1-04 of M1 complete; M1-06 next
-Status: In progress — M1-01, M1-02, M1-03, M1-04, M1-05 complete (M1-06 remaining)
-Last activity: 2026-02-28 — Completed M1-04-PLAN.md (fix _can_user_review_curation status check)
+Phase: MVP Phase M2 (Precuration & Curation Enhancements) — ready to plan
+Plan: M1 complete (all 5 plans + manual verification + bug fixes); M2 next
+Status: M1 COMPLETE — verified 7/7 criteria, 6 manual browser tests, 3 bug fixes committed
+Last activity: 2026-02-28 — M1 phase complete, badge race condition fix committed (c3b4b0c)
 
-Progress: MVP [█████░░░░░] ~50% (M1-01, M1-02, M1-03, M1-04, M1-05 done; M1-06 remaining)
+Progress: MVP [██████░░░░] ~55% (M1 done; M2, M3, M4 remaining)
 
 ## Performance Metrics
 
@@ -69,6 +69,8 @@ Progress: MVP [█████░░░░░] ~50% (M1-01, M1-02, M1-03, M1-04,
 - **M1-04**: Single-line fix sufficient; 4-eyes check, admin bypass, and scope role checks were all correct (2026-02-28)
 - M1-05: v-if="curationSchemaId" gates Evidence Details section — graceful degradation when schema fetch fails, score tables remain (2026-02-28)
 - M1-05: title="" passed to DynamicForm to suppress default "Dynamic Form" title inside the card with its own "Evidence Details" header (2026-02-28)
+- M1-03 (fix): watch(isAuthenticated) added to MainNavigation for badge refresh — fixes race condition with dev quick login where auth sets after onMounted (2026-02-28)
+- M1 verification: use_dynamic_form migration must be run on dev DB — column defined in model but missing from initial schema (2026-02-28)
 
 v0.2 decisions (pre-implementation, from research — deferred, revisit post-MVP):
 - Research preserved in `.planning/research/` and `.planning/REQUIREMENTS.md`
@@ -87,12 +89,13 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-28 10:10 UTC
-Stopped at: Completed M1-04-PLAN.md
-Resume file: .planning/phases/M1-security-review-workflow/M1-06-PLAN.md
+Last session: 2026-02-28
+Stopped at: M1 phase complete, ready for M2 planning
 
 **Next steps:**
-- Execute M1-06 to complete review workflow phase (M1-01 through M1-05 all complete)
+- Plan and execute M2 (Precuration & Curation Enhancements)
+- M3 (Admin Management UI) can run in parallel with M2
+- M4 (MVP Hardening) after M2 + M3
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
@@ -102,4 +105,4 @@ Resume file: .planning/phases/M1-security-review-workflow/M1-06-PLAN.md
 - `.planning/archive/docs/` (former docs/ directory)
 
 ---
-*Updated: 2026-02-28 after M1-04 completion*
+*Updated: 2026-02-28 after M1 phase completion*
