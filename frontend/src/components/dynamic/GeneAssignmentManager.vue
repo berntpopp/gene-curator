@@ -277,6 +277,47 @@
       </v-card>
     </v-dialog>
 
+    <!-- Edit Assignment Dialog -->
+    <v-dialog v-model="editDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-pencil</v-icon>
+          Edit Assignment
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="editForm">
+            <v-select
+              v-model="editFormData.priority_level"
+              :items="priorityOptions"
+              item-title="title"
+              item-value="value"
+              label="Priority"
+              variant="outlined"
+            />
+            <v-text-field
+              v-model="editFormData.due_date"
+              type="date"
+              label="Due Date"
+              variant="outlined"
+            />
+            <v-textarea
+              v-model="editFormData.notes"
+              label="Notes"
+              variant="outlined"
+              rows="3"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="editDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="saving" @click="saveAssignment">
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- View Assignment Dialog -->
     <v-dialog v-model="viewDialog" max-width="600">
       <v-card>
@@ -373,6 +414,15 @@
   const bulkAssigning = ref(false)
   const viewDialog = ref(false)
   const selectedAssignment = ref(null)
+  const editDialog = ref(false)
+  const editForm = ref(null)
+  const saving = ref(false)
+  const editFormData = ref({
+    priority_level: null,
+    due_date: '',
+    notes: ''
+  })
+  let editingAssignmentId = null
 
   // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
@@ -632,7 +682,27 @@
 
   const editAssignment = assignment => {
     logger.info('Edit assignment requested', { assignmentId: assignment.id })
-    // TODO: Implement assignment edit when available
+    editingAssignmentId = assignment.id
+    editFormData.value = {
+      priority_level: assignment.priority_level || assignment.priority || null,
+      due_date: assignment.due_date || '',
+      notes: assignment.notes || ''
+    }
+    editDialog.value = true
+  }
+
+  const saveAssignment = async () => {
+    saving.value = true
+    try {
+      await assignmentsStore.updateAssignment(editingAssignmentId, editFormData.value)
+      showSuccess('Assignment updated successfully')
+      editDialog.value = false
+    } catch (error) {
+      showError('Failed to update assignment')
+      logger.error('Save assignment failed', { error: error.message })
+    } finally {
+      saving.value = false
+    }
   }
 
   const reassignGene = assignment => {
