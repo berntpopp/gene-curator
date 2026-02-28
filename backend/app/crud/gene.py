@@ -89,8 +89,12 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
                     Gene.approved_symbol.ilike(search_term),
                     Gene.hgnc_id.ilike(search_term),
                     Gene.details.op("->>")("gene_description").ilike(search_term),
-                    text(f"'{search_params.query}' = ANY(genes.previous_symbols)"),
-                    text(f"'{search_params.query}' = ANY(genes.alias_symbols)"),
+                    text(":query_val = ANY(genes.previous_symbols)").bindparams(
+                        query_val=search_params.query
+                    ),
+                    text(":query_val2 = ANY(genes.alias_symbols)").bindparams(
+                        query_val2=search_params.query
+                    ),
                 )
             )
 
