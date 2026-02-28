@@ -141,7 +141,11 @@ def get_precuration(
     # Verify scope access
     _check_scope_access(db, current_user, precuration.scope_id)
 
-    return Precuration.model_validate(precuration)
+    # Enrich with curation count
+    curation_count = precuration_crud.has_associated_curations(db, precuration.id)
+    result = Precuration.model_validate(precuration)
+    result.curation_count = curation_count
+    return result
 
 
 # ========================================
@@ -483,4 +487,10 @@ def delete_precuration(
             detail="Only draft precurations can be deleted",
         )
 
-    precuration_crud.soft_delete(db, db_obj=precuration, user_id=current_user.id)
+    try:
+        precuration_crud.soft_delete(db, db_obj=precuration, user_id=current_user.id)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e),
+        ) from e

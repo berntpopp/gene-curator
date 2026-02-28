@@ -15,7 +15,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import CurationSchema, Gene, PrecurationNew, Scope, UserNew
+from app.models.models import (
+    CurationNew,
+    CurationSchema,
+    Gene,
+    PrecurationNew,
+    Scope,
+    UserNew,
+    WorkflowPair,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -589,3 +597,223 @@ class TestPrecurationScopeAccess:
         assert response.status_code == 200
         data = response.json()
         assert data["precurations"] == []
+
+
+class TestPrecurationDeletionGuard:
+    """Tests for deletion guard preventing archival of precurations with curations."""
+
+    def test_delete_with_curations_returns_409(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_precuration: PrecurationNew,
+        test_scope: Scope,
+        test_gene: Gene,
+        test_user_curator: UserNew,
+    ):
+        """Test deleting a precuration with linked curations returns 409."""
+        # Arrange - create a workflow pair and a curation linked to the precuration
+        workflow_pair = WorkflowPair(
+            id=uuid4(),
+            name="deletion-guard-test-wf",
+            version="1.0",
+        )
+        db_session.add(workflow_pair)
+        db_session.flush()
+
+        curation = CurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            workflow_pair_id=workflow_pair.id,
+            precuration_id=test_precuration.id,
+            workflow_stage="curation",
+            evidence_data={"status": "draft"},
+            created_by=test_user_curator.id,
+        )
+        db_session.add(curation)
+        db_session.commit()
+
+        # Act
+        response = client.delete(
+            f"/api/v1/precurations/{test_precuration.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert
+        assert response.status_code == 409
+        assert "linked curation" in response.json()["detail"].lower()
+
+    def test_delete_without_curations_succeeds(
+        self,
+        client: TestClient,
+        admin_token: str,
+        test_precuration: PrecurationNew,
+    ):
+        """Test deleting a standalone precuration succeeds."""
+        # Act
+        response = client.delete(
+            f"/api/v1/precurations/{test_precuration.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert
+        assert response.status_code == 204
+
+    def test_get_precuration_includes_curation_count(
+        self,
+        client: TestClient,
+        admin_token: str,
+        test_precuration: PrecurationNew,
+    ):
+        """Test that GET precuration includes curation_count field."""
+        # Act
+        response = client.get(
+            f"/api/v1/precurations/{test_precuration.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert "curation_count" in data
+        assert data["curation_count"] == 0
+
+
+class TestLumpingSplittingValidation:
+    """Tests for lumping/splitting validation at submit time."""
+
+    def test_submit_with_applicable_but_undecided_fails(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_scope: Scope,
+        test_gene: Gene,
+        test_user_admin: UserNew,
+        test_precuration_schema: CurationSchema,
+    ):
+        """Test submitting with L/S applicable but UNDECIDED decision returns 400."""
+        # Arrange - create precuration with applicable=true but undecided
+        precuration = PrecurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            precuration_schema_id=test_precuration_schema.id,
+            workflow_stage="precuration",
+            evidence_data={
+                "mondo_id": "MONDO:0000010",
+                "disease_name": "LS Test Disease",
+                "mode_of_inheritance": "AD",
+                "lumping_splitting_applicable": True,
+                "lumping_splitting_decision": "UNDECIDED",
+            },
+            created_by=test_user_admin.id,
+            updated_by=test_user_admin.id,
+        )
+        db_session.add(precuration)
+        db_session.commit()
+
+        # Act
+        response = client.post(
+            f"/api/v1/precurations/{precuration.id}/submit",
+            json={"notes": "Ready for review"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert - either 400 for L/S validation or workflow validation
+        assert response.status_code == 400
+
+    def test_submit_with_valid_decision_passes_ls_validation(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_scope: Scope,
+        test_gene: Gene,
+        test_user_admin: UserNew,
+        test_precuration_schema: CurationSchema,
+    ):
+        """Test submitting with valid L/S decision passes L/S validation."""
+        # Arrange
+        precuration = PrecurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            precuration_schema_id=test_precuration_schema.id,
+            workflow_stage="precuration",
+            evidence_data={
+                "mondo_id": "MONDO:0000011",
+                "disease_name": "LS Valid Disease",
+                "mode_of_inheritance": "AD",
+                "lumping_splitting_applicable": True,
+                "lumping_splitting_decision": "LUMP",
+            },
+            created_by=test_user_admin.id,
+            updated_by=test_user_admin.id,
+        )
+        db_session.add(precuration)
+        db_session.commit()
+
+        # Act
+        response = client.post(
+            f"/api/v1/precurations/{precuration.id}/submit",
+            json={"notes": "Ready for review"},
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert - passes L/S validation (may still fail on workflow transition)
+        # If it returns 400, it should NOT be about L/S validation
+        if response.status_code == 400:
+            detail = response.json().get("detail", "")
+            assert "lumping" not in detail.lower()
+            assert "splitting" not in detail.lower()
+
+    def test_draft_save_skips_ls_validation(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_scope: Scope,
+        test_gene: Gene,
+        test_user_admin: UserNew,
+        test_precuration_schema: CurationSchema,
+    ):
+        """Test draft save allows L/S applicable with UNDECIDED decision."""
+        # Arrange
+        precuration = PrecurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            precuration_schema_id=test_precuration_schema.id,
+            workflow_stage="precuration",
+            evidence_data={
+                "mondo_id": "MONDO:0000012",
+                "disease_name": "Draft LS Disease",
+                "mode_of_inheritance": "AD",
+            },
+            created_by=test_user_admin.id,
+            updated_by=test_user_admin.id,
+        )
+        db_session.add(precuration)
+        db_session.commit()
+
+        # Act - save as draft with invalid L/S data
+        draft_data = {
+            "evidence_data": {
+                "mondo_id": "MONDO:0000012",
+                "disease_name": "Draft LS Disease",
+                "mode_of_inheritance": "AD",
+                "lumping_splitting_applicable": True,
+                "lumping_splitting_decision": "UNDECIDED",
+            }
+        }
+        response = client.patch(
+            f"/api/v1/precurations/{precuration.id}/draft",
+            json=draft_data,
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert - draft save succeeds regardless of L/S state
+        assert response.status_code == 200

@@ -159,16 +159,27 @@
                     >
                       Approve
                     </v-btn>
-                    <v-btn
-                      v-if="authStore.isAdmin"
-                      color="error"
-                      variant="outlined"
-                      prepend-icon="mdi-delete"
-                      block
-                      @click="deletePrecuration"
+                    <v-tooltip
+                      :disabled="!hasCurations"
+                      location="top"
+                      text="Cannot delete: linked curations exist"
                     >
-                      Delete
-                    </v-btn>
+                      <template #activator="{ props: tooltipProps }">
+                        <div v-bind="tooltipProps">
+                          <v-btn
+                            v-if="authStore.isAdmin"
+                            color="error"
+                            variant="outlined"
+                            prepend-icon="mdi-delete"
+                            block
+                            :disabled="hasCurations"
+                            @click="deletePrecuration"
+                          >
+                            Delete
+                          </v-btn>
+                        </div>
+                      </template>
+                    </v-tooltip>
                   </div>
                 </v-card-text>
               </v-card>
@@ -364,6 +375,10 @@
     return authStore.isCurator && precuration.value?.status === 'Approved'
   })
 
+  const hasCurations = computed(() => {
+    return (precuration.value?.curation_count ?? 0) > 0
+  })
+
   // Utility functions
   const formatDate = dateString => {
     if (!dateString) return 'N/A'
@@ -405,8 +420,40 @@
     return colors[inheritance] || 'grey'
   }
 
+  const hasApprovedLsDecision = computed(() => {
+    if (!precuration.value) return false
+    const status = precuration.value.status
+    const ed = precuration.value.evidence_data || {}
+    const isApprovedOrSubmitted = [
+      'Approved',
+      'In_Primary_Review',
+      'submitted',
+      'approved'
+    ].includes(status)
+    const hasDecision =
+      ed.lumping_splitting_decision &&
+      ed.lumping_splitting_decision !== 'UNDECIDED' &&
+      ed.lumping_splitting_decision !== 'Undecided'
+    return isApprovedOrSubmitted && hasDecision
+  })
+
   // Actions
   const startEditing = () => {
+    if (hasApprovedLsDecision.value) {
+      confirmTitle.value = 'Edit Approved Decision'
+      confirmMessage.value =
+        'This pre-curation has an approved lumping/splitting decision. ' +
+        'Changes may affect downstream curations. Do you want to continue?'
+      confirmAction.value = {
+        text: 'Continue Editing',
+        color: 'warning',
+        callback: () => {
+          editDialog.value = true
+        }
+      }
+      confirmDialog.value = true
+      return
+    }
     editDialog.value = true
   }
 

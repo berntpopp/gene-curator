@@ -5,7 +5,7 @@ Follows patterns from curation.py.
 """
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -276,6 +276,8 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
 
         return db_obj
 
+    _VALID_LS_DECISIONS: ClassVar[set[str]] = {"LUMP", "SPLIT", "NOT_APPLICABLE"}
+
     def submit_for_review(
         self,
         db: Session,
@@ -285,6 +287,22 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew:
         """Submit precuration for review via workflow engine."""
+        # Validate lumping/splitting consistency
+        evidence = db_obj.evidence_data or {}
+        if evidence.get("lumping_splitting_applicable"):
+            ls_decision = evidence.get("lumping_splitting_decision")
+            if not ls_decision or ls_decision == "UNDECIDED":
+                raise ValueError(
+                    "Lumping/splitting is marked as applicable but no decision "
+                    "has been made. Please select LUMP, SPLIT, or NOT_APPLICABLE "
+                    "before submitting."
+                )
+            if ls_decision not in self._VALID_LS_DECISIONS:
+                raise ValueError(
+                    f"Invalid lumping/splitting decision '{ls_decision}'. "
+                    f"Must be one of: {', '.join(sorted(self._VALID_LS_DECISIONS))}."
+                )
+
         # Validate transition
         validation = workflow_engine.validate_transition(
             db,
@@ -438,6 +456,13 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew:
         """Soft delete by setting status to archived."""
+        curation_count = self.has_associated_curations(db, db_obj.id)
+        if curation_count > 0:
+            raise ValueError(
+                f"Cannot delete precuration: {curation_count} linked "
+                f"curation(s) exist. Remove or reassign them first."
+            )
+
         db_obj.status = CurationStatus.ARCHIVED
         db_obj.updated_by = user_id
         db_obj.updated_at = _utc_now()
@@ -500,6 +525,15 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         )
 
         return db_obj
+
+    def has_associated_curations(self, db: Session, precuration_id: UUID) -> int:
+        """Count curations linked to this precuration."""
+        stmt = (
+            select(func.count())
+            .select_from(CurationNew)
+            .where(CurationNew.precuration_id == precuration_id)
+        )
+        return db.execute(stmt).scalar() or 0
 
     # ========================================
     # HELPER METHODS

@@ -507,7 +507,18 @@
     confirmAction.value = {
       text: 'Delete',
       color: 'error',
-      callback: () => precurationsStore.deletePrecuration(item.id)
+      callback: async () => {
+        try {
+          await precurationsStore.deletePrecuration(item.id)
+        } catch (err) {
+          if (err?.response?.status === 409) {
+            showError(err.response.data?.detail || 'Cannot delete: linked curations exist')
+          } else {
+            showError('Failed to delete pre-curation')
+          }
+          throw err
+        }
+      }
     }
     confirmDialog.value = true
   }

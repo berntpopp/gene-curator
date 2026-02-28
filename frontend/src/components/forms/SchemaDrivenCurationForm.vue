@@ -131,6 +131,7 @@
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
+  import { applyDataMapping } from '@/utils/dataMapping'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -537,13 +538,30 @@
 
         if (approvedPrecuration) {
           // Fetch full details if we only have summary
+          let sourceData
           if (!approvedPrecuration.evidence_data) {
             const fullPrecuration = await precurationsStore.fetchPrecurationById(
               approvedPrecuration.id
             )
-            precurationData.value = fullPrecuration?.evidence_data || {}
+            sourceData = fullPrecuration?.evidence_data || {}
           } else {
-            precurationData.value = approvedPrecuration.evidence_data || {}
+            sourceData = approvedPrecuration.evidence_data || {}
+          }
+
+          precurationData.value = sourceData
+
+          // Apply workflow pair data mapping to prefill curation form
+          if (props.workflowPairId && Object.keys(evidenceData.value).length === 0) {
+            const workflowPair = schemasStore.getWorkflowPairById(props.workflowPairId)
+            if (workflowPair?.data_mapping) {
+              const mapped = applyDataMapping(sourceData, workflowPair.data_mapping)
+              if (Object.keys(mapped).length > 0) {
+                evidenceData.value = mapped
+                logger.debug('Applied data mapping to prefill curation', {
+                  mappedFields: Object.keys(mapped)
+                })
+              }
+            }
           }
 
           logger.debug('Loaded precuration data for new curation', {

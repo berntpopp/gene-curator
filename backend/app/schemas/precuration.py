@@ -117,7 +117,7 @@ class PrecurationInDBBase(BaseModel):
 class Precuration(PrecurationInDBBase):
     """Full precuration response schema."""
 
-    pass
+    curation_count: int = Field(default=0, description="Number of linked curations")
 
 
 class PrecurationSummary(BaseModel):
