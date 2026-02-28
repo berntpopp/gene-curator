@@ -11,11 +11,11 @@ See: .planning/MVP-PLAN.md (created 2026-02-28)
 ## Current Position
 
 Phase: MVP Phase M1 (Security Fix + Review Workflow)
-Plan: .planning/MVP-PLAN.md
-Status: Planning complete, ready for execution
-Last activity: 2026-02-28 — MVP plan created, plan/ archived to .planning/archive/plan/
+Plan: M1-02 of M1 complete; M1-03 next
+Status: In progress — M1-01 and M1-02 complete
+Last activity: 2026-02-28 — Completed M1-02-PLAN.md (ReviewQueue fix + workflow store)
 
-Progress: MVP [░░░░░░░░░░] 0%
+Progress: MVP [██░░░░░░░░] ~20% (M1-01, M1-02 done; M1-03 through M1-06 remaining)
 
 ## Performance Metrics
 
@@ -59,6 +59,8 @@ Progress: MVP [░░░░░░░░░░] 0%
 - MVP phases (M1-M4) prioritized before v0.2 Form Intelligence (2026-02-28)
 - v0.2 research preserved in .planning/research/ (still valid, just deprioritized)
 - plan/ directory archived to .planning/archive/plan/ (2026-02-28)
+- M1-02: Dynamic imports inside Pinia actions to avoid circular dependency chains (2026-02-28)
+- M1-02: workflow API redirects getAvailableTransitions → /state endpoint, submitPeerReview → /transition endpoint (2026-02-28)
 
 v0.2 decisions (pre-implementation, from research — deferred, revisit post-MVP):
 - Research preserved in `.planning/research/` and `.planning/REQUIREMENTS.md`
@@ -77,13 +79,13 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-28
-Stopped at: MVP plan created, ready for M1 execution
-Resume file: .planning/MVP-PLAN.md
+Last session: 2026-02-28 09:01 UTC
+Stopped at: Completed M1-02-PLAN.md
+Resume file: .planning/phases/M1-security-review-workflow/M1-03-PLAN.md
 
 **Next steps:**
-- Execute Phase M1: Fix SQL injection → Complete review workflow
-- Start with M1.1 (security fix) then M1.2-M1.6 (review workflow)
+- Execute M1-03: Notification badge for pending review count
+- Then M1-04 through M1-06 to complete review workflow phase
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
@@ -93,4 +95,4 @@ Resume file: .planning/MVP-PLAN.md
 - `.planning/archive/docs/` (former docs/ directory)
 
 ---
-*Updated: 2026-02-28 after MVP plan creation*
+*Updated: 2026-02-28 after M1-02 completion*
