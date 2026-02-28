@@ -87,7 +87,7 @@ def _can_user_review_curation(
         return False
 
     # Must be in review status/stage
-    if curation.status != CurationStatus.SUBMITTED:
+    if curation.status != CurationStatus.IN_REVIEW:
         return False
 
     # Admin can always review (others' work)
