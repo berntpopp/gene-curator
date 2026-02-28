@@ -61,6 +61,7 @@ export const useWorkflowStore = defineStore('workflow', {
     loading: false,
     error: null,
     currentWorkflowStage: null,
+    pendingReviewCount: 0,
     // Static workflow stages - exposed via getter for consistency
     _workflowStages: WORKFLOW_STAGES
   }),
@@ -186,6 +187,25 @@ export const useWorkflowStore = defineStore('workflow', {
       } catch (error) {
         this.error = error.message
         throw error
+      }
+    },
+
+    async fetchPendingReviewCount() {
+      try {
+        const { curationsAPI } = await import('@/api')
+        const { useAuthStore } = await import('@/stores/auth')
+        const authStore = useAuthStore()
+
+        const response = await curationsAPI.getCurations({
+          curation_status: 'in_review',
+          limit: 200
+        })
+        const userId = authStore.user?.id
+        const myReviews = (response.curations || []).filter(c => c.created_by !== userId)
+        this.pendingReviewCount = myReviews.length
+        return this.pendingReviewCount
+      } catch {
+        return 0
       }
     },
 

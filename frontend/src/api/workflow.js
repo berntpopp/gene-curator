@@ -32,10 +32,11 @@ export const workflowAPI = {
 
   /**
    * Get available transitions for curation
+   * Uses workflow state endpoint which returns available_transitions in response
    */
   async getAvailableTransitions(curationId) {
-    const response = await apiClient.get(`/workflow/curation/${curationId}/available-transitions`)
-    return response.data
+    const response = await apiClient.get(`/workflow/curation/${curationId}/state`)
+    return response.data?.available_transitions || []
   },
 
   /**
@@ -48,9 +49,11 @@ export const workflowAPI = {
 
   /**
    * Submit peer review
+   * Uses transition endpoint — the dedicated review endpoint does not exist
+   * CurationDetailView already uses transitionCuration() directly for approve/reject
    */
   async submitPeerReview(curationId, reviewData) {
-    const response = await apiClient.post(`/workflow/curation/${curationId}/review`, reviewData)
+    const response = await apiClient.post(`/workflow/curation/${curationId}/transition`, reviewData)
     return response.data
   },
 
