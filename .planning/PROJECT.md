@@ -50,9 +50,18 @@ When a curator opens a precuration or curation form, the UI renders from the dat
 - Offline-first / IndexedDB - Curation done online; localStorage recovery sufficient
 - AI-assisted field completion - Separate feature, out of scope for form infrastructure
 
-## Current Milestone
+## Current Milestone: v0.3 UX Overhaul
 
-No active milestone. MVP shipped 2026-02-28. Use `/gsd:new-milestone` to start next.
+**Goal:** Fix critical UX issues identified by audit to raise curator productivity from 4/10 to production-grade.
+
+**Target features:**
+- Section navigation on curation detail page (sticky sidebar/tabs)
+- Fix truncated field labels across all forms
+- Fix Evidence Summary "Unknown field type" schema error
+- Autosave with form recovery
+- Expose workflow transitions in curation UI (Submit for Review, Approve, etc.)
+- Breadcrumb navigation on deep pages
+- Fix dashboard data queries (all-zeros bug)
 
 ## Deferred: v0.2 Form Intelligence
 
@@ -102,4 +111,4 @@ No active milestone. MVP shipped 2026-02-28. Use `/gsd:new-milestone` to start n
 | Sticky sidebar lg+ only | Better mobile UX | Good - follows Vuetify conventions |
 
 ---
-*Last updated: 2026-02-28 — MVP shipped, .planning/ restructured to GSD conventions*
+*Last updated: 2026-02-28 after v0.3 UX Overhaul milestone started*

@@ -9,11 +9,12 @@ See: .planning/PROJECT.md
 
 ## Current Position
 
-Phase: None active — MVP complete, ready for next milestone
-Status: Both v0.1 and MVP milestones shipped
-Last activity: 2026-02-28 — MVP M1-M4 complete, .planning/ restructured to GSD conventions
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-28 — Milestone v0.3 UX Overhaul started
 
-Progress: No active milestone
+Progress: Defining requirements
 
 ## Milestone History
 
@@ -48,8 +49,8 @@ Last session: 2026-02-28
 Stopped at: .planning/ cleanup complete
 
 **Next steps:**
-- Decide next milestone (v0.2 Form Intelligence, production hardening, or other)
-- Use `/gsd:new-milestone` to initialize
+- Define requirements from UX audit P0+P1 items
+- Create roadmap with phased execution plan
 
 ---
-*Updated: 2026-02-28 — post-MVP, .planning/ restructured to GSD conventions*
+*Updated: 2026-02-28 — v0.3 UX Overhaul milestone started*
