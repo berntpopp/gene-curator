@@ -58,7 +58,7 @@
    * @see src/router/index.js (menu metadata)
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed } from 'vue'
   import { useTheme } from 'vuetify'
   import { useLogger } from '@/composables/useLogger'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
@@ -71,31 +71,18 @@
   const version = ref('0.3.0')
   const buildHash = ref('dev')
 
-  // Theme
+  // Theme (persisted in localStorage, restored in main.js before Vuetify init)
   const isDark = computed(() => theme.global.current.value.dark)
 
   /**
    * Toggle dark/light theme
    */
   const toggleTheme = () => {
-    // Use the modern Vuetify 3.9+ theme API
-    theme.toggle()
-    const newTheme = theme.global.current.value.dark ? 'dark' : 'light'
+    const newTheme = isDark.value ? 'light' : 'dark'
+    theme.global.name.value = newTheme
     localStorage.setItem('theme', newTheme)
     logger.info('Theme toggled', { theme: newTheme })
   }
-
-  /**
-   * Apply saved theme on mount
-   */
-  onMounted(() => {
-    // Apply saved theme using modern Vuetify 3.9+ API
-    const savedTheme = localStorage.getItem('theme')
-    if (savedTheme && theme.global.name.value !== savedTheme) {
-      theme.change(savedTheme)
-      logger.debug('Applied saved theme', { theme: savedTheme })
-    }
-  })
 </script>
 
 <style scoped>
