@@ -164,6 +164,24 @@ export const useAssignmentsStore = defineStore('assignments', {
       }
     },
 
+    async updateAssignment(assignmentId, updateData) {
+      this.loading = true
+      this.error = null
+      try {
+        const result = await assignmentsAPI.updateAssignment(assignmentId, updateData)
+        const index = this.assignments.findIndex(a => a.id === assignmentId)
+        if (index !== -1) {
+          this.assignments[index] = { ...this.assignments[index], ...result }
+        }
+        return result
+      } catch (error) {
+        this.error = error.message
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     clearError() {
       this.error = null
     }

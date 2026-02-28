@@ -71,22 +71,30 @@
             Bulk Assign ({{ selectedAssignments.length }})
           </v-btn>
 
-          <v-btn
-            color="secondary"
-            variant="outlined"
-            :loading="rebalancing"
-            @click="rebalanceWorkload"
-          >
-            <v-icon start>mdi-scale-balance</v-icon>
-            Rebalance Workload
-          </v-btn>
+          <v-tooltip text="Coming soon" location="top">
+            <template #activator="{ props }">
+              <v-btn
+                v-bind="props"
+                color="secondary"
+                variant="outlined"
+                disabled
+              >
+                <v-icon start>mdi-scale-balance</v-icon>
+                Rebalance Workload
+              </v-btn>
+            </template>
+          </v-tooltip>
         </div>
 
         <div class="d-flex gap-2">
-          <v-btn variant="outlined" :loading="exporting" @click="exportAssignments">
-            <v-icon start>mdi-download</v-icon>
-            Export
-          </v-btn>
+          <v-tooltip text="Coming soon" location="top">
+            <template #activator="{ props }">
+              <v-btn v-bind="props" variant="outlined" disabled>
+                <v-icon start>mdi-download</v-icon>
+                Export
+              </v-btn>
+            </template>
+          </v-tooltip>
 
           <v-btn variant="outlined" :loading="loading" @click="refreshAssignments">
             <v-icon start>mdi-refresh</v-icon>
@@ -191,35 +199,6 @@
         </template>
       </v-data-table>
 
-      <!-- Workload Summary -->
-      <v-card variant="outlined" class="mt-6">
-        <v-card-title class="text-h6">
-          <v-icon start>mdi-chart-bar</v-icon>
-          Workload Summary
-        </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col v-for="user in workloadSummary" :key="user.id" cols="12" sm="6" md="4">
-              <v-card variant="tonal">
-                <v-card-text class="text-center">
-                  <v-avatar class="mb-2">
-                    <v-icon>mdi-account</v-icon>
-                  </v-avatar>
-                  <div class="font-weight-medium">{{ user.full_name }}</div>
-                  <div class="text-caption text-medium-emphasis mb-2">{{ user.role }}</div>
-                  <div class="text-h4 text-primary">{{ user.assignment_count }}</div>
-                  <div class="text-caption">Active Assignments</div>
-                  <v-progress-linear
-                    :model-value="getWorkloadPercentage(user.assignment_count)"
-                    :color="getWorkloadColor(user.assignment_count)"
-                    class="mt-2"
-                  />
-                </v-card-text>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-card-text>
-      </v-card>
     </v-card-text>
 
     <!-- Bulk Assignment Dialog -->
@@ -276,12 +255,161 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Edit Assignment Dialog -->
+    <v-dialog v-model="editDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-pencil</v-icon>
+          Edit Assignment
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="editForm">
+            <v-select
+              v-model="editFormData.priority_level"
+              :items="priorityOptions"
+              item-title="title"
+              item-value="value"
+              label="Priority"
+              variant="outlined"
+            />
+            <v-text-field
+              v-model="editFormData.due_date"
+              type="date"
+              label="Due Date"
+              variant="outlined"
+            />
+            <v-textarea
+              v-model="editFormData.notes"
+              label="Notes"
+              variant="outlined"
+              rows="3"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="editDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="saving" @click="saveAssignment">
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- View Assignment Dialog -->
+    <v-dialog v-model="viewDialog" max-width="600">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-eye</v-icon>
+          Assignment Details
+        </v-card-title>
+        <v-card-text v-if="selectedAssignment">
+          <v-list>
+            <v-list-item>
+              <v-list-item-title>Gene</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.gene_symbol || selectedAssignment.gene || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Disease</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.disease || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Scope</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.scope_name || selectedAssignment.scope || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Assignee</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.assignee_name || selectedAssignment.assignee || 'Unassigned' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Status</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="getStatusColor(selectedAssignment.status)" size="small">
+                  {{ selectedAssignment.status || 'N/A' }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Priority</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="getPriorityColor(selectedAssignment.priority_level || selectedAssignment.priority)" size="small">
+                  {{ selectedAssignment.priority_level || selectedAssignment.priority || 'None' }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Due Date</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.due_date ? new Date(selectedAssignment.due_date).toLocaleDateString() : 'No due date' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item v-if="selectedAssignment.notes">
+              <v-list-item-title>Notes</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.notes }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Created</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.created_at ? new Date(selectedAssignment.created_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Last Updated</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.updated_at ? new Date(selectedAssignment.updated_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="viewDialog = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <!-- Reassign Dialog -->
+    <v-dialog v-model="reassignDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-account-plus</v-icon>
+          Reassign Gene
+        </v-card-title>
+        <v-card-text>
+          <div class="text-body-2 mb-4">
+            Reassigning <strong>{{ reassigningAssignment?.gene_symbol || reassigningAssignment?.gene }}</strong>
+            from <strong>{{ reassigningAssignment?.assignee_name || reassigningAssignment?.assignee || 'Unassigned' }}</strong>
+          </div>
+          <v-form ref="reassignForm">
+            <v-select
+              v-model="reassignCuratorId"
+              :items="availableUsers"
+              item-title="full_name"
+              item-value="id"
+              label="New Curator"
+              variant="outlined"
+              :rules="[v => !!v || 'Please select a curator']"
+              required
+            />
+            <v-textarea
+              v-model="reassignNote"
+              label="Transfer Note (Optional)"
+              variant="outlined"
+              rows="2"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="reassignDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="reassigning" @click="executeReassign">
+            Reassign
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
 <script setup>
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
+  import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
 
@@ -302,9 +430,24 @@
   const bulkPriority = ref(null)
   const bulkDueDate = ref('')
   const bulkComment = ref('')
-  const rebalancing = ref(false)
-  const exporting = ref(false)
   const bulkAssigning = ref(false)
+  const viewDialog = ref(false)
+  const selectedAssignment = ref(null)
+  const editDialog = ref(false)
+  const editForm = ref(null)
+  const saving = ref(false)
+  const editFormData = ref({
+    priority_level: null,
+    due_date: '',
+    notes: ''
+  })
+  let editingAssignmentId = null
+  const reassignDialog = ref(false)
+  const reassignForm = ref(null)
+  const reassigning = ref(false)
+  const reassigningAssignment = ref(null)
+  const reassignCuratorId = ref(null)
+  const reassignNote = ref('')
 
   // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
@@ -313,8 +456,6 @@
   const availableUsers = computed(() =>
     (usersStore.users || []).filter(user => user.role !== 'viewer')
   )
-  const workloadSummary = computed(() => assignmentsStore.workloadSummary || [])
-
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
     logger.error('GeneAssignmentManager error', {
@@ -413,17 +554,6 @@
     return colorMap[priority] || 'grey'
   }
 
-  const getWorkloadColor = count => {
-    if (count > 20) return 'red'
-    if (count > 15) return 'orange'
-    if (count > 10) return 'yellow'
-    return 'green'
-  }
-
-  const getWorkloadPercentage = count => {
-    const maxWorkload = Math.max(...workloadSummary.value.map(u => u.assignment_count), 25)
-    return (count / maxWorkload) * 100
-  }
 
   const formatStatus = status => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
@@ -504,50 +634,6 @@
     }
   }
 
-  const rebalanceWorkload = async () => {
-    rebalancing.value = true
-    try {
-      await assignmentsStore.rebalanceWorkload({
-        scope_id: selectedScope.value
-      })
-      logger.info('Workload rebalanced', { scopeId: selectedScope.value })
-      showSuccess('Workload rebalanced successfully')
-    } catch (error) {
-      logger.error('Workload rebalancing failed', {
-        scopeId: selectedScope.value,
-        error: error.message,
-        stack: error.stack
-      })
-      showError('Workload rebalancing failed')
-    } finally {
-      rebalancing.value = false
-    }
-  }
-
-  const exportAssignments = async () => {
-    exporting.value = true
-    try {
-      await assignmentsStore.exportAssignments({
-        scope_id: selectedScope.value,
-        status: selectedStatus.value,
-        assigned_to: selectedAssignee.value
-      })
-      logger.info('Assignments exported', {
-        scopeId: selectedScope.value,
-        status: selectedStatus.value
-      })
-      showSuccess('Assignments exported successfully')
-    } catch (error) {
-      logger.error('Export failed', {
-        error: error.message,
-        stack: error.stack
-      })
-      showError('Export failed')
-    } finally {
-      exporting.value = false
-    }
-  }
-
   const refreshAssignments = async () => {
     try {
       await assignmentsStore.fetchAssignments()
@@ -564,7 +650,27 @@
 
   const editAssignment = assignment => {
     logger.info('Edit assignment requested', { assignmentId: assignment.id })
-    // TODO: Implement assignment edit when available
+    editingAssignmentId = assignment.id
+    editFormData.value = {
+      priority_level: assignment.priority_level || assignment.priority || null,
+      due_date: assignment.due_date || '',
+      notes: assignment.notes || ''
+    }
+    editDialog.value = true
+  }
+
+  const saveAssignment = async () => {
+    saving.value = true
+    try {
+      await assignmentsStore.updateAssignment(editingAssignmentId, editFormData.value)
+      showSuccess('Assignment updated successfully')
+      editDialog.value = false
+    } catch (error) {
+      showError('Failed to update assignment')
+      logger.error('Save assignment failed', { error: error.message })
+    } finally {
+      saving.value = false
+    }
   }
 
   const reassignGene = assignment => {
@@ -572,12 +678,33 @@
       assignmentId: assignment.id,
       geneSymbol: assignment.gene_symbol
     })
-    // TODO: Implement gene reassignment when available
+    reassigningAssignment.value = assignment
+    reassignCuratorId.value = null
+    reassignNote.value = ''
+    reassignDialog.value = true
+  }
+
+  const executeReassign = async () => {
+    const { valid } = await reassignForm.value.validate()
+    if (!valid) return
+    reassigning.value = true
+    try {
+      await assignmentsAPI.assignCurator(reassigningAssignment.value.id, reassignCuratorId.value)
+      showSuccess('Gene reassigned successfully')
+      reassignDialog.value = false
+      await assignmentsStore.fetchAssignments()
+    } catch (error) {
+      showError('Failed to reassign gene')
+      logger.error('Reassign failed', { error: error.message })
+    } finally {
+      reassigning.value = false
+    }
   }
 
   const viewAssignment = assignment => {
     logger.info('View assignment requested', { assignmentId: assignment.id })
-    // TODO: Implement assignment detail view when available
+    selectedAssignment.value = assignment
+    viewDialog.value = true
   }
 
   onMounted(async () => {
