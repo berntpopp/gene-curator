@@ -6,17 +6,18 @@
  *
  * Features:
  * - Unread count tracking
- * - Priority-based notifications (critical, warning, info)
  * - Mark as read functionality
- * - Real-time updates (ready for WebSocket integration)
+ * - 60-second polling for new notifications
  *
  * @see docs/NAVIGATION_RESTRUCTURE_PLAN.md#notification-system
  */
 
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-// import apiClient from '@/api/client' // TODO: Uncomment when API endpoints are ready
+import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
+
+const POLL_INTERVAL_MS = 60000
 
 export const useNotificationsStore = defineStore('notifications', () => {
   // ========================================
@@ -26,6 +27,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const notifications = ref([])
   const loading = ref(false)
   const error = ref(null)
+  let pollTimer = null
 
   // Toast notification state
   const toasts = ref([])
@@ -38,71 +40,26 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Unread notifications only
    */
-  const unreadNotifications = computed(() => notifications.value.filter(n => !n.read))
+  const unreadNotifications = computed(() => notifications.value.filter(n => !n.is_read))
 
   /**
-   * Total unread count
+   * Total unread count (drives badge)
    */
   const totalUnread = computed(() => unreadNotifications.value.length)
-
-  /**
-   * Critical priority unread count
-   */
-  const criticalCount = computed(
-    () => unreadNotifications.value.filter(n => n.priority === 'critical').length
-  )
-
-  /**
-   * Warning priority unread count
-   */
-  const warningCount = computed(
-    () => unreadNotifications.value.filter(n => n.priority === 'warning').length
-  )
-
-  /**
-   * Info priority unread count
-   */
-  const infoCount = computed(
-    () => unreadNotifications.value.filter(n => n.priority === 'info').length
-  )
 
   /**
    * Pending reviews count (for reviewers)
    */
   const pendingReviews = computed(
-    () => unreadNotifications.value.filter(n => n.type === 'review_request').length
+    () => unreadNotifications.value.filter(n => n.type === 'review_assigned').length
   )
-
-  /**
-   * Draft reminders count (for curators)
-   */
-  const draftReminders = computed(
-    () => unreadNotifications.value.filter(n => n.type === 'draft_reminder').length
-  )
-
-  /**
-   * Assignment notifications count
-   */
-  const assignmentNotifications = computed(
-    () => unreadNotifications.value.filter(n => n.type === 'assignment').length
-  )
-
-  /**
-   * Highest priority level of unread notifications
-   * Used to determine badge color
-   */
-  const highestPriority = computed(() => {
-    if (criticalCount.value > 0) return 'critical'
-    if (warningCount.value > 0) return 'warning'
-    return 'info'
-  })
 
   // ========================================
   // Actions
   // ========================================
 
   /**
-   * Fetch all notifications from API
+   * Fetch notifications from API
    * @returns {Promise<void>}
    */
   const fetchNotifications = async () => {
@@ -110,23 +67,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
     error.value = null
 
     try {
-      // TODO: Replace with actual API endpoint when available
-      // const response = await apiClient.get('/api/v1/notifications')
-      // notifications.value = response.data
-
-      // Mock data for now
-      notifications.value = [
-        // {
-        //   id: 1,
-        //   type: 'review_request',
-        //   priority: 'critical',
-        //   title: 'Review Requested',
-        //   message: 'Gene ABC curation needs your review',
-        //   read: false,
-        //   created_at: new Date().toISOString(),
-        //   link: { name: 'CurationDetail', params: { id: 1 } }
-        // }
-      ]
+      const response = await notificationsAPI.getNotifications({ limit: 50 })
+      notifications.value = response.notifications || []
 
       logService.debug('Fetched notifications', {
         count: notifications.value.length,
@@ -135,8 +77,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     } catch (err) {
       error.value = err.response?.data?.detail || 'Failed to fetch notifications'
       logService.error('Failed to fetch notifications', {
-        error: err.message,
-        stack: err.stack
+        error: err.message
       })
     } finally {
       loading.value = false
@@ -145,26 +86,24 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   /**
    * Mark a notification as read
-   * @param {number} notificationId - Notification ID
+   * @param {string} notificationId - Notification UUID
    * @returns {Promise<void>}
    */
   const markAsRead = async notificationId => {
     try {
-      // TODO: Replace with actual API endpoint when available
-      // await apiClient.patch(`/api/v1/notifications/${notificationId}/read`)
+      await notificationsAPI.markAsRead(notificationId)
 
       // Update local state
       const notification = notifications.value.find(n => n.id === notificationId)
       if (notification) {
-        notification.read = true
+        notification.is_read = true
         logService.debug('Marked notification as read', { notificationId })
       }
     } catch (err) {
       error.value = err.response?.data?.detail || 'Failed to mark notification as read'
       logService.error('Failed to mark notification as read', {
         notificationId,
-        error: err.message,
-        stack: err.stack
+        error: err.message
       })
       throw err
     }
@@ -176,12 +115,11 @@ export const useNotificationsStore = defineStore('notifications', () => {
    */
   const markAllAsRead = async () => {
     try {
-      // TODO: Replace with actual API endpoint when available
-      // await apiClient.patch('/api/v1/notifications/read-all')
+      await notificationsAPI.markAllAsRead()
 
       // Update local state
       notifications.value.forEach(n => {
-        n.read = true
+        n.is_read = true
       })
 
       logService.info('Marked all notifications as read', {
@@ -190,8 +128,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     } catch (err) {
       error.value = err.response?.data?.detail || 'Failed to mark all notifications as read'
       logService.error('Failed to mark all notifications as read', {
-        error: err.message,
-        stack: err.stack
+        error: err.message
       })
       throw err
     }
@@ -208,7 +145,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
 
   /**
    * Remove a notification
-   * @param {number} notificationId - Notification ID
+   * @param {string} notificationId - Notification UUID
    */
   const removeNotification = notificationId => {
     const index = notifications.value.findIndex(n => n.id === notificationId)
@@ -235,24 +172,28 @@ export const useNotificationsStore = defineStore('notifications', () => {
   }
 
   // ========================================
-  // WebSocket Integration (Future)
+  // Polling
   // ========================================
 
   /**
-   * Initialize WebSocket connection for real-time notifications
-   * TODO: Implement when backend supports WebSocket
+   * Start polling for new notifications every 60 seconds
    */
-  const initializeWebSocket = () => {
-    // WebSocket logic here
-    logService.info('WebSocket notifications not yet implemented')
+  const startPolling = () => {
+    stopPolling()
+    fetchNotifications()
+    pollTimer = setInterval(fetchNotifications, POLL_INTERVAL_MS)
+    logService.debug('Notification polling started', { intervalMs: POLL_INTERVAL_MS })
   }
 
   /**
-   * Disconnect WebSocket
+   * Stop polling for notifications
    */
-  const disconnectWebSocket = () => {
-    // WebSocket cleanup here
-    logService.debug('WebSocket disconnected')
+  const stopPolling = () => {
+    if (pollTimer) {
+      clearInterval(pollTimer)
+      pollTimer = null
+      logService.debug('Notification polling stopped')
+    }
   }
 
   // ========================================
@@ -324,13 +265,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     // Computed
     unreadNotifications,
     totalUnread,
-    criticalCount,
-    warningCount,
-    infoCount,
     pendingReviews,
-    draftReminders,
-    assignmentNotifications,
-    highestPriority,
 
     // Actions
     fetchNotifications,
@@ -340,8 +275,8 @@ export const useNotificationsStore = defineStore('notifications', () => {
     removeNotification,
     clearAll,
     clearError,
-    initializeWebSocket,
-    disconnectWebSocket,
+    startPolling,
+    stopPolling,
 
     // Toast Actions
     addToast,

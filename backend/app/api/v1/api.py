@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     health,
     invitations,
     logs,
+    notifications,
     ontology,
     precurations,
     publications,
@@ -81,6 +82,11 @@ api_router.include_router(
     publications.router,
     prefix="/publications",
     tags=["publications"],
+)
+
+# Notification endpoints
+api_router.include_router(
+    notifications.router, prefix="/notifications", tags=["notifications"]
 )
 
 # System monitoring endpoints

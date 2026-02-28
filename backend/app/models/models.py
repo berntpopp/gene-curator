@@ -64,6 +64,14 @@ class WorkflowStage(str, enum.Enum):
     ACTIVE = "active"
 
 
+class NotificationType(str, enum.Enum):
+    REVIEW_ASSIGNED = "review_assigned"
+    REVIEW_COMPLETED = "review_completed"
+    REVISION_REQUESTED = "revision_requested"
+    CURATION_APPROVED = "curation_approved"
+    CURATION_REJECTED = "curation_rejected"
+
+
 class ReviewStatus(str, enum.Enum):
     PENDING = "pending"
     APPROVED = "approved"
@@ -1607,4 +1615,52 @@ class Publication(Base):
             "doi",
             "title",
         ),
+    )
+
+
+# ========================================
+# NOTIFICATION MODEL
+# ========================================
+
+
+class NotificationNew(Base):
+    """User notifications for workflow events."""
+
+    __tablename__ = "notifications"
+
+    # Primary key
+    id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), primary_key=True, default=uuid.uuid4
+    )
+
+    # Recipient
+    user_id: Mapped[PyUUID] = mapped_column(
+        compatible_uuid(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+
+    # Notification content
+    type: Mapped[NotificationType] = mapped_column(
+        Enum(
+            NotificationType, values_callable=lambda obj: [e.value for e in obj]
+        ),
+        nullable=False,
+    )
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    link: Mapped[str | None] = mapped_column(String(500))
+
+    # Status
+    is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Metadata
+    created_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    # Relationships
+    user: Mapped["UserNew"] = relationship("UserNew", foreign_keys=[user_id])
+
+    __table_args__ = (
+        Index("idx_notifications_user_unread", "user_id", "is_read"),
+        Index("idx_notifications_created", "created_at"),
     )

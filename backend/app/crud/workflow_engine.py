@@ -240,6 +240,11 @@ class WorkflowEngine:
             metadata,
         )
 
+        # Emit notifications for workflow transitions
+        self._emit_transition_notification(
+            db, item, item_type, current_stage, target_stage, user_id
+        )
+
         return WorkflowTransition(
             item_id=item_id,
             item_type=item_type,
@@ -343,6 +348,26 @@ class WorkflowEngine:
         db.commit()
         db.refresh(review)
 
+        # Notify the assigned reviewer
+        from app.crud.notification import notification_crud
+        from app.models.models import NotificationType
+
+        gene_symbol = "Unknown"
+        if item_type == "curation" and curation_result:
+            if hasattr(curation_result, "gene") and curation_result.gene:
+                gene_symbol = getattr(
+                    curation_result.gene, "approved_symbol", "Unknown"
+                )
+
+        notification_crud.create_for_user(
+            db,
+            user_id=reviewer_id,
+            notification_type=NotificationType.REVIEW_ASSIGNED,
+            title="New review assigned",
+            message=f"New review assigned: {gene_symbol}",
+            link=f"/curations/{item_id}",
+        )
+
         return PeerReviewRequest(
             review_id=review.id,
             item_id=item_id,
@@ -390,6 +415,39 @@ class WorkflowEngine:
         review.reviewed_at = datetime.utcnow()
 
         db.commit()
+
+        # Notify the curation creator of the review decision
+        from app.crud.notification import notification_crud
+        from app.models.models import NotificationType
+
+        curation = (
+            db.execute(select(CurationNew).where(CurationNew.id == review.curation_id))
+            .scalars()
+            .first()
+        )
+        if curation and curation.created_by and curation.created_by != reviewer_id:
+            gene_symbol = "Unknown"
+            if hasattr(curation, "gene") and curation.gene:
+                gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
+
+            if decision == "reject":
+                notification_crud.create_for_user(
+                    db,
+                    user_id=curation.created_by,
+                    notification_type=NotificationType.CURATION_REJECTED,
+                    title="Curation rejected",
+                    message=f"Curation rejected: {gene_symbol}",
+                    link=f"/curations/{curation.id}",
+                )
+            elif decision == "request_changes":
+                notification_crud.create_for_user(
+                    db,
+                    user_id=curation.created_by,
+                    notification_type=NotificationType.REVISION_REQUESTED,
+                    title="Revision requested",
+                    message=f"Revision requested: {gene_symbol}",
+                    link=f"/curations/{curation.id}",
+                )
 
         # If approved, check if all required reviews are complete
         if decision == "approve":
@@ -932,6 +990,66 @@ class WorkflowEngine:
             item.workflow_stage = WorkflowStage.ENTRY
         db.commit()
         return {"success": True, "message": "Transitioned back to entry"}
+
+    def _emit_transition_notification(
+        self,
+        db: Session,
+        item: Any,
+        item_type: str,
+        from_stage: WorkflowStage,
+        to_stage: WorkflowStage,
+        acted_by: UUID,
+    ) -> None:
+        """Emit notifications for workflow state transitions."""
+        from app.crud.notification import notification_crud
+        from app.models.models import NotificationType
+
+        # Determine gene symbol for notification message
+        gene_symbol = "Unknown"
+        if hasattr(item, "gene") and item.gene:
+            gene_symbol = getattr(item.gene, "approved_symbol", "Unknown")
+
+        creator_id = getattr(item, "created_by", None)
+
+        # CURATION → REVIEW: notify the assigned reviewer
+        if from_stage == WorkflowStage.CURATION and to_stage == WorkflowStage.REVIEW:
+            # Find the pending review assignment for this item
+            pending_reviews = self._get_pending_reviews(db, item.id, item_type)
+            for review_info in pending_reviews:
+                reviewer_id = review_info.get("reviewer_id")
+                if reviewer_id and reviewer_id != acted_by:
+                    notification_crud.create_for_user(
+                        db,
+                        user_id=reviewer_id,
+                        notification_type=NotificationType.REVIEW_ASSIGNED,
+                        title="New review assigned",
+                        message=f"New review assigned: {gene_symbol}",
+                        link=f"/curations/{item.id}",
+                    )
+
+        # REVIEW → ACTIVE: notify the curator (creator) of approval
+        elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.ACTIVE:
+            if creator_id and creator_id != acted_by:
+                notification_crud.create_for_user(
+                    db,
+                    user_id=creator_id,
+                    notification_type=NotificationType.CURATION_APPROVED,
+                    title="Curation approved",
+                    message=f"Curation approved: {gene_symbol}",
+                    link=f"/curations/{item.id}",
+                )
+
+        # REVIEW → CURATION: notify the curator of rejection/revision request
+        elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.CURATION:
+            if creator_id and creator_id != acted_by:
+                notification_crud.create_for_user(
+                    db,
+                    user_id=creator_id,
+                    notification_type=NotificationType.REVISION_REQUESTED,
+                    title="Revision requested",
+                    message=f"Revision requested: {gene_symbol}",
+                    link=f"/curations/{item.id}",
+                )
 
     def _log_workflow_transition(
         self,
