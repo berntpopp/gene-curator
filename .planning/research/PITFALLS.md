@@ -1,798 +1,362 @@
-# PITFALLS.md - Dynamic Form Integration
+# Domain Pitfalls: Form Intelligence (Conditional Visibility, Cross-Field Validation, Field Dependencies)
 
-**Domain:** Converting hardcoded Vue 3 forms to schema-driven dynamic forms
-**Project:** Gene Curator - ClinGen SOP v11 to multi-schema support
-**Researched:** 2026-01-22
-**Stack:** Vue 3 + Vuetify 3 + Pinia
+**Domain:** Adding reactive field interactions to an existing schema-driven dynamic form system
+**Project:** Gene Curator — Vue 3 + Vuetify 3 + Pinia
+**Researched:** 2026-02-28
+**Confidence:** HIGH for Vue 3 reactivity pitfalls (official docs + codebase inspection); MEDIUM for UX patterns (community + form builder practice)
+
+---
+
+## Context: What Already Exists
+
+Before reading any pitfall, understand the existing system to avoid solving problems that are already solved:
+
+- `DynamicForm.vue` renders from schema with `formData` as a flat `ref({...initialData})`
+- `DynamicField.vue` receives individual field values via `modelValue` prop; emits changes up
+- `TabContent.vue` bridges tab structure to `DynamicField`; all field paths use dot notation
+- `useValidationRules.js` generates Vuetify rules from schema constraints (per-field, not cross-field)
+- Backend validation runs every 500ms via debounced `validateForm()` call in `DynamicForm.vue`
+- `KeepAlive` wraps each `TabContent` so inactive tab state is preserved
+
+Conditional visibility does NOT yet exist. Cross-field validation does NOT yet exist. Field dependencies (cascading options, auto-population) do NOT yet exist. The pitfalls below are for adding those capabilities.
 
 ---
 
 ## Critical Pitfalls
 
-Mistakes that cause rewrites, data loss, or major regressions.
+Mistakes that cause rewrites or correctness failures.
+
+### Pitfall 1: Circular Dependency Between Fields
+
+**What goes wrong:**
+Field A shows/hides based on Field B's value. Field B's options or required status depends on Field A's value. A watcher on A triggers changes to B, which triggers the A watcher again. In Vue 3, `watch` with `{ deep: true }` does not protect against self-triggering loops the way `watchEffect` does — the loop runs until the browser stack overflows or the browser tab freezes.
+
+**Concrete example in Gene Curator context:**
+Imagine `evidence_category` (select) controls visibility of `variant_type`. If `variant_type` has a watcher that updates `evidence_category` options based on its own value, and the visibility logic for `variant_type` watches `evidence_category`, you have a cycle. The existing ClinGen schema already has `condition: "evidence_category == 'case_level'"` on multiple fields — adding cascading behavior here without cycle detection will create this bug.
+
+**Warning signs:**
+- Browser tab becomes unresponsive when a specific select field is changed
+- Vue DevTools shows rapidly incrementing watcher trigger counts
+- The bug reproduces only when two specific fields are changed in sequence, not in isolation
+- Works fine in testing with a single field changed, breaks with real form interaction
+- In production builds Vue may optimize differently — loops that survive dev mode may crash in prod (Vue production vs dev reactivity handling differs)
+
+**Prevention:**
+1. Before implementing any field dependency, build a directed acyclic graph (DAG) of all dependency declarations. Run cycle detection (DFS or Kahn's algorithm) at schema load time.
+2. Use a `useFieldDependencies` composable that validates the dependency graph on initialization and throws a descriptive error (not a silent failure) when a cycle is detected.
+3. Log a warning if the schema defines `field_A.visibility` depends on `field_B` AND `field_B.visibility` depends on `field_A`.
+4. Prefer `computed` over `watch` for visibility: `computed(() => evaluateVisibility(schema, formData.value))` cannot cause a reactive loop because computed properties are pull-based, not push-based.
+
+**Which phase addresses it:** The visibility engine design phase must include cycle detection before any schema with conditional fields is activated.
 
 ---
 
-### Pitfall 1: ClinGen Bypass Creates Dual Maintenance Burden
+### Pitfall 2: Hidden Field Values Submitted to Backend and Causing Validation Failures
 
-**What goes wrong:** The current `SchemaDrivenCurationForm.vue` (lines 199-201) detects ClinGen schemas by name and bypasses the dynamic form entirely, routing to `ClinGenCurationForm.vue`. If you wire DynamicForm to views without removing this bypass, you maintain two parallel systems indefinitely.
+**What goes wrong:**
+When a field is hidden because its visibility condition is false, its value may still exist in `formData`. The backend validation engine (`SchemaValidator.validate_evidence_data`) receives all data in `evidence_data`. If a hidden field's value fails validation (wrong type, out of range, required-but-empty), the backend returns an error for a field the user cannot see. The form appears stuck: there is an error but no visible field to fix.
 
-**Why it happens:** Fear of breaking existing curations leads to "just add dynamic forms alongside" rather than replacing. The bypass was a temporary scaffolding that became permanent.
+**Concrete example:**
+`variant_type` is required when `evidence_category == 'case_level'`. User selects `case_level`, fills `variant_type`, then changes `evidence_category` to `segregation`. `variant_type` is now hidden. Its value is still `'missense'` in `formData`. Backend validation runs. The backend `SchemaValidator` checks required fields without knowing about frontend visibility — it may flag `variant_type` as invalid because its value is irrelevant in the `segregation` context, or it may not. Either way, there is ambiguity.
 
-**Consequences:**
-- Bug fixes must be applied twice (dynamic + hardcoded)
-- New field types added to DynamicField never work for ClinGen users
-- Schema changes in database don't affect ClinGen users
-- Technical debt compounds with each feature
+**The actual failure mode is the reverse too:** Hidden field retains stale required value that passes validation but corrupts the saved curation record with data that has no business meaning in the current context.
 
 **Warning signs:**
-- Code comments saying "TODO: remove bypass"
-- Tests passing for GenCC but failing for ClinGen
-- Schema admin changes not reflected in ClinGen forms
-- Duplicate validation logic in both form types
+- Backend returns validation errors for fields that are not visible on the form
+- Saved curations contain values for fields that should be contextually irrelevant
+- The `nonFieldErrors` array in `DynamicForm.vue` shows generic errors with no visible field to fix
+- Tab error badges show a tab has errors but no visible field within the tab has a red state
+
+**Prevention — Clear vs Retain decision:**
+The correct answer for Gene Curator is **clear on hide** for most fields, with **retain on re-show** for optional user convenience fields. The rule:
+- **Always clear:** Fields whose value is semantically invalid when hidden (e.g., `variant_type` values only make sense in case-level evidence context)
+- **Optionally retain:** Fields that could be valid in multiple contexts (e.g., a notes field that applies broadly)
+- **Implementation:** The visibility transition from visible→hidden should call a `clearHiddenFieldValue(fieldPath)` function. This function sets the field value to `null` or `undefined` in `formData`, not to an empty string (which can itself fail required validation).
+
+**Backend alignment:** The backend validator must also implement the same conditional-required logic. The `conditional_required` pattern already exists in `016_seed_precuration_schema.sql` (`lumping_splitting_decision` required when `lumping_splitting_applicable === true`). Extend the backend `SchemaValidator._validate_fields` method to skip validation of fields whose visibility condition is false. Front-end and backend visibility conditions must use the same expression syntax or you will have frontend/backend disagreement about which fields are required.
+
+---
+
+### Pitfall 3: Async Auto-Population Race Condition (MONDO API)
+
+**What goes wrong:**
+When a user selects a MONDO ID, the form should auto-populate `disease_name`. The auto-population involves an async API call (`ontologyAPI.searchMONDO`). If the user selects MONDO ID "A", triggering a search, then quickly changes to MONDO ID "B" before the first search completes, the first search may complete after the second and overwrite `disease_name` with the stale value for "A".
+
+**Concrete example:**
+`MONDOAutocomplete.vue` already does `handleSelect(item)` which emits `update:diseaseName`. When this is wired to auto-populate a sibling field, the watcher pattern `watch(() => props.modelValue, async (newValue) => { ... })` already exists in `MONDOAutocomplete.vue` at line 259 and makes an API call. This exact watcher has no cancellation of previous requests. If users type quickly in the MONDO search box and selections change rapidly, stale responses win.
+
+**Warning signs:**
+- `disease_name` field shows a disease that doesn't match the displayed MONDO ID
+- Happens only with fast user interaction or slow network
+- Difficult to reproduce in unit tests (requires timing control)
+- The existing `MONDOAutocomplete.vue` `watch` at line 259 already exhibits this pattern for restoring initial values from `props.modelValue`
 
 **Prevention:**
-1. Phase 1: Make DynamicForm feature-complete for ClinGen schema first
-2. Phase 2: Remove bypass after validating DynamicForm renders ClinGen correctly
-3. Use feature flag for gradual rollout: `VITE_USE_DYNAMIC_CLINGEN=true`
-4. Write comparison tests: render both forms, assert identical structure
-
-**Phase:** Foundation (Phase 1) - must be addressed before any other integration work
-
-**Detection code pattern to find:**
+Use Vue 3.5+ `onWatcherCleanup` to abort stale requests. The pattern:
 ```javascript
-// This pattern must be removed
-const isClinGenSchema = computed(() => {
-  const schemaName = schema.value?.name?.toLowerCase() || ''
-  return schemaName.includes('clingen') || schemaName.includes('sop')
+watch(() => mondoId.value, async (newId, _oldId, onCleanup) => {
+  const controller = new AbortController()
+  onCleanup(() => controller.abort())
+  const result = await ontologyAPI.searchMONDO(newId, { signal: controller.signal })
+  // only reaches here if this is still the latest request
+  formData.value['disease_name'] = result.label
 })
 ```
+**Critical limitation:** `onWatcherCleanup` must be called before the first `await`. The third `onCleanup` argument to the watch callback is the safe alternative that works after awaits. Use the callback parameter form, not the standalone function.
+
+For the MONDO auto-population specifically: the `MONDOAutocomplete.vue` component already manages its own internal state. The integration pitfall is deciding whether auto-population is the component's responsibility or the form's responsibility. Mixing both creates double-update loops.
 
 ---
 
-### Pitfall 2: Evidence Data Shape Mismatch Corrupts Existing Curations
+### Pitfall 4: The "Required but Hidden" Validation Paradox Breaking Form Submission
 
-**What goes wrong:** DynamicForm expects flat key-value `evidence_data`, but ClinGenCurationForm uses deeply nested structure (e.g., `genetic_evidence.case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null[]`). Loading existing curations into wrong form corrupts data.
+**What goes wrong:**
+Vuetify's `v-form` `validate()` method runs rules on all registered input components, including hidden ones when `v-show` is used (hidden with CSS, still in DOM). If a field has `required: true` in its schema, `useValidationRules.js` adds the required rule. If the field is hidden with `v-show`, Vuetify still validates it. The form cannot be submitted even though the user correctly has not filled a contextually invisible required field.
 
-**Why it happens:** Schema `field_definitions` in database may not match the actual nested structure that ClinGen scoring algorithms expect. The schema definition and form implementation diverge.
-
-**Consequences:**
-- Existing curations display empty fields (data exists but path mismatch)
-- Saving overwrites nested data with flat structure
-- Score calculation fails (expects specific paths)
-- Data migration required after the fact
+**If `v-if` is used instead:** The component is unmounted, Vuetify does not validate it, but the value in `formData` is retained (the component is gone, the data is not). This is the lesser evil but still means stale hidden values persist in form state.
 
 **Warning signs:**
-- "Loading gene information..." completes but form fields are empty
-- Scores show 0 despite having evidence items
-- Backend validation passes but frontend displays incorrectly
-- `evidence_data` in network response doesn't match form fields
+- Form submit button is always disabled even when all visible fields are filled
+- `formRef.value.validate()` returns `{ valid: false }` but no visible red fields
+- The issue appears only after a conditional field becomes hidden
 
 **Prevention:**
-1. Before integration, map existing `evidence_data` structures in production DB
-2. Ensure `field_definitions` in schema exactly matches existing data paths
-3. Create data shape tests: `loadCuration() -> form fields populated correctly`
-4. Add migration script if schema and data shapes must diverge
-5. Use TypeScript interfaces to enforce data shapes
+- Use `v-if` (not `v-show`) for conditional field rendering to unmount hidden field components from Vuetify's validation tree
+- Pair `v-if` with explicit `clearHiddenFieldValue()` calls in the visibility transition logic
+- Do NOT pass required validation rules to a field that is conditionally required but currently hidden. The `useValidationRules` composable must receive the current visibility state and return an empty rules array for hidden fields.
+- Alternative: Wrap conditionally visible fields in a separate `<v-form>` scope so they don't affect the parent form's validity — but this conflicts with the existing single-form architecture in `DynamicForm.vue`.
 
-**Phase:** Foundation (Phase 1) - must validate data shapes before wiring forms
+---
 
-**Example of shape mismatch:**
+## Moderate Pitfalls
+
+Mistakes that cause delays or technical debt.
+
+### Pitfall 5: Visibility Evaluation Expression Language Mismatch (Frontend vs Backend)
+
+**What goes wrong:**
+The existing ClinGen schema uses a string expression format: `"condition": "evidence_category == 'case_level'"`. The precuration schema uses an object format: `"when": {"lumping_splitting_applicable": true}`. These are two different syntaxes for the same concept and neither is implemented in the frontend yet.
+
+If the frontend implements one syntax and the database schemas use the other, every schema will need migration. If both syntaxes are supported, the expression evaluator becomes complex with two parsing branches.
+
+**Warning signs:**
+- Frontend visibility engine works for precuration forms but not ClinGen forms (or vice versa)
+- Different schema administrators use different syntax when creating new schemas
+- Backend conditional_required logic and frontend visibility logic use different evaluators that give different answers for edge cases (null values, empty strings vs false, etc.)
+
+**Prevention:**
+Before implementation, audit all existing schemas to catalogue which syntax is in use. Choose one canonical format and write a migration SQL to normalize existing schemas. Implement one evaluator (not two). The object format `{"field": "evidence_category", "operator": "==", "value": "case_level"}` is more structured and easier to validate than free-form strings. The string format is more human-readable for schema authors.
+
+Recommended: Adopt the object format for the schema definition, provide a DSL converter for schema authors who prefer string expressions, and apply a one-time migration to existing schemas.
+
+---
+
+### Pitfall 6: Tab Error Badge Not Reflecting Conditional Visibility Changes
+
+**What goes wrong:**
+`tabValidationErrors` in `DynamicForm.vue` (line 346) computes which tabs have errors by checking `backendErrors` for each field path in that tab. If a field is hidden (conditionally invisible), its backend error is cleared from `backendErrors` when the field is hidden — but only if the code does so. If the clearing logic is not tight, a tab shows an error badge for a hidden field error. The user navigates to the tab, sees no red field (it is hidden), and cannot understand why the badge is there.
+
+**Warning signs:**
+- Tab error badge persists after the triggering condition change makes the erroneous field invisible
+- User reports "the form has an error but I can't find it"
+- Tab badges only disappear after form re-submission
+
+**Prevention:**
+When a field becomes hidden (visibility condition changes from true to false), run three operations atomically:
+1. Clear the field value in `formData`
+2. Clear the field's entry in `backendErrors`
+3. The tab badge will then recompute correctly via its existing `computed` dependency on `backendErrors`
+
+Implement a `handleFieldHidden(fieldPath)` function that does all three.
+
+---
+
+### Pitfall 7: KeepAlive and Stale Computed State on Tab Reactivation
+
+**What goes wrong:**
+`DynamicForm.vue` wraps `TabContent` in `KeepAlive`. This means deactivated tab components are not unmounted — their computed properties are still reactive but may be stale if reactive dependencies were updated while the tab was inactive. When the user returns to the tab, the component `onActivated` lifecycle fires, but `v-if`-based conditional fields that were toggled while the tab was inactive may not have triggered their show/hide logic in the inactive component.
+
+In practice: User is on Tab 2. On Tab 1 (inactive, KeepAlive), a field's visibility condition becomes true due to a formData change. The field should appear on Tab 1. User navigates to Tab 1. The field may or may not be visible depending on whether the reactive expression has been re-evaluated since the component was inactive.
+
+**Warning signs:**
+- Conditional fields appear/disappear with a one-tab-visit delay
+- Works correctly if user visits the tab immediately after the triggering change; fails if they navigate elsewhere first
+- Only reproducible with KeepAlive (not in tests that don't use tab switching)
+
+**Prevention:**
+Ensure visibility conditions are driven by `computed` properties (not watchers) that react to `formData` which is passed down as a prop from `DynamicForm.vue`. Since `formData` is the same reactive ref passed to all tabs, a computed visibility expression depending on `formData.value.someField` will re-evaluate correctly even for KeepAlive'd components because the reactive dependency tracking is still active.
+
+Do not put visibility logic inside `onActivated` hooks — it creates a timing dependency on user navigation. Computed properties driven by shared reactive state are the correct solution.
+
+---
+
+### Pitfall 8: Cascading Select Option List Updates Losing User Selection
+
+**What goes wrong:**
+Field B's options depend on Field A's value. User selects option X in Field A, which populates Field B with 5 options. User selects option 3 in Field B. User then changes Field A to option Y. Field B's options update to 4 new options. Option 3 from the previous list no longer exists. The displayed selection in Field B may show a stale chip/text, or the value in `formData` is no longer in the valid options list, or the field appears blank while `formData` holds a stale value.
+
+**Concrete example:**
+`evidence_category` is Field A. `variant_type` is Field B with options dependent on the evidence category. Changing `evidence_category` from `case_level` to `experimental` should update `variant_type` options. The stale `variant_type` value `'missense'` may not be valid in the experimental context.
+
+**Warning signs:**
+- Select field shows a value but the dropdown options don't include that value
+- Backend validation fails with "value not in allowed options" for a field the user believes they set correctly
+- The chip in a multi-select shows values that are not in the current item list
+
+**Prevention:**
+When Field A changes and Field B's options are updated, check if Field B's current value is still in the new option list. If not, clear Field B's value. Implement this as:
 ```javascript
-// Schema field_definitions might define:
-{ field_name: "genetic_evidence", type: "object" }
-
-// But existing evidence_data has:
-{
-  genetic_evidence: {
-    case_level: {
-      autosomal_dominant_or_x_linked: {
-        predicted_or_proven_null: [...]  // 4 levels deep!
-      }
-    }
+const updateCascadingField = (fieldPath, newOptions) => {
+  const currentValue = getNestedValue(formData.value, fieldPath)
+  const isStillValid = newOptions.some(opt => opt.value === currentValue)
+  if (!isStillValid) {
+    setNestedValue(formData.value, fieldPath, null)
   }
 }
 ```
+Run this check atomically with the options update, before the next render cycle.
 
 ---
 
-### Pitfall 3: Reactivity Lost on Deep Nested Object Mutations
+### Pitfall 9: Performance — Watcher Proliferation with 50+ Fields
 
-**What goes wrong:** Vue 3's reactivity tracks deep mutations by default, but when DynamicField creates new nested objects or arrays, the new items may not be reactive, causing form updates to not reflect in parent state.
-
-**Why it happens:** `addArrayItem()` in DynamicField.vue (line 354-373) creates new objects with `const newItem = {}` and pushes to array. If parent doesn't use `reactive()` properly or replaces entire object instead of mutating, reactivity breaks.
-
-**Consequences:**
-- User adds evidence item, clicks save, item not in payload
-- Score calculation doesn't update after adding items
-- "Unsaved changes" warning doesn't trigger
-- Data loss on form submission
+**What goes wrong:**
+Implementing field dependencies with one `watch()` per field creates 50+ individual watchers. Each watcher tracks its own reactive dependencies. With `{ deep: true }` on `formData`, every form field change triggers all 50 watchers to re-run synchronously. With 20+ conditional visibility computations running on every keypress, plus debounced backend validation, form typing becomes laggy (>100ms latency per keypress).
 
 **Warning signs:**
-- Adding items works visually but save payload is empty
-- Vue DevTools shows stale state
-- Score doesn't recalculate after field changes
-- `watch(..., { deep: true })` callbacks not firing
+- Typing in a text field feels sluggish
+- Vue DevTools performance profiler shows many watcher triggers per user interaction
+- The issue worsens with schema complexity (more conditional fields = more watchers)
+- Performance is acceptable for simple schemas (5 fields) but breaks for ClinGen schema (50+ fields)
 
 **Prevention:**
-1. Use `reactive()` for root evidence_data, not `ref({})`
-2. Mutate in place, never replace: `evidenceData.value.field = x` not `evidenceData.value = {...}`
-3. In DynamicField, emit new array reference: `emit('update:model-value', [...arrayValue.value])`
-4. Add watchers with explicit `{ deep: true }` when needed
-5. Test: add item, check Vue DevTools, verify state propagates
-
-**Phase:** Integration (Phase 2) - critical during form wiring
-
-**Current code that may cause issues:**
-```javascript
-// DynamicField.vue line 372-373
-arrayValue.value.push(newItem)
-emit('update:model-value', arrayValue.value)  // Same reference!
-
-// Should be:
-emit('update:model-value', [...arrayValue.value])  // New reference
-```
+1. **Use computed instead of watch for visibility:** A single `visibleFields` computed property that evaluates all visibility conditions at once is far more efficient than 50 individual watchers. Computed properties batch re-evaluation when reactive dependencies change.
+2. **One dependency watcher, not one per field:** Instead of `watch(fieldA, updateFieldB)` and `watch(fieldB, updateFieldC)`, use a single `watchEffect` that rebuilds a dependency-resolved state object once.
+3. **Separate the visibility computation from the value computation:** Visibility can be computed synchronously (fast). Value auto-population involves async API calls (slow). Keep them in separate execution paths.
+4. **The existing 500ms debounce** on backend validation calls in `DynamicForm.vue` is correctly scoped — do not reduce it to compensate for async auto-population latency.
 
 ---
 
-## Form Conversion Pitfalls
+### Pitfall 10: Cross-Field Validation Error Attribution — Which Field Gets the Error?
 
-Mistakes when converting hardcoded forms to dynamic forms.
-
----
-
-### Pitfall 4: Hardcoded Labels and Hints Lost in Translation
-
-**What goes wrong:** PrecurationFormView.vue has carefully crafted UX: specific hints ("Use dyadic naming: Gene-associated phenotype"), validation messages, placeholder text. Dynamic rendering from schema loses this domain-specific guidance.
-
-**Why it happens:** Schema `field_definitions` typically only store: name, type, required. Rich UX metadata (hints, placeholders, validation messages, icons) not captured in schema.
-
-**Consequences:**
-- Forms become generic "Enter disease_name" instead of helpful
-- Curators lose domain-specific guidance (ClinGen terminology)
-- Validation errors become cryptic ("Field required" vs "Disease name is required for ClinGen classification")
-- User training materials become outdated
+**What goes wrong:**
+A cross-field rule like "if `de_novo_status` is true then `variant_segregation_data` must be provided" involves two fields. Where does the error message appear? If the error is attributed to `de_novo_status` (the triggering field), the user may not understand why their correct selection is red. If attributed to `variant_segregation_data` (the field that needs filling), the error is more intuitive but the field may not be visible yet.
 
 **Warning signs:**
-- Curator complaints about "confusing new form"
-- Support tickets asking "what goes in this field?"
-- Forms look "technical" instead of domain-appropriate
-- Missing prepend icons (`mdi-medical-bag`, `mdi-dna`)
+- Cross-field error messages appear on the wrong field
+- Error appears on a hidden field (invisible to user)
+- Backend returns errors for a different field than the frontend shows
+- Two error messages for what is logically one constraint
 
 **Prevention:**
-1. Extend `field_definitions` schema to include:
-   - `hint`: String for persistent help text
-   - `placeholder`: String for input placeholder
-   - `prepend_icon`: String for Vuetify icon
-   - `validation_message_template`: String with `{field}` interpolation
-2. Map existing hardcoded UX to schema before removing hardcoding
-3. Create UX inventory spreadsheet: field -> label -> hint -> icon
-4. Validate with curators before switching
+Establish a clear rule at design time: **cross-field validation errors are always attributed to the dependent field** (the one that must be filled or changed), not the trigger field. In the example, the error goes on `variant_segregation_data`.
 
-**Phase:** Foundation (Phase 1) - audit existing UX before replacement
-
-**Example of what to preserve:**
-```vue
-<!-- Current PrecurationFormView.vue -->
-<v-text-field
-  v-model="form.disease_name"
-  label="Disease Name *"
-  prepend-inner-icon="mdi-medical-bag"
-  hint="Use dyadic naming: Gene-associated phenotype (e.g., SCN1A-related seizure disorder)"
-  persistent-hint
-/>
-
-<!-- Schema should capture ALL of this, not just: -->
-{ "field_name": "disease_name", "type": "string", "required": true }
-```
+The backend `SchemaValidator.add_error(field, message)` already attributes errors to a field. Ensure the backend expression and frontend UI attribution match. Document this convention in a code comment in `useValidationRules.js` so future developers don't reverse it.
 
 ---
 
-### Pitfall 5: Tab/Section Structure Not Driven by Schema
+## Minor Pitfalls
 
-**What goes wrong:** ClinGenCurationForm.vue has 5 hardcoded tabs (Summary, Genetic Evidence, Experimental Evidence, Contradictory, Lumping & Splitting). DynamicForm renders flat list of fields. Tabs disappear.
+Mistakes that cause annoyance but are fixable.
 
-**Why it happens:** Schema's `ui_configuration.tabs` array exists but DynamicForm doesn't read it. Forms render all fields in single column without grouping.
+### Pitfall 11: Layout Shift When Fields Show/Hide in Tabs
 
-**Consequences:**
-- 50+ field form becomes unusable wall of inputs
-- Can't navigate to specific sections
-- Visual hierarchy lost
-- ClinGen workflow (fill genetic -> experimental -> review) broken
+**What goes wrong:**
+When a conditional field appears or disappears, surrounding fields shift position. If the form has tight vertical layout, users lose their scroll position or a submit button they were about to click shifts up/down and they click the wrong element. This is especially disruptive in long forms with many conditionally visible groups.
+
+**Prevention:**
+- Use `v-if` (not `v-show`) for conditional rendering to avoid the invisible-but-space-consuming pattern
+- Group conditionally visible fields in expansion panel sections (`v-expansion-panel`) which have smooth expand/collapse animations
+- Avoid conditional fields at the top of sections — prefer putting conditional fields at the bottom of a section so the shift pushes content downward rather than shifting visible content up
+- `TabContent.vue` already uses `v-expansion-panels` for sections — conditional fields within a section naturally shift only within that section boundary
+
+---
+
+### Pitfall 12: Form Recovery (localStorage) Persisting Hidden Field Values
+
+**What goes wrong:**
+`useFormRecovery.js` saves `formData` to localStorage every 5 seconds. If a user fills in conditionally visible fields, then the condition changes (hiding the fields), the clearHiddenFieldValue logic clears them from `formData`. But if the auto-save already captured the pre-clearing state, the recovery data has the stale values. When the form is recovered, the hidden field values are restored. Backend validation then runs against formData that includes values for fields that are currently invisible.
 
 **Warning signs:**
-- Form height explodes (scrolling forever)
-- No tab navigation visible
-- Fields that belong together are scattered
-- Score sidebar has nothing to summarize per-section
+- After browser crash recovery, the form shows errors for fields that were supposed to be cleared
+- The recovered form data does not match what the user last explicitly saw
 
 **Prevention:**
-1. Schema `ui_configuration` must define tabs:
-   ```json
-   {
-     "tabs": [
-       { "id": "summary", "label": "Summary", "icon": "mdi-file-document-outline", "fields": ["evidence_summary"] },
-       { "id": "genetic", "label": "Genetic Evidence", "icon": "mdi-dna", "fields": ["genetic_evidence"] }
-     ]
-   }
-   ```
-2. DynamicForm must read and render `<v-tabs>` from schema
-3. Current hardcoded tabs are template for schema migration
-4. Test: form with 50 fields should have same tab count as hardcoded
+`clearHiddenFieldValue()` must write to `formData` synchronously, not in a nextTick or setTimeout. Since `useFormRecovery` saves `formData` by reference via deep watch, clearing hidden field values in `formData` will naturally be captured in the next auto-save. The risk is the 5-second save interval window. This is acceptable; document it.
 
-**Phase:** Integration (Phase 2) - FORM-07 in PROJECT.md
+The bigger risk: when restoring recovery data, re-evaluate all visibility conditions against the recovered `formData` values to determine which fields should be visible. Do not blindly restore all values including those whose conditions are false. The `restoreRecovery()` function in `useFormRecovery.js` does `Object.assign(formData.value, recoveryData.value)` — after this, run a `clearAllHiddenFields(formData, schema)` pass.
 
 ---
 
-### Pitfall 6: Specialized Components Lost to Generic Rendering
+### Pitfall 13: The "Validation Before Schema Load" Flash
 
-**What goes wrong:** PrecurationFormView uses specialized components: `MONDOAutocomplete`, `OMIMAutocomplete`, `HPOInheritanceSelect`, `PMIDInput`. These have API integrations, validation, auto-population. DynamicField renders them as generic `<v-text-field>`.
-
-**Why it happens:** DynamicField.vue only knows 8 generic types (string, number, boolean, date, array, object, select, enum). No registry for domain-specific components.
-
-**Consequences:**
-- PMID validation lost (was checking PubMed API)
-- MONDO autocomplete lost (was searching MONDO API)
-- HPO inheritance patterns lost (was fetching HPO ontology)
-- Auto-population flows broken (MONDO selection -> disease_name)
+**What goes wrong:**
+`DynamicForm.vue` watches `formData` with `{ deep: true }` and triggers `validateForm()` automatically when any value changes. If the `jsonSchema` has not yet loaded (it is fetched async in `onMounted`), and `initialData` is passed with pre-filled values, the watch fires `validateForm()` before the schema is available. The backend validation call happens with data but no schema context, or the validation runs without visibility condition knowledge and incorrectly marks hidden fields as required.
 
 **Warning signs:**
-- No autocomplete suggestions in disease/OMIM fields
-- PMIDs not validated against PubMed
-- Inheritance dropdown is empty or generic text input
-- Cross-field auto-population stops working
+- Validation errors flash briefly on form load then disappear
+- Backend is called for validation immediately on mount before schema is ready
+- Required field errors appear for fields that should be visible but schema hasn't been evaluated yet
 
 **Prevention:**
-1. Extend `field_definitions` with `component` field:
-   ```json
-   { "field_name": "mondo_id", "type": "string", "component": "MONDOAutocomplete" }
-   ```
-2. Create component registry in DynamicField:
-   ```javascript
-   const componentRegistry = {
-     MONDOAutocomplete: () => import('@/components/evidence/MONDOAutocomplete.vue'),
-     PMIDInput: () => import('@/components/evidence/PMIDInput.vue'),
-     // ...
-   }
-   ```
-3. Document all specialized components before conversion
-4. Test: each specialized field type has working integration
-
-**Phase:** Integration (Phase 2) - core to dynamic form functionality
+The existing code at line 639 in `DynamicForm.vue` has `if (Object.keys(formData.value).length > 0) { validateForm() }` — this runs too eagerly. Add a guard: only run validation after the visibility engine has had one full evaluation pass. Use a `schemaReady` ref that is set to true after `generateJsonSchema()` completes, and gate the `formData` watcher on `schemaReady.value`.
 
 ---
 
-## Validation Pitfalls
+## Phase-Specific Warnings
 
-Form validation gotchas in dynamic contexts.
-
----
-
-### Pitfall 7: Vuetify Form Validation Timing Issues
-
-**What goes wrong:** DynamicForm.vue validates on every change with 500ms debounce (line 182-185). For complex schemas, validation API calls pile up, race conditions occur, stale validation results display.
-
-**Why it happens:** `validateForm()` calls backend API (`validationStore.validateEvidence`). With deep watchers on `formData`, every keystroke triggers validation after debounce. Network latency causes out-of-order responses.
-
-**Consequences:**
-- Form shows "valid" then flips to "invalid" after delay
-- Submit button enables/disables erratically
-- Slow typing experience (waiting for validation)
-- Incorrect validation state on submit
-
-**Warning signs:**
-- Network tab shows many `/api/v1/validation` calls
-- Validation errors appear/disappear randomly
-- Form feels "laggy" during typing
-- Submitting form with stale validation state
-
-**Prevention:**
-1. Increase debounce for full form validation: 1000-2000ms
-2. Validate individual fields locally (Vuetify rules), full form on blur/submit
-3. Add request cancellation (AbortController) for pending validations
-4. Use optimistic UI: assume valid until proven otherwise
-5. Add loading indicator during validation
-
-**Phase:** Validation (Phase 3) - FORM-06 in PROJECT.md
-
-**Current problematic pattern:**
-```javascript
-// DynamicForm.vue - triggers too often
-watch(
-  formData,
-  () => {
-    if (Object.keys(formData.value).length > 0) {
-      validateForm()  // API call on every change!
-    }
-  },
-  { deep: true }
-)
-```
+| Phase Topic | Likely Pitfall | Mitigation |
+|-------------|---------------|------------|
+| Visibility engine design | Circular dependency (Pitfall 1) | Build DAG validator first; no visibility without cycle check |
+| Visibility expression language | Syntax mismatch (Pitfall 5) | Audit all 4 existing schemas; pick one canonical format before coding |
+| Hidden field value clearing | Backend errors on hidden fields (Pitfall 2) | Implement clear-on-hide atomically with visibility change |
+| Vuetify validation integration | Required-but-hidden paradox (Pitfall 4) | Use `v-if` not `v-show`; gate required rules on visibility |
+| Cascading selects | Stale value in Field B (Pitfall 8) | Check current value against new options; clear if invalid |
+| Auto-population (MONDO API) | Race condition (Pitfall 3) | AbortController via onCleanup watcher parameter |
+| Tab badge integration | Stale badge after field hidden (Pitfall 6) | Clear backendErrors atomically with field hiding |
+| KeepAlive tab state | Stale visibility on tab reactivation (Pitfall 7) | Drive visibility via computed not watchers |
+| Performance with 50+ fields | Watcher proliferation (Pitfall 9) | Single computed for all visibility; avoid per-field watchers |
+| Cross-field error display | Wrong field attribution (Pitfall 10) | Convention: errors on dependent field; document in code |
+| Form recovery integration | Stale hidden values restored (Pitfall 12) | Re-evaluate visibility after recovery restore |
 
 ---
 
-### Pitfall 8: Validation Rules Not Matching Schema Constraints
+## Integration Points Specific to Gene Curator
 
-**What goes wrong:** DynamicField.vue generates validation rules from schema (line 287-336), but rules don't cover all constraint types: patterns, conditional requirements, cross-field validation.
+The following are Gene Curator-specific integration pitfalls that generic advice does not cover.
 
-**Why it happens:** `getValidationRules()` only handles: required, minLength, maxLength, minimum, maximum. Schema may have regex patterns, enum values that should validate, custom business rules.
+### Backend Validator Does Not Know About Frontend Visibility
 
-**Consequences:**
-- Invalid data passes frontend validation
-- Backend rejects what frontend allowed
-- User submits, sees unexpected errors
-- Different validation UX between field types
+The `SchemaValidator` in `backend/app/core/schema_validator.py` runs `_validate_fields()` against all fields in `field_definitions` without any visibility filtering. The frontend has no way to tell the backend "field X is currently hidden, don't validate it." Options:
+1. Send `hidden_fields: ["variant_type", "lod_score"]` alongside `evidence_data` in the validation API call
+2. The backend reads the same visibility condition expressions from the schema and evaluates them server-side before validation
+3. Accept that hidden field values will be submitted and ensure clearing-on-hide makes them null so they pass the "not required, not provided" path in `_validate_fields()`
 
-**Warning signs:**
-- Backend returns 422 after form shows "valid"
-- Pattern-constrained fields accept invalid input
-- Enum fields allow values not in list
-- Cross-field rules (if X then Y required) not enforced
+Option 3 is simplest and avoids a new API surface. The existing validator at line 233 already skips validation if `field_value is None`. Clear hidden field values to `None` (null in JSON), and the backend validator will skip them correctly.
 
-**Prevention:**
-1. Extend `getValidationRules()` to handle:
-   - `pattern`: Regex validation
-   - `enum`: Value must be in list
-   - `format`: email, uri, date-time
-2. Add cross-field validation support via schema `validation_rules`
-3. Mirror backend validation in frontend (generate from same schema)
-4. Test: submit with each invalid pattern, verify frontend catches it
+### The Existing `condition` String in ClinGen Schema Is Not Yet Evaluated
 
-**Phase:** Validation (Phase 3)
+The ClinGen schema in `014_seed_clingen_schema.sql` has `'condition', 'evidence_category == ''case_level'''` on several fields. This string is currently stored in the schema JSONB but nothing reads it — `DynamicField.vue` renders all fields unconditionally. When implementing the visibility engine, these conditions must be evaluated to show/hide fields. The expression evaluator must handle the existing string format OR a migration must rewrite them to the new format before the engine is activated.
 
-**Example of missing validation:**
-```javascript
-// Schema defines:
-{ "field_name": "pmid", "type": "string", "pattern": "^\\d{7,8}$" }
+Activating the visibility engine without migrating these schema expressions will immediately hide fields that should be visible (if the evaluator returns false for unparseable strings) or show all fields ignoring conditions (if the evaluator returns true as a fallback). Both are wrong. Test schema parsing before activating visibility on the ClinGen schema.
 
-// But DynamicField.vue doesn't generate pattern rule - accepts "invalid"
-```
+### `MONDOAutocomplete` Already Has an External `watch` for Value Restoration
 
----
+`MONDOAutocomplete.vue` at line 259 already watches `props.modelValue` and calls `ontologyAPI.searchMONDO` to restore the display when the component receives an existing value. When auto-population is added (MONDO selection populates `disease_name`), this watch will also fire on auto-population events. This creates a potential double-call: the auto-population emits `update:diseaseName`, which the form stores, which may trigger another search if the form also passes `disease_name` back. Trace the data flow carefully before adding auto-population to avoid this feedback loop.
 
-### Pitfall 9: Form Reset Clears Data Instead of Resetting Validation
+### The `formData` Deep Watch Already Triggers Backend Validation
 
-**What goes wrong:** Using Vuetify's `formRef.value.reset()` clears all field values, not just validation state. After reset, user loses all entered data.
-
-**Why it happens:** [Known Vuetify issue](https://github.com/vuetifyjs/vuetify/issues/3316): `form.reset()` doesn't only reset validation, it also clears the inputs. Developers expect it to just clear error messages.
-
-**Consequences:**
-- User clicks "Clear Errors", loses all work
-- Navigation away and back clears form
-- Form recovery features fight with reset behavior
-- Undo/redo state desyncs from form state
-
-**Warning signs:**
-- "Reset" button empties form fields
-- Dismissing validation errors clears data
-- Form recovery dialog offers to restore "lost" data that was just reset
-
-**Prevention:**
-1. Use `formRef.value.resetValidation()` not `formRef.value.reset()`
-2. Store form data copy before any reset operation
-3. Implement explicit "Clear Form" vs "Clear Errors" actions
-4. Test: trigger validation error, reset validation, verify data intact
-
-**Phase:** Validation (Phase 3)
-
----
-
-## Performance Pitfalls
-
-Complex form performance issues.
-
----
-
-### Pitfall 10: Deep Watcher on Large Evidence Data Causes Lag
-
-**What goes wrong:** ClinGen curations can have 50+ evidence items across categories. Deep watcher on entire `evidenceData` object triggers on every nested change, causing expensive re-renders.
-
-**Why it happens:** Vue 3 deep watch traverses ALL nested properties. Each evidence item add/edit/delete triggers full tree walk. Combined with validation debounce, creates cascade of expensive operations.
-
-**Consequences:**
-- Typing in any field causes 100-500ms delay
-- Adding evidence items freezes UI briefly
-- Score calculation lags behind actual state
-- Users report "slow form"
-
-**Warning signs:**
-- Vue DevTools shows excessive component updates
-- Performance profiler shows watcher callbacks taking >50ms
-- Users complain about typing lag
-- Mobile/low-power devices especially affected
-
-**Prevention:**
-1. Use `shallowRef` for top-level evidence data
-2. Implement per-section state management (each tab manages own state)
-3. Use `watchEffect` for specific dependencies instead of deep watch
-4. Consider Formily pattern: fields managed independently
-5. Benchmark: 50+ field form should type smoothly
-
-**Phase:** Performance (Phase 4)
-
-**Pattern to avoid:**
-```javascript
-// Expensive - walks entire tree on any change
-watch(evidenceData, () => { ... }, { deep: true })
-
-// Better - only watch specific changes
-watchEffect(() => {
-  // Only triggers when accessed properties change
-  const score = calculateScore(evidenceData.value.genetic_evidence)
-})
-```
-
----
-
-### Pitfall 11: Recursive DynamicField Rendering Stack Overflow
-
-**What goes wrong:** DynamicField.vue is recursive (renders itself for nested objects/arrays). Deeply nested schema (4+ levels like ClinGen genetic_evidence) can cause render stack issues, especially with circular references.
-
-**Why it happens:** Each nested level creates new DynamicField components. Vue's render cycle processes synchronously. With 4 levels of nesting and arrays at each level, component count explodes exponentially.
-
-**Consequences:**
-- Browser tab crashes on complex forms
-- "Maximum call stack size exceeded" errors
-- Slow initial render (5+ seconds)
-- Memory usage spikes
-
-**Warning signs:**
-- Form renders partially then errors
-- Browser DevTools show 1000+ component instances
-- Schema with type=object inside type=array causes issues
-- Render time increases non-linearly with nesting depth
-
-**Prevention:**
-1. Limit nesting depth in DynamicField (max 3-4 levels)
-2. For deeper nesting, use specialized components (EvidenceItemCard)
-3. Implement lazy rendering for collapsed sections
-4. Add schema validation: reject circular references
-5. Test with production ClinGen schema (deepest nesting case)
-
-**Phase:** Integration (Phase 2) and Performance (Phase 4)
-
----
-
-### Pitfall 12: JSON Schema Generation on Every Schema Load
-
-**What goes wrong:** `validationStore.generateJsonSchema(schemaId)` is called in multiple places (DynamicForm mount, SchemaDrivenCurationForm load, CurationFormView load). Generates same JSON schema repeatedly.
-
-**Why it happens:** No caching awareness in components - each assumes it needs to fetch/generate. Backend may regenerate on each call, or frontend may store but not check.
-
-**Consequences:**
-- 3-4 API calls for same schema on form load
-- Backend JSON schema generation is expensive (processes field_definitions)
-- Increased form load time
-- Unnecessary server load
-
-**Warning signs:**
-- Network tab shows duplicate `/api/v1/schemas/{id}/json-schema` calls
-- Form load time increases with schema complexity
-- Backend logs show repeated schema generation
-- Cache headers not set on response
-
-**Prevention:**
-1. Check cache before generating: `if (validationStore.getJsonSchema(schemaId)) return`
-2. Add cache TTL to jsonSchemas store (5 min)
-3. Generate JSON schema once at app startup for known schemas
-4. Add ETag/If-None-Match headers for schema endpoints
-5. Test: load form twice, verify single schema fetch
-
-**Phase:** Performance (Phase 4)
-
-**Pattern to implement:**
-```javascript
-// In validationStore.generateJsonSchema
-async generateJsonSchema(schemaId) {
-  // Check cache first
-  if (this.jsonSchemas[schemaId]) {
-    return this.jsonSchemas[schemaId]
-  }
-  // ... fetch and cache
-}
-```
-
----
-
-## Backward Compatibility Pitfalls
-
-Breaking existing functionality during migration.
-
----
-
-### Pitfall 13: Existing Curations Fail to Load in New Form
-
-**What goes wrong:** Curations created with hardcoded ClinGenCurationForm have specific `evidence_data` structure. DynamicForm expects structure matching `field_definitions`. Mismatch causes load failure or empty form.
-
-**Why it happens:** Schema evolution: `field_definitions` updated for DynamicForm but existing curations have old structure. No migration, no backward compatibility layer.
-
-**Consequences:**
-- Curator opens existing curation, sees empty form
-- Edit existing -> save -> data corrupted/lost
-- Can't complete review on curations started before migration
-- Production data integrity compromised
-
-**Warning signs:**
-- "This curation has no evidence data" on curations that definitely have data
-- Editing curation changes its structure (visible in DB)
-- Review workflow broken for in-progress curations
-- Curator reports "my work disappeared"
-
-**Prevention:**
-1. **Data compatibility layer:** Transform old structure to new on load, new to old on save (if needed)
-2. **Schema versioning:** `evidence_data` includes `_schema_version`
-3. **Read-only mode for old curations:** Prevent editing, only viewing
-4. **Migration script:** One-time update of all existing evidence_data
-5. **Parallel testing:** Load every production curation in test environment
-
-**Phase:** Foundation (Phase 1) - CRITICAL before any rollout
-
-**Migration approach:**
-```javascript
-function normalizeEvidenceData(data, schemaVersion) {
-  if (schemaVersion === 1 || !data._schema_version) {
-    // Transform v1 (hardcoded) structure to v2 (dynamic) structure
-    return migrateV1ToV2(data)
-  }
-  return data
-}
-```
-
----
-
-### Pitfall 14: Score Calculation Breaks for Non-ClinGen Schemas
-
-**What goes wrong:** Score calculation is hardcoded for ClinGen SOP v11 point values. GenCC uses different classification system. Dynamic schema with different scoring engine fails.
-
-**Why it happens:** `ClinGenCurationForm.vue` has `calculateGeneticScore()` and `calculateExperimentalScore()` with hardcoded max values (12, 6), point categories, and classification thresholds (12=Definitive, 7=Strong).
-
-**Consequences:**
-- GenCC curations show ClinGen scores (wrong)
-- Custom schemas can't calculate scores at all
-- Classification labels don't match methodology
-- Scoring sidebar shows incorrect information
-
-**Warning signs:**
-- Non-ClinGen curation shows "Definitive" when it shouldn't
-- Score breakdown categories don't match schema type
-- Backend score differs from frontend score
-- ScoreSummary component crashes for non-ClinGen
-
-**Prevention:**
-1. Move scoring to backend: `/api/v1/scoring/calculate`
-2. Schema `scoring_engine` field determines algorithm
-3. Frontend calls scoring API, displays result agnostically
-4. ScoreDisplay.vue renders whatever backend returns
-5. Test: create curation with each schema type, verify appropriate scoring
-
-**Phase:** Scoring (Phase 4) - FORM-05 in PROJECT.md
-
-**Current hardcoding to remove:**
-```javascript
-// ClinGenCurationForm.vue - hardcoded for ClinGen only
-const currentClassification = computed(() => {
-  const score = scores.value.total
-  if (score >= 12) return 'Definitive'  // ClinGen-specific!
-  if (score >= 7) return 'Strong'
-  // ...
-})
-```
-
----
-
-### Pitfall 15: Form Recovery Data Incompatible Across Schema Changes
-
-**What goes wrong:** `useFormRecovery` composable stores form data in localStorage keyed by curation ID. If schema changes, recovered data structure doesn't match new form, causing errors or data loss.
-
-**Why it happens:** Recovery key is `curation-${id}-schema-${schemaId}` but if schema's `field_definitions` change, recovered data has old field names/structure.
-
-**Consequences:**
-- User resumes work, form shows partial/corrupted data
-- Recovery dialog offers to restore incompatible data
-- Accepting recovery causes validation errors
-- Silent data loss when fields removed from schema
-
-**Warning signs:**
-- Recovery dialog shows fields that no longer exist
-- Restoring causes "undefined" values in form
-- Validation errors immediately after recovery
-- Schema admin changes break user's draft recovery
-
-**Prevention:**
-1. Include schema version/hash in recovery key
-2. Validate recovered data against current schema before offering restore
-3. Clear recovery data when schema changes
-4. Show warning if schema changed since last save
-5. Implement recovery data migration for schema updates
-
-**Phase:** Integration (Phase 2) - affects draft workflow
-
-**Key pattern from SchemaDrivenCurationForm.vue:**
-```javascript
-// Already has schema-aware key - good!
-const recoveryKey = computed(
-  () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}`
-)
-
-// But needs: schema version check on recovery
-watch(() => props.schemaId, (newId, oldId) => {
-  if (oldId && newId !== oldId) {
-    clearRecovery()  // Good - clears on schema change
-  }
-})
-```
-
----
-
-## Integration Pitfalls
-
-Mistakes when wiring dynamic forms to existing views.
-
----
-
-### Pitfall 16: Route Parameters Not Passed to DynamicForm
-
-**What goes wrong:** `PrecurationFormView.vue` extracts `scopeId`, `geneId` from route and uses them for API calls. When switching to DynamicForm, these parameters must be threaded through but may be lost.
-
-**Why it happens:** DynamicForm designed as generic component, doesn't know about scope/gene context. Parent view must pass context, but prop drilling gets complex.
-
-**Consequences:**
-- Form saves without scope_id -> 400 error
-- Gene context lost -> form header shows "Unknown Gene"
-- Workflow pair resolution fails -> wrong schema loaded
-- Precuration link broken -> curation can't access precuration data
-
-**Warning signs:**
-- Save returns "scope_id is required"
-- Form loads but gene name/symbol missing
-- Schema selection shows wrong options for scope
-- API calls missing required parameters
-
-**Prevention:**
-1. Create wrapper composable: `useCurationContext()` that extracts all route params
-2. DynamicForm receives `context` prop with all needed IDs
-3. Test each form route: verify all context params available
-4. Add defensive checks: show error if context missing
-
-**Phase:** Integration (Phase 2)
-
-**Props that must be threaded:**
-```javascript
-// These are currently extracted in views, must reach DynamicForm
-const scopeId = computed(() => route.params.scopeId)
-const geneId = computed(() => route.params.geneId)
-const curationId = computed(() => route.params.curationId)
-const precurationSchemaId = ref(null)  // From workflow pair
-```
-
----
-
-### Pitfall 17: Event Handlers Disconnect During Refactor
-
-**What goes wrong:** Hardcoded forms emit specific events (`@submit`, `@save-draft`, `@cancel`). DynamicForm may emit differently or not at all. Parent views break silently.
-
-**Why it happens:** DynamicForm.vue emits events, but:
-- Emit names may differ (`submit` vs `form-submit`)
-- Payload structure may differ
-- Some events may be missing
-- Parent handlers assume specific payload shape
-
-**Consequences:**
-- Submit button does nothing (handler not connected)
-- Save draft silently fails (event name mismatch)
-- Cancel leaves user stuck (no navigation)
-- Success notifications don't show
-
-**Warning signs:**
-- Clicking buttons has no visible effect
-- No network requests on submit
-- Console shows "event handler is not a function"
-- Navigation doesn't happen after submit
-
-**Prevention:**
-1. Document all events each form component emits
-2. Create event interface: `CurationFormEvents { submit(data), saveDraft(data), cancel() }`
-3. Verify event connection in tests: trigger event, assert handler called
-4. Add console.warn in dev mode when events fire with no handler
-
-**Phase:** Integration (Phase 2)
-
-**Events to verify:**
-```javascript
-// DynamicForm.vue
-const emit = defineEmits(['submit', 'save-draft', 'update:modelValue', 'validation-change'])
-
-// SchemaDrivenCurationForm.vue
-const emit = defineEmits(['submit', 'cancel', 'saved'])
-
-// Parent view handlers must match
-<DynamicForm @submit="handleSubmit" @save-draft="handleSaveDraft" ... />
-```
-
----
-
-### Pitfall 18: Store State Conflicts Between Form Types
-
-**What goes wrong:** `SchemaDrivenCurationForm` uses multiple stores (schemas, curations, precurations, validation). If form switches between ClinGen bypass and dynamic mode, store state from one mode pollutes the other.
-
-**Why it happens:** Stores are global singletons. `currentSchema` set by ClinGen form may not be cleared when switching to dynamic form, causing stale data.
-
-**Consequences:**
-- Wrong schema displayed in header
-- Validation runs against wrong schema
-- Score calculation uses wrong schema's rules
-- Form recovery restores wrong data type
-
-**Warning signs:**
-- Schema name in UI doesn't match actual form
-- Validation errors reference fields not in form
-- DevTools shows schema store has stale `currentSchema`
-- Race condition between schema loads
-
-**Prevention:**
-1. Clear relevant store state on component mount/unmount
-2. Use scoped state (composition API refs) instead of global store where possible
-3. Schema store's `currentSchema` should only be set explicitly, not assumed
-4. Add store state reset in `onBeforeUnmount`
-
-**Phase:** Integration (Phase 2)
-
-**Cleanup pattern:**
-```javascript
-onBeforeUnmount(() => {
-  validationStore.clearValidationResult('form')
-  schemasStore.clearCurrentSchema()
-  // Don't clear schemas list - that's cached intentionally
-})
-```
-
----
-
-## Phase Assignment Summary
-
-| Pitfall | Phase | Priority |
-|---------|-------|----------|
-| 1. ClinGen Bypass | Foundation (Phase 1) | CRITICAL |
-| 2. Evidence Data Shape | Foundation (Phase 1) | CRITICAL |
-| 13. Existing Curations Load | Foundation (Phase 1) | CRITICAL |
-| 4. Hardcoded Labels Lost | Foundation (Phase 1) | HIGH |
-| 3. Reactivity Lost | Integration (Phase 2) | CRITICAL |
-| 5. Tab Structure | Integration (Phase 2) | HIGH |
-| 6. Specialized Components | Integration (Phase 2) | HIGH |
-| 11. Recursive Rendering | Integration (Phase 2) | MEDIUM |
-| 15. Form Recovery Compat | Integration (Phase 2) | MEDIUM |
-| 16. Route Parameters | Integration (Phase 2) | HIGH |
-| 17. Event Handlers | Integration (Phase 2) | HIGH |
-| 18. Store State Conflicts | Integration (Phase 2) | MEDIUM |
-| 7. Validation Timing | Validation (Phase 3) | HIGH |
-| 8. Validation Rules | Validation (Phase 3) | HIGH |
-| 9. Form Reset Behavior | Validation (Phase 3) | MEDIUM |
-| 10. Deep Watcher Lag | Performance (Phase 4) | MEDIUM |
-| 12. JSON Schema Caching | Performance (Phase 4) | LOW |
-| 14. Score Calculation | Scoring (Phase 4) | HIGH |
+`DynamicForm.vue` at line 643 runs a deep watch on `formData` that calls `validateForm()` (debounced at 500ms). When field dependency logic mutates `formData` (e.g., auto-populating `disease_name`, cascading options), each mutation will trigger this watch and a backend validation call. This is correct behavior, but if 5 fields are auto-populated in sequence, 5 debounce timers are started. Only the last one fires. Ensure that auto-population sequences complete within the 500ms debounce window; otherwise, intermediate states may trigger premature validation.
 
 ---
 
 ## Sources
 
-### Official Documentation (HIGH confidence)
-- [Vue 3 Reactivity Fundamentals](https://vuejs.org/guide/essentials/reactivity-fundamentals)
-- [Vue 3 Watchers](https://vuejs.org/guide/essentials/watchers.html)
-- [Vuetify 3 Form Component](https://vuetifyjs.com/en/components/forms/)
-- [Vue 3 Breaking Changes Migration Guide](https://v3-migration.vuejs.org/breaking-changes/)
-
-### Community Best Practices (MEDIUM confidence)
-- [Vue.js Dynamic Forms Best Practices](https://medium.com/@emperorbrains/vue-js-dynamic-forms-best-practices-and-techniques-a633a696283b)
-- [Building Dynamic Forms in Vue 3](https://medium.com/@natalia.afanaseva/building-a-dynamic-form-in-vue-3-with-nested-fields-conditions-and-validation-a096bb69219f)
-- [Common Mistakes in Vue 3 Reactivity](https://infinitejs.com/posts/common-mistakes-vue-3-reactivity/)
-- [Deep Dive into Vue 3 Reactivity and Nested Objects](https://medium.com/@hichemdahi57/deep-dive-into-vue-3s-reactivity-and-nested-objects-5d4cedc85b64)
-
-### Known Issues (MEDIUM confidence)
-- [Vuetify form.reset() Issue #3316](https://github.com/vuetifyjs/vuetify/issues/3316)
-- [Vuetify VForm validation model-value Issue #15568](https://github.com/vuetifyjs/vuetify/issues/15568)
-- [Vue 3 Updates to deep/nested reactive props Issue #1387](https://github.com/vuejs/core/issues/1387)
-
-### Libraries Referenced
-- [FormVueLate - Schema-driven forms](https://github.com/formvuelate/formvuelate)
-- [Vue3 Schema Forms (Vuetify)](https://github.com/MaciejDybowski/vue3-schema-forms)
-- [Formily - High performance forms](https://github.com/alibaba/formily)
+- Gene Curator codebase analysis (HIGH confidence): `DynamicForm.vue`, `DynamicField.vue`, `TabContent.vue`, `useValidationRules.js`, `MONDOAutocomplete.vue`, `PMIDInput.vue`, `useFormRecovery.js`, `schema_validator.py`, `014_seed_clingen_schema.sql`, `016_seed_precuration_schema.sql`
+- Vue 3 official documentation — Watchers: https://vuejs.org/guide/essentials/watchers (HIGH)
+- Vue 3 official documentation — Conditional Rendering: https://vuejs.org/guide/essentials/conditional.html (HIGH)
+- Vue 3.5 `onWatcherCleanup`: https://dev.to/alexanderop/vue-35s-onwatchercleanup-mastering-side-effect-management-in-vue-applications-9pn (MEDIUM)
+- Infinite render loops in Vue 3: https://gist.github.com/AlexVipond/3be2803fef21ac6268855045483497f5 (MEDIUM)
+- JotForm conditional logic — clear on hide behavior: https://www.jotform.com/answers/5357271 (MEDIUM — industry practice documentation)
+- Prior phase research: `.planning/phases/04-validation/04-RESEARCH.md` (HIGH — same codebase)
+- Prior codebase concerns: `.planning/codebase/CONCERNS.md` (HIGH — same codebase)
