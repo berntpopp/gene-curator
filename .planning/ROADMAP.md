@@ -6,7 +6,7 @@
 - 🚧 **MVP** - Phases M1-M4 (in progress)
 
 <details>
-<summary>📋 Deferred: v0.2 Form Intelligence — Phases 6-8 (post-MVP, research preserved in .planning/research/)</summary>
+<summary>Deferred: v0.2 Form Intelligence -- Phases 6-8 (post-MVP, research preserved in .planning/research/)</summary>
 
 **Research:** `.planning/research/FEATURES.md`, `.planning/research/ARCHITECTURE.md`, `.planning/research/PITFALLS.md`
 **Requirements:** `.planning/REQUIREMENTS.md` (10 requirements: COND-01..05, XVAL-01..03, DEPS-01..02)
@@ -17,7 +17,7 @@ When resumed, phases 6-8 cover conditional visibility, cross-field validation, a
 ## Phases
 
 <details>
-<summary>✅ v0.1 Dynamic Forms (Phases 1-5) - SHIPPED 2026-01-23</summary>
+<summary>v0.1 Dynamic Forms (Phases 1-5) - SHIPPED 2026-01-23</summary>
 
 ### Phase 1: Field Rendering
 **Goal**: DynamicForm renders fields from schema field_definitions
@@ -62,7 +62,7 @@ Plans:
 
 </details>
 
-### 🚧 MVP (In Progress)
+### MVP (In Progress)
 
 **Milestone Goal:** Complete end-to-end curation workflow so a clinical genetics team can use Gene Curator for real curation work. Detailed plan: `.planning/MVP-PLAN.md`
 
@@ -70,6 +70,13 @@ Plans:
 **Goal**: Fix SQL injection vulnerability and complete the 4-eyes review workflow frontend so curations can be approved by independent reviewers
 **Depends on**: v0.1 complete (DynamicForm for read-only evidence display in review)
 **Issues**: #116
+**Plans:** 3 plans
+
+Plans:
+- [ ] M1-01-PLAN.md -- SQL injection fix + input validation (backend)
+- [ ] M1-02-PLAN.md -- ReviewQueue fix + workflow store wiring (frontend)
+- [ ] M1-03-PLAN.md -- Navigation badge + end-to-end verification
+
 **Success Criteria** (what must be TRUE):
   1. Gene search uses parameterized queries (no SQL injection)
   2. ReviewQueue shows pending reviews for current user across scopes
@@ -78,14 +85,6 @@ Plans:
   5. 4-eyes principle enforced (cannot review own curation)
   6. Review notification badge shows pending count
   7. All existing 529 tests still pass
-
-Tasks:
-- [ ] M1.1: Fix SQL injection in gene search (`backend/app/crud/gene.py`)
-- [ ] M1.2: Complete ReviewQueue view (wire to workflow store)
-- [ ] M1.3: Build CurationReview interface (read-only form + review actions)
-- [ ] M1.4: Wire workflow store review methods (fetch, submit, history)
-- [ ] M1.5: Review notification badge (nav item badge with auto-refresh)
-- [ ] M1.6: End-to-end review workflow test
 
 #### Phase M2: Precuration & Curation Enhancements
 **Goal**: Improve daily curator experience with better prefilling, validation, and data integrity
@@ -98,8 +97,8 @@ Tasks:
   4. Error messages are clear and actionable
 
 Tasks:
-- [ ] M2.1: Enhance precuration card — lump/split validation, prefill verification (#61)
-- [ ] M2.2: Implement workflow prefill logic — `data_mapping` driven (#77)
+- [ ] M2.1: Enhance precuration card -- lump/split validation, prefill verification (#61)
+- [ ] M2.2: Implement workflow prefill logic -- `data_mapping` driven (#77)
 - [ ] M2.3: Prevent precuration deletion with associated curations (#87)
 
 #### Phase M3: Admin Management UI
@@ -135,7 +134,7 @@ Tasks:
 ## Progress
 
 **Execution Order:**
-MVP phases: M1 → M2 (+ M3 in parallel) → M4
+MVP phases: M1 -> M2 (+ M3 in parallel) -> M4
 
 | Phase | Milestone | Tasks/Plans | Status | Completed |
 |-------|-----------|-------------|--------|-----------|
@@ -144,7 +143,7 @@ MVP phases: M1 → M2 (+ M3 in parallel) → M4
 | 3. Field Metadata | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 4. Validation | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 5. Scoring and Integration | v0.1 | 3/3 | Complete | 2026-01-23 |
-| M1. Security + Review Workflow | MVP | 0/6 | Not started | - |
+| M1. Security + Review Workflow | MVP | 0/3 | Not started | - |
 | M2. Curation Enhancements | MVP | 0/3 | Not started | - |
 | M3. Admin Management UI | MVP | 0/2 | Not started | - |
 | M4. MVP Hardening | MVP | 0/4 | Not started | - |
