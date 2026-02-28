@@ -116,6 +116,73 @@
       </v-card-text>
     </v-card>
 
+    <!-- View Workflow Dialog -->
+    <v-dialog v-model="viewWorkflowDialog" max-width="700">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-eye</v-icon>
+          Workflow Details
+        </v-card-title>
+        <v-card-text v-if="selectedWorkflow">
+          <v-list>
+            <v-list-item>
+              <v-list-item-title>Name</v-list-item-title>
+              <v-list-item-subtitle class="text-body-1">{{ selectedWorkflow.name }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Description</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedWorkflow.description || 'No description' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Status</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="selectedWorkflow.is_active ? 'success' : 'grey'" size="small">
+                  {{ selectedWorkflow.is_active ? 'Active' : 'Inactive' }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Precuration Schema</v-list-item-title>
+              <v-list-item-subtitle>{{ getSchemaName(selectedWorkflow.precuration_schema_id, 'precuration') }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Curation Schema</v-list-item-title>
+              <v-list-item-subtitle>{{ getSchemaName(selectedWorkflow.curation_schema_id, 'curation') }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item v-if="selectedWorkflow.data_mapping">
+              <v-list-item-title>Data Mapping</v-list-item-title>
+              <v-list-item-subtitle>
+                <pre class="text-caption mt-1">{{ JSON.stringify(selectedWorkflow.data_mapping, null, 2) }}</pre>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Usage Count</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedWorkflow.usage_count || 0 }} scopes</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Created</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedWorkflow.created_at ? new Date(selectedWorkflow.created_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+
+          <!-- Stage Pipeline -->
+          <div class="mt-4">
+            <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
+            <div class="d-flex align-center gap-2 flex-wrap">
+              <v-chip v-for="stage in workflowStages" :key="stage.id" :color="getStageColor(stage.stage_type)" variant="flat" size="small">
+                <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
+                {{ stage.name }}
+              </v-chip>
+            </div>
+          </div>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="viewWorkflowDialog = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Create Workflow Dialog -->
     <v-dialog v-model="createWorkflowDialog" max-width="600">
       <v-card>
@@ -186,6 +253,8 @@
   const creating = ref(false)
   const createWorkflowDialog = ref(false)
   const createForm = ref(null)
+  const viewWorkflowDialog = ref(false)
+  const selectedWorkflow = ref(null)
 
   const newWorkflow = ref({
     name: '',
@@ -266,10 +335,16 @@
     return new Date(dateString).toLocaleDateString()
   }
 
+  const getSchemaName = (schemaId, type) => {
+    const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
+    const schema = schemas.find(s => s.id === schemaId)
+    return schema ? schema.name : schemaId || 'N/A'
+  }
+
   const viewWorkflow = workflow => {
     logger.info('View workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
-    // TODO: Implement workflow detail view when available
-    showInfo('Workflow detail view coming soon')
+    selectedWorkflow.value = workflow
+    viewWorkflowDialog.value = true
   }
 
   const editWorkflow = workflow => {
