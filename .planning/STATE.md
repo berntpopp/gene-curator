@@ -59,6 +59,8 @@ Progress: MVP [██░░░░░░░░] ~20% (M1-01, M1-02 done; M1-03 th
 - MVP phases (M1-M4) prioritized before v0.2 Form Intelligence (2026-02-28)
 - v0.2 research preserved in .planning/research/ (still valid, just deprioritized)
 - plan/ directory archived to .planning/archive/plan/ (2026-02-28)
+- **M1-01**: Use text().bindparams() over ORM any_() for gene search ANY() clauses — SQLite test compatibility (2026-02-28)
+- **M1-01**: Two distinct bind param names (query_val/query_val2) required by SQLAlchemy per-clause uniqueness (2026-02-28)
 - M1-02: Dynamic imports inside Pinia actions to avoid circular dependency chains (2026-02-28)
 - M1-02: workflow API redirects getAvailableTransitions → /state endpoint, submitPeerReview → /transition endpoint (2026-02-28)
 
@@ -72,7 +74,7 @@ None.
 
 ### Blockers/Concerns
 
-- SQL injection in gene search (backend/app/crud/gene.py) — fix in M1.1
+- ~~SQL injection in gene search (backend/app/crud/gene.py)~~ — FIXED in M1-01
 - Pre-existing lint issue in CurationDetailView.vue (unused authStore variable) — not blocking builds
 - 6 manual testing scenarios from v0.1 audit still required before production
 - v0.2 research gaps (deferred): MONDO API availability, SchemaValidator null-skip behavior — revisit when v0.2 resumes
