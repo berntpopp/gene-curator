@@ -3,7 +3,16 @@
 ## Milestones
 
 - ✅ **v0.1 Dynamic Forms** - Phases 1-5 (shipped 2026-01-23)
-- 🚧 **v0.2 Form Intelligence** - Phases 6-8 (in progress)
+- 🚧 **MVP** - Phases M1-M4 (in progress)
+
+<details>
+<summary>📋 Deferred: v0.2 Form Intelligence — Phases 6-8 (post-MVP, research preserved in .planning/research/)</summary>
+
+**Research:** `.planning/research/FEATURES.md`, `.planning/research/ARCHITECTURE.md`, `.planning/research/PITFALLS.md`
+**Requirements:** `.planning/REQUIREMENTS.md` (10 requirements: COND-01..05, XVAL-01..03, DEPS-01..02)
+
+When resumed, phases 6-8 cover conditional visibility, cross-field validation, and field dependencies.
+</details>
 
 ## Phases
 
@@ -53,67 +62,89 @@ Plans:
 
 </details>
 
-### 🚧 v0.2 Form Intelligence (In Progress)
+### 🚧 MVP (In Progress)
 
-**Milestone Goal:** Make dynamic forms context-aware — fields react to each other through conditional visibility, cross-field validation, and cascading dependencies.
+**Milestone Goal:** Complete end-to-end curation workflow so a clinical genetics team can use Gene Curator for real curation work. Detailed plan: `.planning/MVP-PLAN.md`
 
-#### Phase 6: Conditional Visibility Engine
-**Goal**: Fields show and hide based on other field values, driven by a single reactive composable with a safe, unified condition format
-**Depends on**: Phases 1-5 (DynamicForm component tree complete)
-**Requirements**: COND-01, COND-02, COND-03, COND-04, COND-05
+#### Phase M1: Security Fix + Review Workflow
+**Goal**: Fix SQL injection vulnerability and complete the 4-eyes review workflow frontend so curations can be approved by independent reviewers
+**Depends on**: v0.1 complete (DynamicForm for read-only evidence display in review)
+**Issues**: #116
 **Success Criteria** (what must be TRUE):
-  1. When a curator changes a field value, dependent fields appear or disappear immediately without page reload
-  2. Fields defined with either legacy syntax (show_when object or condition string) behave identically to fields using the canonical visibility format
-  3. When a field is hidden, its value is cleared to null and excluded from the form submission payload
-  4. Loading a schema with a circular field dependency (A visibility depends on B, B visibility depends on A) logs a descriptive error and does not freeze the browser tab
-  5. All four production schemas load and render fields correctly after syntax normalization runs
-**Plans**: TBD
+  1. Gene search uses parameterized queries (no SQL injection)
+  2. ReviewQueue shows pending reviews for current user across scopes
+  3. CurationReview displays evidence read-only with score and verdict
+  4. Approve/Reject/Request Revision all work end-to-end
+  5. 4-eyes principle enforced (cannot review own curation)
+  6. Review notification badge shows pending count
+  7. All existing 529 tests still pass
 
-Plans:
-- [ ] 06-01: useFieldInteractions composable — visibilityMap, DAG cycle detection, legacy syntax normalization
-- [ ] 06-02: DynamicForm + TabContent + DynamicField wiring — v-if visibility, hidden field data handling
+Tasks:
+- [ ] M1.1: Fix SQL injection in gene search (`backend/app/crud/gene.py`)
+- [ ] M1.2: Complete ReviewQueue view (wire to workflow store)
+- [ ] M1.3: Build CurationReview interface (read-only form + review actions)
+- [ ] M1.4: Wire workflow store review methods (fetch, submit, history)
+- [ ] M1.5: Review notification badge (nav item badge with auto-refresh)
+- [ ] M1.6: End-to-end review workflow test
 
-#### Phase 7: Cross-Field Validation
-**Goal**: Validation rules can reference other field values so that conditional required fields and date/numeric constraints are enforced correctly
-**Depends on**: Phase 6 (useFieldInteractions composable and visibility engine in place)
-**Requirements**: XVAL-01, XVAL-02, XVAL-03
+#### Phase M2: Precuration & Curation Enhancements
+**Goal**: Improve daily curator experience with better prefilling, validation, and data integrity
+**Depends on**: Phase M1 (review workflow working)
+**Issues**: #61, #77, #87
 **Success Criteria** (what must be TRUE):
-  1. When a curator leaves a conditionally required field empty after the triggering field is set, the form shows a validation error on that field and blocks submission
-  2. Cross-field rules defined in schema validation_rules.cross_field (date ordering, numeric bounds) produce inline error messages on the dependent field
-  3. Hidden fields never trigger required-field backend validation errors, even when the schema marks them required
-**Plans**: TBD
+  1. Lump/split fields have validation preventing accidental overwrite
+  2. Creating curation from precuration prefills mapped fields via workflow config
+  3. Cannot delete precuration that has associated curations
+  4. Error messages are clear and actionable
 
-Plans:
-- [ ] 07-01: useFieldInteractions extended with crossFieldRules computed map and operator set
-- [ ] 07-02: DynamicField cross-field rule merging and backend hidden-field alignment
+Tasks:
+- [ ] M2.1: Enhance precuration card — lump/split validation, prefill verification (#61)
+- [ ] M2.2: Implement workflow prefill logic — `data_mapping` driven (#77)
+- [ ] M2.3: Prevent precuration deletion with associated curations (#87)
 
-#### Phase 8: Field Dependencies
-**Goal**: Select options cascade from parent field values and MONDO ID selection auto-populates the disease name without manual entry
-**Depends on**: Phase 7 (visibility and cross-field validation stable before adding formData mutations)
-**Requirements**: DEPS-01, DEPS-02
+#### Phase M3: Admin Management UI
+**Goal**: Complete admin-facing management interfaces for assignments and workflows
+**Depends on**: Independent (can run in parallel with M2)
+**Issues**: #119, #118
 **Success Criteria** (what must be TRUE):
-  1. When a curator selects a value in a parent select field, the child select immediately shows only the options valid for that parent value
-  2. When a curator changes the parent select, the child select clears its current value if that value is no longer in the updated option set
-  3. When a curator selects a MONDO ID from the disease search, the disease_name field populates automatically without a second lookup action
-  4. When a MONDO lookup is in flight and the curator selects a different MONDO ID, only the result for the second selection is applied (no stale overwrite)
-**Plans**: TBD
+  1. Gene assignment edit/reassign/view dialogs all functional
+  2. Workflow view/edit/stage-edit dialogs all functional
+  3. Changes immediately reflected in lists
+  4. Audit trail maintained for reassignments
 
-Plans:
-- [ ] 08-01: useFieldInteractions extended with dynamicOptions computed map and cascading select logic
-- [ ] 08-02: MONDO auto-population via getAutoPopulateUpdates and AbortController race prevention
+Tasks:
+- [ ] M3.1: Gene assignment edit/reassign dialogs (#119)
+- [ ] M3.2: Workflow management detail/edit views (#118)
+
+#### Phase M4: MVP Hardening
+**Goal**: Fix tech debt items, smoke test all paths, update documentation
+**Depends on**: Phases M1-M3 complete
+**Issues**: #104
+**Success Criteria** (what must be TRUE):
+  1. Gene summary shows actual curator count (not hardcoded 1)
+  2. In-app notifications work for review events
+  3. All workflow paths tested end-to-end
+  4. Documentation updated for end users
+
+Tasks:
+- [ ] M4.1: Fix gene summary curator count
+- [ ] M4.2: Fix notification store API integration
+- [ ] M4.3: Smoke test all workflow paths
+- [ ] M4.4: Update documentation
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 6 → 7 → 8
+MVP phases: M1 → M2 (+ M3 in parallel) → M4
 
-| Phase | Milestone | Plans Complete | Status | Completed |
-|-------|-----------|----------------|--------|-----------|
+| Phase | Milestone | Tasks/Plans | Status | Completed |
+|-------|-----------|-------------|--------|-----------|
 | 1. Field Rendering | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 2. Tab Structure | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 3. Field Metadata | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 4. Validation | v0.1 | 2/2 | Complete | 2026-01-23 |
 | 5. Scoring and Integration | v0.1 | 3/3 | Complete | 2026-01-23 |
-| 6. Conditional Visibility Engine | v0.2 | 0/2 | Not started | - |
-| 7. Cross-Field Validation | v0.2 | 0/2 | Not started | - |
-| 8. Field Dependencies | v0.2 | 0/2 | Not started | - |
+| M1. Security + Review Workflow | MVP | 0/6 | Not started | - |
+| M2. Curation Enhancements | MVP | 0/3 | Not started | - |
+| M3. Admin Management UI | MVP | 0/2 | Not started | - |
+| M4. MVP Hardening | MVP | 0/4 | Not started | - |

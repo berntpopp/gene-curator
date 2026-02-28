@@ -3,18 +3,19 @@
 ## Project Reference
 
 See: .planning/PROJECT.md (updated 2026-02-28)
+See: .planning/MVP-PLAN.md (created 2026-02-28)
 
 **Core value:** Every scope can use their own curation methodology with dynamically rendered forms
-**Current focus:** v0.2 Form Intelligence — Phase 6: Conditional Visibility Engine
+**Current focus:** MVP completion — end-to-end review workflow, curator UX, admin management
 
 ## Current Position
 
-Phase: 6 of 8 (Conditional Visibility Engine)
-Plan: — (ready to plan)
-Status: Ready to plan
-Last activity: 2026-02-28 — Roadmap created for v0.2 milestone
+Phase: MVP Phase M1 (Security Fix + Review Workflow)
+Plan: .planning/MVP-PLAN.md
+Status: Planning complete, ready for execution
+Last activity: 2026-02-28 — MVP plan created, plan/ archived to .planning/archive/plan/
 
-Progress: v0.2 [░░░░░░░░░░] 0%
+Progress: MVP [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -33,20 +34,35 @@ Progress: v0.2 [░░░░░░░░░░] 0%
 | 4. Validation | 2 | ~8 min | 4 min |
 | 5. Scoring and Integration | 3 | ~12 min | 4 min |
 
-*v0.2 metrics will accumulate here as phases complete*
+*MVP metrics will accumulate here as phases complete*
+
+## Milestone Summary
+
+### v0.1 Dynamic Forms (SHIPPED 2026-01-23)
+
+- **Phases:** 5 (Field Rendering, Tab Structure, Field Metadata, Validation, Scoring & Integration)
+- **Plans:** 12 total
+- **Tests:** 219 new tests, 428 total passing
+- **Duration:** 2 days (2026-01-22 to 2026-01-23)
+- **Execution time:** 44 min 25 sec total
+
+### MVP (IN PROGRESS)
+
+- **Phases:** 4 (M1: Review Workflow, M2: Curation Enhancements, M3: Admin UI, M4: Hardening)
+- **Critical path:** M1 — review workflow enables end-to-end curation
+- **Blocking issues:** #116 (review workflow), SQL injection (CONCERNS.md)
 
 ## Accumulated Context
 
 ### Decisions
 
-Key v0.1 decisions logged in PROJECT.md Key Decisions table.
+- MVP phases (M1-M4) prioritized before v0.2 Form Intelligence (2026-02-28)
+- v0.2 research preserved in .planning/research/ (still valid, just deprioritized)
+- plan/ directory archived to .planning/archive/plan/ (2026-02-28)
 
-v0.2 decisions (pre-implementation, from research):
-- Canonical condition syntax: SQL migration to object format + normalization fallback in composable
-- Hidden field data policy: Clear to null on hide (backend compat); backend existing null-skip path handles it
-- Cross-field error attribution: Error always on the dependent field (the one needing action)
-- json-logic-js: Start with inline 20-line evaluator; add dependency only if schema needs and/or compound operators
-- Backend visibility enforcement: Option 3 (clear-on-hide nulls pass existing backend skip) for v0.2; no backend changes needed
+v0.2 decisions (pre-implementation, from research — deferred, revisit post-MVP):
+- Research preserved in `.planning/research/` and `.planning/REQUIREMENTS.md`
+- v0.2 removed from active roadmap on 2026-02-28 to focus on MVP
 
 ### Pending Todos
 
@@ -54,24 +70,27 @@ None.
 
 ### Blockers/Concerns
 
-- Pre-existing lint issue in CurationDetailView.vue (unused authStore variable) - not blocking builds
-- Phase 8 research gap: MONDO REST API endpoint availability in ontologyAPI.js not yet confirmed — verify before Phase 8 planning
-- Phase 8 research gap: useFormRecovery.js integration after visibility engine re-evaluation needs integration test coverage
-- Backend inference to validate: SchemaValidator null-value skip behavior must be confirmed with a specific test case before Phase 7 ships
+- SQL injection in gene search (backend/app/crud/gene.py) — fix in M1.1
+- Pre-existing lint issue in CurationDetailView.vue (unused authStore variable) — not blocking builds
+- 6 manual testing scenarios from v0.1 audit still required before production
+- v0.2 research gaps (deferred): MONDO API availability, SchemaValidator null-skip behavior — revisit when v0.2 resumes
 
 ## Session Continuity
 
 Last session: 2026-02-28
-Stopped at: Roadmap created — ready to plan Phase 6
-Resume file: None
+Stopped at: MVP plan created, ready for M1 execution
+Resume file: .planning/MVP-PLAN.md
 
 **Next steps:**
-- `/gsd:plan-phase 6` to begin Conditional Visibility Engine
+- Execute Phase M1: Fix SQL injection → Complete review workflow
+- Start with M1.1 (security fix) then M1.2-M1.6 (review workflow)
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
 - `.planning/milestones/v0.1-REQUIREMENTS.md`
 - `.planning/milestones/v0.1-MILESTONE-AUDIT.md`
+- `.planning/archive/plan/` (former plan/ directory, moved 2026-02-28)
+- `.planning/archive/docs/` (former docs/ directory)
 
 ---
-*Updated: 2026-02-28 after v0.2 roadmap creation*
+*Updated: 2026-02-28 after MVP plan creation*

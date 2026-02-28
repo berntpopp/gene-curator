@@ -50,23 +50,31 @@ When a curator opens a precuration or curation form, the UI renders from the dat
 - Offline-first / IndexedDB - Curation done online; localStorage recovery sufficient
 - AI-assisted field completion - Separate feature, out of scope for form infrastructure
 
-## Current Milestone: v0.2 Form Intelligence
+## Current Milestone: MVP (Phases M1-M4)
 
-**Goal:** Make dynamic forms context-aware — fields react to each other through conditional visibility, cross-field validation, and cascading dependencies.
+**Goal:** Complete the end-to-end curation workflow so a clinical genetics team can use Gene Curator for real curation work. See `.planning/MVP-PLAN.md` for detailed phase breakdown.
 
-**Target features:**
-- Conditional visibility (fields show/hide based on other field values)
-- Cross-field validation (validation rules referencing other fields)
-- Field dependencies (cascading selects, auto-population)
+**MVP Phases:**
+- **M1** Security Fix + Review Workflow (#116) — Critical path
+- **M2** Precuration & Curation Enhancements (#61, #77, #87)
+- **M3** Admin Management UI (#119, #118)
+- **M4** MVP Hardening (tech debt, smoke tests, docs)
+
+## Deferred: v0.2 Form Intelligence
+
+**Status:** Deferred (2026-02-28). Will revisit after MVP ships.
+**Research preserved:** `.planning/research/` (FEATURES.md, ARCHITECTURE.md, PITFALLS.md)
+**Requirements preserved:** `.planning/REQUIREMENTS.md` (10 requirements defined)
 
 ## Context
 
-**Current State (as of 2026-02-28, starting v0.2 milestone):**
+**Current State (as of 2026-02-28, MVP execution starting):**
 
 1. **Backend ready**: JSONB `field_definitions` in `curation_schemas` table with 4 configured schemas
 2. **Frontend complete**: DynamicForm renders all forms schema-driven
 3. **Scoring working**: ClinGen, GenCC, and Qualitative engines all display live scores
 4. **Tests passing**: 428 frontend tests, 101 backend tests all green
+5. **MVP gap**: Review workflow frontend incomplete (#116), admin UI placeholders (#118, #119)
 
 **Tech Stack:**
 - Frontend: Vue 3 + Vuetify 3 + Pinia (55,478 LOC)
@@ -101,5 +109,6 @@ When a curator opens a precuration or curation form, the UI renders from the dat
 | Sticky sidebar lg+ only | Better mobile UX | Good - follows Vuetify conventions |
 
 ---
-*Last updated: 2026-02-28 after v0.2 milestone start*
-*Core focus: Form Intelligence — conditional visibility, cross-field validation, field dependencies*
+*Last updated: 2026-02-28 after MVP plan creation*
+*Core focus: MVP — end-to-end review workflow, curator UX, admin management*
+*v0.2 Form Intelligence deferred to post-MVP (research preserved in .planning/research/)*

@@ -24,8 +24,37 @@
 
 **Git range:** `feat(01-01)` to `docs(05)` (69 commits)
 
-**What's next:** Define v0.2 milestone goals (conditional visibility, cross-field validation, or other enhancements)
+---
+
+## MVP (In Progress: 2026-02-28)
+
+**Goal:** Complete end-to-end curation workflow so a clinical genetics team can use Gene Curator for real curation work.
+
+**Phases planned:** 4
+
+| Phase | Name | Focus | Issues |
+|-------|------|-------|--------|
+| M1 | Security Fix + Review Workflow | SQL injection fix, 4-eyes review UI | #116 |
+| M2 | Precuration & Curation Enhancements | Prefill logic, validation, deletion guard | #61, #77, #87 |
+| M3 | Admin Management UI | Assignment dialogs, workflow views | #119, #118 |
+| M4 | MVP Hardening | Tech debt fixes, smoke tests, docs | #104 |
+
+**Key context:**
+- Backend API is complete; gaps are frontend UI
+- Zero open bugs; CI green; 529 tests passing
+- Review workflow backend exists; frontend pending
+- Detailed plan: `.planning/MVP-PLAN.md`
 
 ---
 
-*Last updated: 2026-01-23 after v0.1 milestone completion*
+## v0.2 Form Intelligence (Deferred)
+
+**Status:** Deferred 2026-02-28. Focus shifted to MVP completion first.
+**Research preserved:** `.planning/research/` (FEATURES.md, ARCHITECTURE.md, PITFALLS.md)
+**Requirements preserved:** `.planning/REQUIREMENTS.md` (10 requirements: COND-01..05, XVAL-01..03, DEPS-01..02)
+
+Will revisit after MVP ships.
+
+---
+
+*Last updated: 2026-02-28 — v0.2 deferred, MVP is sole active milestone*
