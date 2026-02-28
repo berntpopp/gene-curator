@@ -383,12 +383,54 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- Reassign Dialog -->
+    <v-dialog v-model="reassignDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-account-plus</v-icon>
+          Reassign Gene
+        </v-card-title>
+        <v-card-text>
+          <div class="text-body-2 mb-4">
+            Reassigning <strong>{{ reassigningAssignment?.gene_symbol || reassigningAssignment?.gene }}</strong>
+            from <strong>{{ reassigningAssignment?.assignee_name || reassigningAssignment?.assignee || 'Unassigned' }}</strong>
+          </div>
+          <v-form ref="reassignForm">
+            <v-select
+              v-model="reassignCuratorId"
+              :items="availableUsers"
+              item-title="full_name"
+              item-value="id"
+              label="New Curator"
+              variant="outlined"
+              :rules="[v => !!v || 'Please select a curator']"
+              required
+            />
+            <v-textarea
+              v-model="reassignNote"
+              label="Transfer Note (Optional)"
+              variant="outlined"
+              rows="2"
+            />
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="reassignDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="reassigning" @click="executeReassign">
+            Reassign
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
 <script setup>
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
+  import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
 
@@ -423,6 +465,12 @@
     notes: ''
   })
   let editingAssignmentId = null
+  const reassignDialog = ref(false)
+  const reassignForm = ref(null)
+  const reassigning = ref(false)
+  const reassigningAssignment = ref(null)
+  const reassignCuratorId = ref(null)
+  const reassignNote = ref('')
 
   // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
@@ -710,7 +758,27 @@
       assignmentId: assignment.id,
       geneSymbol: assignment.gene_symbol
     })
-    // TODO: Implement gene reassignment when available
+    reassigningAssignment.value = assignment
+    reassignCuratorId.value = null
+    reassignNote.value = ''
+    reassignDialog.value = true
+  }
+
+  const executeReassign = async () => {
+    const { valid } = await reassignForm.value.validate()
+    if (!valid) return
+    reassigning.value = true
+    try {
+      await assignmentsAPI.assignCurator(reassigningAssignment.value.id, reassignCuratorId.value)
+      showSuccess('Gene reassigned successfully')
+      reassignDialog.value = false
+      await assignmentsStore.fetchAssignments()
+    } catch (error) {
+      showError('Failed to reassign gene')
+      logger.error('Reassign failed', { error: error.message })
+    } finally {
+      reassigning.value = false
+    }
   }
 
   const viewAssignment = assignment => {
