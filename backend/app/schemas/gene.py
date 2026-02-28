@@ -150,7 +150,9 @@ class GeneSearchQuery(BaseModel):
     """Schema for gene search queries."""
 
     query: str | None = Field(
-        None, description="Search term for gene symbol, name, or HGNC ID"
+        None,
+        max_length=200,
+        description="Search term for gene symbol, name, or HGNC ID",
     )
     chromosome: str | None = Field(None, description="Filter by chromosome")
     hgnc_id: str | None = Field(None, description="Filter by specific HGNC ID")
@@ -165,6 +167,14 @@ class GeneSearchQuery(BaseModel):
     )
     sort_by: str = Field("approved_symbol", description="Field to sort by")
     sort_order: str = Field("asc", pattern="^(asc|desc)$", description="Sort order")
+
+    @field_validator("query")
+    @classmethod
+    def validate_query_length(cls, v: str | None) -> str | None:
+        """Validate search query length."""
+        if v is not None and len(v) > 200:
+            raise ValueError("Search query too long (max 200 characters)")
+        return v
 
 
 # List Response Schema
