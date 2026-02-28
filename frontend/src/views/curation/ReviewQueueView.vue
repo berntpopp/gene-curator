@@ -277,9 +277,9 @@
   async function fetchPendingReviews() {
     loading.value = true
     try {
-      // Fetch curations with submitted status (pending review)
+      // Fetch curations with in_review status (pending peer review)
       const response = await curationsAPI.getCurations({
-        curation_status: 'submitted',
+        curation_status: 'in_review',
         limit: 200
       })
 
