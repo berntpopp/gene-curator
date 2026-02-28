@@ -2,19 +2,19 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-01-23)
+See: .planning/PROJECT.md (updated 2026-02-28)
 
 **Core value:** Every scope can use their own curation methodology with dynamically rendered forms
-**Current focus:** v0.1 shipped, planning next milestone
+**Current focus:** v0.2 Form Intelligence — conditional visibility, cross-field validation, field dependencies
 
 ## Current Position
 
-Phase: — (between milestones)
+Phase: Not started (defining requirements)
 Plan: —
-Status: Ready for `/gsd:new-milestone`
-Last activity: 2026-01-23 — v0.1 milestone complete
+Status: Defining requirements
+Last activity: 2026-02-28 — Milestone v0.2 started
 
-Progress: v0.1 [##########] 100% SHIPPED
+Progress: v0.2 [░░░░░░░░░░] 0%
 
 ## Milestone Summary
 
@@ -25,14 +25,6 @@ Progress: v0.1 [##########] 100% SHIPPED
 - **Tests:** 219 new tests, 428 total passing
 - **Duration:** 2 days (2026-01-22 to 2026-01-23)
 - **Execution time:** 44 min 25 sec total
-
-**Key achievements:**
-- Schema-agnostic dynamic forms with field rendering, tabs, metadata, validation, scoring
-- All curation and precuration forms now schema-driven
-- Component registry with 5 specialized evidence components
-- Feature flag infrastructure for gradual rollout
-- Form recovery and undo/redo working for all workflows
-- Zero regressions, all tests pass
 
 ## Accumulated Context
 
@@ -51,13 +43,14 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-01-23
-Stopped at: v0.1 milestone complete
+Last session: 2026-02-28
+Stopped at: Defining v0.2 requirements
 Resume file: None
 
 **Next steps:**
-- `/gsd:new-milestone` — Start v0.2 milestone (questioning -> research -> requirements -> roadmap)
-- Consider: Conditional visibility, cross-field validation, field dependencies
+- Complete requirements definition
+- Create roadmap
+- `/gsd:plan-phase [N]` to start execution
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
@@ -65,4 +58,4 @@ Resume file: None
 - `.planning/milestones/v0.1-MILESTONE-AUDIT.md`
 
 ---
-*Updated: 2026-01-23 after v0.1 milestone completion*
+*Updated: 2026-02-28 after v0.2 milestone start*

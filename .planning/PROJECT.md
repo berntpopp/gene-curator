@@ -50,9 +50,18 @@ When a curator opens a precuration or curation form, the UI renders from the dat
 - Offline-first / IndexedDB - Curation done online; localStorage recovery sufficient
 - AI-assisted field completion - Separate feature, out of scope for form infrastructure
 
+## Current Milestone: v0.2 Form Intelligence
+
+**Goal:** Make dynamic forms context-aware — fields react to each other through conditional visibility, cross-field validation, and cascading dependencies.
+
+**Target features:**
+- Conditional visibility (fields show/hide based on other field values)
+- Cross-field validation (validation rules referencing other fields)
+- Field dependencies (cascading selects, auto-population)
+
 ## Context
 
-**Current State (as of 2026-01-23, after v0.1 milestone):**
+**Current State (as of 2026-02-28, starting v0.2 milestone):**
 
 1. **Backend ready**: JSONB `field_definitions` in `curation_schemas` table with 4 configured schemas
 2. **Frontend complete**: DynamicForm renders all forms schema-driven
@@ -92,5 +101,5 @@ When a curator opens a precuration or curation form, the UI renders from the dat
 | Sticky sidebar lg+ only | Better mobile UX | Good - follows Vuetify conventions |
 
 ---
-*Last updated: 2026-01-23 after v0.1 milestone completion*
-*Core focus: Foundation complete. Next: conditional visibility, cross-field validation*
+*Last updated: 2026-02-28 after v0.2 milestone start*
+*Core focus: Form Intelligence — conditional visibility, cross-field validation, field dependencies*
