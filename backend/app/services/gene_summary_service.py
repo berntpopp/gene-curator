@@ -13,6 +13,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
+from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
@@ -39,6 +40,15 @@ class GeneSummaryService:
             db: Database session for query operations
         """
         self.db = db
+
+    def _get_curator_count(self, gene_id: UUID, scope_id: UUID) -> int:
+        """Count distinct users who created curations for a gene in a scope."""
+        stmt = select(sa_func.count(sa_func.distinct(CurationNew.created_by))).where(
+            CurationNew.gene_id == gene_id,
+            CurationNew.scope_id == scope_id,
+        )
+        result = self.db.execute(stmt).scalar()
+        return result or 0
 
     @timed_operation("compute_gene_summary", warning_threshold_ms=1000)
     def compute_summary(self, gene_id: UUID) -> GeneSummary:
@@ -145,7 +155,7 @@ class GeneSummaryService:
                     "experimental_score": experimental_score,
                     "total_score": total_score,
                     "last_updated": curation.updated_at.isoformat(),
-                    "curator_count": 1,  # TODO: Get from curation history
+                    "curator_count": self._get_curator_count(gene_id, curation.scope_id),
                     "evidence_count": len(evidence_items)
                     if isinstance(evidence_items, list)
                     else 0,
