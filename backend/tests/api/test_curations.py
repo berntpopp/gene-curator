@@ -547,6 +547,107 @@ class TestCurationDelete:
         assert response.status_code == 404
 
 
+class TestCanReviewPermission:
+    """Tests for can_review field in GET /curations/{id} response.
+
+    Verifies _can_user_review_curation logic:
+    - Returns True for IN_REVIEW curations created by a different user
+    - Returns False for non-IN_REVIEW curations (draft, etc.)
+    - Returns False for own curations (4-eyes principle)
+    """
+
+    def test_can_review_true_for_in_review_curation(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_scope,
+        test_gene,
+        test_workflow_pair,
+        test_user_curator,
+        test_user_admin,
+    ):
+        """can_review is True when curation is in_review and created by another user."""
+        # Arrange — create in_review curation created by curator (not admin)
+        curation = CurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            workflow_pair_id=test_workflow_pair.id,
+            workflow_stage="review",
+            status="in_review",
+            evidence_data={"ready": True},
+            created_by=test_user_curator.id,  # Different from admin
+        )
+        db_session.add(curation)
+        db_session.commit()
+
+        # Act — GET as admin (different user from creator)
+        response = client.get(
+            f"/api/v1/curations/{curation.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["can_review"] is True
+
+    def test_can_review_false_for_draft_curation(
+        self,
+        client: TestClient,
+        admin_token: str,
+        test_curation: CurationNew,
+    ):
+        """can_review is False when curation status is draft (not in_review)."""
+        # Act — GET default test_curation (status=draft, created_by=curator)
+        response = client.get(
+            f"/api/v1/curations/{test_curation.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert
+        assert response.status_code == 200
+        data = response.json()
+        assert data["can_review"] is False
+
+    def test_can_review_false_for_own_curation(
+        self,
+        client: TestClient,
+        admin_token: str,
+        db_session: Session,
+        test_scope,
+        test_gene,
+        test_workflow_pair,
+        test_user_admin,
+    ):
+        """can_review is False when admin is the creator (4-eyes principle)."""
+        # Arrange — create in_review curation where admin is the creator
+        curation = CurationNew(
+            id=uuid4(),
+            scope_id=test_scope.id,
+            gene_id=test_gene.id,
+            workflow_pair_id=test_workflow_pair.id,
+            workflow_stage="review",
+            status="in_review",
+            evidence_data={"ready": True},
+            created_by=test_user_admin.id,  # Same as the reviewing admin
+        )
+        db_session.add(curation)
+        db_session.commit()
+
+        # Act — GET as admin (same user as creator)
+        response = client.get(
+            f"/api/v1/curations/{curation.id}",
+            headers={"Authorization": f"Bearer {admin_token}"},
+        )
+
+        # Assert — 4-eyes principle: cannot review own work
+        assert response.status_code == 200
+        data = response.json()
+        assert data["can_review"] is False
+
+
 class TestCurationScopeAccess:
     """Tests for scope-based access control."""
 
