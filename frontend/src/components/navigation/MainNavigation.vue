@@ -24,6 +24,8 @@
           :to="item.to"
           :icon="item.icon"
           :label="item.label"
+          :badge="item.badge"
+          :badge-color="item.badgeColor"
         />
       </v-list>
     </v-menu>
@@ -67,14 +69,40 @@
    * @see src/composables/useNavigation.js
    */
 
-  import { computed } from 'vue'
+  import { computed, ref, onMounted, onUnmounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { usePermissions } from '@/composables/usePermissions'
+  import { useWorkflowStore } from '@/stores/workflow'
   import { TERMINOLOGY } from '@/config/terminology'
   import BaseNavigationItem from './BaseNavigationItem.vue'
 
   const router = useRouter()
   const { can, isAuthenticated } = usePermissions()
+  const workflowStore = useWorkflowStore()
+  const pendingReviewCount = ref(0)
+  let badgeRefreshInterval = null
+
+  async function refreshBadgeCount() {
+    try {
+      pendingReviewCount.value = await workflowStore.fetchPendingReviewCount()
+    } catch {
+      // Silent fail for badge refresh — don't break navigation
+    }
+  }
+
+  onMounted(async () => {
+    if (isAuthenticated.value) {
+      await refreshBadgeCount()
+      badgeRefreshInterval = setInterval(refreshBadgeCount, 60000)
+    }
+  })
+
+  onUnmounted(() => {
+    if (badgeRefreshInterval) {
+      clearInterval(badgeRefreshInterval)
+      badgeRefreshInterval = null
+    }
+  })
 
   /**
    * Get all routes with showInMainMenu metadata
@@ -107,7 +135,12 @@
         to: { name: route.name },
         icon: route.meta.icon,
         label: route.meta.label || route.meta.title,
-        order: route.meta.order || 999
+        order: route.meta.order || 999,
+        badge:
+          route.name === 'review-queue' && pendingReviewCount.value > 0
+            ? pendingReviewCount.value
+            : null,
+        badgeColor: 'warning'
       }))
       .sort((a, b) => a.order - b.order)
   })
