@@ -276,6 +276,72 @@
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <!-- View Assignment Dialog -->
+    <v-dialog v-model="viewDialog" max-width="600">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-eye</v-icon>
+          Assignment Details
+        </v-card-title>
+        <v-card-text v-if="selectedAssignment">
+          <v-list>
+            <v-list-item>
+              <v-list-item-title>Gene</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.gene_symbol || selectedAssignment.gene || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Disease</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.disease || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Scope</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.scope_name || selectedAssignment.scope || 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Assignee</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.assignee_name || selectedAssignment.assignee || 'Unassigned' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Status</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="getStatusColor(selectedAssignment.status)" size="small">
+                  {{ selectedAssignment.status || 'N/A' }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Priority</v-list-item-title>
+              <v-list-item-subtitle>
+                <v-chip :color="getPriorityColor(selectedAssignment.priority_level || selectedAssignment.priority)" size="small">
+                  {{ selectedAssignment.priority_level || selectedAssignment.priority || 'None' }}
+                </v-chip>
+              </v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Due Date</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.due_date ? new Date(selectedAssignment.due_date).toLocaleDateString() : 'No due date' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item v-if="selectedAssignment.notes">
+              <v-list-item-title>Notes</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.notes }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Created</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.created_at ? new Date(selectedAssignment.created_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+            <v-list-item>
+              <v-list-item-title>Last Updated</v-list-item-title>
+              <v-list-item-subtitle>{{ selectedAssignment.updated_at ? new Date(selectedAssignment.updated_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+            </v-list-item>
+          </v-list>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="viewDialog = false">Close</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-card>
 </template>
 
@@ -305,6 +371,8 @@
   const rebalancing = ref(false)
   const exporting = ref(false)
   const bulkAssigning = ref(false)
+  const viewDialog = ref(false)
+  const selectedAssignment = ref(null)
 
   // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
@@ -577,7 +645,8 @@
 
   const viewAssignment = assignment => {
     logger.info('View assignment requested', { assignmentId: assignment.id })
-    // TODO: Implement assignment detail view when available
+    selectedAssignment.value = assignment
+    viewDialog.value = true
   }
 
   onMounted(async () => {
