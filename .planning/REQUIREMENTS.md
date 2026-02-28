@@ -64,20 +64,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FORM-01 | — | Pending |
-| FORM-02 | — | Pending |
-| FORM-03 | — | Pending |
-| FORM-04 | — | Pending |
-| FORM-05 | — | Pending |
-| WKFL-01 | — | Pending |
-| NAV-01 | — | Pending |
-| DASH-01 | — | Pending |
+| FORM-03 | Phase 10 | Pending |
+| DASH-01 | Phase 10 | Pending |
+| FORM-01 | Phase 11 | Pending |
+| FORM-05 | Phase 11 | Pending |
+| NAV-01 | Phase 11 | Pending |
+| FORM-02 | Phase 12 | Pending |
+| FORM-04 | Phase 12 | Pending |
+| WKFL-01 | Phase 12 | Pending |
 
 **Coverage:**
 - v0.3 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8 ⚠️
+- Mapped to phases: 8
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-28*
-*Last updated: 2026-02-28 after initial definition*
+*Last updated: 2026-02-28 — traceability mapped to phases 10-12*
