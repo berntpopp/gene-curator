@@ -11,11 +11,11 @@ See: .planning/MVP-PLAN.md (created 2026-02-28)
 ## Current Position
 
 Phase: MVP Phase M1 (Security Fix + Review Workflow)
-Plan: M1-05 of M1 complete; M1-06 next
-Status: In progress — M1-01, M1-02, M1-03, M1-05 complete (M1-04 pending execution)
-Last activity: 2026-02-28 — Completed M1-05-PLAN.md (DynamicForm read-only evidence display)
+Plan: M1-04 of M1 complete; M1-06 next
+Status: In progress — M1-01, M1-02, M1-03, M1-04, M1-05 complete (M1-06 remaining)
+Last activity: 2026-02-28 — Completed M1-04-PLAN.md (fix _can_user_review_curation status check)
 
-Progress: MVP [████░░░░░░] ~40% (M1-01, M1-02, M1-03, M1-05 done; M1-04, M1-06 remaining)
+Progress: MVP [█████░░░░░] ~50% (M1-01, M1-02, M1-03, M1-04, M1-05 done; M1-06 remaining)
 
 ## Performance Metrics
 
@@ -65,6 +65,8 @@ Progress: MVP [████░░░░░░] ~40% (M1-01, M1-02, M1-03, M1-05 
 - M1-02: workflow API redirects getAvailableTransitions → /state endpoint, submitPeerReview → /transition endpoint (2026-02-28)
 - M1-03: badge: null (not 0) when pendingReviewCount is 0 — hides badge entirely vs showing misleading "0" badge (2026-02-28)
 - M1-03: isAuthenticated guard on onMounted prevents unauthenticated badge API calls; silent failure in refreshBadgeCount for nav resilience (2026-02-28)
+- **M1-04**: Use CurationStatus.IN_REVIEW (not SUBMITTED) in _can_user_review_curation — workflow_engine sets status=in_review on submit_for_review() (2026-02-28)
+- **M1-04**: Single-line fix sufficient; 4-eyes check, admin bypass, and scope role checks were all correct (2026-02-28)
 - M1-05: v-if="curationSchemaId" gates Evidence Details section — graceful degradation when schema fetch fails, score tables remain (2026-02-28)
 - M1-05: title="" passed to DynamicForm to suppress default "Dynamic Form" title inside the card with its own "Evidence Details" header (2026-02-28)
 
@@ -86,12 +88,11 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-28 10:10 UTC
-Stopped at: Completed M1-05-PLAN.md
-Resume file: .planning/phases/M1-security-review-workflow/M1-04-PLAN.md
+Stopped at: Completed M1-04-PLAN.md
+Resume file: .planning/phases/M1-security-review-workflow/M1-06-PLAN.md
 
 **Next steps:**
-- Execute M1-04: Review action buttons (Approve/Request Changes) wired end-to-end in CurationDetailView (skipped in sequencing, execute next)
-- Then M1-06 to complete review workflow phase
+- Execute M1-06 to complete review workflow phase (M1-01 through M1-05 all complete)
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
@@ -101,4 +102,4 @@ Resume file: .planning/phases/M1-security-review-workflow/M1-04-PLAN.md
 - `.planning/archive/docs/` (former docs/ directory)
 
 ---
-*Updated: 2026-02-28 after M1-02 completion*
+*Updated: 2026-02-28 after M1-04 completion*
