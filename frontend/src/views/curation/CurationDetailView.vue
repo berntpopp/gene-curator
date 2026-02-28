@@ -322,6 +322,26 @@
             </v-col>
           </v-row>
 
+          <!-- Evidence Details (Schema-Agnostic) -->
+          <v-row v-if="curationSchemaId" class="mb-6">
+            <v-col cols="12">
+              <v-card>
+                <v-card-title>
+                  <v-icon start>mdi-file-document-outline</v-icon>
+                  Evidence Details
+                </v-card-title>
+                <v-card-text>
+                  <DynamicForm
+                    :schema-id="curationSchemaId"
+                    :initial-data="curation.evidence_data || {}"
+                    :readonly="true"
+                    title=""
+                  />
+                </v-card-text>
+              </v-card>
+            </v-col>
+          </v-row>
+
           <!-- Metadata -->
           <v-row>
             <v-col cols="12">
@@ -503,9 +523,10 @@
 <script setup>
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { curationsAPI, workflowAPI } from '@/api'
+  import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
+  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
 
   const router = useRouter()
   const route = useRoute()
@@ -529,6 +550,8 @@
   const approving = ref(false)
   const rejecting = ref(false)
   const reviewComments = ref('')
+  const curationSchemaId = ref(null)
+  const loadingSchema = ref(false)
 
   // Calculate scores from evidence_data
   const scores = computed(() => {
@@ -715,6 +738,27 @@
   }
 
   // Actions
+  async function loadCurationSchema() {
+    if (!curation.value?.workflow_pair_id) return
+    loadingSchema.value = true
+    try {
+      const workflowPair = await schemasAPI.getWorkflowPairById(curation.value.workflow_pair_id)
+      curationSchemaId.value = workflowPair.curation_schema_id || null
+      logger.debug('Curation schema loaded', {
+        workflow_pair_id: curation.value.workflow_pair_id,
+        curation_schema_id: curationSchemaId.value
+      })
+    } catch (err) {
+      logger.warn('Failed to load curation schema for evidence display', {
+        error: err.message,
+        workflow_pair_id: curation.value.workflow_pair_id
+      })
+      // Non-fatal: evidence display is supplementary, score tables still show
+    } finally {
+      loadingSchema.value = false
+    }
+  }
+
   async function loadCuration() {
     loading.value = true
     error.value = null
@@ -723,6 +767,8 @@
       const data = await curationsAPI.getCuration(curationId.value)
       curation.value = data
       logger.debug('Curation loaded', { curation_id: curationId.value })
+      // Load schema for read-only evidence display
+      await loadCurationSchema()
     } catch (err) {
       error.value = 'Failed to load curation details'
       logger.error('Failed to load curation', {
