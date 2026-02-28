@@ -173,6 +173,27 @@ export const useSchemasStore = defineStore('schemas', {
       }
     },
 
+    async updateWorkflowPair(id, pairData) {
+      this.loading = true
+      this.error = null
+      try {
+        const updatedPair = await schemasAPI.updateWorkflowPair(id, pairData)
+        const index = this.workflowPairs.findIndex(p => p.id === id)
+        if (index !== -1) {
+          this.workflowPairs[index] = updatedPair
+        }
+        if (this.currentWorkflowPair && this.currentWorkflowPair.id === id) {
+          this.currentWorkflowPair = updatedPair
+        }
+        return updatedPair
+      } catch (error) {
+        this.error = error.message
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     async deleteWorkflowPair(id) {
       this.loading = true
       this.error = null

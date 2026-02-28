@@ -183,6 +183,50 @@
       </v-card>
     </v-dialog>
 
+    <!-- Edit Workflow Dialog -->
+    <v-dialog v-model="editWorkflowDialog" max-width="500">
+      <v-card>
+        <v-card-title class="d-flex align-center">
+          <v-icon start>mdi-pencil</v-icon>
+          Edit Workflow
+        </v-card-title>
+        <v-card-text>
+          <v-form ref="editWorkflowForm">
+            <v-text-field
+              v-model="editWorkflowData.name"
+              label="Name"
+              variant="outlined"
+              :rules="[v => !!v || 'Name is required']"
+              required
+            />
+            <v-textarea
+              v-model="editWorkflowData.description"
+              label="Description"
+              variant="outlined"
+              rows="3"
+            />
+            <v-switch
+              v-model="editWorkflowData.is_active"
+              label="Active"
+              color="primary"
+              hide-details
+              class="mb-4"
+            />
+            <div class="text-caption text-medium-emphasis">
+              Linked schemas and stages cannot be changed after creation.
+            </div>
+          </v-form>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="outlined" @click="editWorkflowDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="flat" :loading="savingWorkflow" @click="saveWorkflow">
+            Save
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
     <!-- Create Workflow Dialog -->
     <v-dialog v-model="createWorkflowDialog" max-width="600">
       <v-card>
@@ -255,6 +299,11 @@
   const createForm = ref(null)
   const viewWorkflowDialog = ref(false)
   const selectedWorkflow = ref(null)
+  const editWorkflowDialog = ref(false)
+  const editWorkflowForm = ref(null)
+  const savingWorkflow = ref(false)
+  const editWorkflowData = ref({ name: '', description: '', is_active: true })
+  let editingWorkflowId = null
 
   const newWorkflow = ref({
     name: '',
@@ -349,8 +398,29 @@
 
   const editWorkflow = workflow => {
     logger.info('Edit workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
-    // TODO: Implement workflow edit when available
-    showInfo('Workflow editing coming soon')
+    editingWorkflowId = workflow.id
+    editWorkflowData.value = {
+      name: workflow.name || '',
+      description: workflow.description || '',
+      is_active: workflow.is_active !== false
+    }
+    editWorkflowDialog.value = true
+  }
+
+  const saveWorkflow = async () => {
+    const { valid } = await editWorkflowForm.value.validate()
+    if (!valid) return
+    savingWorkflow.value = true
+    try {
+      await schemasStore.updateWorkflowPair(editingWorkflowId, editWorkflowData.value)
+      showSuccess('Workflow updated successfully')
+      editWorkflowDialog.value = false
+    } catch (error) {
+      showError('Failed to update workflow')
+      logger.error('Save workflow failed', { error: error.message })
+    } finally {
+      savingWorkflow.value = false
+    }
   }
 
   const deleteWorkflow = async workflow => {
