@@ -4,57 +4,42 @@
 
 **Delivered:** Schema-driven dynamic form rendering enabling any scope to use their own curation methodology without frontend code changes.
 
-**Phases completed:** 1-5 (12 plans total)
-
-**Key accomplishments:**
-
-- Schema-driven dynamic form rendering with fields, tabs, and sections from database configuration
-- Component registry with 5 specialized evidence components (MONDO, PMID, HPO, OMIM)
-- Schema-agnostic live scoring for ClinGen, GenCC, and Qualitative engines
-- Client-side validation from schema constraints with backend error integration
-- Feature flag infrastructure for gradual rollout with legacy data migration
-- Comprehensive test coverage (219 new tests, 428 total passing)
-
-**Stats:**
-
-- 61 files created/modified
-- +17,581 / -1,228 lines (55,478 LOC frontend total)
-- 5 phases, 12 plans, ~80 tasks
-- 2 days from start to ship (2026-01-22 to 2026-01-23)
-
+**Phases:** 5 (12 plans total)
+**Duration:** 2 days (2026-01-22 to 2026-01-23)
+**Tests:** 219 new, 428 total passing
+**Stats:** 61 files, +17,581 / -1,228 lines, ~80 tasks
 **Git range:** `feat(01-01)` to `docs(05)` (69 commits)
+**Archives:** `milestones/v0.1-*`, `milestones/v0.1-phases/`
 
 ---
 
-## MVP (In Progress: 2026-02-28)
+## MVP (Shipped: 2026-02-28)
 
-**Goal:** Complete end-to-end curation workflow so a clinical genetics team can use Gene Curator for real curation work.
+**Delivered:** Complete end-to-end curation workflow — a clinical genetics team can assign genes, curate with schema-driven forms, and approve via independent 4-eyes review.
 
-**Phases planned:** 4
+**Phases:** 4
 
-| Phase | Name | Focus | Issues |
-|-------|------|-------|--------|
-| M1 | Security Fix + Review Workflow | SQL injection fix, 4-eyes review UI | #116 |
-| M2 | Precuration & Curation Enhancements | Prefill logic, validation, deletion guard | #61, #77, #87 |
-| M3 | Admin Management UI | Assignment dialogs, workflow views | #119, #118 |
-| M4 | MVP Hardening | Tech debt fixes, smoke tests, docs | #104 |
+| Phase | Name | Key Deliverables |
+|-------|------|-----------------|
+| M1 | Security + Review Workflow | SQL injection fix, review queue, 4-eyes review UI, notification badge |
+| M2 | Curation Enhancements | Lump/split validation, workflow prefill, precuration deletion guard |
+| M3 | Admin Management UI | Assignment edit/reassign/view dialogs, workflow view/edit dialogs |
+| M4 | MVP Hardening | Curator count fix, notification system, FAQ, smoke tests |
 
-**Key context:**
-- Backend API is complete; gaps are frontend UI
-- Zero open bugs; CI green; 529 tests passing
-- Review workflow backend exists; frontend pending
-- Detailed plan: `.planning/MVP-PLAN.md`
+**Duration:** 1 day (2026-02-28)
+**Tests:** 529+ passing
+**Key commits:** aa9ebc3 (M2), 36d980d-19f4ae0 (M3), 7590b74-c33558c (M4)
+**Merge:** 7f6f857 (feature/mvp-m3-m4-implementation → master)
+**Archives:** `milestones/mvp-*`, `milestones/mvp-phases/`
 
 ---
 
 ## v0.2 Form Intelligence (Deferred)
 
-**Status:** Deferred 2026-02-28. Focus shifted to MVP completion first.
-**Research preserved:** `.planning/research/` (FEATURES.md, ARCHITECTURE.md, PITFALLS.md)
-**Requirements preserved:** `.planning/REQUIREMENTS.md` (10 requirements: COND-01..05, XVAL-01..03, DEPS-01..02)
-
-Will revisit after MVP ships.
+**Status:** Deferred 2026-02-28. Research complete, will revisit post-MVP.
+**Archives:** `milestones/v0.2-deferred/` (research/ + REQUIREMENTS.md)
+**Requirements:** 10 defined (COND-01..05, XVAL-01..03, DEPS-01..02)
 
 ---
 
-*Last updated: 2026-02-28 — v0.2 deferred, MVP is sole active milestone*
+*Last updated: 2026-02-28*

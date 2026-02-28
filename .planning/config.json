@@ -1,4 +1,13 @@
 {
-  "commit_docs": true,
-  "model_profile": "balanced"
+  "mode": "interactive",
+  "model_profile": "balanced",
+  "planning": {
+    "commit_docs": true,
+    "search_gitignored": false
+  },
+  "gates": {
+    "researcher": true,
+    "plan_checker": true,
+    "verifier": true
+  }
 }

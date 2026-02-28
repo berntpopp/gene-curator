@@ -13,7 +13,7 @@ The platform is ~85% built. Backend API, database, auth, workflows, dynamic form
 4. Approve/reject/revise curations through the review workflow
 5. Manage assignments and workflows through the admin UI
 
-**Zero open bugs. CI green. 529 tests passing.**
+**MVP COMPLETE as of 2026-02-28. All four phases (M1-M4) implemented and merged.**
 
 ---
 
@@ -52,21 +52,21 @@ An MVP is the minimum feature set where a clinical genetics team can use Gene Cu
 
 ### What's Missing for MVP
 
-| Gap | Issue(s) | Priority | Effort |
+| Gap | Issue(s) | Priority | Status |
 |-----|----------|----------|--------|
-| Review workflow frontend | #116 | **Critical** | 2-3 days |
-| Precuration card enhancements | #61 | High | 1-2 days |
-| Workflow prefill logic | #77 | Medium | 1-2 days |
-| Gene assignment edit/reassign | #119 | Medium | 1 day |
-| Workflow management views | #118 | Medium | 1 day |
-| SQL injection fix in gene search | CONCERNS.md | **Critical** (security) | 0.5 day |
-| Precuration deletion guard | #87 | Medium | 0.5 day |
+| Review workflow frontend | #116 | **Critical** | **Done** (M1) |
+| Precuration card enhancements | #61 | High | **Done** (M2) |
+| Workflow prefill logic | #77 | Medium | **Done** (M2) |
+| Gene assignment edit/reassign | #119 | Medium | **Done** (M3) |
+| Workflow management views | #118 | Medium | **Done** (M3) |
+| SQL injection fix in gene search | CONCERNS.md | **Critical** (security) | **Done** (M1) |
+| Precuration deletion guard | #87 | Medium | **Done** (M2) |
 
 ---
 
 ## MVP Phases
 
-### Phase M1: Security Fix + Review Workflow (Critical Path)
+### Phase M1: Security Fix + Review Workflow (Critical Path) ✅
 
 **Goal:** Fix the SQL injection vulnerability and complete the 4-eyes review workflow so curations can be approved by independent reviewers.
 
@@ -112,20 +112,20 @@ An MVP is the minimum feature set where a clinical genetics team can use Gene Cu
 - Test: reviewer rejects → curation returns to curator → curator edits → resubmits
 - Test: reviewer cannot review own curation (4-eyes enforcement)
 
-**Acceptance Criteria:**
-- [ ] Gene search uses parameterized queries (no SQL injection)
-- [ ] ReviewQueue shows pending reviews for current user
-- [ ] CurationReview displays evidence read-only with score
-- [ ] Approve/Reject/Request Revision all work end-to-end
-- [ ] Review comments required for reject/needs_revision
-- [ ] Review history displayed for multi-round reviews
-- [ ] Notification badge shows pending review count
-- [ ] 4-eyes principle enforced (cannot review own curation)
-- [ ] All existing tests still pass
+**Acceptance Criteria:** ✅ All met (completed 2026-02-28)
+- [x] Gene search uses parameterized queries (no SQL injection)
+- [x] ReviewQueue shows pending reviews for current user
+- [x] CurationReview displays evidence read-only with score
+- [x] Approve/Reject/Request Revision all work end-to-end
+- [x] Review comments required for reject/needs_revision
+- [x] Review history displayed for multi-round reviews
+- [x] Notification badge shows pending review count
+- [x] 4-eyes principle enforced (cannot review own curation)
+- [x] All existing tests still pass
 
 ---
 
-### Phase M2: Precuration & Curation Enhancements
+### Phase M2: Precuration & Curation Enhancements ✅
 
 **Goal:** Improve the daily curator experience with better prefilling, validation, and form flow.
 
@@ -151,16 +151,16 @@ An MVP is the minimum feature set where a clinical genetics team can use Gene Cu
 - Frontend: disable delete button or show warning when curations exist
 - Files: `backend/app/crud/precuration.py`, `backend/app/api/v1/endpoints/precurations.py`
 
-**Acceptance Criteria:**
-- [ ] Lump/split fields have validation preventing accidental overwrite
-- [ ] Curation form prefills from precuration data via workflow mapping
-- [ ] Cannot delete precuration that has associated curations
-- [ ] Error messages are clear and actionable
-- [ ] All existing tests still pass
+**Acceptance Criteria:** ✅ All met (completed 2026-02-28)
+- [x] Lump/split fields have validation preventing accidental overwrite
+- [x] Curation form prefills from precuration data via workflow mapping
+- [x] Cannot delete precuration that has associated curations
+- [x] Error messages are clear and actionable
+- [x] All existing tests still pass
 
 ---
 
-### Phase M3: Admin Management UI
+### Phase M3: Admin Management UI ✅
 
 **Goal:** Complete the admin-facing management interfaces so scope admins can manage assignments and workflows without database access.
 
@@ -182,17 +182,17 @@ An MVP is the minimum feature set where a clinical genetics team can use Gene Cu
 - Follow pattern from `SchemaManagement.vue` edit dialog
 - Files: `frontend/src/views/WorkflowManagement.vue` (replace placeholders at lines 268, 274, 297)
 
-**Acceptance Criteria:**
-- [ ] Assignment edit/reassign/view dialogs all functional
-- [ ] Assignment changes immediately reflected in list
-- [ ] Workflow view/edit/stage-edit dialogs all functional
-- [ ] Audit trail maintained for reassignments
-- [ ] All actions logged via unified logging system
-- [ ] All existing tests still pass
+**Acceptance Criteria:** ✅ All met (completed 2026-02-28)
+- [x] Assignment edit/reassign/view dialogs all functional
+- [x] Assignment changes immediately reflected in list
+- [x] Workflow view/edit/stage-edit dialogs all functional
+- [x] Audit trail maintained for reassignments
+- [x] All actions logged via unified logging system
+- [x] All existing tests still pass
 
 ---
 
-### Phase M4: MVP Hardening
+### Phase M4: MVP Hardening ✅
 
 **Goal:** Fix remaining tech debt items that affect data quality and user trust before declaring MVP complete.
 
@@ -219,12 +219,12 @@ An MVP is the minimum feature set where a clinical genetics team can use Gene Cu
 - Verify About page renders correctly
 - Update CLAUDE.md if any architectural changes occurred
 
-**Acceptance Criteria:**
-- [ ] Gene summary shows actual curator count
-- [ ] In-app notifications work for review events
-- [ ] All workflow paths tested end-to-end
-- [ ] Documentation updated for end users
-- [ ] CI passes with all changes
+**Acceptance Criteria:** ✅ All met (completed 2026-02-28)
+- [x] Gene summary shows actual curator count
+- [x] In-app notifications work for review events
+- [x] All workflow paths tested end-to-end
+- [x] Documentation updated for end users
+- [x] CI passes with all changes
 
 ---
 
@@ -320,4 +320,5 @@ These milestones come AFTER the MVP is working and deployed. None are in the act
 ---
 
 *Last updated: 2026-02-28*
+*MVP COMPLETE — All phases M1-M4 implemented and merged (7f6f857)*
 *This plan supersedes the previous v0.2-first approach for milestone prioritization*
