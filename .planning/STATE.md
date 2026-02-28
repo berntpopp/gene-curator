@@ -11,11 +11,11 @@ See: .planning/MVP-PLAN.md (created 2026-02-28)
 ## Current Position
 
 Phase: MVP Phase M1 (Security Fix + Review Workflow)
-Plan: M1-03 of M1 complete; M1-04 next
-Status: In progress — M1-01, M1-02, M1-03 complete
-Last activity: 2026-02-28 — Completed M1-03-PLAN.md (navigation badge + E2E verification)
+Plan: M1-05 of M1 complete; M1-06 next
+Status: In progress — M1-01, M1-02, M1-03, M1-05 complete (M1-04 pending execution)
+Last activity: 2026-02-28 — Completed M1-05-PLAN.md (DynamicForm read-only evidence display)
 
-Progress: MVP [███░░░░░░░] ~30% (M1-01, M1-02, M1-03 done; M1-04 through M1-06 remaining)
+Progress: MVP [████░░░░░░] ~40% (M1-01, M1-02, M1-03, M1-05 done; M1-04, M1-06 remaining)
 
 ## Performance Metrics
 
@@ -65,6 +65,8 @@ Progress: MVP [███░░░░░░░] ~30% (M1-01, M1-02, M1-03 done; M
 - M1-02: workflow API redirects getAvailableTransitions → /state endpoint, submitPeerReview → /transition endpoint (2026-02-28)
 - M1-03: badge: null (not 0) when pendingReviewCount is 0 — hides badge entirely vs showing misleading "0" badge (2026-02-28)
 - M1-03: isAuthenticated guard on onMounted prevents unauthenticated badge API calls; silent failure in refreshBadgeCount for nav resilience (2026-02-28)
+- M1-05: v-if="curationSchemaId" gates Evidence Details section — graceful degradation when schema fetch fails, score tables remain (2026-02-28)
+- M1-05: title="" passed to DynamicForm to suppress default "Dynamic Form" title inside the card with its own "Evidence Details" header (2026-02-28)
 
 v0.2 decisions (pre-implementation, from research — deferred, revisit post-MVP):
 - Research preserved in `.planning/research/` and `.planning/REQUIREMENTS.md`
@@ -83,13 +85,13 @@ None.
 
 ## Session Continuity
 
-Last session: 2026-02-28 10:06 UTC
-Stopped at: Completed M1-03-PLAN.md
+Last session: 2026-02-28 10:10 UTC
+Stopped at: Completed M1-05-PLAN.md
 Resume file: .planning/phases/M1-security-review-workflow/M1-04-PLAN.md
 
 **Next steps:**
-- Execute M1-04: Review action buttons (Approve/Request Changes) wired end-to-end in CurationDetailView
-- Then M1-05 through M1-06 to complete review workflow phase
+- Execute M1-04: Review action buttons (Approve/Request Changes) wired end-to-end in CurationDetailView (skipped in sequencing, execute next)
+- Then M1-06 to complete review workflow phase
 
 **Archives:**
 - `.planning/milestones/v0.1-ROADMAP.md`
