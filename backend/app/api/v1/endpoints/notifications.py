@@ -39,9 +39,7 @@ def list_notifications(
         db, user_id=current_user.id, is_read=is_read
     )
     return NotificationListResponse(
-        notifications=[
-            NotificationResponse.model_validate(n) for n in notifications
-        ],
+        notifications=[NotificationResponse.model_validate(n) for n in notifications],
         total=total,
     )
 

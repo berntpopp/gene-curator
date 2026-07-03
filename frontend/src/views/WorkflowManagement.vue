@@ -127,11 +127,15 @@
           <v-list>
             <v-list-item>
               <v-list-item-title>Name</v-list-item-title>
-              <v-list-item-subtitle class="text-body-1">{{ selectedWorkflow.name }}</v-list-item-subtitle>
+              <v-list-item-subtitle class="text-body-1">{{
+                selectedWorkflow.name
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Description</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedWorkflow.description || 'No description' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedWorkflow.description || 'No description'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Status</v-list-item-title>
@@ -143,25 +147,37 @@
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Precuration Schema</v-list-item-title>
-              <v-list-item-subtitle>{{ getSchemaName(selectedWorkflow.precuration_schema_id, 'precuration') }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                getSchemaName(selectedWorkflow.precuration_schema_id, 'precuration')
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Curation Schema</v-list-item-title>
-              <v-list-item-subtitle>{{ getSchemaName(selectedWorkflow.curation_schema_id, 'curation') }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                getSchemaName(selectedWorkflow.curation_schema_id, 'curation')
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item v-if="selectedWorkflow.data_mapping">
               <v-list-item-title>Data Mapping</v-list-item-title>
               <v-list-item-subtitle>
-                <pre class="text-caption mt-1">{{ JSON.stringify(selectedWorkflow.data_mapping, null, 2) }}</pre>
+                <pre class="text-caption mt-1">{{
+                  JSON.stringify(selectedWorkflow.data_mapping, null, 2)
+                }}</pre>
               </v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Usage Count</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedWorkflow.usage_count || 0 }} scopes</v-list-item-subtitle>
+              <v-list-item-subtitle
+                >{{ selectedWorkflow.usage_count || 0 }} scopes</v-list-item-subtitle
+              >
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Created</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedWorkflow.created_at ? new Date(selectedWorkflow.created_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedWorkflow.created_at
+                  ? new Date(selectedWorkflow.created_at).toLocaleString()
+                  : 'N/A'
+              }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
 
@@ -169,7 +185,13 @@
           <div class="mt-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
             <div class="d-flex align-center gap-2 flex-wrap">
-              <v-chip v-for="stage in workflowStages" :key="stage.id" :color="getStageColor(stage.stage_type)" variant="flat" size="small">
+              <v-chip
+                v-for="stage in workflowStages"
+                :key="stage.id"
+                :color="getStageColor(stage.stage_type)"
+                variant="flat"
+                size="small"
+              >
                 <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
                 {{ stage.name }}
               </v-chip>

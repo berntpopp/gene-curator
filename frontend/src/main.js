@@ -38,15 +38,15 @@ const customLightTheme = {
     error: '#D32F2F',
     info: '#1976D2',
     success: '#388E3C',
-    warning: '#F57C00',
+    warning: '#F57C00'
   },
   variables: {
     'border-color': '#000000',
     'border-opacity': 0.12,
     'high-emphasis-opacity': 0.87,
-    'medium-emphasis-opacity': 0.60,
-    'disabled-opacity': 0.38,
-  },
+    'medium-emphasis-opacity': 0.6,
+    'disabled-opacity': 0.38
+  }
 }
 
 const customDarkTheme = {
@@ -66,15 +66,15 @@ const customDarkTheme = {
     error: '#EF5350',
     info: '#42A5F5',
     success: '#66BB6A',
-    warning: '#FFA726',
+    warning: '#FFA726'
   },
   variables: {
     'border-color': '#FFFFFF',
     'border-opacity': 0.12,
     'high-emphasis-opacity': 0.87,
-    'medium-emphasis-opacity': 0.60,
-    'disabled-opacity': 0.38,
-  },
+    'medium-emphasis-opacity': 0.6,
+    'disabled-opacity': 0.38
+  }
 }
 
 const vuetify = createVuetify({
@@ -84,9 +84,9 @@ const vuetify = createVuetify({
     defaultTheme: savedTheme === 'light' ? 'light' : 'dark',
     themes: {
       light: customLightTheme,
-      dark: customDarkTheme,
-    },
-  },
+      dark: customDarkTheme
+    }
+  }
 })
 
 const app = createApp(App)

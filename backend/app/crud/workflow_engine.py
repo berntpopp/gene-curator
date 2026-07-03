@@ -353,11 +353,13 @@ class WorkflowEngine:
         from app.models.models import NotificationType
 
         gene_symbol = "Unknown"
-        if item_type == "curation" and curation_result:
-            if hasattr(curation_result, "gene") and curation_result.gene:
-                gene_symbol = getattr(
-                    curation_result.gene, "approved_symbol", "Unknown"
-                )
+        if (
+            item_type == "curation"
+            and curation_result
+            and hasattr(curation_result, "gene")
+            and curation_result.gene
+        ):
+            gene_symbol = getattr(curation_result.gene, "approved_symbol", "Unknown")
 
         notification_crud.create_for_user(
             db,
@@ -430,22 +432,27 @@ class WorkflowEngine:
             if hasattr(curation, "gene") and curation.gene:
                 gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
 
-            if decision == "reject":
+            notification_config = {
+                "reject": (
+                    NotificationType.CURATION_REJECTED,
+                    "Curation rejected",
+                    f"Curation rejected: {gene_symbol}",
+                ),
+                "request_changes": (
+                    NotificationType.REVISION_REQUESTED,
+                    "Revision requested",
+                    f"Revision requested: {gene_symbol}",
+                ),
+            }.get(decision)
+
+            if notification_config:
+                notification_type, title, message = notification_config
                 notification_crud.create_for_user(
                     db,
                     user_id=curation.created_by,
-                    notification_type=NotificationType.CURATION_REJECTED,
-                    title="Curation rejected",
-                    message=f"Curation rejected: {gene_symbol}",
-                    link=f"/curations/{curation.id}",
-                )
-            elif decision == "request_changes":
-                notification_crud.create_for_user(
-                    db,
-                    user_id=curation.created_by,
-                    notification_type=NotificationType.REVISION_REQUESTED,
-                    title="Revision requested",
-                    message=f"Revision requested: {gene_symbol}",
+                    notification_type=notification_type,
+                    title=title,
+                    message=message,
                     link=f"/curations/{curation.id}",
                 )
 
