@@ -9,7 +9,6 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.models import NotificationType
 
-
 # ========================================
 # RESPONSE SCHEMAS
 # ========================================

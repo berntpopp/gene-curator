@@ -71,8 +71,10 @@ class CRUDNotification(
         is_read: bool | None = None,
     ) -> int:
         """Count notifications for a user."""
-        stmt = select(func.count()).select_from(NotificationNew).where(
-            NotificationNew.user_id == user_id
+        stmt = (
+            select(func.count())
+            .select_from(NotificationNew)
+            .where(NotificationNew.user_id == user_id)
         )
         if is_read is not None:
             stmt = stmt.where(NotificationNew.is_read == is_read)

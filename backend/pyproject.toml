@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "fastapi>=0.104.1",
+    "fastapi>=0.139.0",
     "uvicorn[standard]>=0.24.0",
     "sqlalchemy>=2.0.23",
     "alembic>=1.13.0",
@@ -29,9 +29,9 @@ dependencies = [
     "asyncpg>=0.29.0",
     "pydantic[email]>=2.5.0",
     "pydantic-settings>=2.1.0",
-    "PyJWT>=2.8.0",
+    "PyJWT>=2.13.0",
     "passlib[bcrypt]>=1.7.4",
-    "python-multipart>=0.0.6",
+    "python-multipart>=0.0.31",
     "redis>=5.0.1",
     "celery>=5.3.4",
     "httpx>=0.25.2",
@@ -45,7 +45,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.4.3",
+    "pytest>=9.0.3",
     "pytest-asyncio>=0.21.1",
     "pytest-cov>=4.1.0",
     "ruff>=0.1.6",

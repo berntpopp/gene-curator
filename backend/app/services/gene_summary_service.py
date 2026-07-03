@@ -155,7 +155,9 @@ class GeneSummaryService:
                     "experimental_score": experimental_score,
                     "total_score": total_score,
                     "last_updated": curation.updated_at.isoformat(),
-                    "curator_count": self._get_curator_count(gene_id, curation.scope_id),
+                    "curator_count": self._get_curator_count(
+                        gene_id, curation.scope_id
+                    ),
                     "evidence_count": len(evidence_items)
                     if isinstance(evidence_items, list)
                     else 0,

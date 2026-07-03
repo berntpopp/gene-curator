@@ -1640,9 +1640,7 @@ class NotificationNew(Base):
 
     # Notification content
     type: Mapped[NotificationType] = mapped_column(
-        Enum(
-            NotificationType, values_callable=lambda obj: [e.value for e in obj]
-        ),
+        Enum(NotificationType, values_callable=lambda obj: [e.value for e in obj]),
         nullable=False,
     )
     title: Mapped[str] = mapped_column(String(255), nullable=False)

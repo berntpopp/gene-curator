@@ -73,12 +73,7 @@
 
           <v-tooltip text="Coming soon" location="top">
             <template #activator="{ props }">
-              <v-btn
-                v-bind="props"
-                color="secondary"
-                variant="outlined"
-                disabled
-              >
+              <v-btn v-bind="props" color="secondary" variant="outlined" disabled>
                 <v-icon start>mdi-scale-balance</v-icon>
                 Rebalance Workload
               </v-btn>
@@ -198,7 +193,6 @@
           </div>
         </template>
       </v-data-table>
-
     </v-card-text>
 
     <!-- Bulk Assignment Dialog -->
@@ -279,12 +273,7 @@
               label="Due Date"
               variant="outlined"
             />
-            <v-textarea
-              v-model="editFormData.notes"
-              label="Notes"
-              variant="outlined"
-              rows="3"
-            />
+            <v-textarea v-model="editFormData.notes" label="Notes" variant="outlined" rows="3" />
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -308,7 +297,9 @@
           <v-list>
             <v-list-item>
               <v-list-item-title>Gene</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.gene_symbol || selectedAssignment.gene || 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.gene_symbol || selectedAssignment.gene || 'N/A'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Disease</v-list-item-title>
@@ -316,11 +307,15 @@
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Scope</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.scope_name || selectedAssignment.scope || 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.scope_name || selectedAssignment.scope || 'N/A'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Assignee</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.assignee_name || selectedAssignment.assignee || 'Unassigned' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.assignee_name || selectedAssignment.assignee || 'Unassigned'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Status</v-list-item-title>
@@ -333,14 +328,25 @@
             <v-list-item>
               <v-list-item-title>Priority</v-list-item-title>
               <v-list-item-subtitle>
-                <v-chip :color="getPriorityColor(selectedAssignment.priority_level || selectedAssignment.priority)" size="small">
+                <v-chip
+                  :color="
+                    getPriorityColor(
+                      selectedAssignment.priority_level || selectedAssignment.priority
+                    )
+                  "
+                  size="small"
+                >
                   {{ selectedAssignment.priority_level || selectedAssignment.priority || 'None' }}
                 </v-chip>
               </v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Due Date</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.due_date ? new Date(selectedAssignment.due_date).toLocaleDateString() : 'No due date' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.due_date
+                  ? new Date(selectedAssignment.due_date).toLocaleDateString()
+                  : 'No due date'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item v-if="selectedAssignment.notes">
               <v-list-item-title>Notes</v-list-item-title>
@@ -348,11 +354,19 @@
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Created</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.created_at ? new Date(selectedAssignment.created_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.created_at
+                  ? new Date(selectedAssignment.created_at).toLocaleString()
+                  : 'N/A'
+              }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Last Updated</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.updated_at ? new Date(selectedAssignment.updated_at).toLocaleString() : 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{
+                selectedAssignment.updated_at
+                  ? new Date(selectedAssignment.updated_at).toLocaleString()
+                  : 'N/A'
+              }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
         </v-card-text>
@@ -372,8 +386,14 @@
         </v-card-title>
         <v-card-text>
           <div class="text-body-2 mb-4">
-            Reassigning <strong>{{ reassigningAssignment?.gene_symbol || reassigningAssignment?.gene }}</strong>
-            from <strong>{{ reassigningAssignment?.assignee_name || reassigningAssignment?.assignee || 'Unassigned' }}</strong>
+            Reassigning
+            <strong>{{ reassigningAssignment?.gene_symbol || reassigningAssignment?.gene }}</strong>
+            from
+            <strong>{{
+              reassigningAssignment?.assignee_name ||
+              reassigningAssignment?.assignee ||
+              'Unassigned'
+            }}</strong>
           </div>
           <v-form ref="reassignForm">
             <v-select
@@ -553,7 +573,6 @@
     }
     return colorMap[priority] || 'grey'
   }
-
 
   const formatStatus = status => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())

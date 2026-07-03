@@ -6,8 +6,8 @@ vi.mock('@/api', () => ({
   assignmentsAPI: {
     getAssignments: vi.fn(),
     updateAssignment: vi.fn(),
-    assignCurator: vi.fn(),
-  },
+    assignCurator: vi.fn()
+  }
 }))
 
 import { assignmentsAPI } from '@/api'
@@ -29,7 +29,10 @@ describe('useAssignmentsStore', () => {
 
       const result = await store.updateAssignment('a1', { priority_level: 'high', notes: 'urgent' })
 
-      expect(assignmentsAPI.updateAssignment).toHaveBeenCalledWith('a1', { priority_level: 'high', notes: 'urgent' })
+      expect(assignmentsAPI.updateAssignment).toHaveBeenCalledWith('a1', {
+        priority_level: 'high',
+        notes: 'urgent'
+      })
       expect(result).toEqual(updated)
       expect(store.assignments[0].priority_level).toBe('high')
     })
