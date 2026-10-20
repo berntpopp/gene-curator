@@ -44,7 +44,7 @@
   </v-snackbar>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Session Timeout Warning Component
    *
@@ -60,19 +60,16 @@
 
   import { ref, computed } from 'vue'
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      required: true
-    },
-    timeRemaining: {
-      type: Number,
-      required: true,
-      validator: value => value >= 0
-    }
-  })
+  const props = defineProps<{
+    modelValue: boolean
+    /** Seconds left before session expiry (>= 0) */
+    timeRemaining: number
+  }>()
 
-  const emit = defineEmits(['extend', 'dismiss'])
+  const emit = defineEmits<{
+    extend: []
+    dismiss: []
+  }>()
 
   const extending = ref(false)
 

@@ -34,7 +34,7 @@
   </v-app-bar>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * AppBar Component (Refactored)
    *
@@ -61,10 +61,11 @@
   import { ref, computed } from 'vue'
   import { useTheme } from 'vuetify'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const theme = useTheme()
 
   // Version info

@@ -53,40 +53,49 @@
   </v-text-field>
 </template>
 
-<script setup>
-  import { computed, watch } from 'vue'
+<script setup lang="ts">
+  import { computed, watch, type Ref } from 'vue'
   import { useValidation } from '@/composables/useValidation'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
 
-  const props = defineProps({
-    modelValue: {
-      type: String,
-      required: true
-    },
-    validator: {
-      type: String,
-      required: true,
-      validator: value => ['hgnc', 'pubmed', 'hpo'].includes(value)
-    },
-    label: {
-      type: String,
-      required: true
-    },
-    hint: {
-      type: String,
-      default: ''
-    },
-    required: {
-      type: Boolean,
-      default: false
+  // useValidation() is still JavaScript; this is the shape the template and handlers rely on.
+  interface ValidationResult {
+    is_valid: boolean
+    error_message?: string | null
+    data?: Record<string, unknown> | null
+    suggestions?: { did_you_mean?: string[] } | null
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue: string
+      validator: 'hgnc' | 'pubmed' | 'hpo'
+      label: string
+      hint?: string
+      required?: boolean
+    }>(),
+    {
+      hint: '',
+      required: false
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue'])
+  const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
-  const { value: internalValue, result, isValidating, error } = useValidation(props.validator)
+  const {
+    value: internalValue,
+    result,
+    isValidating,
+    error
+  } = useValidation(props.validator) as {
+    value: Ref<string>
+    result: Ref<ValidationResult | null>
+    isValidating: Ref<boolean>
+    error: Ref<string | null>
+  }
 
   // Sync with v-model
   internalValue.value = props.modelValue

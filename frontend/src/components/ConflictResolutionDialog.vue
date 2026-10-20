@@ -114,7 +114,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Conflict Resolution Dialog Component
    *
@@ -128,35 +128,32 @@
    * - Accessible with keyboard navigation and ARIA labels
    */
 
-  defineProps({
-    modelValue: {
-      type: Boolean,
-      required: true
-    },
-    yourChanges: {
-      type: Object,
-      default: () => ({})
-    },
-    theirChanges: {
-      type: Object,
-      default: () => ({})
-    },
-    conflictedFields: {
-      type: Array,
-      default: () => []
-    }
-  })
+  type ConflictRecord = Record<string, unknown>
 
-  defineEmits(['resolve', 'cancel'])
+  withDefaults(
+    defineProps<{
+      modelValue: boolean
+      yourChanges?: ConflictRecord | null
+      theirChanges?: ConflictRecord | null
+      conflictedFields?: string[]
+    }>(),
+    {
+      yourChanges: () => ({}),
+      theirChanges: () => ({}),
+      conflictedFields: () => []
+    }
+  )
+
+  defineEmits<{
+    resolve: [action: 'discard-mine' | 'overwrite-theirs' | 'merge']
+    cancel: []
+  }>()
 
   /**
    * Format object as pretty-printed JSON
    * Removes sensitive fields and formats for display
-   *
-   * @param {Object} obj - Object to format
-   * @returns {string} Formatted JSON string
    */
-  function formatJSON(obj) {
+  function formatJSON(obj: ConflictRecord | null | undefined): string {
     if (!obj) return 'No data'
 
     // Remove sensitive or unnecessary fields

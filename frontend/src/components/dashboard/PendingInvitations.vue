@@ -76,7 +76,7 @@
                 color="success"
                 variant="tonal"
                 size="small"
-                :disabled="invitation.is_expired || actionLoading[invitation.id]"
+                :disabled="invitation.is_expired || !!actionLoading[invitation.id]"
                 :loading="actionLoading[invitation.id] === 'accept'"
                 @click="handleAccept(invitation)"
               >
@@ -86,7 +86,7 @@
                 color="error"
                 variant="text"
                 size="small"
-                :disabled="actionLoading[invitation.id]"
+                :disabled="!!actionLoading[invitation.id]"
                 :loading="actionLoading[invitation.id] === 'decline'"
                 @click="handleDecline(invitation)"
               >
@@ -114,25 +114,37 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, reactive } from 'vue'
   import { useInvitationsStore } from '@/stores/invitations'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
+  import type { Schema } from '@/types/api'
+
+  type Invitation = Schema<'PendingInvitationResponse'>
+
+  interface ApiError {
+    message: string
+  }
 
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
   const invitationsStore = useInvitationsStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const logger = useLogger()
+  // useRoleColors() is still JavaScript; its return type is inferred as {}.
+  const { getRoleColor, getRoleIcon } = useRoleColors() as {
+    getRoleColor: (role: string) => string
+    getRoleIcon: (role: string) => string
+  }
+  const logger = useLogger() as ComponentLogger
 
   // ============================================
   // STATE
   // ============================================
 
-  const actionLoading = reactive({}) // Track loading state per invitation
+  const actionLoading = reactive<Record<string, 'accept' | 'decline' | undefined>>({}) // Track loading state per invitation
   const showSnackbar = ref(false)
   const snackbarMessage = ref('')
   const snackbarColor = ref('success')
@@ -141,7 +153,8 @@
   // COMPUTED
   // ============================================
 
-  const invitations = computed(() => invitationsStore.invitations)
+  // The store is still JavaScript; its list is typed as the pending-invitation contract.
+  const invitations = computed(() => invitationsStore.invitations as Invitation[])
   const pendingCount = computed(() => invitationsStore.pendingCount)
   const loading = computed(() => invitationsStore.loading)
 
@@ -152,10 +165,10 @@
   /**
    * Format expiry time relative to now
    */
-  const formatExpiryTime = expiresAt => {
+  const formatExpiryTime = (expiresAt: string): string => {
     const now = new Date()
     const expiry = new Date(expiresAt)
-    const diffMs = expiry - now
+    const diffMs = expiry.getTime() - now.getTime()
 
     if (diffMs < 0) return 'expired'
 
@@ -172,7 +185,7 @@
   /**
    * Show notification
    */
-  const showNotification = (message, color = 'success') => {
+  const showNotification = (message: string, color = 'success') => {
     snackbarMessage.value = message
     snackbarColor.value = color
     showSnackbar.value = true
@@ -185,7 +198,7 @@
     try {
       await invitationsStore.fetchPendingInvitations({ force: true })
     } catch (error) {
-      logger.error('Failed to refresh invitations', { error: error.message })
+      logger.error('Failed to refresh invitations', { error: (error as ApiError).message })
       showNotification('Failed to refresh invitations', 'error')
     }
   }
@@ -193,7 +206,7 @@
   /**
    * Handle accept invitation
    */
-  const handleAccept = async invitation => {
+  const handleAccept = async (invitation: Invitation) => {
     actionLoading[invitation.id] = 'accept'
 
     try {
@@ -212,7 +225,7 @@
     } catch (error) {
       logger.error('Failed to accept invitation', {
         invitationId: invitation.id,
-        error: error.message
+        error: (error as ApiError).message
       })
       showNotification('Failed to accept invitation', 'error')
     } finally {
@@ -223,7 +236,7 @@
   /**
    * Handle decline invitation
    */
-  const handleDecline = async invitation => {
+  const handleDecline = async (invitation: Invitation) => {
     actionLoading[invitation.id] = 'decline'
 
     try {
@@ -238,7 +251,7 @@
     } catch (error) {
       logger.error('Failed to decline invitation', {
         invitationId: invitation.id,
-        error: error.message
+        error: (error as ApiError).message
       })
       showNotification('Failed to decline invitation', 'error')
     } finally {
@@ -254,7 +267,7 @@
     try {
       await invitationsStore.fetchPendingInvitations()
     } catch (error) {
-      logger.error('Failed to load pending invitations', { error: error.message })
+      logger.error('Failed to load pending invitations', { error: (error as ApiError).message })
     }
   })
 </script>

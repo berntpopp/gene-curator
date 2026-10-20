@@ -204,7 +204,7 @@ describe('EmptyState', () => {
       })
 
       const container = wrapper.find('.empty-state')
-      expect(container.element.style.maxWidth).toBeDefined()
+      expect((container.element as HTMLElement).style.maxWidth).toBeDefined()
     })
   })
 

@@ -311,6 +311,7 @@ describe('LoadingState', () => {
     it('should handle null loading prop', () => {
       const wrapper = mount(LoadingState, {
         props: {
+          // @ts-expect-error -- deliberately passing null to check the component tolerates it
           loading: null
         },
         slots: {

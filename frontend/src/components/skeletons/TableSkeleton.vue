@@ -16,7 +16,7 @@
   </v-data-table>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Table Skeleton Component
    *
@@ -47,25 +47,24 @@
 
   import { computed } from 'vue'
 
-  const props = defineProps({
-    loading: {
-      type: Boolean,
-      required: true
-    },
-    items: {
-      type: Array,
-      required: true
-    },
-    headers: {
-      type: Array,
-      required: true
-    },
-    skeletonCount: {
-      type: Number,
-      default: 5,
-      validator: value => value > 0 && value <= 20
+  interface TableHeader {
+    key?: string
+    title?: string
+    [prop: string]: unknown
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      loading: boolean
+      items: Record<string, unknown>[]
+      headers: TableHeader[]
+      /** Number of skeleton rows (1-20) */
+      skeletonCount?: number
+    }>(),
+    {
+      skeletonCount: 5
     }
-  })
+  )
 
   /**
    * Display skeleton items while loading, otherwise show real items
@@ -84,11 +83,8 @@
   /**
    * Get skeleton width based on column type
    * Varies width to look more realistic
-   *
-   * @param {Object} header - Table header definition
-   * @returns {string} Width in pixels or percentage
    */
-  function getSkeletonWidth(header) {
+  function getSkeletonWidth(header: TableHeader): string {
     // Customize based on common column types
     const key = header.key?.toLowerCase() || ''
 
@@ -107,7 +103,7 @@
     // Default: varied widths for natural look
     const index = props.headers.indexOf(header)
     const widths = ['70%', '85%', '60%', '75%', '80%']
-    return widths[index % widths.length]
+    return widths[index % widths.length] ?? '70%'
   }
 </script>
 

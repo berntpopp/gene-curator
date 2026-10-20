@@ -39,7 +39,7 @@
   <slot v-else />
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Error Boundary Component
    *
@@ -61,12 +61,15 @@
   import { ref, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
 
   const router = useRouter()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
-  const error = ref(null)
-  const errorInfo = ref(null)
+  // Vue hands over the thrown value as unknown; the template reads message/stack, which
+  // is also safe for non-Error throws (they render the fallback text).
+  const error = ref<Error | null>(null)
+  const errorInfo = ref<string | null>(null)
 
   // Check if running in development mode
   const isDevelopment = import.meta.env.DEV
@@ -75,13 +78,14 @@
    * Capture errors from child components
    * Vue's onErrorCaptured hook
    */
-  onErrorCaptured((err, instance, info) => {
-    error.value = err
+  onErrorCaptured((err: unknown, instance, info) => {
+    const caught = err as Error
+    error.value = caught
     errorInfo.value = info
 
     logger.error('Component error boundary caught error', {
-      error: err.message,
-      stack: err.stack,
+      error: caught.message,
+      stack: caught.stack,
       info,
       component: instance?.$options?.name || 'Unknown'
     })

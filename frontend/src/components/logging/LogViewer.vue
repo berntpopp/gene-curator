@@ -207,17 +207,39 @@
   </v-navigation-drawer>
 </template>
 
-<script setup>
-  import { ref, computed, watch } from 'vue'
+<script setup lang="ts">
+  import { ref, computed, watch, type Ref } from 'vue'
   import { useLogStore } from '@/stores/logStore'
   import { LogLevel } from '@/services/logService'
   import { useDrawerState } from '@/composables/useDrawerState'
+
+  interface LogEntry {
+    timestamp: string
+    level: string
+    message: string
+    data?: unknown
+    correlationId?: string
+  }
+
+  interface GlobalLogService {
+    info: (message: string, data?: unknown) => void
+    debug: (message: string, data?: unknown) => void
+    error: (message: string, data?: unknown) => void
+  }
+
+  // ponytail: window.logService is never assigned in src, so these calls are no-ops today.
+  // Kept as-is to preserve behaviour; wire up logService to make them real.
+  const globalLog = () => (window as Window & { logService?: GlobalLogService }).logService
 
   // Store access
   const logStore = useLogStore()
 
   // Use drawer state for single-open-drawer pattern
-  const { isOpen: drawerIsOpen, close: closeDrawer } = useDrawerState('log-viewer')
+  // useDrawerState() is still JavaScript; its return type is inferred as {}.
+  const { isOpen: drawerIsOpen, close: closeDrawer } = useDrawerState('log-viewer') as {
+    isOpen: Ref<boolean>
+    close: () => void
+  }
 
   // Computed property to sync drawer state with logStore
   const drawerVisible = computed({
@@ -262,7 +284,7 @@
 
   // Local reactive state
   const searchQuery = ref('')
-  const selectedLevels = ref([
+  const selectedLevels = ref<string[]>([
     LogLevel.DEBUG,
     LogLevel.INFO,
     LogLevel.WARN,
@@ -290,8 +312,8 @@
   ]
 
   // Computed properties
-  const filteredLogs = computed(() => {
-    let filtered = [...logStore.logs]
+  const filteredLogs = computed<LogEntry[]>(() => {
+    let filtered: LogEntry[] = [...logStore.logs]
 
     // Apply level filter
     if (selectedLevels.value.length > 0 && selectedLevels.value.length < 5) {
@@ -314,7 +336,7 @@
   })
 
   // Methods
-  function getLogColor(level) {
+  function getLogColor(level: string): string {
     switch (level) {
       case LogLevel.DEBUG:
         return 'grey'
@@ -331,7 +353,7 @@
     }
   }
 
-  function formatTimestamp(timestamp) {
+  function formatTimestamp(timestamp: string): string {
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour12: false,
       hour: '2-digit',
@@ -341,7 +363,7 @@
     })
   }
 
-  function formatLogData(data) {
+  function formatLogData(data: unknown): string {
     try {
       return JSON.stringify(data, null, 2)
     } catch {
@@ -355,7 +377,7 @@
         format: 'json',
         includeMetadata: true,
         filtered: false
-      })
+      }) as string
 
       const blob = new Blob([exportData], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -372,20 +394,20 @@
       URL.revokeObjectURL(url)
 
       // Log success (using global logService to avoid circular dependency)
-      window.logService?.info('Logs exported successfully')
+      globalLog()?.info('Logs exported successfully')
     } catch (error) {
-      window.logService?.error('Failed to download logs', { error: error.message })
+      globalLog()?.error('Failed to download logs', { error: (error as Error).message })
     }
   }
 
   function clearLogs() {
     if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
       const count = logStore.clearLogs()
-      window.logService?.info(`Cleared ${count} log entries`)
+      globalLog()?.info(`Cleared ${count} log entries`)
     }
   }
 
-  function copyLogEntry(log) {
+  function copyLogEntry(log: LogEntry) {
     try {
       const logText = `[${log.timestamp}] ${log.level}: ${log.message}${
         log.data ? `\nData: ${JSON.stringify(log.data, null, 2)}` : ''
@@ -394,31 +416,31 @@
       navigator.clipboard
         .writeText(logText)
         .then(() => {
-          window.logService?.debug('Log entry copied to clipboard')
+          globalLog()?.debug('Log entry copied to clipboard')
         })
         .catch(error => {
-          window.logService?.error('Failed to copy log entry', { error: error.message })
+          globalLog()?.error('Failed to copy log entry', { error: (error as Error).message })
         })
     } catch (error) {
-      window.logService?.error('Failed to copy log entry', { error: error.message })
+      globalLog()?.error('Failed to copy log entry', { error: (error as Error).message })
     }
   }
 
-  function updateMaxEntries(newValue) {
+  function updateMaxEntries(newValue: number) {
     try {
       logStore.trimLogs(newValue)
       maxEntries.value = newValue
-      window.logService?.info(`Log retention limit updated to ${newValue} entries`)
+      globalLog()?.info(`Log retention limit updated to ${newValue} entries`)
     } catch (error) {
-      window.logService?.error('Failed to update max entries', { error: error.message })
+      globalLog()?.error('Failed to update max entries', { error: (error as Error).message })
     }
   }
 
-  function updateSearch(value) {
+  function updateSearch(value: string | null) {
     logStore.setSearchQuery(value || '')
   }
 
-  function updateLevelFilter(value) {
+  function updateLevelFilter(value: string[]) {
     logStore.setLevelFilter(value)
   }
 

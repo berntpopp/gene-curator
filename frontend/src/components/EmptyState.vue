@@ -14,7 +14,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * EmptyState Component
    *
@@ -41,47 +41,26 @@
    * ```
    */
 
-  defineProps({
-    /**
-     * Icon name (Material Design Icons)
-     */
-    icon: {
-      type: String,
-      default: 'mdi-inbox'
-    },
-
-    /**
-     * Icon size (pixels or string)
-     */
-    iconSize: {
-      type: [String, Number],
-      default: 80
-    },
-
-    /**
-     * Icon color (Vuetify color)
-     */
-    iconColor: {
-      type: String,
-      default: 'grey'
-    },
-
-    /**
-     * Title text
-     */
-    title: {
-      type: String,
-      required: true
-    },
-
-    /**
-     * Description text (optional)
-     */
-    description: {
-      type: String,
-      default: null
+  withDefaults(
+    defineProps<{
+      /** Icon name (Material Design Icons) */
+      icon?: string
+      /** Icon size (pixels or string) */
+      iconSize?: string | number
+      /** Icon color (Vuetify color) */
+      iconColor?: string
+      /** Title text */
+      title: string
+      /** Description text (optional) */
+      description?: string | null
+    }>(),
+    {
+      icon: 'mdi-inbox',
+      iconSize: 80,
+      iconColor: 'grey',
+      description: null
     }
-  })
+  )
 </script>
 
 <style scoped>
