@@ -98,14 +98,22 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editSchema(item)" />
             <v-btn
+              aria-label="Edit schema"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editSchema(item)"
+            />
+            <v-btn
+              aria-label="Duplicate schema"
               icon="mdi-content-copy"
               size="small"
               variant="text"
               @click="duplicateSchema(item)"
             />
             <v-btn
+              aria-label="Delete schema"
               icon="mdi-delete"
               size="small"
               variant="text"

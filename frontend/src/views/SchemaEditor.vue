@@ -8,7 +8,13 @@
     <div v-else-if="schema">
       <!-- Page Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn icon="mdi-arrow-left" variant="text" class="mr-4" @click="$router.back()" />
+        <v-btn
+          aria-label="Go back"
+          icon="mdi-arrow-left"
+          variant="text"
+          class="mr-4"
+          @click="$router.back()"
+        />
         <div>
           <h1 class="text-h4 font-weight-bold">
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}

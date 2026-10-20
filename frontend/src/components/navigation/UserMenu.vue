@@ -1,7 +1,7 @@
 <template>
   <div class="user-menu">
     <!-- Login Button (when not authenticated) -->
-    <v-btn v-if="!isAuthenticated" icon :to="{ name: 'Login' }">
+    <v-btn aria-label="Sign in" v-if="!isAuthenticated" icon :to="{ name: 'Login' }">
       <v-icon>mdi-login</v-icon>
     </v-btn>
 
@@ -10,7 +10,7 @@
       <template #activator="{ props }">
         <!-- User Avatar with Notification Badge -->
         <NotificationBadge :count="totalUnread">
-          <v-btn icon v-bind="props">
+          <v-btn aria-label="Account menu" icon v-bind="props">
             <v-avatar size="32">
               <v-icon>mdi-account-circle</v-icon>
             </v-avatar>

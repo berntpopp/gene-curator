@@ -59,9 +59,22 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewWorkflow(item)" />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editWorkflow(item)" />
             <v-btn
+              aria-label="View workflow"
+              icon="mdi-eye"
+              size="small"
+              variant="text"
+              @click="viewWorkflow(item)"
+            />
+            <v-btn
+              aria-label="Edit workflow"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editWorkflow(item)"
+            />
+            <v-btn
+              aria-label="Delete workflow"
               icon="mdi-delete"
               size="small"
               variant="text"

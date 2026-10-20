@@ -97,7 +97,14 @@
               />
             </td>
             <td v-if="!readonly">
-              <v-btn icon size="small" color="error" variant="text" @click="removeEvidence(index)">
+              <v-btn
+                aria-label="Remove evidence"
+                icon
+                size="small"
+                color="error"
+                variant="text"
+                @click="removeEvidence(index)"
+              >
                 <v-icon size="small">mdi-delete</v-icon>
               </v-btn>
             </td>

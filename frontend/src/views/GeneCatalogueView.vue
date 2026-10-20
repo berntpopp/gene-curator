@@ -267,6 +267,7 @@
           <template #item.actions="{ item }">
             <div class="d-flex justify-center ga-1">
               <v-btn
+                aria-label="Show quick info"
                 icon
                 size="x-small"
                 variant="text"
@@ -277,6 +278,7 @@
                 <v-tooltip activator="parent" location="top">Quick View</v-tooltip>
               </v-btn>
               <v-btn
+                aria-label="Open gene details"
                 icon
                 size="x-small"
                 variant="text"
@@ -424,7 +426,7 @@
             <div class="text-caption text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
           </div>
           <v-spacer />
-          <v-btn icon variant="text" @click="quickInfoDialog = false">
+          <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
@@ -532,6 +534,7 @@
 
               <template #append>
                 <v-btn
+                  aria-label="Open scope dashboard"
                   icon
                   size="x-small"
                   variant="text"

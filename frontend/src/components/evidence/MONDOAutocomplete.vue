@@ -77,6 +77,7 @@
       <v-tooltip v-if="selectedItem" location="top">
         <template #activator="{ props: tooltipProps }">
           <v-btn
+            aria-label="More information"
             v-bind="tooltipProps"
             icon="mdi-information"
             variant="text"

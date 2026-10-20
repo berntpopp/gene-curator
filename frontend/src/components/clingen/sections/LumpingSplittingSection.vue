@@ -39,6 +39,7 @@
             >
               <template #append-inner>
                 <v-btn
+                  aria-label="Open in Monarch"
                   v-if="mondoId"
                   icon
                   size="x-small"

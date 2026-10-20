@@ -141,14 +141,27 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editAssignment(item)" />
             <v-btn
+              aria-label="Edit assignment"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editAssignment(item)"
+            />
+            <v-btn
+              aria-label="Reassign gene"
               icon="mdi-account-plus"
               size="small"
               variant="text"
               @click="reassignGene(item)"
             />
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewAssignment(item)" />
+            <v-btn
+              aria-label="View assignment"
+              icon="mdi-eye"
+              size="small"
+              variant="text"
+              @click="viewAssignment(item)"
+            />
           </div>
         </template>
       </v-data-table>

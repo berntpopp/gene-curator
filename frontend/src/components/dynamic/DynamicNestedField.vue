@@ -16,6 +16,7 @@
             <div class="d-flex justify-space-between align-center mb-2">
               <h4 class="text-subtitle-2">Item {{ index + 1 }}</h4>
               <v-btn
+                aria-label="Remove item"
                 icon="mdi-delete"
                 size="small"
                 color="error"

@@ -35,7 +35,13 @@
         <v-icon start color="primary" size="28">mdi-dna</v-icon>
         <span class="text-h6">Add Genes to Catalog</span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="handleCancel" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="handleCancel"
+        />
       </v-card-title>
 
       <v-divider />

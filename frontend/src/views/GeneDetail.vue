@@ -37,7 +37,13 @@
     <template v-else-if="localGene">
       <!-- Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn :to="{ name: 'Genes' }" icon="mdi-arrow-left" variant="text" class="mr-3" />
+        <v-btn
+          aria-label="Back to genes"
+          :to="{ name: 'Genes' }"
+          icon="mdi-arrow-left"
+          variant="text"
+          class="mr-3"
+        />
         <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
         <div class="flex-grow-1">
           <div class="d-flex align-center">

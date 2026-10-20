@@ -74,7 +74,14 @@
 
           <!-- Actions column -->
           <td v-if="!readonly">
-            <v-btn icon size="small" color="error" variant="text" @click="$emit('remove', index)">
+            <v-btn
+              aria-label="Remove evidence"
+              icon
+              size="small"
+              color="error"
+              variant="text"
+              @click="$emit('remove', index)"
+            >
               <v-icon size="small">mdi-delete</v-icon>
             </v-btn>
           </td>

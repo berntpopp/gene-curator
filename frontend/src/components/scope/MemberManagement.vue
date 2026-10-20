@@ -93,6 +93,7 @@
             <v-menu v-if="canEditMemberRoles && member.user_id !== currentUserId">
               <template #activator="{ props: activatorProps }">
                 <v-btn
+                  aria-label="Member actions"
                   v-bind="activatorProps"
                   icon="mdi-dots-vertical"
                   size="small"

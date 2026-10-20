@@ -88,7 +88,13 @@
                 <div class="d-flex ga-1">
                   <v-tooltip v-if="pub.abstract" location="top">
                     <template #activator="{ props: tooltipProps }">
-                      <v-btn v-bind="tooltipProps" icon variant="text" size="x-small">
+                      <v-btn
+                        aria-label="More information"
+                        v-bind="tooltipProps"
+                        icon
+                        variant="text"
+                        size="x-small"
+                      >
                         <v-icon size="small">mdi-text</v-icon>
                       </v-btn>
                     </template>
