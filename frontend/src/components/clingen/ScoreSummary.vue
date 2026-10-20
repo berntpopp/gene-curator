@@ -153,7 +153,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ScoreSummary
    *
@@ -162,58 +162,54 @@
    */
 
   import { computed } from 'vue'
+  import type { ExperimentalBreakdown, GeneticBreakdown } from './scoring'
 
-  const props = defineProps({
-    geneticScore: {
-      type: Number,
-      default: 0
-    },
-    experimentalScore: {
-      type: Number,
-      default: 0
-    },
-    totalScore: {
-      type: Number,
-      default: 0
-    },
-    classification: {
-      type: String,
-      default: 'No Known Disease Relationship'
-    },
-    hasContradictory: {
-      type: Boolean,
-      default: false
-    },
-    geneticBreakdown: {
-      type: Object,
-      default: () => ({
+  const props = withDefaults(
+    defineProps<{
+      geneticScore?: number
+      experimentalScore?: number
+      totalScore?: number
+      classification?: string
+      hasContradictory?: boolean
+      geneticBreakdown?: Partial<
+        Pick<GeneticBreakdown, 'caseLevel' | 'segregation' | 'caseControl'>
+      >
+      experimentalBreakdown?: Partial<
+        Pick<ExperimentalBreakdown, 'function' | 'functionalAlteration' | 'models' | 'rescue'>
+      >
+    }>(),
+    {
+      geneticScore: 0,
+      experimentalScore: 0,
+      totalScore: 0,
+      classification: 'No Known Disease Relationship',
+      hasContradictory: false,
+      geneticBreakdown: () => ({
         caseLevel: 0,
         segregation: 0,
         caseControl: 0
-      })
-    },
-    experimentalBreakdown: {
-      type: Object,
-      default: () => ({
+      }),
+      experimentalBreakdown: () => ({
         function: 0,
         functionalAlteration: 0,
         models: 0,
         rescue: 0
       })
     }
-  })
+  )
+
+  const colorMap: Record<string, string> = {
+    definitive: 'success',
+    strong: 'info',
+    moderate: 'warning',
+    limited: 'grey',
+    disputed: 'error',
+    refuted: 'error',
+    'no known disease relationship': 'grey'
+  }
 
   const classificationColor = computed(() => {
     const classification = props.classification?.toLowerCase() || ''
-    const colorMap = {
-      definitive: 'success',
-      strong: 'info',
-      moderate: 'warning',
-      limited: 'grey',
-      disputed: 'error',
-      refuted: 'error',
-      'no known disease relationship': 'grey'
-    }
     return colorMap[classification] || 'grey'
   })
 
