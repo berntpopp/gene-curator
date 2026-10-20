@@ -91,9 +91,16 @@ describe('AppBar', () => {
     expect(localStorage.getItem('theme')).toBe('light')
   })
 
-  it('labels the icon-only theme toggle for screen readers', () => {
+  it('labels the theme toggle with its target theme and shows that theme icon', async () => {
     mountAppBar()
+    const toggle = wrapper?.find('.ml-2')
 
-    expect(wrapper?.find('.ml-2').attributes('aria-label')).toBe('Toggle theme')
+    expect(toggle?.attributes('aria-label')).toBe('Switch to dark theme')
+    expect(toggle?.html()).toContain('mdi-weather-night')
+
+    await toggle?.trigger('click')
+
+    expect(toggle?.attributes('aria-label')).toBe('Switch to light theme')
+    expect(toggle?.html()).toContain('mdi-white-balance-sunny')
   })
 })

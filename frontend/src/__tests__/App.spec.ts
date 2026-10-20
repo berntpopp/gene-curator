@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive } from 'vue'
+import { reactive, defineComponent, h, shallowRef, type Component } from 'vue'
 import App from '../App.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLogStore } from '@/stores/logStore'
@@ -64,7 +64,7 @@ describe('App', () => {
   })
 
   it('initialises auth and disclaimer stores on mount', async () => {
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
     expect(authInitialize).toHaveBeenCalledTimes(1)
@@ -76,7 +76,7 @@ describe('App', () => {
     vi.useFakeTimers()
     disclaimer.shouldShowDisclaimer = true
 
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
     const dialog = wrapper.findComponent({ name: 'DisclaimerDialog' })
@@ -90,7 +90,7 @@ describe('App', () => {
   })
 
   it('opens the disclaimer on a manual request and resets the request flag', async () => {
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
     disclaimer.showManually = true
@@ -103,7 +103,7 @@ describe('App', () => {
 
   it('saves the acknowledgment and closes the dialog when the user accepts', async () => {
     disclaimer.showManually = true
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
     const dialog = wrapper.findComponent({ name: 'DisclaimerDialog' })
@@ -118,7 +118,7 @@ describe('App', () => {
   it('mounts the log viewer only while it is visible', async () => {
     const logStore = reactive({ toggleViewer, isViewerVisible: false })
     vi.mocked(useLogStore).mockReturnValue(logStore as never)
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
     expect(wrapper.findComponent({ name: 'LogViewer' }).exists()).toBe(false)
 
@@ -128,8 +128,45 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('shows the error boundary when a routed view throws and recovers on navigation', async () => {
+    const Throwing = defineComponent({
+      setup() {
+        throw new Error('view exploded')
+      }
+    })
+    const route = reactive({ fullPath: '/a' })
+    const view = shallowRef<Component>(Throwing)
+    const RouterView = defineComponent({ render: () => h(view.value) })
+    const wrapper = mount(App, {
+      global: {
+        stubs: { ...stubs, 'router-view': RouterView },
+        mocks: { $route: route }
+      }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('view exploded')
+
+    view.value = defineComponent({ render: () => h('p', 'fine') })
+    route.fullPath = '/b'
+    await flushPromises()
+    expect(wrapper.text()).toContain('fine')
+    expect(wrapper.text()).not.toContain('view exploded')
+    wrapper.unmount()
+  })
+
+  it('has a skip link that focuses the main content', async () => {
+    const wrapper = mount(App, {
+      global: { stubs: { ...stubs, 'v-main': false }, mocks: { $route: { fullPath: '/' } } },
+      attachTo: document.body
+    })
+    await flushPromises()
+
+    expect(wrapper.find('a.skip-link').attributes('href')).toBe('#main-content')
+    wrapper.unmount()
+  })
+
   it('toggles the log viewer on Ctrl+Shift+L and ignores other keys', async () => {
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'L', ctrlKey: true, shiftKey: true }))
@@ -141,7 +178,7 @@ describe('App', () => {
   })
 
   it('stops listening for keyboard shortcuts after unmount', async () => {
-    const wrapper = mount(App, { global: { stubs } })
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
     wrapper.unmount()
 

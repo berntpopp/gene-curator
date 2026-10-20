@@ -26,11 +26,13 @@
     <MainNavigation />
 
     <!-- Theme Toggle -->
-    <v-btn v-if="mdAndUp" aria-label="Toggle theme" icon class="ml-2" @click="toggleTheme">
-      <v-icon>
-        {{ isDark ? 'mdi-weather-night' : 'mdi-white-balance-sunny' }}
-      </v-icon>
-    </v-btn>
+    <v-tooltip v-if="mdAndUp" :text="themeLabel" location="bottom">
+      <template #activator="{ props }">
+        <v-btn v-bind="props" :aria-label="themeLabel" icon class="ml-2" @click="toggleTheme">
+          <v-icon>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+        </v-btn>
+      </template>
+    </v-tooltip>
 
     <!-- User Menu -->
     <UserMenu v-if="mdAndUp" />
@@ -77,6 +79,8 @@
 
   // Theme (persisted in localStorage, restored in main.js before Vuetify init)
   const isDark = computed(() => theme.global.current.value.dark)
+
+  const themeLabel = computed(() => `Switch to ${isDark.value ? 'light' : 'dark'} theme`)
 
   /**
    * Toggle dark/light theme
