@@ -6,12 +6,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedIndexedAccess": true,
-    // JS files still mid-migration are imported but not type-checked; new code is .ts
-    "allowJs": true,
-    "checkJs": false,
     "types": ["vite/client", "vitest/globals"],
     "paths": { "@/*": ["./src/*"] }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "src/**/*.js"],
+  "include": ["src/**/*.ts", "src/**/*.vue"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

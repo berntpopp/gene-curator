@@ -37,8 +37,7 @@ export default defineConfigWithVueTs(
       'vue/require-prop-types': 'error',
       'vue/no-v-html': 'warn',
       'vue/valid-v-slot': ['error', { allowModifiers: true }],
-      // TS migration in progress: flip to 'error' once every SFC uses <script setup lang="ts">
-      'vue/block-lang': 'off',
+      'vue/block-lang': ['error', { script: { lang: 'ts' } }],
       // Use useLogger()/logService (AGENTS.md); only the logging layer may touch console
       'no-console': 'error',
       'no-debugger': 'error',
@@ -52,10 +51,10 @@ export default defineConfigWithVueTs(
   },
   {
     files: [
-      'src/services/logService.{js,ts}',
-      'src/plugins/logger.{js,ts}',
-      'src/stores/logStore.{js,ts}',
-      'src/utils/logSanitizer.{js,ts}',
+      'src/services/logService.ts',
+      'src/plugins/logger.ts',
+      'src/stores/logStore.ts',
+      'src/utils/logSanitizer.ts',
       'src/test/**',
       '**/__tests__/**',
       'scripts/**',
