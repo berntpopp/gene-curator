@@ -172,7 +172,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ReviewQueueView
    *
@@ -186,15 +186,56 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
 
+  interface ReviewItem {
+    id: string
+    gene_id: string
+    gene_symbol?: string | null
+    disease_name?: string | null
+    scope_id?: string | null
+    scope_name?: string | null
+    curator_name?: string | null
+    status: string
+    workflow_stage?: string | null
+    total_score: number
+    classification?: string | null
+    updated_at: string
+    created_at?: string | null
+    created_by?: string | null
+  }
+
+  // Raw curation row as returned by the list endpoint (only the fields mapped below)
+  interface RawCuration {
+    id: string
+    gene_id: string
+    gene_symbol?: string | null
+    disease_name?: string | null
+    scope_id?: string | null
+    scope_name?: string | null
+    curator_name?: string | null
+    status: string
+    workflow_stage?: string | null
+    computed_scores?: { total_score?: number | null } | null
+    computed_verdict?: string | null
+    updated_at: string
+    created_at?: string | null
+    created_by?: string | null
+  }
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
   const authStore = useAuthStore()
-  const logger = useLogger()
+  const logger = useLogger() as LoggerApi
   const notificationStore = useNotificationsStore()
 
   // State
   const loading = ref(true)
-  const curations = ref([])
-  const scopes = ref([])
-  const selectedScope = ref(null)
+  const curations = ref<ReviewItem[]>([])
+  const scopes = ref<Array<{ id: string; name: string }>>([])
+  const selectedScope = ref<string | null>(null)
   const searchQuery = ref('')
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
@@ -213,7 +254,7 @@
 
   const pendingCount = computed(() => curations.value.length)
 
-  const filteredCurations = computed(() => {
+  const filteredCurations = computed<ReviewItem[]>(() => {
     let result = [...curations.value]
 
     // Filter by scope
@@ -236,14 +277,14 @@
     result.sort((a, b) => {
       switch (sortBy.value) {
         case 'submitted_asc':
-          return new Date(a.updated_at) - new Date(b.updated_at)
+          return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
         case 'gene_asc':
           return (a.gene_symbol || '').localeCompare(b.gene_symbol || '')
         case 'score_desc':
           return (b.total_score || 0) - (a.total_score || 0)
         case 'submitted_desc':
         default:
-          return new Date(b.updated_at) - new Date(a.updated_at)
+          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       }
     })
 
@@ -252,7 +293,7 @@
     return result.slice(start, start + itemsPerPage)
   })
 
-  const totalPages = computed(() => {
+  const totalPages = computed<number>(() => {
     let result = [...curations.value]
     if (selectedScope.value) {
       result = result.filter(c => c.scope_id === selectedScope.value)
@@ -278,34 +319,37 @@
     loading.value = true
     try {
       // Fetch curations with in_review status (pending peer review)
-      const response = await curationsAPI.getCurations({
+      const response = (await curationsAPI.getCurations({
         curation_status: 'in_review',
         limit: 200
-      })
+      })) as { curations?: RawCuration[] }
 
-      curations.value = (response.curations || []).map(c => ({
-        id: c.id,
-        gene_id: c.gene_id,
-        gene_symbol: c.gene_symbol,
-        disease_name: c.disease_name,
-        scope_id: c.scope_id,
-        scope_name: c.scope_name,
-        curator_name: c.curator_name,
-        status: c.status,
-        workflow_stage: c.workflow_stage,
-        total_score: c.computed_scores?.total_score || 0,
-        classification: c.computed_verdict,
-        updated_at: c.updated_at,
-        created_at: c.created_at,
-        created_by: c.created_by
-      }))
+      curations.value = (response.curations || []).map(
+        (c): ReviewItem => ({
+          id: c.id,
+          gene_id: c.gene_id,
+          gene_symbol: c.gene_symbol,
+          disease_name: c.disease_name,
+          scope_id: c.scope_id,
+          scope_name: c.scope_name,
+          curator_name: c.curator_name,
+          status: c.status,
+          workflow_stage: c.workflow_stage,
+          total_score: c.computed_scores?.total_score || 0,
+          classification: c.computed_verdict,
+          updated_at: c.updated_at,
+          created_at: c.created_at,
+          created_by: c.created_by
+        })
+      )
 
       // Filter out curations created by current user (can't review your own - 4-eyes principle)
-      const userId = authStore.user?.id
+      // authStore is JS, so user is typed null; narrow to the id used here
+      const userId = (authStore.user as { id?: string } | null)?.id
       curations.value = curations.value.filter(c => c.created_by !== userId)
 
       // Extract unique scopes for filter
-      const scopeMap = new Map()
+      const scopeMap = new Map<string, { id: string; name: string }>()
       curations.value.forEach(c => {
         if (c.scope_id && c.scope_name) {
           scopeMap.set(c.scope_id, { id: c.scope_id, name: c.scope_name })
@@ -315,30 +359,30 @@
 
       logger.debug('Pending reviews loaded', { count: curations.value.length })
     } catch (error) {
-      logger.error('Failed to fetch pending reviews', { error: error.message })
+      logger.error('Failed to fetch pending reviews', { error: (error as Error).message })
       notificationStore.addToast('Failed to load review queue', 'error')
     } finally {
       loading.value = false
     }
   }
 
-  function getClassificationColor(classification) {
-    const colors = {
+  function getClassificationColor(classification: string | null | undefined): string {
+    const colors: Record<string, string> = {
       Definitive: 'success',
       Strong: 'info',
       Moderate: 'warning',
       Limited: 'grey',
       'No Known Disease Relationship': 'error'
     }
-    return colors[classification] || 'grey'
+    return colors[classification ?? ''] || 'grey'
   }
 
-  function formatRelativeTime(dateString) {
+  function formatRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return 'unknown'
 
     const now = new Date()
     const date = new Date(dateString)
-    const diffMs = now - date
+    const diffMs = now.getTime() - date.getTime()
     const diffMin = Math.floor(diffMs / 60000)
     const diffHours = Math.floor(diffMin / 60)
     const diffDays = Math.floor(diffHours / 24)

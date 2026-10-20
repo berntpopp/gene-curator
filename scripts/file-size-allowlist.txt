@@ -21,8 +21,6 @@
 671 frontend/src/components/forms/SchemaDrivenCurationForm.vue
 779 frontend/src/components/gene/AddGeneModal.vue
 1140 frontend/src/components/gene/GeneList.vue
-660 frontend/src/views/CurationDetail.vue
-733 frontend/src/views/CurationsTable.vue
-841 frontend/src/views/GeneCatalogueView.vue
-906 frontend/src/views/curation/CurationDetailView.vue
+799 frontend/src/views/GeneCatalogueView.vue
+840 frontend/src/views/curation/CurationDetailView.vue
 675 frontend/src/views/scope/ScopeCreate.vue

@@ -20,6 +20,6 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import GeneAssignmentManager from '@/components/dynamic/GeneAssignmentManager.vue'
 </script>

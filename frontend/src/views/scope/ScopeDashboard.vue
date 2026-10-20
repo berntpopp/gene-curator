@@ -249,8 +249,8 @@
   </v-container>
 </template>
 
-<script setup>
-  import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+<script setup lang="ts">
+  import { ref, computed, onMounted, defineAsyncComponent, type Ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
@@ -258,6 +258,42 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import MemberManagement from '@/components/scope/MemberManagement.vue'
+
+  interface ScopeRecord {
+    id: string
+    name: string
+    display_name?: string | null
+    description?: string | null
+    is_public?: boolean
+  }
+
+  interface ScopeStats {
+    member_count?: number
+    total_curations?: number
+    total_genes_assigned?: number
+    active_curations?: number
+    draft_curations?: number
+    submitted_curations?: number
+    curations_in_review?: number
+  }
+
+  // useLogger() and useRoleColors/useScopeUtils are JS with JSDoc @returns {Object}; narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    info: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
+  // The scopes store is JS, so its state and actions are typed never / missing; narrow here
+  interface ScopesStoreView {
+    currentScope: ScopeRecord | null
+    currentUserRole: string | null
+    loading: boolean
+    error: string | null
+    fetchScope: (id: string) => Promise<unknown>
+    fetchUserRole: (id: string) => Promise<unknown>
+    fetchStatistics: (id: string) => Promise<unknown>
+  }
 
   // Lazy load heavy components (optimize initial bundle size)
   const ScopeOverview = defineAsyncComponent(() => import('@/components/scope/ScopeOverview.vue'))
@@ -271,33 +307,39 @@
 
   const route = useRoute()
   const router = useRouter()
-  const scopeStore = useScopesStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
-  const logger = useLogger()
+  const scopeStore = useScopesStore() as unknown as ScopesStoreView
+  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
+    getRoleColor: (role: string | null | undefined) => string
+    getRoleIcon: (role: string | null | undefined) => string
+  }
+  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils() as unknown as {
+    getScopeVisibilityIcon: (isPublic: boolean | undefined) => string
+    calculateProgress: (completed: number | undefined, total: number | undefined) => number
+  }
+  const logger = useLogger() as LoggerApi
 
   // ============================================
   // STATE
   // ============================================
 
-  const scopeStats = ref(null)
+  const scopeStats = ref<ScopeStats | undefined>(undefined)
 
   // ============================================
   // COMPUTED PROPERTIES
   // ============================================
 
-  const scopeId = computed(() => route.params.scopeId)
+  const scopeId = computed(() => route.params.scopeId as string)
 
   // Valid tab values
-  const validTabs = ['overview', 'genes', 'curations', 'members', 'settings']
+  const validTabs: string[] = ['overview', 'genes', 'curations', 'members', 'settings']
 
   // Active tab synced with route (must be after scopeId)
   const activeTab = computed({
     get: () => {
-      const tab = route.params.tab
+      const tab = route.params.tab as string
       return validTabs.includes(tab) ? tab : 'overview'
     },
-    set: tabValue => {
+    set: (tabValue: string) => {
       router.push({
         name: 'scope-dashboard',
         params: { scopeId: scopeId.value, tab: tabValue }
@@ -310,10 +352,14 @@
   const error = computed(() => scopeStore.error)
 
   // Composable for permissions
-  const { canManageScope, canViewMembers } = useScopePermissions(userRole)
+  // useScopePermissions is JS with JSDoc @returns {Object}; these are computed refs
+  const { canManageScope, canViewMembers } = useScopePermissions(userRole) as unknown as {
+    canManageScope: Ref<boolean>
+    canViewMembers: Ref<boolean>
+  }
 
   // In-progress count: draft + submitted + in_review curations
-  const inProgressCount = computed(() => {
+  const inProgressCount = computed<number>(() => {
     if (!scopeStats.value) return 0
     return (
       (scopeStats.value.draft_curations || 0) +
@@ -322,7 +368,7 @@
     )
   })
 
-  const curationProgress = computed(() => {
+  const curationProgress = computed<number>(() => {
     if (!scopeStats.value) return 0
     return calculateProgress(
       scopeStats.value.active_curations,
@@ -356,7 +402,8 @@
       await scopeStore.fetchUserRole(scopeId.value)
 
       // Fetch scope statistics
-      scopeStats.value = await scopeStore.fetchStatistics(scopeId.value)
+      scopeStats.value =
+        ((await scopeStore.fetchStatistics(scopeId.value)) as ScopeStats | null) ?? undefined
 
       logger.info('Scope dashboard loaded', {
         scope_id: scopeId.value,
@@ -366,8 +413,8 @@
     } catch (err) {
       logger.error('Failed to fetch scope dashboard data', {
         scope_id: scopeId.value,
-        error: err.message,
-        stack: err.stack
+        error: (err as Error).message,
+        stack: (err as Error).stack
       })
     }
   }

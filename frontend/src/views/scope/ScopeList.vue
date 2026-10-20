@@ -210,7 +210,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
@@ -218,15 +218,44 @@
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useLogger } from '@/composables/useLogger'
 
+  interface ScopeRow {
+    id: string
+    name: string
+    display_name: string
+    description?: string | null
+    institution?: string | null
+    is_public: boolean
+    is_active: boolean
+    created_at: string
+    due_date?: string | null
+    user_role?: string | null
+    stats?: { member_count?: number; completed_genes?: number; total_genes?: number } | null
+  }
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    info: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
   const router = useRouter()
   const scopeStore = useScopesStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon, formatDate, calculateProgress } = useScopeUtils()
-  const logger = useLogger()
+  // Composables are JS with JSDoc @returns {Object}; narrow to the functions used here
+  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
+    getRoleColor: (role: string | null | undefined) => string
+    getRoleIcon: (role: string | null | undefined) => string
+  }
+  const { getScopeVisibilityIcon, formatDate, calculateProgress } = useScopeUtils() as unknown as {
+    getScopeVisibilityIcon: (isPublic: boolean) => string
+    formatDate: (date: string | null | undefined) => string
+    calculateProgress: (completed: number | undefined, total: number | undefined) => number
+  }
+  const logger = useLogger() as LoggerApi
 
   // ============================================
   // STATE
@@ -265,13 +294,14 @@
   // COMPUTED PROPERTIES
   // ============================================
 
-  const scopes = computed(() => scopeStore.scopes)
+  // The scopes store is JS, so its state is typed never; narrow to the row shape used here
+  const scopes = computed(() => scopeStore.scopes as ScopeRow[])
   const loading = computed(() => scopeStore.loading)
 
   /**
    * Filter and sort scopes based on user selection
    */
-  const filteredScopes = computed(() => {
+  const filteredScopes = computed<ScopeRow[]>(() => {
     let result = [...scopes.value]
 
     // Search filter
@@ -306,13 +336,13 @@
         result.sort((a, b) => a.display_name.localeCompare(b.display_name))
         break
       case 'created_desc':
-        result.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        result.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
         break
       case 'due_date':
         result.sort((a, b) => {
           if (!a.due_date) return 1
           if (!b.due_date) return -1
-          return new Date(a.due_date) - new Date(b.due_date)
+          return new Date(a.due_date).getTime() - new Date(b.due_date).getTime()
         })
         break
       case 'progress':
@@ -333,7 +363,7 @@
   /**
    * Calculate progress for a scope
    */
-  const calculateScopeProgress = scope => {
+  const calculateScopeProgress = (scope: ScopeRow): number => {
     if (!scope.stats) return 0
     return calculateProgress(scope.stats.completed_genes, scope.stats.total_genes)
   }
@@ -341,7 +371,7 @@
   /**
    * Navigate to scope dashboard
    */
-  const navigateToScope = scope => {
+  const navigateToScope = (scope: ScopeRow) => {
     logger.info('Navigating to scope dashboard', {
       scope_id: scope.id,
       scope_name: scope.name
@@ -371,9 +401,10 @@
       await scopeStore.fetchUserScopes()
       logger.info('Scopes loaded', { count: scopes.value.length })
     } catch (error) {
+      const err = error as Error
       logger.error('Failed to fetch scopes', {
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
     }
   })

@@ -229,7 +229,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * GeneDetail View
    *
@@ -242,25 +242,37 @@
   import { useGenesStore } from '@/stores/genes'
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
+
+  type Gene = Schema<'Gene'>
+  type HgncGene = Schema<'HGNCGeneSearchResult'>
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    info: (message: string, data?: Record<string, unknown>) => void
+    warn: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
 
   const route = useRoute()
   const genesStore = useGenesStore()
-  const logger = useLogger()
+  const logger = useLogger() as LoggerApi
 
   // State
   const loading = ref(true)
-  const error = ref(null)
-  const hgncData = ref(null)
+  const error = ref<string | null>(null)
+  const hgncData = ref<HgncGene | null>(null)
 
-  // Local gene data from database
-  const localGene = computed(() => genesStore.currentGene)
+  // Local gene data from database (store is JS, so its currentGene is typed null)
+  const localGene = computed(() => genesStore.currentGene as Gene | null)
 
   // Computed properties for aliases (prefer HGNC data, fallback to local)
-  const aliasSymbols = computed(() => {
+  const aliasSymbols = computed<string[]>(() => {
     return hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
   })
 
-  const previousSymbols = computed(() => {
+  const previousSymbols = computed<string[]>(() => {
     return hgncData.value?.previous_symbols || localGene.value?.previous_symbols || []
   })
 
@@ -269,7 +281,7 @@
   })
 
   // HGNC external URL
-  const hgncUrl = computed(() => {
+  const hgncUrl = computed<string>(() => {
     const hgncId = hgncData.value?.hgnc_id || localGene.value?.hgnc_id
     if (!hgncId) return ''
     const numericId = hgncId.replace('HGNC:', '')
@@ -279,7 +291,7 @@
   /**
    * Format date for display
    */
-  function formatDate(dateString) {
+  function formatDate(dateString: string | null | undefined): string {
     if (!dateString) return '—'
     const date = new Date(dateString)
     return date.toLocaleDateString(undefined, {
@@ -294,23 +306,25 @@
   /**
    * Fetch HGNC data for the gene
    */
-  async function fetchHgncData(hgncId) {
+  async function fetchHgncData(hgncId: string | null | undefined): Promise<void> {
     if (!hgncId) return
 
     try {
-      const response = await externalValidationAPI.fetchHGNCGene(hgncId)
+      const response = (await externalValidationAPI.fetchHGNCGene(hgncId)) as {
+        results?: HgncGene[]
+      }
 
       if (response.results && response.results.length > 0) {
-        hgncData.value = response.results[0]
+        hgncData.value = response.results[0] ?? null
         logger.debug('HGNC data fetched', {
           hgnc_id: hgncId,
-          symbol: hgncData.value.symbol
+          symbol: hgncData.value?.symbol
         })
       }
     } catch (e) {
       logger.warn('Failed to fetch HGNC data, using local data', {
         hgnc_id: hgncId,
-        error: e.message
+        error: (e as Error).message
       })
       // Don't set error - we can still show local data
     }
@@ -321,7 +335,7 @@
       loading.value = true
       error.value = null
 
-      const geneId = route.params.id
+      const geneId = route.params.id as string
       await genesStore.fetchGeneById(geneId)
 
       if (!localGene.value) {
@@ -339,9 +353,10 @@
         symbol: localGene.value.approved_symbol
       })
     } catch (err) {
+      const e = err as Error
       logger.error('Failed to load gene details', {
-        error: err.message,
-        stack: err.stack
+        error: e.message,
+        stack: e.stack
       })
       error.value = 'Failed to load gene details'
     } finally {
