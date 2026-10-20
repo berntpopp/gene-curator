@@ -206,15 +206,56 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
   import { ref, computed, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGenesStore, useAssignmentsStore } from '@/stores'
   import ScopeSelector from '@/components/dynamic/ScopeSelector.vue'
   import SchemaSelector from '@/components/dynamic/SchemaSelector.vue'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  interface ScopeOption {
+    id: string
+    name?: string
+    display_name?: string
+  }
+
+  interface SelectedSchemas {
+    workflowPair: { id: string }
+    precurationSchema: { id: string; name?: string }
+    curationSchema: { id: string; name?: string }
+  }
+
+  interface GeneOption {
+    id: string
+    symbol: string
+    name?: string
+    location?: string
+    assignment_status?: string
+  }
+
+  interface DiseaseOption {
+    id: string
+    name: string
+    omim_id: string
+    category: string
+  }
 
   const router = useRouter()
   const genesStore = useGenesStore()
@@ -222,10 +263,10 @@
 
   // Reactive state
   const currentStep = ref(1)
-  const selectedScope = ref(null)
-  const selectedSchemas = ref(null)
-  const selectedGene = ref(null)
-  const selectedDisease = ref(null)
+  const selectedScope = ref<ScopeOption | null>(null)
+  const selectedSchemas = ref<SelectedSchemas | null>(null)
+  const selectedGene = ref<GeneOption | null>(null)
+  const selectedDisease = ref<DiseaseOption | null>(null)
   const assignmentPriority = ref('medium')
   const assignmentDueDate = ref('')
   const assignmentNotes = ref('')
@@ -236,8 +277,8 @@
   const diseaseSearchQuery = ref('')
   const searchingGenes = ref(false)
   const searchingDiseases = ref(false)
-  const availableGenes = ref([])
-  const availableDiseases = ref([])
+  const availableGenes = ref<GeneOption[]>([])
+  const availableDiseases = ref<DiseaseOption[]>([])
 
   const priorityOptions = [
     { title: 'Low', value: 'low' },
@@ -253,18 +294,18 @@
   })
 
   // Step handlers
-  const handleScopeSelected = scope => {
+  const handleScopeSelected = (scope: ScopeOption) => {
     selectedScope.value = scope
     currentStep.value = 2
   }
 
-  const handleSchemasSelected = schemas => {
+  const handleSchemasSelected = (schemas: SelectedSchemas) => {
     selectedSchemas.value = schemas
     currentStep.value = 3
   }
 
   // Search functions
-  const searchGenes = async query => {
+  const searchGenes = async (query: string) => {
     if (!query || query.length < 2) {
       availableGenes.value = []
       return
@@ -280,14 +321,15 @@
       })
       availableGenes.value = results
     } catch (error) {
-      logger.error('Gene search failed:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Gene search failed:', { error: err.message, stack: err.stack })
       availableGenes.value = []
     } finally {
       searchingGenes.value = false
     }
   }
 
-  const searchDiseases = async query => {
+  const searchDiseases = async (query: string) => {
     if (!query || query.length < 2) {
       availableDiseases.value = []
       return
@@ -296,7 +338,7 @@
     searchingDiseases.value = true
     try {
       // Mock disease search - replace with actual API call
-      const mockDiseases = [
+      const mockDiseases: DiseaseOption[] = [
         {
           id: '1',
           name: 'Cardiomyopathy, Hypertrophic',
@@ -311,7 +353,8 @@
         d => d.name.toLowerCase().includes(query.toLowerCase()) || d.omim_id.includes(query)
       )
     } catch (error) {
-      logger.error('Disease search failed:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Disease search failed:', { error: err.message, stack: err.stack })
       availableDiseases.value = []
     } finally {
       searchingDiseases.value = false
@@ -319,8 +362,8 @@
   }
 
   // Helper functions
-  const getAssignmentStatusColor = status => {
-    const colorMap = {
+  const getAssignmentStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
       available: 'success',
       assigned: 'warning',
       in_progress: 'primary',
@@ -329,41 +372,47 @@
     return colorMap[status] || 'grey'
   }
 
-  const formatAssignmentStatus = status => {
+  const formatAssignmentStatus = (status: string) => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   // Create assignment
   const createAssignment = async () => {
-    if (!canCreateAssignment.value) return
+    const scope = selectedScope.value
+    const schemaSelection = selectedSchemas.value
+    const gene = selectedGene.value
+    const disease = selectedDisease.value
+    if (!scope || !schemaSelection || !gene || !disease) return
 
     creating.value = true
     try {
       const assignmentData = {
-        gene_id: selectedGene.value.id,
-        disease_id: selectedDisease.value.id,
-        scope_id: selectedScope.value.id,
-        workflow_pair_id: selectedSchemas.value.workflowPair.id,
+        gene_id: gene.id,
+        disease_id: disease.id,
+        scope_id: scope.id,
+        workflow_pair_id: schemaSelection.workflowPair.id,
         priority: assignmentPriority.value,
         due_date: assignmentDueDate.value || null,
         notes: assignmentNotes.value || null,
-        precuration_schema_id: selectedSchemas.value.precurationSchema.id,
-        curation_schema_id: selectedSchemas.value.curationSchema.id
+        precuration_schema_id: schemaSelection.precurationSchema.id,
+        curation_schema_id: schemaSelection.curationSchema.id
       }
 
+      // @ts-expect-error createAssignment is not defined on this store (pre-existing bug, see conversion report)
       const assignment = await assignmentsStore.createAssignment(assignmentData)
 
       // Navigate to the new assignment
       router.push({ name: 'AssignmentDetail', params: { id: assignment.id } })
     } catch (error) {
-      logger.error('Failed to create assignment:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to create assignment:', { error: err.message, stack: err.stack })
     } finally {
       creating.value = false
     }
   }
 
   // Watch for gene selection to trigger disease search
-  watch(selectedGene, gene => {
+  watch(selectedGene, (gene: GeneOption | null) => {
     if (gene) {
       // Auto-search for related diseases based on gene
       searchDiseases(gene.symbol)

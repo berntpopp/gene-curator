@@ -87,10 +87,18 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
@@ -100,7 +108,6 @@
   const authStore = useAuthStore()
 
   // Form state
-  const registerForm = ref(null)
   const formValid = ref(false)
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
@@ -113,21 +120,21 @@
 
   // Validation rules
   const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid'
+    (v: string) => !!v || 'Email is required',
+    (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
   const passwordRules = [
-    v => !!v || 'Password is required',
-    v => v.length >= 6 || 'Password must be at least 6 characters',
-    v => /(?=.*[a-z])/.test(v) || 'Password must contain at least one lowercase letter',
-    v => /(?=.*[A-Z])/.test(v) || 'Password must contain at least one uppercase letter',
-    v => /(?=.*\d)/.test(v) || 'Password must contain at least one number'
+    (v: string) => !!v || 'Password is required',
+    (v: string) => v.length >= 6 || 'Password must be at least 6 characters',
+    (v: string) => /(?=.*[a-z])/.test(v) || 'Password must contain at least one lowercase letter',
+    (v: string) => /(?=.*[A-Z])/.test(v) || 'Password must contain at least one uppercase letter',
+    (v: string) => /(?=.*\d)/.test(v) || 'Password must contain at least one number'
   ]
 
   const confirmPasswordRules = [
-    v => !!v || 'Please confirm your password',
-    v => v === userData.password || 'Passwords do not match'
+    (v: string) => !!v || 'Please confirm your password',
+    (v: string) => v === userData.password || 'Passwords do not match'
   ]
 
   const handleRegister = async () => {
@@ -141,7 +148,8 @@
       showSuccess('Account created successfully! You are now logged in.')
       router.push({ name: 'Home' })
     } catch (error) {
-      logger.error('Registration error:', { error: error.message, stack: error.stack })
+      const err = error as Error
+      logger.error('Registration error:', { error: err.message, stack: err.stack })
       showError('Registration failed. Please try again.')
     }
   }

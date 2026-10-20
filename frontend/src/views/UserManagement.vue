@@ -30,7 +30,7 @@
               <v-icon color="primary" size="32" class="me-3">mdi-account-group</v-icon>
               <div>
                 <div class="text-h5 font-weight-bold">
-                  {{ usersStore.statistics.total_users || 0 }}
+                  {{ statistics.total_users || 0 }}
                 </div>
                 <div class="text-caption text-medium-emphasis">Total Users</div>
               </div>
@@ -45,7 +45,7 @@
               <v-icon color="success" size="32" class="me-3">mdi-account-check</v-icon>
               <div>
                 <div class="text-h5 font-weight-bold">
-                  {{ usersStore.statistics.active_users || 0 }}
+                  {{ statistics.active_users || 0 }}
                 </div>
                 <div class="text-caption text-medium-emphasis">Active Users</div>
               </div>
@@ -60,7 +60,7 @@
               <v-icon color="warning" size="32" class="me-3">mdi-account-off</v-icon>
               <div>
                 <div class="text-h5 font-weight-bold">
-                  {{ usersStore.statistics.inactive_users || 0 }}
+                  {{ statistics.inactive_users || 0 }}
                 </div>
                 <div class="text-caption text-medium-emphasis">Inactive Users</div>
               </div>
@@ -75,7 +75,7 @@
               <v-icon color="info" size="32" class="me-3">mdi-account-clock</v-icon>
               <div>
                 <div class="text-h5 font-weight-bold">
-                  {{ usersStore.statistics.recent_registrations || 0 }}
+                  {{ statistics.recent_registrations || 0 }}
                 </div>
                 <div class="text-caption text-medium-emphasis">Recent (30d)</div>
               </div>
@@ -115,7 +115,7 @@
     <v-card>
       <v-data-table
         :headers="headers"
-        :items="usersStore.paginatedUsers"
+        :items="paginatedUsers"
         :loading="usersStore.loading"
         loading-text="Loading users..."
         no-data-text="No users found"
@@ -289,75 +289,7 @@
       </v-card>
     </v-dialog>
 
-    <!-- User Details Dialog -->
-    <v-dialog v-model="detailsDialog" max-width="800">
-      <v-card v-if="selectedUser">
-        <v-card-title class="text-h5"> User Details: {{ selectedUser.name }} </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="12" md="6">
-              <v-list>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon>mdi-email</v-icon>
-                  </template>
-                  <v-list-item-title>{{ selectedUser.email }}</v-list-item-title>
-                  <v-list-item-subtitle>Email</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon>mdi-shield-account</v-icon>
-                  </template>
-                  <v-list-item-title>
-                    <v-chip :color="getRoleColor(selectedUser.role)" size="small">
-                      {{ selectedUser.role }}
-                    </v-chip>
-                  </v-list-item-title>
-                  <v-list-item-subtitle>Role</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon>mdi-clock</v-icon>
-                  </template>
-                  <v-list-item-title>{{ formatDate(selectedUser.created_at) }}</v-list-item-title>
-                  <v-list-item-subtitle>Created</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <template #prepend>
-                    <v-icon>mdi-login</v-icon>
-                  </template>
-                  <v-list-item-title>
-                    {{ selectedUser.last_login ? formatDate(selectedUser.last_login) : 'Never' }}
-                  </v-list-item-title>
-                  <v-list-item-subtitle>Last Login</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-col>
-            <v-col v-if="userActivity" cols="12" md="6">
-              <h3 class="mb-3">Activity Summary</h3>
-              <v-list>
-                <v-list-item>
-                  <v-list-item-title>{{ userActivity.genes_created || 0 }}</v-list-item-title>
-                  <v-list-item-subtitle>Genes Created</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>{{ userActivity.curations_created || 0 }}</v-list-item-title>
-                  <v-list-item-subtitle>Curations Created</v-list-item-subtitle>
-                </v-list-item>
-                <v-list-item>
-                  <v-list-item-title>{{ userActivity.total_contributions || 0 }}</v-list-item-title>
-                  <v-list-item-subtitle>Total Contributions</v-list-item-subtitle>
-                </v-list-item>
-              </v-list>
-            </v-col>
-          </v-row>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="detailsDialog = false"> Close </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <UserDetailsDialog v-model="detailsDialog" :user="selectedUser" :activity="userActivity" />
 
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="400">
@@ -387,17 +319,29 @@
   </v-container>
 </template>
 
-<script setup>
-  import { ref, onMounted, watch } from 'vue'
+<script setup lang="ts">
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useUsersStore } from '@/stores/users'
+  import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
+  import {
+    formatDate,
+    getRoleColor,
+    getRoleIcon,
+    type UserRecord
+  } from '@/views/user-management/userManagementHelpers'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+  }
 
   // Simple debounce function
-  function debounce(func, wait) {
-    let timeout
-    return function (...args) {
+  function debounce<A extends unknown[]>(func: (...args: A) => unknown, wait: number) {
+    let timeout: ReturnType<typeof setTimeout> | undefined
+    return function (...args: A) {
       const later = () => {
         clearTimeout(timeout)
-        func.apply(this, args)
+        func(...args)
       }
       clearTimeout(timeout)
       timeout = setTimeout(later, wait)
@@ -412,12 +356,22 @@
   const userDialog = ref(false)
   const detailsDialog = ref(false)
   const deleteDialog = ref(false)
-  const editingUser = ref(null)
-  const userToDelete = ref(null)
-  const selectedUser = ref(null)
-  const userActivity = ref(null)
+  // The store types these as untyped JS state; narrow them to the shapes this view renders
+  interface UserStatistics {
+    total_users?: number
+    active_users?: number
+    inactive_users?: number
+    recent_registrations?: number
+  }
+  const statistics = computed((): UserStatistics => usersStore.statistics)
+  const paginatedUsers = computed((): UserRecord[] => usersStore.paginatedUsers)
+
+  const editingUser = ref<UserRecord | null>(null)
+  const userToDelete = ref<UserRecord | null>(null)
+  const selectedUser = ref<UserRecord | null>(null)
+  const userActivity = ref<Record<string, unknown> | null>(null)
   const formValid = ref(false)
-  const userForm = ref(null)
+  const userForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   // Snackbar
   const snackbar = ref({
@@ -457,16 +411,16 @@
 
   // Form validation rules
   const rules = {
-    required: value => !!value || 'This field is required',
-    email: value => {
+    required: (value: unknown) => !!value || 'This field is required',
+    email: (value: string) => {
       const pattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
       return pattern.test(value) || 'Invalid email address'
     },
-    minLength: value => (value && value.length >= 8) || 'Minimum 8 characters required'
+    minLength: (value: string) => (value && value.length >= 8) || 'Minimum 8 characters required'
   }
 
   // Debounced search
-  const debouncedSearch = debounce(async query => {
+  const debouncedSearch = debounce(async (query: string) => {
     if (query) {
       await usersStore.searchUsers(query)
     } else {
@@ -475,35 +429,6 @@
   }, 300)
 
   // Methods
-  function getRoleColor(role) {
-    const roleColors = {
-      admin: 'error',
-      curator: 'warning',
-      viewer: 'info'
-    }
-    return roleColors[role] || 'primary'
-  }
-
-  function getRoleIcon(role) {
-    const roleIcons = {
-      admin: 'mdi-shield-crown',
-      curator: 'mdi-pencil',
-      viewer: 'mdi-eye'
-    }
-    return roleIcons[role] || 'mdi-account'
-  }
-
-  function formatDate(date) {
-    if (!date) return 'N/A'
-    return new Date(date).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   async function refreshUsers() {
     try {
       await usersStore.fetchUsers()
@@ -532,7 +457,7 @@
     userDialog.value = true
   }
 
-  function editUser(user) {
+  function editUser(user: UserRecord) {
     editingUser.value = user
     userFormData.value = {
       name: user.name,
@@ -568,11 +493,11 @@
       }
       userDialog.value = false
     } catch (error) {
-      showSnackbar(error.message || 'Failed to save user', 'error')
+      showSnackbar((error as ApiError).message || 'Failed to save user', 'error')
     }
   }
 
-  async function viewUser(user) {
+  async function viewUser(user: UserRecord) {
     try {
       selectedUser.value = user
       userActivity.value = await usersStore.fetchUserActivity(user.id)
@@ -582,7 +507,7 @@
     }
   }
 
-  async function activateUser(user) {
+  async function activateUser(user: UserRecord) {
     try {
       await usersStore.activateUser(user.id)
       showSnackbar(`User ${user.name} activated successfully`, 'success')
@@ -591,7 +516,7 @@
     }
   }
 
-  async function deactivateUser(user) {
+  async function deactivateUser(user: UserRecord) {
     try {
       await usersStore.deactivateUser(user.id)
       showSnackbar(`User ${user.name} deactivated successfully`, 'warning')
@@ -600,7 +525,7 @@
     }
   }
 
-  function confirmDeleteUser(user) {
+  function confirmDeleteUser(user: UserRecord) {
     userToDelete.value = user
     deleteDialog.value = true
   }
@@ -618,7 +543,7 @@
     }
   }
 
-  async function resetPassword(user) {
+  async function resetPassword(user: UserRecord) {
     const newPassword = prompt(`Enter new password for ${user.name}:`)
     if (!newPassword || newPassword.length < 8) {
       showSnackbar('Password must be at least 8 characters long', 'error')
@@ -633,7 +558,7 @@
     }
   }
 
-  function showSnackbar(message, color = 'success') {
+  function showSnackbar(message: string, color = 'success') {
     snackbar.value = {
       show: true,
       message,

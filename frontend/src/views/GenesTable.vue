@@ -108,7 +108,7 @@
       <v-card>
         <v-data-table
           :headers="headers"
-          :items="genesStore.genes"
+          :items="genes"
           :loading="genesStore.loading"
           :items-per-page="genesStore.pagination.per_page"
           class="gene-table"
@@ -243,7 +243,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
@@ -254,10 +254,24 @@
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
 
+  // Row shape used by this table; the store's state is untyped JS
+  interface GeneRow {
+    id: string
+    approved_symbol: string
+    hgnc_id?: string
+    previous_symbols?: string[]
+    gene_family?: string[] | null
+    chromosome?: string | null
+    location?: string | null
+    details?: { clingen_score?: number }
+  }
+
+  const genes = computed(() => genesStore.genes as GeneRow[])
+
   // Search and filter state
   const searchQuery = ref('')
-  const selectedFamily = ref(null)
-  const selectedChromosome = ref(null)
+  const selectedFamily = ref<string | null>(null)
+  const selectedChromosome = ref<string | null>(null)
   const sortBy = ref('approved_symbol_asc')
   const currentPage = ref(1)
 
@@ -300,7 +314,7 @@
       width: '100px',
       align: 'center'
     }
-  ]
+  ] as const
 
   const sortOptions = [
     { title: 'Gene Symbol (A-Z)', value: 'approved_symbol_asc' },
@@ -311,12 +325,12 @@
 
   // Computed values
   const isSearching = computed(() => {
-    return searchQuery.value || selectedFamily.value || selectedChromosome.value
+    return Boolean(searchQuery.value || selectedFamily.value || selectedChromosome.value)
   })
 
   const uniqueFamilies = computed(() => {
-    const families = new Set()
-    genesStore.genes.forEach(gene => {
+    const families = new Set<string>()
+    genes.value.forEach(gene => {
       if (gene.gene_family) {
         gene.gene_family.forEach(family => families.add(family))
       }
@@ -325,8 +339,8 @@
   })
 
   const uniqueChromosomes = computed(() => {
-    const chromosomes = new Set()
-    genesStore.genes.forEach(gene => {
+    const chromosomes = new Set<string>()
+    genes.value.forEach(gene => {
       if (gene.chromosome) {
         chromosomes.add(gene.chromosome)
       }
@@ -341,7 +355,7 @@
   })
 
   // Debounced search
-  let searchTimeout = null
+  let searchTimeout: ReturnType<typeof setTimeout> | undefined
   const debounceSearch = () => {
     clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => {
@@ -362,17 +376,17 @@
     await performSearch()
   }
 
-  const handlePageChange = async page => {
+  const handlePageChange = async (page: number) => {
     currentPage.value = page
     // Update pagination and fetch new page
     await genesStore.fetchGenes({ page })
   }
 
-  const handleRowClick = (event, { item }) => {
+  const handleRowClick = (_event: Event, { item }: { item: { id: string } }) => {
     router.push({ name: 'GeneDetail', params: { id: item.id } })
   }
 
-  const editGene = gene => {
+  const editGene = (gene: { id: string }) => {
     router.push({ name: 'GeneAdmin', query: { edit: gene.id } })
   }
 
@@ -412,7 +426,7 @@
     }
   }
 
-  const getScoreColor = score => {
+  const getScoreColor = (score: number) => {
     if (score >= 8) return 'success'
     if (score >= 5) return 'warning'
     if (score >= 2) return 'info'
@@ -420,7 +434,7 @@
   }
 
   // Watchers
-  watch(currentPage, newPage => {
+  watch(currentPage, (newPage: number) => {
     genesStore.pagination.page = newPage
   })
 
