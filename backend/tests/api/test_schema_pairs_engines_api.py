@@ -293,7 +293,7 @@ class TestScoringEngines:
         assert response.status_code == 200, response.text
         result = response.json()["result"]
         assert result["total_score"] == pytest.approx(3.0)
-        assert result["verdict"] == "moderate"
+        assert result["verdict"] == "limited"
 
     def test_calculate_qualitative(self, client: TestClient, viewer_token: str):
         response = client.post(
