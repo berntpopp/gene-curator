@@ -18,7 +18,7 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
-import { createRouter, createMemoryHistory } from 'vue-router'
+import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import BaseNavigationItem from '../BaseNavigationItem.vue'
 
 // Create a simple router for testing
@@ -42,7 +42,7 @@ const createTestRouter = () => {
 }
 
 describe('BaseNavigationItem', () => {
-  let router
+  let router: Router
 
   beforeEach(async () => {
     router = createTestRouter()
@@ -418,6 +418,7 @@ describe('BaseNavigationItem', () => {
   describe('Edge Cases', () => {
     it('should handle missing label gracefully', () => {
       const wrapper = mount(BaseNavigationItem, {
+        // @ts-expect-error the missing required label is the point of this test
         props: {},
         global: {
           plugins: [router]

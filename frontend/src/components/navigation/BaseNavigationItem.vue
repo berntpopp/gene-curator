@@ -1,7 +1,7 @@
 <template>
   <v-list-item
-    :to="to"
-    :href="href"
+    :to="to ?? undefined"
+    :href="href ?? undefined"
     :target="href ? '_blank' : undefined"
     :rel="href ? 'noopener noreferrer' : undefined"
     :disabled="disabled"
@@ -11,7 +11,7 @@
     @click="handleClick"
   >
     <template v-if="icon" #prepend>
-      <v-icon :color="iconColor">{{ icon }}</v-icon>
+      <v-icon :color="iconColor ?? undefined">{{ icon }}</v-icon>
     </template>
 
     <v-list-item-title>
@@ -26,7 +26,7 @@
   </v-list-item>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * BaseNavigationItem Component
    *
@@ -53,87 +53,42 @@
    */
 
   import { computed } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { useRoute, type RouteLocationRaw } from 'vue-router'
 
-  const props = defineProps({
-    /**
-     * Router link destination
-     * Use this for internal navigation
-     */
-    to: {
-      type: Object,
-      default: null
-    },
-
-    /**
-     * External link href
-     * Use this for external links
-     */
-    href: {
-      type: String,
-      default: null
-    },
-
-    /**
-     * Icon name (Material Design Icons)
-     */
-    icon: {
-      type: String,
-      default: null
-    },
-
-    /**
-     * Icon color (Vuetify color)
-     */
-    iconColor: {
-      type: String,
-      default: null
-    },
-
-    /**
-     * Item label text
-     */
-    label: {
-      type: String,
-      required: true
-    },
-
-    /**
-     * Badge content (number or string)
-     * Shows a badge on the right side
-     */
-    badge: {
-      type: [String, Number],
-      default: null
-    },
-
-    /**
-     * Badge color (Vuetify color)
-     */
-    badgeColor: {
-      type: String,
-      default: 'error'
-    },
-
-    /**
-     * Disabled state
-     */
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-
-    /**
-     * ARIA label override
-     * Defaults to label if not provided
-     */
-    ariaLabel: {
-      type: String,
-      default: null
+  const props = withDefaults(
+    defineProps<{
+      /** Router link destination (internal navigation) */
+      to?: RouteLocationRaw | null
+      /** External link href (external links) */
+      href?: string | null
+      /** Icon name (Material Design Icons) */
+      icon?: string | null
+      /** Icon color (Vuetify color) */
+      iconColor?: string | null
+      /** Item label text */
+      label: string
+      /** Badge content, shown on the right side */
+      badge?: string | number | null
+      /** Badge color (Vuetify color) */
+      badgeColor?: string
+      /** Disabled state */
+      disabled?: boolean
+      /** ARIA label override, defaults to label */
+      ariaLabel?: string | null
+    }>(),
+    {
+      to: null,
+      href: null,
+      icon: null,
+      iconColor: null,
+      badge: null,
+      badgeColor: 'error',
+      disabled: false,
+      ariaLabel: null
     }
-  })
+  )
 
-  const emit = defineEmits(['click'])
+  const emit = defineEmits<{ click: [event: Event] }>()
 
   const route = useRoute()
 
@@ -141,16 +96,17 @@
    * Check if this item is the current page
    */
   const isCurrent = computed(() => {
-    if (!props.to) return false
+    const target = props.to
+    if (!target || typeof target === 'string') return false
 
     // Match by route name
-    if (props.to.name) {
-      return route.name === props.to.name
+    if ('name' in target && target.name) {
+      return route.name === target.name
     }
 
     // Match by route path
-    if (props.to.path) {
-      return route.path === props.to.path
+    if ('path' in target && target.path) {
+      return route.path === target.path
     }
 
     return false
@@ -169,7 +125,7 @@
    * Handle click event
    * Only emits for non-link items (no to or href)
    */
-  const handleClick = event => {
+  const handleClick = (event: Event) => {
     if (!props.to && !props.href) {
       event.preventDefault()
       emit('click', event)

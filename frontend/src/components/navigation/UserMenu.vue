@@ -54,7 +54,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * UserMenu Component
    *
@@ -79,11 +79,37 @@
   import { TERMINOLOGY } from '@/config/terminology'
   import NotificationBadge from './NotificationBadge.vue'
   import BaseNavigationItem from './BaseNavigationItem.vue'
+  import type { RouteRecordNormalized } from 'vue-router'
+
+  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
+  type LogFn = (message: string, data?: Record<string, unknown>) => void
+  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
+
+  type NotificationPriority = 'critical' | 'warning' | 'info'
+
+  /** Route meta keys this menu reads (vue-router meta is untyped here) */
+  interface MenuRouteMeta {
+    icon?: string
+    label?: string
+    title?: string
+    order?: number
+    showInUserMenu?: boolean
+    requiresAuth?: boolean
+    requiredRoles?: string[]
+  }
+
+  /** Auth store user fields shown in the menu (store state is typed null) */
+  interface MenuUser {
+    email?: string
+    role?: string
+  }
+
+  const metaOf = (route: RouteRecordNormalized): MenuRouteMeta => route.meta as MenuRouteMeta
 
   const router = useRouter()
   const authStore = useAuthStore()
   const notificationsStore = useNotificationsStore()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
   /**
    * User menu items from router
@@ -91,22 +117,23 @@
   const userMenuItems = computed(() => {
     return router
       .getRoutes()
-      .filter(route => route.meta?.showInUserMenu === true)
+      .filter(route => metaOf(route).showInUserMenu === true)
       .filter(route => {
-        if (route.meta.requiresAuth && !authStore.isAuthenticated) {
+        if (metaOf(route).requiresAuth && !authStore.isAuthenticated) {
           return false
         }
-        if (route.meta.requiredRoles) {
-          return authStore.hasAnyRole(route.meta.requiredRoles)
+        const requiredRoles = metaOf(route).requiredRoles
+        if (requiredRoles) {
+          return authStore.hasAnyRole(requiredRoles)
         }
         return true
       })
       .map(route => ({
         name: route.name,
         to: { name: route.name },
-        icon: route.meta.icon,
-        label: route.meta.label || route.meta.title,
-        order: route.meta.order || 999
+        icon: metaOf(route).icon,
+        label: metaOf(route).label || metaOf(route).title || '',
+        order: metaOf(route).order || 999
       }))
       .sort((a, b) => a.order - b.order)
   })
@@ -115,25 +142,29 @@
    * User authentication state
    */
   const isAuthenticated = computed(() => authStore.isAuthenticated)
-  const user = computed(() => authStore.user)
+  const user = computed(() => authStore.user as MenuUser | null)
 
   /**
    * User role label
    */
   const roleLabel = computed(() => {
-    const role = authStore.user?.role
+    const role = user.value?.role
     if (!role) return ''
 
     // Use terminology for consistent role names
     const roleKey = role.toUpperCase().replace(/-/g, '_')
-    return TERMINOLOGY[roleKey] || role
+    const terminology: Record<string, string> = TERMINOLOGY
+    return terminology[roleKey] || role
   })
 
   /**
    * Notification counts from store
    */
   const totalUnread = computed(() => notificationsStore.totalUnread)
-  const highestPriority = computed(() => notificationsStore.highestPriority)
+  // The notifications store does not define highestPriority today, so this is undefined and the badge keeps its default priority
+  const highestPriority = computed(
+    () => (notificationsStore as { highestPriority?: NotificationPriority }).highestPriority
+  )
 
   /**
    * Handle user logout
@@ -144,7 +175,8 @@
       router.push({ name: 'Home' })
       logger.info('User logged out')
     } catch (error) {
-      logger.error('Logout error:', { error: error.message, stack: error.stack })
+      const err = error instanceof Error ? error : undefined
+      logger.error('Logout error:', { error: err?.message, stack: err?.stack })
     }
   }
 

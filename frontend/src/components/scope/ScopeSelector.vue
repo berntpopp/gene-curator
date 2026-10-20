@@ -83,7 +83,7 @@
   </v-menu>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useRouter } from 'vue-router'
@@ -91,22 +91,46 @@
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useLogger } from '@/composables/useLogger'
 
+  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
+  type LogFn = (message: string, data?: Record<string, unknown>) => void
+  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
+
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
+  /** Scope as listed in the selector, with the current user's role in it */
+  interface UserScope {
+    id: string
+    name: string
+    display_name: string
+    is_public: boolean
+    user_role: string
+  }
+
+  /** Narrowed view of useRoleColors() (its JSDoc types the return as Object) */
+  interface RoleColorUtils {
+    getRoleColor: (role: string) => string
+    getRoleIcon: (role: string) => string
+  }
+
+  /** Narrowed view of useScopeUtils() (its JSDoc types the return as Object) */
+  interface ScopeUtils {
+    getScopeVisibilityIcon: (isPublic: boolean) => string
+  }
+
   const scopeStore = useScopesStore()
   const router = useRouter()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon } = useScopeUtils()
-  const logger = useLogger()
+  const { getRoleColor, getRoleIcon } = useRoleColors() as RoleColorUtils
+  const { getScopeVisibilityIcon } = useScopeUtils() as ScopeUtils
+  const logger = useLogger() as ComponentLogger
 
   // ============================================
   // COMPUTED PROPERTIES
   // ============================================
 
-  const currentScope = computed(() => scopeStore.currentScope)
-  const userScopes = computed(() => scopeStore.userScopes)
+  const currentScope = computed(() => scopeStore.currentScope as UserScope | null)
+  const userScopes = computed(() => scopeStore.userScopes as UserScope[])
   const loading = computed(() => scopeStore.loading)
 
   // ============================================
@@ -117,7 +141,7 @@
    * Select a scope and navigate to its dashboard
    * @param {Object} scope - Selected scope object
    */
-  const selectScope = scope => {
+  const selectScope = (scope: UserScope) => {
     logger.info('Scope selected', {
       scope_id: scope.id,
       scope_name: scope.name,
@@ -149,9 +173,10 @@
       logger.debug('Fetching user scopes')
       await scopeStore.fetchUserScopes()
     } catch (error) {
+      const err = error instanceof Error ? error : undefined
       logger.error('Failed to load scopes', {
-        error: error.message,
-        stack: error.stack
+        error: err?.message,
+        stack: err?.stack
       })
     }
   })

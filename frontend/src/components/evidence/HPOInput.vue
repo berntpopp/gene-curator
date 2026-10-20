@@ -108,7 +108,7 @@
   </v-combobox>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * HPOInput Component
    *
@@ -136,38 +136,42 @@
   import { useExternalValidationStore } from '@/stores/externalValidation'
   import { useLogger } from '@/composables/useLogger'
 
-  const props = defineProps({
-    modelValue: {
-      type: Array,
-      default: () => []
-    },
-    label: {
-      type: String,
-      default: 'HPO Terms'
-    },
-    hint: {
-      type: String,
-      default: 'Enter HPO IDs (e.g., HP:0001250). Press Enter to add multiple.'
-    },
-    required: {
-      type: Boolean,
-      default: false
-    },
-    validateOnMount: {
-      type: Boolean,
-      default: false
+  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
+  type LogFn = (message: string, data?: Record<string, unknown>) => void
+  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
+
+  /** Per-term result returned by the external validation endpoint */
+  interface HPOTermResult {
+    is_valid: boolean
+    data?: { term_name?: string; definition?: string } | null
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string[]
+      label?: string
+      hint?: string
+      required?: boolean
+      validateOnMount?: boolean
+    }>(),
+    {
+      modelValue: () => [],
+      label: 'HPO Terms',
+      hint: 'Enter HPO IDs (e.g., HP:0001250). Press Enter to add multiple.',
+      required: false,
+      validateOnMount: false
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue'])
+  const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const validationStore = useExternalValidationStore()
 
-  const internalTerms = ref([...(props.modelValue || [])])
-  const validationResults = ref(new Map())
+  const internalTerms = ref<string[]>([...(props.modelValue || [])])
+  const validationResults = ref(new Map<string, HPOTermResult>())
   const isValidating = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // Sync with parent
   watch(
@@ -217,8 +221,9 @@
         invalid: invalidCount.value
       })
     } catch (e) {
-      error.value = e.message || 'HPO validation failed'
-      logger.error('HPO validation error', { error: e.message })
+      const message = e instanceof Error ? e.message : undefined
+      error.value = message || 'HPO validation failed'
+      logger.error('HPO validation error', { error: message })
     } finally {
       isValidating.value = false
     }
@@ -242,7 +247,7 @@
   /**
    * Get validation result for an HPO term
    */
-  function getValidationResult(term) {
+  function getValidationResult(term: string): HPOTermResult | undefined {
     // Check component cache first
     if (validationResults.value.has(term)) {
       return validationResults.value.get(term)
@@ -254,7 +259,7 @@
   /**
    * Get term name from validation result
    */
-  function getTermName(term) {
+  function getTermName(term: string): string {
     const result = getValidationResult(term)
     return result?.data?.term_name || ''
   }
@@ -262,7 +267,7 @@
   /**
    * Get term definition from validation result
    */
-  function getTermDefinition(term) {
+  function getTermDefinition(term: string): string {
     const result = getValidationResult(term)
     return result?.data?.definition || ''
   }
@@ -270,7 +275,7 @@
   /**
    * Determine chip color based on validation state
    */
-  function getChipColor(term) {
+  function getChipColor(term: string): string {
     if (isValidating.value) return 'primary'
     const result = getValidationResult(term)
     if (!result) return 'default'
@@ -280,7 +285,7 @@
   /**
    * Get icon for chip based on validation state
    */
-  function getChipIcon(term) {
+  function getChipIcon(term: string): string {
     if (isValidating.value) return 'mdi-loading mdi-spin'
     const result = getValidationResult(term)
     if (!result) return ''
@@ -304,7 +309,7 @@
   })
 
   // Error messages for form validation
-  const errorMessages = computed(() => {
+  const errorMessages = computed<string[]>(() => {
     if (error.value) return [error.value]
     if (props.required && internalTerms.value.length === 0) {
       return ['At least one HPO term is required']
