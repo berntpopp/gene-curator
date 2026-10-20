@@ -5096,8 +5096,8 @@ export interface components {
             is_active: boolean;
             /**
              * Priority
-             * @description Assignment priority (high, normal, low)
-             * @default normal
+             * @description Assignment priority (high, medium, low)
+             * @default medium
              */
             priority: string;
             /**
@@ -5380,8 +5380,8 @@ export interface components {
             is_active: boolean;
             /**
              * Priority
-             * @description Assignment priority (high, normal, low)
-             * @default normal
+             * @description Assignment priority (high, medium, low)
+             * @default medium
              */
             priority: string;
             /**

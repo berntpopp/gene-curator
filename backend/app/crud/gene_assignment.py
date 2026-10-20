@@ -16,6 +16,7 @@ from app.models import (
     Gene,
     GeneScopeAssignment,
     PrecurationNew,
+    ScopeMembership,
     UserNew,
 )
 from app.schemas.gene_assignment import (
@@ -250,9 +251,14 @@ class CRUDGeneScopeAssignment(
         return result
 
     def create_assignment(
-        self, db: Session, *, obj_in: GeneScopeAssignmentCreate, assigned_by: UUID
+        self,
+        db: Session,
+        *,
+        obj_in: GeneScopeAssignmentCreate,
+        assigned_by: UUID,
+        commit: bool = True,
     ) -> GeneScopeAssignment:
-        """Create new gene-scope assignment."""
+        """Create new gene-scope assignment (commit=False only flushes, for bulk runs)."""
         # Check if assignment already exists
         existing = self.get_by_gene_and_scope(
             db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id
@@ -273,13 +279,13 @@ class CRUDGeneScopeAssignment(
             for field, value in obj_in_data.items():
                 setattr(existing, field, value)
             existing.is_active = True
+            db_obj = existing
+        else:
+            db_obj = GeneScopeAssignment(**obj_in_data)
+            db.add(db_obj)
+        db.flush()
+        if commit:
             db.commit()
-            db.refresh(existing)
-            return existing
-
-        db_obj = GeneScopeAssignment(**obj_in_data)
-        db.add(db_obj)
-        db.commit()
         db.refresh(db_obj)
         return db_obj
 
@@ -501,19 +507,28 @@ class CRUDGeneScopeAssignment(
         """Bulk assign multiple genes to a scope.
 
         A gene already active in the scope without a curator gets the curator
-        (and priority) set instead of being skipped. All of those updates commit
-        together, after the curator has been validated, so they are all-or-nothing.
+        (and priority) set instead of being skipped. The whole run is one
+        transaction: any failure rolls everything back and raises ValueError.
         """
         created_assignments = []
         skipped_assignments = []
-        errors = []
         updated: list[GeneScopeAssignment] = []
 
         if curator_id:
             curator = db.get(UserNew, curator_id)
             if not curator:
                 raise ValueError("Curator not found")
-            if not ScopePermissionService.has_scope_access(db, curator, scope_id):
+            # No admin bypass: the assignee must be an accepted curator/admin member
+            is_curator = db.scalar(
+                select(ScopeMembership.id).where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.user_id == curator_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
+                    ScopeMembership.role.in_(["curator", "admin"]),
+                )
+            )
+            if not is_curator:
                 raise ValueError("Curator does not have access to this scope")
 
         for gene_id in gene_ids:
@@ -551,25 +566,27 @@ class CRUDGeneScopeAssignment(
                 )
 
                 assignment = self.create_assignment(
-                    db, obj_in=assignment_data, assigned_by=assigned_by
+                    db, obj_in=assignment_data, assigned_by=assigned_by, commit=False
                 )
                 created_assignments.append(assignment)
 
             except Exception as e:
-                errors.append({"gene_id": gene_id, "error": str(e)})
+                db.rollback()
+                raise ValueError(
+                    f"Bulk assignment failed for gene {gene_id}: {e}"
+                ) from e
 
-        if updated:
-            db.commit()
-            created_assignments.extend(updated)
+        db.commit()
+        created_assignments.extend(updated)
 
         return {
             "created_assignments": created_assignments,
             "skipped_assignments": skipped_assignments,
-            "errors": errors,
+            "errors": [],
             "total_processed": len(gene_ids),
             "total_created": len(created_assignments),
             "total_skipped": len(skipped_assignments),
-            "total_errors": len(errors),
+            "total_errors": 0,
         }
 
     def get_curator_workload(

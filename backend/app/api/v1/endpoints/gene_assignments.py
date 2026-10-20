@@ -369,7 +369,7 @@ def bulk_create_gene_assignments(
     """
     Bulk create gene-scope assignments. Available to all authenticated users with scope access.
     """
-    if not ScopePermissionService.has_scope_access(
+    if not ScopePermissionService.can_edit_gene_assignment(
         db, current_user, bulk_request.scope_id
     ):
         raise HTTPException(
