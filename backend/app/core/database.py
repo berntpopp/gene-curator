@@ -141,39 +141,3 @@ async def get_async_db() -> AsyncSession:  # type: ignore[misc]
             logger.error("Async database error", error=e)
             await session.rollback()
             raise
-
-
-def init_db() -> None:
-    """Initialize database by creating all tables."""
-    # Lazy import to avoid circular dependency
-    from app.core.logging import get_logger
-
-    logger = get_logger(__name__)
-
-    logger.info("Initializing database...")
-    Base.metadata.create_all(bind=engine)
-    logger.info("Database initialization complete.")
-
-
-def check_db_connection() -> bool:
-    """
-    Check database connection health.
-
-    Returns:
-        bool: True if connection is healthy, False otherwise
-    """
-    # Lazy import to avoid circular dependency
-    from app.core.logging import get_logger
-
-    logger = get_logger(__name__)
-
-    try:
-        from sqlalchemy import text
-
-        with engine.connect() as connection:
-            result = connection.execute(text("SELECT 1"))
-            row = result.fetchone()
-            return row is not None and row[0] == 1
-    except Exception as e:
-        logger.error("Database connection check failed", error=e)
-        return False

@@ -3,7 +3,7 @@ Multi-stage workflow engine for schema-agnostic curation system.
 Implements the 5-stage pipeline: Entry → Precuration → Curation → Review → Active
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -251,7 +251,7 @@ class WorkflowEngine:
             from_stage=current_stage,
             to_stage=target_stage,
             executed_by=user_id,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(UTC),
             notes=notes,
             metadata=metadata or {},
             **transition_result,
@@ -289,7 +289,7 @@ class WorkflowEngine:
             pending_reviews=pending_reviews,
             progress_metrics=progress_metrics,
             last_updated=(
-                item.updated_at if hasattr(item, "updated_at") else datetime.utcnow()
+                item.updated_at if hasattr(item, "updated_at") else datetime.now(UTC)
             ),
             last_updated_by=item.updated_by if hasattr(item, "updated_by") else None,
         )
@@ -332,7 +332,7 @@ class WorkflowEngine:
             reviewer_id=reviewer_id,
             assigned_by=assigned_by,
             status=ReviewStatus.PENDING,
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(UTC),
         )
 
         db.add(review)
@@ -409,7 +409,7 @@ class WorkflowEngine:
         review.recommendation = decision
         review.comments = comments
         review.feedback_data = suggested_changes or {}
-        review.reviewed_at = datetime.utcnow()
+        review.reviewed_at = datetime.now(UTC)
 
         db.commit()
 
@@ -480,7 +480,7 @@ class WorkflowEngine:
         """Get workflow performance statistics."""
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         # Base queries
         precuration_stmt = select(PrecurationNew).where(
@@ -957,11 +957,11 @@ class WorkflowEngine:
 
             replaced_curation_id = None
             if existing_active:
-                # Archive the existing active curation
-                existing_active.archived_at = datetime.utcnow()
+                existing_active.archived_at = datetime.now(UTC)
                 existing_active.archived_by = user_id
                 existing_active.archive_reason = "Replaced by new active curation"
                 replaced_curation_id = existing_active.curation_id
+                db.flush()  # archive UPDATE must precede the new row's INSERT
 
             # Create new active curation record
             active_curation = ActiveCuration(
@@ -969,7 +969,7 @@ class WorkflowEngine:
                 scope_id=item.scope_id,
                 curation_id=item.id if hasattr(item, "id") else None,
                 activated_by=user_id,
-                activated_at=datetime.utcnow(),
+                activated_at=datetime.now(UTC),
                 replaced_curation_id=replaced_curation_id,
                 # Audit fields required by audit trigger
                 created_by=user_id,

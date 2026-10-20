@@ -53,11 +53,17 @@ export const externalValidationAPI = {
    * @param values - Array of values to validate
    * @returns Map of value -> validation result
    */
-  async validateBatch(validator: string, values: string[]): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/external-validation/validate/batch', {
-      validator_name: validator,
-      values
-    })
+  async validateBatch(
+    validator: string,
+    values: string[]
+  ): Promise<Record<string, Schema<'ValidationResult'>>> {
+    const response = await apiClient.post<Record<string, Schema<'ValidationResult'>>>(
+      '/external-validation/validate/batch',
+      {
+        validator_name: validator,
+        values
+      }
+    )
     return response.data
   },
 
@@ -65,8 +71,10 @@ export const externalValidationAPI = {
    * Get cache statistics
    * @returns Cache statistics by validator
    */
-  async getCacheStatistics(): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/external-validation/cache/statistics')
+  async getCacheStatistics(): Promise<Record<string, number>> {
+    const response = await apiClient.get<Record<string, number>>(
+      '/external-validation/cache/statistics'
+    )
     return response.data
   },
 

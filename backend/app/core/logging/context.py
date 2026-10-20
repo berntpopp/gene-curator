@@ -10,12 +10,7 @@ propagates through async operations within a request lifecycle.
 """
 
 import contextvars
-import uuid
 from typing import Any
-
-from fastapi import Request
-
-from .utils import extract_client_ip
 
 # Single context variable with dict (instead of 7 separate ones)
 # FIX B039: Use None as default (not mutable {})
@@ -51,44 +46,3 @@ def get_context() -> dict[str, Any]:
     """
     context = _log_context.get() or {}
     return context.copy()
-
-
-def extract_context_from_request(request: Request) -> dict[str, Any]:
-    """
-    Extract logging context from a FastAPI Request object.
-
-    Args:
-        request: FastAPI Request object
-
-    Returns:
-        Dictionary containing extracted context
-    """
-    context = {}
-
-    # Generate request ID if not present
-    request_id = getattr(request.state, "request_id", None)
-    if not request_id:
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-
-    context["request_id"] = request_id
-    context["endpoint"] = request.url.path
-    context["method"] = request.method
-
-    # Extract IP address using DRY utility
-    context["ip_address"] = extract_client_ip(request)
-
-    # Extract user agent
-    context["user_agent"] = request.headers.get("User-Agent")
-
-    # Extract user from request state (if available)
-    if hasattr(request.state, "current_user"):
-        user = request.state.current_user
-        if user:
-            context["user_id"] = getattr(user, "id", None)
-            # UserNew model uses 'name', not 'username'
-            context["username"] = getattr(user, "name", None) or getattr(
-                user, "email", None
-            )
-
-    return context

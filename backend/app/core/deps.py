@@ -48,7 +48,7 @@ def get_current_user(
     """
     # Verify token
     payload = verify_token(credentials.credentials)
-    if payload is None:
+    if payload is None or payload.get("type") == "refresh":
         raise credentials_exception
 
     # Extract user ID from token
@@ -128,7 +128,7 @@ def get_current_user_optional(
     try:
         # Verify token
         payload = verify_token(credentials.credentials)
-        if payload is None:
+        if payload is None or payload.get("type") == "refresh":
             return None
 
         # Extract user ID from token
@@ -260,7 +260,10 @@ def get_scope(
         .first()
     )
 
-    if not scope:
+    # Enforce visibility in Python too: RLS is not active on every connection
+    from app.services.scope_permissions import ScopePermissionService
+
+    if not scope or not ScopePermissionService.can_view_scope(db, current_user, scope):
         logger.warning(
             "Scope not found or access denied",
             scope_id=str(scope_id),

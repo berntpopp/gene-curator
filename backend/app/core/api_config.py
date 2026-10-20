@@ -615,16 +615,6 @@ def get_security_config() -> SecurityConfig:
     return load_api_config().security
 
 
-def get_bulk_operations_config() -> BulkOperationsConfig:
-    """Get bulk operations configuration."""
-    return load_api_config().bulk_operations
-
-
-def get_external_apis_config() -> ExternalAPIsConfig:
-    """Get external APIs configuration."""
-    return load_api_config().external_apis
-
-
 def get_performance_config() -> PerformanceConfig:
     """Get performance monitoring configuration."""
     return load_api_config().performance

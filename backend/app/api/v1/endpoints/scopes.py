@@ -93,33 +93,30 @@ def create_scope(
         creator_id=str(current_user.id),
     )
 
-    # Automatically create accepted scope membership with admin role
+    # Automatically create accepted scope membership with admin role.
+    # On failure remove the scope again: an ownerless scope must not survive.
     try:
         membership = scope_membership_crud.create_owner_membership(
             db, scope_id=scope.id, owner_id=current_user.id
         )
-
-        logger.info(
-            "Scope membership created",
-            membership_id=str(membership.id),
-            scope_id=str(scope.id),
-            user_id=str(current_user.id),
-            role=membership.role,
-            is_active=membership.is_active,
-            accepted_at=str(membership.accepted_at)
-            if membership.accepted_at
-            else "NULL",
-        )
-    except Exception as e:
+    except Exception:
+        db.rollback()
+        db.delete(scope)
+        db.commit()
         logger.error(
-            "Failed to create scope membership",
+            "Failed to create owner membership; scope rolled back",
             scope_id=str(scope.id),
             user_id=str(current_user.id),
-            error=e,
-            error_type=type(e).__name__,
         )
-        # Don't fail scope creation if membership fails - log and continue
-        # The user can be added manually later
+        raise
+
+    logger.info(
+        "Scope membership created",
+        membership_id=str(membership.id),
+        scope_id=str(scope.id),
+        user_id=str(current_user.id),
+        role=membership.role,
+    )
 
     logger.info(
         "Scope created successfully",
@@ -142,7 +139,6 @@ def list_scopes(
         50, ge=1, le=1000, description="Maximum number of records to return"
     ),
     active_only: bool = Query(True, description="Filter for active scopes only"),
-    include_public: bool = Query(True, description="Include public scopes"),
 ) -> list[ScopeListItem]:
     """
     List scopes the current user has access to with gene and member counts.
@@ -150,7 +146,6 @@ def list_scopes(
     Returns scopes filtered by RLS policies:
     - Application admins see all scopes
     - Regular users see scopes they are members of
-    - Public scopes are visible to all (if include_public=True)
 
     Args:
         db: Database session
@@ -158,7 +153,6 @@ def list_scopes(
         skip: Pagination offset
         limit: Maximum results per page
         active_only: Filter for active scopes
-        include_public: Include public scopes in results
 
     Returns:
         List of scopes the user has access to with counts

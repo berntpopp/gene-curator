@@ -27,8 +27,10 @@ export interface LogEntry {
   level: string
   message: string
   data?: unknown
-  correlationId?: string
+  correlationId?: string | null
   url?: string
+  metadata?: Record<string, unknown>
+  userAgent?: string
 }
 
 export interface LogStats {
@@ -55,7 +57,6 @@ function getDefaultMaxEntries() {
     }
   } catch (error) {
     // This store is the logging sink itself, so it cannot log through logService
-    // eslint-disable-next-line no-console
     console.error('Failed to load max entries from storage:', error)
   }
   return import.meta.env.DEV ? 100 : 50

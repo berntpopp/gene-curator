@@ -74,6 +74,14 @@ describe('logSanitizer', () => {
       expect(sanitizeForLogging('protein p.Arg123Trp')).toBe('protein [REDACTED_VARIANT]')
     })
 
+    it('redacts genomic coordinates as coordinates, not as phone numbers', () => {
+      expect(sanitizeForLogging('locus chr7:100-200 found')).toBe(
+        'locus [REDACTED_COORDINATE] found'
+      )
+      expect(sanitizeForLogging('chrX:5-9')).toBe('[REDACTED_COORDINATE]')
+      expect(sanitizeForLogging('call 555-123-4567 now')).toBe('call [REDACTED_PHONE] now')
+    })
+
     it('leaves strings without special characters untouched', () => {
       expect(sanitizeForLogging('plain text 123')).toBe('plain text 123')
     })

@@ -30,7 +30,6 @@ from app.models import Scope, ScopeMembership, User, UserNew
 from app.schemas.auth import UserResponse
 from app.schemas.scope_membership import (
     ScopeMemberListResponse,
-    ScopeMembershipAccept,
     ScopeMembershipCreate,
     ScopeMembershipResponse,
     ScopeMembershipUpdate,
@@ -228,7 +227,6 @@ def accept_invitation(
     db: Session = Depends(get_db),
     scope_id: UUID,
     membership_id: UUID,
-    accept_data: ScopeMembershipAccept | None = None,
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
@@ -241,7 +239,6 @@ def accept_invitation(
         db: Database session
         scope_id: Scope UUID
         membership_id: Membership UUID
-        accept_data: Optional acceptance message
         current_user: Current user (must be invited user)
 
     Returns:

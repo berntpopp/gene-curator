@@ -161,64 +161,15 @@ class ScopeWithStats(Scope):
 
 
 # Scope User Assignment Schema
-class ScopeUserAssignment(BaseModel):
-    """Schema for scope-user assignments."""
-
-    user_id: UUID
-    user_name: str
-    user_email: str
-    user_role: str
-    assigned_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Workflow Pair Information for Scope
-class ScopeWorkflowPair(BaseModel):
-    """Workflow pair information for scope context."""
-
-    id: UUID
-    name: str
-    version: str
-    description: str | None
-    precuration_schema_name: str
-    curation_schema_name: str
-    is_active: bool
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Configuration Schemas
-class ScopeConfigUpdate(BaseModel):
-    """Schema for updating scope configuration."""
-
-    primary_inheritance_modes: list[str] | None = Field(
-        None, description="Primary inheritance modes for this scope"
-    )
-    focus_areas: list[str] | None = Field(
-        None, description="Focus areas for this scope"
-    )
-    custom_fields: dict[str, Any] | None = Field(
-        None, description="Custom scope-specific fields"
-    )
-    quality_thresholds: dict[str, float] | None = Field(
-        None, description="Quality thresholds for this scope"
-    )
 
 
 # Scope Activity Summary
-class ScopeActivity(BaseModel):
-    """Recent activity summary for a scope."""
-
-    scope_id: UUID
-    scope_name: str
-    recent_curations: int = Field(..., description="Curations in last 7 days")
-    recent_reviews: int = Field(..., description="Reviews completed in last 7 days")
-    pending_work: int = Field(..., description="Total pending work items")
-    overdue_reviews: int = Field(..., description="Overdue reviews")
-    last_activity: datetime | None = Field(None, description="Last activity timestamp")
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Performance Metrics
@@ -264,11 +215,3 @@ class ScopePerformance(BaseModel):
 
 
 # Scope Comparison Schema
-class ScopeComparison(BaseModel):
-    """Schema for comparing multiple scopes."""
-
-    scopes: list[ScopePerformance]
-    comparison_period_days: int
-    generated_at: datetime
-
-    model_config = ConfigDict(from_attributes=True)

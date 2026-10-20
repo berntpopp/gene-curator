@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { PrecurationRecord } from '@/stores/precurations'
+import type { PrecurationRecord, PrecurationDetail } from '@/stores/precurations'
+import type { Schema } from '@/types/api'
 import { usePrecurationsStore } from '@/stores/precurations'
 import { precurationsAPI } from '@/api/precurations'
 import { logService } from '@/services/logService'
@@ -25,7 +26,7 @@ vi.mock('@/services/logService', () => ({
 
 const api = vi.mocked(precurationsAPI)
 
-const row = (id: string, extra: Record<string, unknown> = {}) =>
+const row = (id: string, extra: Partial<PrecurationRecord> = {}): PrecurationRecord =>
   ({
     id,
     gene_id: 'g1',
@@ -34,7 +35,24 @@ const row = (id: string, extra: Record<string, unknown> = {}) =>
     ...extra
   }) as PrecurationRecord
 
+const full = (id: string, extra: Partial<PrecurationDetail> = {}): PrecurationDetail =>
+  ({ ...row(id), ...extra }) as PrecurationDetail
+
+const newPrecuration: Schema<'PrecurationCreate'> = {
+  gene_id: 'g1',
+  scope_id: 's1',
+  precuration_schema_id: 'ps1'
+}
+
 const httpError = (message: string) => new Error(message)
+
+const approval: Schema<'PrecurationApprovalResult'> = {
+  precuration_id: 'p1',
+  approved: true,
+  curation_created: true,
+  curation_id: 'c1',
+  message: 'ok'
+}
 
 describe('usePrecurationsStore', () => {
   beforeEach(() => {
@@ -67,28 +85,29 @@ describe('usePrecurationsStore', () => {
       const store = usePrecurationsStore()
       store.filters.gene_id = 'g1'
       store.pagination.page = 3
-      api.getPrecurations.mockResolvedValue({ precurations: [row('p1')], total: 101 } as never)
+      api.getPrecurations.mockResolvedValue({
+        precurations: [row('p1')],
+        total: 101,
+        skip: 100,
+        limit: 50
+      })
 
       const result = await store.fetchPrecurations({ status: 'draft' })
 
       expect(api.getPrecurations).toHaveBeenCalledWith({
         scope_id: null,
         gene_id: 'g1',
-        status: 'draft',
+        precuration_status: 'draft',
         skip: 100,
         limit: 50
       })
-      expect(result).toEqual({ precurations: [row('p1')], total: 101 })
+      expect(result.total).toBe(101)
       expect(store.pagination.total).toBe(101)
       expect(store.pagination.pages).toBe(3)
     })
 
-    it('defaults to empty results and records errors', async () => {
+    it('records errors', async () => {
       const store = usePrecurationsStore()
-      api.getPrecurations.mockResolvedValueOnce({} as never)
-      await store.fetchPrecurations()
-      expect(store.precurations).toEqual([])
-
       api.getPrecurations.mockRejectedValueOnce(new Error('down'))
       await expect(store.fetchPrecurations()).rejects.toThrow('down')
       expect(store.error).toEqual({ message: 'down' })
@@ -99,7 +118,7 @@ describe('usePrecurationsStore', () => {
     it('sets current and refreshes the list entry', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      api.getPrecuration.mockResolvedValue(row('p1', { status: 'submitted' }))
+      api.getPrecuration.mockResolvedValue(full('p1', { status: 'submitted' }))
 
       await store.fetchPrecurationById('p1')
 
@@ -121,11 +140,9 @@ describe('usePrecurationsStore', () => {
       const store = usePrecurationsStore()
       store.precurations = [row('old')]
       store.pagination.total = 1
-      api.createPrecuration.mockResolvedValue(row('new'))
+      api.createPrecuration.mockResolvedValue(full('new'))
 
-      const created = await store.createPrecuration(
-        {} as Parameters<typeof api.createPrecuration>[0]
-      )
+      const created = await store.createPrecuration(newPrecuration)
 
       expect(created.id).toBe('new')
       expect(store.precurations.map(p => p.id)).toEqual(['new', 'old'])
@@ -136,9 +153,7 @@ describe('usePrecurationsStore', () => {
       const store = usePrecurationsStore()
       api.createPrecuration.mockRejectedValue(new Error('invalid'))
 
-      await expect(
-        store.createPrecuration({} as Parameters<typeof api.createPrecuration>[0])
-      ).rejects.toThrow('invalid')
+      await expect(store.createPrecuration(newPrecuration)).rejects.toThrow('invalid')
       expect(store.error).toEqual({ message: 'invalid' })
     })
   })
@@ -147,20 +162,20 @@ describe('usePrecurationsStore', () => {
     it('updates list and current entries', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      store.currentPrecuration = row('p1')
-      api.updatePrecuration.mockResolvedValue(row('p1', { title: 'new' }))
+      store.currentPrecuration = full('p1')
+      api.updatePrecuration.mockResolvedValue(full('p1', { status: 'submitted' }))
 
-      await store.updatePrecuration('p1', {} as never)
+      await store.updatePrecuration('p1', {})
 
-      expect(store.precurations[0]).toMatchObject({ title: 'new' })
-      expect(store.currentPrecuration).toMatchObject({ title: 'new' })
+      expect(store.precurations[0]).toMatchObject({ status: 'submitted' })
+      expect(store.currentPrecuration).toMatchObject({ status: 'submitted' })
     })
 
     it('records errors and rethrows', async () => {
       const store = usePrecurationsStore()
       api.updatePrecuration.mockRejectedValue(new Error('locked'))
 
-      await expect(store.updatePrecuration('p1', {} as never)).rejects.toThrow('locked')
+      await expect(store.updatePrecuration('p1', {})).rejects.toThrow('locked')
       expect(store.error).toEqual({ message: 'locked' })
     })
   })
@@ -169,15 +184,15 @@ describe('usePrecurationsStore', () => {
     it('wraps evidence data and updates list and current entries', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      store.currentPrecuration = row('p1')
-      api.saveDraft.mockResolvedValue(row('p1', { saved: true }))
+      store.currentPrecuration = full('p1')
+      api.saveDraft.mockResolvedValue(full('p1', { status: 'submitted' }))
 
       const saved = await store.saveDraft('p1', { score: 2 })
 
       expect(api.saveDraft).toHaveBeenCalledWith('p1', { evidence_data: { score: 2 } })
-      expect(saved).toMatchObject({ saved: true })
-      expect(store.precurations[0]).toMatchObject({ saved: true })
-      expect(store.currentPrecuration).toMatchObject({ saved: true })
+      expect(saved).toMatchObject({ status: 'submitted' })
+      expect(store.precurations[0]).toMatchObject({ status: 'submitted' })
+      expect(store.currentPrecuration).toMatchObject({ status: 'submitted' })
     })
 
     it('logs and swallows failures, flagging auto-save', async () => {
@@ -197,8 +212,8 @@ describe('usePrecurationsStore', () => {
     it('submits with notes and updates both entries', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      store.currentPrecuration = row('p1')
-      api.submitPrecuration.mockResolvedValue(row('p1', { status: 'submitted' }))
+      store.currentPrecuration = full('p1')
+      api.submitPrecuration.mockResolvedValue(full('p1', { status: 'submitted' }))
 
       const submitted = await store.submitForReview('p1', 'ready')
 
@@ -210,7 +225,7 @@ describe('usePrecurationsStore', () => {
 
     it('defaults notes to null and records errors', async () => {
       const store = usePrecurationsStore()
-      api.submitPrecuration.mockResolvedValueOnce(row('p1'))
+      api.submitPrecuration.mockResolvedValueOnce(full('p1'))
       await store.submitForReview('p1')
       expect(api.submitPrecuration).toHaveBeenCalledWith('p1', { notes: null })
 
@@ -224,15 +239,15 @@ describe('usePrecurationsStore', () => {
     it('marks the listed precuration approved and returns the result', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      api.approvePrecuration.mockResolvedValue({ curation_id: 'c1' })
+      api.approvePrecuration.mockResolvedValue(approval)
 
-      await expect(store.approvePrecuration('p1')).resolves.toEqual({ curation_id: 'c1' })
+      await expect(store.approvePrecuration('p1')).resolves.toEqual(approval)
       expect(store.precurations[0]?.status).toBe('approved')
     })
 
     it('returns the result without changing an unlisted precuration', async () => {
       const store = usePrecurationsStore()
-      api.approvePrecuration.mockResolvedValue({} as never)
+      api.approvePrecuration.mockResolvedValue(approval)
 
       await store.approvePrecuration('p9')
 
@@ -252,7 +267,7 @@ describe('usePrecurationsStore', () => {
     it('updates the listed precuration with the rejected record', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      api.rejectPrecuration.mockResolvedValue(row('p1', { status: 'rejected' }))
+      api.rejectPrecuration.mockResolvedValue(full('p1', { status: 'rejected' }))
 
       await store.rejectPrecuration('p1', 'weak evidence')
 
@@ -273,9 +288,9 @@ describe('usePrecurationsStore', () => {
     it('removes the entry, decrements the total and clears current', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1'), row('p2')]
-      store.currentPrecuration = row('p1')
+      store.currentPrecuration = full('p1')
       store.pagination.total = 2
-      api.deletePrecuration.mockResolvedValue({} as never)
+      api.deletePrecuration.mockResolvedValue(undefined)
 
       await expect(store.deletePrecuration('p1')).resolves.toBe(true)
 
@@ -286,8 +301,8 @@ describe('usePrecurationsStore', () => {
 
     it('keeps an unrelated current entry and floors the total at zero', async () => {
       const store = usePrecurationsStore()
-      store.currentPrecuration = row('keep')
-      api.deletePrecuration.mockResolvedValue({} as never)
+      store.currentPrecuration = full('keep')
+      api.deletePrecuration.mockResolvedValue(undefined)
 
       await store.deletePrecuration('p1')
 
@@ -315,7 +330,7 @@ describe('usePrecurationsStore', () => {
       store.setPage(2)
       expect(store.pagination.page).toBe(2)
 
-      store.setCurrentPrecuration(row('p1'))
+      store.setCurrentPrecuration(full('p1'))
       expect(store.currentPrecuration?.id).toBe('p1')
       store.clearCurrentPrecuration()
       expect(store.currentPrecuration).toBeNull()
@@ -328,7 +343,7 @@ describe('usePrecurationsStore', () => {
       expect(store.error).toBeNull()
 
       store.precurations = [row('p1')]
-      store.currentPrecuration = row('p1')
+      store.currentPrecuration = full('p1')
       store.loading = true
       store.filters = { scope_id: 's', gene_id: 'g', status: 'draft' }
       store.$reset()

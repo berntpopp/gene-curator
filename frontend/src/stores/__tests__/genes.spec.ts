@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import type { GeneRecord } from '@/stores/genes'
 import { setActivePinia, createPinia } from 'pinia'
-import { useGenesStore } from '@/stores/genes'
+import { useGenesStore, type GeneRecord, type GeneDetail } from '@/stores/genes'
 import { genesAPI } from '@/api'
+import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
   genesAPI: {
@@ -18,18 +18,41 @@ vi.mock('@/api', () => ({
   }
 }))
 
-vi.mock('@/services/logService', () => ({
-  logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
-}))
-
 const api = vi.mocked(genesAPI)
 
-const gene = (id: string, extra: Record<string, unknown> = {}) =>
+const gene = (id: string, over: Partial<GeneRecord> = {}): GeneRecord => ({
+  id,
+  hgnc_id: `HGNC:${id}`,
+  approved_symbol: `GENE${id}`,
+  chromosome: '1',
+  location: '1p',
+  is_assigned: false,
+  has_active_work: false,
+  ...over
+})
+
+const detail = (id: string, over: Partial<GeneDetail> = {}): GeneDetail =>
   ({
     id,
+    hgnc_id: `HGNC:${id}`,
     approved_symbol: `GENE${id}`,
-    ...extra
-  }) as GeneRecord
+    is_assigned_to_any_scope: false,
+    total_scope_assignments: 0,
+    ...over
+  }) as GeneDetail
+
+const listResponse = (
+  genes: GeneRecord[],
+  over: Partial<Schema<'GeneListResponse'>> = {}
+): Schema<'GeneListResponse'> => ({
+  genes,
+  total: genes.length,
+  skip: 0,
+  limit: 20,
+  has_next: false,
+  has_prev: false,
+  ...over
+})
 
 describe('useGenesStore', () => {
   beforeEach(() => {
@@ -38,60 +61,58 @@ describe('useGenesStore', () => {
   })
 
   describe('getters', () => {
-    it('finds genes and filters by scope or assignment state', () => {
+    it('finds genes and filters unassigned ones', () => {
       const store = useGenesStore()
-      store.genes = [
-        gene('g1', { assignments: [{ scope_id: 's1' }] }),
-        gene('g2', { assignments: [] }),
-        gene('g3')
-      ]
+      store.genes = [gene('g1', { is_assigned: true }), gene('g2'), gene('g3')]
 
       expect(store.getGeneById('g2')?.id).toBe('g2')
       expect(store.getGeneById('zzz')).toBeUndefined()
-      expect(store.getGenesByScope('s1').map(g => g.id)).toEqual(['g1'])
       expect(store.getUnassignedGenes.map(g => g.id)).toEqual(['g2', 'g3'])
     })
 
-    it('returns stored assignments and progress with defaults', () => {
+    it('returns stored assignments and progress, undefined when missing', () => {
       const store = useGenesStore()
-      store.geneAssignments = { g1: [{ id: 'a' } as never] }
-      store.geneCurationProgress = { g1: { has_active_work: true } as never }
+      const assignments = { gene_id: 'g1' } as Schema<'GeneAssignmentStatus'>
+      const progress = { has_active_work: true } as Schema<'GeneCurationProgress'>
+      store.geneAssignments = { g1: assignments }
+      store.geneCurationProgress = { g1: progress }
 
-      expect(store.getGeneAssignments('g1')).toEqual([{ id: 'a' }])
-      expect(store.getGeneAssignments('none')).toEqual([])
-      expect(store.getGeneCurationProgress('g1')).toEqual({ has_active_work: true })
-      expect(store.getGeneCurationProgress('none')).toEqual({})
+      expect(store.getGeneAssignments('g1')).toEqual(assignments)
+      expect(store.getGeneAssignments('none')).toBeUndefined()
+      expect(store.getGeneCurationProgress('g1')).toEqual(progress)
+      expect(store.getGeneCurationProgress('none')).toBeUndefined()
     })
   })
 
   describe('fetchGenes', () => {
-    it('merges search params and stores the list and pagination', async () => {
+    it('sends sort params, derives page state and stores the list', async () => {
       const store = useGenesStore()
-      store.updateSearchParams({ query: 'BRCA' })
-      api.getGenes.mockResolvedValue({
-        genes: [gene('g1')],
-        pagination: { page: 1, per_page: 20, total: 1, pages: 1 }
-      })
+      api.getGenes.mockResolvedValue(listResponse([gene('g1')], { total: 45, skip: 20, limit: 20 }))
 
       const response = await store.fetchGenes({ sort_order: 'desc' })
 
-      expect(api.getGenes).toHaveBeenCalledWith(
-        expect.objectContaining({ query: 'BRCA', sort_by: 'approved_symbol', sort_order: 'desc' })
-      )
-      expect(store.genes).toHaveLength(1)
-      expect(store.pagination.total).toBe(1)
-      expect(response).toHaveProperty('genes')
+      expect(api.getGenes).toHaveBeenCalledWith({
+        sort_by: 'approved_symbol',
+        sort_order: 'desc',
+        skip: 0,
+        limit: 20
+      })
+      expect(store.genes.map(g => g.id)).toEqual(['g1'])
+      expect(store.pagination).toEqual({ page: 2, per_page: 20, total: 45, pages: 3 })
+      expect(response.genes).toHaveLength(1)
     })
 
-    it('falls back to data or the raw array', async () => {
+    it('translates a 1-based page into skip/limit and drops null filters', async () => {
       const store = useGenesStore()
-      api.getGenes.mockResolvedValueOnce({ data: [gene('d')] })
-      await store.fetchGenes()
-      expect(store.genes.map(g => g.id)).toEqual(['d'])
+      store.updateSearchParams({ scope_id: 's1' })
+      api.getGenes.mockResolvedValue(listResponse([]))
 
-      api.getGenes.mockResolvedValueOnce([gene('raw')])
-      await store.fetchGenes()
-      expect(store.genes.map(g => g.id)).toEqual(['raw'])
+      await store.fetchGenes({ page: 3, has_active_work: null })
+
+      expect(api.getGenes).toHaveBeenCalledWith(
+        expect.objectContaining({ scope_id: 's1', skip: 40, limit: 20 })
+      )
+      expect(api.getGenes.mock.calls[0]?.[0]).not.toHaveProperty('has_active_work')
     })
 
     it('records the error and rethrows', async () => {
@@ -105,18 +126,19 @@ describe('useGenesStore', () => {
   })
 
   describe('fetchGeneById', () => {
-    it('sets current gene and replaces or appends the list entry', async () => {
+    it('sets current gene and replaces or appends the list row', async () => {
       const store = useGenesStore()
-      store.genes = [gene('g1', { approved_symbol: 'OLD' })]
+      store.genes = [gene('g1', { approved_symbol: 'OLD', has_active_work: true })]
 
-      api.getGeneById.mockResolvedValueOnce(gene('g1', { approved_symbol: 'NEW' }))
+      api.getGeneById.mockResolvedValueOnce(detail('g1', { approved_symbol: 'NEW' }))
       await store.fetchGeneById('g1')
       expect(store.currentGene?.approved_symbol).toBe('NEW')
-      expect(store.genes[0]?.approved_symbol).toBe('NEW')
+      expect(store.genes[0]).toMatchObject({ approved_symbol: 'NEW', has_active_work: true })
 
-      api.getGeneById.mockResolvedValueOnce(gene('g2'))
+      api.getGeneById.mockResolvedValueOnce(detail('g2', { is_assigned_to_any_scope: true }))
       await store.fetchGeneById('g2')
       expect(store.genes.map(g => g.id)).toEqual(['g1', 'g2'])
+      expect(store.genes[1]?.is_assigned).toBe(true)
     })
 
     it('records the error and rethrows', async () => {
@@ -129,40 +151,49 @@ describe('useGenesStore', () => {
   })
 
   describe('createGene / updateGene / deleteGene', () => {
-    it('createGene appends the created gene', async () => {
-      const store = useGenesStore()
-      api.createGene.mockResolvedValue(gene('new'))
+    const payload = { hgnc_id: 'HGNC:1', approved_symbol: 'A' }
 
-      await expect(store.createGene({} as never)).resolves.toEqual(gene('new'))
+    it('createGene appends the created gene as a list row', async () => {
+      const store = useGenesStore()
+      const created = { ...detail('new'), location: '2q' } as Schema<'Gene'>
+      api.createGene.mockResolvedValue(created)
+
+      await expect(store.createGene(payload)).resolves.toEqual(created)
       expect(store.genes.map(g => g.id)).toEqual(['new'])
+      expect(store.genes[0]).toMatchObject({ location: '2q', chromosome: null, is_assigned: false })
     })
 
     it('createGene records errors and rethrows', async () => {
       const store = useGenesStore()
       api.createGene.mockRejectedValue(new Error('dup'))
 
-      await expect(store.createGene({} as never)).rejects.toThrow('dup')
+      await expect(store.createGene(payload)).rejects.toThrow('dup')
       expect(store.error).toBe('dup')
     })
 
-    it('updateGene replaces the list entry and the current gene', async () => {
+    it('updateGene replaces the list row and merges into the current gene', async () => {
       const store = useGenesStore()
       store.genes = [gene('g1')]
-      store.currentGene = gene('g1')
-      api.updateGene.mockResolvedValue(gene('g1', { approved_symbol: 'UPD' }))
+      store.currentGene = detail('g1', { total_scope_assignments: 2 })
+      api.updateGene.mockResolvedValue({
+        id: 'g1',
+        hgnc_id: 'HGNC:g1',
+        approved_symbol: 'UPD'
+      } as Schema<'Gene'>)
 
-      await store.updateGene('g1', {} as never)
+      await store.updateGene('g1', {})
 
       expect(store.genes[0]?.approved_symbol).toBe('UPD')
       expect(store.currentGene?.approved_symbol).toBe('UPD')
+      expect(store.currentGene?.total_scope_assignments).toBe(2)
     })
 
     it('updateGene leaves unrelated state alone', async () => {
       const store = useGenesStore()
-      store.currentGene = gene('other')
-      api.updateGene.mockResolvedValue(gene('g1'))
+      store.currentGene = detail('other')
+      api.updateGene.mockResolvedValue(detail('g1') as Schema<'Gene'>)
 
-      await store.updateGene('g1', {} as never)
+      await store.updateGene('g1', {})
 
       expect(store.currentGene?.id).toBe('other')
       expect(store.genes).toEqual([])
@@ -172,15 +203,15 @@ describe('useGenesStore', () => {
       const store = useGenesStore()
       api.updateGene.mockRejectedValue(new Error('locked'))
 
-      await expect(store.updateGene('g1', {} as never)).rejects.toThrow('locked')
+      await expect(store.updateGene('g1', {})).rejects.toThrow('locked')
       expect(store.error).toBe('locked')
     })
 
     it('deleteGene removes the gene and clears current when it matches', async () => {
       const store = useGenesStore()
       store.genes = [gene('g1'), gene('g2')]
-      store.currentGene = gene('g1')
-      api.deleteGene.mockResolvedValue({} as never)
+      store.currentGene = detail('g1')
+      api.deleteGene.mockResolvedValue({})
 
       await expect(store.deleteGene('g1')).resolves.toBe(true)
 
@@ -190,8 +221,8 @@ describe('useGenesStore', () => {
 
     it('deleteGene keeps an unrelated current gene and records errors', async () => {
       const store = useGenesStore()
-      store.currentGene = gene('keep')
-      api.deleteGene.mockResolvedValueOnce({} as never)
+      store.currentGene = detail('keep')
+      api.deleteGene.mockResolvedValueOnce({})
       await store.deleteGene('g1')
       expect(store.currentGene?.id).toBe('keep')
 
@@ -204,16 +235,16 @@ describe('useGenesStore', () => {
   describe('assignments and progress', () => {
     it('fetchGeneAssignments and fetchGeneCurationProgress store results by gene', async () => {
       const store = useGenesStore()
-      api.getGeneAssignments.mockResolvedValue([{ id: 'a1' }])
-      api.getGeneCurationProgress.mockResolvedValue({ has_active_work: false })
+      const assignments = { gene_id: 'g1' } as Schema<'GeneAssignmentStatus'>
+      const progress = { has_active_work: false } as Schema<'GeneCurationProgress'>
+      api.getGeneAssignments.mockResolvedValue(assignments)
+      api.getGeneCurationProgress.mockResolvedValue(progress)
 
-      await expect(store.fetchGeneAssignments('g1')).resolves.toEqual([{ id: 'a1' }])
-      await expect(store.fetchGeneCurationProgress('g1')).resolves.toEqual({
-        has_active_work: false
-      })
+      await expect(store.fetchGeneAssignments('g1')).resolves.toEqual(assignments)
+      await expect(store.fetchGeneCurationProgress('g1')).resolves.toEqual(progress)
 
-      expect(store.geneAssignments.g1).toEqual([{ id: 'a1' }])
-      expect(store.geneCurationProgress.g1).toEqual({ has_active_work: false })
+      expect(store.geneAssignments.g1).toEqual(assignments)
+      expect(store.geneCurationProgress.g1).toEqual(progress)
     })
 
     it('records errors from both fetches and rethrows', async () => {
@@ -229,15 +260,14 @@ describe('useGenesStore', () => {
   })
 
   describe('searchGenes', () => {
-    it('stores results from either response shape', async () => {
+    it('queries the search endpoint and stores the summaries', async () => {
       const store = useGenesStore()
-      api.searchGenes.mockResolvedValueOnce({ genes: [gene('s1')] })
-      await store.searchGenes({ query: 'x' })
-      expect(store.searchResults.map(g => g.id)).toEqual(['s1'])
+      api.searchGenes.mockResolvedValueOnce([gene('s1')])
 
-      api.searchGenes.mockResolvedValueOnce({ data: [gene('s2')] })
-      await store.searchGenes({ query: 'y' })
-      expect(store.searchResults.map(g => g.id)).toEqual(['s2'])
+      await store.searchGenes({ query: 'x', page: 2 })
+
+      expect(api.searchGenes).toHaveBeenCalledWith({ query: 'x', skip: 20, limit: 20 })
+      expect(store.searchResults.map(g => g.id)).toEqual(['s1'])
     })
 
     it('records errors and rethrows', async () => {
@@ -253,8 +283,9 @@ describe('useGenesStore', () => {
   describe('fetchStatistics', () => {
     it('returns statistics and records errors', async () => {
       const store = useGenesStore()
-      api.getStatistics.mockResolvedValueOnce({ total_genes: 3 })
-      await expect(store.fetchStatistics()).resolves.toEqual({ total_genes: 3 })
+      const stats = { total_genes: 3 } as Schema<'GeneStatistics'>
+      api.getStatistics.mockResolvedValueOnce(stats)
+      await expect(store.fetchStatistics()).resolves.toEqual(stats)
 
       api.getStatistics.mockRejectedValueOnce(new Error('stats'))
       await expect(store.fetchStatistics()).rejects.toThrow('stats')
@@ -268,7 +299,7 @@ describe('useGenesStore', () => {
       store.updateSearchParams({ scope_id: 's1', sort_order: 'desc' })
       expect(store.searchParams).toMatchObject({ scope_id: 's1', sort_order: 'desc', query: '' })
 
-      store.setCurrentGene(gene('g1'))
+      store.setCurrentGene(detail('g1'))
       expect(store.currentGene?.id).toBe('g1')
       store.clearCurrentGene()
       expect(store.currentGene).toBeNull()

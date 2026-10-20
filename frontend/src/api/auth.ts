@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 export const authAPI = {
   async login(credentials: Schema<'UserLogin'>): Promise<Schema<'Token'>> {
@@ -22,8 +23,8 @@ export const authAPI = {
     return response.data
   },
 
-  async logout(): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/auth/logout')
+  async logout(): Promise<MessageResponse> {
+    const response = await apiClient.post<MessageResponse>('/auth/logout')
     return response.data
   },
 
@@ -32,8 +33,8 @@ export const authAPI = {
     return response.data
   },
 
-  async changePassword(passwordData: Schema<'PasswordChange'>): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/auth/change-password', passwordData)
+  async changePassword(passwordData: Schema<'PasswordChange'>): Promise<MessageResponse> {
+    const response = await apiClient.post<MessageResponse>('/auth/change-password', passwordData)
     return response.data
   }
 }

@@ -1,21 +1,23 @@
 import { defineStore } from 'pinia'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import { validationAPI } from '@/api'
 import type { Schema } from '@/types/api'
 
-/** A field type descriptor from GET /validation/field-types (fields the store reads). */
-export interface FieldTypeInfo {
-  name: string
-  [key: string]: unknown
-}
+/** A field type descriptor: the endpoint's dict entry plus its key as `name`. */
+export type FieldTypeInfo = Record<string, unknown> & { name: string }
 
-/** A business rule descriptor (opaque to the store). */
-export type BusinessRule = Record<string, unknown>
+/** A business rule descriptor: the endpoint's dict entry plus its key as `name`. */
+export type BusinessRule = Record<string, unknown> & { name: string }
+
+/** The backend answers with `{ <name>: {...descriptor} }`; the store keeps a list. */
+function namedList(dict: Record<string, Record<string, unknown>>) {
+  return Object.entries(dict).map(([name, info]) => ({ ...info, name }))
+}
 
 interface ValidationState {
   supportedFieldTypes: FieldTypeInfo[]
   businessRules: BusinessRule[]
-  validationResults: Record<string, Schema<'ValidationResult'>>
+  validationResults: Record<string, Schema<'ValidationResponse'>>
   jsonSchemas: Record<string, Schema<'JSONSchemaResponse'>>
   loading: boolean
   error: string | null
@@ -58,9 +60,8 @@ export const useValidationStore = defineStore('validation', {
           evidence_data: evidenceData,
           schema_id: schemaId
         }
-        const result = apiData<Schema<'ValidationResult'>>(
-          await validationAPI.validateEvidence(validationData)
-        )
+        const result = await validationAPI.validateEvidence(validationData)
+
         this.validationResults[key] = result
         return result
       } catch (error) {
@@ -75,11 +76,10 @@ export const useValidationStore = defineStore('validation', {
       this.loading = true
       this.error = null
       try {
-        const result = apiData<Schema<'SchemaValidationResult'>>(
-          await validationAPI.validateSchema({
-            schema_definition: schemaDefinition
-          })
-        )
+        const result = await validationAPI.validateSchema({
+          schema_definition: schemaDefinition
+        })
+
         return result
       } catch (error) {
         this.error = toApiError(error).message ?? null
@@ -93,9 +93,8 @@ export const useValidationStore = defineStore('validation', {
       this.loading = true
       this.error = null
       try {
-        const jsonSchema = apiData<Schema<'JSONSchemaResponse'>>(
-          await validationAPI.generateJsonSchema(schemaId)
-        )
+        const jsonSchema = await validationAPI.generateJsonSchema(schemaId)
+
         this.jsonSchemas[schemaId] = jsonSchema
         return jsonSchema
       } catch (error) {
@@ -112,7 +111,7 @@ export const useValidationStore = defineStore('validation', {
       }
 
       try {
-        const fieldTypes = apiData<FieldTypeInfo[]>(await validationAPI.getSupportedFieldTypes())
+        const fieldTypes = namedList(await validationAPI.getSupportedFieldTypes())
         this.supportedFieldTypes = fieldTypes
         return fieldTypes
       } catch (error) {
@@ -127,7 +126,7 @@ export const useValidationStore = defineStore('validation', {
       }
 
       try {
-        const rules = apiData<BusinessRule[]>(await validationAPI.getBusinessRules())
+        const rules = namedList(await validationAPI.getBusinessRules())
         this.businessRules = rules
         return rules
       } catch (error) {
@@ -138,9 +137,8 @@ export const useValidationStore = defineStore('validation', {
 
     async validateField(fieldData: Schema<'FieldValidationRequest'>) {
       try {
-        const result = apiData<Schema<'FieldValidationResponse'>>(
-          await validationAPI.validateField(fieldData)
-        )
+        const result = await validationAPI.validateField(fieldData)
+
         return result
       } catch (error) {
         this.error = toApiError(error).message ?? null

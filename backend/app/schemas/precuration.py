@@ -16,34 +16,6 @@ from app.models import CurationStatus, WorkflowStage
 # ========================================
 
 
-class PrecurationEvidenceData(BaseModel):
-    """
-    ClinGen SOP v11 precuration evidence structure.
-    These fields are stored in the evidence_data JSONB column.
-    """
-
-    # Disease Entity (required for ClinGen)
-    mondo_id: str = Field(..., description="Mondo Disease Ontology ID")
-    disease_name: str = Field(..., description="Disease name (dyadic naming)")
-
-    # Mode of Inheritance (required)
-    mode_of_inheritance: str = Field(..., description="MOI code (AD, AR, XLD, etc.)")
-    hp_moi_term: str | None = Field(None, description="HPO term for MOI")
-
-    # Lumping & Splitting (conditional)
-    lumping_splitting_applicable: bool = Field(False, description="Whether L&S applies")
-    lumping_splitting_decision: str | None = Field(
-        None, description="LUMP, SPLIT, or NOT_APPLICABLE"
-    )
-    lumping_splitting_notes: str | None = Field(None, description="L&S rationale")
-
-    # Affiliation
-    affiliation: str | None = Field(None, description="Curation group/affiliation")
-
-    # Additional notes
-    curator_notes: str | None = Field(None, description="Curator notes")
-
-
 # ========================================
 # REQUEST SCHEMAS
 # ========================================

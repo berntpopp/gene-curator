@@ -159,7 +159,9 @@ async def test_cleanup_commits_and_reports_requested_retention() -> None:
     result = await crud_logs.cleanup_old_partitions(db, days=30)
 
     db.commit.assert_awaited_once()
-    assert "cleanup_old_logs" in _sql(db)
+    statement, params = db.execute.call_args.args
+    assert "cleanup_old_logs(:days)" in str(statement)
+    assert params == {"days": 30}
     assert result["status"] == "success"
     assert result["retention_days"] == 30
 

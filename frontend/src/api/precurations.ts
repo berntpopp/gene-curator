@@ -137,27 +137,5 @@ export const precurationsAPI = {
       params: { gene_id: geneId, scope_id: scopeId }
     })
     return response.data
-  },
-
-  /**
-   * Get precuration statistics
-   * @param params - Query parameters
-   */
-  async getPrecurationStatistics(params: Record<string, unknown> = {}): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/precurations/statistics/', { params })
-    return response.data
-  },
-
-  /**
-   * Validate precuration data against schema
-   * @param data - Precuration data to validate
-   * @param schemaId - Schema UUID
-   */
-  async validatePrecurationData(data: Record<string, unknown>, schemaId: string): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/precurations/validate', {
-      data,
-      schema_id: schemaId
-    })
-    return response.data
   }
 }

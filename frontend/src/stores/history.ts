@@ -31,6 +31,17 @@ export interface HistoryContext {
   future: HistoryEntry[]
 }
 
+export type HistoryStateSummary =
+  | { exists: false }
+  | {
+      exists: true
+      pastSize: number
+      futureSize: number
+      canUndo: boolean
+      canRedo: boolean
+      lastAction: string | null
+    }
+
 export const useHistoryStore = defineStore('history', {
   state: () => ({
     /**
@@ -228,7 +239,7 @@ export const useHistoryStore = defineStore('history', {
      * @param {string} context - Context identifier
      * @returns {Object} State summary
      */
-    getStateSummary(context: string = 'default') {
+    getStateSummary(context: string = 'default'): HistoryStateSummary {
       const history = this.contexts.get(context)
 
       if (!history) {

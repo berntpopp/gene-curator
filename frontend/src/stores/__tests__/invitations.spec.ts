@@ -3,18 +3,15 @@ import type { Invitation } from '@/stores/invitations'
 import { setActivePinia, createPinia } from 'pinia'
 import { useInvitationsStore } from '@/stores/invitations'
 import { invitationsApi } from '@/api/invitations'
-import apiClient from '@/api/client'
+import type { Schema } from '@/types/api'
 import { logService } from '@/services/logService'
 
 vi.mock('@/api/invitations', () => ({
   invitationsApi: {
     getPendingInvitations: vi.fn(),
+    acceptInvitation: vi.fn(),
     declineInvitation: vi.fn()
   }
-}))
-
-vi.mock('@/api/client', () => ({
-  default: { post: vi.fn() }
 }))
 
 vi.mock('@/services/logService', () => ({
@@ -22,7 +19,11 @@ vi.mock('@/services/logService', () => ({
 }))
 
 const api = vi.mocked(invitationsApi)
-const client = vi.mocked(apiClient)
+
+const listOf = (invitations: Invitation[]): Schema<'PendingInvitationsListResponse'> => ({
+  invitations,
+  total: invitations.length
+})
 
 const invite = (id: string, expired = false) =>
   ({ id, scope_id: 's1', is_expired: expired }) as Invitation
@@ -40,7 +41,7 @@ describe('useInvitationsStore', () => {
   describe('computed', () => {
     it('splits pending and expired invitations', () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('a'), invite('b', true)] as never
+      store.invitations = [invite('a'), invite('b', true)]
 
       expect(store.pendingCount).toBe(1)
       expect(store.pendingInvitations.map(i => i.id)).toEqual(['a'])
@@ -50,7 +51,7 @@ describe('useInvitationsStore', () => {
 
     it('reports no pending invitations when all are expired', () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('b', true)] as never
+      store.invitations = [invite('b', true)]
       expect(store.hasPendingInvitations).toBe(false)
     })
   })
@@ -60,7 +61,7 @@ describe('useInvitationsStore', () => {
       vi.useFakeTimers()
       vi.setSystemTime(new Date('2025-01-01T00:00:00Z'))
       const store = useInvitationsStore()
-      api.getPendingInvitations.mockResolvedValue({ invitations: [invite('a')] })
+      api.getPendingInvitations.mockResolvedValue(listOf([invite('a')]))
 
       const result = await store.fetchPendingInvitations({ includeExpired: true })
 
@@ -73,7 +74,7 @@ describe('useInvitationsStore', () => {
     it('skips the request when fetched within 30 seconds unless forced', async () => {
       vi.useFakeTimers()
       const store = useInvitationsStore()
-      api.getPendingInvitations.mockResolvedValue({ invitations: [invite('a')] })
+      api.getPendingInvitations.mockResolvedValue(listOf([invite('a')]))
       await store.fetchPendingInvitations()
 
       vi.advanceTimersByTime(5000)
@@ -91,7 +92,7 @@ describe('useInvitationsStore', () => {
     it('refetches once the 30 second window has passed', async () => {
       vi.useFakeTimers()
       const store = useInvitationsStore()
-      api.getPendingInvitations.mockResolvedValue({ invitations: [] })
+      api.getPendingInvitations.mockResolvedValue(listOf([]))
       await store.fetchPendingInvitations()
 
       vi.advanceTimersByTime(30000)
@@ -124,22 +125,23 @@ describe('useInvitationsStore', () => {
   })
 
   describe('acceptInvitation', () => {
-    it('posts the acceptance, removes the invitation and returns the membership', async () => {
+    it('accepts through the API, removes the invitation and returns the membership', async () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('a'), invite('b')] as never
-      client.post.mockResolvedValue({ data: { role: 'curator' } })
+      store.invitations = [invite('a'), invite('b')]
+      const accepted = { role: 'curator' } as Schema<'ScopeMembershipResponse'>
+      api.acceptInvitation.mockResolvedValue(accepted)
 
       const membership = await store.acceptInvitation('a', 's1')
 
-      expect(client.post).toHaveBeenCalledWith('/scopes/s1/invitations/a/accept')
-      expect(membership).toEqual({ role: 'curator' })
+      expect(api.acceptInvitation).toHaveBeenCalledWith('s1', 'a')
+      expect(membership).toEqual(accepted)
       expect(store.invitations.map(i => i.id)).toEqual(['b'])
       expect(store.loading).toBe(false)
     })
 
     it('stores the error and rethrows on failure', async () => {
       const store = useInvitationsStore()
-      client.post.mockRejectedValue(
+      api.acceptInvitation.mockRejectedValue(
         Object.assign(new Error('x'), { response: { data: { detail: 'Expired' } } })
       )
 
@@ -153,7 +155,7 @@ describe('useInvitationsStore', () => {
 
     it('uses a generic message when no detail is returned', async () => {
       const store = useInvitationsStore()
-      client.post.mockRejectedValue(new Error('net'))
+      api.acceptInvitation.mockRejectedValue(new Error('net'))
 
       await expect(store.acceptInvitation('a', 's1')).rejects.toThrow('net')
       expect(store.error).toBe('Failed to accept invitation')
@@ -163,8 +165,8 @@ describe('useInvitationsStore', () => {
   describe('declineInvitation', () => {
     it('removes the invitation locally', async () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('a'), invite('b')] as never
-      api.declineInvitation.mockResolvedValue({} as never)
+      store.invitations = [invite('a'), invite('b')]
+      api.declineInvitation.mockResolvedValue(undefined)
 
       await store.declineInvitation('a')
 
@@ -194,7 +196,7 @@ describe('useInvitationsStore', () => {
   describe('clearInvitations and $reset', () => {
     it('clearInvitations empties state and the fetch timestamp', () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('a')] as never
+      store.invitations = [invite('a')]
       store.lastFetched = 123
       store.error = 'x'
 
@@ -207,7 +209,7 @@ describe('useInvitationsStore', () => {
 
     it('$reset clears invitations, loading and error', () => {
       const store = useInvitationsStore()
-      store.invitations = [invite('a')] as never
+      store.invitations = [invite('a')]
       store.loading = true
       store.error = 'x'
 

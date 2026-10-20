@@ -549,3 +549,35 @@ def test_configuration_update_requires_application_admin(
     assert denied.status_code == 403
     assert allowed.status_code == 200
     assert allowed.json()["min_reviewers"] == 2
+
+
+def test_activating_second_curation_archives_the_first(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,
+    curator: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    gene = make_gene(db_session)
+    first, second = (
+        make_curation(
+            db_session,
+            scope=scope_with_admin,
+            gene=gene,
+            creator=curator,
+            stage=S.REVIEW,
+        )
+        for _ in range(2)
+    )
+    for curation in (first, second):
+        response = client.post(
+            f"{BASE}/curation/{curation.id}/transition",
+            json={"target_stage": "active"},
+            headers=auth_headers(reviewer),
+        )
+        assert response.status_code == 200
+
+    rows = db_session.query(ActiveCuration).filter_by(gene_id=gene.id).all()
+    current = [r for r in rows if r.archived_at is None]
+    assert [r.curation_id for r in current] == [second.id]
+    assert len(rows) == 2

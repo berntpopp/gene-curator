@@ -229,10 +229,8 @@ class SchemaValidator:
 
         # Pattern validation
         pattern = config.get("pattern")
-        if pattern and not re.match(pattern, value):
-            result.add_error(
-                field_name, "Text does not match required pattern", "pattern"
-            )
+        if pattern:
+            result.check_pattern(field_name, pattern, value)
 
         # Content quality checks
         if config.get("quality_checks", True):

@@ -14,6 +14,7 @@
  */
 
 import { sanitizeLogEntry } from '@/utils/logSanitizer'
+import type { LogEntry } from '@/stores/logStore'
 
 /** Minimal view of the Pinia log store this service writes to */
 export interface LogStoreLike {
@@ -23,16 +24,7 @@ export interface LogStoreLike {
   clearLogs(): void
 }
 
-export interface LogEntry {
-  timestamp: string
-  level: LogLevelName
-  message: string
-  data: unknown
-  correlationId: string | null
-  metadata: Record<string, unknown>
-  url: string
-  userAgent: string
-}
+export type { LogEntry }
 
 /**
  * Log levels enum

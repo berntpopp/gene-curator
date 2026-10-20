@@ -25,17 +25,14 @@ import { ref, computed } from 'vue'
 import { scopeService } from '@/services/scopeService'
 import { logService } from '@/services/logService'
 import { useAuthStore } from '@/stores/auth'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type ScopeRecord = Schema<'ScopeListItem'>
 export type ScopeMember = Schema<'ScopeMembershipResponse'>
 
-/** Scope statistics; `total_genes` is read by the log line but is not declared by the API schema. */
-export type ScopeStatisticsRecord = Schema<'ScopeStatistics'> & { total_genes?: number }
-
-/** Invitation payload; the invite form may also pass an email for users without an account. */
-type InviteMemberData = Parameters<typeof scopeService.inviteMember>[1] & { email?: string }
+export type ScopeStatisticsRecord = Schema<'ScopeStatistics'>
+export type ScopeRole = Schema<'ScopeRole'>
 
 export const useScopesStore = defineStore('scopes', () => {
   // ============================================
@@ -44,7 +41,7 @@ export const useScopesStore = defineStore('scopes', () => {
 
   const scopes = ref<ScopeRecord[]>([])
   const currentScope = ref<ScopeRecord | null>(null)
-  const currentUserRole = ref<string | null>(null)
+  const currentUserRole = ref<ScopeRole | null>(null)
   const scopeUsers = ref<Record<string, ScopeMember[]>>({}) // Map of scopeId -> users array
   const scopeStatistics = ref<Record<string, ScopeStatisticsRecord>>({}) // Map of scopeId -> statistics
   const loading = ref(false)
@@ -87,7 +84,7 @@ export const useScopesStore = defineStore('scopes', () => {
     error.value = null
 
     try {
-      const data = apiData<ScopeRecord[]>(await scopeService.fetchScopes(params))
+      const data = await scopeService.fetchScopes(params)
       scopes.value = data
       logService.info('Scopes fetched successfully', { count: scopes.value.length })
       return data
@@ -105,7 +102,7 @@ export const useScopesStore = defineStore('scopes', () => {
     error.value = null
 
     try {
-      const scope = apiData<ScopeRecord>(await scopeService.fetchScope(scopeId))
+      const scope = await scopeService.fetchScope(scopeId)
       currentScope.value = scope
 
       // Update in list if exists
@@ -135,11 +132,8 @@ export const useScopesStore = defineStore('scopes', () => {
     error.value = null
 
     try {
-      const newScope = apiData<ScopeRecord>(
-        await scopeService.createScope(
-          apiData<Parameters<typeof scopeService.createScope>[0]>(scopeData)
-        )
-      )
+      const newScope = await scopeService.createScope(scopeData)
+
       scopes.value.push(newScope)
       currentScope.value = newScope
       currentUserRole.value = 'admin' // Creator is automatically admin
@@ -163,7 +157,7 @@ export const useScopesStore = defineStore('scopes', () => {
     error.value = null
 
     try {
-      const updatedScope = apiData<ScopeRecord>(await scopeService.updateScope(scopeId, scopeData))
+      const updatedScope = await scopeService.updateScope(scopeId, scopeData)
 
       // Update in list
       const index = scopes.value.findIndex(s => s.id === scopeId)
@@ -224,7 +218,7 @@ export const useScopesStore = defineStore('scopes', () => {
     }
   }
 
-  async function fetchUserRole(scopeId: string): Promise<string | null> {
+  async function fetchUserRole(scopeId: string): Promise<ScopeRole | null> {
     try {
       const authStore = useAuthStore()
       const currentUserId = authStore.user?.id
@@ -242,7 +236,7 @@ export const useScopesStore = defineStore('scopes', () => {
       }
 
       // For non-admin users, check scope membership
-      const members = apiData<ScopeMember[]>(await scopeService.fetchMembers(scopeId))
+      const members = await scopeService.fetchMembers(scopeId)
       const membership = members.find(m => m.user_id === currentUserId)
       currentUserRole.value = membership?.role || null
 
@@ -260,7 +254,7 @@ export const useScopesStore = defineStore('scopes', () => {
 
   async function fetchMembers(scopeId: string) {
     try {
-      const members = apiData<ScopeMember[]>(await scopeService.fetchMembers(scopeId))
+      const members = await scopeService.fetchMembers(scopeId)
       scopeUsers.value[scopeId] = members
       logService.debug('Scope members fetched', { scope_id: scopeId, count: members.length })
       return members
@@ -275,11 +269,11 @@ export const useScopesStore = defineStore('scopes', () => {
 
   async function fetchStatistics(scopeId: string) {
     try {
-      const stats = apiData<ScopeStatisticsRecord>(await scopeService.fetchStatistics(scopeId))
+      const stats = await scopeService.fetchStatistics(scopeId)
       scopeStatistics.value[scopeId] = stats
       logService.debug('Scope statistics fetched', {
         scope_id: scopeId,
-        total_genes: stats.total_genes
+        total_genes_assigned: stats.total_genes_assigned
       })
       return stats
     } catch (err) {
@@ -291,7 +285,7 @@ export const useScopesStore = defineStore('scopes', () => {
     }
   }
 
-  async function inviteMember(scopeId: string, invitationData: InviteMemberData) {
+  async function inviteMember(scopeId: string, invitationData: Schema<'ScopeMembershipCreate'>) {
     try {
       const result = await scopeService.inviteMember(scopeId, invitationData)
 
@@ -313,7 +307,7 @@ export const useScopesStore = defineStore('scopes', () => {
     }
   }
 
-  async function updateMemberRole(scopeId: string, userId: string, newRole: string) {
+  async function updateMemberRole(scopeId: string, userId: string, newRole: ScopeRole) {
     try {
       const result = await scopeService.updateMemberRole(scopeId, userId, newRole)
 
@@ -322,7 +316,7 @@ export const useScopesStore = defineStore('scopes', () => {
       if (members) {
         const member = members.find(m => m.user_id === userId)
         if (member) {
-          member.role = newRole as ScopeMember['role']
+          member.role = newRole
         }
       }
 

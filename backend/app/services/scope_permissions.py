@@ -120,11 +120,6 @@ class ScopePermissionService:
 
         # Admin can view all
         if user.role.value == "admin":
-            logger.debug(
-                "Admin can view all scopes",
-                user_id=str(user.id),
-                scope_id=str(scope.id),
-            )
             return True
 
         # Check if user is scope member
@@ -134,6 +129,7 @@ class ScopePermissionService:
                 ScopeMembership.scope_id == scope.id,
                 ScopeMembership.user_id == user.id,
                 ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
             )
             .count()
             > 0
@@ -184,70 +180,6 @@ class ScopePermissionService:
         )
 
         return can_view
-
-    @staticmethod
-    def can_create_curation(db: Session, user: UserNew, scope_id: UUID) -> bool:
-        """Check if user can create curation in scope
-
-        Only authenticated users with curator or scope_admin role can create curations.
-
-        Args:
-            db: Database session
-            user: Current user (must be authenticated)
-            scope_id: Scope to create curation in
-
-        Returns:
-            True if user can create curation, False otherwise
-        """
-        # Admin can create in all scopes
-        if user.role.value == "admin":
-            logger.debug(
-                "Admin can create curations in all scopes",
-                user_id=str(user.id),
-                scope_id=str(scope_id),
-            )
-            return True
-
-        # Check if scope exists
-        scope = db.query(Scope).filter(Scope.id == scope_id).first()
-        if not scope:
-            logger.warning(
-                "Scope not found for curation creation",
-                scope_id=str(scope_id),
-                user_id=str(user.id),
-            )
-            return False
-
-        # Must be scope member with curator+ role
-        member = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.user_id == user.id,
-                ScopeMembership.is_active,
-            )
-            .first()
-        )
-
-        if not member:
-            logger.debug(
-                "User is not a member of scope",
-                user_id=str(user.id),
-                scope_id=str(scope_id),
-            )
-            return False
-
-        can_create = member.role in ["curator", "scope_admin"]
-
-        logger.debug(
-            "Curation creation permission check",
-            user_id=str(user.id),
-            scope_id=str(scope_id),
-            member_role=member.role,
-            can_create=can_create,
-        )
-
-        return can_create
 
     @staticmethod
     def can_edit_curation(db: Session, user: UserNew, curation: CurationNew) -> bool:
@@ -317,73 +249,6 @@ class ScopePermissionService:
         )
 
         return False
-
-    @staticmethod
-    def can_approve_curation(db: Session, user: UserNew, curation: CurationNew) -> bool:
-        """Check if user can approve/activate curation (4-eyes principle)
-
-        Approval rules (4-eyes principle):
-        - Admins can approve all curations
-        - Cannot approve own curation (4-eyes)
-        - Must be scope member with reviewer or scope_admin role
-
-        Args:
-            db: Database session
-            user: Current user (must be authenticated)
-            curation: Curation to check
-
-        Returns:
-            True if user can approve curation, False otherwise
-        """
-        # Admin can approve all
-        if user.role.value == "admin":
-            logger.debug(
-                "Admin can approve all curations",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-            )
-            return True
-
-        # Cannot approve own curation (4-eyes)
-        if curation.created_by == user.id:
-            logger.info(
-                "User cannot approve own curation (4-eyes principle)",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-            )
-            return False
-
-        # Must be scope member with reviewer+ role
-        scope_member = (
-            db.query(ScopeMembership)
-            .filter(
-                ScopeMembership.scope_id == curation.scope_id,
-                ScopeMembership.user_id == user.id,
-                ScopeMembership.is_active,
-            )
-            .first()
-        )
-
-        if not scope_member:
-            logger.debug(
-                "User is not a member of scope",
-                user_id=str(user.id),
-                curation_id=str(curation.id),
-                scope_id=str(curation.scope_id),
-            )
-            return False
-
-        can_approve = scope_member.role in ["reviewer", "scope_admin"]
-
-        logger.debug(
-            "Curation approval permission check",
-            user_id=str(user.id),
-            curation_id=str(curation.id),
-            member_role=scope_member.role,
-            can_approve=can_approve,
-        )
-
-        return can_approve
 
     @staticmethod
     def get_visible_scopes(db: Session, user: UserNew | None) -> list[Scope]:
@@ -529,6 +394,7 @@ class ScopePermissionService:
             ScopeMembership.user_id == user.id,
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+            ScopeMembership.accepted_at.isnot(None),
         ]
 
         if required_roles:
@@ -585,6 +451,7 @@ class ScopePermissionService:
             .filter(
                 ScopeMembership.user_id == user.id,
                 ScopeMembership.is_active == True,  # noqa: E712
+                ScopeMembership.accepted_at.isnot(None),
                 Scope.is_active == True,  # noqa: E712 - Only return active scopes
             )
         )

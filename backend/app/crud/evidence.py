@@ -1,7 +1,6 @@
 """Evidence CRUD operations for ClinGen SOP v11"""
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -69,29 +68,6 @@ class CRUDEvidence(CRUDBase[EvidenceItem, EvidenceItemCreate, EvidenceItemUpdate
 
         return list(db.execute(stmt).scalars().all())
 
-    def get_by_category(
-        self,
-        db: Session,
-        *,
-        curation_id: UUID,
-        category: str,
-        include_deleted: bool = False,
-    ) -> list[EvidenceItem]:
-        """Get evidence items by category"""
-        stmt = (
-            select(EvidenceItem)
-            .filter(
-                EvidenceItem.curation_id == curation_id,
-                EvidenceItem.evidence_category == category,
-            )
-            .order_by(EvidenceItem.created_at.desc())
-        )
-
-        if not include_deleted:
-            stmt = stmt.filter(EvidenceItem.is_deleted == False)  # noqa: E712
-
-        return list(db.execute(stmt).scalars().all())
-
     def update_with_user(
         self,
         db: Session,
@@ -150,51 +126,6 @@ class CRUDEvidence(CRUDBase[EvidenceItem, EvidenceItemCreate, EvidenceItemUpdate
         db.refresh(db_obj)
 
         logger.info("Evidence item restored", evidence_id=str(db_obj.id))
-
-        return db_obj
-
-    def update_validation_status(
-        self,
-        db: Session,
-        *,
-        db_obj: EvidenceItem,
-        status: str,
-        errors: dict[str, Any] | None = None,
-    ) -> EvidenceItem:
-        """Update validation status for evidence item"""
-        db_obj.validation_status = status
-        db_obj.validation_errors = errors
-        db_obj.validated_at = datetime.now()
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-
-        logger.info(
-            "Evidence validation updated",
-            evidence_id=str(db_obj.id),
-            status=status,
-        )
-
-        return db_obj
-
-    def update_score(
-        self,
-        db: Session,
-        *,
-        db_obj: EvidenceItem,
-        score: float,
-        metadata: dict[str, Any] | None = None,
-    ) -> EvidenceItem:
-        """Update computed score for evidence item"""
-        db_obj.computed_score = score
-        db_obj.score_metadata = metadata
-
-        db.add(db_obj)
-        db.commit()
-        db.refresh(db_obj)
-
-        logger.info("Evidence score updated", evidence_id=str(db_obj.id), score=score)
 
         return db_obj
 

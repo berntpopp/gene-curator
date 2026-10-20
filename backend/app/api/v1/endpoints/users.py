@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -15,6 +16,10 @@ from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter()
+
+
+class PasswordUpdate(BaseModel):
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 @router.get("/", response_model=list[UserResponse])
@@ -145,7 +150,7 @@ async def update_user(
 @router.put("/{user_id}/password")
 async def update_user_password(
     user_id: str,
-    new_password: str,
+    body: PasswordUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ) -> dict[str, str]:
@@ -158,7 +163,7 @@ async def update_user_password(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
-    user_crud.update_password(db=db, user_id=user_id, new_password=new_password)
+    user_crud.update_password(db=db, user_id=user_id, new_password=body.new_password)
     return {"message": "Password updated successfully"}
 
 

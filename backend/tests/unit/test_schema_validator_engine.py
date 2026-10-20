@@ -84,6 +84,14 @@ class TestTextField:
         assert result.is_valid is False
         assert message in _messages(result)
 
+    def test_invalid_regex_pattern_is_a_configuration_error(
+        self, validator: SchemaValidator
+    ):
+        result = _run(validator, {"f": "abc"}, {"f": {"type": "text", "pattern": "("}})
+
+        assert result.is_valid is False
+        assert "Schema has an invalid regex pattern" in _messages(result)
+
     def test_whitespace_and_brevity_warnings(self, validator: SchemaValidator):
         result = _run(validator, {"f": " two words "}, {"f": {"type": "text"}})
 

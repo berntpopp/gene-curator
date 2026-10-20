@@ -63,18 +63,6 @@ class HPOValidationData(BaseModel):
     synonyms: list[str] = Field(default=[], description="Term synonyms")
 
 
-class CacheStatistics(BaseModel):
-    """Validation cache statistics"""
-
-    total_entries: int = Field(..., description="Total cache entries")
-    hgnc_entries: int = Field(..., description="HGNC cache entries")
-    pubmed_entries: int = Field(..., description="PubMed cache entries")
-    hpo_entries: int = Field(..., description="HPO cache entries")
-    total_hits: int = Field(..., description="Total cache hits")
-    hit_rate: float = Field(..., description="Cache hit rate (0.0-1.0)")
-    expired_entries: int = Field(..., description="Expired entries pending cleanup")
-
-
 # HGNC Search schemas for gene autocomplete
 class HGNCGeneSearchResult(BaseModel):
     """Single gene result from HGNC search"""
@@ -291,11 +279,6 @@ class HPOInheritanceResponse(BaseModel):
 
 
 # Publication/PMID validation schemas
-class PublicationAuthor(BaseModel):
-    """Publication author information"""
-
-    name: str = Field(..., description="Author name")
-    affiliation: str | None = Field(None, description="Author affiliation")
 
 
 class PublicationData(BaseModel):
