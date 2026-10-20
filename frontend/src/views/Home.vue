@@ -113,12 +113,12 @@
             </v-card-title>
             <v-card-text>
               <p class="text-body-1 text-medium-emphasis">
-                Welcome back, {{ authStore.user?.email }}!
+                Welcome back, {{ currentUser?.email }}!
               </p>
               <p class="text-body-2">
                 Your role:
-                <v-chip size="small" :color="getRoleColor(authStore.user?.role)">
-                  {{ authStore.user?.role }}
+                <v-chip size="small" :color="getRoleColor(currentUser?.role)">
+                  {{ currentUser?.role }}
                 </v-chip>
               </p>
             </v-card-text>
@@ -129,18 +129,29 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
   import { ref, onMounted, computed } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'
+  import type { Schema } from '@/types/api'
 
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
+  // The auth store types user as null (untyped JS state); narrow it to the fields shown here
+  const currentUser = computed(() => authStore.user as { email?: string; role?: string } | null)
 
-  const statistics = ref(null)
+  const statistics = ref<Schema<'GeneStatistics'> | null>(null)
 
   const features = [
     {
@@ -218,20 +229,21 @@
     ]
   })
 
-  const getRoleColor = role => {
-    const colors = {
+  const getRoleColor = (role: string | undefined): string => {
+    const colors: Record<string, string> = {
       admin: 'error',
       curator: 'warning',
       viewer: 'info'
     }
-    return colors[role] || 'grey'
+    return colors[role ?? ''] || 'grey'
   }
 
   onMounted(async () => {
     try {
       statistics.value = await genesStore.fetchStatistics()
     } catch (error) {
-      logger.warn('Failed to load statistics:', { error: error.message, stack: error.stack })
+      const err = error as Error
+      logger.warn('Failed to load statistics:', { error: err.message, stack: err.stack })
     }
   })
 </script>

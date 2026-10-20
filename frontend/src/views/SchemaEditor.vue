@@ -225,13 +225,40 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  // Shape of a schema detail as edited here; the store returns untyped data
+  interface SchemaDetail {
+    id: string
+    name: string
+    version: string
+    json_schema?: { properties?: Record<string, unknown>; required?: string[] }
+    scoring_config?: Record<string, unknown> | null
+    usage_count: number
+    created_at?: string | null
+    updated_at?: string | null
+    [key: string]: unknown
+  }
 
   const route = useRoute()
   const router = useRouter()
@@ -240,15 +267,15 @@
   const loading = ref(false)
   const saving = ref(false)
   const validating = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const isEditing = ref(false)
-  const schema = ref(null)
-  const editableSchema = ref({})
+  const schema = ref<SchemaDetail | null>(null)
+  const editableSchema = ref<Partial<SchemaDetail>>({})
   const jsonSchemaText = ref('')
   const scoringConfigText = ref('')
   const isValidJson = ref(true)
   const jsonError = ref('')
-  const basicForm = ref(null)
+  const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   const schemaId = computed(() => route.params.id)
 
@@ -264,12 +291,12 @@
     { title: 'Deprecated', value: 'deprecated' }
   ]
 
-  const formatJson = obj => {
+  const formatJson = (obj: unknown) => {
     return JSON.stringify(obj, null, 2)
   }
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return new Date(dateString as string).toLocaleDateString()
   }
 
   const getFieldCount = () => {
@@ -289,7 +316,7 @@
       jsonError.value = ''
     } catch (e) {
       isValidJson.value = false
-      jsonError.value = e.message
+      jsonError.value = (e as Error).message
     }
   }
 
@@ -297,11 +324,13 @@
     try {
       JSON.parse(scoringConfigText.value)
     } catch (e) {
-      logger.error('Invalid scoring config JSON:', { error: e.message, stack: e.stack })
+      const err = e as Error
+      logger.error('Invalid scoring config JSON:', { error: err.message, stack: err.stack })
     }
   }
 
   const saveSchema = async () => {
+    if (!basicForm.value) return
     const { valid } = await basicForm.value.validate()
     if (!valid || !isValidJson.value) return
 
@@ -314,10 +343,11 @@
       }
 
       await schemasStore.updateSchema(schemaId.value, editableSchema.value)
-      schema.value = { ...editableSchema.value }
+      schema.value = { ...editableSchema.value } as SchemaDetail
       isEditing.value = false
     } catch (error) {
-      logger.error('Failed to save schema:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to save schema:', { error: err.message, stack: err.stack })
     } finally {
       saving.value = false
     }
@@ -325,8 +355,8 @@
 
   const cancelEdit = () => {
     editableSchema.value = { ...schema.value }
-    jsonSchemaText.value = formatJson(schema.value.json_schema)
-    scoringConfigText.value = schema.value.scoring_config
+    jsonSchemaText.value = formatJson(schema.value?.json_schema)
+    scoringConfigText.value = schema.value?.scoring_config
       ? formatJson(schema.value.scoring_config)
       : ''
     isEditing.value = false
@@ -335,17 +365,20 @@
   const validateSchema = async () => {
     validating.value = true
     try {
+      // @ts-expect-error validateSchema is not defined on this store (pre-existing bug, see conversion report)
       const result = await schemasStore.validateSchema(schemaId.value)
       logger.info('Schema validation result:', result)
       // Show validation results to user
     } catch (error) {
-      logger.error('Schema validation failed:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Schema validation failed:', { error: err.message, stack: err.stack })
     } finally {
       validating.value = false
     }
   }
 
   const exportSchema = () => {
+    if (!schema.value) return
     const blob = new Blob([JSON.stringify(schema.value, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -357,20 +390,24 @@
 
   const duplicateSchema = async () => {
     try {
+      // @ts-expect-error schemasStore has no duplicateSchema: the call throws and is caught below (pre-existing behaviour)
       const duplicated = await schemasStore.duplicateSchema(schemaId.value)
       router.push({ name: 'SchemaEditor', params: { id: duplicated.id } })
     } catch (error) {
-      logger.error('Failed to duplicate schema:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to duplicate schema:', { error: err.message, stack: err.stack })
     }
   }
 
   const deleteSchema = async () => {
+    if (!schema.value) return
     if (confirm(`Are you sure you want to delete "${schema.value.name}"?`)) {
       try {
         await schemasStore.deleteSchema(schemaId.value)
         router.push({ name: 'SchemaManagement' })
       } catch (error) {
-        logger.error('Failed to delete schema:', { error: error.message, stack: error.stack })
+        const err = error as ApiError
+        logger.error('Failed to delete schema:', { error: err.message, stack: err.stack })
       }
     }
   }
@@ -388,8 +425,9 @@
         ? formatJson(schemaData.scoring_config)
         : ''
     } catch (err) {
-      error.value = err.message || 'Failed to load schema'
-      logger.error('Failed to load schema:', { error: err.message, stack: err.stack })
+      const apiErr = err as ApiError
+      error.value = apiErr.message || 'Failed to load schema'
+      logger.error('Failed to load schema:', { error: apiErr.message, stack: apiErr.stack })
     } finally {
       loading.value = false
     }

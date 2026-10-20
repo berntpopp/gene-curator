@@ -325,30 +325,71 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useValidationStore, useScopesStore, useSchemasStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
 
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  interface ValidationIssue {
+    id?: string
+    message?: string
+    severity: string
+    field_path?: string
+    rule_type?: string
+  }
+
+  // Minimal shape of a validation row; the store returns untyped data
+  interface ValidationRow {
+    id: string
+    entity_id?: string
+    entity_type?: string
+    entity_name?: string
+    gene_symbol?: string
+    disease_name?: string
+    scope_id?: string
+    scope_name?: string
+    schema_id?: string
+    schema_name?: string
+    schema_version?: string
+    validation_status: string
+    evidence_data?: Record<string, unknown>
+    issues: ValidationIssue[]
+    last_validated?: string | null
+  }
+
   const router = useRouter()
   const validationStore = useValidationStore()
   const scopesStore = useScopesStore()
   const schemasStore = useSchemasStore()
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
 
   const loading = ref(false)
   const refreshing = ref(false)
-  const revalidating = ref({})
+  const revalidating = ref<Record<string, boolean>>({})
   const detailDialog = ref(false)
-  const selectedValidation = ref(null)
+  const selectedValidation = ref<ValidationRow | null>(null)
 
   // Filters
-  const selectedScope = ref(null)
-  const selectedSchema = ref(null)
-  const selectedStatus = ref(null)
-  const selectedSeverity = ref(null)
+  const selectedScope = ref<string | null>(null)
+  const selectedSchema = ref<string | null>(null)
+  const selectedStatus = ref<string | null>(null)
+  const selectedSeverity = ref<string | null>(null)
 
   const validationHeaders = [
     { title: 'Entity', key: 'entity', sortable: true },
@@ -375,6 +416,7 @@
   // Computed properties with defensive defaults
   const stats = computed(
     () =>
+      // @ts-expect-error validationStats is not defined on this store (pre-existing bug, see conversion report)
       validationStore.validationStats || {
         valid_curations: 0,
         invalid_curations: 0,
@@ -383,7 +425,7 @@
       }
   )
 
-  const validationResults = computed(() => {
+  const validationResults = computed((): ValidationRow[] => {
     // validationStore.validationResults is an object, not array
     // Convert to array for data table
     const results = validationStore.validationResults
@@ -396,9 +438,12 @@
     return Object.values(results).filter(v => v && typeof v === 'object')
   })
 
+  // @ts-expect-error commonIssues is not defined on this store (pre-existing bug, see conversion report)
   const commonIssues = computed(() => validationStore.commonIssues || [])
-  const availableScopes = computed(() => scopesStore.scopes || [])
-  const availableSchemas = computed(() => schemasStore.schemas || [])
+  const availableScopes = computed((): { id: string; name?: string }[] => scopesStore.scopes || [])
+  const availableSchemas = computed(
+    (): { id: string; name?: string }[] => schemasStore.schemas || []
+  )
 
   const filteredResults = computed(() => {
     // Defensive: ensure validationResults is always an array
@@ -430,9 +475,10 @@
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
+    const apiErr = err as ApiError
     logger.error('Component error caught', {
-      error: err.message,
-      stack: err.stack,
+      error: apiErr.message,
+      stack: apiErr.stack,
       component: instance?.$options?.name || 'ValidationDashboard',
       errorInfo: info
     })
@@ -444,8 +490,8 @@
   })
 
   // Helper functions
-  const getValidationStatusColor = status => {
-    const colorMap = {
+  const getValidationStatusColor = (status: string) => {
+    const colorMap: Record<string, string> = {
       valid: 'success',
       invalid: 'error',
       warning: 'warning',
@@ -454,8 +500,8 @@
     return colorMap[status] || 'grey'
   }
 
-  const getValidationStatusIcon = status => {
-    const iconMap = {
+  const getValidationStatusIcon = (status: string) => {
+    const iconMap: Record<string, string> = {
       valid: 'mdi-check',
       invalid: 'mdi-close',
       warning: 'mdi-alert',
@@ -464,8 +510,8 @@
     return iconMap[status] || 'mdi-help'
   }
 
-  const getSeverityColor = severity => {
-    const colorMap = {
+  const getSeverityColor = (severity: string) => {
+    const colorMap: Record<string, string> = {
       error: 'error',
       warning: 'warning',
       info: 'info'
@@ -473,18 +519,18 @@
     return colorMap[severity] || 'grey'
   }
 
-  const formatValidationStatus = status => {
+  const formatValidationStatus = (status: string) => {
     return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return new Date(dateString as string).toLocaleDateString()
   }
 
-  const getTimeAgo = dateString => {
-    const date = new Date(dateString)
+  const getTimeAgo = (dateString: string | null | undefined) => {
+    const date = new Date(dateString as string)
     const now = new Date()
-    const diffMs = now - date
+    const diffMs = now.getTime() - date.getTime()
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
@@ -503,6 +549,7 @@
     refreshing.value = true
     try {
       // Call existing methods that actually exist
+      // @ts-expect-error fetchScopes is not defined on this store (pre-existing bug, see conversion report)
       await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
 
       logger.info('Validation dashboard refreshed', {
@@ -511,9 +558,10 @@
       })
       showSuccess('Dashboard refreshed successfully')
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to refresh validations', {
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to refresh dashboard')
     } finally {
@@ -521,12 +569,12 @@
     }
   }
 
-  const viewValidationDetails = validation => {
+  const viewValidationDetails = (validation: ValidationRow) => {
     selectedValidation.value = validation
     detailDialog.value = true
   }
 
-  const revalidateEntity = async validation => {
+  const revalidateEntity = async (validation: ValidationRow) => {
     revalidating.value[validation.id] = true
     try {
       // Use existing validation API method
@@ -542,10 +590,11 @@
       })
       showSuccess('Revalidation complete')
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to revalidate entity', {
         entityId: validation.entity_id,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Revalidation failed')
     } finally {
@@ -553,13 +602,13 @@
     }
   }
 
-  const viewEntity = validation => {
+  const viewEntity = (validation: ValidationRow) => {
     try {
       router.push({ name: 'AssignmentDetail', params: { id: validation.entity_id } })
     } catch (error) {
       logger.error('Failed to navigate to entity', {
         entityId: validation.entity_id,
-        error: error.message
+        error: (error as ApiError).message
       })
       showError('Failed to open entity details')
     }
@@ -569,6 +618,7 @@
     loading.value = true
     try {
       // Only call methods that exist in stores
+      // @ts-expect-error fetchScopes is not defined on this store (pre-existing bug, see conversion report)
       await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
 
       logger.info('ValidationDashboard mounted', {
@@ -576,9 +626,10 @@
         schemaCount: schemasStore.schemas?.length || 0
       })
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to load validation dashboard', {
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to load dashboard data. Please refresh.')
     } finally {

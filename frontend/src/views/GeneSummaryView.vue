@@ -117,7 +117,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGeneSummaryStore } from '@/stores/geneSummary'
@@ -128,12 +128,20 @@
   const route = useRoute()
   const geneSummaryStore = useGeneSummaryStore()
   const genesStore = useGenesStore()
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
 
-  const geneId = route.params.geneId
+  const logger = useLogger() as Logger
+
+  const geneId = route.params.geneId as string
   const geneSymbol = ref('')
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // Computed summary
   const summary = computed(() => {
@@ -151,8 +159,8 @@
   })
 
   // Get classification color helper
-  const getClassificationColor = classification => {
-    const cls = classification?.toLowerCase()
+  const getClassificationColor = (classification: string | number) => {
+    const cls = String(classification).toLowerCase()
     if (cls === 'definitive') return 'success'
     if (cls === 'strong') return 'info'
     if (cls === 'moderate') return 'warning'
@@ -161,7 +169,7 @@
   }
 
   // Format date helper
-  const formatDate = dateString => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'N/A'
     const date = new Date(dateString)
     return date.toLocaleString('en-US', {
@@ -187,14 +195,15 @@
         const gene = await genesStore.fetchGeneById(geneId)
         geneSymbol.value = gene.approved_symbol
       } catch (geneError) {
-        logger.warn('Could not fetch gene details', { geneId, error: geneError.message })
+        logger.warn('Could not fetch gene details', { geneId, error: (geneError as Error).message })
         // Continue even if gene details fail
       }
 
       logger.info('Gene summary loaded successfully', { geneId })
     } catch (e) {
-      error.value = e.message || 'Failed to load gene summary'
-      logger.error('Failed to load gene summary', { geneId, error: e.message })
+      const err = e as Error
+      error.value = err.message || 'Failed to load gene summary'
+      logger.error('Failed to load gene summary', { geneId, error: err.message })
     } finally {
       loading.value = false
     }

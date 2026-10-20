@@ -305,29 +305,69 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess, showInfo } from '@/composables/useNotifications'
 
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  // Minimal shape of a workflow pair; the store returns untyped data
+  interface WorkflowRow {
+    id: string
+    name?: string
+    description?: string
+    is_active?: boolean
+    status?: string
+    usage_count: number
+    created_at?: string | null
+    precuration_schema_id?: string | null
+    curation_schema_id?: string | null
+    precuration_schema_name?: string
+    curation_schema_name?: string
+    data_mapping?: unknown
+  }
+
+  interface SchemaOption {
+    id: string
+    name: string
+  }
+
   const schemasStore = useSchemasStore()
   const workflowStore = useWorkflowStore()
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
 
   const loading = ref(false)
   const creating = ref(false)
   const createWorkflowDialog = ref(false)
-  const createForm = ref(null)
+  const createForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const viewWorkflowDialog = ref(false)
-  const selectedWorkflow = ref(null)
+  const selectedWorkflow = ref<WorkflowRow | null>(null)
   const editWorkflowDialog = ref(false)
-  const editWorkflowForm = ref(null)
+  const editWorkflowForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const savingWorkflow = ref(false)
   const editWorkflowData = ref({ name: '', description: '', is_active: true })
-  let editingWorkflowId = null
+  let editingWorkflowId: string | null = null
 
-  const newWorkflow = ref({
+  const newWorkflow = ref<{
+    name: string
+    description: string
+    precuration_schema_id: string | null
+    curation_schema_id: string | null
+  }>({
     name: '',
     description: '',
     precuration_schema_id: null,
@@ -346,16 +386,19 @@
   // Defensive computed properties with defaults
   // Note: workflowPairs are in schemasStore (schema-related data)
   // workflowStages are static configuration in workflowStore
-  const workflowPairs = computed(() => schemasStore.workflowPairs || [])
+  const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
-  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas || [])
-  const curationSchemas = computed(() => schemasStore.getCurationSchemas || [])
+  const precurationSchemas = computed(
+    (): SchemaOption[] => schemasStore.getPrecurationSchemas || []
+  )
+  const curationSchemas = computed((): SchemaOption[] => schemasStore.getCurationSchemas || [])
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
+    const apiErr = err as ApiError
     logger.error('WorkflowManagement error', {
-      error: err.message,
-      stack: err.stack,
+      error: apiErr.message,
+      stack: apiErr.stack,
       component: instance?.$options?.name || 'WorkflowManagement',
       errorInfo: info
     })
@@ -366,17 +409,17 @@
     return false
   })
 
-  const getStatusColor = status => {
-    const colorMap = {
+  const getStatusColor = (status: string | undefined) => {
+    const colorMap: Record<string, string> = {
       active: 'success',
       draft: 'warning',
       deprecated: 'error'
     }
-    return colorMap[status] || 'grey'
+    return colorMap[status ?? ''] || 'grey'
   }
 
-  const getStageColor = stageType => {
-    const colorMap = {
+  const getStageColor = (stageType: string) => {
+    const colorMap: Record<string, string> = {
       entry: 'blue',
       precuration: 'orange',
       curation: 'green',
@@ -386,8 +429,8 @@
     return colorMap[stageType] || 'grey'
   }
 
-  const getStageIcon = stageType => {
-    const iconMap = {
+  const getStageIcon = (stageType: string) => {
+    const iconMap: Record<string, string> = {
       entry: 'mdi-file-document-plus',
       precuration: 'mdi-file-document-edit',
       curation: 'mdi-file-document-check',
@@ -397,28 +440,28 @@
     return iconMap[stageType] || 'mdi-circle'
   }
 
-  const formatStatus = status => {
+  const formatStatus = (status: unknown) => {
     if (!status || typeof status !== 'string') return 'Draft'
     return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return new Date(dateString as string).toLocaleDateString()
   }
 
-  const getSchemaName = (schemaId, type) => {
+  const getSchemaName = (schemaId: string | null | undefined, type: string) => {
     const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
-    const schema = schemas.find(s => s.id === schemaId)
+    const schema = schemas.find((s: { id: string }) => s.id === schemaId)
     return schema ? schema.name : schemaId || 'N/A'
   }
 
-  const viewWorkflow = workflow => {
+  const viewWorkflow = (workflow: WorkflowRow) => {
     logger.info('View workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
     selectedWorkflow.value = workflow
     viewWorkflowDialog.value = true
   }
 
-  const editWorkflow = workflow => {
+  const editWorkflow = (workflow: WorkflowRow) => {
     logger.info('Edit workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
     editingWorkflowId = workflow.id
     editWorkflowData.value = {
@@ -430,6 +473,7 @@
   }
 
   const saveWorkflow = async () => {
+    if (!editWorkflowForm.value) return
     const { valid } = await editWorkflowForm.value.validate()
     if (!valid) return
     savingWorkflow.value = true
@@ -439,13 +483,13 @@
       editWorkflowDialog.value = false
     } catch (error) {
       showError('Failed to update workflow')
-      logger.error('Save workflow failed', { error: error.message })
+      logger.error('Save workflow failed', { error: (error as ApiError).message })
     } finally {
       savingWorkflow.value = false
     }
   }
 
-  const deleteWorkflow = async workflow => {
+  const deleteWorkflow = async (workflow: WorkflowRow) => {
     if (confirm(`Are you sure you want to delete "${workflow.name}"?`)) {
       try {
         // workflowPairs CRUD is in schemasStore (schema-related data)
@@ -453,23 +497,25 @@
         logger.info('Workflow deleted', { workflowId: workflow.id, workflowName: workflow.name })
         showSuccess('Workflow deleted successfully')
       } catch (error) {
+        const err = error as ApiError
         logger.error('Failed to delete workflow', {
           workflowId: workflow.id,
-          error: error.message,
-          stack: error.stack
+          error: err.message,
+          stack: err.stack
         })
         showError('Failed to delete workflow')
       }
     }
   }
 
-  const editStage = stage => {
+  const editStage = (stage: { id: string; name?: string }) => {
     logger.info('Edit stage requested', { stageId: stage.id, stageName: stage.name })
     // TODO: Implement stage edit when available
     showInfo('Stage editing coming soon')
   }
 
   const createWorkflow = async () => {
+    if (!createForm.value) return
     const { valid } = await createForm.value.validate()
     if (!valid) return
 
@@ -488,10 +534,11 @@
         curation_schema_id: null
       }
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to create workflow', {
         workflowName: newWorkflow.value.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to create workflow')
     } finally {
@@ -519,9 +566,10 @@
         analyticsLoaded: !!workflowStore.analytics
       })
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to load workflow data', {
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to load workflow data. Please refresh.')
     } finally {

@@ -170,7 +170,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
@@ -184,23 +184,46 @@
     getStatusColor
   } from '@/utils/schemaTransformer'
 
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+    response?: { status?: number }
+  }
+
+  interface SchemaRow {
+    id: string
+    name: string
+    type?: string
+    status?: string
+  }
+
   const router = useRouter()
   const schemasStore = useSchemasStore()
-  const logger = useLogger()
+  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
+  interface Logger {
+    debug: (message: string, data?: object) => void
+    info: (message: string, data?: object) => void
+    warn: (message: string, data?: object) => void
+    error: (message: string, data?: object) => void
+  }
+
+  const logger = useLogger() as Logger
 
   const loading = ref(false)
   const creating = ref(false)
   const searchQuery = ref('')
-  const selectedType = ref(null)
-  const selectedStatus = ref(null)
+  const selectedType = ref<string | null>(null)
+  const selectedStatus = ref<string | null>(null)
   const createSchemaDialog = ref(false)
-  const createForm = ref(null)
+  const createForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
+    const apiErr = err as ApiError
     logger.error('SchemaManagement error', {
-      error: err.message,
-      stack: err.stack,
+      error: apiErr.message,
+      stack: apiErr.stack,
       component: instance?.$options?.name || 'SchemaManagement',
       errorInfo: info
     })
@@ -211,7 +234,12 @@
     return false
   })
 
-  const newSchema = ref({
+  const newSchema = ref<{
+    name: string
+    description: string
+    type: string | null
+    version: string
+  }>({
     name: '',
     description: '',
     type: null,
@@ -261,30 +289,31 @@
   // Note: getTypeColor, getStatusColor, formatType, formatStatus
   // are now imported from @/utils/schemaTransformer (DRY principle)
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString()
   }
 
-  const viewSchema = schema => {
+  const viewSchema = (schema: SchemaRow) => {
     logger.info('View schema requested', { schemaId: schema.id, schemaName: schema.name })
     // TODO: Implement schema detail view when available
   }
 
-  const editSchema = schema => {
+  const editSchema = (schema: SchemaRow) => {
     try {
       router.push({ name: 'SchemaEditor', params: { id: schema.id } })
       logger.info('Navigate to schema editor', { schemaId: schema.id, schemaName: schema.name })
     } catch (error) {
       logger.error('Failed to navigate to schema editor', {
         schemaId: schema.id,
-        error: error.message
+        error: (error as ApiError).message
       })
       showError('Failed to open schema editor')
     }
   }
 
-  const duplicateSchema = async schema => {
+  const duplicateSchema = async (schema: SchemaRow) => {
     try {
+      // @ts-expect-error schemasStore has no duplicateSchema: the call throws and is caught below (pre-existing behaviour)
       const duplicated = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema duplicated', {
         originalId: schema.id,
@@ -293,28 +322,30 @@
       })
       showSuccess(`Schema "${schema.name}" duplicated successfully`)
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to duplicate schema', {
         schemaId: schema.id,
         schemaName: schema.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to duplicate schema')
     }
   }
 
-  const deleteSchema = async schema => {
+  const deleteSchema = async (schema: SchemaRow) => {
     if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
       try {
         await schemasStore.deleteSchema(schema.id)
         logger.info('Schema deleted', { schemaId: schema.id, schemaName: schema.name })
         showSuccess(`Schema "${schema.name}" deleted successfully`)
       } catch (error) {
+        const err = error as ApiError
         logger.error('Failed to delete schema', {
           schemaId: schema.id,
           schemaName: schema.name,
-          error: error.message,
-          stack: error.stack
+          error: err.message,
+          stack: err.stack
         })
         showError('Failed to delete schema')
       }
@@ -322,6 +353,7 @@
   }
 
   const createSchema = async () => {
+    if (!createForm.value) return
     const { valid } = await createForm.value.validate()
     if (!valid) return
 
@@ -339,10 +371,11 @@
         version: '1.0.0'
       }
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to create schema', {
         schemaName: newSchema.value.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to create schema')
     } finally {
@@ -356,15 +389,16 @@
       await schemasStore.fetchSchemas()
       logger.info('SchemaManagement mounted', { schemasCount: schemas.value.length })
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to load schemas', {
-        error: error.message,
-        status: error.response?.status,
+        error: err.message,
+        status: err.response?.status,
         endpoint: '/api/v1/schemas',
-        stack: error.stack
+        stack: err.stack
       })
 
       // Check if 404 (endpoint doesn't exist yet)
-      if (error.response?.status === 404) {
+      if (err.response?.status === 404) {
         showError('Schema management is not yet available. This feature is under development.')
       } else {
         showError('Failed to load schemas. Please refresh.')

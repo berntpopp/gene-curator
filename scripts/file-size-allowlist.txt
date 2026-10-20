@@ -26,6 +26,5 @@
 660 frontend/src/views/CurationDetail.vue
 733 frontend/src/views/CurationsTable.vue
 841 frontend/src/views/GeneCatalogueView.vue
-673 frontend/src/views/UserManagement.vue
 906 frontend/src/views/curation/CurationDetailView.vue
 675 frontend/src/views/scope/ScopeCreate.vue
