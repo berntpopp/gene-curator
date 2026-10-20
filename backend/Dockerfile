@@ -1,5 +1,5 @@
 # Multi-stage build for production optimization
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 # Install uv from official image (replaces curl-based install)
 COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /usr/local/bin/
