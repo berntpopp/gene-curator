@@ -162,13 +162,15 @@ def create_precuration(
 ) -> Precuration:
     """
     Create a new precuration.
-    Requires access to the target scope.
+    Requires curator or admin access to the target scope.
     """
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration_in.scope_id)
+    _check_scope_access(
+        db, current_user, precuration_in.scope_id, required_roles=["admin", "curator"]
+    )
 
     try:
         precuration = precuration_crud.create_precuration(
@@ -211,7 +213,9 @@ def update_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
 
     # Check precuration is editable
     if precuration.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -257,6 +261,10 @@ def save_draft(
             detail="Precuration not found",
         )
 
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
+
     # Only creator or admin can save drafts
     if current_user.role != "admin" and precuration.created_by != current_user.id:
         raise HTTPException(
@@ -293,6 +301,10 @@ def submit_precuration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Precuration not found",
         )
+
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
 
     # Only creator or admin can submit
     if current_user.role != "admin" and precuration.created_by != current_user.id:
