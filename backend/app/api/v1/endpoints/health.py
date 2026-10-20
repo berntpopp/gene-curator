@@ -21,7 +21,7 @@ async def health_check() -> dict[str, Any]:
     return {
         "status": "healthy",
         "timestamp": time.time(),
-        "version": "2.0.0",
+        "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
     }
 
@@ -68,7 +68,7 @@ async def detailed_health_check(db: Session = Depends(get_db)) -> dict[str, Any]
             else "unhealthy"
         ),
         "timestamp": time.time(),
-        "version": "2.0.0",
+        "version": settings.APP_VERSION,
         "environment": settings.ENVIRONMENT,
         "components": {
             "database": {
