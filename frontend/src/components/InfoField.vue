@@ -7,21 +7,18 @@
   </div>
 </template>
 
-<script setup>
-  defineProps({
-    label: {
-      type: String,
-      required: true
-    },
-    value: {
-      type: String,
-      default: ''
-    },
-    monospace: {
-      type: Boolean,
-      default: false
+<script setup lang="ts">
+  withDefaults(
+    defineProps<{
+      label: string
+      value?: string
+      monospace?: boolean
+    }>(),
+    {
+      value: '',
+      monospace: false
     }
-  })
+  )
 </script>
 
 <style scoped>

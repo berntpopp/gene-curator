@@ -143,7 +143,7 @@
   </v-navigation-drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * AssignGenesDrawer Component
    *
@@ -168,31 +168,49 @@
   import { genesAPI, assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
   import { useNotificationsStore } from '@/stores/notifications'
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      required: true
-    },
-    scopeId: {
-      type: String,
-      required: true
-    }
-  })
+  interface GeneOption {
+    gene_id: string
+    gene_symbol: string
+    gene_name?: string | null
+  }
 
-  const emit = defineEmits(['update:modelValue', 'assigned'])
+  interface CuratorOption {
+    user_id: string
+    email: string
+    full_name?: string | null
+    role: string
+  }
+
+  interface ApiError {
+    message: string
+  }
+
+  const props = defineProps<{
+    modelValue: boolean
+    scopeId: string
+  }>()
+
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    assigned: []
+  }>()
 
   const scopesStore = useScopesStore()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
 
   // Form state
-  const formRef = ref(null)
-  const selectedGenes = ref([])
-  const selectedCurator = ref(null)
-  const dueDate = ref(null)
-  const priority = ref('normal')
+  const formRef = ref<{
+    validate: () => Promise<{ valid: boolean }>
+    resetValidation: () => void
+  } | null>(null)
+  const selectedGenes = ref<string[]>([])
+  const selectedCurator = ref<string | null>(null)
+  const dueDate = ref<string | null>(null)
+  const priority = ref<string>('normal')
   const notes = ref('')
 
   // Loading states
@@ -201,8 +219,8 @@
   const assigning = ref(false)
 
   // Data
-  const availableGenes = ref([])
-  const availableCurators = ref([])
+  const availableGenes = ref<GeneOption[]>([])
+  const availableCurators = ref<CuratorOption[]>([])
 
   // Priority options
   const priorityOptions = [
@@ -219,10 +237,12 @@
     loadingGenes.value = true
     try {
       // Fetch all genes (would be filtered by scope in real app)
-      const allGenes = await genesAPI.getGenes()
+      const allGenes: GeneOption[] = await genesAPI.getGenes()
 
       // Fetch already assigned genes
-      const assignments = await assignmentsAPI.getAssignments({ scope_id: props.scopeId })
+      const assignments: { gene_id: string }[] = await assignmentsAPI.getAssignments({
+        scope_id: props.scopeId
+      })
       const assignedGeneIds = new Set(assignments.map(a => a.gene_id))
 
       // Filter out already assigned genes
@@ -239,7 +259,7 @@
         available: availableGenes.value.length
       })
     } catch (error) {
-      logger.error('Failed to fetch available genes', { error: error.message })
+      logger.error('Failed to fetch available genes', { error: (error as ApiError).message })
       notificationStore.addToast('Failed to load genes', 'error')
     } finally {
       loadingGenes.value = false
@@ -252,7 +272,8 @@
   async function fetchAvailableCurators() {
     loadingCurators.value = true
     try {
-      const members = await scopesStore.fetchMembers(props.scopeId)
+      // The store is still JavaScript; its result is the member list shape below.
+      const members = (await scopesStore.fetchMembers(props.scopeId)) as CuratorOption[]
 
       // Filter to only curators and admins
       availableCurators.value = members
@@ -266,7 +287,7 @@
 
       logger.debug('Available curators loaded', { count: availableCurators.value.length })
     } catch (error) {
-      logger.error('Failed to fetch curators', { error: error.message })
+      logger.error('Failed to fetch curators', { error: (error as ApiError).message })
       notificationStore.addToast('Failed to load curators', 'error')
     } finally {
       loadingCurators.value = false
@@ -276,16 +297,16 @@
   /**
    * Get avatar color based on email hash
    */
-  function getAvatarColor(email) {
+  function getAvatarColor(email: string): string {
     const colors = ['primary', 'secondary', 'success', 'info', 'warning']
     const hash = email.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[hash % colors.length]
+    return colors[hash % colors.length] ?? 'primary'
   }
 
   /**
    * Get initials from name
    */
-  function getInitials(name) {
+  function getInitials(name: string): string {
     return name
       .split(' ')
       .map(n => n[0])
@@ -296,8 +317,8 @@
   /**
    * Get role color
    */
-  function getRoleColor(role) {
-    const colors = {
+  function getRoleColor(role: string): string {
+    const colors: Record<string, string> = {
       admin: 'error',
       scope_admin: 'warning',
       curator: 'primary',
@@ -311,6 +332,7 @@
    * Handle assign action
    */
   async function handleAssign() {
+    if (!formRef.value) return
     const { valid } = await formRef.value.validate()
     if (!valid) return
 
@@ -350,7 +372,7 @@
       // Close drawer
       close()
     } catch (error) {
-      logger.error('Failed to assign genes', { error: error.message })
+      logger.error('Failed to assign genes', { error: (error as ApiError).message })
       notificationStore.addToast('Failed to assign genes', 'error')
     } finally {
       assigning.value = false

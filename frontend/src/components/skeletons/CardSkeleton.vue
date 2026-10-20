@@ -9,7 +9,7 @@
   <slot v-else />
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Card Skeleton Component
    *
@@ -31,31 +31,22 @@
    * </card-skeleton>
    */
 
-  defineProps({
-    loading: {
-      type: Boolean,
-      required: true
-    },
-    count: {
-      type: Number,
-      default: 6,
-      validator: value => value > 0 && value <= 24
-    },
-    cols: {
-      type: [String, Number],
-      default: 12
-    },
-    sm: {
-      type: [String, Number],
-      default: 6
-    },
-    md: {
-      type: [String, Number],
-      default: 4
-    },
-    elevation: {
-      type: [String, Number],
-      default: 2
+  withDefaults(
+    defineProps<{
+      loading: boolean
+      /** Number of skeleton cards (1-24) */
+      count?: number
+      cols?: string | number
+      sm?: string | number
+      md?: string | number
+      elevation?: string | number
+    }>(),
+    {
+      count: 6,
+      cols: 12,
+      sm: 6,
+      md: 4,
+      elevation: 2
     }
-  })
+  )
 </script>

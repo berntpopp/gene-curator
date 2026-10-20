@@ -22,7 +22,7 @@
   </v-alert>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ErrorState Component
    *
@@ -45,91 +45,44 @@
    * ```
    */
 
-  defineProps({
-    /**
-     * Alert type
-     */
-    type: {
-      type: String,
-      default: 'error',
-      validator: value => ['error', 'warning', 'info', 'success'].includes(value)
-    },
-
-    /**
-     * Alert variant
-     */
-    variant: {
-      type: String,
-      default: 'tonal',
-      validator: value => ['tonal', 'flat', 'elevated', 'outlined', 'plain', 'text'].includes(value)
-    },
-
-    /**
-     * Alert color (overrides type color)
-     */
-    color: {
-      type: String,
-      default: null
-    },
-
-    /**
-     * Title text
-     */
-    title: {
-      type: String,
-      default: 'Something went wrong'
-    },
-
-    /**
-     * Description text
-     */
-    description: {
-      type: String,
-      default: 'Please try again or contact support if the problem persists.'
-    },
-
-    /**
-     * Show retry button
-     */
-    showRetry: {
-      type: Boolean,
-      default: true
-    },
-
-    /**
-     * Retry button text
-     */
-    retryText: {
-      type: String,
-      default: 'Retry'
-    },
-
-    /**
-     * Retry button variant
-     */
-    retryVariant: {
-      type: String,
-      default: 'outlined'
-    },
-
-    /**
-     * Retry button size
-     */
-    retrySize: {
-      type: String,
-      default: 'small'
-    },
-
-    /**
-     * Closable
-     */
-    closable: {
-      type: Boolean,
-      default: false
+  withDefaults(
+    defineProps<{
+      /** Alert type */
+      type?: 'error' | 'warning' | 'info' | 'success'
+      /** Alert variant */
+      variant?: 'tonal' | 'flat' | 'elevated' | 'outlined' | 'plain' | 'text'
+      /** Alert color (overrides type color) */
+      color?: string
+      /** Title text */
+      title?: string
+      /** Description text */
+      description?: string
+      /** Show retry button */
+      showRetry?: boolean
+      /** Retry button text */
+      retryText?: string
+      /** Retry button variant */
+      retryVariant?: 'elevated' | 'flat' | 'tonal' | 'outlined' | 'text' | 'plain'
+      /** Retry button size */
+      retrySize?: 'x-small' | 'small' | 'default' | 'large' | 'x-large'
+      /** Closable */
+      closable?: boolean
+    }>(),
+    {
+      type: 'error',
+      variant: 'tonal',
+      color: undefined,
+      title: 'Something went wrong',
+      description: 'Please try again or contact support if the problem persists.',
+      showRetry: true,
+      retryText: 'Retry',
+      retryVariant: 'outlined',
+      retrySize: 'small',
+      closable: false
     }
-  })
+  )
 
-  defineEmits(['retry'])
+  defineEmits<{ retry: [] }>()
 </script>
 
 <style scoped>

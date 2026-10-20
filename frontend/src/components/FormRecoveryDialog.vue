@@ -41,7 +41,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Form Recovery Dialog Component
    *
@@ -54,30 +54,26 @@
    * - Accessible: ARIA labels, keyboard navigation
    */
 
-  defineProps({
-    modelValue: {
-      type: Boolean,
-      required: true
-    },
-    timestamp: {
-      type: String,
-      default: null
-    }
-  })
+  defineProps<{
+    modelValue: boolean
+    /** ISO timestamp string */
+    timestamp?: string | null
+  }>()
 
-  defineEmits(['restore', 'discard'])
+  defineEmits<{
+    restore: []
+    discard: []
+  }>()
 
   /**
    * Format timestamp to human-readable relative time
-   * @param {string} ts - ISO timestamp string
-   * @returns {string} Formatted time string
    */
-  function formatTimestamp(ts) {
+  function formatTimestamp(ts: string | null | undefined): string {
     if (!ts) return 'recently'
 
     const date = new Date(ts)
     const now = new Date()
-    const diffSeconds = Math.floor((now - date) / 1000)
+    const diffSeconds = Math.floor((now.getTime() - date.getTime()) / 1000)
 
     if (diffSeconds < 60) {
       return 'less than a minute ago'

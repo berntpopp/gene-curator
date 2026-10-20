@@ -72,13 +72,14 @@
   </v-footer>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { computed } from 'vue'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
   const currentYear = computed(() => new Date().getFullYear())

@@ -515,6 +515,7 @@ describe('ErrorState', () => {
       const wrapper = mount(ErrorState, {
         props: {
           title: 'Error',
+          // @ts-expect-error -- deliberately passing null to check the component tolerates it
           description: null
         }
       })

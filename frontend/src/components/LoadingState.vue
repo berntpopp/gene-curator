@@ -6,7 +6,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * LoadingState Component
    *
@@ -33,24 +33,18 @@
    * ```
    */
 
-  defineProps({
-    /**
-     * Skeleton type
-     * See Vuetify docs for available types
-     */
-    type: {
-      type: String,
-      default: 'list-item-avatar-two-line@3'
-    },
-
-    /**
-     * Loading state
-     */
-    loading: {
-      type: Boolean,
-      default: true
+  withDefaults(
+    defineProps<{
+      /** Skeleton type. See Vuetify docs for available types */
+      type?: string
+      /** Loading state */
+      loading?: boolean
+    }>(),
+    {
+      type: 'list-item-avatar-two-line@3',
+      loading: true
     }
-  })
+  )
 </script>
 
 <style scoped>

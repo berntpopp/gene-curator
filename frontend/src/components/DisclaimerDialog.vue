@@ -99,22 +99,21 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed } from 'vue'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
   // Props
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    }
-  })
+  const props = withDefaults(defineProps<{ modelValue?: boolean }>(), { modelValue: false })
 
   // Emits
-  const emit = defineEmits(['update:modelValue', 'acknowledged'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    acknowledged: []
+  }>()
 
   // State
   const loading = ref(false)

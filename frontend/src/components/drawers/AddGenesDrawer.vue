@@ -148,7 +148,7 @@
   </v-navigation-drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * AddGenesDrawer Component
    *
@@ -171,34 +171,63 @@
   import { ref, computed, watch } from 'vue'
   import { genesAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { ComponentLogger } from '@/components/logging/types'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    }
-  })
+  interface GeneFormData {
+    hgnc_id: string
+    approved_symbol: string
+    approved_name: string
+    chromosome: string
+    location: string
+  }
 
-  const emit = defineEmits(['update:modelValue', 'added'])
+  interface BulkGeneEntry {
+    hgnc_id: string
+    approved_symbol: string
+    location?: string
+  }
 
-  const logger = useLogger()
+  // Shape the component reads from the bulk endpoint. The generated contract
+  // (GeneBulkCreateResponse) names these total_created/total_skipped/total_errors.
+  interface BulkCreateResult {
+    created: number
+    skipped: number
+    failed: number
+  }
+
+  interface ApiError {
+    message: string
+    response?: { data?: { detail?: string } }
+  }
+
+  const props = withDefaults(defineProps<{ modelValue?: boolean }>(), { modelValue: false })
+
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    added: []
+  }>()
+
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
 
   // State
-  const formRef = ref(null)
+  const formRef = ref<{ resetValidation: () => void } | null>(null)
   const formValid = ref(false)
   const loading = ref(false)
-  const mode = ref('single')
+  const mode = ref<'single' | 'bulk'>('single')
 
-  // Single gene data
-  const geneData = ref({
+  const emptyGeneData = (): GeneFormData => ({
     hgnc_id: '',
     approved_symbol: '',
     approved_name: '',
     chromosome: '',
     location: ''
   })
+
+  // Single gene data
+  const geneData = ref<GeneFormData>(emptyGeneData())
 
   // Bulk import data
   const bulkInput = ref('')
@@ -219,10 +248,10 @@
 
   // Validation rules
   const rules = {
-    required: v => !!v || 'This field is required',
-    hgncFormat: v => {
+    required: (v: unknown) => !!v || 'This field is required',
+    hgncFormat: (v: unknown) => {
       if (!v) return true
-      return /^HGNC:\d+$/.test(v) || 'Must be in format HGNC:#### (e.g., HGNC:1100)'
+      return /^HGNC:\d+$/.test(String(v)) || 'Must be in format HGNC:#### (e.g., HGNC:1100)'
     }
   }
 
@@ -233,13 +262,7 @@
   }
 
   function resetForm() {
-    geneData.value = {
-      hgnc_id: '',
-      approved_symbol: '',
-      approved_name: '',
-      chromosome: '',
-      location: ''
-    }
+    geneData.value = emptyGeneData()
     bulkInput.value = ''
     formValid.value = false
     if (formRef.value) {
@@ -262,9 +285,10 @@
       emit('added')
       close()
     } catch (error) {
-      logger.error('Failed to add genes', { error: error.message, mode: mode.value })
+      const err = error as ApiError
+      logger.error('Failed to add genes', { error: err.message, mode: mode.value })
       notificationStore.addToast(
-        `Failed to add gene(s): ${error.response?.data?.detail || error.message}`,
+        `Failed to add gene(s): ${err.response?.data?.detail || err.message}`,
         'error'
       )
     } finally {
@@ -284,7 +308,7 @@
 
     logger.debug('Adding single gene', { gene_data: cleanData })
 
-    const result = await genesAPI.createGene(cleanData)
+    const result: Schema<'Gene'> = await genesAPI.createGene(cleanData)
 
     logger.info('Gene added successfully', {
       gene_id: result.id,
@@ -297,7 +321,7 @@
 
   async function addBulkGenes() {
     const lines = bulkInput.value.split('\n').filter(line => line.trim())
-    const genes = []
+    const genes: BulkGeneEntry[] = []
 
     for (const line of lines) {
       const trimmed = line.trim()
@@ -309,8 +333,8 @@
       if (parts.length >= 2) {
         // Format: HGNC_ID\tSYMBOL\t[LOCATION]
         genes.push({
-          hgnc_id: parts[0],
-          approved_symbol: parts[1],
+          hgnc_id: parts[0] ?? '',
+          approved_symbol: parts[1] ?? '',
           ...(parts[2] && { location: parts[2] })
         })
       } else if (trimmed.startsWith('HGNC:')) {
@@ -333,7 +357,7 @@
       skip_duplicates: bulkOptions.value.skip_duplicates
     })
 
-    const result = await genesAPI.bulkCreateGenes({
+    const result: BulkCreateResult = await genesAPI.bulkCreateGenes({
       genes,
       skip_duplicates: bulkOptions.value.skip_duplicates
     })
