@@ -20,7 +20,9 @@ from sqlalchemy.orm import Session
 from app.crud.scope import scope_crud
 from app.models.models import Scope, UserNew
 from app.schemas.scope import ScopeCreate, ScopeUpdate
-from app.tests.conftest import set_test_user_context
+from tests.postgres.conftest import set_test_user_context
+
+pytestmark = pytest.mark.postgres
 
 
 # Shared fixtures for all test classes
@@ -30,7 +32,7 @@ def admin_user(db: Session) -> UserNew:
     admin = UserNew(
         id=uuid4(),
         email="test.admin@example.com",
-        hashed_password="hashed",  # noqa: S106
+        hashed_password="hashed",
         name="Test Admin",
         role="admin",  # Application-level admin
         is_active=True,
@@ -52,7 +54,7 @@ def regular_user(db: Session) -> UserNew:
     user = UserNew(
         id=uuid4(),
         email="test.user@example.com",
-        hashed_password="hashed",  # noqa: S106
+        hashed_password="hashed",
         name="Test User",
         role="user",  # Standard user
         is_active=True,

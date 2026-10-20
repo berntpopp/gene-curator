@@ -81,9 +81,10 @@ def test_system_log_model_import() -> None:
 def test_logs_router_registered() -> None:
     """Test that logs router is registered in main API."""
     try:
-        from app.api.v1.api import api_router
+        from app.main import app
 
-        routes = [getattr(route, "path", "") for route in api_router.routes]
+        # Included routers are lazy in recent FastAPI; the OpenAPI schema lists every path
+        routes = list(app.openapi()["paths"])
 
         # Check for logs endpoints (routes may have /logs prefix or not depending on how they're mounted)
         expected_logs_keywords = [
@@ -456,51 +457,3 @@ def test_statistics_endpoint_structure() -> None:
     assert required_fields.issubset(schema_fields), (
         f"Missing required statistics fields: {required_fields - schema_fields}"
     )
-
-
-def run_logs_api_tests() -> bool:
-    """Run all logs API tests."""
-    from collections.abc import Callable
-
-    test_functions: list[Callable[[], None]] = [
-        test_logs_endpoint_imports,
-        test_logs_crud_imports,
-        test_logs_schema_imports,
-        test_system_log_model_import,
-        test_logs_router_registered,
-        test_permission_dependencies,
-        test_log_entry_schema_structure,
-        test_log_search_params_validation,
-        test_log_export_params_validation,
-        test_crud_get_logs_signature,
-        test_crud_get_log_statistics_signature,
-        test_system_log_model_fields,
-        test_endpoint_docstrings,
-        test_crud_functions_are_async,
-        test_endpoint_dependencies,
-        test_export_formats_supported,
-        test_request_correlation_endpoint_exists,
-        test_statistics_endpoint_structure,
-    ]
-
-    passed: int = 0
-    failed: int = 0
-
-    for test_func in test_functions:
-        try:
-            test_func()
-            print(f"✓ {test_func.__name__}")
-            passed += 1
-        except Exception as e:
-            print(f"✗ {test_func.__name__}: {e}")
-            failed += 1
-
-    print(f"\nResults: {passed} passed, {failed} failed out of {passed + failed} tests")
-    return failed == 0
-
-
-if __name__ == "__main__":
-    import sys
-
-    success = run_logs_api_tests()
-    sys.exit(0 if success else 1)

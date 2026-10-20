@@ -117,7 +117,7 @@ def set_test_user_context(db: Session, user_id: str) -> None:
         user_id: UUID of the user (as string)
 
     Example:
-        from app.tests.conftest import set_test_user_context
+        from tests.postgres.conftest import set_test_user_context
         from uuid import UUID
 
         # In test fixture or test function:

@@ -166,7 +166,7 @@ class TestUserAuthentication:
             result = user_crud.authenticate(
                 self.mock_db,
                 email="test@example.com",
-                password="password123",  # noqa: S106
+                password="password123",
             )
 
         assert result is not None
@@ -183,7 +183,7 @@ class TestUserAuthentication:
             result = user_crud.authenticate(
                 self.mock_db,
                 email="test@example.com",
-                password="wrong_password",  # noqa: S106
+                password="wrong_password",
             )
 
         assert result is None
@@ -195,7 +195,7 @@ class TestUserAuthentication:
             result = user_crud.authenticate(
                 self.mock_db,
                 email="nonexistent@example.com",
-                password="password123",  # noqa: S106
+                password="password123",
             )
 
         assert result is None

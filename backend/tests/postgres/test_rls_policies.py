@@ -26,6 +26,8 @@ from app.models import Scope, ScopeMembership, UserNew
 from app.schemas.scope import ScopeCreate
 from app.schemas.scope_membership import ScopeMembershipCreate
 
+pytestmark = pytest.mark.postgres
+
 
 class TestRLSPolicies:
     """Test suite for PostgreSQL Row-Level Security policies."""
@@ -41,7 +43,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"admin-{test_run_id}@rls-test.org",
-            hashed_password="hashed",  # noqa: S106
+            hashed_password="hashed",
             name="Admin User",
             role="admin",
             is_active=True,
@@ -56,7 +58,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"user1-{test_run_id}@rls-test.org",
-            hashed_password="hashed",  # noqa: S106
+            hashed_password="hashed",
             name="User One",
             role="user",  # Application role (not scope role)
             is_active=True,
@@ -71,7 +73,7 @@ class TestRLSPolicies:
         user = UserNew(
             id=uuid4(),
             email=f"user2-{test_run_id}@rls-test.org",
-            hashed_password="hashed",  # noqa: S106
+            hashed_password="hashed",
             name="User Two",
             role="user",  # Application role (not scope role)
             is_active=True,
@@ -94,16 +96,9 @@ class TestRLSPolicies:
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user1.id)
 
-        # Create membership
-        membership_data = ScopeMembershipCreate(
-            user_id=user1.id,
-            email=None,
-            role=ScopeRole.ADMIN,
-            notes="Owner",
-            team_id=None,
-        )
-        scope_membership_crud.create_invitation(
-            db, scope_id=scope.id, invited_by_id=user1.id, obj_in=membership_data
+        # Creator becomes accepted scope admin (as in POST /scopes)
+        scope_membership_crud.create_owner_membership(
+            db, scope_id=scope.id, owner_id=user1.id
         )
 
         # CRITICAL: Flush and refresh to ensure ID is loaded in object's __dict__
@@ -128,16 +123,9 @@ class TestRLSPolicies:
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user2.id)
 
-        # Create membership
-        membership_data = ScopeMembershipCreate(
-            user_id=user2.id,
-            email=None,
-            role=ScopeRole.ADMIN,
-            notes="Owner",
-            team_id=None,
-        )
-        scope_membership_crud.create_invitation(
-            db, scope_id=scope.id, invited_by_id=user2.id, obj_in=membership_data
+        # Creator becomes accepted scope admin (as in POST /scopes)
+        scope_membership_crud.create_owner_membership(
+            db, scope_id=scope.id, owner_id=user2.id
         )
 
         # CRITICAL: Flush and refresh to ensure ID is loaded in object's __dict__
@@ -296,16 +284,9 @@ class TestRLSPolicies:
             db, obj_in=public_scope_data, owner_id=user1.id
         )
 
-        # Create membership so user1 can UPDATE the scope (RLS requirement)
-        membership_data = ScopeMembershipCreate(
-            user_id=user1.id,
-            email=None,
-            role=ScopeRole.ADMIN,
-            notes="Owner",
-            team_id=None,
-        )
-        scope_membership_crud.create_invitation(
-            db, scope_id=public_scope.id, invited_by_id=user1.id, obj_in=membership_data
+        # Creator becomes accepted scope admin (as in POST /scopes)
+        scope_membership_crud.create_owner_membership(
+            db, scope_id=public_scope.id, owner_id=user1.id
         )
 
         # CRITICAL: Capture scope ID BEFORE marking as public
@@ -386,8 +367,13 @@ class TestRLSPolicies:
             db, scope_id=scope1_id, invited_by_id=user1.id, obj_in=membership_data
         )
 
-        # User2 should see scope1
+        # User2 accepts the invitation (pending invitations grant no access)
         set_rls_context(db, user2)
+        scope_membership_crud.accept_invitation(
+            db, membership_id=membership.id, user_id=user2.id
+        )
+
+        # User2 should see scope1
         visible_scopes = (
             db.execute(select(Scope).where(Scope.id == scope1_id)).scalars().all()
         )
