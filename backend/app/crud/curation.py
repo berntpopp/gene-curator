@@ -4,7 +4,7 @@ Extends CRUDBase with curation-specific operations.
 Follows patterns from gene_assignment.py.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _sum_points_from_items(items: list[dict[str, Any]], key: str = "points") -> float:

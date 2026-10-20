@@ -13,7 +13,7 @@ Created: 2025-01-13
 Author: Claude Code (Automated Implementation)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -56,7 +56,7 @@ def get_my_pending_invitations(
     Returns:
         PendingInvitationsListResponse with list of pending invitations
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Query pending invitations with scope and inviter details
     stmt = (

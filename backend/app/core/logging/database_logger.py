@@ -17,7 +17,7 @@ import asyncio
 import json
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -192,7 +192,7 @@ class DatabaseLogger:
                 await db.execute(
                     insert_query,
                     {
-                        "timestamp": datetime.now(timezone.utc),
+                        "timestamp": datetime.now(UTC),
                         "level": level,
                         "message": message,
                         "logger": source,
@@ -240,7 +240,7 @@ class DatabaseLogger:
                 asyncio.gather(*self._pending_tasks, return_exceptions=True),
                 timeout=timeout,
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             import logging
 
             logging.getLogger("database_logger").warning(

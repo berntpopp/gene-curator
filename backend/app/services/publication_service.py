@@ -10,7 +10,7 @@ Design Principles:
 """
 
 import contextlib
-from datetime import datetime as dt, timezone
+from datetime import UTC, datetime as dt
 from typing import Any
 
 import httpx
@@ -323,7 +323,7 @@ class PublicationService:
                 existing.pub_type = data.pub_type
                 existing.is_open_access = data.is_open_access
                 existing.cited_by_count = data.cited_by_count
-                existing.last_fetched_at = dt.now(timezone.utc)
+                existing.last_fetched_at = dt.now(UTC)
                 await self._db.commit()
                 logger.debug("Publication updated in cache", pmid=data.pmid)
                 return existing
