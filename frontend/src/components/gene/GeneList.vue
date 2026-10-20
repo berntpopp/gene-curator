@@ -58,11 +58,21 @@
         Add Genes
       </v-btn>
 
-      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignModal()">
+      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignModal(selectedIds)">
         <v-icon start>mdi-account-arrow-right</v-icon>
-        Assign to Curator
+        Assign to Curator{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
       </v-btn>
     </v-toolbar>
+
+    <v-alert v-if="noMethodology" type="warning" variant="tonal" class="mb-4">
+      This scope has no methodology yet, so precuration and curation cannot be started.
+      <template v-if="canManageScope">
+        <v-btn variant="text" size="small" @click="router.push(`/scopes/${scopeId}/settings`)">
+          Choose one in Settings
+        </v-btn>
+      </template>
+      <template v-else>Ask a scope admin to choose one.</template>
+    </v-alert>
 
     <!-- Table View -->
     <TableSkeleton
@@ -72,8 +82,25 @@
       :headers="tableHeaders"
       :skeleton-count="10"
     >
+      <template #header.select>
+        <v-checkbox-btn
+          :model-value="allSelected"
+          :indeterminate="selectedIds.length > 0 && !allSelected"
+          density="compact"
+          aria-label="Select all genes"
+          @update:model-value="toggleAll"
+        />
+      </template>
       <template #item="{ item: slotItem }">
         <tr v-for="item in [toGene(slotItem)]" :key="item.assignment_id">
+          <td>
+            <v-checkbox-btn
+              v-model="selectedIds"
+              :value="item.gene_id"
+              density="compact"
+              :aria-label="`Select ${item.gene_symbol}`"
+            />
+          </td>
           <td>
             <div class="d-flex align-center">
               <v-icon icon="mdi-dna" size="small" class="mr-2" />
@@ -105,51 +132,7 @@
             </v-chip>
           </td>
           <td>
-            <!-- Active/Completed curation -->
-            <v-chip v-if="isCurationActive(item)" size="small" color="success" variant="elevated">
-              <v-icon start size="small">mdi-check-decagram</v-icon>
-              Active
-            </v-chip>
-            <!-- Curation awaiting review -->
-            <v-chip
-              v-else-if="hasCuration(item) && getCuration(item)?.status === 'submitted'"
-              size="small"
-              color="info"
-              variant="tonal"
-            >
-              <v-icon start size="small">mdi-eye-check</v-icon>
-              Awaiting Review
-            </v-chip>
-            <!-- Curation in progress -->
-            <v-chip
-              v-else-if="hasCuration(item) && getCuration(item)?.status === 'draft'"
-              size="small"
-              color="warning"
-              variant="tonal"
-            >
-              <v-icon start size="small">mdi-pencil</v-icon>
-              Curation In Progress
-            </v-chip>
-            <!-- Ready for curation (precuration approved) -->
-            <v-chip
-              v-else-if="isPrecurationApproved(item)"
-              size="small"
-              color="success"
-              variant="tonal"
-            >
-              <v-icon start size="small">mdi-check-circle</v-icon>
-              Ready for Curation
-            </v-chip>
-            <!-- Precuration in progress -->
-            <v-chip v-else-if="hasPrecuration(item)" size="small" color="warning" variant="tonal">
-              <v-icon start size="small">mdi-clipboard-text</v-icon>
-              {{ getPrecurationStatusLabel(item) }}
-            </v-chip>
-            <!-- No precuration -->
-            <v-chip v-else size="small" variant="outlined" color="grey">
-              <v-icon start size="small">mdi-clipboard-outline</v-icon>
-              No Precuration
-            </v-chip>
+            <GeneWorkflowCell :gene="item" :workflow="workflow" />
           </td>
           <td>
             <v-progress-linear
@@ -166,6 +149,7 @@
               :workflow="workflow"
               :can-assign-genes="canAssignGenes"
               :can-remove-genes="canRemoveGenes"
+              :start-blocked-reason="startBlockedReason"
               @start-precuration="startPrecuration"
               @complete-precuration="completePrecuration"
               @view-curation="viewCuration"
@@ -314,6 +298,7 @@
   import EditGeneAssignmentModal from '@/components/gene/EditGeneAssignmentModal.vue'
   import GeneCard from './GeneCard.vue'
   import GeneRowActions from './GeneRowActions.vue'
+  import GeneWorkflowCell from './GeneWorkflowCell.vue'
   import RemoveGeneDialog from './RemoveGeneDialog.vue'
   import { useGeneWorkflowStatus } from './useGeneWorkflowStatus'
   import { useScopeGenes } from './useScopeGenes'
@@ -332,6 +317,9 @@
     scopeId: string
   }>()
 
+  // Tell the dashboard that genes were added, assigned or removed so it can refresh its counts
+  const emit = defineEmits<{ changed: [] }>()
+
   const router = useRouter()
   const authStore = useAuthStore()
   const scopeStore = useScopesStore()
@@ -340,16 +328,7 @@
 
   // Precuration/curation status per gene (maps and predicates)
   const workflow = useGeneWorkflowStatus(() => props.scopeId)
-  const {
-    genePrecurations,
-    geneCurations,
-    hasPrecuration,
-    isPrecurationApproved,
-    hasCuration,
-    getCuration,
-    isCurationActive,
-    getPrecurationStatusLabel
-  } = workflow
+  const { genePrecurations, geneCurations, isPrecurationApproved } = workflow
 
   const {
     loading,
@@ -387,6 +366,7 @@
 
   // Table headers
   const tableHeaders = [
+    { title: '', key: 'select', sortable: false },
     { title: 'Gene Symbol', key: 'gene_symbol', sortable: true },
     { title: 'Curator', key: 'curator_name', sortable: true },
     { title: 'Priority', key: 'priority', sortable: true },
@@ -410,6 +390,31 @@
     computed(() => scopeStore.currentUserRole)
   )
   const canRemoveGenes = computed(() => authStore.isAdmin)
+  const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
+
+  // A scope without a workflow pair has no schemas, so precuration would be a dead end (#197)
+  const noMethodology = computed(
+    () => !!scopeStore.currentScope && !scopeStore.currentScope.default_workflow_pair_id
+  )
+  const startBlockedReason = computed(() =>
+    noMethodology.value ? 'This scope has no methodology yet' : null
+  )
+
+  // Row selection for bulk "Assign to Curator"
+  const selectedIds = ref<string[]>([])
+  const allSelected = computed(
+    () => filteredGenes.value.length > 0 && selectedIds.value.length === filteredGenes.value.length
+  )
+  function toggleAll(on: unknown) {
+    selectedIds.value = on ? filteredGenes.value.map(g => g.gene_id) : []
+  }
+
+  /** Reload after a change and let the parent refresh its statistics. */
+  function refresh() {
+    selectedIds.value = []
+    fetchGenes()
+    emit('changed')
+  }
 
   /** TableSkeleton passes its rows through an untyped item slot. */
   function toGene(value: unknown): GeneRow {
@@ -428,6 +433,7 @@
    * Start precuration for gene
    */
   function startPrecuration(gene: GeneRow) {
+    if (startBlockedReason.value) return
     router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/precuration/new`)
   }
 
@@ -435,6 +441,7 @@
    * Complete existing precuration (mark as ready for curation)
    */
   async function completePrecuration(gene: GeneRow) {
+    if (startBlockedReason.value) return
     const precuration = genePrecurations.value[gene.gene_id]
     if (!precuration?.id) {
       startPrecuration(gene)
@@ -463,6 +470,7 @@
    * Start curation for gene (only if precuration approved)
    */
   function startCuration(gene: GeneRow) {
+    if (startBlockedReason.value) return
     if (!isPrecurationApproved(gene)) {
       notificationStore.addToast(
         'Complete and approve precuration before starting curation',
@@ -533,7 +541,7 @@
 
       showRemoveConfirm.value = false
       selectedGeneForRemoval.value = null
-      fetchGenes()
+      refresh()
     } catch (error) {
       const apiError = error as ApiErrorLike
       logger.error('Failed to remove gene from scope', { error: apiError.message })
@@ -550,7 +558,7 @@
    * Handle genes added to catalog
    */
   function handleGenesAdded() {
-    fetchGenes()
+    refresh()
     notificationStore.addToast(
       'Genes added to this scope. You can now assign them to curators.',
       'success'
@@ -561,7 +569,7 @@
    * Handle genes assigned
    */
   function handleGenesAssigned() {
-    fetchGenes()
+    refresh()
     notificationStore.addToast('Genes assigned successfully', 'success')
   }
 
@@ -569,7 +577,7 @@
    * Handle gene reassigned
    */
   function handleGeneReassigned() {
-    fetchGenes()
+    refresh()
   }
 
   /**
@@ -584,7 +592,7 @@
    * Handle gene assignment edited
    */
   function handleGeneEdited() {
-    fetchGenes()
+    refresh()
   }
 
   /**
@@ -594,7 +602,7 @@
     logger.debug('Gene revalidated', { result })
     // Optionally refresh genes if data changed
     if (result?.external_data) {
-      fetchGenes()
+      refresh()
     }
   }
 

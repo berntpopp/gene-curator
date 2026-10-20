@@ -162,4 +162,21 @@ describe('GeneRowActions', () => {
       .trigger('click')
     expect(complete.emitted('complete-precuration')?.[0]).toEqual([gene])
   })
+
+  it('disables the start actions with the given reason', () => {
+    const wrapper = mount(GeneRowActions, {
+      props: {
+        gene,
+        workflow: workflow(),
+        canAssignGenes: true,
+        canRemoveGenes: false,
+        startBlockedReason: 'This scope has no methodology yet'
+      },
+      global: { stubs: inlineMenu }
+    })
+
+    const start = menuItems(wrapper).find(i => i.text().includes('Start Precuration'))
+    expect(start?.classes()).toContain('v-list-item--disabled')
+    expect(start?.text()).toContain('This scope has no methodology yet')
+  })
 })

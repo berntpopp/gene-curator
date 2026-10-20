@@ -6,14 +6,22 @@
       </v-btn>
     </template>
     <v-list density="compact">
-      <v-list-item v-if="!hasPrecuration(gene)" @click="emit('start-precuration', gene)">
+      <v-list-item
+        v-if="!hasPrecuration(gene)"
+        :disabled="!!startBlockedReason"
+        @click="emit('start-precuration', gene)"
+      >
         <template #prepend>
           <v-icon>mdi-clipboard-text</v-icon>
         </template>
         <v-list-item-title>Start Precuration</v-list-item-title>
+        <v-list-item-subtitle v-if="startBlockedReason">{{
+          startBlockedReason
+        }}</v-list-item-subtitle>
       </v-list-item>
       <v-list-item
         v-else-if="hasPrecuration(gene) && !isPrecurationApproved(gene)"
+        :disabled="!!startBlockedReason"
         @click="emit('complete-precuration', gene)"
       >
         <template #prepend>
@@ -27,7 +35,11 @@
         </template>
         <v-list-item-title> View Curation ({{ getCurationStatusLabel(gene) }}) </v-list-item-title>
       </v-list-item>
-      <v-list-item v-else-if="isPrecurationApproved(gene)" @click="emit('start-curation', gene)">
+      <v-list-item
+        v-else-if="isPrecurationApproved(gene)"
+        :disabled="!!startBlockedReason"
+        @click="emit('start-curation', gene)"
+      >
         <template #prepend>
           <v-icon>mdi-pencil</v-icon>
         </template>
@@ -75,6 +87,8 @@
     workflow: GeneWorkflowStatus
     canAssignGenes: boolean
     canRemoveGenes: boolean
+    /** Why starting precuration/curation is unavailable (no methodology), if it is. */
+    startBlockedReason?: string | null
   }>()
 
   const emit = defineEmits<{

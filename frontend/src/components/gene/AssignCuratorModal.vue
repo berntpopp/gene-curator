@@ -8,7 +8,7 @@
   - Multi-gene selection with chips
   - Curator selection with role display
   - Visual preview of assignments
-  - Optional due date and priority
+  - Optional priority
   - Assignment notes
 
   **Props**:
@@ -70,7 +70,9 @@
             chips
             closable-chips
             :rules="[v => v?.length > 0 || 'Select at least one gene']"
-            :no-data-text="loadingGenes ? 'Loading genes...' : 'No unassigned genes available'"
+            :no-data-text="
+              loadingGenes ? 'Loading genes...' : 'No genes without a curator in this scope'
+            "
             return-object
             density="comfortable"
             class="mb-4"
@@ -111,22 +113,6 @@
               <v-divider />
             </template>
           </v-autocomplete>
-
-          <!-- Selected genes summary -->
-          <v-expand-transition>
-            <v-alert
-              v-if="selectedGenes.length > 0"
-              type="info"
-              variant="tonal"
-              density="compact"
-              class="mb-4"
-            >
-              <div class="d-flex align-center">
-                <v-icon start size="small">mdi-information</v-icon>
-                <span>{{ selectedGenes.length }} gene(s) selected for assignment</span>
-              </div>
-            </v-alert>
-          </v-expand-transition>
 
           <!-- Step 2: Curator Selection -->
           <div class="section-header mb-2">
@@ -256,7 +242,7 @@
               <div class="text-body-2">
                 <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
                 <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
-                <span v-if="priority !== 'normal'">
+                <span v-if="priority !== 'medium'">
                   at <strong>{{ priority }}</strong> priority
                 </span>
               </div>
@@ -288,13 +274,12 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
-  import { genesAPI, assignmentsAPI } from '@/api'
+  import { assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike } from '@/components/forms/types'
-  import type { Schema } from '@/types/api'
   import type { CuratorOption } from './types'
   import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
@@ -319,8 +304,12 @@
     assigned: []
   }>()
 
-  /** Gene candidate in the assignment picker (catalogue gene record). */
-  type GeneCandidate = Schema<'GeneSummary'>
+  /** Gene candidate in the assignment picker: a scope gene that has no curator yet. */
+  interface GeneCandidate {
+    id: string
+    approved_symbol: string
+    hgnc_id: string
+  }
 
   // ============================================
   // COMPOSABLES & STORES
@@ -425,30 +414,19 @@
   }
 
   /**
-   * Fetch available genes for the scope
+   * Genes already in the scope that have no curator yet
    */
   const fetchAvailableGenes = async () => {
     loadingGenes.value = true
     try {
-      // Fetch genes from catalog (max 500 per backend limit)
-      const { genes: allGenes } = await genesAPI.getGenes({ limit: 500 })
-
-      // Fetch existing assignments for this scope
-      let assignedGeneIds = new Set<string>()
-      try {
-        const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
-        assignedGeneIds = new Set(assignments.map(a => a.gene_id))
-      } catch {
-        // If no assignments yet, all genes are available
-      }
-
-      // Filter to unassigned genes only
-      availableGenes.value = allGenes.filter(gene => !assignedGeneIds.has(gene.id))
-
-      logger.debug('Available genes loaded', {
-        total: allGenes.length,
-        available: availableGenes.value.length
+      const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId, {
+        limit: 1000
       })
+      availableGenes.value = assignments
+        .filter(a => a.is_active && !a.assigned_curator_id)
+        .map(a => ({ id: a.gene_id, approved_symbol: a.gene_symbol, hgnc_id: a.gene_hgnc_id }))
+
+      logger.debug('Available genes loaded', { available: availableGenes.value.length })
     } catch (error) {
       logger.error('Failed to fetch available genes', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load genes', 'error')
@@ -510,35 +488,26 @@
     isAssigning.value = true
 
     try {
-      // Create assignments for each selected gene
-      // Backend expects assigned_curator_id and priority_level: "high" | "medium" | "low"
-      const priorityMapping: Record<string, 'low' | 'medium' | 'high'> = {
-        low: 'low',
-        normal: 'medium',
-        medium: 'medium',
-        high: 'high'
-      }
+      // One request: the backend assigns all genes or none (#191)
       const curatorId = selectedCurator.value.user_id
-      const promises = selectedGenes.value.map(gene =>
-        assignmentsAPI.createAssignment({
-          gene_id: gene.id,
-          scope_id: props.scopeId,
-          assigned_curator_id: curatorId,
-          priority_level: priorityMapping[priority.value] || 'medium',
-          assignment_notes: notes.value || undefined
-        })
-      )
-
-      await Promise.all(promises)
+      const result = await assignmentsAPI.bulkAssignGenes({
+        gene_ids: selectedGenes.value.map(gene => gene.id),
+        scope_id: props.scopeId,
+        assigned_curator_id: curatorId,
+        priority_level: priority.value,
+        assignment_notes: notes.value || undefined
+      })
 
       logger.info('Genes assigned successfully', {
-        count: selectedGenes.value.length,
+        count: result.total_created,
         curator_id: curatorId
       })
 
+      const left = selectedGenes.value.length - result.total_created
+      const who = selectedCurator.value.full_name || selectedCurator.value.email
       notificationStore.addToast(
-        `${selectedGenes.value.length} gene(s) assigned to ${selectedCurator.value.full_name || selectedCurator.value.email}`,
-        'success'
+        `${result.total_created} gene(s) assigned to ${who}${left > 0 ? ` (${left} skipped)` : ''}`,
+        left > 0 ? 'warning' : 'success'
       )
 
       emit('assigned')

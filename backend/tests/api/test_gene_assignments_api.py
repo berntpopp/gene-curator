@@ -57,7 +57,7 @@ def test_assignment_routes_require_authentication(client: TestClient) -> None:
     assert client.get(f"{BASE}/{uuid4()}").status_code in (401, 403)
 
 
-def test_create_assignment_defaults_priority_to_normal(
+def test_create_assignment_defaults_priority_to_medium(
     client: TestClient,
     curator_token: str,
     test_gene: Gene,
@@ -72,7 +72,7 @@ def test_create_assignment_defaults_priority_to_normal(
     assert response.status_code == 200
     body = response.json()
     assert body["is_active"] is True
-    assert body["priority"] == "normal"  # schema "medium" is stored as model "normal"
+    assert body["priority"] == "medium"
 
 
 def test_create_assignment_outside_scope_is_forbidden(
