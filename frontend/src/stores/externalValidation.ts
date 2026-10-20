@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { externalValidationAPI } from '@/api/externalValidation'
 import { logService } from '@/services/logService'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 /** Result of an HGNC / PubMed / HPO validation. */
@@ -77,7 +77,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = toApiError(error).message || 'Validation failed'
+        this.error = errorMessage(error, 'Validation failed')
         logService.error('HGNC validation failed', { geneSymbol, error: toApiError(error).message })
         throw error
       } finally {
@@ -110,7 +110,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = toApiError(error).message || 'Validation failed'
+        this.error = errorMessage(error, 'Validation failed')
         logService.error('PubMed validation failed', { pmid, error: toApiError(error).message })
         throw error
       } finally {
@@ -143,7 +143,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = toApiError(error).message || 'Validation failed'
+        this.error = errorMessage(error, 'Validation failed')
         logService.error('HPO validation failed', { hpoTerm, error: toApiError(error).message })
         throw error
       } finally {
@@ -168,7 +168,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         logService.info('Batch validation complete', { validator, count: values.length })
         return results
       } catch (error) {
-        this.error = toApiError(error).message || 'Batch validation failed'
+        this.error = errorMessage(error, 'Batch validation failed')
         logService.error('Batch validation failed', {
           validator,
           error: toApiError(error).message
@@ -187,7 +187,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         logService.info('Cache statistics fetched', { stats })
         return stats
       } catch (error) {
-        this.error = toApiError(error).message || 'Failed to fetch cache statistics'
+        this.error = errorMessage(error, 'Failed to fetch cache statistics')
         logService.error('Failed to fetch cache statistics', {
           error: toApiError(error).message
         })

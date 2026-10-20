@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { schemasAPI } from '@/api'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import type { Schema } from '@/types/api'
 
 type CurationSchemaRecord = Schema<'CurationSchema'>
@@ -61,7 +61,7 @@ export const useSchemasStore = defineStore('schemas', {
         this.schemas = response
         return response
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -85,7 +85,7 @@ export const useSchemasStore = defineStore('schemas', {
 
         return schema
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -100,7 +100,7 @@ export const useSchemasStore = defineStore('schemas', {
         this.schemas.push(newSchema)
         return newSchema
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -122,7 +122,7 @@ export const useSchemasStore = defineStore('schemas', {
         }
         return updatedSchema
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -140,7 +140,7 @@ export const useSchemasStore = defineStore('schemas', {
         }
         return true
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -152,7 +152,7 @@ export const useSchemasStore = defineStore('schemas', {
       try {
         return await schemasAPI.validateCurationSchema(id)
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -188,7 +188,7 @@ export const useSchemasStore = defineStore('schemas', {
         this.workflowPairs = response
         return response
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -203,7 +203,7 @@ export const useSchemasStore = defineStore('schemas', {
         this.workflowPairs.push(newPair)
         return newPair
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -225,7 +225,7 @@ export const useSchemasStore = defineStore('schemas', {
         }
         return updatedPair
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -243,7 +243,7 @@ export const useSchemasStore = defineStore('schemas', {
         }
         return true
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false

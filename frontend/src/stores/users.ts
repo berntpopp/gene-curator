@@ -5,7 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { usersApi } from '@/api/users'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type User = Schema<'UserResponse'>
@@ -54,9 +54,6 @@ export const useUsersStore = defineStore('users', () => {
     return currentPage.value > 1
   })
 
-  /** Message for a failed request: the API's `detail`, else the fallback. */
-  const detailOr = (err: unknown, fallback: string): string =>
-    toApiError(err).response?.data?.detail || fallback
 
   // Actions
   async function fetchUsers(page = 1, limit = 10): Promise<User[]> {
@@ -77,7 +74,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to fetch users')
+      error.value = errorMessage(err, 'Failed to fetch users')
       throw err
     } finally {
       loading.value = false
@@ -103,7 +100,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to search users')
+      error.value = errorMessage(err, 'Failed to search users')
       throw err
     } finally {
       loading.value = false
@@ -119,7 +116,7 @@ export const useUsersStore = defineStore('users', () => {
       statistics.value = response
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to fetch user statistics')
+      error.value = errorMessage(err, 'Failed to fetch user statistics')
       throw err
     } finally {
       loading.value = false
@@ -135,7 +132,7 @@ export const useUsersStore = defineStore('users', () => {
       selectedUser.value = response
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to fetch user')
+      error.value = errorMessage(err, 'Failed to fetch user')
       throw err
     } finally {
       loading.value = false
@@ -164,7 +161,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to create user')
+      error.value = errorMessage(err, 'Failed to create user')
       throw err
     } finally {
       loading.value = false
@@ -191,7 +188,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to update user')
+      error.value = errorMessage(err, 'Failed to update user')
       throw err
     } finally {
       loading.value = false
@@ -206,7 +203,7 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.updateUserPassword(userId, newPassword)
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to update password')
+      error.value = errorMessage(err, 'Failed to update password')
       throw err
     } finally {
       loading.value = false
@@ -233,7 +230,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to activate user')
+      error.value = errorMessage(err, 'Failed to activate user')
       throw err
     } finally {
       loading.value = false
@@ -260,7 +257,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to deactivate user')
+      error.value = errorMessage(err, 'Failed to deactivate user')
       throw err
     } finally {
       loading.value = false
@@ -292,7 +289,7 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to delete user')
+      error.value = errorMessage(err, 'Failed to delete user')
       throw err
     } finally {
       loading.value = false
@@ -307,7 +304,7 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.getUserActivity(userId)
       return response
     } catch (err) {
-      error.value = detailOr(err, 'Failed to fetch user activity')
+      error.value = errorMessage(err, 'Failed to fetch user activity')
       throw err
     } finally {
       loading.value = false

@@ -5,7 +5,7 @@
  * Handles CRUD operations, optimistic locking conflicts, and draft auto-save.
  */
 import { defineStore } from 'pinia'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import { curationsAPI } from '@/api/curations'
 import type { Schema } from '@/types/api'
 
@@ -149,7 +149,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return response
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -175,7 +175,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return curation
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -194,7 +194,7 @@ export const useCurationsStore = defineStore('curations', {
         this.pagination.total += 1
         return newCuration
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -237,7 +237,7 @@ export const useCurationsStore = defineStore('curations', {
             currentState: conflictData.current_state as string | undefined
           }
         } else {
-          this.error = { message: apiError.message }
+          this.error = { message: errorMessage(error, 'Request failed') }
         }
         throw error
       } finally {
@@ -269,7 +269,7 @@ export const useCurationsStore = defineStore('curations', {
         return updated
       } catch (error) {
         // Don't throw for auto-save failures, just log
-        this.error = { message: toApiError(error).message, isAutoSave: true }
+        this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
         return null
       }
     },
@@ -304,7 +304,7 @@ export const useCurationsStore = defineStore('curations', {
             isConflict: true
           }
         } else {
-          this.error = { message: apiError.message }
+          this.error = { message: errorMessage(error, 'Request failed') }
         }
         throw error
       } finally {
@@ -332,7 +332,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return true
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -349,7 +349,7 @@ export const useCurationsStore = defineStore('curations', {
         const scoreResult = await curationsAPI.calculateScore(id)
         return scoreResult
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false

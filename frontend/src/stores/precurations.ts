@@ -7,7 +7,7 @@
 import { defineStore } from 'pinia'
 import { precurationsAPI } from '@/api/precurations'
 import { logService } from '@/services/logService'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 /** A precuration row as listed by the API. */
@@ -138,7 +138,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return response
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -164,7 +164,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return precuration
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -184,7 +184,7 @@ export const usePrecurationsStore = defineStore('precurations', {
         this.pagination.total += 1
         return newPrecuration
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -217,7 +217,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return updated
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -254,7 +254,7 @@ export const usePrecurationsStore = defineStore('precurations', {
           precuration_id: id,
           error: toApiError(error).message
         })
-        this.error = { message: toApiError(error).message, isAutoSave: true }
+        this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
         return null
       }
     },
@@ -282,7 +282,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return submitted
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -307,7 +307,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return result // Contains curation_id if auto-created
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -332,7 +332,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return rejected
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false
@@ -359,7 +359,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return true
       } catch (error) {
-        this.error = { message: toApiError(error).message }
+        this.error = { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false

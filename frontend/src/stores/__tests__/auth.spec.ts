@@ -193,7 +193,7 @@ describe('useAuthStore', () => {
       const store = useAuthStore()
 
       await expect(store.register({} as Schema<'UserCreate'>)).rejects.toThrow('boom')
-      expect(store.error).toBe('Registration failed')
+      expect(store.error).toBe('boom')
     })
   })
 

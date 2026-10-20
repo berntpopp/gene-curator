@@ -25,7 +25,7 @@ import { ref, computed } from 'vue'
 import { scopeService } from '@/services/scopeService'
 import { logService } from '@/services/logService'
 import { useAuthStore } from '@/stores/auth'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type ScopeRecord = Schema<'ScopeListItem'>
@@ -89,7 +89,7 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scopes fetched successfully', { count: scopes.value.length })
       return data
     } catch (err) {
-      error.value = toApiError(err).message ?? null
+      error.value = errorMessage(err, 'Request failed')
       logService.error('Failed to fetch scopes', { error: toApiError(err).message })
       throw err
     } finally {
@@ -116,7 +116,7 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope fetched', { scope_id: scopeId, name: scope.name })
       return scope
     } catch (err) {
-      error.value = toApiError(err).message ?? null
+      error.value = errorMessage(err, 'Request failed')
       logService.error('Failed to fetch scope', {
         scope_id: scopeId,
         error: toApiError(err).message
@@ -141,7 +141,7 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope created', { scope_id: newScope.id, name: newScope.name })
       return newScope
     } catch (err) {
-      error.value = toApiError(err).message ?? null
+      error.value = errorMessage(err, 'Request failed')
       logService.error('Failed to create scope', {
         name: scopeData.name,
         error: toApiError(err).message
@@ -173,7 +173,7 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope updated', { scope_id: scopeId, changes: Object.keys(scopeData) })
       return updatedScope
     } catch (err) {
-      error.value = toApiError(err).message ?? null
+      error.value = errorMessage(err, 'Request failed')
       logService.error('Failed to update scope', {
         scope_id: scopeId,
         error: toApiError(err).message
@@ -207,7 +207,7 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope deleted', { scope_id: scopeId })
       return true
     } catch (err) {
-      error.value = toApiError(err).message ?? null
+      error.value = errorMessage(err, 'Request failed')
       logService.error('Failed to delete scope', {
         scope_id: scopeId,
         error: toApiError(err).message

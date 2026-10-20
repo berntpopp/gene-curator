@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import { clearFormRecoveryDrafts } from '@/utils/formRecoveryStorage'
 
 interface AuthState {
@@ -69,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
         return response
       } catch (error) {
         this.clearAuth() // Clear any partial state on error (also resets error)
-        this.error = toApiError(error).response?.data?.detail || 'Login failed'
+        this.error = errorMessage(error, 'Login failed')
         throw error
       } finally {
         this.loading = false
@@ -93,7 +93,7 @@ export const useAuthStore = defineStore('auth', {
 
         return response
       } catch (error) {
-        this.error = toApiError(error).response?.data?.detail || 'Registration failed'
+        this.error = errorMessage(error, 'Registration failed')
         throw error
       } finally {
         this.loading = false

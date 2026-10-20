@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import { assignmentsAPI } from '@/api'
 import type { Schema } from '@/types/api'
 import { pageStateFrom, type PageState } from './pagination'
@@ -73,7 +73,7 @@ export const useAssignmentsStore = defineStore('assignments', {
 
         return response
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -96,7 +96,7 @@ export const useAssignmentsStore = defineStore('assignments', {
 
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -109,7 +109,7 @@ export const useAssignmentsStore = defineStore('assignments', {
       try {
         return await assignmentsAPI.getAssignment(assignmentId)
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -122,7 +122,7 @@ export const useAssignmentsStore = defineStore('assignments', {
       try {
         return await assignmentsAPI.createAssignment(assignmentData)
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -135,7 +135,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         this.curatorWorkloads[curatorId] = workload
         return workload
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -145,7 +145,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         const assignments = await assignmentsAPI.getCuratorAssignments(curatorId, params)
         return assignments
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -164,7 +164,7 @@ export const useAssignmentsStore = defineStore('assignments', {
 
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -177,7 +177,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         this.scopeAssignments[scopeId] = assignments
         return assignments
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -188,7 +188,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         this.availableGenes[scopeId] = genes
         return genes
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -199,7 +199,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         this.scopeOverviews[scopeId] = overview
         return overview
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -217,7 +217,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         }
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false

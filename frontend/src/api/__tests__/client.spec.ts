@@ -226,7 +226,7 @@ describe('api client', () => {
 
     await expect(apiClient.post('/genes/', {})).rejects.toBeDefined()
 
-    const [, fields] = vi.mocked(logService.error).mock.calls[0]
+    const fields = vi.mocked(logService.error).mock.calls[0]?.[1]
     expect(fields).toMatchObject({ status: 422, detail: 'field required' })
     expect(JSON.stringify(fields)).not.toContain('ada@example.org')
   })
@@ -241,11 +241,11 @@ describe('api client', () => {
     const first = apiClient.get('/genes/')
     const second = apiClient.get('/curations/')
     await vi.waitFor(() => expect(pending).toHaveLength(2))
-    pending[0]()
+    pending[0]?.()
     await first
     expect(logService.clearCorrelationId).not.toHaveBeenCalled()
 
-    pending[1]()
+    pending[1]?.()
     await second
     expect(logService.clearCorrelationId).toHaveBeenCalledTimes(1)
   })
