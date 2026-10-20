@@ -23,6 +23,7 @@ import { useAssignmentsStore } from '@/stores/assignments'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useUsersStore } from '@/stores/users'
+import { useScopesStore } from '@/stores/scopes'
 import { authApi } from '@/api/auth'
 
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
@@ -345,12 +346,30 @@ describe('UserProfile', () => {
     created_at: '2026-01-01T00:00:00Z'
   }
 
-  it('loads the profile and activity of the signed-in user', async () => {
+  it('lists the scope roles from the scopes store, not the app role', async () => {
+    const auth = useAuthStore()
+    auth.user = { id: 'u1', email: 'dana@example.org', role: 'user' } as never
+    vi.spyOn(useUsersStore(), 'fetchUser').mockResolvedValue({ ...profile, role: 'user' } as never)
+    vi.spyOn(useScopesStore(), 'fetchUserScopes').mockImplementation(async () => {
+      useScopesStore().scopes = [
+        { id: 's1', name: 'kidney', display_name: 'Kidney Genetics', user_role: 'curator' },
+        { id: 's2', name: 'other', display_name: 'Other Scope', user_role: null }
+      ] as never
+      return [] as never
+    })
+    const wrapper = mount(UserProfile, opts())
+    await flushPromises()
+    expect(wrapper.text()).toContain('Kidney Genetics')
+    expect(wrapper.text()).toContain('Curator')
+    expect(wrapper.text()).not.toContain('Other Scope') // admin sees it, but no membership
+    expect(wrapper.text()).not.toMatch(/\buser\b/)
+  })
+
+  it('loads the profile of the signed-in user', async () => {
     const auth = useAuthStore()
     auth.user = { id: 'u1', email: 'dana@example.org', role: 'admin' } as never
     const usersStore = useUsersStore()
     vi.spyOn(usersStore, 'fetchUser').mockResolvedValue(profile as never)
-    vi.spyOn(usersStore, 'fetchUserActivity').mockResolvedValue({ curations_created: 3 } as never)
     const wrapper = mount(UserProfile, opts())
     await flushPromises()
     expect(wrapper.text()).toContain('Dana')
@@ -364,25 +383,25 @@ describe('UserProfile', () => {
     const wrapper = mount(UserProfile, opts())
     await flushPromises()
     expect(wrapper.text()).toContain('dana@example.org')
-    expect(document.body.textContent).toContain('Failed to load complete profile information')
+    expect(showError).toHaveBeenCalledWith('Failed to load complete profile information')
   })
 
   it('changes the password and clears the form on success', async () => {
     const auth = useAuthStore()
     auth.user = { id: 'u1', email: 'dana@example.org', role: 'admin' } as never
     vi.spyOn(useUsersStore(), 'fetchUser').mockResolvedValue(profile as never)
-    vi.spyOn(useUsersStore(), 'fetchUserActivity').mockResolvedValue({} as never)
     const wrapper = mount(UserProfile, opts())
     await flushPromises()
     const vm = vmOf(wrapper)
     vm.passwordData = { current_password: 'oldpassword', new_password: 'newpassword1' }
+    vm.confirmPassword = 'newpassword1'
     await flushPromises()
     await call(vm, 'changePassword')
     expect(authApi.changePassword).toHaveBeenCalledWith({
       current_password: 'oldpassword',
       new_password: 'newpassword1'
     })
-    expect(document.body.textContent).toContain('Password changed successfully')
+    expect(showSuccess).toHaveBeenCalledWith('Password changed successfully')
   })
 })
 

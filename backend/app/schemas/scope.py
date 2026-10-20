@@ -101,6 +101,10 @@ class ScopeListItem(ScopeInDBBase):
     stats: ScopeListStats | None = Field(
         default=None, description="Basic scope statistics"
     )
+    user_role: str | None = Field(
+        default=None,
+        description="Caller's role from an accepted membership in this scope, if any",
+    )
 
 
 # Scope with Statistics

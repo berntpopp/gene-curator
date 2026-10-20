@@ -10,36 +10,19 @@
               max-width="64"
               class="mx-auto mb-4"
             />
-            <h2 class="text-h4">Login</h2>
+            <h1 class="text-h4">Sign in</h1>
           </v-card-title>
 
           <v-card-text>
-            <v-form ref="loginForm" v-model="formValid" @submit.prevent="handleLogin">
-              <v-text-field
-                v-model="credentials.email"
-                label="Email"
-                type="email"
-                prepend-inner-icon="mdi-email"
-                variant="outlined"
-                :rules="emailRules"
-                :error-messages="fieldErrors.email"
-                required
-                class="mb-3"
-              />
-
-              <v-text-field
-                v-model="credentials.password"
-                label="Password"
-                :type="showPassword ? 'text' : 'password'"
-                prepend-inner-icon="mdi-lock"
-                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
-                variant="outlined"
-                :rules="passwordRules"
-                :error-messages="fieldErrors.password"
-                required
+            <v-form ref="loginForm" @submit.prevent="handleLogin">
+              <v-alert
+                v-if="route.query.reason === 'expired'"
+                type="info"
+                variant="tonal"
                 class="mb-4"
-                @click:append-inner="showPassword = !showPassword"
-              />
+              >
+                Your session expired. Sign in to continue.
+              </v-alert>
 
               <v-alert
                 v-if="authStore.error"
@@ -52,16 +35,42 @@
                 {{ authStore.error }}
               </v-alert>
 
+              <v-text-field
+                v-model="credentials.email"
+                label="Email"
+                type="email"
+                prepend-inner-icon="mdi-email"
+                variant="outlined"
+                :rules="emailRules"
+                autocomplete="username"
+                autofocus
+                required
+                class="mb-3"
+              />
+
+              <v-text-field
+                v-model="credentials.password"
+                label="Password"
+                :type="showPassword ? 'text' : 'password'"
+                prepend-inner-icon="mdi-lock"
+                :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
+                variant="outlined"
+                :rules="passwordRules"
+                autocomplete="current-password"
+                required
+                class="mb-4"
+                @click:append-inner="showPassword = !showPassword"
+              />
+
               <v-btn
                 type="submit"
                 color="primary"
                 size="large"
                 block
                 :loading="authStore.loading"
-                :disabled="!formValid"
                 class="mb-4"
               >
-                Login
+                Sign in
               </v-btn>
 
               <div class="text-center">
@@ -88,7 +97,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('admin')"
               >
-                Login as Admin
+                Admin
               </v-btn>
               <v-btn
                 size="small"
@@ -96,7 +105,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('curator')"
               >
-                Login as Alice Smith
+                Curator (Alice)
               </v-btn>
               <v-btn
                 size="small"
@@ -104,7 +113,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('reviewer')"
               >
-                Login as Bob Jones
+                Reviewer (Bob)
               </v-btn>
               <v-btn
                 size="small"
@@ -112,7 +121,7 @@
                 :loading="authStore.loading"
                 @click="quickLogin('viewer')"
               >
-                Login as Carol Williams
+                Viewer (Carol)
               </v-btn>
             </div>
           </v-card-text>
@@ -126,10 +135,10 @@
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, reactive, computed } from 'vue'
+  import { ref, reactive, computed, nextTick } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
-  import { showSuccess, showError } from '@/composables/useNotifications'
+  import { showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
   const route = useRoute()
@@ -137,17 +146,11 @@
 
   // Form state
   const loginForm = ref<{ validate: () => Promise<unknown> } | null>(null)
-  const formValid = ref(false)
   const showPassword = ref(false)
 
   const credentials = reactive({
     email: '',
     password: ''
-  })
-
-  const fieldErrors = reactive<{ email: string[]; password: string[] }>({
-    email: [],
-    password: []
   })
 
   // Development mode check
@@ -165,10 +168,7 @@
     (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
-  const passwordRules = [
-    (v: string) => !!v || 'Password is required',
-    (v: string) => v.length >= 6 || 'Password must be at least 6 characters'
-  ]
+  const passwordRules = [(v: string) => !!v || 'Password is required']
 
   // Development quick login credentials
   // Note: admin is application-level, others are standard users with scope-specific roles
@@ -181,12 +181,10 @@
   }
 
   const handleLogin = async () => {
-    if (!formValid.value) return
+    const result = await loginForm.value?.validate()
+    if (result && !(result as { valid: boolean }).valid) return
 
     try {
-      // Clear previous errors
-      fieldErrors.email = []
-      fieldErrors.password = []
       authStore.clearError()
 
       await authStore.login(credentials)
@@ -204,18 +202,6 @@
         response?: { data?: { detail?: string } }
       }
       logger.error('Login error:', { error: err.message, stack: err.stack })
-
-      // Handle specific field errors
-      if (err.response?.data?.detail) {
-        const detail = err.response.data.detail
-        if (detail.includes('email')) {
-          fieldErrors.email = [detail]
-        } else if (detail.includes('password')) {
-          fieldErrors.password = [detail]
-        }
-      }
-
-      showError('Login failed. Please check your credentials.')
     }
   }
 
@@ -226,18 +212,14 @@
     // Fill credentials
     credentials.email = creds.email
     credentials.password = creds.password
+    await nextTick() // let the inputs pick up the values before validate()
 
-    // Force form validation to run (Vuetify needs this for programmatic input)
-    await loginForm.value?.validate()
-
-    // Now submit the form
     await handleLogin()
   }
 </script>
 
 <style scoped>
   .fill-height {
-    min-height: 100vh;
     background: linear-gradient(
       135deg,
       rgb(var(--v-theme-surface)) 0%,

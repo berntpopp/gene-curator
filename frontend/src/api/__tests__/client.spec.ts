@@ -52,7 +52,7 @@ describe('api client', () => {
     originalLocation = window.location
     Object.defineProperty(window, 'location', {
       configurable: true,
-      value: { href: 'http://localhost/current' }
+      value: { href: 'http://localhost/current', pathname: '/assignments', search: '?tab=1' }
     })
   })
 
@@ -145,6 +145,18 @@ describe('api client', () => {
     expect(window.location.href).toBe('http://localhost/current')
   })
 
+  it('does not add a redirect when already on the login page', async () => {
+    localStorage.setItem('refresh_token', 'dead-refresh')
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: { href: 'x', pathname: '/login', search: '' }
+    })
+    vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh rejected'))
+    handler = config => fail(config, 401)
+    await expect(apiClient.get('/me')).rejects.toThrow()
+    expect(window.location.href).toBe('x')
+  })
+
   it('clears tokens, redirects to login and rejects when the refresh fails', async () => {
     localStorage.setItem('access_token', 'expired')
     localStorage.setItem('refresh_token', 'dead-refresh')
@@ -156,7 +168,7 @@ describe('api client', () => {
 
     expect(localStorage.getItem('access_token')).toBeNull()
     expect(localStorage.getItem('refresh_token')).toBeNull()
-    expect(window.location.href).toBe('/login')
+    expect(window.location.href).toBe('/login?reason=expired&redirect=%2Fassignments%3Ftab%3D1')
     expect(logService.warn).toHaveBeenCalledWith('Token refresh failed, redirecting to login', {
       error: 'refresh rejected'
     })

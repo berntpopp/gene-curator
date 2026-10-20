@@ -141,6 +141,29 @@ def test_list_scopes_returns_only_member_scopes_with_counts(
     assert item["stats"] == {"total_genes": 1, "member_count": 2}
 
 
+def test_list_scopes_carries_the_callers_scope_role(
+    client: TestClient,
+    db_session: Session,
+    scope_with_admin: Scope,
+    curator: UserNew,
+    app_admin: UserNew,
+) -> None:
+    curator_item = next(
+        i
+        for i in client.get(f"{BASE}/", headers=auth_headers(curator)).json()
+        if i["id"] == str(scope_with_admin.id)
+    )
+    assert curator_item["user_role"] == "curator"
+
+    # an application admin without a membership sees the scope but has no scope role
+    admin_item = next(
+        i
+        for i in client.get(f"{BASE}/", headers=auth_headers(app_admin)).json()
+        if i["id"] == str(scope_with_admin.id)
+    )
+    assert admin_item["user_role"] is None
+
+
 def test_list_scopes_hides_inactive_scopes_by_default(
     client: TestClient, db_session: Session, owner: UserNew
 ) -> None:
