@@ -66,6 +66,7 @@ vi.mock('@/composables/useFormRecovery', async () => {
     useFormRecovery: () => ({
       showRecoveryDialog: ref(false),
       recoveryData: ref(null),
+      recoveryTimestamp: ref('2026-01-01T00:00:00Z'),
       lastSaved: recovery.lastSaved,
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
@@ -203,6 +204,13 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     await mountForm({ geneId: 'g-1' })
 
     expect(logger.warn).toHaveBeenCalledWith('Failed to load precuration data', { error: 'down' })
+  })
+
+  it('passes the recovery timestamp to the recovery dialog', async () => {
+    const wrapper = await mountForm()
+    expect(wrapper.findComponent({ name: 'FormRecoveryDialog' }).props('timestamp')).toBe(
+      '2026-01-01T00:00:00Z'
+    )
   })
 
   it('paints neither form until the schema has loaded', async () => {

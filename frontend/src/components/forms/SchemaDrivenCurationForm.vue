@@ -94,7 +94,7 @@
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
       v-model="showRecoveryDialog"
-      :recovery-data="recoveryData"
+      :timestamp="recoveryTimestamp"
       @restore="restoreRecovery"
       @discard="discardRecovery"
     />
@@ -232,7 +232,7 @@
   })
   const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
     formRecovery
-  const recoveryData = formRecovery.recoveryData
+  const recoveryTimestamp = formRecovery.recoveryTimestamp
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(

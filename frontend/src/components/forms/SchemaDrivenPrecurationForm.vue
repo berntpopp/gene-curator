@@ -60,7 +60,7 @@
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
       v-model="showRecoveryDialog"
-      :recovery-data="recoveryData"
+      :timestamp="recoveryTimestamp"
       @restore="restoreRecovery"
       @discard="discardRecovery"
     />
@@ -156,7 +156,7 @@
 
   const {
     showRecoveryDialog,
-    recoveryData,
+    recoveryTimestamp,
     lastSaved,
     restoreRecovery,
     discardRecovery,
