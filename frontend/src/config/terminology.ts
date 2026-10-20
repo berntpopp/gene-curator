@@ -66,11 +66,6 @@ export const TERMINOLOGY = {
   ARCHIVED: 'Archived',
 
   // Status
-  DRAFT: 'Draft',
-  SUBMITTED: 'Submitted',
-  IN_REVIEW: 'In Review',
-  APPROVED: 'Approved',
-  REJECTED: 'Rejected',
   PENDING: 'Pending',
   COMPLETED: 'Completed'
 }

@@ -145,11 +145,11 @@
                       <div class="mb-4">
                         <div class="text-caption text-medium-emphasis">Status</div>
                         <v-chip
-                          :color="getStatusColor(curation.status)"
+                          :color="curationStatusColor(curation.status)"
                           variant="tonal"
                           class="mt-1"
                         >
-                          {{ formatStatus(curation.status) }}
+                          {{ curationStatusLabel(curation.status) }}
                         </v-chip>
                       </div>
                       <div class="mb-4">
@@ -524,6 +524,7 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
+  import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -620,11 +621,6 @@
   })
 
   // Utility functions
-  const formatStatus = (status: string | null | undefined): string => {
-    if (!status) return 'Unknown'
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
   const formatDateTime = (dateString: string | null | undefined): string => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleString()
@@ -639,18 +635,6 @@
       MT: 'Mitochondrial'
     }
     return labels[moi] || moi
-  }
-
-  const getStatusColor = (status: string): string => {
-    const colors: Record<string, string> = {
-      draft: 'grey',
-      submitted: 'info',
-      under_review: 'warning',
-      approved: 'success',
-      active: 'primary',
-      rejected: 'error'
-    }
-    return colors[status] || 'grey'
   }
 
   const getInheritanceColor = (moi: string): string => {

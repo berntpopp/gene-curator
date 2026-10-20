@@ -166,7 +166,7 @@ describe('useGeneWorkflowStatus', () => {
     expect(workflow.isCurationActive({ gene_id: 'g1' })).toBe(true)
     expect(workflow.isCurationActive({ gene_id: 'g2' })).toBe(false)
     expect(workflow.getCuration({ gene_id: 'g2' })).toMatchObject({ id: 'c3' })
-    expect(workflow.getCurationStatusLabel({ gene_id: 'g2' })).toBe('Curation In Progress')
+    expect(workflow.getCurationStatusLabel({ gene_id: 'g2' })).toBe('Draft')
     expect(workflow.getCurationStatusLabel({ gene_id: 'g9' })).toBe('No Curation')
   })
 

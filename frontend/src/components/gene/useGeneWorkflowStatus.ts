@@ -1,6 +1,7 @@
 import { ref } from 'vue'
 import { precurationsAPI, curationsAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
+import { curationStatusLabel } from '@/config/status'
 import type { ApiErrorLike } from '@/components/forms/types'
 
 /** Latest precuration per gene (from the scope's precuration list). */
@@ -200,16 +201,7 @@ export function useGeneWorkflowStatus(scopeId: () => string) {
     const curation = geneCurations.value[gene.gene_id]
     if (!curation) return 'No Curation'
 
-    const statusLabels: Record<string, string> = {
-      draft: 'Curation In Progress',
-      submitted: 'Awaiting Review',
-      in_review: 'Under Review',
-      approved: 'Approved',
-      active: 'Active',
-      rejected: 'Needs Revision',
-      archived: 'Archived'
-    }
-    return statusLabels[curation.status] || curation.status
+    return curationStatusLabel(curation.status)
   }
 
   return {

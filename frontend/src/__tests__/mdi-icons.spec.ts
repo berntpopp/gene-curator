@@ -1,3 +1,4 @@
+/// <reference types="node" />
 /**
  * Every `mdi-*` icon name used in src must exist in the installed @mdi/font.
  * A missing name renders as an empty 24 px gap, so this fails loudly instead.
