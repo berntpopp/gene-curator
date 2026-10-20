@@ -215,20 +215,11 @@
 <script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
-  import { useSchemasStore, useValidationStore } from '@/stores'
+  import { useSchemasStore } from '@/stores'
   import type { Schema } from '@/types/api'
-  import { toDuplicatePayload } from './schemaDuplicate'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -241,7 +232,6 @@
   const route = useRoute()
   const router = useRouter()
   const schemasStore = useSchemasStore()
-  const validationStore = useValidationStore()
 
   const loading = ref(false)
   const saving = ref(false)
@@ -340,7 +330,7 @@
     if (!schema.value) return
     validating.value = true
     try {
-      const result = await validationStore.validateSchema(schema.value)
+      const result = await schemasStore.validateSchema(schemaId.value)
       logger.info('Schema validation result:', result)
     } catch (error) {
       const err = error as ApiError
@@ -364,7 +354,7 @@
   const duplicateSchema = async () => {
     if (!schema.value) return
     try {
-      const duplicated = await schemasStore.createSchema(toDuplicatePayload(schema.value))
+      const duplicated = await schemasStore.duplicateSchema(schemaId.value)
       router.push({ name: 'SchemaEditor', params: { id: duplicated.id } })
     } catch (error) {
       const err = error as ApiError

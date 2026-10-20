@@ -115,19 +115,13 @@
     status: string
   }
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   type ErrorLike = { message?: string }
   // undefined (not null) so values pass to child props, whose defaults are null
   type RouteId = string | undefined
 
   const router = useRouter()
   const route = useRoute()
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
   const schemasStore = useSchemasStore()
   const scopesStore = useScopesStore()
   const curationsStore = useCurationsStore()

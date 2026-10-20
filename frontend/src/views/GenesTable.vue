@@ -42,16 +42,6 @@
             </v-col>
             <v-col cols="12" md="3">
               <v-select
-                v-model="selectedFamily"
-                :items="uniqueFamilies"
-                label="Gene Family"
-                variant="outlined"
-                clearable
-                @update:model-value="handleFilterChange"
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-select
                 v-model="selectedChromosome"
                 :items="uniqueChromosomes"
                 label="Chromosome"
@@ -110,7 +100,7 @@
           :headers="headers"
           :items="genes"
           :loading="genesStore.loading"
-          :items-per-page="PAGE_SIZE"
+          :items-per-page="genesStore.pagination.per_page"
           class="gene-table"
           @click:row="handleRowClick"
         >
@@ -124,45 +114,6 @@
             </div>
           </template>
 
-          <!-- Previous/Alias Symbols -->
-          <template #item.previous_symbols="{ item }">
-            <div v-if="item.previous_symbols && item.previous_symbols.length">
-              <v-chip
-                v-for="symbol in item.previous_symbols.slice(0, 2)"
-                :key="symbol"
-                size="x-small"
-                variant="outlined"
-                class="ma-1"
-              >
-                {{ symbol }}
-              </v-chip>
-              <span v-if="item.previous_symbols.length > 2" class="text-caption">
-                +{{ item.previous_symbols.length - 2 }} more
-              </span>
-            </div>
-            <span v-else class="text-medium-emphasis">—</span>
-          </template>
-
-          <!-- Gene Family -->
-          <template #item.gene_family="{ item }">
-            <div v-if="item.gene_family && item.gene_family.length">
-              <v-chip
-                v-for="family in item.gene_family.slice(0, 1)"
-                :key="family"
-                size="small"
-                color="info"
-                variant="tonal"
-                class="ma-1"
-              >
-                {{ family }}
-              </v-chip>
-              <div v-if="item.gene_family.length > 1" class="text-caption">
-                +{{ item.gene_family.length - 1 }} more
-              </div>
-            </div>
-            <span v-else class="text-medium-emphasis">—</span>
-          </template>
-
           <!-- Location -->
           <template #item.location="{ item }">
             <div class="d-flex flex-column">
@@ -171,19 +122,6 @@
                 {{ item.location || '' }}
               </span>
             </div>
-          </template>
-
-          <!-- ClinGen Score -->
-          <template #item.clingen_score="{ item }">
-            <v-chip
-              v-if="item.details?.clingen_score !== undefined"
-              :color="getScoreColor(item.details.clingen_score)"
-              size="small"
-              variant="tonal"
-            >
-              {{ item.details.clingen_score }}
-            </v-chip>
-            <span v-else class="text-medium-emphasis">—</span>
           </template>
 
           <!-- Actions -->
@@ -233,7 +171,7 @@
         <div class="d-flex justify-center pa-4">
           <v-pagination
             v-model="currentPage"
-            :length="pageCount"
+            :length="genesStore.pagination.pages"
             :disabled="genesStore.loading"
             @update:model-value="handlePageChange"
           />
@@ -254,31 +192,14 @@
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
 
-  // Row shape used by this table; the store's state is untyped JS
-  interface GeneRow {
-    id: string
-    approved_symbol: string
-    hgnc_id?: string
-    previous_symbols?: string[]
-    gene_family?: string[] | null
-    chromosome?: string | null
-    location?: string | null
-    details?: { clingen_score?: number }
-  }
-
-  const genes = computed(() => genesStore.genes as GeneRow[])
+  // Searching shows the search results; otherwise the paged list
+  const genes = computed(() => (isSearching.value ? genesStore.searchResults : genesStore.genes))
 
   // Search and filter state
   const searchQuery = ref('')
-  const selectedFamily = ref<string | null>(null)
   const selectedChromosome = ref<string | null>(null)
   const sortBy = ref('approved_symbol_asc')
   const currentPage = ref(1)
-  // The API paginates with skip/limit and reports `total`; the store's `pagination` is never filled
-  const PAGE_SIZE = 20
-  const total = ref(0)
-  const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
-  const pageParams = () => ({ skip: (currentPage.value - 1) * PAGE_SIZE, limit: PAGE_SIZE })
 
   // Table configuration
   const headers = [
@@ -289,27 +210,9 @@
       width: '200px'
     },
     {
-      title: 'Previous/Alias',
-      key: 'previous_symbols',
-      sortable: false,
-      width: '180px'
-    },
-    {
-      title: 'Gene Family',
-      key: 'gene_family',
-      sortable: false,
-      width: '160px'
-    },
-    {
       title: 'Location',
       key: 'location',
       sortable: true,
-      width: '120px'
-    },
-    {
-      title: 'ClinGen Score',
-      key: 'clingen_score',
-      sortable: false,
       width: '120px'
     },
     {
@@ -330,22 +233,12 @@
 
   // Computed values
   const isSearching = computed(() => {
-    return Boolean(searchQuery.value || selectedFamily.value || selectedChromosome.value)
-  })
-
-  const uniqueFamilies = computed(() => {
-    const families = new Set<string>()
-    genes.value.forEach(gene => {
-      if (gene.gene_family) {
-        gene.gene_family.forEach(family => families.add(family))
-      }
-    })
-    return Array.from(families).sort()
+    return Boolean(searchQuery.value || selectedChromosome.value)
   })
 
   const uniqueChromosomes = computed(() => {
     const chromosomes = new Set<string>()
-    genes.value.forEach(gene => {
+    genesStore.genes.forEach(gene => {
       if (gene.chromosome) {
         chromosomes.add(gene.chromosome)
       }
@@ -399,7 +292,6 @@
 
   const clearFilters = () => {
     searchQuery.value = ''
-    selectedFamily.value = null
     selectedChromosome.value = null
     currentPage.value = 1
     genesStore.clearSearchResults()
@@ -411,9 +303,8 @@
       try {
         await genesStore.searchGenes({
           query: searchQuery.value,
-          gene_family: selectedFamily.value,
           chromosome: selectedChromosome.value,
-          ...pageParams()
+          page: currentPage.value
         })
       } catch (error) {
         showError('Search failed. Please try again.')
@@ -425,19 +316,10 @@
 
   const loadGenes = async () => {
     try {
-      // TODO(stage2): missing store API genesStore.fetchGenes skip/limit params (GeneSearchParams)
-      const response = await genesStore.fetchGenes(pageParams())
-      total.value = Number(response?.total ?? genesStore.genes.length)
+      await genesStore.fetchGenes({ page: currentPage.value })
     } catch (error) {
       showError('Failed to load genes. Please try again.')
     }
-  }
-
-  const getScoreColor = (score: number) => {
-    if (score >= 8) return 'success'
-    if (score >= 5) return 'warning'
-    if (score >= 2) return 'info'
-    return 'error'
   }
 
   // Lifecycle

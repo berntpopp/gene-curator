@@ -232,30 +232,15 @@
     stats?: { member_count?: number; completed_genes?: number; total_genes?: number } | null
   }
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    info: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
   const router = useRouter()
   const scopeStore = useScopesStore()
-  // Composables are JS with JSDoc @returns {Object}; narrow to the functions used here
-  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
-    getRoleColor: (role: string | null | undefined) => string
-    getRoleIcon: (role: string | null | undefined) => string
-  }
-  const { getScopeVisibilityIcon, formatDate, calculateProgress } = useScopeUtils() as unknown as {
-    getScopeVisibilityIcon: (isPublic: boolean) => string
-    formatDate: (date: string | null | undefined) => string
-    calculateProgress: (completed: number | undefined, total: number | undefined) => number
-  }
-  const logger = useLogger() as LoggerApi
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const { getScopeVisibilityIcon, formatDate, calculateProgress } = useScopeUtils()
+  const logger = useLogger()
 
   // ============================================
   // STATE

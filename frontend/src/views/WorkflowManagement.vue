@@ -305,15 +305,7 @@
 
   const schemasStore = useSchemasStore()
   const workflowStore = useWorkflowStore()
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)

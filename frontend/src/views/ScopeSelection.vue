@@ -171,15 +171,7 @@
 <script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
   import { ref, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGenesStore, useAssignmentsStore } from '@/stores'
@@ -288,7 +280,6 @@
         assignment_notes: assignmentNotes.value || null
       }
 
-      // TODO(stage2): missing store API assignmentsStore.createAssignment (api: assignmentsAPI.createAssignment)
       const assignment = await assignmentsStore.createAssignment(assignmentData)
 
       // Navigate to the new assignment

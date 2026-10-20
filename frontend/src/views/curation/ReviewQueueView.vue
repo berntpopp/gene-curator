@@ -221,14 +221,8 @@
     created_by?: string | null
   }
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   const authStore = useAuthStore()
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // State

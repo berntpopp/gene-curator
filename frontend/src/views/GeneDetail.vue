@@ -247,17 +247,9 @@
   type Gene = Schema<'Gene'>
   type HgncGene = Schema<'HGNCGeneSearchResult'>
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    info: (message: string, data?: Record<string, unknown>) => void
-    warn: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   const route = useRoute()
   const genesStore = useGenesStore()
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
 
   // State
   const loading = ref(true)
@@ -336,21 +328,16 @@
       error.value = null
 
       const geneId = route.params.id as string
-      await genesStore.fetchGeneById(geneId)
-
-      if (!localGene.value) {
-        error.value = 'Gene not found in database'
-        return
-      }
+      const gene = await genesStore.fetchGeneById(geneId)
 
       // Fetch HGNC data for enhanced information
-      if (localGene.value.hgnc_id) {
-        await fetchHgncData(localGene.value.hgnc_id)
+      if (gene.hgnc_id) {
+        await fetchHgncData(gene.hgnc_id)
       }
 
       logger.info('Gene details loaded', {
         gene_id: geneId,
-        symbol: localGene.value.approved_symbol
+        symbol: gene.approved_symbol
       })
     } catch (err) {
       const e = err as Error

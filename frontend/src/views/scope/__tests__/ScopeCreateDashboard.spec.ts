@@ -7,6 +7,7 @@ import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import '@/views/__tests__/visualViewport'
+import { call, vmOf } from '@/views/__tests__/vm'
 import ScopeCreate from '@/views/scope/ScopeCreate.vue'
 import ScopeDashboard from '@/views/scope/ScopeDashboard.vue'
 import { useScopesStore } from '@/stores/scopes'
@@ -43,9 +44,6 @@ const opts = () => ({
     }
   }
 })
-
-type Vm = Record<string, unknown> & Record<string, (...args: never[]) => Promise<void> | void>
-const vmOf = (wrapper: { vm: unknown }) => wrapper.vm as unknown as Vm
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -100,14 +98,16 @@ describe('ScopeCreate', () => {
     const { store, vm } = await mountView()
     const create = vi.spyOn(store, 'createScope').mockResolvedValue({ id: 's9' } as never)
     vm.valid = false
-    await vm.handleSubmit()
+    await call(vm, 'handleSubmit')
     expect(create).not.toHaveBeenCalled()
   })
 
   it('creates the scope with only API fields, invites members and opens the dashboard', async () => {
     const { store, vm } = await mountView()
     vi.useFakeTimers()
-    const create = vi.spyOn(store, 'createScope').mockResolvedValue({ id: 's9', name: 'n' } as never)
+    const create = vi
+      .spyOn(store, 'createScope')
+      .mockResolvedValue({ id: 's9', name: 'n' } as never)
     const invite = vi
       .spyOn(store, 'inviteMember')
       .mockResolvedValueOnce(undefined as never)
@@ -124,7 +124,7 @@ describe('ScopeCreate', () => {
       { user: { id: 'u1' }, role: 'curator' },
       { user: { id: 'u2' }, role: 'viewer' }
     ]
-    await vm.handleSubmit()
+    await call(vm, 'handleSubmit')
     expect(create).toHaveBeenCalledWith({
       name: 'kidney-genetics',
       display_name: 'Kidney Genetics',
@@ -153,7 +153,7 @@ describe('ScopeCreate', () => {
       response: { data: { detail: 'Scope exists' } }
     })
     vm.valid = true
-    await vm.handleSubmit()
+    await call(vm, 'handleSubmit')
     expect(vm.snackbarMessage).toBe('Failed to create scope: Scope exists')
     expect(vm.snackbarColor).toBe('error')
     expect(vm.loading).toBe(false)
@@ -161,9 +161,9 @@ describe('ScopeCreate', () => {
 
   it('goes back on cancel and validates the name on blur', async () => {
     const { vm } = await mountView()
-    ;(vm.cancel as () => void)()
+    call(vm, 'cancel')
     expect(routerBack).toHaveBeenCalled()
-    ;(vm.validateName as () => void)()
+    call(vm, 'validateName')
   })
 
   it('searches users with a debounce and hides already added members', async () => {
@@ -190,7 +190,7 @@ describe('ScopeCreate', () => {
     const { vm } = await mountView()
     vi.useFakeTimers()
     vi.mocked(usersApi.searchUsers).mockRejectedValue(new Error('boom'))
-    ;(vm.onUserSearch as (q: string) => void)('ada')
+    call(vm, 'onUserSearch', 'ada')
     await vi.advanceTimersByTimeAsync(300)
     expect(vm.userSearchResults).toEqual([])
     expect(logger.error).toHaveBeenCalledWith(
@@ -201,19 +201,19 @@ describe('ScopeCreate', () => {
 
   it('adds and removes pending members and resets the dialog', async () => {
     const { vm } = await mountView()
-    ;(vm.addPendingMember as () => void)()
+    call(vm, 'addPendingMember')
     expect(vm.pendingMembers).toEqual([])
     vm.showAddMemberDialog = true
     vm.selectedMember = { id: 'u1', name: 'Ada', email: 'a@x.org' }
     vm.memberRole = 'reviewer'
-    ;(vm.addPendingMember as () => void)()
+    call(vm, 'addPendingMember')
     expect(vm.pendingMembers).toEqual([
       { user: { id: 'u1', name: 'Ada', email: 'a@x.org' }, role: 'reviewer' }
     ])
     expect(vm.showAddMemberDialog).toBe(false)
     expect(vm.selectedMember).toBeNull()
     expect(vm.memberRole).toBe('curator')
-    ;(vm.removePendingMember as (id: string) => void)('u1')
+    call(vm, 'removePendingMember', 'u1')
     expect(vm.pendingMembers).toEqual([])
   })
 })
@@ -228,7 +228,7 @@ describe('ScopeDashboard', () => {
     is_active: true
   }
 
-  const mountView = async (role: string | null = 'admin', tab = 'genes') => {
+  const mountView = async (role: 'admin' | 'viewer' | null = 'admin', tab = 'genes') => {
     routeState.params = { scopeId: 's1', tab }
     const store = useScopesStore()
     const fetchScope = vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
@@ -296,7 +296,7 @@ describe('ScopeDashboard', () => {
   it('treats missing statistics as zero progress', async () => {
     const { store, vm } = await mountView()
     vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
-    await vm.fetchScopeData()
+    await call(vm, 'fetchScopeData')
     expect(vm.inProgressCount).toBe(0)
     expect(vm.curationProgress).toBe(0)
   })
@@ -314,7 +314,7 @@ describe('ScopeDashboard', () => {
 
   it('returns to the scope list after the scope is deleted', async () => {
     const { vm } = await mountView()
-    ;(vm.handleScopeDeleted as () => void)()
+    call(vm, 'handleScopeDeleted')
     expect(routerPush).toHaveBeenCalledWith({ name: 'scopes' })
   })
 

@@ -7,13 +7,12 @@ import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
 import './visualViewport'
+import { call, vmOf } from './vm'
 import WorkflowManagement from '@/views/WorkflowManagement.vue'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import SchemaEditor from '@/views/SchemaEditor.vue'
-import { toDuplicatePayload } from '@/views/schemaDuplicate'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
-import { useValidationStore } from '@/stores/validation'
 
 const { routerPush, routeState, logger, showError, showSuccess, showInfo } = vi.hoisted(() => ({
   routerPush: vi.fn(),
@@ -52,9 +51,6 @@ beforeEach(() => {
 afterEach(() => {
   document.body.innerHTML = ''
 })
-
-type Vm = Record<string, unknown> & Record<string, (...args: never[]) => Promise<void> | void>
-const vmOf = (wrapper: { vm: unknown }) => wrapper.vm as unknown as Vm
 
 const pair = {
   id: 'wp1',
@@ -125,7 +121,7 @@ describe('WorkflowManagement', () => {
 
   it('opens the details dialog for a workflow', async () => {
     const { vm } = await mountView()
-    ;(vm.viewWorkflow as (w: unknown) => void)(pair)
+    call(vm, 'viewWorkflow', pair)
     await nextTick()
     expect(vm.viewWorkflowDialog).toBe(true)
     expect(document.body.textContent).toContain('Workflow Details')
@@ -134,9 +130,9 @@ describe('WorkflowManagement', () => {
   it('saves edits to a workflow and closes the dialog', async () => {
     const { vm, schemas } = await mountView()
     const update = vi.spyOn(schemas, 'updateWorkflowPair').mockResolvedValue(undefined as never)
-    ;(vm.editWorkflow as (w: unknown) => void)(pair)
+    call(vm, 'editWorkflow', pair)
     await nextTick()
-    await vm.saveWorkflow()
+    await call(vm, 'saveWorkflow')
     expect(update).toHaveBeenCalledWith('wp1', {
       name: 'ClinGen flow',
       description: 'Two stage',
@@ -149,18 +145,18 @@ describe('WorkflowManagement', () => {
   it('does not save an edit with an empty name', async () => {
     const { vm, schemas } = await mountView()
     const update = vi.spyOn(schemas, 'updateWorkflowPair').mockResolvedValue(undefined as never)
-    ;(vm.editWorkflow as (w: unknown) => void)({ ...pair, name: '' })
+    call(vm, 'editWorkflow', { ...pair, name: '' })
     await nextTick()
-    await vm.saveWorkflow()
+    await call(vm, 'saveWorkflow')
     expect(update).not.toHaveBeenCalled()
   })
 
   it('reports a failed save', async () => {
     const { vm, schemas } = await mountView()
     vi.spyOn(schemas, 'updateWorkflowPair').mockRejectedValue(new Error('conflict'))
-    ;(vm.editWorkflow as (w: unknown) => void)(pair)
+    call(vm, 'editWorkflow', pair)
     await nextTick()
-    await vm.saveWorkflow()
+    await call(vm, 'saveWorkflow')
     expect(showError).toHaveBeenCalledWith('Failed to update workflow')
   })
 
@@ -176,7 +172,7 @@ describe('WorkflowManagement', () => {
       curation_schema_id: 'cur'
     }
     await flushPromises()
-    await vm.createWorkflow()
+    await call(vm, 'createWorkflow')
     expect(create).toHaveBeenCalledWith({
       name: 'New flow',
       description: '',
@@ -201,7 +197,7 @@ describe('WorkflowManagement', () => {
       curation_schema_id: 'cur'
     }
     await flushPromises()
-    await vm.createWorkflow()
+    await call(vm, 'createWorkflow')
     expect(create).not.toHaveBeenCalled()
   })
 
@@ -217,7 +213,7 @@ describe('WorkflowManagement', () => {
       curation_schema_id: 'cur'
     }
     await flushPromises()
-    await vm.createWorkflow()
+    await call(vm, 'createWorkflow')
     expect(showError).toHaveBeenCalledWith('Failed to create workflow')
   })
 
@@ -228,27 +224,25 @@ describe('WorkflowManagement', () => {
       'confirm',
       vi.fn(() => false)
     )
-    await (vm.deleteWorkflow as (w: unknown) => Promise<void>)(pair)
+    await call(vm, 'deleteWorkflow', pair)
     expect(del).not.toHaveBeenCalled()
     vi.stubGlobal(
       'confirm',
       vi.fn(() => true)
     )
-    await (vm.deleteWorkflow as (w: unknown) => Promise<void>)(pair)
+    await call(vm, 'deleteWorkflow', pair)
     expect(showError).toHaveBeenCalledWith('Failed to delete workflow')
     vi.unstubAllGlobals()
   })
 
   it('maps stage types to colours and icons and announces stage editing', async () => {
     const { vm } = await mountView()
-    expect((vm.getStageColor as (s: string) => string)('review')).toBe('purple')
-    expect((vm.getStageColor as (s: string) => string)('other')).toBe('grey')
-    expect((vm.getStageIcon as (s: string) => string)('entry')).toBe('mdi-file-document-plus')
-    expect((vm.getStageIcon as (s: string) => string)('other')).toBe('mdi-circle')
-    expect((vm.getSchemaName as (id: string | null, t: string) => string)(null, 'curation')).toBe(
-      'N/A'
-    )
-    ;(vm.editStage as (s: { id: string }) => void)({ id: 'st1' })
+    expect(call(vm, 'getStageColor', 'review')).toBe('purple')
+    expect(call(vm, 'getStageColor', 'other')).toBe('grey')
+    expect(call(vm, 'getStageIcon', 'entry')).toBe('mdi-file-document-plus')
+    expect(call(vm, 'getStageIcon', 'other')).toBe('mdi-circle')
+    expect(call(vm, 'getSchemaName', null, 'curation')).toBe('N/A')
+    call(vm, 'editStage', { id: 'st1' })
     expect(showInfo).toHaveBeenCalledWith('Stage editing coming soon')
   })
 })
@@ -281,33 +275,29 @@ describe('SchemaManagement', () => {
 
   it('opens the editor for a schema and reports navigation failures', async () => {
     const { vm } = await mountView()
-    ;(vm.editSchema as (r: unknown) => void)(row)
+    call(vm, 'editSchema', row)
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 's1' } })
     routerPush.mockImplementationOnce(() => {
       throw new Error('nav')
     })
-    ;(vm.editSchema as (r: unknown) => void)(row)
+    call(vm, 'editSchema', row)
     expect(showError).toHaveBeenCalledWith('Failed to open schema editor')
-    ;(vm.viewSchema as (r: unknown) => void)(row)
+    call(vm, 'viewSchema', row)
     expect(logger.info).toHaveBeenCalledWith('View schema requested', expect.anything())
   })
 
-  it('duplicates a schema as an inactive copy', async () => {
+  it('duplicates a schema through the store', async () => {
     const { vm, schemas } = await mountView()
-    const create = vi.spyOn(schemas, 'createSchema').mockResolvedValue({ id: 's2' } as never)
-    await (vm.duplicateSchema as (r: unknown) => Promise<void>)(row)
-    expect(create).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'ClinGen curation (copy)', is_active: false })
-    )
+    const duplicate = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's2' } as never)
+    await call(vm, 'duplicateSchema', row)
+    expect(duplicate).toHaveBeenCalledWith('s1')
     expect(showSuccess).toHaveBeenCalledWith('Schema "ClinGen curation" duplicated successfully')
   })
 
-  it('reports a failed duplicate, including a schema missing from the list', async () => {
+  it('reports a failed duplicate', async () => {
     const { vm, schemas } = await mountView()
-    vi.spyOn(schemas, 'createSchema').mockRejectedValue(new Error('dup'))
-    await (vm.duplicateSchema as (r: unknown) => Promise<void>)(row)
-    await (vm.duplicateSchema as (r: unknown) => Promise<void>)({ id: 'zz', name: 'zz' })
-    expect(showError).toHaveBeenCalledTimes(2)
+    vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue(new Error('dup'))
+    await call(vm, 'duplicateSchema', row)
     expect(showError).toHaveBeenCalledWith('Failed to duplicate schema')
   })
 
@@ -318,7 +308,7 @@ describe('SchemaManagement', () => {
       'confirm',
       vi.fn(() => true)
     )
-    await (vm.deleteSchema as (r: unknown) => Promise<void>)(row)
+    await call(vm, 'deleteSchema', row)
     expect(showError).toHaveBeenCalledWith('Failed to delete schema')
     vi.unstubAllGlobals()
   })
@@ -330,7 +320,7 @@ describe('SchemaManagement', () => {
     await nextTick()
     vm.newSchema = { name: 'Fresh', description: 'd', type: 'curation', version: '1.0.0' }
     await flushPromises()
-    await vm.createSchema()
+    await call(vm, 'createSchema')
     expect(create).toHaveBeenCalledWith({
       name: 'Fresh',
       description: 'd',
@@ -354,30 +344,18 @@ describe('SchemaManagement', () => {
     await nextTick()
     vm.newSchema = { name: '', description: '', type: null, version: '1.0.0' }
     await flushPromises()
-    await vm.createSchema()
+    await call(vm, 'createSchema')
     expect(create).not.toHaveBeenCalled()
     vm.newSchema = { name: 'Fresh', description: '', type: 'curation', version: '1.0.0' }
     await flushPromises()
-    await vm.createSchema()
+    await call(vm, 'createSchema')
     expect(showError).toHaveBeenCalledWith('Failed to create schema')
   })
 
   it('formats dates and tolerates a missing one', async () => {
     const { vm } = await mountView()
-    expect((vm.formatDate as (d: string | null) => string)(null)).toBe('')
-    expect((vm.formatDate as (d: string) => string)('2026-01-02T00:00:00Z')).not.toBe('')
-  })
-})
-
-describe('toDuplicatePayload', () => {
-  it('copies the definition into an inactive "(copy)"', () => {
-    const payload = toDuplicatePayload(curationSchema as never)
-    expect(payload).toMatchObject({
-      name: 'ClinGen curation (copy)',
-      schema_type: 'curation',
-      is_active: false,
-      field_definitions: curationSchema.field_definitions
-    })
+    expect(call(vm, 'formatDate', null)).toBe('')
+    expect(call(vm, 'formatDate', '2026-01-02T00:00:00Z')).not.toBe('')
   })
 })
 
@@ -416,7 +394,7 @@ describe('SchemaEditor', () => {
     vm.editableSchema = { name: 'Renamed', version: '2.0.0', description: 'd', is_active: false }
     vm.jsonSchemaText = '{"x": {"required": true}}'
     vm.scoringConfigText = ''
-    await vm.saveSchema()
+    await call(vm, 'saveSchema')
     expect(update).toHaveBeenCalledWith('s1', {
       name: 'Renamed',
       version: '2.0.0',
@@ -434,13 +412,13 @@ describe('SchemaEditor', () => {
     vm.isEditing = true
     await nextTick()
     vm.jsonSchemaText = '{nope'
-    ;(vm.validateJson as () => void)()
+    call(vm, 'validateJson')
     expect(vm.isValidJson).toBe(false)
     expect(vm.jsonError).not.toBe('')
-    await vm.saveSchema()
+    await call(vm, 'saveSchema')
     expect(update).not.toHaveBeenCalled()
     vm.jsonSchemaText = '{}'
-    ;(vm.validateJson as () => void)()
+    call(vm, 'validateJson')
     expect(vm.isValidJson).toBe(true)
   })
 
@@ -449,13 +427,13 @@ describe('SchemaEditor', () => {
     vi.spyOn(schemas, 'updateSchema').mockRejectedValue(new Error('conflict'))
     vm.isEditing = true
     await nextTick()
-    await vm.saveSchema()
+    await call(vm, 'saveSchema')
     expect(logger.error).toHaveBeenCalledWith(
       'Failed to save schema:',
       expect.objectContaining({ error: 'conflict' })
     )
     vm.scoringConfigText = '{bad'
-    ;(vm.validateScoringConfig as () => void)()
+    call(vm, 'validateScoringConfig')
     expect(logger.error).toHaveBeenCalledWith('Invalid scoring config JSON:', expect.anything())
   })
 
@@ -464,22 +442,22 @@ describe('SchemaEditor', () => {
     vm.isEditing = true
     vm.editableSchema = { name: 'Changed' }
     vm.jsonSchemaText = 'junk'
-    ;(vm.cancelEdit as () => void)()
+    call(vm, 'cancelEdit')
     expect(vm.isEditing).toBe(false)
     expect((vm.editableSchema as { name: string }).name).toBe('ClinGen curation')
     expect(String(vm.jsonSchemaText)).toContain('"a"')
   })
 
-  it('validates the schema through the validation store', async () => {
-    const { vm } = await mountView()
+  it('validates the schema through the schemas store', async () => {
+    const { vm, schemas } = await mountView()
     const validate = vi
-      .spyOn(useValidationStore(), 'validateSchema')
+      .spyOn(schemas, 'validateSchema')
       .mockResolvedValue({ is_valid: true } as never)
-    await vm.validateSchema()
-    expect(validate).toHaveBeenCalledWith(expect.objectContaining({ id: 's1' }))
+    await call(vm, 'validateSchema')
+    expect(validate).toHaveBeenCalledWith('s1')
     expect(logger.info).toHaveBeenCalledWith('Schema validation result:', { is_valid: true })
     validate.mockRejectedValueOnce(new Error('x'))
-    await vm.validateSchema()
+    await call(vm, 'validateSchema')
     expect(logger.error).toHaveBeenCalledWith(
       'Schema validation failed:',
       expect.objectContaining({ error: 'x' })
@@ -493,7 +471,7 @@ describe('SchemaEditor', () => {
     URL.createObjectURL = create
     URL.revokeObjectURL = revoke
     const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined)
-    ;(vm.exportSchema as () => void)()
+    call(vm, 'exportSchema')
     expect(create).toHaveBeenCalled()
     expect(click).toHaveBeenCalled()
     expect(revoke).toHaveBeenCalledWith('blob:x')
@@ -502,11 +480,11 @@ describe('SchemaEditor', () => {
 
   it('duplicates the schema and opens the copy, or logs a failure', async () => {
     const { vm, schemas } = await mountView()
-    const create = vi.spyOn(schemas, 'createSchema').mockResolvedValue({ id: 's9' } as never)
-    await vm.duplicateSchema()
+    const create = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's9' } as never)
+    await call(vm, 'duplicateSchema')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 's9' } })
     create.mockRejectedValueOnce(new Error('dup'))
-    await vm.duplicateSchema()
+    await call(vm, 'duplicateSchema')
     expect(logger.error).toHaveBeenCalledWith(
       'Failed to duplicate schema:',
       expect.objectContaining({ error: 'dup' })
@@ -520,17 +498,17 @@ describe('SchemaEditor', () => {
       'confirm',
       vi.fn(() => false)
     )
-    await vm.deleteSchema()
+    await call(vm, 'deleteSchema')
     expect(del).not.toHaveBeenCalled()
     vi.stubGlobal(
       'confirm',
       vi.fn(() => true)
     )
-    await vm.deleteSchema()
+    await call(vm, 'deleteSchema')
     expect(del).toHaveBeenCalledWith('s1')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaManagement' })
     del.mockRejectedValueOnce(new Error('in use'))
-    await vm.deleteSchema()
+    await call(vm, 'deleteSchema')
     expect(logger.error).toHaveBeenCalledWith(
       'Failed to delete schema:',
       expect.objectContaining({ error: 'in use' })

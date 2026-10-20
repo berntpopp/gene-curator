@@ -113,7 +113,7 @@ describe('GenesTable', () => {
     const wrapper = mount(GenesTable, opts())
     await flushPromises()
 
-    expect(fetchGenes).toHaveBeenCalledWith({ skip: 0, limit: 20 })
+    expect(fetchGenes).toHaveBeenCalledWith({ page: 1 })
     expect(wrapper.text()).toContain('1 genes')
     expect(wrapper.text()).toContain('PKD1')
   })
@@ -140,7 +140,7 @@ describe('GenesTable', () => {
     vi.advanceTimersByTime(300)
     await flushPromises()
 
-    expect(searchGenes).toHaveBeenCalledWith(expect.objectContaining({ query: 'PKD', skip: 0 }))
+    expect(searchGenes).toHaveBeenCalledWith(expect.objectContaining({ query: 'PKD', page: 1 }))
     vi.useRealTimers()
   })
 })

@@ -68,18 +68,6 @@
         </v-card-text>
       </v-card>
 
-      <!-- Workflow Progress -->
-      <div class="mb-6">
-        <!-- TODO(stage2): WorkflowStages entity-type only accepts 'precuration' | 'curation' -->
-        <WorkflowStages
-          :workflow-pair-id="assignment.workflow_pair_id"
-          :entity-id="assignment.id"
-          entity-type="assignment"
-          @stage-changed="handleStageChanged"
-          @action-completed="handleActionCompleted"
-        />
-      </div>
-
       <!-- Main Content Tabs -->
       <v-tabs v-model="activeTab" bg-color="transparent">
         <v-tab value="precuration">
@@ -205,7 +193,6 @@
   import { useRoute } from 'vue-router'
   import { useAssignmentsStore } from '@/stores'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
-  import WorkflowStages from '@/components/dynamic/WorkflowStages.vue'
   import ScoreDisplay from '@/components/dynamic/ScoreDisplay.vue'
 
   // Assignment payload shape used by this view (stores are JS, so typed locally)
@@ -253,13 +240,7 @@
   }
   type ErrorLike = { message?: string; stack?: string }
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    info: (message: string, data?: unknown) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
   const route = useRoute()
   // TODO(stage2): missing store API fetchAssignmentById, fetchAssignmentHistory,
   // submitPrecuration, savePrecurationDraft, submitCuration, saveCurationDraft -- the store has
@@ -368,16 +349,6 @@
   }
 
   // Event handlers
-  const handleStageChanged = (action: unknown) => {
-    logger.info('Stage changed:', action)
-    loadAssignmentData()
-  }
-
-  const handleActionCompleted = (action: unknown) => {
-    logger.info('Action completed:', action)
-    loadAssignmentData()
-  }
-
   const handlePrecurationSubmit = async (data: FormData) => {
     try {
       await assignmentsStore.submitPrecuration(assignmentId.value, data)
@@ -426,11 +397,11 @@
     }
   }
 
-  const handleScoreUpdated = (scoreResult: unknown) => {
+  const handleScoreUpdated = (scoreResult: Record<string, unknown>) => {
     logger.info('Scores updated:', scoreResult)
   }
 
-  const handleClassificationChanged = (classification: unknown) => {
+  const handleClassificationChanged = (classification: Record<string, unknown>) => {
     logger.info('Classification changed:', classification)
   }
 

@@ -1,3 +1,5 @@
+import type { ScopeRole } from '@/stores/scopes'
+
 // Types for ScopeCreate.vue (JS stores and composables are untyped; narrowed here)
 export interface ScopeRecord {
   id: string
@@ -23,23 +25,7 @@ export type SearchUser = UserRecord & { displayName?: string | null }
 
 export interface PendingMember {
   user: UserRecord
-  role: string
-}
-
-// useLogger() and the composables are JS with JSDoc @returns {Object}; narrow locally
-export interface LoggerApi {
-  debug: (message: string, data?: Record<string, unknown>) => void
-  info: (message: string, data?: Record<string, unknown>) => void
-  warn: (message: string, data?: Record<string, unknown>) => void
-  error: (message: string, data?: Record<string, unknown>) => void
-}
-
-// The scopes store is JS, so its state and actions are typed never / missing; narrow here
-export interface ScopesStoreView {
-  scopes: ScopeRecord[]
-  fetchUserScopes: () => Promise<unknown>
-  createScope: (data: ScopeFormData) => Promise<ScopeRecord>
-  inviteMember: (scopeId: string, data: { user_id: string; role: string }) => Promise<unknown>
+  role: ScopeRole
 }
 
 export type ErrorLike = {

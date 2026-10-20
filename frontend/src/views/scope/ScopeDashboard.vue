@@ -58,8 +58,8 @@
 
             <!-- User role badge -->
             <v-chip
-              :color="getRoleColor(userRole)"
-              :prepend-icon="getRoleIcon(userRole)"
+              :color="getRoleColor(userRole ?? '')"
+              :prepend-icon="getRoleIcon(userRole ?? '')"
               size="large"
             >
               {{ userRole || 'No role' }}
@@ -250,7 +250,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, defineAsyncComponent, type Ref } from 'vue'
+  import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
@@ -258,9 +258,6 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import MemberManagement from '@/components/scope/MemberManagement.vue'
-  import type { Schema } from '@/types/api'
-
-  type ScopeRecord = Schema<'Scope'>
 
   interface ScopeStats {
     member_count?: number
@@ -270,24 +267,6 @@
     draft_curations?: number
     submitted_curations?: number
     curations_in_review?: number
-  }
-
-  // useLogger() and useRoleColors/useScopeUtils are JS with JSDoc @returns {Object}; narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    info: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
-  // The scopes store is JS, so its state and actions are typed never / missing; narrow here
-  interface ScopesStoreView {
-    currentScope: ScopeRecord | null
-    currentUserRole: string | null
-    loading: boolean
-    error: string | null
-    fetchScope: (id: string) => Promise<unknown>
-    fetchUserRole: (id: string) => Promise<unknown>
-    fetchStatistics: (id: string) => Promise<unknown>
   }
 
   // Lazy load heavy components (optimize initial bundle size)
@@ -302,16 +281,10 @@
 
   const route = useRoute()
   const router = useRouter()
-  const scopeStore = useScopesStore() as unknown as ScopesStoreView
-  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
-    getRoleColor: (role: string | null | undefined) => string
-    getRoleIcon: (role: string | null | undefined) => string
-  }
-  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils() as unknown as {
-    getScopeVisibilityIcon: (isPublic: boolean | undefined) => string
-    calculateProgress: (completed: number | undefined, total: number | undefined) => number
-  }
-  const logger = useLogger() as LoggerApi
+  const scopeStore = useScopesStore()
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
+  const logger = useLogger()
 
   // ============================================
   // STATE
@@ -347,11 +320,7 @@
   const error = computed(() => scopeStore.error)
 
   // Composable for permissions
-  // useScopePermissions is JS with JSDoc @returns {Object}; these are computed refs
-  const { canManageScope, canViewMembers } = useScopePermissions(userRole) as unknown as {
-    canManageScope: Ref<boolean>
-    canViewMembers: Ref<boolean>
-  }
+  const { canManageScope, canViewMembers } = useScopePermissions(userRole)
 
   // In-progress count: draft + submitted + in_review curations
   const inProgressCount = computed<number>(() => {

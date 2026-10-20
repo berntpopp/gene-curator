@@ -49,7 +49,15 @@ const mountView = async (
   setup?.({ schemas, scopes, curations, precurations, genes })
   const wrapper = mount(CurationFormView, { global: { stubs } })
   await flushPromises()
-  return { wrapper, schemas, scopes, curations, precurations, genes, vm: wrapper.vm as unknown as Vm }
+  return {
+    wrapper,
+    schemas,
+    scopes,
+    curations,
+    precurations,
+    genes,
+    vm: wrapper.vm as unknown as Vm
+  }
 }
 
 beforeEach(() => {

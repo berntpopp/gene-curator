@@ -554,17 +554,10 @@
     response?: { data?: { detail?: string } }
   }
 
-  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
-  interface LoggerApi {
-    debug: (message: string, data?: Record<string, unknown>) => void
-    warn: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   const router = useRouter()
   const route = useRoute()
   const notificationStore = useNotificationsStore()
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)

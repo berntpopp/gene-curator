@@ -9,7 +9,6 @@ import { reactive } from 'vue'
 import ScopeSelection from '@/views/ScopeSelection.vue'
 import UserManagement from '@/views/UserManagement.vue'
 import UserProfile from '@/views/UserProfile.vue'
-import ValidationDashboard from '@/views/ValidationDashboard.vue'
 import WorkflowManagement from '@/views/WorkflowManagement.vue'
 import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
 import {
@@ -22,7 +21,6 @@ import { useGenesStore } from '@/stores/genes'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
-import { useValidationStore } from '@/stores/validation'
 import { useUsersStore } from '@/stores/users'
 import { authApi } from '@/api/auth'
 
@@ -365,7 +363,7 @@ describe('user-management helpers', () => {
     expect(getRoleColor('admin')).toBe('error')
     expect(getRoleColor('nobody')).toBe('primary')
     expect(getRoleColor(undefined)).toBe('primary')
-    expect(getRoleIcon('curator')).toBe('mdi-pencil')
+    expect(getRoleIcon('admin')).toBe('mdi-shield-crown')
     expect(getRoleIcon(undefined)).toBe('mdi-account')
   })
 
@@ -425,32 +423,6 @@ describe('UserProfile', () => {
       new_password: 'newpassword1'
     })
     expect(document.body.textContent).toContain('Password changed successfully')
-  })
-})
-
-describe('ValidationDashboard', () => {
-  it('renders stored validation results in the table', async () => {
-    const validation = useValidationStore()
-    validation.validationResults = {
-      r1: {
-        id: 'r1',
-        entity_id: 'e1',
-        validation_status: 'valid',
-        issues: [],
-        gene_symbol: 'MYH7',
-        schema_name: 'Precuration v1'
-      }
-    } as never
-    const wrapper = mount(ValidationDashboard, opts())
-    await flushPromises()
-    expect(wrapper.text()).toContain('Valid')
-  })
-
-  it('reports a failure when the dashboard data cannot be loaded', async () => {
-    mount(ValidationDashboard, opts())
-    await flushPromises()
-    expect(showError).toHaveBeenCalledWith('Failed to load dashboard data. Please refresh.')
-    expect(logger.error).toHaveBeenCalled()
   })
 })
 

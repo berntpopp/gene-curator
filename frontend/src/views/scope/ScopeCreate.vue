@@ -313,7 +313,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useScopesStore } from '@/stores/scopes'
+  import { useScopesStore, type ScopeRole } from '@/stores/scopes'
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
@@ -321,10 +321,8 @@
   import { getInitials, displayNameRules } from './ScopeCreate.utils'
   import type {
     ErrorLike,
-    LoggerApi,
     PendingMember,
     ScopeFormData,
-    ScopesStoreView,
     SearchUser,
     UserRecord
   } from './ScopeCreate.types'
@@ -334,16 +332,10 @@
   // ============================================
 
   const router = useRouter()
-  const scopeStore = useScopesStore() as unknown as ScopesStoreView
-  const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils() as unknown as {
-    isValidScopeName: (name: string) => boolean
-    getScopeVisibilityIcon: (isPublic: boolean) => string
-  }
-  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
-    getRoleColor: (role: string | null | undefined) => string
-    getRoleIcon: (role: string | null | undefined) => string
-  }
-  const logger = useLogger() as LoggerApi
+  const scopeStore = useScopesStore()
+  const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils()
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const logger = useLogger()
 
   // ============================================
   // LIFECYCLE
@@ -391,12 +383,12 @@
   const showAddMemberDialog = ref(false)
   const pendingMembers = ref<PendingMember[]>([])
   const selectedMember = ref<SearchUser | null>(null)
-  const memberRole = ref('curator')
+  const memberRole = ref<ScopeRole>('curator')
   const userSearchResults = ref<SearchUser[]>([])
   const searchingUsers = ref(false)
   const searchDebounce = ref<ReturnType<typeof setTimeout> | null>(null)
 
-  const roleOptions = ['admin', 'curator', 'reviewer', 'viewer']
+  const roleOptions: ScopeRole[] = ['admin', 'curator', 'reviewer', 'viewer']
 
   // ============================================
   // COMPUTED

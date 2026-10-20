@@ -132,15 +132,7 @@
 <script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
   import { ref, onMounted, computed } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'

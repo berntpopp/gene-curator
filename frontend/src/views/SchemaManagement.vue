@@ -176,7 +176,6 @@
   import { useSchemasStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
-  import { toDuplicatePayload } from './schemaDuplicate'
   import {
     transformSchemas,
     type TransformedSchema,
@@ -197,15 +196,7 @@
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)
@@ -310,9 +301,7 @@
 
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
-      const source = schemasStore.schemas.find(s => s.id === schema.id)
-      if (!source) throw new Error('Schema not found in the loaded list')
-      const duplicated = await schemasStore.createSchema(toDuplicatePayload(source))
+      const duplicated = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema duplicated', {
         originalId: schema.id,
         duplicatedId: duplicated.id,
