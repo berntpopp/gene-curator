@@ -118,10 +118,6 @@
   import { useDebounceFn } from '@vueuse/core'
   import type { Schema } from '@/types/api'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   /** A MONDO term as shown in the autocomplete (search hit or placeholder for a saved ID) */
   interface MondoOption {
     mondo_id: string
@@ -165,7 +161,7 @@
     select: [item: MondoOption | null]
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // State
   const searchQuery = ref('')

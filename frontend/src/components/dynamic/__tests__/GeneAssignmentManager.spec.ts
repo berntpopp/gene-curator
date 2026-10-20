@@ -1,9 +1,6 @@
 /**
  * Tests for GeneAssignmentManager (assignment table, filters and dialogs).
  *
- * The store mocks provide `bulkUpdateAssignments`, which the real assignments
- * store does not implement (see GeneAssignmentManager.vue).
- *
  * @see src/components/dynamic/GeneAssignmentManager.vue
  */
 
@@ -15,7 +12,6 @@ const stores = vi.hoisted(() => ({
     loading: false,
     assignments: [] as Array<Record<string, unknown>>,
     fetchAssignments: vi.fn(),
-    bulkUpdateAssignments: vi.fn(),
     updateAssignment: vi.fn(),
     fetchCuratorWorkload: vi.fn()
   },
@@ -25,7 +21,8 @@ const stores = vi.hoisted(() => ({
 }))
 
 const api = vi.hoisted(() => ({
-  assignCurator: vi.fn()
+  assignCurator: vi.fn(),
+  updateAssignment: vi.fn()
 }))
 
 const notify = vi.hoisted(() => ({
@@ -96,13 +93,10 @@ const stubs = {
     props: ['items', 'modelValue'],
     template: `<div>
       <div v-for="item in items" :key="item.id" class="row-stub">
-        <slot name="item.gene" :item="item" />
-        <slot name="item.disease" :item="item" />
-        <slot name="item.scope" :item="item" />
-        <slot name="item.status" :item="item" />
-        <slot name="item.assignee" :item="item" />
+        <slot name="item.gene_symbol" :item="item" />
+        <slot name="item.scope_name" :item="item" />
+        <slot name="item.curator_name" :item="item" />
         <slot name="item.priority" :item="item" />
-        <slot name="item.due_date" :item="item" />
         <slot name="item.actions" :item="item" />
       </div>
     </div>`
@@ -111,39 +105,38 @@ const stubs = {
 
 const scopeA = { id: 'scope-a', display_name: 'Cancer', is_active: true }
 const scopeB = { id: 'scope-b', display_name: 'Metabolic', is_active: true }
-const curatorUser = { id: 'curator-1', full_name: 'Ada Curator', role: 'curator' }
-const reviewerUser = { id: 'reviewer-1', full_name: 'Rex Reviewer', role: 'reviewer' }
-const viewerUser = { id: 'viewer-1', full_name: 'Vic Viewer', role: 'viewer' }
+const curatorUser = { id: 'curator-1', name: 'Ada Curator', role: 'user', is_active: true }
+const reviewerUser = { id: 'reviewer-1', name: 'Rex Reviewer', role: 'user', is_active: true }
+const inactiveUser = { id: 'gone-1', name: 'Gone Away', role: 'user', is_active: false }
 
 const assignmentOne = {
   id: 'a1',
-  scope_id: 'scope-a',
+  gene_id: 'g1',
   gene_symbol: 'HNF1B',
-  gene_name: 'HNF1 homeobox B',
-  disease_name: 'Renal cysts',
-  omim_id: '137920',
-  status: 'in_progress',
-  assigned_to: 'curator-1',
+  gene_hgnc_id: 'HGNC:11630',
+  scope_id: 'scope-a',
+  scope_name: 'Cancer',
+  assigned_curator_id: 'curator-1',
+  curator_name: 'Ada Curator',
   priority: 'high',
-  priority_level: 'high',
-  due_date: null,
-  notes: 'Check literature',
-  created_at: '2026-01-01T00:00:00Z',
-  updated_at: '2026-01-02T00:00:00Z'
+  is_active: true,
+  assigned_at: '2026-01-01T00:00:00Z',
+  has_active_work: false
 }
 
 const assignmentTwo = {
   id: 'a2',
-  scope_id: 'scope-b',
+  gene_id: 'g2',
   gene_symbol: 'PKD1',
-  gene_name: 'Polycystin 1',
-  disease_name: 'ADPKD',
-  omim_id: '173900',
-  status: 'completed',
-  assigned_to: null,
+  gene_hgnc_id: 'HGNC:9008',
+  scope_id: 'scope-b',
+  scope_name: 'Metabolic',
+  assigned_curator_id: null,
+  curator_name: null,
   priority: 'low',
-  due_date: '2000-01-01',
-  scope_name: undefined
+  is_active: true,
+  assigned_at: '2026-01-02T00:00:00Z',
+  has_active_work: false
 }
 
 /** Finds a form control stub by its label prop */
@@ -170,13 +163,13 @@ function mountManager() {
 describe('GeneAssignmentManager', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    stores.assignments.assignments = [assignmentOne, assignmentTwo]
+    stores.assignments.assignments = [assignmentOne, assignmentTwo] as never
     stores.scopes.scopes = [scopeA, scopeB]
-    stores.users.users = [curatorUser, reviewerUser, viewerUser]
+    stores.users.users = [curatorUser, reviewerUser, inactiveUser]
     stores.auth.user = { id: 'curator-1' }
     stores.assignments.fetchAssignments.mockResolvedValue(undefined)
     stores.assignments.fetchCuratorWorkload.mockResolvedValue(undefined)
-    stores.assignments.bulkUpdateAssignments.mockResolvedValue(undefined)
+    api.updateAssignment.mockResolvedValue(undefined)
     stores.assignments.updateAssignment.mockResolvedValue(undefined)
     stores.scopes.fetchUserScopes.mockResolvedValue(undefined)
     stores.users.fetchUsers.mockResolvedValue(undefined)
@@ -214,44 +207,42 @@ describe('GeneAssignmentManager', () => {
   })
 
   describe('table', () => {
-    it('renders each row with resolved scope, assignee and due-date text', () => {
+    it('renders each row with scope, assignee and priority', () => {
       const wrapper = mountManager()
       const rows = wrapper.findAll('.row-stub')
 
       expect(rows).toHaveLength(2)
       expect(rows[0]!.text()).toContain('HNF1B')
+      expect(rows[0]!.text()).toContain('HGNC:11630')
       expect(rows[0]!.text()).toContain('Cancer')
       expect(rows[0]!.text()).toContain('Ada Curator')
-      expect(rows[0]!.text()).toContain('In Progress')
       expect(rows[0]!.text()).toContain('High')
-      expect(rows[0]!.text()).toContain('No due date')
       expect(rows[1]!.text()).toContain('Unassigned')
       expect(rows[1]!.text()).toContain('Metabolic')
-      expect(rows[1]!.text()).toContain('days overdue')
     })
 
-    it('falls back to Unknown for scopes and users that are not loaded', () => {
-      stores.scopes.scopes = []
-      stores.users.users = []
+    it('offers only active users as assignees', () => {
       const wrapper = mountManager()
 
-      expect(wrapper.findAll('.row-stub')[0]!.text()).toContain('Unknown')
+      const items = byLabel(wrapper, 'Filter by Assignee').props('items') as { id: string }[]
+      expect(items.map(u => u.id)).toEqual(['curator-1', 'reviewer-1'])
     })
 
-    it('filters rows by scope, status and assignee', async () => {
+    it('has no status filter (the API carries no assignment status)', () => {
+      const wrapper = mountManager()
+
+      expect(() => byLabel(wrapper, 'Filter by Status')).toThrow()
+    })
+
+    it('filters rows by scope and assignee', async () => {
       const wrapper = mountManager()
       const table = () => wrapper.findComponent({ name: 'VDataTable' })
 
-      byLabel(wrapper, 'Filter by Scope').vm.$emit('update:model-value', 'scope-a')
-      await flushPromises()
-      expect(table().props('items')).toEqual([assignmentOne])
-
-      byLabel(wrapper, 'Filter by Scope').vm.$emit('update:model-value', null)
-      byLabel(wrapper, 'Filter by Status').vm.$emit('update:model-value', 'completed')
+      byLabel(wrapper, 'Filter by Scope').vm.$emit('update:model-value', 'scope-b')
       await flushPromises()
       expect(table().props('items')).toEqual([assignmentTwo])
 
-      byLabel(wrapper, 'Filter by Status').vm.$emit('update:model-value', null)
+      byLabel(wrapper, 'Filter by Scope').vm.$emit('update:model-value', null)
       byLabel(wrapper, 'Filter by Assignee').vm.$emit('update:model-value', 'curator-1')
       await flushPromises()
       expect(table().props('items')).toEqual([assignmentOne])
@@ -296,18 +287,16 @@ describe('GeneAssignmentManager', () => {
       await buttonWithText(wrapper, 'Bulk Assign (2)').trigger('click')
       byLabel(wrapper, 'Assign to User').vm.$emit('update:model-value', curatorUser)
       byLabel(wrapper, 'Set Priority').vm.$emit('update:model-value', 'urgent')
-      byLabel(wrapper, 'Due Date (Optional)').vm.$emit('update:model-value', '2026-12-01')
       await flushPromises()
 
       await buttonWithText(wrapper, 'Assign').trigger('click')
       await flushPromises()
 
-      expect(stores.assignments.bulkUpdateAssignments).toHaveBeenCalledWith({
-        assignment_ids: ['a1', 'a2'],
-        assigned_to: 'curator-1',
-        priority: 'urgent',
-        due_date: '2026-12-01',
-        comment: null
+      expect(api.assignCurator).toHaveBeenCalledTimes(2)
+      expect(api.assignCurator).toHaveBeenCalledWith('a1', 'curator-1')
+      expect(api.assignCurator).toHaveBeenCalledWith('a2', 'curator-1')
+      expect(api.updateAssignment).toHaveBeenCalledWith('a2', {
+        priority_level: 'urgent'
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Successfully assigned 2 items')
     })
@@ -320,11 +309,11 @@ describe('GeneAssignmentManager', () => {
       await buttonWithText(wrapper, 'Assign').trigger('click')
       await flushPromises()
 
-      expect(stores.assignments.bulkUpdateAssignments).not.toHaveBeenCalled()
+      expect(api.assignCurator).not.toHaveBeenCalled()
     })
 
     it('reports a failed bulk assignment', async () => {
-      stores.assignments.bulkUpdateAssignments.mockRejectedValue(new Error('conflict'))
+      api.assignCurator.mockRejectedValue(new Error('conflict'))
       const wrapper = mountManager()
       wrapper.findComponent({ name: 'VDataTable' }).vm.$emit('update:model-value', ['a1'])
       await flushPromises()
@@ -349,23 +338,28 @@ describe('GeneAssignmentManager', () => {
       expect(wrapper.text()).toContain('Assignment Details')
       expect(wrapper.text()).toContain('PKD1')
       expect(wrapper.text()).toContain('Unassigned')
-      expect(wrapper.text()).toContain('No due date')
+      expect(wrapper.text()).toContain('HGNC:9008')
     })
 
-    it('edits priority, due date and notes, then saves', async () => {
+    it('edits priority and notes, then saves only what was filled', async () => {
       const wrapper = mountManager()
 
       await wrapper.findAll('.row-stub')[0]!.findAll('button')[0]!.trigger('click')
-      expect(byLabel(wrapper, 'Notes').props('modelValue')).toBe('Check literature')
+      expect(byLabel(wrapper, 'Priority').props('modelValue')).toBe('high')
+      expect(() => byLabel(wrapper, 'Due Date')).toThrow()
 
-      byLabel(wrapper, 'Due Date').vm.$emit('update:model-value', '2026-07-01')
       await buttonWithText(wrapper, 'Save').trigger('click')
       await flushPromises()
-
       expect(stores.assignments.updateAssignment).toHaveBeenCalledWith('a1', {
+        priority_level: 'high'
+      })
+
+      byLabel(wrapper, 'Notes').vm.$emit('update:model-value', 'Check literature')
+      await buttonWithText(wrapper, 'Save').trigger('click')
+      await flushPromises()
+      expect(stores.assignments.updateAssignment).toHaveBeenLastCalledWith('a1', {
         priority_level: 'high',
-        due_date: '2026-07-01',
-        notes: 'Check literature'
+        assignment_notes: 'Check literature'
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Assignment updated successfully')
     })
@@ -400,10 +394,21 @@ describe('GeneAssignmentManager', () => {
       const wrapper = mountManager()
 
       await wrapper.findAll('.row-stub')[0]!.findAll('button')[1]!.trigger('click')
+      byLabel(wrapper, 'New Curator').vm.$emit('update:model-value', reviewerUser.id)
       await buttonWithText(wrapper, 'Reassign').trigger('click')
       await flushPromises()
 
       expect(notify.showError).toHaveBeenCalledWith('Failed to reassign gene')
+    })
+
+    it('does not reassign without a chosen curator', async () => {
+      const wrapper = mountManager()
+
+      await wrapper.findAll('.row-stub')[0]!.findAll('button')[1]!.trigger('click')
+      await buttonWithText(wrapper, 'Reassign').trigger('click')
+      await flushPromises()
+
+      expect(api.assignCurator).not.toHaveBeenCalled()
     })
   })
 })

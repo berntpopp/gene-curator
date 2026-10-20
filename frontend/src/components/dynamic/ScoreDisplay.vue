@@ -180,8 +180,14 @@
     progressPercentage
   } = useSchemaScoring(scoreCalculationsRef, scoringConfigurationRef)
 
-  // The composable is untyped JS; pin the shape the template iterates over
-  const categoryScores = computed<Record<string, number>>(() => rawCategoryScores.value)
+  // The composable reports unknown values; keep the numeric ones the template formats
+  const categoryScores = computed(() => {
+    const scores: Record<string, number> = {}
+    for (const [name, score] of Object.entries(rawCategoryScores.value)) {
+      if (typeof score === 'number') scores[name] = score
+    }
+    return scores
+  })
 
   // Check if category scores exist
   const hasCategoryScores = computed(() => {

@@ -111,8 +111,18 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(addToast).toHaveBeenCalledWith('Draft saved', 'success')
   })
 
+  it('does not create a precuration without a gene', async () => {
+    const wrapper = mountForm()
+    await flushPromises()
+
+    await internals(wrapper).handleSaveDraft()
+
+    expect(precurationsStore.createPrecuration).not.toHaveBeenCalled()
+    expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
+  })
+
   it('saves the draft of an existing precuration and emits saved', async () => {
-    precurationsStore.saveDraft.mockResolvedValue({ lock_version: 2 })
+    precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
     const wrapper = mountForm({ precurationId: 'p-1' })
     await flushPromises()
 
@@ -150,7 +160,7 @@ describe('SchemaDrivenPrecurationForm', () => {
   it('creates and submits a new precuration in one step', async () => {
     precurationsStore.createPrecuration.mockResolvedValue({ id: 'new-p' })
     precurationsStore.submitForReview.mockResolvedValue({})
-    const wrapper = mountForm()
+    const wrapper = mountForm({ geneId: 'g-1' })
     await flushPromises()
 
     await internals(wrapper).handleSubmit()
@@ -184,7 +194,6 @@ describe('SchemaDrivenPrecurationForm', () => {
   it('loads existing precuration data and draft state', async () => {
     precurationsStore.fetchPrecurationById.mockResolvedValue({
       evidence_data: { panel: 'x' },
-      lock_version: 3,
       status: 'submitted'
     })
     const wrapper = mountForm({ precurationId: 'p-1' })

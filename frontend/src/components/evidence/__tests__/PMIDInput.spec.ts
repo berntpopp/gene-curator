@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { publicationsAPI } from '@/api'
+import type { Schema } from '@/types/api'
 import PMIDInput from '../PMIDInput.vue'
 import { stubVisualViewport } from './overlayStubs'
 
@@ -18,16 +19,7 @@ vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
 
-interface Pub {
-  pmid: string
-  title: string
-  authors: string[]
-  author_string?: string | null
-  journal?: string
-  year?: number | null
-  doi?: string | null
-  abstract?: string | null
-}
+type Pub = Schema<'PublicationData'>
 
 interface PmidInternals {
   internalPMIDs: string[]
@@ -39,7 +31,7 @@ interface PmidInternals {
   handleEnter: () => void
   getChipColor: (pmid: string) => string
   getChipIcon: (pmid: string) => string
-  formatAuthors: (pub: Pub) => string
+  formatAuthors: (pub: Pick<Pub, 'pmid' | 'title' | 'authors' | 'author_string'>) => string
   truncateTitle: (title: string | null | undefined, max?: number) => string
   normalizePmid: (pmid: string | null | undefined) => string
 }
@@ -51,10 +43,14 @@ const pub123: Pub = {
   journal: 'Nature Genetics',
   year: 2020,
   doi: '10.1000/xyz',
-  abstract: 'Short abstract'
+  abstract: 'Short abstract',
+  is_open_access: false
 }
 
 const validation = {
+  total_requested: 2,
+  valid_count: 1,
+  invalid_count: 1,
   results: [
     { pmid: '123', is_valid: true, publication: pub123 },
     { pmid: '456', is_valid: false, error: 'not found' }

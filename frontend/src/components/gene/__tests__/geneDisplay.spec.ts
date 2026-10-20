@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   calculateProgress,
-  formatDate,
   getPriorityColor,
   getPriorityIcon,
   getPriorityLabel,
@@ -69,20 +68,6 @@ describe('geneDisplay', () => {
       [undefined, 'grey']
     ])('progress %s -> %s', (progress, expected) => {
       expect(getProgressColor(progress)).toBe(expected)
-    })
-  })
-
-  describe('formatDate', () => {
-    it('shows a dash when there is no date', () => {
-      expect(formatDate(null)).toBe('—')
-      expect(formatDate(undefined)).toBe('—')
-      expect(formatDate('')).toBe('—')
-    })
-
-    it('formats a date string with the locale date format', () => {
-      expect(formatDate('2025-03-04T00:00:00Z')).toBe(
-        new Date('2025-03-04T00:00:00Z').toLocaleDateString()
-      )
     })
   })
 })

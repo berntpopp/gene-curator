@@ -298,7 +298,6 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
-  import type { ComponentLogger } from '../clingen/types'
 
   /** Row shape shared by the table and the card view (transformed from the store). */
   interface CurationRow {
@@ -306,37 +305,13 @@
     gene_id?: string
     gene_symbol: string
     disease_name?: string | null
-    curator_id?: string
+    curator_id?: string | null
     curator_name?: string | null
     status: string
     classification?: string | null
     score: number
     updated_at?: string
     created_at?: string
-  }
-
-  /** Subset of the curation store record that this component reads. */
-  interface StoreCuration {
-    id?: string
-    curation_id?: string
-    gene_id?: string
-    gene_symbol?: string | null
-    disease_name?: string | null
-    created_by?: string
-    curator_id?: string
-    curator_name?: string | null
-    status: string
-    computed_verdict?: string | null
-    classification?: string | null
-    computed_scores?: { total_score?: number } | null
-    score?: number
-    updated_at?: string
-    created_at?: string
-  }
-
-  interface CurrentUser {
-    role?: string
-    user_id?: string
   }
 
   interface CuratorOption {
@@ -352,7 +327,7 @@
   const router = useRouter()
   const authStore = useAuthStore()
   const curationsStore = useCurationsStore()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // Extract reactive state from store using storeToRefs
@@ -387,7 +362,7 @@
   ]
 
   // Permissions
-  const currentUser = () => authStore.user as CurrentUser | null
+  const currentUser = () => authStore.user
 
   const canCreateCuration = computed(() => {
     const userRole = currentUser()?.role
@@ -396,7 +371,7 @@
 
   function canDeleteCuration(curation: CurationRow) {
     const userRole = currentUser()?.role
-    const userId = currentUser()?.user_id
+    const userId = currentUser()?.id
     return (
       ['admin', 'scope_admin'].includes(userRole ?? '') ||
       (curation.curator_id === userId && curation.status === 'draft')
@@ -413,16 +388,17 @@
 
   // Transform store curations to component format
   const transformedCurations = computed<CurationRow[]>(() => {
-    return (curations.value as StoreCuration[]).map(curation => ({
-      curation_id: (curation.id || curation.curation_id) as string,
+    // The list endpoint returns CurationSummary rows
+    return curations.value.map(curation => ({
+      curation_id: curation.id,
       gene_id: curation.gene_id,
       gene_symbol: curation.gene_symbol || '—',
       disease_name: curation.disease_name,
-      curator_id: curation.created_by || curation.curator_id,
+      curator_id: curation.created_by,
       curator_name: curation.curator_name,
       status: curation.status,
-      classification: curation.computed_verdict || curation.classification,
-      score: curation.computed_scores?.total_score || curation.score || 0,
+      classification: curation.computed_verdict,
+      score: Number(curation.computed_scores?.total_score) || 0,
       updated_at: curation.updated_at,
       created_at: curation.created_at
     }))

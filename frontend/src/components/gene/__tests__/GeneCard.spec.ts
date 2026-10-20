@@ -9,14 +9,12 @@ function gene(overrides: Partial<GeneRow> = {}): GeneRow {
     assignment_id: 'a-1',
     gene_id: 'g-1',
     gene_symbol: 'BRCA1',
-    gene_name: 'BRCA1 DNA repair',
     gene_hgnc_id: 'HGNC:1100',
     curator_id: 'u-1',
     curator_name: 'Ada',
     priority: 'high',
     assignment_notes: '',
     status: 'in_progress',
-    due_date: '2025-06-01',
     progress: 25,
     ...overrides
   }
@@ -33,25 +31,23 @@ function workflow(
 }
 
 describe('GeneCard', () => {
-  it('renders symbol, status, curator, priority, due date and progress', () => {
+  it('renders symbol, status, curator, priority and progress', () => {
     const wrapper = mount(GeneCard, { props: { gene: gene(), workflow: workflow() } })
 
     expect(wrapper.text()).toContain('BRCA1')
-    expect(wrapper.text()).toContain('BRCA1 DNA repair')
+    expect(wrapper.text()).toContain('HGNC:1100')
     expect(wrapper.text()).toContain('In Progress')
     expect(wrapper.text()).toContain('Ada')
     expect(wrapper.text()).toContain('High')
-    expect(wrapper.text()).toContain('Due:')
     expect(wrapper.text()).toContain('25%')
   })
 
-  it('shows Unassigned and omits the due date when there is none', () => {
+  it('shows Unassigned when there is no curator', () => {
     const wrapper = mount(GeneCard, {
-      props: { gene: gene({ curator_name: '', due_date: null }), workflow: workflow() }
+      props: { gene: gene({ curator_name: '' }), workflow: workflow() }
     })
 
     expect(wrapper.text()).toContain('Unassigned')
-    expect(wrapper.text()).not.toContain('Due:')
   })
 
   it('offers Start Precuration when none exists', async () => {

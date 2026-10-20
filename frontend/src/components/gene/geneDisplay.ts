@@ -71,8 +71,3 @@ export function getProgressColor(progress: number | null | undefined): string {
   }
   return 'grey'
 }
-
-export function formatDate(dateString: string | null | undefined): string {
-  if (!dateString) return '—'
-  return new Date(dateString).toLocaleDateString()
-}

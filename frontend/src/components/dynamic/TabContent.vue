@@ -48,7 +48,6 @@
   import { useLogger } from '@/composables/useLogger'
   import DynamicField from './DynamicField.vue'
   import type {
-    ComponentLogger,
     FieldSchema,
     FieldValidation,
     FormValidationResult,
@@ -56,7 +55,7 @@
     TabConfig
   } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const props = withDefaults(
     defineProps<{

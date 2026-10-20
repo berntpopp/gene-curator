@@ -32,17 +32,17 @@ const rows = [
     curator_name: 'Grace',
     status: 'approved',
     computed_verdict: null,
-    score: 3,
+    computed_scores: { total_score: 3 },
     updated_at: '2024-01-02T00:00:00Z'
   }
 ]
 
-function setup(user: { role: string; user_id: string } | null, curations = rows) {
+function setup(user: { role: string; id: string } | null, curations = rows) {
   setActivePinia(createPinia())
   const auth = useAuthStore()
   auth.user = user as typeof auth.user
   const store = useCurationsStore()
-  store.curations = curations as typeof store.curations
+  store.curations = curations as unknown as typeof store.curations
   store.loading = false
   const fetch = vi.spyOn(store, 'fetchCurations').mockResolvedValue(undefined as never)
   vi.spyOn(store, 'updateFilters').mockImplementation(() => undefined)
@@ -63,14 +63,14 @@ describe('CurationList', () => {
   })
 
   it('loads the scope curations on mount', async () => {
-    const { fetch, store } = setup({ role: 'curator', user_id: 'u1' })
+    const { fetch, store } = setup({ role: 'curator', id: 'u1' })
     await flushPromises()
     expect(fetch).toHaveBeenCalledWith({ scope_id: 'scope-1' })
     expect(store.curations).toHaveLength(2)
   })
 
   it('renders one table row per curation with gene, classification and score', async () => {
-    const { wrapper } = setup({ role: 'curator', user_id: 'u1' })
+    const { wrapper } = setup({ role: 'curator', id: 'u1' })
     await flushPromises()
     const text = wrapper.text()
     expect(text).toContain('HNF1B')
@@ -81,7 +81,7 @@ describe('CurationList', () => {
   })
 
   it('filters by gene or disease text, case-insensitively', async () => {
-    const { wrapper } = setup({ role: 'curator', user_id: 'u1' })
+    const { wrapper } = setup({ role: 'curator', id: 'u1' })
     await flushPromises()
     await wrapper.find('input').setValue('POLYCYSTIC')
     expect(wrapper.text()).toContain('PKD1')
@@ -89,7 +89,7 @@ describe('CurationList', () => {
   })
 
   it('shows the no-match message and clears filters on request', async () => {
-    const { wrapper } = setup({ role: 'curator', user_id: 'u1' })
+    const { wrapper } = setup({ role: 'curator', id: 'u1' })
     await flushPromises()
     await wrapper.find('input').setValue('nothing matches')
     expect(wrapper.text()).toContain('No curations match your filters')
@@ -100,14 +100,14 @@ describe('CurationList', () => {
   })
 
   it('shows the empty state for a scope without curations', async () => {
-    const { wrapper } = setup({ role: 'viewer', user_id: 'u9' }, [])
+    const { wrapper } = setup({ role: 'viewer', id: 'u9' }, [])
     await flushPromises()
     expect(wrapper.text()).toContain('No curations yet')
     expect(wrapper.text()).not.toContain('Start Curation')
   })
 
   it('switches to card view and shows the score per card', async () => {
-    const { wrapper } = setup({ role: 'curator', user_id: 'u1' })
+    const { wrapper } = setup({ role: 'curator', id: 'u1' })
     await flushPromises()
     await wrapper.findComponent({ name: 'VBtnToggle' }).vm.$emit('update:modelValue', 'cards')
     await flushPromises()

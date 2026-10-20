@@ -62,14 +62,6 @@ export interface EvidenceColumn {
   step?: number
 }
 
-/** Scoped logger from useLogger(); its inferred JS return type loses the method signatures. */
-export interface ComponentLogger {
-  debug(message: string, data?: Record<string, unknown>): void
-  info(message: string, data?: Record<string, unknown>): void
-  warn(message: string, data?: Record<string, unknown>): void
-  error(message: string, data?: Record<string, unknown>): void
-}
-
 export interface GeneInfo {
   symbol?: string | null
   approved_symbol?: string | null

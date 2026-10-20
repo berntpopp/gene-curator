@@ -72,9 +72,9 @@
   import { useLogger } from '@/composables/useLogger'
   import { useScopesStore } from '@/stores'
   import { errorDetails } from './errorDetails'
-  import type { ComponentLogger, ScopeOption } from './types'
+  import type { ScopeOption } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const emit = defineEmits<{
     'scope-selected': [scope: ScopeOption]
@@ -83,11 +83,8 @@
   const scopesStore = useScopesStore()
   const selectedScope = ref<ScopeOption | null>(null)
 
-  // The scopes store is untyped JS; the list is typed at this boundary
   const loading = computed(() => scopesStore.loading)
-  const availableScopes = computed(() =>
-    (scopesStore.scopes as ScopeOption[]).filter(scope => scope.is_active)
-  )
+  const availableScopes = computed(() => scopesStore.scopes.filter(scope => scope.is_active))
 
   const onScopeSelected = (scope: ScopeOption) => {
     selectedScope.value = scope

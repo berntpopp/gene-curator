@@ -6,6 +6,8 @@
  * `@/types/api`, so they are described here.
  */
 
+import type { Schema } from '@/types/api'
+
 /** A single field definition inside a generated JSON schema. */
 export interface FieldSchema {
   type?: string
@@ -101,13 +103,7 @@ export interface WorkflowPairOption {
 }
 
 /** Clinical scope offered by ScopeSelector */
-export interface ScopeOption {
-  id: string
-  display_name: string
-  institution?: string | null
-  description?: string | null
-  is_active: boolean
-}
+export type ScopeOption = Schema<'ScopeListItem'>
 
 /** Vuetify input variants accepted by the field wrappers */
 export type FieldVariant =
@@ -124,17 +120,6 @@ export interface ComponentFallbackEvent {
   requestedComponent: string
   fieldName: string
   fallbackType: string
-}
-
-/**
- * Scoped logger from `useLogger()`. That composable's JSDoc types its return
- * as a bare `Object`, so components cast it to this interface.
- */
-export interface ComponentLogger {
-  debug: (message: string, data?: Record<string, unknown>) => void
-  info: (message: string, data?: Record<string, unknown>) => void
-  warn: (message: string, data?: Record<string, unknown>) => void
-  error: (message: string, data?: Record<string, unknown>) => void
 }
 
 /** The JSON schema document consumed by DynamicForm. */

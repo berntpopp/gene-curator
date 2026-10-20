@@ -225,7 +225,6 @@
   import { calculateExperimentalScore, calculateGeneticScore, classifyScore } from './scoring'
   import type {
     ClinGenEvidenceData,
-    ComponentLogger,
     DiseaseInfo,
     EvidenceItem,
     ExperimentalEvidence,
@@ -259,7 +258,7 @@
     'update:model-value': [data: ClinGenEvidenceData]
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // Form state
   const activeTab = ref('summary')

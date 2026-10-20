@@ -86,8 +86,6 @@
                 </v-list-item-title>
                 <v-list-item-subtitle v-if="item.raw.hgnc_id" class="text-caption">
                   {{ item.raw.hgnc_id }}
-                  <span v-if="item.raw.approved_name" class="mx-1">|</span>
-                  {{ item.raw.approved_name }}
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
@@ -194,18 +192,6 @@
               <v-expansion-panel-text>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
-                      v-model="dueDate"
-                      label="Due Date"
-                      type="date"
-                      variant="outlined"
-                      density="compact"
-                      hint="Target completion date"
-                      persistent-hint
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12" sm="6">
                     <v-select
                       v-model="priority"
                       :items="priorityOptions"
@@ -264,9 +250,6 @@
               <div class="text-body-2">
                 <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
                 <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
-                <span v-if="dueDate">
-                  with due date <strong>{{ formatDate(dueDate) }}</strong></span
-                >
                 <span v-if="priority !== 'normal'">
                   at <strong>{{ priority }}</strong> priority
                 </span>
@@ -304,10 +287,10 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import type { Schema } from '@/types/api'
   import type { CuratorOption } from './types'
-  import { getAvatarColor, getInitials } from './curatorDisplay'
+  import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
@@ -331,18 +314,15 @@
   }>()
 
   /** Gene candidate in the assignment picker (catalogue gene record). */
-  // approved_name is read by the template but is not part of the Gene schema (kept as-is)
-  type GeneCandidate = Schema<'Gene'> & { approved_name?: string | null }
+  type GeneCandidate = Schema<'GeneSummary'>
 
   // ============================================
   // COMPOSABLES & STORES
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors() as {
-    getRoleColor: (role: string) => string
-  }
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor: useGetRoleColor } = useRoleColors()
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // ============================================
@@ -365,7 +345,6 @@
   // Form state
   const selectedGenes = ref<GeneCandidate[]>([])
   const selectedCurator = ref<CuratorOption | null>(null)
-  const dueDate = ref<string | null>(null)
   const priority = ref('medium')
   const notes = ref('')
 
@@ -400,12 +379,11 @@
   })
 
   const hasOptionalSettings = computed(() => {
-    return dueDate.value || priority.value !== 'medium' || notes.value
+    return priority.value !== 'medium' || notes.value
   })
 
   const optionalSettingsCount = computed(() => {
     let count = 0
-    if (dueDate.value) count++
     if (priority.value !== 'medium') count++
     if (notes.value) count++
     return count
@@ -441,36 +419,19 @@
   }
 
   /**
-   * Format date for display
-   */
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString()
-  }
-
-  /**
    * Fetch available genes for the scope
    */
   const fetchAvailableGenes = async () => {
     loadingGenes.value = true
     try {
       // Fetch genes from catalog (max 500 per backend limit)
-      const genesResponse = (await genesAPI.getGenes({ limit: 500 })) as
-        | GeneCandidate[]
-        | { genes?: GeneCandidate[]; items?: GeneCandidate[] }
-      const allGenes = (
-        Array.isArray(genesResponse)
-          ? genesResponse
-          : genesResponse.genes || genesResponse.items || []
-      ) as GeneCandidate[]
+      const { genes: allGenes } = await genesAPI.getGenes({ limit: 500 })
 
       // Fetch existing assignments for this scope
-      let assignedGeneIds = new Set()
+      let assignedGeneIds = new Set<string>()
       try {
-        const assignments = (await assignmentsAPI.getAssignmentsByScope(props.scopeId)) as Array<{
-          gene_id: string
-        }> | null
-        assignedGeneIds = new Set((assignments || []).map(a => a.gene_id))
+        const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
+        assignedGeneIds = new Set(assignments.map(a => a.gene_id))
       } catch {
         // If no assignments yet, all genes are available
       }
@@ -496,26 +457,11 @@
   const fetchAvailableCurators = async () => {
     loadingCurators.value = true
     try {
-      const members = (await scopesStore.fetchMembers(props.scopeId)) as Array<
-        Record<string, string | null | undefined>
-      > | null
+      const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Map members with display name
-      // API returns user_full_name, user_email from ScopeMembershipResponse
-      availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin'].includes(m.role as string))
-        .map(member => ({
-          ...member,
-          user_id: member.user_id as string,
-          role: member.role as string,
-          // Normalize field names from API response
-          full_name: member.user_full_name || member.full_name,
-          email: member.user_email || member.email,
-          displayName: (member.user_full_name ||
-            member.full_name ||
-            member.user_email ||
-            member.email) as string
-        }))
+      availableCurators.value = members
+        .filter(m => ['curator', 'admin'].includes(m.role))
+        .map(toCuratorOption)
 
       logger.debug('Available curators loaded', { count: availableCurators.value.length })
     } catch (error) {
@@ -532,7 +478,6 @@
   const resetForm = () => {
     selectedGenes.value = []
     selectedCurator.value = null
-    dueDate.value = null
     priority.value = 'medium'
     notes.value = ''
     formValid.value = false

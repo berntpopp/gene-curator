@@ -273,24 +273,16 @@
     total_genes_assigned?: number
   }
 
-  /** Auth store user fields this panel reads (store state is typed null) */
-  interface SettingsUser {
-    id?: string
-    role?: string
-  }
-
-  /** Workflow pair as returned by the API, with its linked schema names */
+  /** Workflow pair with the names of its linked schemas (the API returns only their ids) */
   interface WorkflowPairOption {
     id: string
     name: string
     version: string
     description?: string | null
-    precuration_schema_name?: string | null
-    curation_schema_name?: string | null
+    precuration_schema_name?: string
+    curation_schema_name?: string
     displayName: string
   }
-
-  type RawWorkflowPair = Omit<WorkflowPairOption, 'displayName'>
 
   const props = withDefaults(
     defineProps<{
@@ -308,7 +300,7 @@
   }>()
 
   const authStore = useAuthStore()
-  const currentUser = computed(() => authStore.user as SettingsUser | null)
+  const currentUser = computed(() => authStore.user)
 
   // State
   const loadingWorkflowPairs = ref(false)
@@ -365,9 +357,18 @@
   async function loadWorkflowPairs() {
     loadingWorkflowPairs.value = true
     try {
-      const pairs = (await schemasAPI.getWorkflowPairs({ active_only: true })) as RawWorkflowPair[]
+      const [pairs, schemas] = await Promise.all([
+        schemasAPI.getWorkflowPairs({ active_only: true }),
+        schemasAPI.getSchemas()
+      ])
+      const schemaNames = new Map(schemas.map(schema => [schema.id, schema.name]))
       workflowPairs.value = pairs.map(pair => ({
-        ...pair,
+        id: pair.id,
+        name: pair.name,
+        version: pair.version,
+        description: pair.description,
+        precuration_schema_name: schemaNames.get(pair.precuration_schema_id),
+        curation_schema_name: schemaNames.get(pair.curation_schema_id),
         displayName: `${pair.name} (${pair.version})`
       }))
     } catch (error) {

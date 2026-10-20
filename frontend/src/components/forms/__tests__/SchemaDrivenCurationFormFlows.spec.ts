@@ -31,8 +31,7 @@ const schemasStore = vi.hoisted(() => ({
 }))
 const utils = vi.hoisted(() => ({
   isLegacyFormat: vi.fn(),
-  migrateLegacyFormat: vi.fn(),
-  applyDataMapping: vi.fn()
+  migrateLegacyFormat: vi.fn()
 }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
@@ -58,7 +57,6 @@ vi.mock('@/utils/evidenceDataMigration', () => ({
   isLegacyFormat: utils.isLegacyFormat,
   migrateLegacyFormat: utils.migrateLegacyFormat
 }))
-vi.mock('@/utils/dataMapping', () => ({ applyDataMapping: utils.applyDataMapping }))
 vi.mock('@/composables/useFormRecovery', async () => {
   const { ref } = await import('vue')
   recovery.lastSaved = ref<string | null>(null)
@@ -126,7 +124,6 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     precurationsStore.precurations = []
     recovery.lastSaved!.value = null
     utils.isLegacyFormat.mockReturnValue(false)
-    utils.applyDataMapping.mockReturnValue({})
     window.confirm = vi.fn(() => true)
   })
 
@@ -178,34 +175,24 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(addToast).toHaveBeenCalledWith('Failed to load curation', 'error')
   })
 
-  it('prefills a new curation from the approved precuration with the workflow mapping', async () => {
+  it('loads the full approved precuration for a new curation', async () => {
     precurationsStore.precurations = [
-      { id: 'p-1', status: 'draft', evidence_data: {} },
-      { id: 'p-2', status: 'approved', evidence_data: { disease_name: 'Cancer' } }
+      { id: 'p-1', status: 'draft' },
+      { id: 'p-2', status: 'approved' }
     ]
-    schemasStore.getWorkflowPairById.mockReturnValue({ data_mapping: { x: 'y' } })
-    utils.applyDataMapping.mockReturnValue({ mapped: 1 })
+    precurationsStore.fetchPrecurationById.mockResolvedValue({
+      evidence_data: { disease_name: 'Cancer' }
+    })
 
     const wrapper = await mountForm({ geneId: 'g-1', workflowPairId: 'wp-1' })
-    const vm = internals(wrapper)
 
     expect(precurationsStore.fetchPrecurations).toHaveBeenCalledWith({
       gene_id: 'g-1',
       scope_id: 'scope-1'
     })
-    expect(vm.precurationData).toEqual({ disease_name: 'Cancer' })
-    expect(utils.applyDataMapping).toHaveBeenCalledWith({ disease_name: 'Cancer' }, { x: 'y' })
-    expect(vm.evidenceData).toEqual({ mapped: 1 })
-  })
-
-  it('fetches the full precuration when the summary has no evidence data', async () => {
-    precurationsStore.precurations = [{ id: 'p-9', status: 'approved' }]
-    precurationsStore.fetchPrecurationById.mockResolvedValue({ evidence_data: { full: true } })
-
-    const wrapper = await mountForm({ geneId: 'g-1' })
-
-    expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('p-9')
-    expect(internals(wrapper).precurationData).toEqual({ full: true })
+    expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('p-2')
+    expect(internals(wrapper).precurationData).toEqual({ disease_name: 'Cancer' })
+    expect(internals(wrapper).evidenceData).toEqual({})
   })
 
   it('logs and continues when the precuration lookup fails', async () => {
@@ -310,7 +297,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
 
   it('submits on Ctrl+Enter only when submission is allowed', async () => {
     curationsStore.createCuration.mockResolvedValue({ id: 'new-c' })
-    const wrapper = await mountForm({ readonly: true })
+    const wrapper = await mountForm({ readonly: true, geneId: 'g-1', workflowPairId: 'wp-1' })
     const vm = internals(wrapper)
 
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))

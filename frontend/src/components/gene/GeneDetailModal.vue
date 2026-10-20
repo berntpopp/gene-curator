@@ -206,7 +206,7 @@
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
 
   type HgncGene = Schema<'HGNCGeneSearchResult'>
 
@@ -229,7 +229,7 @@
     'update:modelValue': [value: boolean]
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // State
   const geneData = ref<HgncGene | null>(null)
@@ -271,9 +271,7 @@
     geneData.value = null
 
     try {
-      const response = (await externalValidationAPI.fetchHGNCGene(props.hgncId)) as {
-        results?: HgncGene[]
-      }
+      const response = await externalValidationAPI.fetchHGNCGene(props.hgncId)
 
       const [first] = response.results ?? []
       if (first) {

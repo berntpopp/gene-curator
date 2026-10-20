@@ -179,7 +179,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, type ComputedRef } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useAuthStore } from '@/stores/auth'
   import { useRoleColors } from '@/composables/useRoleColors'
@@ -187,21 +187,10 @@
   import { useLogger } from '@/composables/useLogger'
   import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
   import { scopeService } from '@/services/scopeService'
+  import type { Schema } from '@/types/api'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
-  /** Scope member as listed here (membership plus denormalised user fields) */
-  interface ScopeMember {
-    user_id: string
-    role: string
-    user_full_name?: string | null
-    user_username?: string | null
-    user_email?: string | null
-    user_orcid?: string | null
-    is_pending?: boolean
-  }
+  type ScopeMember = Schema<'ScopeMembershipResponse'>
+  type ScopeRole = Schema<'ScopeRole'>
 
   /** Payload emitted by InviteMemberDialog after a successful invitation */
   interface InvitedPayload {
@@ -222,28 +211,13 @@
   // COMPOSABLES & STORE
   // ============================================
 
-  /** Narrowed view of useRoleColors() (its JSDoc types the return as Object) */
-  interface RoleColorUtils {
-    getRoleColor: (role: string) => string
-    getRoleIcon: (role: string) => string
-  }
-
   const scopeStore = useScopesStore()
   const authStore = useAuthStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors() as RoleColorUtils
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const logger = useLogger()
 
   const userRole = computed(() => scopeStore.currentUserRole)
-  /** Narrowed view of useScopePermissions() (its JSDoc types the return as Object) */
-  interface ScopePermissionFlags {
-    canInviteMembers: ComputedRef<boolean>
-    canEditMemberRoles: ComputedRef<boolean>
-    canRemoveMembers: ComputedRef<boolean>
-  }
-
-  const { canInviteMembers, canEditMemberRoles, canRemoveMembers } = useScopePermissions(
-    userRole
-  ) as ScopePermissionFlags
+  const { canInviteMembers, canEditMemberRoles, canRemoveMembers } = useScopePermissions(userRole)
 
   // ============================================
   // STATE
@@ -273,9 +247,9 @@
   // COMPUTED
   // ============================================
 
-  const currentUserId = computed(() => (authStore.user as { id?: string } | null)?.id)
+  const currentUserId = computed(() => authStore.user?.id)
 
-  const availableRoles: string[] = ['admin', 'curator', 'reviewer', 'viewer']
+  const availableRoles: ScopeRole[] = ['admin', 'curator', 'reviewer', 'viewer']
 
   // ============================================
   // METHODS
@@ -290,9 +264,7 @@
     try {
       logger.debug('Fetching scope members', { scope_id: props.scopeId })
       // Include pending invitations to show "Invited" status
-      const data = (await scopeService.fetchMembers(props.scopeId, {
-        includePending: true
-      })) as ScopeMember[]
+      const data = await scopeService.fetchMembers(props.scopeId, { includePending: true })
       members.value = data
       logger.info('Members fetched successfully', {
         scope_id: props.scopeId,
@@ -334,7 +306,7 @@
   /**
    * Update member role
    */
-  const updateRole = async (userId: string, newRole: string) => {
+  const updateRole = async (userId: string, newRole: ScopeRole) => {
     try {
       logger.debug('Updating member role', {
         scope_id: props.scopeId,

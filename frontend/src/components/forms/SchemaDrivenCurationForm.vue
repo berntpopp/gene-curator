@@ -130,9 +130,8 @@
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
-  import { applyDataMapping } from '@/utils/dataMapping'
   import type { Schema } from '@/types/api'
-  import type { ApiErrorLike, ComponentLogger } from './types'
+  import type { ApiErrorLike } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
@@ -140,26 +139,9 @@
   import ScorePreview from '@/components/evidence/ScorePreview.vue'
   import FormActions from '@/components/forms/FormActions.vue'
   import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
+  import type { ClinGenEvidenceData } from '@/components/clingen/types'
 
   type CurationSchema = Schema<'CurationSchema'>
-
-  /** Store records read by this form (the JS stores do not type their state). */
-  interface CurationLike {
-    precuration_id?: string | null
-    evidence_data?: EvidenceData | null
-    lock_version?: number | null
-    status?: string | null
-  }
-
-  interface PrecurationLike {
-    id: string
-    status?: string
-    evidence_data?: EvidenceData | null
-  }
-
-  interface WorkflowPairLike {
-    data_mapping?: Record<string, unknown> | null
-  }
 
   const props = withDefaults(
     defineProps<{
@@ -186,7 +168,7 @@
     saved: []
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const schemasStore = useSchemasStore()
   const curationsStore = useCurationsStore()
   const precurationsStore = usePrecurationsStore()
@@ -263,13 +245,9 @@
     undo: undoAction,
     redo: redoAction,
     clearHistory
-  } = useHistory(
-    recoveryKey.value,
-    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
-    (state: EvidenceData) => {
-      evidenceData.value = { ...state }
-    }
-  )
+  } = useHistory(recoveryKey.value, (state: EvidenceData) => {
+    evidenceData.value = { ...state }
+  })
 
   // Track changes for undo/redo
   watch(
@@ -311,8 +289,8 @@
   /**
    * Handle evidence data changes from DynamicForm
    */
-  function handleEvidenceChange(newData: EvidenceData) {
-    evidenceData.value = newData
+  function handleEvidenceChange(newData: EvidenceData | ClinGenEvidenceData) {
+    evidenceData.value = { ...newData }
   }
 
   /**
@@ -392,13 +370,11 @@
     try {
       // Case 1: Existing curation with linked precuration
       if (props.curationId) {
-        const curation = curationsStore.currentCuration as CurationLike | null
+        const curation = curationsStore.currentCuration
         if (curation?.precuration_id) {
-          const precuration = (await precurationsStore.fetchPrecurationById(
-            curation.precuration_id
-          )) as PrecurationLike | null
+          const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
           if (precuration) {
-            precurationData.value = precuration.evidence_data || {}
+            precurationData.value = precuration.evidence_data
             logger.debug('Loaded precuration data for existing curation', {
               precuration_id: curation.precuration_id
             })
@@ -414,40 +390,16 @@
           scope_id: props.scopeId
         })
 
-        // Find the approved precuration
-        const precurations = (precurationsStore.precurations || []) as PrecurationLike[]
-        const approvedPrecuration = precurations.find(p => p.status === 'approved')
+        // Find the approved precuration (list rows are summaries; fetch the full record)
+        const approvedPrecuration = precurationsStore.precurations.find(
+          p => p.status === 'approved'
+        )
 
         if (approvedPrecuration) {
-          // Fetch full details if we only have summary
-          let sourceData: EvidenceData
-          if (!approvedPrecuration.evidence_data) {
-            const fullPrecuration = (await precurationsStore.fetchPrecurationById(
-              approvedPrecuration.id
-            )) as PrecurationLike | null
-            sourceData = fullPrecuration?.evidence_data || {}
-          } else {
-            sourceData = approvedPrecuration.evidence_data || {}
-          }
-
-          precurationData.value = sourceData
-
-          // Apply workflow pair data mapping to prefill curation form
-          if (props.workflowPairId && Object.keys(evidenceData.value).length === 0) {
-            const workflowPair = schemasStore.getWorkflowPairById(props.workflowPairId) as
-              | WorkflowPairLike
-              | undefined
-            if (workflowPair?.data_mapping) {
-              // applyDataMapping is JSDoc-typed as Object; the result is a plain evidence record
-              const mapped = applyDataMapping(sourceData, workflowPair.data_mapping) as EvidenceData
-              if (Object.keys(mapped).length > 0) {
-                evidenceData.value = mapped
-                logger.debug('Applied data mapping to prefill curation', {
-                  mappedFields: Object.keys(mapped)
-                })
-              }
-            }
-          }
+          const fullPrecuration = await precurationsStore.fetchPrecurationById(
+            approvedPrecuration.id
+          )
+          precurationData.value = fullPrecuration?.evidence_data ?? {}
 
           logger.debug('Loaded precuration data for new curation', {
             precuration_id: approvedPrecuration.id,
@@ -484,14 +436,12 @@
     if (!props.curationId) return
 
     try {
-      const curation = (await curationsStore.fetchCurationById(
-        props.curationId
-      )) as CurationLike | null
+      const curation = await curationsStore.fetchCurationById(props.curationId)
       if (curation) {
         // Auto-migrate legacy format if needed
         if (isLegacyFormat(curation.evidence_data)) {
           logger.info('Migrating legacy evidence_data format', { curationId: props.curationId })
-          evidenceData.value = migrateLegacyFormat(curation.evidence_data)
+          evidenceData.value = migrateLegacyFormat(curation.evidence_data) ?? {}
         } else {
           evidenceData.value = curation.evidence_data || {}
         }

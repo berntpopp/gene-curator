@@ -143,11 +143,18 @@ describe('useAddGenes', () => {
   })
 
   describe('addBulkGenes', () => {
-    const validRow = { status: 'valid', gene: brca1 } as BulkValidationResult
+    const validRow: BulkValidationResult = {
+      input: 'BRCA1',
+      status: 'valid',
+      gene: brca1,
+      alternatives: []
+    }
 
     it('warns and makes no calls when nothing is valid', async () => {
       const { api, bulkValidationResults } = setup()
-      bulkValidationResults.value = [{ status: 'not_found', gene: null }]
+      bulkValidationResults.value = [
+        { input: 'X', status: 'not_found', gene: null, alternatives: [] }
+      ]
 
       await api.addBulkGenes()
 
@@ -164,7 +171,7 @@ describe('useAddGenes', () => {
       } as never)
       bulkAssignGenes.mockResolvedValue({} as never)
       const { api, bulkValidationResults, skipDuplicates } = setup('scope-1')
-      bulkValidationResults.value = [validRow, { status: 'suggestion', gene: brca1 }]
+      bulkValidationResults.value = [validRow, { ...validRow, status: 'suggestion' }]
       skipDuplicates.value = false
 
       await api.addBulkGenes()
@@ -179,12 +186,14 @@ describe('useAddGenes', () => {
             details: { approved_name: 'BRCA1 DNA repair associated' }
           }
         ],
+        validate_hgnc: true,
         skip_duplicates: false
       })
       expect(bulkAssignGenes).toHaveBeenCalledWith({
         gene_ids: ['g-1'],
         scope_id: 'scope-1',
-        assigned_curator_id: null
+        assigned_curator_id: null,
+        priority_level: 'medium'
       })
       expect(addToast).toHaveBeenCalledWith(
         'Added and assigned 1 genes (0 skipped, 0 failed)',
@@ -208,8 +217,9 @@ describe('useAddGenes', () => {
       expect(addToast).toHaveBeenCalledWith('Added 1 genes (1 skipped, 2 failed)', 'warning')
     })
 
-    it('does not assign when created_genes is missing', async () => {
+    it('does not assign when no genes were created', async () => {
       bulkCreateGenes.mockResolvedValue({
+        created_genes: [],
         total_created: 0,
         total_skipped: 0,
         total_errors: 0

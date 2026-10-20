@@ -69,21 +69,22 @@ const assignments = [
   {
     id: 'a-1',
     gene_id: 'g-1',
-    gene: { gene_symbol: 'BRCA1', gene_name: 'BRCA1 gene', hgnc_id: 'HGNC:1100' },
+    gene_symbol: 'BRCA1',
+    gene_hgnc_id: 'HGNC:1100',
     assigned_curator_id: 'u-1',
-    curator: { full_name: 'Ada Lovelace' },
+    curator_name: 'Ada Lovelace',
     priority: 'high',
-    status: 'in_progress',
-    due_date: '2025-06-01'
+    has_active_work: true
   },
   {
-    assignment_id: 'a-2',
+    id: 'a-2',
     gene_id: 'g-2',
     gene_symbol: 'TP53',
-    gene_name: 'tumor protein',
     gene_hgnc_id: 'HGNC:11998',
-    priority_level: 'low',
-    status: 'completed'
+    assigned_curator_id: null,
+    curator_name: null,
+    priority: 'low',
+    has_active_work: false
   }
 ]
 
@@ -91,7 +92,7 @@ const stubs = {
   TableSkeleton: {
     props: ['items', 'headers', 'loading'],
     template:
-      '<table><tbody><template v-for="item in items" :key="item.assignment_id || item.gene_id"><slot name="item" :item="item" /></template></tbody></table>'
+      '<table><tbody><template v-for="item in items" :key="item.assignment_id"><slot name="item" :item="item" /></template></tbody></table>'
   },
   VDialog: { template: '<div><slot /></div>' },
   AddGeneModal: true,
@@ -208,11 +209,11 @@ describe('GeneList', () => {
   })
 
   describe('filtering', () => {
-    it('filters by search text across symbol and name', async () => {
+    it('filters by search text across symbol and HGNC id', async () => {
       const wrapper = await mountList()
       const vm = internals(wrapper)
 
-      vm.search = 'tumor'
+      vm.search = 'hgnc:119'
       await flushPromises()
       expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
 
@@ -225,7 +226,7 @@ describe('GeneList', () => {
       const wrapper = await mountList()
       const vm = internals(wrapper)
 
-      vm.filterStatus = 'completed'
+      vm.filterStatus = 'assigned'
       await flushPromises()
       expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
 

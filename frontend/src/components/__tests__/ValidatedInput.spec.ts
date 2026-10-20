@@ -102,10 +102,9 @@ describe('ValidatedInput', () => {
     state.result.value = { is_valid: true, data }
     await w.vm.$nextTick()
 
-    // Vuetify 3 has no success-messages prop, so the text is passed through as an attr.
     const field = w.findComponent({ name: 'VTextField' })
-    const attrs = field.vm.$attrs as Record<string, unknown>
-    expect(attrs.successMessages ?? attrs['success-messages']).toEqual([message])
+    expect(field.props('messages')).toEqual([message])
+    expect(w.text()).toContain(message)
     expect(document.body.innerHTML).toContain('mdi-check-circle')
   })
 

@@ -37,25 +37,26 @@ const passthrough = defineComponent({
 interface AssignVm {
   selectedGenes: string[]
   selectedCurator: string | null
-  dueDate: string | null
   priority: string
   notes: string
   availableGenes: { gene_id: string }[]
-  availableCurators: { user_id: string; role: string }[]
+  availableCurators: { user_id: string; role: string; email: string; full_name: string | null }[]
   handleAssign: () => Promise<void>
   getAvatarColor: (email: string) => string
   getInitials: (name: string) => string
   getRoleColor: (role: string) => string
 }
 
-const genes = [
-  { gene_id: 'g1', gene_symbol: 'BRCA1', gene_name: 'Breast cancer 1' },
-  { gene_id: 'g2', gene_symbol: 'TP53', gene_name: null }
-]
+const genes = {
+  genes: [
+    { id: 'g1', hgnc_id: 'HGNC:1100', approved_symbol: 'BRCA1' },
+    { id: 'g2', hgnc_id: 'HGNC:11998', approved_symbol: 'TP53' }
+  ]
+}
 const members = [
-  { user_id: 'u1', email: 'ada@example.org', full_name: 'Ada Lovelace', role: 'curator' },
-  { user_id: 'u2', email: 'grace@example.org', full_name: null, role: 'admin' },
-  { user_id: 'u3', email: 'view@example.org', full_name: 'Viewer', role: 'viewer' }
+  { user_id: 'u1', user_email: 'ada@example.org', user_full_name: 'Ada Lovelace', role: 'curator' },
+  { user_id: 'u2', user_email: 'grace@example.org', user_full_name: null, role: 'admin' },
+  { user_id: 'u3', user_email: 'view@example.org', user_full_name: 'Viewer', role: 'viewer' }
 ]
 
 let wrapper: VueWrapper | undefined
@@ -75,7 +76,7 @@ function vmOf(w: VueWrapper) {
 describe('AssignGenesDrawer', () => {
   beforeEach(() => {
     api.getGenes.mockResolvedValue(genes)
-    api.getAssignments.mockResolvedValue([{ gene_id: 'g2' }])
+    api.getAssignments.mockResolvedValue({ assignments: [{ gene_id: 'g2' }] })
     api.createAssignment.mockResolvedValue({})
     scopes.fetchMembers.mockResolvedValue(members)
   })
@@ -93,6 +94,10 @@ describe('AssignGenesDrawer', () => {
     expect(api.getAssignments).toHaveBeenCalledWith({ scope_id: 'scope-1' })
     expect(vm.availableGenes.map(g => g.gene_id)).toEqual(['g1'])
     expect(vm.availableCurators.map(c => c.user_id)).toEqual(['u1', 'u2'])
+    expect(vm.availableCurators[0]).toMatchObject({
+      email: 'ada@example.org',
+      full_name: 'Ada Lovelace'
+    })
   })
 
   it('loads data on mount only when already open', async () => {
@@ -122,7 +127,6 @@ describe('AssignGenesDrawer', () => {
     const vm = vmOf(w)
     vm.selectedGenes = ['g1', 'g2']
     vm.selectedCurator = 'u1'
-    vm.dueDate = '2026-06-01'
     vm.priority = 'high'
     vm.notes = 'urgent'
     await w.vm.$nextTick()
@@ -134,10 +138,9 @@ describe('AssignGenesDrawer', () => {
     expect(api.createAssignment).toHaveBeenCalledWith({
       gene_id: 'g1',
       scope_id: 'scope-1',
-      curator_id: 'u1',
-      due_date: '2026-06-01',
-      priority: 'high',
-      notes: 'urgent'
+      assigned_curator_id: 'u1',
+      priority_level: 'high',
+      assignment_notes: 'urgent'
     })
     expect(notifications.addToast).toHaveBeenCalledWith(
       '2 gene(s) assigned successfully',
@@ -147,7 +150,7 @@ describe('AssignGenesDrawer', () => {
     expect(w.emitted('update:modelValue')?.at(-1)).toEqual([false])
   })
 
-  it('sends null for empty optional fields', async () => {
+  it('sends null for empty notes', async () => {
     const w = mountDrawer()
     await flushPromises()
     const vm = vmOf(w)
@@ -158,7 +161,7 @@ describe('AssignGenesDrawer', () => {
     await vm.handleAssign()
 
     expect(api.createAssignment).toHaveBeenCalledWith(
-      expect.objectContaining({ due_date: null, notes: null })
+      expect.objectContaining({ assignment_notes: null })
     )
   })
 

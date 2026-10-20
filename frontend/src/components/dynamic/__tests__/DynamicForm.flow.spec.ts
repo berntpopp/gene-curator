@@ -245,7 +245,7 @@ describe('DynamicForm flow', () => {
     expect(fieldStub(wrapper, 'name').props('backendErrors')).toEqual([])
   })
 
-  it('validates a field on blur with the schema id', async () => {
+  it('validates a field on blur with its field config', async () => {
     const wrapper = mountForm()
 
     fieldStub(wrapper, 'name').vm.$emit('validate', 'Ad')
@@ -254,7 +254,7 @@ describe('DynamicForm flow', () => {
     expect(store.validateField).toHaveBeenCalledWith({
       field_name: 'name',
       field_value: 'Ad',
-      schema_id: 'schema-1'
+      field_config: { type: 'string', title: 'Name' }
     })
   })
 

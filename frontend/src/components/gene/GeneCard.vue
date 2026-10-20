@@ -11,8 +11,8 @@
       </v-chip>
     </v-card-title>
 
-    <v-card-subtitle v-if="gene.gene_name">
-      {{ gene.gene_name }}
+    <v-card-subtitle v-if="gene.gene_hgnc_id">
+      {{ gene.gene_hgnc_id }}
     </v-card-subtitle>
 
     <v-card-text>
@@ -30,12 +30,6 @@
         <v-chip :color="getPriorityColor(gene.priority)" size="x-small" variant="tonal">
           {{ getPriorityLabel(gene.priority) }}
         </v-chip>
-      </div>
-
-      <!-- Due date -->
-      <div v-if="gene.due_date" class="d-flex align-center mb-2">
-        <v-icon icon="mdi-calendar" size="small" class="mr-2" />
-        <span class="text-caption">Due: {{ formatDate(gene.due_date) }}</span>
       </div>
 
       <!-- Progress -->
@@ -100,7 +94,6 @@
   import type { GeneRow } from './types'
   import type { GeneWorkflowStatus } from './useGeneWorkflowStatus'
   import {
-    formatDate,
     getPriorityColor,
     getPriorityIcon,
     getPriorityLabel,

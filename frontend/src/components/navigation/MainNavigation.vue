@@ -89,16 +89,10 @@
     showInDropdown?: string
   }
 
-  /** Narrowed view of usePermissions() (its JSDoc types the return as Object) */
-  interface PermissionsView {
-    can: { hasAnyRole: (roles: string[]) => boolean }
-    isAuthenticated: { value: boolean }
-  }
-
   const metaOf = (route: RouteRecordNormalized): NavRouteMeta => route.meta as NavRouteMeta
 
   const router = useRouter()
-  const { can, isAuthenticated } = usePermissions() as PermissionsView
+  const { can, isAuthenticated } = usePermissions()
   const workflowStore = useWorkflowStore()
   const pendingReviewCount = ref(0)
   let badgeRefreshInterval: ReturnType<typeof setInterval> | null = null

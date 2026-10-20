@@ -2,37 +2,17 @@ import { ref, computed } from 'vue'
 import { assignmentsAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+import type { ApiErrorLike } from '@/components/forms/types'
 import { calculateProgress } from './geneDisplay'
 import type { GeneWorkflowStatus } from './useGeneWorkflowStatus'
 import type { GeneRow } from './types'
-
-/** Assignment record as returned by the scope assignments endpoint (fields read here). */
-interface AssignmentRecord {
-  id?: string
-  assignment_id?: string
-  gene_id: string
-  gene_symbol?: string
-  gene_name?: string
-  gene_hgnc_id?: string
-  gene?: { gene_symbol?: string; gene_name?: string; hgnc_id?: string }
-  assigned_curator_id?: string | null
-  curator_id?: string | null
-  curator_name?: string
-  curator?: { full_name?: string; email?: string }
-  priority?: string
-  priority_level?: string
-  assignment_notes?: string
-  status?: string
-  due_date?: string | null
-}
 
 /**
  * Assignments of one scope as display rows, with the curator filter options and
  * the search/status/curator filters applied by the gene list.
  */
 export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatus) {
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // State
@@ -61,7 +41,7 @@ export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatu
       result = result.filter(
         g =>
           g.gene_symbol?.toLowerCase().includes(searchLower) ||
-          g.gene_name?.toLowerCase().includes(searchLower)
+          g.gene_hgnc_id.toLowerCase().includes(searchLower)
       )
     }
 
@@ -84,25 +64,23 @@ export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatu
   async function fetchGenes() {
     loading.value = true
     try {
-      const response = (await assignmentsAPI.getAssignmentsByScope(scopeId())) as AssignmentRecord[]
-      genes.value = response.map(assignment => ({
-        assignment_id: (assignment.id || assignment.assignment_id) as string,
-        gene_id: assignment.gene_id,
-        gene_symbol: assignment.gene_symbol || assignment.gene?.gene_symbol || '',
-        gene_name: assignment.gene_name || assignment.gene?.gene_name || '',
-        gene_hgnc_id: assignment.gene_hgnc_id || assignment.gene?.hgnc_id || '',
-        curator_id: assignment.assigned_curator_id || assignment.curator_id,
-        curator_name:
-          assignment.curator_name ||
-          assignment.curator?.full_name ||
-          assignment.curator?.email ||
-          '',
-        priority: assignment.priority || assignment.priority_level || 'normal',
-        assignment_notes: assignment.assignment_notes || '',
-        status: assignment.status || 'assigned',
-        due_date: assignment.due_date,
-        progress: calculateProgress(assignment)
-      }))
+      const response = await assignmentsAPI.getAssignmentsByScope(scopeId())
+      genes.value = response.map(assignment => {
+        // The API carries no assignment status; derive it from active curation work
+        const status = assignment.has_active_work ? 'in_progress' : 'assigned'
+        return {
+          assignment_id: assignment.id,
+          gene_id: assignment.gene_id,
+          gene_symbol: assignment.gene_symbol,
+          gene_hgnc_id: assignment.gene_hgnc_id,
+          curator_id: assignment.assigned_curator_id,
+          curator_name: assignment.curator_name ?? '',
+          priority: assignment.priority,
+          assignment_notes: '',
+          status,
+          progress: calculateProgress({ status })
+        }
+      })
 
       // Extract unique curators for filter
       curators.value = Array.from(

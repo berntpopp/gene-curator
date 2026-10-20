@@ -203,10 +203,6 @@
   import { useDebounceFn } from '@vueuse/core'
   import type { Schema } from '@/types/api'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   /** An OMIM disease as shown in the autocomplete (search hit or placeholder for a saved ID) */
   interface OmimOption {
     omim_id: string
@@ -259,7 +255,7 @@
     select: [item: OmimOption | OmimOption[] | null]
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // State
   const searchQuery = ref('')
@@ -353,7 +349,7 @@
     isLoadingDetails.value = true
 
     try {
-      detailDisease.value = (await ontologyAPI.getOMIMDisease(omimId)) as OmimDetail
+      detailDisease.value = await ontologyAPI.getOMIMDisease(omimId)
       logger.debug('OMIM details loaded', { omim_id: omimId })
     } catch (e) {
       const message = e instanceof Error ? e.message : undefined

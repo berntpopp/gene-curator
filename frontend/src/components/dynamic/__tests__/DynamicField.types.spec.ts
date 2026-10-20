@@ -126,12 +126,10 @@ describe('DynamicField field types', () => {
     expect(hasComponent(wrapper, 'VCheckbox')).toBe(true)
   })
 
-  it('renders date-formatted strings through the plain text branch', () => {
-    // Known gap: the `format: 'date'` branch sits after the plain string branch,
-    // so it is unreachable and the field is not a native date input.
+  it('renders date-formatted strings as a native date input', () => {
     const wrapper = mountField({ type: 'string', format: 'date' })
 
-    expect(wrapper.findComponent({ name: 'VTextField' }).props('type')).toBeUndefined()
+    expect(wrapper.findComponent({ name: 'VTextField' }).props('type')).toBe('date')
   })
 
   it('shows a fallback text field for unsupported types', () => {

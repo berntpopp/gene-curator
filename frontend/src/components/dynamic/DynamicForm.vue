@@ -190,15 +190,15 @@
   import ScoreDisplay from './ScoreDisplay.vue'
   import { useFormTabs } from './composables/useFormTabs'
   import { errorDetails } from './errorDetails'
+  import { toFormValidation } from './validationResult'
   import type {
-    ComponentLogger,
     FieldSchema,
     FieldValidation,
     FormValidationResult,
     JsonSchemaDocument
   } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   /** Subset of Vuetify's VForm instance used here */
   interface FormHandle {
@@ -246,11 +246,12 @@
   const error = computed(() => validationStore.error)
   // The store is untyped JS; an unloaded schema is treated as an empty document
   const jsonSchema = computed<JsonSchemaDocument>(
-    () => (validationStore.getJsonSchema(props.schemaId) as JsonSchemaDocument | undefined) ?? {}
+    () => validationStore.getJsonSchema(props.schemaId) ?? {}
   )
-  const validationResult = computed(
-    () => validationStore.getValidationResult('form') as FormValidationResult | undefined
-  )
+  const validationResult = computed(() => {
+    const raw = validationStore.getValidationResult('form')
+    return raw ? toFormValidation(raw) : undefined
+  })
 
   const {
     hasTabs,
@@ -290,12 +291,8 @@
   const validateForm = async () => {
     validating.value = true
     try {
-      const result = (await validationStore.validateEvidence(
-        formData.value,
-        props.schemaId,
-        'form'
-      )) as FormValidationResult | undefined
-      handleBackendValidation(result)
+      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      handleBackendValidation(result ? toFormValidation(result) : undefined)
     } catch (err) {
       logger.error('Form validation error:', errorDetails(err))
     } finally {
@@ -356,7 +353,7 @@
       await validationStore.validateField({
         field_name: fieldName,
         field_value: value,
-        schema_id: props.schemaId
+        field_config: { ...jsonSchema.value.properties?.[fieldName] }
       })
     } catch (err) {
       logger.error('Field validation error:', errorDetails(err))

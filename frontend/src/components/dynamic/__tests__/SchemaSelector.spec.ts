@@ -137,9 +137,11 @@ describe('SchemaSelector', () => {
 
     expect(schemasStore.createWorkflowPair).toHaveBeenCalledWith({
       name: 'Gene Precuration_ClinGen Curation',
+      version: '1.0.0',
       precuration_schema_id: 'pre-1',
       curation_schema_id: 'cur-1',
-      description: 'Workflow pair for Gene Precuration precuration and ClinGen Curation curation'
+      description: 'Workflow pair for Gene Precuration precuration and ClinGen Curation curation',
+      is_active: true
     })
     expect(wrapper.text()).toContain('Using Existing Workflow Pair')
   })

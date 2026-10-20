@@ -61,11 +61,10 @@
   import { ref, computed } from 'vue'
   import { useTheme } from 'vuetify'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const theme = useTheme()
 
   // Version info
