@@ -308,6 +308,7 @@
       return validTabs.includes(tab) ? tab : 'overview'
     },
     set: (tabValue: string) => {
+      if (tabValue === route.params.tab) return
       router.push({
         name: 'scope-dashboard',
         params: { scopeId: scopeId.value, tab: tabValue }
@@ -359,11 +360,9 @@
     try {
       logger.debug('Fetching scope dashboard data', { scope_id: scopeId.value })
 
-      // Fetch scope details
-      await scopeStore.fetchScope(scopeId.value)
-
-      // Fetch user's role in this scope
+      // Role first: the Members/Settings tabs must exist when v-tabs first renders (#175)
       await scopeStore.fetchUserRole(scopeId.value)
+      await scopeStore.fetchScope(scopeId.value)
 
       // Fetch scope statistics
       scopeStats.value =

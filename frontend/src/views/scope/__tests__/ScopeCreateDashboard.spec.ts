@@ -292,6 +292,26 @@ describe('ScopeDashboard', () => {
     })
   })
 
+  it('keeps a deep-linked members tab while the role is still loading', async () => {
+    routeState.params = { scopeId: 's1', tab: 'members' }
+    const store = useScopesStore()
+    vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
+      store.currentScope = scope as never
+      return scope as never
+    })
+    vi.spyOn(store, 'fetchUserRole').mockImplementation(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20))
+      store.currentUserRole = 'admin'
+      return 'admin'
+    })
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
+    const wrapper = mount(ScopeDashboard, opts())
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await flushPromises()
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Members')
+  })
+
   it('treats missing statistics as zero progress', async () => {
     const { store, vm } = await mountView()
     vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
