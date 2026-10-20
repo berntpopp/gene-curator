@@ -41,6 +41,7 @@ class WorkflowEngine:
             WorkflowStage.ENTRY: [WorkflowStage.PRECURATION],
             WorkflowStage.PRECURATION: [
                 WorkflowStage.CURATION,
+                WorkflowStage.REVIEW,
                 WorkflowStage.ENTRY,
             ],  # Can go back to entry
             # Curation workflow
@@ -50,6 +51,7 @@ class WorkflowEngine:
             ],  # Can go back to precuration
             # Review workflow
             WorkflowStage.REVIEW: [
+                WorkflowStage.PRECURATION,
                 WorkflowStage.ACTIVE,
                 WorkflowStage.CURATION,
             ],  # Can send back to curation
@@ -663,47 +665,20 @@ class WorkflowEngine:
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
     ) -> list[str]:
         """Get required user roles for a transition."""
+        curator_roles = ["curator", "admin", "scope_admin"]
+        review_roles = [*curator_roles, "reviewer"]
         role_matrix = {
-            (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.PRECURATION, WorkflowStage.CURATION): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.CURATION, WorkflowStage.REVIEW): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            # Backwards transitions (less restrictive)
-            (WorkflowStage.PRECURATION, WorkflowStage.ENTRY): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.CURATION, WorkflowStage.PRECURATION): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.REVIEW, WorkflowStage.CURATION): [
-                "curator",
-                "admin",
-                "scope_admin",
-            ],
-            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): [
-                "admin",
-                "scope_admin",
-            ],  # More restrictive
+            (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): curator_roles,
+            (WorkflowStage.PRECURATION, WorkflowStage.CURATION): curator_roles,
+            (WorkflowStage.PRECURATION, WorkflowStage.REVIEW): curator_roles,
+            (WorkflowStage.CURATION, WorkflowStage.REVIEW): curator_roles,
+            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE): review_roles,
+            # Backwards transitions
+            (WorkflowStage.PRECURATION, WorkflowStage.ENTRY): curator_roles,
+            (WorkflowStage.CURATION, WorkflowStage.PRECURATION): curator_roles,
+            (WorkflowStage.REVIEW, WorkflowStage.PRECURATION): ["reviewer", "admin"],
+            (WorkflowStage.REVIEW, WorkflowStage.CURATION): review_roles,
+            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): ["admin", "scope_admin"],
         }
 
         return role_matrix.get((current_stage, target_stage), ["admin"])
@@ -737,9 +712,6 @@ class WorkflowEngine:
             scope_role_requirements = [
                 r for r in role_requirements if r in valid_scope_roles
             ]
-            # Always include "reviewer" for scope-specific checks as they can review
-            if "reviewer" not in scope_role_requirements:
-                scope_role_requirements.append("reviewer")
 
             membership = (
                 db.query(ScopeMembership)
@@ -924,7 +896,12 @@ class WorkflowEngine:
         # Update status
         if hasattr(item, "status"):
             item.status = CurationStatus.IN_REVIEW
-        db.commit()
+        if isinstance(item, PrecurationNew):
+            item.status = CurationStatus.SUBMITTED
+            item.is_draft = False
+            item.updated_by = user_id
+            item.updated_at = datetime.now(UTC)
+        db.flush()
         return {"success": True, "message": "Transitioned to review"}
 
     def _transition_to_active(

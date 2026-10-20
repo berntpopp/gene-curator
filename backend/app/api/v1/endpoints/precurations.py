@@ -348,7 +348,9 @@ def complete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
+    )
 
     try:
         completed = precuration_crud.complete_precuration(
@@ -393,7 +395,9 @@ def approve_precuration(
         )
 
     # Verify scope access with reviewer role
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
+    )
 
     # 4-eyes principle: creator cannot approve their own precuration
     if precuration.created_by == current_user.id and current_user.role != "admin":
@@ -439,7 +443,9 @@ def reject_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
+    )
 
     reason = rejection_data.get("reason", "No reason provided")
 

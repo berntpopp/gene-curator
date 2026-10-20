@@ -326,15 +326,6 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             submit_data.notes,
         )
 
-        # Update precuration status
-        db_obj.status = CurationStatus.SUBMITTED
-        db_obj.workflow_stage = WorkflowStage.REVIEW
-        db_obj.is_draft = False
-        db_obj.updated_by = user_id
-        db_obj.updated_at = _utc_now()
-
-        db.add(db_obj)
-        db.commit()
         db.refresh(db_obj)
 
         return db_obj
