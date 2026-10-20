@@ -1,6 +1,6 @@
 <template>
   <ErrorBoundary @error="handleFormError">
-    <v-form ref="formRef" @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <v-form @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
         <!-- Header with precuration context -->
         <v-card-title class="d-flex align-center">
@@ -66,7 +66,7 @@
   </ErrorBoundary>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * SchemaDrivenPrecurationForm
    *
@@ -102,41 +102,47 @@
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
+  import type { ApiErrorLike, ComponentLogger } from './types'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
 
-  const props = defineProps({
-    schemaId: {
-      type: String,
-      required: true
-    },
-    precurationId: {
-      type: String,
-      default: null
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    geneId: {
-      type: String,
-      default: null
-    },
-    gene: {
-      type: Object,
-      default: null
-    },
-    readonly: {
-      type: Boolean,
-      default: false
+  type EvidenceData = Record<string, unknown>
+
+  /** Store records read by this form (the JS stores do not type their state). */
+  interface PrecurationLike {
+    id: string
+    status?: string | null
+    lock_version?: number | null
+    evidence_data?: EvidenceData | null
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      schemaId: string
+      precurationId?: string | null
+      scopeId: string
+      geneId?: string | null
+      gene?: { symbol?: string | null } | null
+      readonly?: boolean
+    }>(),
+    {
+      precurationId: null,
+      geneId: null,
+      gene: null,
+      readonly: false
     }
-  })
+  )
 
-  const emit = defineEmits(['submit', 'cancel', 'saved'])
+  const emit = defineEmits<{
+    submit: []
+    cancel: []
+    saved: []
+  }>()
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const router = useRouter()
   const schemasStore = useSchemasStore()
   const precurationsStore = usePrecurationsStore()
@@ -144,8 +150,7 @@
   const notificationsStore = useNotificationsStore()
 
   // Form state
-  const formRef = ref(null)
-  const evidenceData = ref({})
+  const evidenceData = ref<EvidenceData>({})
   const isDraft = ref(true)
   const loadingSchema = ref(false)
   const savingDraft = ref(false)
@@ -154,7 +159,9 @@
   const lockVersion = ref(0)
 
   // Schema data
-  const schema = computed(() => schemasStore.getSchemaById(props.schemaId))
+  const schema = computed<Schema<'CurationSchema'> | undefined>(() =>
+    schemasStore.getSchemaById(props.schemaId)
+  )
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
@@ -193,9 +200,13 @@
     undo: undoAction,
     redo: redoAction,
     clearHistory
-  } = useHistory(recoveryKey.value, state => {
-    evidenceData.value = { ...state }
-  })
+  } = useHistory(
+    recoveryKey.value,
+    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
+    (state: EvidenceData) => {
+      evidenceData.value = { ...state }
+    }
+  )
 
   // Track changes for undo/redo
   watch(
@@ -214,7 +225,7 @@
   /**
    * Handle evidence data changes from DynamicForm
    */
-  function handleEvidenceChange(newData) {
+  function handleEvidenceChange(newData: EvidenceData) {
     evidenceData.value = newData
   }
 
@@ -222,14 +233,14 @@
    * Handle validation state changes from DynamicForm
    * Event-driven pattern instead of defineExpose
    */
-  function handleValidationChange(validationResult) {
+  function handleValidationChange(validationResult: { is_valid?: boolean } | null | undefined) {
     isValid.value = validationResult?.is_valid !== false
   }
 
   /**
    * Handle form-level errors from ErrorBoundary
    */
-  function handleFormError(error) {
+  function handleFormError(error: Error) {
     logger.error('Form rendering failed', {
       error: error.message,
       schemaId: props.schemaId,
@@ -241,7 +252,7 @@
   /**
    * Keyboard shortcuts
    */
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {
@@ -282,19 +293,22 @@
     try {
       if (props.precurationId) {
         // Update existing precuration draft
-        const updated = await precurationsStore.saveDraft(props.precurationId, evidenceData.value)
+        const updated = (await precurationsStore.saveDraft(
+          props.precurationId,
+          evidenceData.value
+        )) as PrecurationLike | null
         if (updated) {
           lockVersion.value = updated.lock_version || 0
           emit('saved')
         }
       } else {
         // Create new precuration as draft
-        const created = await precurationsStore.createPrecuration({
+        const created = (await precurationsStore.createPrecuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
           precuration_schema_id: props.schemaId,
           evidence_data: evidenceData.value
-        })
+        })) as PrecurationLike
         // Navigate to edit the created precuration
         router.replace({
           name: 'precuration-edit',
@@ -305,7 +319,7 @@
       notificationsStore.addToast('Draft saved', 'success')
       clearRecovery()
     } catch (error) {
-      logger.error('Failed to save draft', { error: error.message })
+      logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to save draft', 'error')
     } finally {
       savingDraft.value = false
@@ -324,12 +338,12 @@
         await precurationsStore.submitForReview(props.precurationId)
       } else {
         // Create and submit
-        const created = await precurationsStore.createPrecuration({
+        const created = (await precurationsStore.createPrecuration({
           gene_id: props.geneId,
           scope_id: props.scopeId,
           precuration_schema_id: props.schemaId,
           evidence_data: evidenceData.value
-        })
+        })) as PrecurationLike
         await precurationsStore.submitForReview(created.id)
       }
 
@@ -338,7 +352,7 @@
       clearHistory()
       emit('submit')
     } catch (error) {
-      logger.error('Failed to submit precuration', { error: error.message })
+      logger.error('Failed to submit precuration', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to submit precuration', 'error')
     } finally {
       submitting.value = false
@@ -360,11 +374,11 @@
   /**
    * Format relative time
    */
-  function formatRelativeTime(timestamp) {
+  function formatRelativeTime(timestamp: string | number | null | undefined): string {
     if (!timestamp) return ''
     const now = new Date()
     const then = new Date(timestamp)
-    const diffSec = Math.floor((now - then) / 1000)
+    const diffSec = Math.floor((now.getTime() - then.getTime()) / 1000)
 
     if (diffSec < 60) return 'just now'
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
@@ -379,14 +393,16 @@
     if (!props.precurationId) return
 
     try {
-      const precuration = await precurationsStore.fetchPrecurationById(props.precurationId)
+      const precuration = (await precurationsStore.fetchPrecurationById(
+        props.precurationId
+      )) as PrecurationLike | null
       if (precuration) {
         evidenceData.value = precuration.evidence_data || {}
         lockVersion.value = precuration.lock_version || 0
         isDraft.value = precuration.status === 'draft'
       }
     } catch (error) {
-      logger.error('Failed to load precuration', { error: error.message })
+      logger.error('Failed to load precuration', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load precuration', 'error')
     }
   }
@@ -402,7 +418,7 @@
       await schemasStore.fetchSchemaById(props.schemaId)
       await validationStore.generateJsonSchema(props.schemaId)
     } catch (error) {
-      logger.error('Failed to load schema', { error: error.message })
+      logger.error('Failed to load schema', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load precuration schema', 'error')
     } finally {
       loadingSchema.value = false

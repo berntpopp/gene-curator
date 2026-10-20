@@ -19,10 +19,6 @@
 1159 frontend/src/components/dynamic/__tests__/DynamicField.spec.js
 768 frontend/src/components/dynamic/__tests__/DynamicForm.tabs.spec.js
 699 frontend/src/components/dynamic/__tests__/TabContent.spec.js
-662 frontend/src/components/forms/PrecurationForm.vue
-671 frontend/src/components/forms/SchemaDrivenCurationForm.vue
-779 frontend/src/components/gene/AddGeneModal.vue
-1140 frontend/src/components/gene/GeneList.vue
 660 frontend/src/views/CurationDetail.vue
 733 frontend/src/views/CurationsTable.vue
 841 frontend/src/views/GeneCatalogueView.vue

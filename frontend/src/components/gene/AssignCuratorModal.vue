@@ -297,49 +297,60 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { genesAPI, assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { Schema } from '@/types/api'
+  import type { CuratorOption } from './types'
+  import { getAvatarColor, getInitials } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    preSelectedGenes: {
-      type: Array,
-      default: () => []
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId: string
+      preSelectedGenes?: string[]
+    }>(),
+    {
+      modelValue: false,
+      preSelectedGenes: () => []
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'assigned'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    assigned: []
+  }>()
+
+  /** Gene candidate in the assignment picker (catalogue gene record). */
+  // approved_name is read by the template but is not part of the Gene schema (kept as-is)
+  type GeneCandidate = Schema<'Gene'> & { approved_name?: string | null }
 
   // ============================================
   // COMPOSABLES & STORES
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors()
-  const logger = useLogger()
+  const { getRoleColor: useGetRoleColor } = useRoleColors() as {
+    getRoleColor: (role: string) => string
+  }
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
 
   // ============================================
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  // Form ref (bound in template as ref="formRef")
+  const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const formValid = ref(false)
 
   // Loading states
@@ -348,13 +359,13 @@
   const isAssigning = ref(false)
 
   // Data
-  const availableGenes = ref([])
-  const availableCurators = ref([])
+  const availableGenes = ref<GeneCandidate[]>([])
+  const availableCurators = ref<CuratorOption[]>([])
 
   // Form state
-  const selectedGenes = ref([])
-  const selectedCurator = ref(null)
-  const dueDate = ref(null)
+  const selectedGenes = ref<GeneCandidate[]>([])
+  const selectedCurator = ref<CuratorOption | null>(null)
+  const dueDate = ref<string | null>(null)
   const priority = ref('medium')
   const notes = ref('')
 
@@ -407,7 +418,7 @@
   /**
    * Check if a gene is currently selected
    */
-  const isGeneSelected = gene => {
+  const isGeneSelected = (gene: GeneCandidate) => {
     return selectedGenes.value.some(g => g.id === gene.id)
   }
 
@@ -423,35 +434,16 @@
   }
 
   /**
-   * Get avatar color based on email hash
-   */
-  const getAvatarColor = email => {
-    const colors = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
-    const hash = (email || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[hash % colors.length]
-  }
-
-  /**
-   * Get initials from name
-   */
-  const getInitials = name => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
-  /**
    * Get role color
    */
-  const getRoleColor = role => {
+  const getRoleColor = (role: string) => {
     return useGetRoleColor(role)
   }
 
   /**
    * Format date for display
    */
-  const formatDate = dateStr => {
+  const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return ''
     return new Date(dateStr).toLocaleDateString()
   }
@@ -463,13 +455,21 @@
     loadingGenes.value = true
     try {
       // Fetch genes from catalog (max 500 per backend limit)
-      const genesResponse = await genesAPI.getGenes({ limit: 500 })
-      const allGenes = genesResponse.genes || genesResponse.items || genesResponse
+      const genesResponse = (await genesAPI.getGenes({ limit: 500 })) as
+        | GeneCandidate[]
+        | { genes?: GeneCandidate[]; items?: GeneCandidate[] }
+      const allGenes = (
+        Array.isArray(genesResponse)
+          ? genesResponse
+          : genesResponse.genes || genesResponse.items || []
+      ) as GeneCandidate[]
 
       // Fetch existing assignments for this scope
       let assignedGeneIds = new Set()
       try {
-        const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
+        const assignments = (await assignmentsAPI.getAssignmentsByScope(props.scopeId)) as Array<{
+          gene_id: string
+        }> | null
         assignedGeneIds = new Set((assignments || []).map(a => a.gene_id))
       } catch {
         // If no assignments yet, all genes are available
@@ -483,7 +483,7 @@
         available: availableGenes.value.length
       })
     } catch (error) {
-      logger.error('Failed to fetch available genes', { error: error.message })
+      logger.error('Failed to fetch available genes', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load genes', 'error')
     } finally {
       loadingGenes.value = false
@@ -496,24 +496,30 @@
   const fetchAvailableCurators = async () => {
     loadingCurators.value = true
     try {
-      const members = await scopesStore.fetchMembers(props.scopeId)
+      const members = (await scopesStore.fetchMembers(props.scopeId)) as Array<
+        Record<string, string | null | undefined>
+      > | null
 
       // Map members with display name
       // API returns user_full_name, user_email from ScopeMembershipResponse
       availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin'].includes(m.role))
+        .filter(m => ['curator', 'scope_admin', 'admin'].includes(m.role as string))
         .map(member => ({
           ...member,
+          user_id: member.user_id as string,
+          role: member.role as string,
           // Normalize field names from API response
           full_name: member.user_full_name || member.full_name,
           email: member.user_email || member.email,
-          displayName:
-            member.user_full_name || member.full_name || member.user_email || member.email
+          displayName: (member.user_full_name ||
+            member.full_name ||
+            member.user_email ||
+            member.email) as string
         }))
 
       logger.debug('Available curators loaded', { count: availableCurators.value.length })
     } catch (error) {
-      logger.error('Failed to fetch curators', { error: error.message })
+      logger.error('Failed to fetch curators', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load curators', 'error')
     } finally {
       loadingCurators.value = false
@@ -544,10 +550,10 @@
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!canSubmit.value) return
+    if (!canSubmit.value || !selectedCurator.value) return
 
     // Validate form
-    const { valid } = await formRef.value.validate()
+    const { valid } = await formRef.value!.validate()
     if (!valid) return
 
     isAssigning.value = true
@@ -555,18 +561,19 @@
     try {
       // Create assignments for each selected gene
       // Backend expects assigned_curator_id and priority_level: "high" | "medium" | "low"
-      const priorityMapping = {
+      const priorityMapping: Record<string, 'low' | 'medium' | 'high'> = {
         low: 'low',
         normal: 'medium',
         medium: 'medium',
         high: 'high',
         urgent: 'high'
       }
+      const curatorId = selectedCurator.value.user_id
       const promises = selectedGenes.value.map(gene =>
         assignmentsAPI.createAssignment({
           gene_id: gene.id,
           scope_id: props.scopeId,
-          assigned_curator_id: selectedCurator.value.user_id,
+          assigned_curator_id: curatorId,
           priority_level: priorityMapping[priority.value] || 'medium',
           assignment_notes: notes.value || undefined
         })
@@ -576,7 +583,7 @@
 
       logger.info('Genes assigned successfully', {
         count: selectedGenes.value.length,
-        curator_id: selectedCurator.value.user_id
+        curator_id: curatorId
       })
 
       notificationStore.addToast(
@@ -588,9 +595,10 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to assign genes', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to assign genes', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to assign genes: ${error.response?.data?.detail || error.message}`,
+        `Failed to assign genes: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {

@@ -56,7 +56,7 @@
         <v-window v-model="mode">
           <!-- Single Gene Search Mode -->
           <v-window-item value="single">
-            <v-form ref="singleFormRef" v-model="singleFormValid">
+            <v-form v-model="singleFormValid">
               <!-- Gene Search Autocomplete -->
               <v-autocomplete
                 v-model="selectedGene"
@@ -190,7 +190,7 @@
 
           <!-- Bulk Import Mode -->
           <v-window-item value="bulk">
-            <v-form ref="bulkFormRef" v-model="bulkFormValid">
+            <v-form v-model="bulkFormValid">
               <v-textarea
                 v-model="bulkInput"
                 label="Gene List"
@@ -280,7 +280,7 @@
                           >
                             Accept
                           </v-btn>
-                          <v-menu v-if="result.alternatives?.length > 0">
+                          <v-menu v-if="(result.alternatives?.length ?? 0) > 0">
                             <template #activator="{ props: menuProps }">
                               <v-btn
                                 v-bind="menuProps"
@@ -345,45 +345,67 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { useHgncSearch } from '@/composables/useHgncSearch'
-  import { genesAPI, assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { Ref } from 'vue'
+  import {
+    getValidationClass,
+    getValidationColor,
+    getValidationIcon
+  } from './bulkValidationDisplay'
+  import { useAddGenes, type BulkValidationResult, type HgncGene } from './useAddGenes'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      default: null
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId?: string | null
+    }>(),
+    {
+      modelValue: false,
+      scopeId: null
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'added'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    added: []
+  }>()
 
   // ============================================
   // COMPOSABLES & STORES
   // ============================================
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
-  const { results: searchResults, isSearching, search, validateBulk } = useHgncSearch()
+  // useHgncSearch is JSDoc-typed as Object; this is its used surface
+  const {
+    results: searchResults,
+    isSearching,
+    search,
+    validateBulk
+  } = useHgncSearch() as {
+    results: Ref<HgncGene[]>
+    isSearching: Ref<boolean>
+    search: (query?: string) => Promise<unknown>
+    validateBulk: (identifiers: string[]) => Promise<{
+      valid: unknown[]
+      invalid: unknown[]
+      results: BulkValidationResult[]
+    }>
+  }
 
   // ============================================
   // STATE
   // ============================================
 
-  // Form refs
-  const singleFormRef = ref(null)
-  const bulkFormRef = ref(null)
   const singleFormValid = ref(false)
   const bulkFormValid = ref(false)
 
@@ -394,12 +416,19 @@
 
   // Single gene mode
   const searchQuery = ref('')
-  const selectedGene = ref(null)
+  const selectedGene = ref<HgncGene | null>(null)
 
   // Bulk mode
   const bulkInput = ref('')
   const skipDuplicates = ref(true)
-  const bulkValidationResults = ref([])
+  const bulkValidationResults = ref<BulkValidationResult[]>([])
+
+  const { addSingleGene, addBulkGenes } = useAddGenes({
+    scopeId: () => props.scopeId,
+    selectedGene,
+    bulkValidationResults,
+    skipDuplicates
+  })
 
   // ============================================
   // COMPUTED
@@ -449,7 +478,7 @@
   /**
    * Handle search input changes
    */
-  const handleSearchUpdate = async query => {
+  const handleSearchUpdate = async (query: string | null | undefined) => {
     if (query && query.length >= 2) {
       await search(query)
     }
@@ -481,7 +510,7 @@
         invalid: result.invalid.length
       })
     } catch (error) {
-      logger.error('Bulk validation error', { error: error.message })
+      logger.error('Bulk validation error', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to validate genes', 'error')
     } finally {
       isValidatingBulk.value = false
@@ -491,7 +520,7 @@
   /**
    * Accept a suggestion in bulk validation
    */
-  const acceptSuggestion = idx => {
+  const acceptSuggestion = (idx: number) => {
     if (bulkValidationResults.value[idx]) {
       bulkValidationResults.value[idx].status = 'valid'
     }
@@ -500,59 +529,11 @@
   /**
    * Select an alternative gene for a suggestion
    */
-  const selectAlternative = (idx, alternative) => {
+  const selectAlternative = (idx: number, alternative: HgncGene) => {
     if (bulkValidationResults.value[idx]) {
       bulkValidationResults.value[idx].gene = alternative
       bulkValidationResults.value[idx].status = 'valid'
       bulkValidationResults.value[idx].message = null
-    }
-  }
-
-  /**
-   * Get validation status CSS class
-   */
-  const getValidationClass = status => {
-    switch (status) {
-      case 'valid':
-        return 'bg-success-lighten-5'
-      case 'suggestion':
-        return 'bg-warning-lighten-5'
-      case 'not_found':
-        return 'bg-error-lighten-5'
-      default:
-        return ''
-    }
-  }
-
-  /**
-   * Get validation status color
-   */
-  const getValidationColor = status => {
-    switch (status) {
-      case 'valid':
-        return 'success'
-      case 'suggestion':
-        return 'warning'
-      case 'not_found':
-        return 'error'
-      default:
-        return 'grey'
-    }
-  }
-
-  /**
-   * Get validation status icon
-   */
-  const getValidationIcon = status => {
-    switch (status) {
-      case 'valid':
-        return 'mdi-check-circle'
-      case 'suggestion':
-        return 'mdi-help-circle'
-      case 'not_found':
-        return 'mdi-close-circle'
-      default:
-        return 'mdi-circle-outline'
     }
   }
 
@@ -597,143 +578,14 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to add genes', { error: error.message, mode: mode.value })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to add genes', { error: apiError.message, mode: mode.value })
       notificationStore.addToast(
-        `Failed to add gene(s): ${error.response?.data?.detail || error.message}`,
+        `Failed to add gene(s): ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {
       isSubmitting.value = false
-    }
-  }
-
-  /**
-   * Add single gene
-   */
-  const addSingleGene = async () => {
-    const geneData = {
-      hgnc_id: selectedGene.value.hgnc_id,
-      approved_symbol: selectedGene.value.symbol,
-      chromosome: selectedGene.value.chromosome || undefined,
-      location: selectedGene.value.location || undefined,
-      previous_symbols: selectedGene.value.previous_symbols || undefined,
-      alias_symbols: selectedGene.value.alias_symbols || undefined,
-      details: selectedGene.value.name ? { approved_name: selectedGene.value.name } : undefined
-    }
-
-    logger.debug('Adding single gene', { gene_data: geneData })
-
-    const result = await genesAPI.createGene(geneData)
-
-    logger.info('Gene added successfully', {
-      gene_id: result.id,
-      hgnc_id: result.hgnc_id,
-      symbol: result.approved_symbol
-    })
-
-    // If scopeId is provided, also assign the gene to the scope (unassigned status)
-    if (props.scopeId) {
-      try {
-        await assignmentsAPI.createAssignment({
-          gene_id: result.id,
-          scope_id: props.scopeId,
-          assigned_curator_id: null, // Unassigned
-          priority_level: 'medium'
-        })
-        logger.info('Gene assigned to scope', {
-          gene_id: result.id,
-          scope_id: props.scopeId
-        })
-        notificationStore.addToast(
-          `Gene ${result.approved_symbol} added and assigned to scope`,
-          'success'
-        )
-      } catch (assignError) {
-        // Gene was added but assignment failed - still report success for gene creation
-        logger.warn('Gene added but scope assignment failed', {
-          gene_id: result.id,
-          scope_id: props.scopeId,
-          error: assignError.message
-        })
-        notificationStore.addToast(
-          `Gene ${result.approved_symbol} added (assignment failed: ${assignError.response?.data?.detail || assignError.message})`,
-          'warning'
-        )
-      }
-    } else {
-      notificationStore.addToast(`Gene ${result.approved_symbol} added successfully`, 'success')
-    }
-  }
-
-  /**
-   * Add bulk genes
-   */
-  const addBulkGenes = async () => {
-    // Get valid genes (valid status or accepted suggestions)
-    const genesToAdd = bulkValidationResults.value
-      .filter(r => r.status === 'valid' && r.gene)
-      .map(r => ({
-        hgnc_id: r.gene.hgnc_id,
-        approved_symbol: r.gene.symbol,
-        chromosome: r.gene.chromosome || undefined,
-        location: r.gene.location || undefined,
-        details: r.gene.name ? { approved_name: r.gene.name } : undefined
-      }))
-
-    if (genesToAdd.length === 0) {
-      notificationStore.addToast('No valid genes to add', 'warning')
-      return
-    }
-
-    logger.debug('Adding bulk genes', {
-      count: genesToAdd.length,
-      skip_duplicates: skipDuplicates.value
-    })
-
-    const result = await genesAPI.bulkCreateGenes({
-      genes: genesToAdd,
-      skip_duplicates: skipDuplicates.value
-    })
-
-    logger.info('Bulk genes added', {
-      created: result.total_created,
-      skipped: result.total_skipped,
-      failed: result.total_errors
-    })
-
-    // If scopeId is provided and genes were created, assign them to the scope
-    if (props.scopeId && result.created_genes && result.created_genes.length > 0) {
-      try {
-        const geneIds = result.created_genes.map(g => g.id)
-        await assignmentsAPI.bulkAssignGenes({
-          gene_ids: geneIds,
-          scope_id: props.scopeId,
-          assigned_curator_id: null // Unassigned
-        })
-        logger.info('Bulk genes assigned to scope', {
-          gene_count: geneIds.length,
-          scope_id: props.scopeId
-        })
-        notificationStore.addToast(
-          `Added and assigned ${result.total_created} genes (${result.total_skipped} skipped, ${result.total_errors} failed)`,
-          result.total_errors > 0 ? 'warning' : 'success'
-        )
-      } catch (assignError) {
-        logger.warn('Genes added but scope assignment failed', {
-          gene_count: result.created_genes.length,
-          scope_id: props.scopeId,
-          error: assignError.message
-        })
-        notificationStore.addToast(
-          `Added ${result.total_created} genes but scope assignment failed: ${assignError.response?.data?.detail || assignError.message}`,
-          'warning'
-        )
-      }
-    } else {
-      notificationStore.addToast(
-        `Added ${result.total_created} genes (${result.total_skipped} skipped, ${result.total_errors} failed)`,
-        result.total_errors > 0 ? 'warning' : 'success'
-      )
     }
   }
 

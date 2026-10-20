@@ -1,6 +1,6 @@
 <template>
   <ErrorBoundary>
-    <v-form ref="formRef" @submit.prevent="handleSubmit">
+    <v-form @submit.prevent="handleSubmit">
       <v-card>
         <!-- Header with Status -->
         <v-card-title class="d-flex align-center bg-primary">
@@ -228,7 +228,7 @@
   </ErrorBoundary>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * PrecurationForm Component
    *
@@ -257,15 +257,20 @@
    * />
    */
 
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, watch, onMounted, onBeforeUnmount, type Ref } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
-  import { precurationsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useOptimisticLocking } from '@/composables/useOptimisticLocking'
   import { useSessionTimeout } from '@/composables/useSessionTimeout'
+  import type { ComponentLogger } from './types'
+  import {
+    usePrecurationPersistence,
+    type PrecurationFormData,
+    type PrecurationRecord
+  } from './usePrecurationPersistence'
 
   // Import all shared components
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
@@ -276,41 +281,38 @@
   import ConflictResolutionDialog from '@/components/ConflictResolutionDialog.vue'
   import SessionTimeoutWarning from '@/components/SessionTimeoutWarning.vue'
 
-  const props = defineProps({
-    /**
-     * Precuration ID for editing existing precuration
-     */
-    precurationId: {
-      type: String,
-      default: null
-    },
-    /**
-     * Pre-fill gene ID
-     */
-    geneId: {
-      type: String,
-      default: null
-    },
-    /**
-     * Pre-fill scope ID
-     */
-    scopeId: {
-      type: String,
-      default: null
-    }
-  })
+  interface ScopeOption {
+    id: string
+    display_name: string
+  }
 
-  const emit = defineEmits(['success', 'cancel'])
+  const props = withDefaults(
+    defineProps<{
+      /** Precuration ID for editing existing precuration */
+      precurationId?: string | null
+      /** Pre-fill gene ID */
+      geneId?: string | null
+      /** Pre-fill scope ID */
+      scopeId?: string | null
+    }>(),
+    {
+      precurationId: null,
+      geneId: null,
+      scopeId: null
+    }
+  )
+
+  const emit = defineEmits<{
+    success: [result: PrecurationRecord]
+    cancel: []
+  }>()
 
   const router = useRouter()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const scopesStore = useScopesStore()
 
-  // Form reference
-  const formRef = ref(null)
-
   // Form data
-  const formData = ref({
+  const formData = ref<PrecurationFormData>({
     gene_symbol: '',
     scope_id: props.scopeId || '',
     hpo_terms: [],
@@ -322,38 +324,31 @@
 
   // Form state
   const isDraft = ref(true)
-  const savingDraft = ref(false)
-  const submitting = ref(false)
-  const loading = ref(false)
 
   // Available scopes
-  const availableScopes = computed(() => scopesStore.scopes || [])
+  const availableScopes = computed(() => (scopesStore.scopes || []) as ScopeOption[])
 
   // Form validation
   const isFormValid = computed(() => {
-    return (
+    return Boolean(
       formData.value.gene_symbol &&
-      formData.value.scope_id &&
-      formData.value.hpo_terms.length > 0 &&
-      formData.value.rationale &&
-      formData.value.pmids.length > 0
+        formData.value.scope_id &&
+        formData.value.hpo_terms.length > 0 &&
+        formData.value.rationale &&
+        formData.value.pmids.length > 0
     )
   })
 
   // === Infrastructure Integration ===
 
   // 1. Form Recovery
-  const {
-    showRecoveryDialog,
-    recoveryData,
-    lastSaved,
-    restoreRecovery,
-    discardRecovery,
-    clearRecovery
-  } = useFormRecovery(`precuration-${props.precurationId || 'new'}`, formData, {
+  const formRecovery = useFormRecovery(`precuration-${props.precurationId || 'new'}`, formData, {
     saveInterval: 5000, // Auto-save every 5 seconds
     maxAge: 24 * 60 * 60 * 1000 // 24 hours
   })
+  const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
+    formRecovery
+  const recoveryData = formRecovery.recoveryData as Ref<{ timestamp?: string } | null>
 
   // 2. Undo/Redo System
   const {
@@ -363,9 +358,13 @@
     undo: undoAction,
     redo: redoAction,
     clearHistory
-  } = useHistory(`precuration-${props.precurationId || 'new'}`, state => {
-    formData.value = { ...state }
-  })
+  } = useHistory(
+    `precuration-${props.precurationId || 'new'}`,
+    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
+    (state: unknown) => {
+      formData.value = { ...(state as PrecurationFormData) }
+    }
+  )
 
   // Watch form changes for undo/redo
   watch(
@@ -379,17 +378,44 @@
   )
 
   // 3. Optimistic Locking
-  const { conflictDetected, conflictData, saveWithLockCheck, resolveConflict } =
-    useOptimisticLocking()
+  const lockingState = useOptimisticLocking()
+  const { conflictDetected, saveWithLockCheck, resolveConflict } = lockingState
+  const conflictData = lockingState.conflictData as Ref<{
+    yourChanges?: Record<string, unknown>
+    theirChanges?: Record<string, unknown>
+  } | null>
 
   // 4. Session Timeout
+  // Pre-existing: useSessionTimeout() exposes `showWarning`, not `showTimeoutWarning`, so this stays undefined (see report)
+  // @ts-expect-error showTimeoutWarning is not returned by useSessionTimeout
   const { showTimeoutWarning, timeRemaining, extendSession } = useSessionTimeout()
+
+  // === Persistence (load / submit / draft) ===
+
+  const {
+    submitting,
+    savingDraft,
+    loadPrecuration,
+    handleSubmit,
+    handleSaveDraft,
+    handleConflictResolution: applyConflictResolution
+  } = usePrecurationPersistence({
+    precurationId: () => props.precurationId,
+    isFormValid: () => isFormValid.value,
+    formData,
+    isDraft,
+    saveWithLockCheck,
+    clearRecovery,
+    clearHistory,
+    onSuccess: result => emit('success', result)
+  })
 
   // === Lifecycle ===
 
   onMounted(async () => {
     // Load scopes if not already loaded
     if (!scopesStore.scopes || scopesStore.scopes.length === 0) {
+      // @ts-expect-error pre-existing: the scopes store has no fetchScopes action (see report)
       await scopesStore.fetchScopes()
     }
 
@@ -399,136 +425,7 @@
     }
   })
 
-  onBeforeUnmount(() => {
-    // Cleanup
-  })
-
   // === Methods ===
-
-  /**
-   * Load existing precuration for editing
-   */
-  async function loadPrecuration() {
-    loading.value = true
-    try {
-      const precuration = await precurationsAPI.getPrecuration(props.precurationId)
-
-      formData.value = {
-        gene_symbol: precuration.gene_symbol || '',
-        scope_id: precuration.scope_id || '',
-        hpo_terms: precuration.evidence_data?.hpo_terms || [],
-        rationale: precuration.evidence_data?.rationale || '',
-        pmids: precuration.evidence_data?.pmids || [],
-        curator_notes: precuration.evidence_data?.curator_notes || '',
-        lock_version: precuration.lock_version || 0
-      }
-
-      isDraft.value = precuration.is_draft || false
-
-      logger.info('Precuration loaded for editing', { id: props.precurationId })
-    } catch (error) {
-      logger.error('Failed to load precuration', { error: error.message })
-      // Show error notification
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /**
-   * Handle form submission
-   */
-  async function handleSubmit() {
-    if (!isFormValid.value) {
-      logger.warn('Form validation failed')
-      return
-    }
-
-    submitting.value = true
-
-    try {
-      const payload = {
-        gene_symbol: formData.value.gene_symbol,
-        scope_id: formData.value.scope_id,
-        evidence_data: {
-          hpo_terms: formData.value.hpo_terms,
-          rationale: formData.value.rationale,
-          pmids: formData.value.pmids,
-          curator_notes: formData.value.curator_notes
-        },
-        is_draft: false,
-        lock_version: formData.value.lock_version
-      }
-
-      let result
-      if (props.precurationId) {
-        // Update with optimistic locking
-        result = await saveWithLockCheck(
-          data => precurationsAPI.updatePrecuration(props.precurationId, data),
-          payload,
-          formData.value.lock_version
-        )
-      } else {
-        // Create new
-        result = await precurationsAPI.createPrecuration(payload)
-      }
-
-      // Clear recovery and history on successful submit
-      clearRecovery()
-      clearHistory()
-
-      logger.info('Precuration submitted successfully', { id: result.id })
-      emit('success', result)
-
-      // Navigate to success page or list
-      router.push({ name: 'Precurations' })
-    } catch (error) {
-      if (error.response?.status !== 409) {
-        // Not a conflict - show error
-        logger.error('Failed to submit precuration', { error: error.message })
-      }
-      // Conflict (409) is handled by useOptimisticLocking
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  /**
-   * Save as draft
-   */
-  async function handleSaveDraft() {
-    savingDraft.value = true
-
-    try {
-      const payload = {
-        gene_symbol: formData.value.gene_symbol,
-        scope_id: formData.value.scope_id,
-        evidence_data: {
-          hpo_terms: formData.value.hpo_terms,
-          rationale: formData.value.rationale,
-          pmids: formData.value.pmids,
-          curator_notes: formData.value.curator_notes
-        },
-        is_draft: true,
-        lock_version: formData.value.lock_version
-      }
-
-      let result
-      if (props.precurationId) {
-        result = await precurationsAPI.saveDraft(props.precurationId, payload)
-      } else {
-        result = await precurationsAPI.createPrecuration(payload)
-      }
-
-      // Update lock version
-      formData.value.lock_version = result.lock_version
-
-      logger.info('Draft saved', { id: result.id })
-    } catch (error) {
-      logger.error('Failed to save draft', { error: error.message })
-    } finally {
-      savingDraft.value = false
-    }
-  }
 
   /**
    * Handle cancel
@@ -546,7 +443,7 @@
    * Undo last action
    */
   function undo() {
-    const previousState = undoAction()
+    const previousState = undoAction() as PrecurationFormData | null
     if (previousState) {
       formData.value = { ...previousState }
       logger.debug('Undo action', { canUndo: canUndo.value })
@@ -557,7 +454,7 @@
    * Redo last undone action
    */
   function redo() {
-    const nextState = redoAction()
+    const nextState = redoAction() as PrecurationFormData | null
     if (nextState) {
       formData.value = { ...nextState }
       logger.debug('Redo action', { canRedo: canRedo.value })
@@ -567,27 +464,16 @@
   /**
    * Handle conflict resolution
    */
-  async function handleConflictResolution(resolution) {
-    const resolved = resolveConflict(resolution)
-
-    if (resolution === 'discard-mine') {
-      // Reload their version
-      await loadPrecuration()
-    } else if (resolution === 'overwrite-theirs') {
-      // Force save with their version number + 1
-      formData.value.lock_version = resolved.theirVersion
-      await handleSubmit()
-    } else if (resolution === 'merge') {
-      // Show merge UI (future enhancement)
-      logger.info('Manual merge initiated')
-    }
+  async function handleConflictResolution(resolution: string) {
+    const resolved = resolveConflict(resolution) as { theirVersion: number }
+    await applyConflictResolution(resolution, resolved.theirVersion)
   }
 
   /**
    * Format time ago (e.g., "2 minutes ago")
    */
-  function formatTimeAgo(timestamp) {
-    const seconds = Math.floor((Date.now() - new Date(timestamp)) / 1000)
+  function formatTimeAgo(timestamp: string | number): string {
+    const seconds = Math.floor((Date.now() - new Date(timestamp).getTime()) / 1000)
 
     if (seconds < 60) return `${seconds} seconds ago`
     const minutes = Math.floor(seconds / 60)
@@ -597,7 +483,7 @@
   }
 
   // === Keyboard Shortcuts ===
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     const ctrl = event.ctrlKey || event.metaKey
 
     // Ctrl+S: Save Draft

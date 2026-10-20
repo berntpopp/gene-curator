@@ -19,6 +19,24 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import SchemaDrivenCurationForm from '../SchemaDrivenCurationForm.vue'
 
+/** Bindings of <script setup> read through wrapper.vm in these tests. */
+interface SchemaDrivenCurationFormVm {
+  isDraft: boolean
+  isValid: boolean
+  evidenceData: Record<string, unknown>
+  handleKeydown(event: KeyboardEvent): void
+  handleSaveDraft(): void
+  handleSubmit(): void
+  handleCancel(): void
+  handleValidationChange(result: { is_valid?: boolean }): void
+  handleEvidenceChange(data: Record<string, unknown>): void
+  formatRelativeTime(timestamp: string | null): string
+}
+
+function internals(wrapper: { vm: unknown }): SchemaDrivenCurationFormVm {
+  return wrapper.vm as SchemaDrivenCurationFormVm
+}
+
 // Mock composables
 vi.mock('@/composables/useLogger', () => ({
   useLogger: () => ({
@@ -172,7 +190,7 @@ describe('SchemaDrivenCurationForm', () => {
       })
 
       // isDraft is true by default
-      expect(wrapper.vm.isDraft).toBe(true)
+      expect(internals(wrapper).isDraft).toBe(true)
     })
   })
 
@@ -242,7 +260,7 @@ describe('SchemaDrivenCurationForm', () => {
         }
       })
 
-      expect(typeof wrapper.vm.handleKeydown).toBe('function')
+      expect(typeof internals(wrapper).handleKeydown).toBe('function')
     })
   })
 
@@ -265,7 +283,7 @@ describe('SchemaDrivenCurationForm', () => {
         }
       })
 
-      expect(typeof wrapper.vm.handleSaveDraft).toBe('function')
+      expect(typeof internals(wrapper).handleSaveDraft).toBe('function')
     })
 
     it('should have handleSubmit method', () => {
@@ -286,7 +304,7 @@ describe('SchemaDrivenCurationForm', () => {
         }
       })
 
-      expect(typeof wrapper.vm.handleSubmit).toBe('function')
+      expect(typeof internals(wrapper).handleSubmit).toBe('function')
     })
 
     it('should have handleCancel method', () => {
@@ -307,7 +325,7 @@ describe('SchemaDrivenCurationForm', () => {
         }
       })
 
-      expect(typeof wrapper.vm.handleCancel).toBe('function')
+      expect(typeof internals(wrapper).handleCancel).toBe('function')
     })
   })
 
@@ -331,15 +349,15 @@ describe('SchemaDrivenCurationForm', () => {
       })
 
       // Initial state should be valid
-      expect(wrapper.vm.isValid).toBe(true)
+      expect(internals(wrapper).isValid).toBe(true)
 
       // Call handleValidationChange with invalid result
-      wrapper.vm.handleValidationChange({ is_valid: false })
-      expect(wrapper.vm.isValid).toBe(false)
+      internals(wrapper).handleValidationChange({ is_valid: false })
+      expect(internals(wrapper).isValid).toBe(false)
 
       // Call handleValidationChange with valid result
-      wrapper.vm.handleValidationChange({ is_valid: true })
-      expect(wrapper.vm.isValid).toBe(true)
+      internals(wrapper).handleValidationChange({ is_valid: true })
+      expect(internals(wrapper).isValid).toBe(true)
     })
   })
 
@@ -363,9 +381,9 @@ describe('SchemaDrivenCurationForm', () => {
       })
 
       const newData = { field1: 'value1', field2: 'value2' }
-      wrapper.vm.handleEvidenceChange(newData)
+      internals(wrapper).handleEvidenceChange(newData)
 
-      expect(wrapper.vm.evidenceData).toEqual(newData)
+      expect(internals(wrapper).evidenceData).toEqual(newData)
     })
   })
 
@@ -390,10 +408,10 @@ describe('SchemaDrivenCurationForm', () => {
 
       // Test "just now"
       const now = new Date().toISOString()
-      expect(wrapper.vm.formatRelativeTime(now)).toBe('just now')
+      expect(internals(wrapper).formatRelativeTime(now)).toBe('just now')
 
       // Test null input
-      expect(wrapper.vm.formatRelativeTime(null)).toBe('')
+      expect(internals(wrapper).formatRelativeTime(null)).toBe('')
     })
   })
 })
