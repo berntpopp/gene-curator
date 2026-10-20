@@ -33,7 +33,6 @@
 
 <script setup lang="ts">
   import { ref, watch, onMounted, onUnmounted } from 'vue'
-  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { snackbarState } from '@/composables/useNotifications'
@@ -51,7 +50,6 @@
     info(message: string, data?: unknown): void
   }
   const logger = useLogger() as ScopedLogger
-  const authStore = useAuthStore()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
 
@@ -90,9 +88,7 @@
   onMounted(async () => {
     logger.info('App component mounted, initializing stores')
 
-    // Initialize authentication state on app startup
-    await authStore.initialize()
-
+    // Auth is bootstrapped by the router guard (single /auth/me request)
     // Initialize disclaimer store
     disclaimerStore.initialize()
 

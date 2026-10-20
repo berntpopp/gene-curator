@@ -4,9 +4,11 @@
  * @see src/components/AppBar.vue
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import AppBar from '../AppBar.vue'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -34,9 +36,12 @@ vi.mock('vuetify', async importOriginal => ({
 
 let wrapper: VueWrapper | undefined
 
+let pinia = createPinia()
+
 function mountAppBar() {
   wrapper = mount(AppBar, {
     global: {
+      plugins: [pinia],
       stubs: { VAppBar: passthrough, RouterLink: RouterLinkStub }
     }
   })
@@ -44,6 +49,11 @@ function mountAppBar() {
 }
 
 describe('AppBar', () => {
+  beforeEach(() => {
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
@@ -102,5 +112,15 @@ describe('AppBar', () => {
 
     expect(toggle?.attributes('aria-label')).toBe('Switch to light theme')
     expect(toggle?.html()).toContain('mdi-white-balance-sunny')
+  })
+
+  it('hides navigation and user menu while a stored token has no user loaded yet', () => {
+    const auth = useAuthStore()
+    auth.token = 't'
+    auth.user = null
+    mountAppBar()
+
+    expect(wrapper?.find('nav').exists()).toBe(false)
+    expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
   })
 })

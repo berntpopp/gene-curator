@@ -23,7 +23,8 @@
     <v-spacer />
 
     <!-- Main Navigation -->
-    <MainNavigation />
+    <!-- While a stored token is still being verified, show neither guest nor user nav -->
+    <MainNavigation v-if="authReady" />
 
     <!-- Theme Toggle -->
     <v-tooltip v-if="mdAndUp" :text="themeLabel" location="bottom">
@@ -35,7 +36,7 @@
     </v-tooltip>
 
     <!-- User Menu -->
-    <UserMenu v-if="mdAndUp" />
+    <UserMenu v-if="mdAndUp && authReady" />
   </v-app-bar>
 </template>
 
@@ -65,6 +66,7 @@
 
   import { ref, computed } from 'vue'
   import { useDisplay, useTheme } from 'vuetify'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
@@ -72,6 +74,8 @@
   const logger = useLogger()
   const theme = useTheme()
   const { mdAndUp } = useDisplay()
+  const authStore = useAuthStore()
+  const authReady = computed(() => !authStore.token || !!authStore.user)
 
   // Version info
   const version = ref('0.3.0')

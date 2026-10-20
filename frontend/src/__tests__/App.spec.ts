@@ -67,7 +67,7 @@ describe('App', () => {
     const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
 
-    expect(authInitialize).toHaveBeenCalledTimes(1)
+    expect(authInitialize).not.toHaveBeenCalled()
     expect(disclaimer.initialize).toHaveBeenCalledTimes(1)
     wrapper.unmount()
   })
