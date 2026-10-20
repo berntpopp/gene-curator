@@ -103,6 +103,19 @@ export const useAssignmentsStore = defineStore('assignments', {
       }
     },
 
+    async fetchAssignmentById(assignmentId: string) {
+      this.loading = true
+      this.error = null
+      try {
+        return await assignmentsAPI.getAssignment(assignmentId)
+      } catch (error) {
+        this.error = toApiError(error).message ?? null
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
     async createAssignment(assignmentData: Schema<'GeneScopeAssignmentCreate'>) {
       this.loading = true
       this.error = null

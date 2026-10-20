@@ -15,7 +15,8 @@ vi.mock('@/api', () => ({
     getAvailableGenesForScope: vi.fn(),
     getScopeAssignmentOverview: vi.fn(),
     updateAssignment: vi.fn(),
-    createAssignment: vi.fn()
+    createAssignment: vi.fn(),
+    getAssignment: vi.fn()
   }
 }))
 
@@ -104,6 +105,26 @@ describe('useAssignmentsStore', () => {
       await expect(store.fetchAssignments()).rejects.toThrow('Network error')
       expect(store.error).toBe('Network error')
       expect(store.loading).toBe(false)
+    })
+  })
+
+  describe('fetchAssignmentById', () => {
+    it('returns the assignment with details', async () => {
+      const detail = { id: 'a1' } as Schema<'GeneScopeAssignmentWithDetails'>
+      api.getAssignment.mockResolvedValue(detail)
+      const store = useAssignmentsStore()
+
+      await expect(store.fetchAssignmentById('a1')).resolves.toBe(detail)
+      expect(api.getAssignment).toHaveBeenCalledWith('a1')
+      expect(store.loading).toBe(false)
+    })
+
+    it('records the error and rethrows on failure', async () => {
+      api.getAssignment.mockRejectedValue(new Error('gone'))
+      const store = useAssignmentsStore()
+
+      await expect(store.fetchAssignmentById('a1')).rejects.toThrow('gone')
+      expect(store.error).toBe('gone')
     })
   })
 

@@ -17,6 +17,16 @@ export const assignmentsAPI = {
   },
 
   /**
+   * Get one assignment with gene, scope and curator details
+   */
+  async getAssignment(assignmentId: string): Promise<Schema<'GeneScopeAssignmentWithDetails'>> {
+    const response = await apiClient.get<Schema<'GeneScopeAssignmentWithDetails'>>(
+      `/gene-assignments/${assignmentId}`
+    )
+    return response.data
+  },
+
+  /**
    * Create a single gene assignment
    */
   async createAssignment(

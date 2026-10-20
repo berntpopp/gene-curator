@@ -336,6 +336,12 @@ export const identityRows: Row[] = [
     args: ['/gene-assignments', { params: { scope: 's' } }]
   },
   {
+    name: 'assignments.getAssignment',
+    run: () => assignmentsAPI.getAssignment('a1'),
+    method: 'get',
+    args: ['/gene-assignments/a1']
+  },
+  {
     name: 'assignments.createAssignment',
     run: () => assignmentsAPI.createAssignment({ gene_id: 'g' } as never),
     method: 'post',
