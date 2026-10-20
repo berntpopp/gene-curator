@@ -10,7 +10,40 @@ declare module 'axios' {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8051'
+
+/** Credential endpoints: a 401 here is the real answer (wrong password), never an expired session. */
+const NO_REFRESH_URL = /^\/?auth\/(login|register|refresh)\b/
+
+/** Shared in-flight refresh so concurrent 401s trigger one /auth/refresh (tokens rotate). */
+let refreshInFlight: Promise<string> | null = null
+
+function refreshTokens(refreshToken: string): Promise<string> {
+  refreshInFlight ??= axios
+    .post<Schema<'Token'>>(`${API_BASE_URL}/api/v1/auth/refresh`, { refresh_token: refreshToken })
+    .then(({ data }) => {
+      localStorage.setItem('access_token', data.access_token)
+      localStorage.setItem('refresh_token', data.refresh_token)
+      return data.access_token
+    })
+    .finally(() => {
+      refreshInFlight = null
+    })
+  return refreshInFlight
+}
+
+/** Clear the shared correlation id only if no newer request has replaced it. */
+function clearCorrelationIdFor(requestId: unknown): void {
+  if (logService.correlationId === requestId) logService.clearCorrelationId()
+}
+
+/** The only fields worth logging from an error body (it may echo user input). */
+function errorDetail(data: unknown): string | undefined {
+  const detail = (data as { detail?: unknown } | null | undefined)?.detail
+  if (typeof detail === 'string') return detail
+  const first = Array.isArray(detail) ? (detail[0] as { msg?: unknown } | undefined)?.msg : undefined
+  return typeof first === 'string' ? first : undefined
+}
 
 // Create axios instance
 const apiClient = axios.create({
@@ -70,8 +103,7 @@ apiClient.interceptors.response.use(
       duration
     )
 
-    // Clear correlation ID after successful response
-    logService.clearCorrelationId()
+    clearCorrelationIdFor(response.config.headers['X-Request-ID'])
 
     return response
   },
@@ -86,7 +118,11 @@ apiClient.interceptors.response.use(
     const status = error.response?.status || 0
 
     // Handle 401 (Unauthorized) - attempt token refresh
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !NO_REFRESH_URL.test(originalRequest.url ?? '')
+    ) {
       originalRequest._retry = true
 
       try {
@@ -94,15 +130,7 @@ apiClient.interceptors.response.use(
         if (refreshToken) {
           logService.debug('Attempting token refresh', { originalUrl: originalRequest.url })
 
-          const response = await axios.post<Schema<'Token'>>(
-            `${API_BASE_URL}/api/v1/auth/refresh`,
-            {
-              refresh_token: refreshToken
-            }
-          )
-
-          const { access_token } = response.data
-          localStorage.setItem('access_token', access_token)
+          const access_token = await refreshTokens(refreshToken)
 
           logService.info('Token refreshed successfully')
 
@@ -120,8 +148,7 @@ apiClient.interceptors.response.use(
         localStorage.removeItem('refresh_token')
         window.location.href = '/login'
 
-        // Clear correlation ID before rejecting
-        logService.clearCorrelationId()
+        clearCorrelationIdFor(originalRequest.headers['X-Request-ID'])
 
         return Promise.reject(refreshError)
       }
@@ -141,11 +168,10 @@ apiClient.interceptors.response.use(
       url: error.config?.url,
       status,
       error: error.message,
-      response: error.response?.data
+      detail: errorDetail(error.response?.data)
     })
 
-    // Clear correlation ID after error
-    logService.clearCorrelationId()
+    clearCorrelationIdFor(originalRequest?.headers?.['X-Request-ID'])
 
     return Promise.reject(error)
   }

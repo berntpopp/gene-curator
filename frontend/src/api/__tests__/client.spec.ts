@@ -3,17 +3,23 @@ import axios, { AxiosError, type AxiosResponse, type InternalAxiosRequestConfig 
 import apiClient from '../client'
 import { logService } from '@/services/logService'
 
-vi.mock('@/services/logService', () => ({
-  logService: {
+vi.mock('@/services/logService', () => {
+  const logService = {
+    correlationId: null as string | null,
     debug: vi.fn(),
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
     logApiCall: vi.fn(),
-    setCorrelationId: vi.fn(),
-    clearCorrelationId: vi.fn()
+    setCorrelationId: vi.fn((id: string) => {
+      logService.correlationId = id
+    }),
+    clearCorrelationId: vi.fn(() => {
+      logService.correlationId = null
+    })
   }
-}))
+  return { logService }
+})
 
 type Handler = (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>
 
@@ -91,7 +97,7 @@ describe('api client', () => {
     localStorage.setItem('refresh_token', 'refresh-1')
     const refreshSpy = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { access_token: 'fresh' } } as AxiosResponse)
+      .mockResolvedValue({ data: { access_token: 'fresh', refresh_token: 'refresh-2' } } as AxiosResponse)
     const seen: string[] = []
     handler = config => {
       const auth = String(config.headers.Authorization)
@@ -108,6 +114,7 @@ describe('api client', () => {
       refresh_token: 'refresh-1'
     })
     expect(localStorage.getItem('access_token')).toBe('fresh')
+    expect(localStorage.getItem('refresh_token')).toBe('refresh-2')
     expect(logService.info).toHaveBeenCalledWith('Token refreshed successfully')
   })
 
@@ -116,7 +123,7 @@ describe('api client', () => {
     localStorage.setItem('refresh_token', 'refresh-1')
     const refreshSpy = vi
       .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { access_token: 'fresh' } } as AxiosResponse)
+      .mockResolvedValue({ data: { access_token: 'fresh', refresh_token: 'refresh-2' } } as AxiosResponse)
     handler = config => fail(config, 401)
 
     await expect(apiClient.get('/curations/')).rejects.toMatchObject({
@@ -169,5 +176,77 @@ describe('api client', () => {
       expect.objectContaining({ method: 'post', url: '/genes', status: 500 })
     )
     expect(logService.clearCorrelationId).toHaveBeenCalled()
+  })
+
+  it('shares one refresh between concurrent 401s and retries each request', async () => {
+    localStorage.setItem('access_token', 'expired')
+    localStorage.setItem('refresh_token', 'refresh-1')
+    const refreshSpy = vi.spyOn(axios, 'post').mockResolvedValue({
+      data: { access_token: 'fresh', refresh_token: 'refresh-2' }
+    } as AxiosResponse)
+    handler = config =>
+      config.headers.Authorization === 'Bearer fresh' ? ok(config, {}) : fail(config, 401)
+
+    const results = await Promise.all([
+      apiClient.get('/genes/'),
+      apiClient.get('/curations/'),
+      apiClient.get('/scopes/')
+    ])
+
+    expect(results).toHaveLength(3)
+    expect(refreshSpy).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem('refresh_token')).toBe('refresh-2')
+  })
+
+  it.each(['/auth/login', '/auth/register'])(
+    'surfaces a 401 from %s without refreshing or redirecting',
+    async url => {
+      localStorage.setItem('refresh_token', 'refresh-1')
+      const refreshSpy = vi.spyOn(axios, 'post')
+      handler = config => fail(config, 401)
+
+      await expect(apiClient.post(url, {})).rejects.toMatchObject({ response: { status: 401 } })
+
+      expect(refreshSpy).not.toHaveBeenCalled()
+      expect(window.location.href).toBe('http://localhost/current')
+    }
+  )
+
+  it('logs only the status and detail of an error, never the response body', async () => {
+    handler = config =>
+      Promise.reject(
+        new AxiosError('bad', 'ERR_BAD_REQUEST', config, null, {
+          data: { detail: [{ msg: 'field required' }], input: { email: 'ada@example.org' } },
+          status: 422,
+          statusText: '',
+          headers: {},
+          config
+        })
+      )
+
+    await expect(apiClient.post('/genes/', {})).rejects.toBeDefined()
+
+    const [, fields] = vi.mocked(logService.error).mock.calls[0]
+    expect(fields).toMatchObject({ status: 422, detail: 'field required' })
+    expect(JSON.stringify(fields)).not.toContain('ada@example.org')
+  })
+
+  it('keeps the correlation id of a newer in-flight request when an older one finishes', async () => {
+    const pending: Array<() => void> = []
+    handler = config =>
+      new Promise(resolve => {
+        pending.push(() => resolve({ data: {}, status: 200, statusText: 'OK', headers: {}, config }))
+      })
+
+    const first = apiClient.get('/genes/')
+    const second = apiClient.get('/curations/')
+    await vi.waitFor(() => expect(pending).toHaveLength(2))
+    pending[0]()
+    await first
+    expect(logService.clearCorrelationId).not.toHaveBeenCalled()
+
+    pending[1]()
+    await second
+    expect(logService.clearCorrelationId).toHaveBeenCalledTimes(1)
   })
 })

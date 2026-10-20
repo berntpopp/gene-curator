@@ -11,47 +11,43 @@
  */
 
 /**
- * Sensitive keys that should be redacted from logs
- * These patterns are checked against object keys (case-insensitive)
+ * Sensitive keys, compared against the lowercased key with `_`/`-` removed.
+ * Suffix match catches `accessToken`/`user_email`; exact-only keys are too common as word
+ * endings (`sortKey`, `monkey`, `userInput`) to match by suffix.
  */
-const SENSITIVE_KEYS: readonly string[] = [
-  // Authentication and security
+const SENSITIVE_KEY_SUFFIXES: readonly string[] = [
   'token',
-  'accesstoken',
-  'authtoken',
   'jwt',
   'password',
   'passwd',
-  'pwd',
-  'key',
   'apikey',
-  'api_key',
   'secretkey',
-  'secret_key',
   'privatekey',
-  'private_key',
   'secret',
-  'apisecret',
-  'api_secret',
   'authorization',
-  'bearer',
   'credential',
   'credentials',
-
-  // User identifiers (privacy protection)
+  'cookie',
+  'session',
+  'sessionid',
+  'csrf',
   'email',
   'emailaddress',
   'phone',
   'phonenumber',
-
-  // Genetic data (privacy protection)
   'variant',
   'variants',
   'mutation',
   'mutations',
   'hgvs',
-  'hgvs_notation'
+  'hgvsnotation'
 ]
+const SENSITIVE_KEYS_EXACT: ReadonlySet<string> = new Set(['key', 'pwd', 'bearer', 'input', 'otp'])
+
+function isSensitiveKey(key: string): boolean {
+  const k = key.toLowerCase().replace(/[_-]/g, '')
+  return SENSITIVE_KEYS_EXACT.has(k) || SENSITIVE_KEY_SUFFIXES.some(suffix => k.endsWith(suffix))
+}
 
 /**
  * Regex patterns for sensitive values
@@ -82,9 +78,12 @@ const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string 
   { pattern: /\bchrX:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' },
   { pattern: /\bchrY:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' },
 
-  // JWT token patterns (three base64 segments separated by dots)
+  // Authorization header values
+  { pattern: /\bBearer\s+\S+/gi, replacement: '[REDACTED_TOKEN]' },
+
+  // JWT token patterns (three base64url segments, header always starts with eyJ)
   {
-    pattern: /\b[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/g,
+    pattern: /\beyJ[A-Za-z0-9-_]*\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*/g,
     replacement: '[REDACTED_TOKEN]'
   },
 
@@ -94,9 +93,9 @@ const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string 
     replacement: '[REDACTED_KEY]'
   },
 
-  // Phone patterns (international formats)
+  // Phone patterns: a standalone run of 10+ digits/separators (not inside UUIDs or ids)
   {
-    pattern: /\b(?:\+?[1-9]\d{0,2}[\s.-]?)?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}\b/g,
+    pattern: /(?<![\w-])\+?\d[\d\s().-]{8,}\d(?![\w-])/g,
     replacement: '[REDACTED_PHONE]'
   }
 ]
@@ -107,7 +106,7 @@ const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string 
  * This dramatically improves performance for clean strings
  */
 // No `g` flag: with `g`, .test() keeps lastIndex between calls and skips redaction on later strings
-const QUICK_CHECK_PATTERN = /[@.:+-]/
+const QUICK_CHECK_PATTERN = /[@.:+-]|bearer/i
 
 /**
  * Sanitizes an object for logging by redacting sensitive information
@@ -140,6 +139,11 @@ export function sanitizeForLogging(obj: unknown, maxDepth = 5): unknown {
     return sanitizeValue(obj)
   }
 
+  // Error fields are non-enumerable and stacks leak paths: keep only name and message
+  if (obj instanceof Error) {
+    return { name: obj.name, message: sanitizeString(obj.message) }
+  }
+
   // Handle arrays
   if (Array.isArray(obj)) {
     // Limit array size for performance (process max 100 items)
@@ -150,14 +154,7 @@ export function sanitizeForLogging(obj: unknown, maxDepth = 5): unknown {
   const sanitized: Record<string, unknown> = {}
 
   for (const [key, value] of Object.entries(obj)) {
-    const lowerKey = key.toLowerCase().replace(/[_-]/g, '')
-
-    // Check if key matches any sensitive key pattern
-    const isSensitiveKey = SENSITIVE_KEYS.some(sensitiveKey =>
-      lowerKey.includes(sensitiveKey.toLowerCase().replace(/[_-]/g, ''))
-    )
-
-    if (isSensitiveKey) {
+    if (isSensitiveKey(key)) {
       // Redact entire value if key is sensitive
       sanitized[key] = '[REDACTED_SENSITIVE]'
     } else if (typeof value === 'object' && value !== null) {
@@ -231,72 +228,4 @@ export function sanitizeLogEntry(
     message: sanitizeString(message || ''),
     data: data ? sanitizeForLogging(data) : null
   }
-}
-
-/**
- * Quick check to determine if a value contains potentially sensitive data
- *
- * Used for performance optimization - can skip sanitization if false.
- *
- * @param value - Value to check
- * @returns True if value might contain sensitive data
- *
- * @example
- * containsSensitiveData({ password: 'secret' }) // => true
- * containsSensitiveData({ name: 'John' }) // => false
- */
-export function containsSensitiveData(value: unknown): boolean {
-  if (!value) return false
-
-  const str = typeof value === 'string' ? value : JSON.stringify(value)
-  const lowerStr = str.toLowerCase()
-
-  // Quick check for common sensitive patterns
-  const quickPatterns = ['password', 'token', 'email', 'phone', 'variant', 'mutation', 'hgvs']
-
-  return quickPatterns.some(pattern => lowerStr.includes(pattern))
-}
-
-/**
- * Test if sanitization is working correctly
- * This function is exported for testing purposes
- *
- * @returns True if all tests pass
- */
-export function testSanitization(): boolean {
-  const tests: { input: unknown; expected: unknown; description: string }[] = [
-    {
-      input: 'user@example.com',
-      expected: '[REDACTED_EMAIL]',
-      description: 'Email sanitization'
-    },
-    {
-      input: { token: 'secret123', name: 'John' },
-      expected: { token: '[REDACTED_SENSITIVE]', name: 'John' },
-      description: 'Object key sanitization'
-    },
-    {
-      input: 'normal text without sensitive data',
-      expected: 'normal text without sensitive data',
-      description: 'Clean string (quick check optimization)'
-    }
-  ]
-
-  let allPassed = true
-
-  for (const test of tests) {
-    const result =
-      typeof test.input === 'string' ? sanitizeValue(test.input) : sanitizeForLogging(test.input)
-
-    const passed = JSON.stringify(result) === JSON.stringify(test.expected)
-
-    if (!passed) {
-      console.error(`Test failed: ${test.description}`)
-      console.error('Expected:', test.expected)
-      console.error('Got:', result)
-      allPassed = false
-    }
-  }
-
-  return allPassed
 }

@@ -1,16 +1,7 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import {
-  sanitizeForLogging,
-  sanitizeLogEntry,
-  containsSensitiveData,
-  testSanitization
-} from '../logSanitizer'
+import { describe, it, expect } from 'vitest'
+import { sanitizeForLogging, sanitizeLogEntry } from '../logSanitizer'
 
 describe('logSanitizer', () => {
-  afterEach(() => {
-    vi.restoreAllMocks()
-  })
-
   describe('sanitizeForLogging', () => {
     it('redacts values under sensitive keys, ignoring case, underscores and dashes', () => {
       const result = sanitizeForLogging({
@@ -116,24 +107,51 @@ describe('logSanitizer', () => {
     })
   })
 
-  describe('containsSensitiveData', () => {
-    it('detects common sensitive keywords in strings and objects', () => {
-      expect(containsSensitiveData('my password is set')).toBe(true)
-      expect(containsSensitiveData({ token: 'x' })).toBe(true)
-      expect(containsSensitiveData({ hgvs: 'c.1A>G' })).toBe(true)
+  describe('false positives and extra secrets', () => {
+    it('redacts input, cookie, session, csrf and otp keys', () => {
+      expect(
+        sanitizeForLogging({ input: 'x', cookie: 'x', sessionId: 'x', csrfToken: 'x', otp: '123456' })
+      ).toEqual({
+        input: '[REDACTED_SENSITIVE]',
+        cookie: '[REDACTED_SENSITIVE]',
+        sessionId: '[REDACTED_SENSITIVE]',
+        csrfToken: '[REDACTED_SENSITIVE]',
+        otp: '[REDACTED_SENSITIVE]'
+      })
     })
 
-    it('returns false for empty or clean values', () => {
-      expect(containsSensitiveData(null)).toBe(false)
-      expect(containsSensitiveData('')).toBe(false)
-      expect(containsSensitiveData({ name: 'John' })).toBe(false)
+    it('does not redact keys that merely contain a sensitive word', () => {
+      expect(sanitizeForLogging({ sortKey: 'name', monkey: 'see', key: 'k' })).toEqual({
+        sortKey: 'name',
+        monkey: 'see',
+        key: '[REDACTED_SENSITIVE]'
+      })
     })
-  })
 
-  it('testSanitization reports success for its built-in cases', () => {
-    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    it('redacts Bearer credentials and real JWTs only', () => {
+      expect(sanitizeForLogging('Authorization: Bearer abc123')).toBe(
+        'Authorization: [REDACTED_TOKEN]'
+      )
+      expect(sanitizeForLogging('t=eyJhbGciOi.eyJzdWIiOiIx.sig_nature-1')).toBe(
+        't=[REDACTED_TOKEN]'
+      )
+      expect(sanitizeForLogging('see app.config.json')).toBe('see app.config.json')
+    })
 
-    expect(testSanitization()).toBe(true)
-    expect(errorSpy).not.toHaveBeenCalled()
+    it('keeps UUIDs, HGNC ids and status codes', () => {
+      expect(sanitizeForLogging('id 123e4567-e89b-12d3-a456-426614174000 ok')).toBe(
+        'id 123e4567-e89b-12d3-a456-426614174000 ok'
+      )
+      expect(sanitizeForLogging('HGNC:1100')).toBe('HGNC:1100')
+      expect(sanitizeForLogging('failed: status 500')).toBe('failed: status 500')
+      expect(sanitizeForLogging('call +49 30 1234567 now')).toBe('call [REDACTED_PHONE] now')
+    })
+
+    it('reduces Error objects to name and message', () => {
+      const err = new TypeError('bad user@example.com')
+      expect(sanitizeForLogging({ error: err })).toEqual({
+        error: { name: 'TypeError', message: 'bad [REDACTED_EMAIL]' }
+      })
+    })
   })
 })
