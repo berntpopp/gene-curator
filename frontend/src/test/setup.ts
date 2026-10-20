@@ -14,6 +14,13 @@ import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
 import { vi } from 'vitest'
+import axios from 'axios'
+
+// Tests never touch the network: unmocked requests fail fast instead of hitting localhost:8051
+axios.defaults.adapter = config =>
+  Promise.reject(
+    new Error(`Unmocked request in test: ${config.method?.toUpperCase()} ${config.url}`)
+  )
 
 // Create Vuetify instance for tests
 const vuetify = createVuetify({
@@ -24,7 +31,7 @@ const vuetify = createVuetify({
 // Configure Vue Test Utils to use Vuetify
 config.global.plugins = [vuetify]
 
-// Mock window.matchMedia (for useResponsive tests)
+// happy-dom lacks window.matchMedia, which Vuetify display utilities read
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: vi.fn().mockImplementation(query => ({

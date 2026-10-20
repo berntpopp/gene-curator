@@ -48,7 +48,7 @@ export default defineConfig({
       include: ['src/**/*.{ts,vue}'],
       exclude: ['src/test/**', '**/__tests__/**', '**/*.spec.{js,ts}', '**/*.d.ts', 'src/types/**'],
       // Ratchet floor: raise when coverage rises, never lower (target 90%, see AGENTS.md)
-      thresholds: { lines: 7, statements: 7, branches: 5, functions: 5 }
+      thresholds: { lines: 89, statements: 88, branches: 79, functions: 81 }
     }
   }
 })

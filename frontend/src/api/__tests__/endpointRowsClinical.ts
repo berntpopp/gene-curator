@@ -3,7 +3,6 @@ import { precurationsAPI } from '../precurations'
 import { externalValidationAPI } from '../externalValidation'
 import { geneCatalogueAPI } from '../geneCatalogue'
 import { geneSummaryAPI } from '../geneSummary'
-import { evidenceAPI } from '../evidence'
 import { invitationsApi } from '../invitations'
 import { notificationsAPI } from '../notifications'
 import { ontologyAPI } from '../ontology'
@@ -256,33 +255,6 @@ export const clinicalRows: Row[] = [
     run: () => geneSummaryAPI.recomputeSummary('g'),
     method: 'post',
     args: ['/genes/g/summary/recompute']
-  },
-
-  // evidence
-  {
-    name: 'evidence.getEvidenceItems',
-    run: () => evidenceAPI.getEvidenceItems('c'),
-    method: 'get',
-    args: ['/curations/c/evidence']
-  },
-  {
-    name: 'evidence.createEvidenceItem',
-    run: () => evidenceAPI.createEvidenceItem('c', { category: 'x' } as never),
-    method: 'post',
-    args: ['/curations/c/evidence', { category: 'x' }]
-  },
-  {
-    name: 'evidence.updateEvidenceItem',
-    run: () => evidenceAPI.updateEvidenceItem('c', 'i', { category: 'y' } as never),
-    method: 'put',
-    args: ['/curations/c/evidence/i', { category: 'y' }]
-  },
-  {
-    name: 'evidence.deleteEvidenceItem',
-    run: () => evidenceAPI.deleteEvidenceItem('c', 'i'),
-    method: 'delete',
-    args: ['/curations/c/evidence/i'],
-    result: undefined
   },
 
   // invitations
