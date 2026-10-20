@@ -24,6 +24,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
+from app.crud.scope_membership import is_invitation_expired
 from app.models import Scope, ScopeMembership, User, UserNew
 from app.schemas.invitation import (
     PendingInvitationResponse,
@@ -93,7 +94,7 @@ def get_my_pending_invitations(
         inviter_name,
         inviter_email,
     ) in results:
-        is_expired = membership.expires_at is not None and membership.expires_at < now
+        is_expired = is_invitation_expired(membership.expires_at, now)
 
         invitation = PendingInvitationResponse(
             id=membership.id,

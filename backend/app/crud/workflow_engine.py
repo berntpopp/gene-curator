@@ -304,6 +304,9 @@ class WorkflowEngine:
         review_type: str = "peer_review",
     ) -> PeerReviewRequest:
         """Assign a peer reviewer to an item in review stage."""
+        # Review.curation_id references curations only; precurations cannot be reviewed
+        if item_type != "curation":
+            raise ValueError("Peer review is only supported for curations")
 
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
 
@@ -311,26 +314,14 @@ class WorkflowEngine:
             raise ValueError("Item must be in review stage to assign peer reviewer")
 
         # Validate reviewer is different from creator
-        if item_type == "curation":
-            curation_result = (
-                db.execute(select(CurationNew).where(CurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if not curation_result:
-                raise ValueError("Curation not found")
-            original_creator = curation_result.created_by
-        else:
-            precuration_result = (
-                db.execute(select(PrecurationNew).where(PrecurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if not precuration_result:
-                raise ValueError("Precuration not found")
-            original_creator = precuration_result.created_by
-
-        if reviewer_id == original_creator:
+        curation_result = (
+            db.execute(select(CurationNew).where(CurationNew.id == item_id))
+            .scalars()
+            .first()
+        )
+        if not curation_result:
+            raise ValueError("Curation not found")
+        if reviewer_id == curation_result.created_by:
             raise ValueError(
                 "4-eyes principle violation: Cannot assign original creator as reviewer"
             )
@@ -410,7 +401,11 @@ class WorkflowEngine:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
 
         # Update review
-        review.status = ReviewStatus.APPROVED
+        review.status = {
+            "approve": ReviewStatus.APPROVED,
+            "request_changes": ReviewStatus.NEEDS_REVISION,
+            "reject": ReviewStatus.REJECTED,
+        }[decision]
         review.recommendation = decision
         review.comments = comments
         review.feedback_data = suggested_changes or {}
@@ -567,7 +562,7 @@ class WorkflowEngine:
         completed_reviews = (
             db.execute(
                 select(sqlalchemy_func.count()).select_from(
-                    review_stmt.where(Review.status == ReviewStatus.APPROVED).subquery()
+                    review_stmt.where(Review.status != ReviewStatus.PENDING).subquery()
                 )
             ).scalar()
             or 0
@@ -752,6 +747,7 @@ class WorkflowEngine:
                     ScopeMembership.user_id == user.id,
                     ScopeMembership.scope_id == scope_id,
                     ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(scope_role_requirements),
                 )
                 .first()
@@ -799,6 +795,7 @@ class WorkflowEngine:
                     ScopeMembership.user_id == user.id,
                     ScopeMembership.scope_id == item.scope_id,
                     ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(eligible_scope_roles),
                 )
                 .first()
@@ -1154,14 +1151,14 @@ class WorkflowEngine:
         if pending_reviews and pending_reviews > 0:
             return False
 
-        # All completed reviews must be approved
+        # Every completed review must say approve (legacy rows: APPROVED + reject)
         rejected_reviews = db.execute(
             select(sqlalchemy_func.count()).select_from(
                 select(Review)
                 .where(
                     and_(
                         Review.curation_id == item_id,
-                        Review.status == ReviewStatus.APPROVED,
+                        Review.status != ReviewStatus.PENDING,
                         Review.recommendation != "approve",
                     )
                 )
@@ -1217,6 +1214,7 @@ class WorkflowEngine:
                 .filter(
                     ScopeMembership.scope_id == scope_id,
                     ScopeMembership.is_active == True,  # noqa: E712
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(eligible_scope_roles),
                 )
                 .subquery()

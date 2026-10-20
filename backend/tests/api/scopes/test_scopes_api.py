@@ -1,0 +1,359 @@
+"""API tests for /api/v1/scopes (creation, listing, detail, update, delete)."""
+
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
+
+from app.models.models import GeneScopeAssignment, Scope, ScopeMembership, UserNew
+from tests.api.scopes.factories import (
+    auth_headers,
+    make_gene,
+    make_member,
+    make_scope,
+    make_user,
+)
+
+pytestmark = pytest.mark.unit
+
+BASE = "/api/v1/scopes"
+
+
+def _create_payload(name: str | None = None) -> dict[str, object]:
+    return {
+        "name": name or f"new-scope-{uuid4().hex[:8]}",
+        "display_name": "New Scope",
+        "description": "Created in a test",
+    }
+
+
+# -----------------------------------------------------------------------------
+# Creation and creator membership (regression)
+# -----------------------------------------------------------------------------
+
+
+def test_create_scope_makes_creator_an_accepted_active_admin(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    """Regression: the creator must get an accepted admin membership at once.
+
+    Without accepted_at the membership is a pending invitation and grants no
+    access, so the creator would be locked out of their own scope.
+    """
+    response = client.post(
+        f"{BASE}/", json=_create_payload(), headers=auth_headers(owner)
+    )
+
+    assert response.status_code == 201
+    body = response.json()
+    assert body["created_by"] == str(owner.id)
+
+    membership = (
+        db_session.query(ScopeMembership)
+        .filter(
+            ScopeMembership.scope_id == body["id"],
+            ScopeMembership.user_id == owner.id,
+        )
+        .one()
+    )
+    assert membership.role == "admin"
+    assert membership.accepted_at is not None
+    assert membership.is_active is True
+
+
+def test_creator_can_use_new_scope_immediately(
+    client: TestClient, owner: UserNew
+) -> None:
+    """The creator's accepted membership must pass scope-gated endpoints."""
+    created = client.post(
+        f"{BASE}/", json=_create_payload(), headers=auth_headers(owner)
+    ).json()
+
+    members = client.get(f"{BASE}/{created['id']}/members", headers=auth_headers(owner))
+
+    assert members.status_code == 200
+    body = members.json()
+    assert body["active_count"] == 1
+    assert body["pending_count"] == 0
+    assert body["members"][0]["user_id"] == str(owner.id)
+    assert body["members"][0]["role"] == "admin"
+
+
+def test_create_scope_rejects_duplicate_name(
+    client: TestClient, owner: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.post(
+        f"{BASE}/",
+        json=_create_payload(name=scope_with_admin.name),
+        headers=auth_headers(owner),
+    )
+
+    assert response.status_code == 400
+    assert "already exists" in response.json()["detail"]
+
+
+def test_create_scope_requires_authentication(client: TestClient) -> None:
+    response = client.post(f"{BASE}/", json=_create_payload())
+
+    assert response.status_code in (401, 403)
+
+
+def test_create_scope_validates_name(client: TestClient, owner: UserNew) -> None:
+    payload = _create_payload()
+    payload["name"] = "Bad Name With Spaces"
+
+    response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
+
+    assert response.status_code == 422
+
+
+# -----------------------------------------------------------------------------
+# Listing
+# -----------------------------------------------------------------------------
+
+
+def test_list_scopes_returns_only_member_scopes_with_counts(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    scope_with_admin: Scope,
+    viewer: UserNew,
+) -> None:
+    other = make_scope(db_session)
+    make_member(db_session, other, viewer, "viewer")
+    gene = make_gene(db_session)
+    db_session.add(
+        GeneScopeAssignment(
+            gene_id=gene.id, scope_id=scope_with_admin.id, is_active=True
+        )
+    )
+    db_session.commit()
+
+    response = client.get(f"{BASE}/", headers=auth_headers(owner))
+
+    assert response.status_code == 200
+    ids = [item["id"] for item in response.json()]
+    assert str(scope_with_admin.id) in ids
+    assert str(other.id) not in ids
+    item = next(i for i in response.json() if i["id"] == str(scope_with_admin.id))
+    # owner (admin) and viewer are both accepted members of scope_with_admin
+    assert item["stats"] == {"total_genes": 1, "member_count": 2}
+
+
+def test_list_scopes_hides_inactive_scopes_by_default(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    inactive = make_scope(db_session, is_active=False)
+    make_member(db_session, inactive, owner, "admin")
+
+    hidden = client.get(f"{BASE}/", headers=auth_headers(owner)).json()
+    shown = client.get(
+        f"{BASE}/", params={"active_only": False}, headers=auth_headers(owner)
+    ).json()
+
+    assert str(inactive.id) not in [s["id"] for s in hidden]
+    assert str(inactive.id) in [s["id"] for s in shown]
+
+
+def test_list_scopes_application_admin_sees_all_scopes(
+    client: TestClient,
+    db_session: Session,
+    app_admin: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    response = client.get(f"{BASE}/", headers=auth_headers(app_admin))
+
+    assert response.status_code == 200
+    assert str(scope_with_admin.id) in [s["id"] for s in response.json()]
+
+
+def test_list_scopes_pagination_applies_to_member_scopes(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    for _ in range(3):
+        make_member(db_session, make_scope(db_session), owner, "viewer")
+
+    page = client.get(
+        f"{BASE}/", params={"skip": 1, "limit": 1}, headers=auth_headers(owner)
+    ).json()
+
+    assert len(page) == 1
+
+
+# -----------------------------------------------------------------------------
+# Detail
+# -----------------------------------------------------------------------------
+
+
+PG_ONLY_STATS = pytest.mark.skip(
+    reason="get_detailed_statistics uses PostgreSQL EXTRACT(); not runnable on SQLite"
+)
+
+
+@PG_ONLY_STATS
+def test_get_scope_details_for_member_includes_statistics(
+    client: TestClient, owner: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.get(f"{BASE}/{scope_with_admin.id}", headers=auth_headers(owner))
+
+    assert response.status_code == 200
+    assert response.json()["id"] == str(scope_with_admin.id)
+    assert "statistics" in response.json()
+
+
+def test_get_scope_details_unknown_scope_returns_404(
+    client: TestClient, owner: UserNew
+) -> None:
+    response = client.get(f"{BASE}/{uuid4()}", headers=auth_headers(owner))
+
+    assert response.status_code == 404
+
+
+# -----------------------------------------------------------------------------
+# Update
+# -----------------------------------------------------------------------------
+
+
+def test_update_scope_allowed_for_scope_admin(
+    client: TestClient, owner: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.patch(
+        f"{BASE}/{scope_with_admin.id}",
+        json={"display_name": "Renamed"},
+        headers=auth_headers(owner),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "Renamed"
+
+
+def test_update_scope_forbidden_for_curator(
+    client: TestClient, curator: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.patch(
+        f"{BASE}/{scope_with_admin.id}",
+        json={"display_name": "Nope"},
+        headers=auth_headers(curator),
+    )
+
+    assert response.status_code == 403
+
+
+def test_update_scope_forbidden_for_non_member(
+    client: TestClient, outsider: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.patch(
+        f"{BASE}/{scope_with_admin.id}",
+        json={"display_name": "Nope"},
+        headers=auth_headers(outsider),
+    )
+
+    assert response.status_code == 403
+
+
+def test_update_scope_allowed_for_application_admin(
+    client: TestClient, app_admin: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.patch(
+        f"{BASE}/{scope_with_admin.id}",
+        json={"description": "Changed by app admin"},
+        headers=auth_headers(app_admin),
+    )
+
+    assert response.status_code == 200
+
+
+# -----------------------------------------------------------------------------
+# Delete
+# -----------------------------------------------------------------------------
+
+
+def test_delete_scope_by_creator_without_assignments(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    scope = make_scope(db_session, created_by=owner.id)
+    make_member(db_session, scope, owner, "admin")
+
+    response = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(owner))
+
+    assert response.status_code == 204
+    assert db_session.get(Scope, scope.id) is None
+
+
+def test_delete_scope_by_non_owner_is_forbidden(
+    client: TestClient, db_session: Session, owner: UserNew, curator: UserNew
+) -> None:
+    scope = make_scope(db_session, created_by=owner.id)
+    make_member(db_session, scope, owner, "admin")
+    make_member(db_session, scope, curator, "admin")
+
+    response = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(curator))
+
+    assert response.status_code == 403
+    assert db_session.get(Scope, scope.id) is not None
+
+
+def test_delete_scope_with_assignments_requires_force(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    scope = make_scope(db_session, created_by=owner.id)
+    make_member(db_session, scope, owner, "admin")
+    gene = make_gene(db_session)
+    db_session.add(
+        GeneScopeAssignment(gene_id=gene.id, scope_id=scope.id, is_active=True)
+    )
+    db_session.commit()
+
+    refused = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(owner))
+    forced = client.delete(
+        f"{BASE}/{scope.id}", params={"force": True}, headers=auth_headers(owner)
+    )
+
+    assert refused.status_code == 400
+    assert forced.status_code == 204
+
+
+def test_delete_unknown_scope_returns_404(
+    client: TestClient, app_admin: UserNew
+) -> None:
+    response = client.delete(f"{BASE}/{uuid4()}", headers=auth_headers(app_admin))
+
+    assert response.status_code == 404
+
+
+def test_delete_scope_by_application_admin_succeeds(
+    client: TestClient, db_session: Session, app_admin: UserNew
+) -> None:
+    scope = make_scope(db_session, created_by=make_user(db_session).id)
+
+    response = client.delete(f"{BASE}/{scope.id}", headers=auth_headers(app_admin))
+
+    assert response.status_code == 204
+
+
+# -----------------------------------------------------------------------------
+# Statistics
+# -----------------------------------------------------------------------------
+
+
+def test_statistics_forbidden_for_non_member(
+    client: TestClient, outsider: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.get(
+        f"{BASE}/{scope_with_admin.id}/statistics", headers=auth_headers(outsider)
+    )
+
+    assert response.status_code == 403
+
+
+@PG_ONLY_STATS
+def test_statistics_visible_to_viewer(
+    client: TestClient, viewer: UserNew, scope_with_admin: Scope
+) -> None:
+    response = client.get(
+        f"{BASE}/{scope_with_admin.id}/statistics", headers=auth_headers(viewer)
+    )
+
+    assert response.status_code == 200
+    assert response.json()["member_count"] == 2
