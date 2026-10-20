@@ -17,8 +17,8 @@
     "test:e2e:report": "playwright show-report",
     "lint": "eslint . --fix",
     "lint:check": "eslint .",
-    "format": "prettier --write \"src/**/*.{js,ts,vue,json,css,scss,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,ts,vue,json,css,scss,md}\"",
+    "format": "prettier --write \"src/**/*.{js,ts,vue,json,css,scss,md}\" \"*.{js,ts}\"",
+    "format:check": "prettier --check \"src/**/*.{js,ts,vue,json,css,scss,md}\" \"*.{js,ts}\"",
     "test:lint": "npm run lint:check && npm run format:check && npm run typecheck",
     "typecheck": "vue-tsc --noEmit -p tsconfig.json"
   },
