@@ -46,6 +46,22 @@ describe('useSchemaScoring', () => {
       expect(totalScore.value).toBe(12)
     })
 
+    it('does not count section totals twice', () => {
+      const config = ref(clingenConfig)
+      const withTotal = ref({
+        case_level: 3,
+        segregation: 1,
+        function: 2,
+        genetic_evidence_total: 4,
+        experimental_evidence_total: 2,
+        total_score: 6
+      })
+      expect(useSchemaScoring(withTotal, config).totalScore.value).toBe(6)
+
+      const withoutTotal = ref({ ...withTotal.value, total_score: undefined })
+      expect(useSchemaScoring(withoutTotal, config).totalScore.value).toBe(6)
+    })
+
     it('includes all numeric values in summation', () => {
       const scores = ref({ category_a: 5, category_b: 3, category_c: 2 })
       const config = ref(clingenConfig)
