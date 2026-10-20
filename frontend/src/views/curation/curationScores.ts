@@ -132,5 +132,9 @@ export function computeScores(evidence: EvidenceData | null | undefined): Eviden
 }
 
 /** Classification thresholds from the SOP v11 score table. */
-export const classifyScores: (total: number, genetic: number) => string = total =>
-  classifyScore(total, false)
+export const classifyScores = (
+  total: number,
+  _genetic: number,
+  hasContradictory = false,
+  replicatedOverTime = false
+): string => classifyScore(total, hasContradictory, replicatedOverTime)

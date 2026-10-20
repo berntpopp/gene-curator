@@ -112,3 +112,10 @@ it('caps each experimental category before summing', () => {
     computeScores({ experimental_evidence: { function: { expression: [{ points: 10 }] } } }).total
   ).toBe(2)
 })
+
+describe('classifyScores flags', () => {
+  it('passes contradictory and replication through', () => {
+    expect(classifyScores(12, 12, false, true)).toBe('Definitive')
+    expect(classifyScores(12, 12, true, true)).toBe('Disputed')
+  })
+})

@@ -134,6 +134,12 @@ describe('classifyScore', () => {
     expect(classifyScore(total, false)).toBe(expected)
   })
 
+  it('returns Definitive only for Strong points with replication over time', () => {
+    expect(classifyScore(12, false, true)).toBe('Definitive')
+    expect(classifyScore(11.99, false, true)).toBe('Moderate')
+    expect(classifyScore(18, true, true)).toBe('Disputed')
+  })
+
   it('returns Disputed whenever contradictory evidence is present', () => {
     expect(classifyScore(18, true)).toBe('Disputed')
     expect(classifyScore(0, true)).toBe('Disputed')

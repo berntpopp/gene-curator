@@ -163,3 +163,37 @@ def test_draft_can_save_unscored_rows(
     )
     assert result.evidence_data == evidence
     assert result.computed_scores["total_score"] == 0
+
+
+def test_recompute_all_scores_is_idempotent(
+    db_session: Session, test_curation: CurationNew
+) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    test_curation.evidence_data = {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {
+                    "predicted_or_proven_null": [_NULL, _NULL]
+                }
+            }
+        },
+        "experimental_evidence": {},
+    }
+    test_curation.computed_verdict = None
+    test_curation.computed_scores = {"raw_scores": {}}
+    db_session.commit()
+
+    assert recompute_all_scores(db_session) >= 1
+    db_session.refresh(test_curation)
+    first = (
+        test_curation.computed_verdict,
+        test_curation.computed_scores["total_score"],
+    )
+    assert first == ("limited", 3.0)
+    recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert first == (
+        test_curation.computed_verdict,
+        test_curation.computed_scores["total_score"],
+    )

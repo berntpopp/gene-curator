@@ -132,7 +132,11 @@ class ClinGenEngine(ScoringEngine):
         )
 
         # Determine classification
-        classification = self._classify(total_score)
+        classification = self._classify(
+            total_score,
+            has_contradictory=bool(evidence_data.get("contradictory_evidence")),
+            replicated_over_time=evidence_data.get("replicated_over_time") is True,
+        )
 
         # Generate rationale
         rationale = self._generate_rationale(
@@ -924,36 +928,30 @@ class ClinGenEngine(ScoringEngine):
 
         return total, details
 
-    def _classify(self, total_score: float) -> str:
+    def _classify(
+        self,
+        total_score: float,
+        has_contradictory: bool = False,
+        replicated_over_time: bool = False,
+    ) -> str:
         """Determine classification based on total score per SOP v11 thresholds
 
         Thresholds (SOP v11):
-        - Definitive requires a separate replication-over-time assessment.
-        - Strong: ≥12 points
-        - Moderate: 7-11.99 points
-        - Limited: 0.1-6.99 points
+        - Definitive: Strong points (12-18) plus replication over time
+        - Strong: 12-18 points
+        - Moderate: 7-11 points
+        - Limited: 1-6 points (anything above 0 here)
         - No Known: 0 points
-        - Disputed: contradictory evidence (handled separately)
-        - Refuted: contradictory evidence overwhelms supporting (handled separately)
-
-        Args:
-            total_score: Combined genetic + experimental score
-
-        Returns:
-            Classification string
+        - Disputed: any contradictory evidence (matches the frontend)
         """
-        if total_score >= self.THRESHOLDS["strong"]:
-            return "strong"
-        elif total_score >= self.THRESHOLDS["moderate"]:
-            return "moderate"
-        elif total_score >= self.THRESHOLDS["limited"]:
-            return "limited"
-        elif total_score >= self.THRESHOLDS["no_known"]:
-            return "no_known"
-        elif total_score >= self.THRESHOLDS["disputed"]:
+        if has_contradictory:
             return "disputed"
-        else:
-            return "refuted"
+        if total_score >= self.THRESHOLDS["strong"]:
+            return "definitive" if replicated_over_time else "strong"
+        for label in ("moderate", "limited", "no_known", "disputed"):
+            if total_score >= self.THRESHOLDS[label]:
+                return label
+        return "refuted"
 
     def _generate_rationale(
         self,
@@ -981,10 +979,10 @@ class ClinGenEngine(ScoringEngine):
         )
 
         classification_explanations = {
-            "definitive": "Total score ≥12 points supports DEFINITIVE gene-disease relationship.",
-            "strong": "Total score 7-11.99 points supports STRONG gene-disease relationship.",
-            "moderate": "Total score 2-6.99 points supports MODERATE gene-disease relationship.",
-            "limited": "Total score 0.1-1.99 points supports LIMITED gene-disease relationship.",
+            "definitive": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship.",
+            "strong": "Total score 12-18 points supports STRONG gene-disease relationship.",
+            "moderate": "Total score 7-11 points supports MODERATE gene-disease relationship.",
+            "limited": "Total score 1-6 points supports LIMITED gene-disease relationship.",
             "no_known": "No evidence supporting a gene-disease relationship.",
             "disputed": "Conflicting or contradictory evidence present, resulting in DISPUTED classification.",
             "refuted": "Evidence refutes the gene-disease relationship.",

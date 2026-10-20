@@ -113,10 +113,14 @@ export function calculateExperimentalScore(exp: ExperimentalEvidence): Experimen
 }
 
 /** Classification from the total score; contradictory evidence overrides to "Disputed". */
-export function classifyScore(total: number, hasContradictory: boolean): string {
+export function classifyScore(
+  total: number,
+  hasContradictory: boolean,
+  replicatedOverTime = false
+): string {
   if (hasContradictory) return 'Disputed'
-  // Definitive also requires expert assessment of replication over time.
-  if (total >= 12) return 'Strong'
+  // Definitive = Strong points plus replication over time.
+  if (total >= 12) return replicatedOverTime ? 'Definitive' : 'Strong'
   if (total >= 7) return 'Moderate'
   if (total >= 0.1) return 'Limited'
   return 'No Known Disease Relationship'

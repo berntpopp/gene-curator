@@ -125,19 +125,19 @@
             <div class="d-flex flex-column ga-1 text-caption">
               <div class="d-flex justify-space-between">
                 <span><v-chip size="x-small" color="success">Definitive</v-chip></span>
-                <span>12+ points</span>
+                <span>12-18 points + replication over time</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span><v-chip size="x-small" color="info">Strong</v-chip></span>
-                <span>7-11.99 points</span>
+                <span>12-18 points</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span><v-chip size="x-small" color="warning">Moderate</v-chip></span>
-                <span>2-6.99 points</span>
+                <span>7-11 points</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span><v-chip size="x-small" color="grey">Limited</v-chip></span>
-                <span>0.1-1.99 points</span>
+                <span>1-6 points</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span
