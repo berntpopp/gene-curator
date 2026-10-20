@@ -9,6 +9,7 @@ Provides:
 """
 
 from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -141,6 +142,7 @@ def test_user_curator(db_session: Session, test_scope: Scope) -> UserNew:
         scope_id=test_scope.id,
         user_id=user.id,
         role="curator",  # Scope-specific role
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -167,6 +169,7 @@ def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
         scope_id=test_scope.id,
         user_id=user.id,
         role="viewer",  # Scope-specific role
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()

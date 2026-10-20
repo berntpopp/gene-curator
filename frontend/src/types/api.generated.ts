@@ -218,7 +218,6 @@ export interface paths {
          *     Returns scopes filtered by RLS policies:
          *     - Application admins see all scopes
          *     - Regular users see scopes they are members of
-         *     - Public scopes are visible to all (if include_public=True)
          *
          *     Args:
          *         db: Database session
@@ -226,7 +225,6 @@ export interface paths {
          *         skip: Pagination offset
          *         limit: Maximum results per page
          *         active_only: Filter for active scopes
-         *         include_public: Include public scopes in results
          *
          *     Returns:
          *         List of scopes the user has access to with counts
@@ -446,7 +444,6 @@ export interface paths {
          *         db: Database session
          *         scope_id: Scope UUID
          *         membership_id: Membership UUID
-         *         accept_data: Optional acceptance message
          *         current_user: Current user (must be invited user)
          *
          *     Returns:
@@ -5328,11 +5325,6 @@ export interface components {
          */
         GeneScopeAssignmentUpdate: {
             /**
-             * Assigned Curator Id
-             * @description Assigned curator ID
-             */
-            assigned_curator_id?: string | null;
-            /**
              * Priority Level
              * @description Assignment priority level
              */
@@ -6598,6 +6590,11 @@ export interface components {
             /** New Password */
             new_password: string;
         };
+        /** PasswordUpdate */
+        PasswordUpdate: {
+            /** New Password */
+            new_password: string;
+        };
         /**
          * PeerReviewAssignmentRequest
          * @description Request to assign peer reviewer.
@@ -7660,22 +7657,6 @@ export interface components {
             };
         };
         /**
-         * ScopeMembershipAccept
-         * @description Schema for accepting a scope membership invitation.
-         *
-         *     Simple confirmation schema - no additional data needed beyond authentication.
-         * @example {
-         *       "notes": "Excited to join the kidney genetics team!"
-         *     }
-         */
-        ScopeMembershipAccept: {
-            /**
-             * Notes
-             * @description Optional message when accepting invitation
-             */
-            notes?: string | null;
-        };
-        /**
          * ScopeMembershipCreate
          * @description Schema for creating a scope membership invitation.
          *
@@ -8129,9 +8110,10 @@ export interface components {
             name: string;
             /**
              * Role
-             * @default viewer
+             * @default user
+             * @enum {string}
              */
-            role: string;
+            role: "admin" | "user";
             /**
              * Is Active
              * @default true
@@ -8173,9 +8155,10 @@ export interface components {
             name: string;
             /**
              * Role
-             * @default viewer
+             * @default user
+             * @enum {string}
              */
-            role: string;
+            role: "admin" | "user";
             /**
              * Is Active
              * @default true
@@ -9185,8 +9168,6 @@ export interface operations {
                 limit?: number;
                 /** @description Filter for active scopes only */
                 active_only?: boolean;
-                /** @description Include public scopes */
-                include_public?: boolean;
             };
             header?: never;
             path?: never;
@@ -9457,11 +9438,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ScopeMembershipAccept"] | null;
-            };
-        };
+        requestBody?: never;
         responses: {
             /** @description Successful Response */
             200: {
@@ -12758,16 +12735,18 @@ export interface operations {
     };
     update_user_password_api_v1_users__user_id__password_put: {
         parameters: {
-            query: {
-                new_password: string;
-            };
+            query?: never;
             header?: never;
             path: {
                 user_id: string;
             };
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasswordUpdate"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

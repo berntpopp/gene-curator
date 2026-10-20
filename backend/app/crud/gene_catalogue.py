@@ -287,8 +287,8 @@ def _build_scope_curation_summary(
 
     # Extract scores from computed_scores first
     scores = curation.computed_scores or {}
-    genetic_score = scores.get("genetic_score")
-    experimental_score = scores.get("experimental_score")
+    genetic_score = scores.get("genetic_evidence_total")
+    experimental_score = scores.get("experimental_evidence_total")
     total_score = scores.get("total_score")
     classification = curation.computed_verdict
 

@@ -147,8 +147,12 @@ class CRUDGeneScopeAssignment(
         scope_id: UUID | None = None,
         curator_id: UUID | None = None,
         gene_id: UUID | None = None,
+        scope_ids: Sequence[UUID] | None = None,
+        priority: str | None = None,
+        has_curator: bool | None = None,
+        is_active: bool = True,
     ) -> Sequence[GeneScopeAssignment]:
-        """Get active assignments with related entity details."""
+        """Get assignments with details; scope_ids=None means unrestricted."""
         stmt = (
             select(GeneScopeAssignment)
             .options(
@@ -156,17 +160,27 @@ class CRUDGeneScopeAssignment(
                 joinedload(GeneScopeAssignment.scope),
                 joinedload(GeneScopeAssignment.assigned_curator),
             )
-            .where(GeneScopeAssignment.is_active)
+            .where(GeneScopeAssignment.is_active == is_active)
         )
 
         if scope_id:
             stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
+
+        if scope_ids is not None:
+            stmt = stmt.where(GeneScopeAssignment.scope_id.in_(scope_ids))
 
         if curator_id:
             stmt = stmt.where(GeneScopeAssignment.assigned_curator_id == curator_id)
 
         if gene_id:
             stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
+
+        if priority:
+            stmt = stmt.where(GeneScopeAssignment.priority == priority)
+
+        if has_curator is not None:
+            has_curator_col = GeneScopeAssignment.assigned_curator_id.is_not(None)
+            stmt = stmt.where(has_curator_col == has_curator)
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
 
