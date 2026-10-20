@@ -178,7 +178,7 @@ target scopes (warning); key renames have a migration; all tests pass.
 | Step | What | Removes | Issues |
 | --- | --- | --- | --- |
 | 0 | Fix what blocks curators today: drop the scoring trigger and store engine results on save; render `DynamicForm` from the raw schema through a normaliser; engine-name lookup; precuration transitions | trigger in `002_schema_triggers.sql`, JSON-schema stripping | #234, #227, #229, #262, #263 |
-| 1 | `methodologies` + `methodology_versions` tables (source, compiled, sha, derived_from, author, reason, status); pin curations; import **v0** from today's seeds reproducing current behaviour so no verdict changes silently | in-place `PUT` edits | #265 |
+| 1 | `methodologies` + `methodology_versions` tables (source, compiled, sha, derived_from, author, reason, status); pin curations; import **v0** from today's seeds reproducing current behaviour so no verdict changes silently | in-place `PUT` edits | #265, #284 |
 | 2 | Scoring interpreter over the IR point model (user-defined sections, categories, types, shared caps, bands, qualitative mode); publish **ClinGen GDV 1.0.0** (SOP-correct) as an audited upgrade | `scoring/clingen.py` constants, 8 duplicate calculators | #157, #266 |
 | 3 | Form interpreter: field-type registry, steps, conditions, `evidence_table`; render ClinGen from config | `components/clingen/**` (~3,100 lines), `use_dynamic_form` switch, 17 column arrays | #232, #239–#241, #245, #267 |
 | 4 | Workflow interpreter: stages, transitions, gates, effects from IR; one transaction per transition | hard-coded transition and role tables, `manage_workflow_transitions` trigger | #229, #237, #116, #268 |
@@ -195,3 +195,17 @@ Keep today's `evidence_data` paths as field keys in v0, so step 1 needs no data 
 - Applied migrations are not tracked yet (#158); land that first or alongside step 1.
 - The language must stay small. Anything that needs real code becomes a new field type or a new effect in the
   registry, reviewed like any other code.
+
+## 9. Permissions (decided 2026-10-21, #284)
+
+Rights are granular and scope-aware. Code checks **capabilities**, never role names: one dependency
+`require(capability, scope_id | resource)` replaces the scattered admin and scope-role checks. A role → capability
+matrix is data (seeded default, later editable by platform admins).
+
+- **Ownership:** methodologies, versions and workflows carry `owner_scope_id`; `null` means a global template.
+- **Platform admins** create and publish global templates and manage everything.
+- **Scope admins** derive methodologies, create workflows, publish versions and assign them, for scopes they
+  administer only (interim rule for workflow pairs in #212).
+- **Curators, reviewers, viewers** use configuration but never change it; reviewers never review their own work.
+- The same matrix drives API checks, RLS policies and what the Setup area shows; permission-relevant actions are
+  audited with actor, capability and scope.
