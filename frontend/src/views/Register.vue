@@ -10,17 +10,18 @@
               max-width="64"
               class="mx-auto mb-4"
             />
-            <h2 class="text-h4">Create Account</h2>
+            <h1 class="text-h4">Create Account</h1>
           </v-card-title>
 
           <v-card-text>
-            <v-form ref="registerForm" v-model="formValid" @submit.prevent="handleRegister">
+            <v-form ref="registerForm" @submit.prevent="handleRegister">
               <v-text-field
                 v-model="userData.name"
                 label="Full name"
                 prepend-inner-icon="mdi-account"
                 variant="outlined"
                 :rules="nameRules"
+                autocomplete="name"
                 required
                 class="mb-3"
               />
@@ -32,6 +33,7 @@
                 prepend-inner-icon="mdi-email"
                 variant="outlined"
                 :rules="emailRules"
+                autocomplete="email"
                 required
                 class="mb-3"
               />
@@ -44,6 +46,7 @@
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 variant="outlined"
                 :rules="passwordRules"
+                autocomplete="new-password"
                 required
                 class="mb-3"
                 @click:append-inner="showPassword = !showPassword"
@@ -57,6 +60,7 @@
                 :append-inner-icon="showConfirmPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 variant="outlined"
                 :rules="confirmPasswordRules"
+                autocomplete="new-password"
                 required
                 class="mb-4"
                 @click:append-inner="showConfirmPassword = !showConfirmPassword"
@@ -79,7 +83,6 @@
                 size="large"
                 block
                 :loading="authStore.loading"
-                :disabled="!formValid"
                 class="mb-4"
               >
                 Create Account
@@ -104,13 +107,14 @@
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
+  import { passwordRules } from '@/config/password'
   import { showSuccess, showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const authStore = useAuthStore()
 
   // Form state
-  const formValid = ref(false)
+  const registerForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
   const confirmPassword = ref('')
@@ -132,21 +136,14 @@
     (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
-  const passwordRules = [
-    (v: string) => !!v || 'Password is required',
-    (v: string) => v.length >= 6 || 'Password must be at least 6 characters',
-    (v: string) => /(?=.*[a-z])/.test(v) || 'Password must contain at least one lowercase letter',
-    (v: string) => /(?=.*[A-Z])/.test(v) || 'Password must contain at least one uppercase letter',
-    (v: string) => /(?=.*\d)/.test(v) || 'Password must contain at least one number'
-  ]
-
   const confirmPasswordRules = [
     (v: string) => !!v || 'Please confirm your password',
     (v: string) => v === userData.password || 'Passwords do not match'
   ]
 
   const handleRegister = async () => {
-    if (!formValid.value) return
+    const result = await registerForm.value?.validate()
+    if (result && !result.valid) return
 
     try {
       authStore.clearError()
@@ -165,7 +162,6 @@
 
 <style scoped>
   .fill-height {
-    min-height: 100vh;
     background: linear-gradient(
       135deg,
       rgb(var(--v-theme-surface)) 0%,
