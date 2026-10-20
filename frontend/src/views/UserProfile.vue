@@ -3,144 +3,43 @@
     <v-row justify="center">
       <v-col cols="12" md="10" lg="8">
         <!-- Profile Header Card -->
-        <v-card class="mb-6">
-          <v-card-title class="text-h5">
-            <v-icon start>mdi-account</v-icon>
-            User Profile
-          </v-card-title>
+        <v-card class="mb-6" :loading="loading">
           <v-card-text>
             <div class="text-center mb-6">
               <v-avatar size="100" class="mb-4">
                 <v-icon size="60">mdi-account-circle</v-icon>
               </v-avatar>
-              <h2 class="text-h4 mb-2">{{ userProfile?.name || currentUser?.email }}</h2>
-              <div class="mb-3">
-                <v-chip :color="getRoleColor(userProfile?.role)" variant="tonal" size="large">
-                  <v-icon start>{{ getRoleIcon(userProfile?.role) }}</v-icon>
-                  {{ userProfile?.role }}
-                </v-chip>
-              </div>
+              <h1 class="text-h4 mb-2">{{ userProfile?.name || currentUser?.email }}</h1>
               <div class="text-subtitle-1 text-medium-emphasis">
                 {{ userProfile?.email }}
               </div>
+              <div class="text-body-2 text-medium-emphasis">
+                Member since {{ formatDate(userProfile?.created_at) }}
+              </div>
             </div>
 
-            <v-divider class="my-6" />
-
-            <!-- Account Information -->
-            <v-row>
-              <v-col cols="12" md="6">
-                <h3 class="text-h6 mb-3">Account Information</h3>
-                <v-list>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon>mdi-email</v-icon>
-                    </template>
-                    <v-list-item-title>{{ userProfile?.email }}</v-list-item-title>
-                    <v-list-item-subtitle>Email Address</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon>mdi-account</v-icon>
-                    </template>
-                    <v-list-item-title>{{
-                      userProfile?.name || 'Not specified'
-                    }}</v-list-item-title>
-                    <v-list-item-subtitle>Full Name</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon>mdi-shield-account</v-icon>
-                    </template>
-                    <v-list-item-title>
-                      <v-chip :color="getRoleColor(userProfile?.role)" size="small">
-                        {{ userProfile?.role }}
-                      </v-chip>
-                    </v-list-item-title>
-                    <v-list-item-subtitle>Role</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon>mdi-calendar</v-icon>
-                    </template>
-                    <v-list-item-title>{{ formatDate(userProfile?.created_at) }}</v-list-item-title>
-                    <v-list-item-subtitle>Member Since</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon>mdi-login</v-icon>
-                    </template>
-                    <v-list-item-title>{{
-                      formatDate(userProfile?.last_login) || 'Never'
-                    }}</v-list-item-title>
-                    <v-list-item-subtitle>Last Login</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon :color="userProfile?.is_active ? 'success' : 'error'">
-                        {{ userProfile?.is_active ? 'mdi-check-circle' : 'mdi-close-circle' }}
-                      </v-icon>
-                    </template>
-                    <v-list-item-title>
-                      <v-chip
-                        :color="userProfile?.is_active ? 'success' : 'error'"
-                        size="small"
-                        variant="flat"
-                      >
-                        {{ userProfile?.is_active ? 'Active' : 'Inactive' }}
-                      </v-chip>
-                    </v-list-item-title>
-                    <v-list-item-subtitle>Account Status</v-list-item-subtitle>
-                  </v-list-item>
-                </v-list>
-              </v-col>
-
-              <!-- Activity Summary -->
-              <v-col v-if="userActivity" cols="12" md="6">
-                <h3 class="text-h6 mb-3">Activity Summary</h3>
-                <v-list>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon color="primary">mdi-dna</v-icon>
-                    </template>
-                    <v-list-item-title>{{ userActivity.genes_created || 0 }}</v-list-item-title>
-                    <v-list-item-subtitle>Genes Created</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon color="info">mdi-database-edit</v-icon>
-                    </template>
-                    <v-list-item-title>{{ userActivity.genes_updated || 0 }}</v-list-item-title>
-                    <v-list-item-subtitle>Genes Updated</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon color="warning">mdi-file-document</v-icon>
-                    </template>
-                    <v-list-item-title>{{ userActivity.curations_created || 0 }}</v-list-item-title>
-                    <v-list-item-subtitle>Curations Created</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item>
-                    <template #prepend>
-                      <v-icon color="success">mdi-check-circle</v-icon>
-                    </template>
-                    <v-list-item-title>{{
-                      userActivity.curations_approved || 0
-                    }}</v-list-item-title>
-                    <v-list-item-subtitle>Curations Approved</v-list-item-subtitle>
-                  </v-list-item>
-                  <v-list-item class="pt-3">
-                    <template #prepend>
-                      <v-icon color="primary">mdi-star</v-icon>
-                    </template>
-                    <v-list-item-title class="text-h6 font-weight-bold">
-                      {{ userActivity.total_contributions || 0 }}
-                    </v-list-item-title>
-                    <v-list-item-subtitle>Total Contributions</v-list-item-subtitle>
-                  </v-list-item>
-                </v-list>
-              </v-col>
-            </v-row>
+            <h2 class="text-h6 mb-3">Scopes &amp; roles</h2>
+            <v-table v-if="scopes.length" density="comfortable">
+              <thead>
+                <tr>
+                  <th scope="col">Scope</th>
+                  <th scope="col">Role</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="scope in scopes" :key="scope.id">
+                  <td>
+                    <router-link :to="{ name: 'scope-dashboard', params: { scopeId: scope.id } }">
+                      {{ scope.display_name || scope.name }}
+                    </router-link>
+                  </td>
+                  <td>{{ roleName(scope.user_role) }}</td>
+                </tr>
+              </tbody>
+            </v-table>
+            <p v-else class="text-body-2 text-medium-emphasis">
+              You are not a member of any scope yet.
+            </p>
           </v-card-text>
         </v-card>
 
@@ -159,7 +58,7 @@
                     label="Current Password"
                     type="password"
                     variant="outlined"
-                    :rules="[rules.required]"
+                    :rules="[required]"
                     autocomplete="current-password"
                   />
                 </v-col>
@@ -169,8 +68,18 @@
                     label="New Password"
                     type="password"
                     variant="outlined"
-                    :rules="[rules.required, rules.minLength]"
-                    hint="Minimum 8 characters"
+                    :rules="passwordRules"
+                    :hint="`Minimum ${PASSWORD_MIN_LENGTH} characters`"
+                    autocomplete="new-password"
+                  />
+                </v-col>
+                <v-col cols="12" md="6">
+                  <v-text-field
+                    v-model="confirmPassword"
+                    label="Confirm New Password"
+                    type="password"
+                    variant="outlined"
+                    :rules="confirmRules"
                     autocomplete="new-password"
                   />
                 </v-col>
@@ -191,19 +100,6 @@
         </v-card>
       </v-col>
     </v-row>
-
-    <!-- Loading overlay -->
-    <v-overlay v-model="loading" class="align-center justify-center">
-      <v-progress-circular color="primary" indeterminate size="64" />
-    </v-overlay>
-
-    <!-- Snackbar for messages -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="4000">
-      {{ snackbar.message }}
-      <template #actions>
-        <v-btn variant="text" @click="snackbar.show = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
   </v-container>
 </template>
 
@@ -214,17 +110,27 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useUsersStore } from '@/stores/users'
+  import { useScopesStore } from '@/stores/scopes'
+  import { showSuccess, showError } from '@/composables/useNotifications'
+  import { passwordRules, PASSWORD_MIN_LENGTH } from '@/config/password'
   import { authApi } from '@/api/auth'
   import type { Schema } from '@/types/api'
 
   const authStore = useAuthStore()
   const usersStore = useUsersStore()
+  const scopesStore = useScopesStore()
+  // The scope list response carries the caller's role, which the generated ScopeResponse omits
+  const scopes = computed(
+    () =>
+      scopesStore.userScopes as ((typeof scopesStore.userScopes)[number] & {
+        user_role?: string | null
+      })[]
+  )
   // The auth store types user as null (untyped JS state); narrow it to the generated user shape
   const currentUser = computed(() => authStore.user as Schema<'UserResponse'> | null)
 
   // Reactive state
   const userProfile = ref<Schema<'UserResponse'> | null>(null)
-  const userActivity = ref<Record<string, unknown> | null>(null)
   const loading = ref(false)
   const passwordLoading = ref(false)
   const passwordFormValid = ref(false)
@@ -239,33 +145,16 @@
     new_password: ''
   })
 
-  // Snackbar
-  const snackbar = ref({
-    show: false,
-    message: '',
-    color: 'success' as string
-  })
-
-  // Form validation rules
-  const rules = {
-    required: (value: unknown) => !!value || 'This field is required',
-    minLength: (value: string) => (value && value.length >= 8) || 'Minimum 8 characters required'
-  }
+  const confirmPassword = ref('')
+  const required = (value: unknown) => !!value || 'This field is required'
+  const confirmRules = [
+    (v: string) => !!v || 'Please confirm your password',
+    (v: string) => v === passwordData.value.new_password || 'Passwords do not match'
+  ]
 
   // Methods
-  const getRoleColor = (role: string | undefined) => {
-    const colors: Record<string, string> = { admin: 'error', curator: 'warning', viewer: 'info' }
-    return colors[role ?? ''] || 'grey'
-  }
-
-  const getRoleIcon = (role: string | undefined) => {
-    const icons: Record<string, string> = {
-      admin: 'mdi-shield-crown',
-      curator: 'mdi-pencil',
-      viewer: 'mdi-eye'
-    }
-    return icons[role ?? ''] || 'mdi-account'
-  }
+  const roleName = (role: string | null | undefined) =>
+    role ? role.charAt(0).toUpperCase() + role.slice(1) : ''
 
   const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Unknown'
@@ -289,16 +178,12 @@
       // Fetch complete user profile from database
       const profile = await usersStore.fetchUser(currentUser.value.id)
       userProfile.value = profile
-
-      // Fetch user activity
-      const activity = await usersStore.fetchUserActivity(currentUser.value.id)
-      userActivity.value = activity
     } catch (error) {
       const err = error as Error
       logger.error('Failed to load user profile:', { error: err.message, stack: err.stack })
       // Fallback to auth store data
       userProfile.value = currentUser.value
-      showSnackbar('Failed to load complete profile information', 'warning')
+      showError('Failed to load complete profile information')
     } finally {
       loading.value = false
     }
@@ -322,21 +207,14 @@
       }
       passwordForm.value.reset()
 
-      showSnackbar('Password changed successfully', 'success')
+      confirmPassword.value = ''
+      showSuccess('Password changed successfully')
     } catch (error) {
       const err = error as { response?: { data?: { detail?: string } } }
       const message = err.response?.data?.detail || 'Failed to change password'
-      showSnackbar(message, 'error')
+      showError(message)
     } finally {
       passwordLoading.value = false
-    }
-  }
-
-  function showSnackbar(message: string, color = 'success') {
-    snackbar.value = {
-      show: true,
-      message,
-      color
     }
   }
 
@@ -353,6 +231,7 @@
 
   // Initialize
   onMounted(() => {
+    scopesStore.fetchUserScopes().catch(() => showError('Failed to load your scopes'))
     if (currentUser.value) {
       loadUserProfile()
     }
