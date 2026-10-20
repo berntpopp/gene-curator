@@ -24,6 +24,11 @@ from app.services.validators.base import ExternalValidator
 logger = get_logger(__name__)
 
 
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive timestamps (SQLite) as UTC; keep a real offset untouched."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
+
+
 class ValidationService:
     """Centralized validation service with intelligent TTL-based caching
 
@@ -120,7 +125,7 @@ class ValidationService:
                 input_value=input_value[:50],  # Truncate for logs
                 access_count=cached.access_count,
                 ttl_remaining_days=(
-                    cached.expires_at.replace(tzinfo=UTC) - datetime.now(UTC)
+                    _as_utc(cached.expires_at) - datetime.now(UTC)
                 ).days,
             )
 

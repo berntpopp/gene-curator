@@ -1,7 +1,7 @@
 """Behaviour tests for ValidationService: TTL cache, refresh, batch and maintenance."""
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models.models import ValidationCache
 from app.schemas.validation import ValidationResult
-from app.services.validation_service import ValidationService
+from app.services.validation_service import ValidationService, _as_utc
 
 
 def _valid(symbol: str = "BRCA1") -> ValidationResult:
@@ -266,3 +266,10 @@ def _entry(validator: str, value: str, expires_at: datetime) -> ValidationCache:
         expires_at=expires_at,
         access_count=0,
     )
+
+
+def test_as_utc_adds_utc_only_to_naive_values() -> None:
+    naive = datetime(2026, 1, 1, 12, 0)
+    assert _as_utc(naive).tzinfo is UTC
+    aware = datetime(2026, 1, 1, 12, 0, tzinfo=timezone(timedelta(hours=2)))
+    assert _as_utc(aware) is aware
