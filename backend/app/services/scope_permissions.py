@@ -134,6 +134,7 @@ class ScopePermissionService:
                 ScopeMembership.scope_id == scope.id,
                 ScopeMembership.user_id == user.id,
                 ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
             )
             .count()
             > 0
@@ -529,6 +530,7 @@ class ScopePermissionService:
             ScopeMembership.user_id == user.id,
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active == True,  # noqa: E712 - SQLAlchemy requires ==
+            ScopeMembership.accepted_at.isnot(None),
         ]
 
         if required_roles:
@@ -585,6 +587,7 @@ class ScopePermissionService:
             .filter(
                 ScopeMembership.user_id == user.id,
                 ScopeMembership.is_active == True,  # noqa: E712
+                ScopeMembership.accepted_at.isnot(None),
                 Scope.is_active == True,  # noqa: E712 - Only return active scopes
             )
         )

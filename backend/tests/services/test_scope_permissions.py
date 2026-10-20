@@ -8,6 +8,7 @@ Tests cover:
 - can_create_precuration, can_approve_precuration, can_edit_gene_assignment
 """
 
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -120,6 +121,7 @@ def curator_membership(
         scope_id=scope.id,
         role="curator",
         is_active=True,
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -137,6 +139,7 @@ def viewer_membership(
         scope_id=scope.id,
         role="viewer",
         is_active=True,
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -154,6 +157,7 @@ def inactive_membership(
         scope_id=scope.id,
         role="curator",
         is_active=False,
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -171,6 +175,7 @@ def reviewer_membership(
         scope_id=scope.id,
         role="reviewer",
         is_active=True,
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -322,6 +327,7 @@ class TestHasScopeAccess:
             scope_id=inactive_scope.id,
             role="curator",
             is_active=True,
+            accepted_at=datetime.now(UTC),
         )
         db_session.add(membership)
         db_session.commit()
@@ -408,6 +414,7 @@ class TestGetUserScopeIds:
             scope_id=scope.id,
             role="curator",
             is_active=True,
+            accepted_at=datetime.now(UTC),
         )
         # Create viewer membership for scope2
         membership2 = ScopeMembership(
@@ -415,6 +422,7 @@ class TestGetUserScopeIds:
             scope_id=scope2.id,
             role="viewer",
             is_active=True,
+            accepted_at=datetime.now(UTC),
         )
         db_session.add_all([membership1, membership2])
         db_session.commit()
@@ -635,6 +643,7 @@ class TestCanApprovePrecuration:
             scope_id=scope.id,
             role="reviewer",
             is_active=True,
+            accepted_at=datetime.now(UTC),
         )
         db_session.add(membership)
         db_session.commit()

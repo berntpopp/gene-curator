@@ -8,6 +8,7 @@ support PostgreSQL's Row-Level Security features. Admin tokens are used for
 most tests since admins bypass scope checks.
 """
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 from uuid import uuid4
 
@@ -62,6 +63,7 @@ def test_user_with_scope(db_session: Session, test_scope: Scope) -> UserNew:
         scope_id=test_scope.id,
         role="curator",
         is_active=True,
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()

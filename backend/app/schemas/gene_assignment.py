@@ -39,7 +39,8 @@ class GeneScopeAssignmentCreate(GeneScopeAssignmentBase):
 class GeneScopeAssignmentUpdate(BaseModel):
     """Schema for updating a gene-scope assignment."""
 
-    assigned_curator_id: UUID | None = Field(None, description="Assigned curator ID")
+    # assigned_curator_id is deliberately absent: use the assign-curator endpoint,
+    # which verifies the curator is a scope member.
     priority_level: str | None = Field(None, description="Assignment priority level")
     due_date: datetime | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")
