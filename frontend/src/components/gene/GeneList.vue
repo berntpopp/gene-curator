@@ -72,8 +72,8 @@
       :headers="tableHeaders"
       :skeleton-count="10"
     >
-      <template #item="{ item }">
-        <tr>
+      <template #item="{ item: slotItem }">
+        <tr v-for="item in [toGene(slotItem)]" :key="item.assignment_id">
           <td>
             <div class="d-flex align-center">
               <v-icon icon="mdi-dna" size="small" class="mr-2" />
@@ -162,79 +162,19 @@
             <div class="text-caption text-center mt-1">{{ item.progress || 0 }}%</div>
           </td>
           <td>
-            <v-menu>
-              <template #activator="{ props: menuProps }">
-                <v-btn
-                  v-bind="menuProps"
-                  icon
-                  variant="text"
-                  size="small"
-                  aria-label="Gene actions"
-                >
-                  <v-icon>mdi-dots-vertical</v-icon>
-                </v-btn>
-              </template>
-              <v-list density="compact">
-                <v-list-item v-if="!hasPrecuration(item)" @click="startPrecuration(item)">
-                  <template #prepend>
-                    <v-icon>mdi-clipboard-text</v-icon>
-                  </template>
-                  <v-list-item-title>Start Precuration</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                  v-else-if="hasPrecuration(item) && !isPrecurationApproved(item)"
-                  @click="completePrecuration(item)"
-                >
-                  <template #prepend>
-                    <v-icon>mdi-clipboard-check</v-icon>
-                  </template>
-                  <v-list-item-title>Complete Precuration</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="hasCuration(item)" @click="viewCuration(item)">
-                  <template #prepend>
-                    <v-icon>mdi-file-document</v-icon>
-                  </template>
-                  <v-list-item-title>
-                    View Curation ({{ getCurationStatusLabel(item) }})
-                  </v-list-item-title>
-                </v-list-item>
-                <v-list-item v-else-if="isPrecurationApproved(item)" @click="startCuration(item)">
-                  <template #prepend>
-                    <v-icon>mdi-pencil</v-icon>
-                  </template>
-                  <v-list-item-title>Start Curation</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-else disabled>
-                  <template #prepend>
-                    <v-icon>mdi-pencil</v-icon>
-                  </template>
-                  <v-list-item-title> Curation (requires approved precuration) </v-list-item-title>
-                </v-list-item>
-                <v-divider />
-                <v-list-item v-if="canAssignGenes" @click="reassignGene(item)">
-                  <template #prepend>
-                    <v-icon>mdi-account-switch</v-icon>
-                  </template>
-                  <v-list-item-title>Reassign</v-list-item-title>
-                </v-list-item>
-                <v-list-item v-if="canAssignGenes" @click="editGeneAssignment(item)">
-                  <template #prepend>
-                    <v-icon>mdi-pencil-box</v-icon>
-                  </template>
-                  <v-list-item-title>Edit Assignment</v-list-item-title>
-                </v-list-item>
-                <v-list-item
-                  v-if="canRemoveGenes"
-                  class="text-error"
-                  @click="confirmRemoveGene(item)"
-                >
-                  <template #prepend>
-                    <v-icon color="error">mdi-delete</v-icon>
-                  </template>
-                  <v-list-item-title>Remove from Scope</v-list-item-title>
-                </v-list-item>
-              </v-list>
-            </v-menu>
+            <GeneRowActions
+              :gene="item"
+              :workflow="workflow"
+              :can-assign-genes="canAssignGenes"
+              :can-remove-genes="canRemoveGenes"
+              @start-precuration="startPrecuration"
+              @complete-precuration="completePrecuration"
+              @view-curation="viewCuration"
+              @start-curation="startCuration"
+              @reassign="reassignGene"
+              @edit-assignment="editGeneAssignment"
+              @remove="confirmRemoveGene"
+            />
           </td>
         </tr>
       </template>
@@ -252,98 +192,14 @@
       <template v-else>
         <!-- Gene cards -->
         <v-col v-for="gene in filteredGenes" :key="gene.assignment_id" cols="12" sm="6" md="4">
-          <v-card hover>
-            <v-card-title class="d-flex align-center">
-              <v-icon icon="mdi-dna" class="mr-2" />
-              <a href="#" class="text-decoration-none gene-link" @click.prevent="viewGene(gene)">
-                {{ gene.gene_symbol }}
-              </a>
-              <v-spacer />
-              <v-chip :color="getStatusColor(gene.status)" size="small">
-                {{ getStatusLabel(gene.status) }}
-              </v-chip>
-            </v-card-title>
-
-            <v-card-subtitle v-if="gene.gene_name">
-              {{ gene.gene_name }}
-            </v-card-subtitle>
-
-            <v-card-text>
-              <!-- Curator -->
-              <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-account" size="small" class="mr-2" />
-                <span class="text-caption">
-                  {{ gene.curator_name || 'Unassigned' }}
-                </span>
-              </div>
-
-              <!-- Priority -->
-              <div class="d-flex align-center mb-2">
-                <v-icon :icon="getPriorityIcon(gene.priority)" size="small" class="mr-2" />
-                <v-chip :color="getPriorityColor(gene.priority)" size="x-small" variant="tonal">
-                  {{ getPriorityLabel(gene.priority) }}
-                </v-chip>
-              </div>
-
-              <!-- Due date -->
-              <div v-if="gene.due_date" class="d-flex align-center mb-2">
-                <v-icon icon="mdi-calendar" size="small" class="mr-2" />
-                <span class="text-caption">Due: {{ formatDate(gene.due_date) }}</span>
-              </div>
-
-              <!-- Progress -->
-              <div class="mb-2">
-                <div class="text-caption mb-1">Progress</div>
-                <v-progress-linear
-                  :model-value="gene.progress || 0"
-                  :color="getProgressColor(gene.progress)"
-                  height="12"
-                  rounded
-                >
-                  <strong>{{ gene.progress || 0 }}%</strong>
-                </v-progress-linear>
-              </div>
-            </v-card-text>
-
-            <v-card-actions>
-              <v-btn size="small" variant="text" @click="viewGene(gene)">
-                <v-icon start>mdi-eye</v-icon>
-                View
-              </v-btn>
-              <v-spacer />
-              <!-- Workflow-aware action button -->
-              <v-btn
-                v-if="!hasPrecuration(gene)"
-                size="small"
-                color="primary"
-                variant="tonal"
-                @click="startPrecuration(gene)"
-              >
-                <v-icon start>mdi-clipboard-text</v-icon>
-                Start Precuration
-              </v-btn>
-              <v-btn
-                v-else-if="hasPrecuration(gene) && !isPrecurationApproved(gene)"
-                size="small"
-                color="warning"
-                variant="tonal"
-                @click="completePrecuration(gene)"
-              >
-                <v-icon start>mdi-clipboard-check</v-icon>
-                Complete Precuration
-              </v-btn>
-              <v-btn
-                v-else-if="isPrecurationApproved(gene)"
-                size="small"
-                color="success"
-                variant="tonal"
-                @click="startCuration(gene)"
-              >
-                <v-icon start>mdi-pencil</v-icon>
-                Start Curation
-              </v-btn>
-            </v-card-actions>
-          </v-card>
+          <GeneCard
+            :gene="gene"
+            :workflow="workflow"
+            @view="viewGene"
+            @start-precuration="startPrecuration"
+            @complete-precuration="completePrecuration"
+            @start-curation="startCuration"
+          />
         </v-col>
       </template>
     </v-row>
@@ -414,51 +270,23 @@
     />
 
     <!-- Remove Gene Confirmation Dialog -->
-    <v-dialog v-model="showRemoveConfirm" max-width="450" persistent>
-      <v-card>
-        <v-card-title class="d-flex align-center text-error pa-4">
-          <v-icon start color="error" size="28">mdi-alert-circle</v-icon>
-          <span class="text-h6">Remove Gene from Scope</span>
-        </v-card-title>
-
-        <v-divider />
-
-        <v-card-text class="pa-4">
-          <p class="mb-3">
-            Are you sure you want to remove
-            <strong>{{ selectedGeneForRemoval?.gene_symbol }}</strong> from this scope?
-          </p>
-          <v-alert type="warning" variant="tonal" density="compact">
-            <div class="text-body-2">
-              This will remove the gene assignment but will not delete the gene from the catalog.
-              Any existing precurations or curations will be preserved.
-            </div>
-          </v-alert>
-        </v-card-text>
-
-        <v-divider />
-
-        <v-card-actions class="pa-4">
-          <v-btn variant="text" :disabled="isRemoving" @click="cancelRemoveGene"> Cancel </v-btn>
-          <v-spacer />
-          <v-btn color="error" variant="flat" :loading="isRemoving" @click="removeGeneFromScope">
-            <v-icon start>mdi-delete</v-icon>
-            Remove
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <RemoveGeneDialog
+      v-model="showRemoveConfirm"
+      :gene-symbol="selectedGeneForRemoval?.gene_symbol"
+      :is-removing="isRemoving"
+      @confirm="removeGeneFromScope"
+      @cancel="cancelRemoveGene"
+    />
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * GeneList Component
    *
    * Displays genes assigned to a scope with filtering, sorting, and actions.
    * Supports both table and card views for responsive design.
    *
-   * Features:
    * - Search by gene symbol/name
    * - Filter by status and curator
    * - Table/card view toggle
@@ -473,7 +301,7 @@
 
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { assignmentsAPI, precurationsAPI, curationsAPI } from '@/api'
+  import { assignmentsAPI, precurationsAPI } from '@/api'
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -483,29 +311,56 @@
   import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
   import ReassignGeneModal from '@/components/gene/ReassignGeneModal.vue'
   import EditGeneAssignmentModal from '@/components/gene/EditGeneAssignmentModal.vue'
+  import GeneCard from './GeneCard.vue'
+  import GeneRowActions from './GeneRowActions.vue'
+  import RemoveGeneDialog from './RemoveGeneDialog.vue'
+  import { useGeneWorkflowStatus } from './useGeneWorkflowStatus'
+  import { useScopeGenes } from './useScopeGenes'
+  import {
+    formatDate,
+    getPriorityColor,
+    getPriorityIcon,
+    getPriorityLabel,
+    getProgressColor,
+    getStatusColor,
+    getStatusLabel
+  } from './geneDisplay'
+  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { GeneRow } from './types'
 
-  const props = defineProps({
-    scopeId: {
-      type: String,
-      required: true
-    }
-  })
+  const props = defineProps<{
+    scopeId: string
+  }>()
 
   const router = useRouter()
   const authStore = useAuthStore()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
 
-  // State
-  const genes = ref([])
-  const loading = ref(false)
-  const search = ref('')
-  const filterStatus = ref(null)
-  const filterCurator = ref(null)
+  // Precuration/curation status per gene (maps and predicates)
+  const workflow = useGeneWorkflowStatus(() => props.scopeId)
+  const {
+    genePrecurations,
+    geneCurations,
+    hasPrecuration,
+    isPrecurationApproved,
+    hasCuration,
+    getCuration,
+    isCurationActive,
+    getPrecurationStatusLabel
+  } = workflow
+
+  const {
+    loading,
+    search,
+    filterStatus,
+    filterCurator,
+    curatorOptions,
+    filteredGenes,
+    fetchGenes,
+    clearFilters
+  } = useScopeGenes(() => props.scopeId, workflow)
   const viewMode = ref('table')
-  const curators = ref([])
-  const genePrecurations = ref({}) // Map of gene_id -> precuration status
-  const geneCurations = ref({}) // Map of gene_id -> curation status
 
   // Modal state
   const showAddModal = ref(false)
@@ -513,18 +368,18 @@
   const showGeneDetailModal = ref(false)
   const showReassignModal = ref(false)
   const showRemoveConfirm = ref(false)
-  const selectedGeneForDetail = ref(null)
-  const selectedGeneForReassign = ref(null)
-  const selectedGeneForRemoval = ref(null)
-  const selectedGeneForEdit = ref(null)
-  const preSelectedGeneIds = ref([])
+  const selectedGeneForDetail = ref<GeneRow | null>(null)
+  const selectedGeneForReassign = ref<GeneRow | null>(null)
+  const selectedGeneForRemoval = ref<GeneRow | null>(null)
+  const selectedGeneForEdit = ref<GeneRow | null>(null)
+  const preSelectedGeneIds = ref<string[]>([])
   const isRemoving = ref(false)
   const showEditModal = ref(false)
 
   /**
    * Open assign curator modal with optional pre-selected genes
    */
-  function openAssignModal(geneIds = []) {
+  function openAssignModal(geneIds: string[] = []) {
     preSelectedGeneIds.value = geneIds
     showAssignModal.value = true
   }
@@ -550,401 +405,41 @@
   ]
 
   // Permissions
+  const userRole = computed(() => (authStore.user as { role?: string } | null)?.role)
+
   const canAssignGenes = computed(() => {
-    const userRole = authStore.user?.role
-    return ['admin', 'scope_admin', 'curator'].includes(userRole)
+    return ['admin', 'scope_admin', 'curator'].includes(userRole.value ?? '')
   })
 
   // Permission to remove genes from scope (admins, scope_admins, reviewers)
   const canRemoveGenes = computed(() => {
-    const userRole = authStore.user?.role
-    return ['admin', 'scope_admin', 'reviewer'].includes(userRole)
+    return ['admin', 'scope_admin', 'reviewer'].includes(userRole.value ?? '')
   })
 
-  // Curator options (for filter)
-  const curatorOptions = computed(() => {
-    return curators.value.map(c => ({
-      id: c.user_id,
-      name: c.user_name || c.user_email
-    }))
-  })
-
-  // Filtered genes
-  const filteredGenes = computed(() => {
-    let result = genes.value
-
-    // Search filter
-    if (search.value) {
-      const searchLower = search.value.toLowerCase()
-      result = result.filter(
-        g =>
-          g.gene_symbol?.toLowerCase().includes(searchLower) ||
-          g.gene_name?.toLowerCase().includes(searchLower)
-      )
-    }
-
-    // Status filter
-    if (filterStatus.value) {
-      result = result.filter(g => g.status === filterStatus.value)
-    }
-
-    // Curator filter
-    if (filterCurator.value) {
-      result = result.filter(g => g.curator_id === filterCurator.value)
-    }
-
-    return result
-  })
-
-  /**
-   * Fetch genes assigned to scope
-   */
-  async function fetchGenes() {
-    loading.value = true
-    try {
-      const response = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
-      genes.value = response.map(assignment => ({
-        assignment_id: assignment.id || assignment.assignment_id,
-        gene_id: assignment.gene_id,
-        gene_symbol: assignment.gene_symbol || assignment.gene?.gene_symbol || '',
-        gene_name: assignment.gene_name || assignment.gene?.gene_name || '',
-        gene_hgnc_id: assignment.gene_hgnc_id || assignment.gene?.hgnc_id || '',
-        curator_id: assignment.assigned_curator_id || assignment.curator_id,
-        curator_name:
-          assignment.curator_name ||
-          assignment.curator?.full_name ||
-          assignment.curator?.email ||
-          '',
-        priority: assignment.priority || assignment.priority_level || 'normal',
-        assignment_notes: assignment.assignment_notes || '',
-        status: assignment.status || 'assigned',
-        due_date: assignment.due_date,
-        progress: calculateProgress(assignment)
-      }))
-
-      // Extract unique curators for filter
-      curators.value = Array.from(
-        new Map(
-          genes.value
-            .filter(g => g.curator_id)
-            .map(g => [g.curator_id, { user_id: g.curator_id, user_name: g.curator_name }])
-        ).values()
-      )
-
-      // Fetch precuration and curation status for all genes in scope
-      await Promise.all([fetchPrecurationStatuses(), fetchCurationStatuses()])
-
-      logger.debug('Genes loaded', { count: genes.value.length, scope_id: props.scopeId })
-    } catch (error) {
-      logger.error('Failed to fetch genes', { error: error.message })
-      notificationStore.addToast('Failed to load genes', 'error')
-    } finally {
-      loading.value = false
-    }
-  }
-
-  /**
-   * Fetch precuration statuses for genes in this scope
-   * Maps gene_id -> latest precuration status
-   */
-  async function fetchPrecurationStatuses() {
-    try {
-      const response = await precurationsAPI.getPrecurations({
-        scope_id: props.scopeId,
-        limit: 200 // Backend max limit is 200
-      })
-
-      // Build map of gene_id -> most recent precuration
-      const precurationMap = {}
-      for (const precuration of response.precurations || []) {
-        const existing = precurationMap[precuration.gene_id]
-        // Keep the most recent or highest-status precuration
-        if (!existing || shouldReplacePrecuration(existing, precuration)) {
-          precurationMap[precuration.gene_id] = {
-            id: precuration.id,
-            status: precuration.status,
-            workflow_stage: precuration.workflow_stage,
-            updated_at: precuration.updated_at
-          }
-        }
-      }
-      genePrecurations.value = precurationMap
-      logger.debug('Precuration statuses loaded', { count: Object.keys(precurationMap).length })
-    } catch (error) {
-      logger.error('Failed to fetch precuration statuses', { error: error.message })
-      // Don't fail the whole page if precurations fail to load
-    }
-  }
-
-  /**
-   * Determine if a new precuration should replace an existing one
-   * Prioritizes approved > submitted > draft, then by date
-   */
-  function shouldReplacePrecuration(existing, newPrecuration) {
-    const statusPriority = { approved: 3, submitted: 2, draft: 1, rejected: 0 }
-    const existingPriority = statusPriority[existing.status] || 0
-    const newPriority = statusPriority[newPrecuration.status] || 0
-
-    if (newPriority > existingPriority) return true
-    if (newPriority < existingPriority) return false
-
-    // Same status - use most recent
-    return new Date(newPrecuration.updated_at) > new Date(existing.updated_at)
-  }
-
-  /**
-   * Fetch curation statuses for genes in this scope
-   * Maps gene_id -> latest curation status
-   */
-  async function fetchCurationStatuses() {
-    try {
-      const response = await curationsAPI.getCurations({
-        scope_id: props.scopeId,
-        limit: 200 // Backend max limit is 200
-      })
-
-      // Build map of gene_id -> most recent/highest priority curation
-      const curationMap = {}
-      for (const curation of response.curations || []) {
-        const existing = curationMap[curation.gene_id]
-        // Keep the most recent or highest-status curation
-        if (!existing || shouldReplaceCuration(existing, curation)) {
-          curationMap[curation.gene_id] = {
-            id: curation.id,
-            status: curation.status,
-            workflow_stage: curation.workflow_stage,
-            updated_at: curation.updated_at
-          }
-        }
-      }
-      geneCurations.value = curationMap
-      logger.debug('Curation statuses loaded', { count: Object.keys(curationMap).length })
-    } catch (error) {
-      logger.error('Failed to fetch curation statuses', { error: error.message })
-      // Don't fail the whole page if curations fail to load
-    }
-  }
-
-  /**
-   * Determine if a new curation should replace an existing one
-   * Prioritizes active > approved > submitted > draft, then by date
-   */
-  function shouldReplaceCuration(existing, newCuration) {
-    const statusPriority = {
-      active: 5,
-      approved: 4,
-      submitted: 3,
-      draft: 2,
-      rejected: 1,
-      archived: 0
-    }
-    const existingPriority = statusPriority[existing.status] || 0
-    const newPriority = statusPriority[newCuration.status] || 0
-
-    if (newPriority > existingPriority) return true
-    if (newPriority < existingPriority) return false
-
-    // Same status - use most recent
-    return new Date(newCuration.updated_at) > new Date(existing.updated_at)
-  }
-
-  /**
-   * Calculate gene progress based on workflow stage
-   */
-  function calculateProgress(assignment) {
-    const statusProgress = {
-      assigned: 0,
-      in_progress: 25,
-      under_review: 75,
-      completed: 100
-    }
-    return statusProgress[assignment.status] || 0
-  }
-
-  /**
-   * Get status color
-   */
-  function getStatusColor(status) {
-    const colors = {
-      assigned: 'grey',
-      in_progress: 'warning',
-      under_review: 'info',
-      completed: 'success'
-    }
-    return colors[status] || 'grey'
-  }
-
-  /**
-   * Get status label
-   */
-  function getStatusLabel(status) {
-    const labels = {
-      assigned: 'Assigned',
-      in_progress: 'In Progress',
-      under_review: 'Under Review',
-      completed: 'Completed'
-    }
-    return labels[status] || status
-  }
-
-  /**
-   * Get priority color
-   */
-  function getPriorityColor(priority) {
-    const colors = {
-      high: 'error',
-      medium: 'warning',
-      normal: 'warning',
-      low: 'grey'
-    }
-    return colors[priority] || 'grey'
-  }
-
-  /**
-   * Get priority icon
-   */
-  function getPriorityIcon(priority) {
-    const icons = {
-      high: 'mdi-flag',
-      medium: 'mdi-flag',
-      normal: 'mdi-flag',
-      low: 'mdi-flag-outline'
-    }
-    return icons[priority] || 'mdi-flag-outline'
-  }
-
-  /**
-   * Get priority label
-   */
-  function getPriorityLabel(priority) {
-    const labels = {
-      high: 'High',
-      medium: 'Medium',
-      normal: 'Medium',
-      low: 'Low'
-    }
-    return labels[priority] || priority
-  }
-
-  /**
-   * Get progress color
-   */
-  function getProgressColor(progress) {
-    if (progress >= 75) return 'success'
-    if (progress >= 50) return 'info'
-    if (progress >= 25) return 'warning'
-    return 'grey'
-  }
-
-  /**
-   * Format date
-   */
-  function formatDate(dateString) {
-    if (!dateString) return '—'
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  /**
-   * Clear all filters
-   */
-  function clearFilters() {
-    search.value = ''
-    filterStatus.value = null
-    filterCurator.value = null
+  /** TableSkeleton passes its rows through an untyped item slot. */
+  function toGene(value: unknown): GeneRow {
+    return value as GeneRow
   }
 
   /**
    * View gene details in modal
    */
-  function viewGene(gene) {
+  function viewGene(gene: GeneRow) {
     selectedGeneForDetail.value = gene
     showGeneDetailModal.value = true
   }
 
   /**
-   * Check if gene has a precuration
-   */
-  function hasPrecuration(gene) {
-    return !!genePrecurations.value[gene.gene_id]
-  }
-
-  /**
-   * Check if gene's precuration is approved
-   */
-  function isPrecurationApproved(gene) {
-    const precuration = genePrecurations.value[gene.gene_id]
-    return precuration?.status === 'approved'
-  }
-
-  /**
-   * Check if gene has a curation
-   */
-  function hasCuration(gene) {
-    return !!geneCurations.value[gene.gene_id]
-  }
-
-  /**
-   * Get the curation for a gene
-   */
-  function getCuration(gene) {
-    return geneCurations.value[gene.gene_id]
-  }
-
-  /**
-   * Check if gene's curation is active (completed)
-   */
-  function isCurationActive(gene) {
-    const curation = geneCurations.value[gene.gene_id]
-    return curation?.status === 'active'
-  }
-
-  /**
-   * Get precuration status label for display
-   */
-  function getPrecurationStatusLabel(gene) {
-    const precuration = genePrecurations.value[gene.gene_id]
-    if (!precuration) return 'No Precuration'
-
-    const statusLabels = {
-      draft: 'In Progress',
-      submitted: 'Pending Review',
-      in_review: 'In Review',
-      approved: 'Ready for Curation',
-      rejected: 'Needs Revision'
-    }
-    return statusLabels[precuration.status] || precuration.status
-  }
-
-  /**
-   * Get curation status label for display
-   */
-  function getCurationStatusLabel(gene) {
-    const curation = geneCurations.value[gene.gene_id]
-    if (!curation) return 'No Curation'
-
-    const statusLabels = {
-      draft: 'Curation In Progress',
-      submitted: 'Awaiting Review',
-      in_review: 'Under Review',
-      approved: 'Approved',
-      active: 'Active',
-      rejected: 'Needs Revision',
-      archived: 'Archived'
-    }
-    return statusLabels[curation.status] || curation.status
-  }
-
-  /**
    * Start precuration for gene
    */
-  function startPrecuration(gene) {
+  function startPrecuration(gene: GeneRow) {
     router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/precuration/new`)
   }
 
   /**
    * Complete existing precuration (mark as ready for curation)
    */
-  async function completePrecuration(gene) {
+  async function completePrecuration(gene: GeneRow) {
     const precuration = genePrecurations.value[gene.gene_id]
     if (!precuration?.id) {
       startPrecuration(gene)
@@ -956,22 +451,23 @@
       notificationStore.addToast('Precuration completed successfully', 'success')
 
       // Refresh precuration status to update UI
-      await fetchPrecurationStatuses()
+      await workflow.fetchPrecurationStatuses()
 
       logger.info('Precuration completed', {
         precuration_id: precuration.id,
         gene_id: gene.gene_id
       })
     } catch (error) {
-      logger.error('Failed to complete precuration', { error: error.message })
-      notificationStore.addToast(`Failed to complete precuration: ${error.message}`, 'error')
+      const message = (error as ApiErrorLike).message
+      logger.error('Failed to complete precuration', { error: message })
+      notificationStore.addToast(`Failed to complete precuration: ${message}`, 'error')
     }
   }
 
   /**
    * Start curation for gene (only if precuration approved)
    */
-  function startCuration(gene) {
+  function startCuration(gene: GeneRow) {
     if (!isPrecurationApproved(gene)) {
       notificationStore.addToast(
         'Complete and approve precuration before starting curation',
@@ -985,7 +481,7 @@
   /**
    * View existing curation for gene
    */
-  function viewCuration(gene) {
+  function viewCuration(gene: GeneRow) {
     const curation = geneCurations.value[gene.gene_id]
     if (curation?.id) {
       router.push(`/scopes/${props.scopeId}/curations/${curation.id}`)
@@ -995,7 +491,7 @@
   /**
    * Reassign gene to another curator
    */
-  function reassignGene(gene) {
+  function reassignGene(gene: GeneRow) {
     selectedGeneForReassign.value = gene
     showReassignModal.value = true
   }
@@ -1003,7 +499,7 @@
   /**
    * Confirm removal of gene from scope
    */
-  function confirmRemoveGene(gene) {
+  function confirmRemoveGene(gene: GeneRow) {
     selectedGeneForRemoval.value = gene
     showRemoveConfirm.value = true
   }
@@ -1044,9 +540,10 @@
       selectedGeneForRemoval.value = null
       fetchGenes()
     } catch (error) {
-      logger.error('Failed to remove gene from scope', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to remove gene from scope', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to remove: ${error.response?.data?.detail || error.message}`,
+        `Failed to remove: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {
@@ -1083,7 +580,7 @@
   /**
    * Edit gene assignment (priority, due date, notes)
    */
-  function editGeneAssignment(gene) {
+  function editGeneAssignment(gene: GeneRow) {
     selectedGeneForEdit.value = gene
     showEditModal.value = true
   }
@@ -1098,7 +595,7 @@
   /**
    * Handle gene revalidated
    */
-  function handleGeneRevalidated(result) {
+  function handleGeneRevalidated(result: { external_data?: unknown } | null | undefined) {
     logger.debug('Gene revalidated', { result })
     // Optionally refresh genes if data changed
     if (result?.external_data) {

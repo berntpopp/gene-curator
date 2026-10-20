@@ -3,8 +3,8 @@
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
       v-if="!useDynamicForm && !loadingSchema"
-      :curation-id="curationId"
-      :gene="gene"
+      :curation-id="curationId ?? undefined"
+      :gene="gene as Record<string, unknown>"
       :precuration-data="precurationData"
       :initial-data="evidenceData"
       :readonly="readonly"
@@ -16,7 +16,7 @@
     />
 
     <!-- Generic schema-driven form for non-ClinGen schemas -->
-    <v-form v-else ref="formRef" @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
         <!-- Header: Kept inline per KISS principle -->
         <v-card-title class="d-flex align-center">
@@ -94,7 +94,7 @@
   </ErrorBoundary>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * SchemaDrivenCurationForm
    *
@@ -121,7 +121,6 @@
    */
 
   import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
-  import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { useCurationsStore } from '@/stores/curations'
   import { usePrecurationsStore } from '@/stores/precurations'
@@ -132,6 +131,9 @@
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
   import { applyDataMapping } from '@/utils/dataMapping'
+  import type { Schema } from '@/types/api'
+  import type { ApiErrorLike, ComponentLogger } from './types'
+  import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -139,41 +141,52 @@
   import FormActions from '@/components/forms/FormActions.vue'
   import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
 
-  const props = defineProps({
-    schemaId: {
-      type: String,
-      required: true
-    },
-    workflowPairId: {
-      type: String,
-      default: null
-    },
-    curationId: {
-      type: String,
-      default: null
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    geneId: {
-      type: String,
-      default: null
-    },
-    gene: {
-      type: Object,
-      default: null
-    },
-    readonly: {
-      type: Boolean,
-      default: false
+  type CurationSchema = Schema<'CurationSchema'>
+
+  /** Store records read by this form (the JS stores do not type their state). */
+  interface CurationLike {
+    precuration_id?: string | null
+    evidence_data?: EvidenceData | null
+    lock_version?: number | null
+    status?: string | null
+  }
+
+  interface PrecurationLike {
+    id: string
+    status?: string
+    evidence_data?: EvidenceData | null
+  }
+
+  interface WorkflowPairLike {
+    data_mapping?: Record<string, unknown> | null
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      schemaId: string
+      workflowPairId?: string | null
+      curationId?: string | null
+      scopeId: string
+      geneId?: string | null
+      gene?: { symbol?: string | null } | null
+      readonly?: boolean
+    }>(),
+    {
+      workflowPairId: null,
+      curationId: null,
+      geneId: null,
+      gene: null,
+      readonly: false
     }
-  })
+  )
 
-  const emit = defineEmits(['submit', 'cancel', 'saved'])
+  const emit = defineEmits<{
+    submit: []
+    cancel: []
+    saved: []
+  }>()
 
-  const logger = useLogger()
-  const router = useRouter()
+  const logger = useLogger() as ComponentLogger
   const schemasStore = useSchemasStore()
   const curationsStore = useCurationsStore()
   const precurationsStore = usePrecurationsStore()
@@ -181,21 +194,20 @@
   const notificationsStore = useNotificationsStore()
 
   // Form state
-  const formRef = ref(null)
-  const evidenceData = ref({})
+  const evidenceData = ref<EvidenceData>({})
   const isDraft = ref(true)
   const loadingSchema = ref(false)
-  const savingDraft = ref(false)
-  const submitting = ref(false)
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
 
   // ClinGen-specific state
-  const precurationData = ref({})
+  const precurationData = ref<EvidenceData>({})
   const curationStatus = ref('draft')
 
   // Schema data
-  const schema = computed(() => schemasStore.getSchemaById(props.schemaId))
+  const schema = computed<CurationSchema | undefined>(() =>
+    schemasStore.getSchemaById(props.schemaId)
+  )
 
   // Determine form component based on feature flag
   const useDynamicForm = computed(() => {
@@ -223,17 +235,13 @@
     () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}-v2`
   )
 
-  const {
-    showRecoveryDialog,
-    recoveryData,
-    lastSaved,
-    restoreRecovery,
-    discardRecovery,
-    clearRecovery
-  } = useFormRecovery(recoveryKey.value, evidenceData, {
+  const formRecovery = useFormRecovery(recoveryKey.value, evidenceData, {
     saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
+  const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
+    formRecovery
+  const recoveryData = formRecovery.recoveryData
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -255,9 +263,13 @@
     undo: undoAction,
     redo: redoAction,
     clearHistory
-  } = useHistory(recoveryKey.value, state => {
-    evidenceData.value = { ...state }
-  })
+  } = useHistory(
+    recoveryKey.value,
+    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
+    (state: EvidenceData) => {
+      evidenceData.value = { ...state }
+    }
+  )
 
   // Track changes for undo/redo
   watch(
@@ -273,10 +285,33 @@
   // Submit eligibility
   const canSubmit = computed(() => isValid.value && !props.readonly)
 
+  // === Persistence (save draft / submit) ===
+
+  const {
+    savingDraft,
+    submitting,
+    handleSaveDraft,
+    handleSubmit,
+    handleClinGenSubmit,
+    handleClinGenSaveDraft
+  } = useCurationSubmission({
+    curationId: () => props.curationId,
+    geneId: () => props.geneId,
+    scopeId: () => props.scopeId,
+    workflowPairId: () => props.workflowPairId,
+    evidenceData,
+    lockVersion,
+    canSubmit: () => canSubmit.value,
+    clearRecovery,
+    clearHistory,
+    onSaved: () => emit('saved'),
+    onSubmit: () => emit('submit')
+  })
+
   /**
    * Handle evidence data changes from DynamicForm
    */
-  function handleEvidenceChange(newData) {
+  function handleEvidenceChange(newData: EvidenceData) {
     evidenceData.value = newData
   }
 
@@ -284,14 +319,14 @@
    * Handle validation state changes from DynamicForm
    * Event-driven pattern instead of defineExpose
    */
-  function handleValidationChange(validationResult) {
+  function handleValidationChange(validationResult: { is_valid?: boolean } | null | undefined) {
     isValid.value = validationResult?.is_valid !== false
   }
 
   /**
    * Handle form-level errors from ErrorBoundary
    */
-  function handleFormError(error) {
+  function handleFormError(error: Error) {
     logger.error('Form rendering failed', {
       error: error.message,
       schemaId: props.schemaId,
@@ -303,7 +338,7 @@
   /**
    * Keyboard shortcuts - migrated from CurationForm
    */
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {
@@ -337,83 +372,6 @@
   }
 
   /**
-   * Save draft
-   */
-  async function handleSaveDraft() {
-    savingDraft.value = true
-    try {
-      const payload = {
-        evidence_data: evidenceData.value,
-        lock_version: lockVersion.value
-      }
-
-      if (props.curationId) {
-        const updated = await curationsStore.saveDraft(props.curationId, payload)
-        if (updated) {
-          lockVersion.value = updated.lock_version
-          emit('saved')
-        }
-      } else {
-        // Create new curation as draft
-        const created = await curationsStore.createCuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          workflow_pair_id: props.workflowPairId,
-          evidence_data: evidenceData.value
-        })
-        // Navigate to edit the created curation
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: props.scopeId, curationId: created.id }
-        })
-      }
-
-      notificationsStore.addToast('Draft saved', 'success')
-      clearRecovery()
-    } catch (error) {
-      logger.error('Failed to save draft', { error: error.message })
-      notificationsStore.addToast('Failed to save draft', 'error')
-    } finally {
-      savingDraft.value = false
-    }
-  }
-
-  /**
-   * Submit curation
-   */
-  async function handleSubmit() {
-    if (!canSubmit.value) return
-
-    submitting.value = true
-    try {
-      if (props.curationId) {
-        await curationsStore.submitCuration(props.curationId, {
-          lock_version: lockVersion.value
-        })
-      } else {
-        // Create and submit
-        const created = await curationsStore.createCuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          workflow_pair_id: props.workflowPairId,
-          evidence_data: evidenceData.value
-        })
-        await curationsStore.submitCuration(created.id, { lock_version: 0 })
-      }
-
-      notificationsStore.addToast('Curation submitted for review', 'success')
-      clearRecovery()
-      clearHistory()
-      emit('submit')
-    } catch (error) {
-      logger.error('Failed to submit curation', { error: error.message })
-      notificationsStore.addToast('Failed to submit curation', 'error')
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  /**
    * Cancel editing
    */
   function handleCancel() {
@@ -426,84 +384,6 @@
   }
 
   /**
-   * Handle ClinGen form submit
-   * Receives full evidence data from ClinGenCurationForm
-   */
-  async function handleClinGenSubmit(clingenEvidenceData) {
-    submitting.value = true
-    try {
-      if (props.curationId) {
-        // Update existing curation evidence and submit
-        await curationsStore.updateCuration(props.curationId, {
-          evidence_data: clingenEvidenceData,
-          lock_version: lockVersion.value
-        })
-        await curationsStore.submitCuration(props.curationId, {
-          lock_version: lockVersion.value + 1
-        })
-      } else {
-        // Create and submit new curation
-        const created = await curationsStore.createCuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          workflow_pair_id: props.workflowPairId,
-          evidence_data: clingenEvidenceData
-        })
-        await curationsStore.submitCuration(created.id, { lock_version: 0 })
-      }
-
-      notificationsStore.addToast('Curation submitted for review', 'success')
-      clearRecovery()
-      emit('submit')
-    } catch (error) {
-      logger.error('Failed to submit ClinGen curation', { error: error.message })
-      notificationsStore.addToast('Failed to submit curation', 'error')
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  /**
-   * Handle ClinGen form save draft
-   */
-  async function handleClinGenSaveDraft(clingenEvidenceData) {
-    savingDraft.value = true
-    try {
-      if (props.curationId) {
-        const updated = await curationsStore.saveDraft(props.curationId, {
-          evidence_data: clingenEvidenceData,
-          lock_version: lockVersion.value
-        })
-        if (updated) {
-          lockVersion.value = updated.lock_version
-          emit('saved')
-        }
-      } else {
-        // Create new curation as draft
-        const created = await curationsStore.createCuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          workflow_pair_id: props.workflowPairId,
-          evidence_data: clingenEvidenceData
-        })
-        // Navigate to edit the created curation
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: props.scopeId, curationId: created.id }
-        })
-      }
-
-      notificationsStore.addToast('Draft saved', 'success')
-      clearRecovery()
-    } catch (error) {
-      logger.error('Failed to save ClinGen draft', { error: error.message })
-      notificationsStore.addToast('Failed to save draft', 'error')
-    } finally {
-      savingDraft.value = false
-    }
-  }
-
-  /**
    * Load precuration data for curation form
    * - For existing curations: Load via precuration_id link
    * - For new curations: Find approved precuration for gene+scope
@@ -512,9 +392,11 @@
     try {
       // Case 1: Existing curation with linked precuration
       if (props.curationId) {
-        const curation = curationsStore.currentCuration
+        const curation = curationsStore.currentCuration as CurationLike | null
         if (curation?.precuration_id) {
-          const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
+          const precuration = (await precurationsStore.fetchPrecurationById(
+            curation.precuration_id
+          )) as PrecurationLike | null
           if (precuration) {
             precurationData.value = precuration.evidence_data || {}
             logger.debug('Loaded precuration data for existing curation', {
@@ -533,16 +415,16 @@
         })
 
         // Find the approved precuration
-        const precurations = precurationsStore.precurations || []
+        const precurations = (precurationsStore.precurations || []) as PrecurationLike[]
         const approvedPrecuration = precurations.find(p => p.status === 'approved')
 
         if (approvedPrecuration) {
           // Fetch full details if we only have summary
-          let sourceData
+          let sourceData: EvidenceData
           if (!approvedPrecuration.evidence_data) {
-            const fullPrecuration = await precurationsStore.fetchPrecurationById(
+            const fullPrecuration = (await precurationsStore.fetchPrecurationById(
               approvedPrecuration.id
-            )
+            )) as PrecurationLike | null
             sourceData = fullPrecuration?.evidence_data || {}
           } else {
             sourceData = approvedPrecuration.evidence_data || {}
@@ -552,9 +434,12 @@
 
           // Apply workflow pair data mapping to prefill curation form
           if (props.workflowPairId && Object.keys(evidenceData.value).length === 0) {
-            const workflowPair = schemasStore.getWorkflowPairById(props.workflowPairId)
+            const workflowPair = schemasStore.getWorkflowPairById(props.workflowPairId) as
+              | WorkflowPairLike
+              | undefined
             if (workflowPair?.data_mapping) {
-              const mapped = applyDataMapping(sourceData, workflowPair.data_mapping)
+              // applyDataMapping is JSDoc-typed as Object; the result is a plain evidence record
+              const mapped = applyDataMapping(sourceData, workflowPair.data_mapping) as EvidenceData
               if (Object.keys(mapped).length > 0) {
                 evidenceData.value = mapped
                 logger.debug('Applied data mapping to prefill curation', {
@@ -572,7 +457,7 @@
         }
       }
     } catch (error) {
-      logger.warn('Failed to load precuration data', { error: error.message })
+      logger.warn('Failed to load precuration data', { error: (error as ApiErrorLike).message })
       // Non-fatal - continue without precuration data
     }
   }
@@ -580,11 +465,11 @@
   /**
    * Format relative time
    */
-  function formatRelativeTime(timestamp) {
+  function formatRelativeTime(timestamp: string | number | null | undefined): string {
     if (!timestamp) return ''
     const now = new Date()
     const then = new Date(timestamp)
-    const diffSec = Math.floor((now - then) / 1000)
+    const diffSec = Math.floor((now.getTime() - then.getTime()) / 1000)
 
     if (diffSec < 60) return 'just now'
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}m ago`
@@ -599,7 +484,9 @@
     if (!props.curationId) return
 
     try {
-      const curation = await curationsStore.fetchCurationById(props.curationId)
+      const curation = (await curationsStore.fetchCurationById(
+        props.curationId
+      )) as CurationLike | null
       if (curation) {
         // Auto-migrate legacy format if needed
         if (isLegacyFormat(curation.evidence_data)) {
@@ -619,7 +506,7 @@
         }
       }
     } catch (error) {
-      logger.error('Failed to load curation', { error: error.message })
+      logger.error('Failed to load curation', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load curation', 'error')
     }
   }
@@ -635,7 +522,7 @@
       await schemasStore.fetchSchemaById(props.schemaId)
       await validationStore.generateJsonSchema(props.schemaId)
     } catch (error) {
-      logger.error('Failed to load schema', { error: error.message })
+      logger.error('Failed to load schema', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load curation schema', 'error')
     } finally {
       loadingSchema.value = false

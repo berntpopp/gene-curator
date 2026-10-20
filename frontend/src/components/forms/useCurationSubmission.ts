@@ -1,0 +1,219 @@
+import { ref, type Ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { useCurationsStore } from '@/stores/curations'
+import { useNotificationsStore } from '@/stores/notifications'
+import { useLogger } from '@/composables/useLogger'
+import type { ApiErrorLike, ComponentLogger } from './types'
+
+export type EvidenceData = Record<string, unknown>
+
+/** Curation fields read after a create/update/save call. */
+interface CurationRecord {
+  id: string
+  lock_version?: number | null
+}
+
+export interface CurationSubmissionOptions {
+  curationId: () => string | null | undefined
+  geneId: () => string | null | undefined
+  scopeId: () => string
+  workflowPairId: () => string | null | undefined
+  evidenceData: Ref<EvidenceData>
+  lockVersion: Ref<number>
+  canSubmit: () => boolean
+  clearRecovery: () => void
+  clearHistory: () => void
+  onSaved: () => void
+  onSubmit: () => void
+}
+
+/**
+ * Save-draft and submit operations for SchemaDrivenCurationForm, both for the
+ * generic DynamicForm path and for the ClinGen-specific form.
+ */
+export function useCurationSubmission(options: CurationSubmissionOptions) {
+  const {
+    curationId,
+    geneId,
+    scopeId,
+    workflowPairId,
+    evidenceData,
+    lockVersion,
+    canSubmit,
+    clearRecovery,
+    clearHistory
+  } = options
+  const router = useRouter()
+  const logger = useLogger() as ComponentLogger
+  const curationsStore = useCurationsStore()
+  const notificationsStore = useNotificationsStore()
+
+  const savingDraft = ref(false)
+  const submitting = ref(false)
+
+  /**
+   * Save draft
+   */
+  async function handleSaveDraft() {
+    savingDraft.value = true
+    try {
+      const payload = {
+        evidence_data: evidenceData.value,
+        lock_version: lockVersion.value
+      }
+
+      if (curationId()) {
+        const updated = (await curationsStore.saveDraft(curationId(), payload)) as
+          | CurationRecord
+          | undefined
+        if (updated) {
+          lockVersion.value = updated.lock_version as number
+          options.onSaved()
+        }
+      } else {
+        // Create new curation as draft
+        const created = (await curationsStore.createCuration({
+          gene_id: geneId(),
+          scope_id: scopeId(),
+          workflow_pair_id: workflowPairId(),
+          evidence_data: evidenceData.value
+        })) as CurationRecord
+        // Navigate to edit the created curation
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId(), curationId: created.id }
+        })
+      }
+
+      notificationsStore.addToast('Draft saved', 'success')
+      clearRecovery()
+    } catch (error) {
+      logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
+      notificationsStore.addToast('Failed to save draft', 'error')
+    } finally {
+      savingDraft.value = false
+    }
+  }
+
+  /**
+   * Submit curation
+   */
+  async function handleSubmit() {
+    if (!canSubmit()) return
+
+    submitting.value = true
+    try {
+      if (curationId()) {
+        await curationsStore.submitCuration(curationId(), {
+          lock_version: lockVersion.value
+        })
+      } else {
+        // Create and submit
+        const created = (await curationsStore.createCuration({
+          gene_id: geneId(),
+          scope_id: scopeId(),
+          workflow_pair_id: workflowPairId(),
+          evidence_data: evidenceData.value
+        })) as CurationRecord
+        await curationsStore.submitCuration(created.id, { lock_version: 0 })
+      }
+
+      notificationsStore.addToast('Curation submitted for review', 'success')
+      clearRecovery()
+      clearHistory()
+      options.onSubmit()
+    } catch (error) {
+      logger.error('Failed to submit curation', { error: (error as ApiErrorLike).message })
+      notificationsStore.addToast('Failed to submit curation', 'error')
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  /**
+   * Handle ClinGen form submit
+   * Receives full evidence data from ClinGenCurationForm
+   */
+  async function handleClinGenSubmit(clingenEvidenceData: EvidenceData) {
+    submitting.value = true
+    try {
+      if (curationId()) {
+        // Update existing curation evidence and submit
+        await curationsStore.updateCuration(curationId(), {
+          evidence_data: clingenEvidenceData,
+          lock_version: lockVersion.value
+        })
+        await curationsStore.submitCuration(curationId(), {
+          lock_version: lockVersion.value + 1
+        })
+      } else {
+        // Create and submit new curation
+        const created = (await curationsStore.createCuration({
+          gene_id: geneId(),
+          scope_id: scopeId(),
+          workflow_pair_id: workflowPairId(),
+          evidence_data: clingenEvidenceData
+        })) as CurationRecord
+        await curationsStore.submitCuration(created.id, { lock_version: 0 })
+      }
+
+      notificationsStore.addToast('Curation submitted for review', 'success')
+      clearRecovery()
+      options.onSubmit()
+    } catch (error) {
+      logger.error('Failed to submit ClinGen curation', { error: (error as ApiErrorLike).message })
+      notificationsStore.addToast('Failed to submit curation', 'error')
+    } finally {
+      submitting.value = false
+    }
+  }
+
+  /**
+   * Handle ClinGen form save draft
+   */
+  async function handleClinGenSaveDraft(clingenEvidenceData: EvidenceData) {
+    savingDraft.value = true
+    try {
+      if (curationId()) {
+        const updated = (await curationsStore.saveDraft(curationId(), {
+          evidence_data: clingenEvidenceData,
+          lock_version: lockVersion.value
+        })) as CurationRecord | undefined
+        if (updated) {
+          lockVersion.value = updated.lock_version as number
+          options.onSaved()
+        }
+      } else {
+        // Create new curation as draft
+        const created = (await curationsStore.createCuration({
+          gene_id: geneId(),
+          scope_id: scopeId(),
+          workflow_pair_id: workflowPairId(),
+          evidence_data: clingenEvidenceData
+        })) as CurationRecord
+        // Navigate to edit the created curation
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId(), curationId: created.id }
+        })
+      }
+
+      notificationsStore.addToast('Draft saved', 'success')
+      clearRecovery()
+    } catch (error) {
+      logger.error('Failed to save ClinGen draft', { error: (error as ApiErrorLike).message })
+      notificationsStore.addToast('Failed to save draft', 'error')
+    } finally {
+      savingDraft.value = false
+    }
+  }
+
+  return {
+    savingDraft,
+    submitting,
+    handleSaveDraft,
+    handleSubmit,
+    handleClinGenSubmit,
+    handleClinGenSaveDraft
+  }
+}

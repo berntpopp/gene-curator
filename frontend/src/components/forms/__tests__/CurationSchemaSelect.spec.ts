@@ -18,6 +18,28 @@ import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import CurationSchemaSelect from '../CurationSchemaSelect.vue'
 
+/** Bindings of <script setup> read through wrapper.vm in these tests. */
+interface SchemaFixture {
+  id: string
+  name: string
+  schema_type: string
+  version?: string
+  description?: string
+  field_definitions?: unknown[]
+}
+
+interface CurationSchemaSelectVm {
+  availableSchemas: SchemaFixture[]
+  selectedSchemaId: string | null
+  selectedSchema: SchemaFixture | null | undefined
+  getFieldCount(schema: Partial<SchemaFixture>): number
+  handleSelection(schemaId: string): void
+}
+
+function internals(wrapper: { vm: unknown }): CurationSchemaSelectVm {
+  return wrapper.vm as CurationSchemaSelectVm
+}
+
 // Mock the schemas store
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: vi.fn(() => ({
@@ -106,7 +128,7 @@ describe('CurationSchemaSelect', () => {
       })
 
       // The component should show curation and combined schemas, not precuration
-      const vm = wrapper.vm
+      const vm = internals(wrapper)
       const available = vm.availableSchemas
       expect(available.length).toBe(3) // 2 curation + 1 combined
       expect(available.every(s => s.schema_type !== 'precuration')).toBe(true)
@@ -119,7 +141,7 @@ describe('CurationSchemaSelect', () => {
         }
       })
 
-      const vm = wrapper.vm
+      const vm = internals(wrapper)
       const combined = vm.availableSchemas.find(s => s.schema_type === 'combined')
       expect(combined).toBeDefined()
     })
@@ -146,14 +168,14 @@ describe('CurationSchemaSelect', () => {
       })
 
       // Set internal selection
-      await wrapper.vm.handleSelection('schema-1')
+      await internals(wrapper).handleSelection('schema-1')
 
       // Click continue button
       const continueButton = wrapper.find('[aria-label="Continue to curation form"]')
       await continueButton.trigger('click')
 
       expect(wrapper.emitted('update:modelValue')).toBeTruthy()
-      expect(wrapper.emitted('update:modelValue')[0]).toEqual(['schema-1'])
+      expect(wrapper.emitted('update:modelValue')?.[0]).toEqual(['schema-1'])
     })
   })
 
@@ -168,7 +190,7 @@ describe('CurationSchemaSelect', () => {
 
       await wrapper.setProps({ modelValue: 'schema-2' })
 
-      expect(wrapper.vm.selectedSchemaId).toBe('schema-2')
+      expect(internals(wrapper).selectedSchemaId).toBe('schema-2')
     })
   })
 
@@ -183,7 +205,7 @@ describe('CurationSchemaSelect', () => {
       const schema = {
         field_definitions: [{ name: 'f1' }, { name: 'f2' }, { name: 'f3' }]
       }
-      expect(wrapper.vm.getFieldCount(schema)).toBe(3)
+      expect(internals(wrapper).getFieldCount(schema)).toBe(3)
     })
 
     it('should return 0 for schema without field_definitions', () => {
@@ -194,7 +216,7 @@ describe('CurationSchemaSelect', () => {
       })
 
       const schema = {}
-      expect(wrapper.vm.getFieldCount(schema)).toBe(0)
+      expect(internals(wrapper).getFieldCount(schema)).toBe(0)
     })
   })
 
@@ -206,11 +228,11 @@ describe('CurationSchemaSelect', () => {
         }
       })
 
-      await wrapper.vm.handleSelection('schema-1')
+      await internals(wrapper).handleSelection('schema-1')
 
       // Should show selected schema info
-      expect(wrapper.vm.selectedSchema).toBeDefined()
-      expect(wrapper.vm.selectedSchema.name).toBe('ClinGen SOP v11')
+      expect(internals(wrapper).selectedSchema).toBeDefined()
+      expect(internals(wrapper).selectedSchema?.name).toBe('ClinGen SOP v11')
     })
   })
 

@@ -208,49 +208,55 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { CuratorOption, GeneRow } from './types'
+  import { getAvatarColor, getInitials } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    gene: {
-      type: Object,
-      default: null
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId: string
+      gene?: GeneRow | null
+    }>(),
+    {
+      modelValue: false,
+      gene: null
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'reassigned'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    reassigned: []
+  }>()
 
   // ============================================
   // COMPOSABLES & STORES
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors()
-  const logger = useLogger()
+  const { getRoleColor: useGetRoleColor } = useRoleColors() as {
+    getRoleColor: (role: string) => string
+  }
+  const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
 
   // ============================================
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  // Form ref (bound in template as ref="formRef")
+  const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const formValid = ref(false)
 
   // Loading states
@@ -258,10 +264,10 @@
   const isReassigning = ref(false)
 
   // Data
-  const availableCurators = ref([])
+  const availableCurators = ref<CuratorOption[]>([])
 
   // Form state
-  const selectedCurator = ref(null)
+  const selectedCurator = ref<CuratorOption | null>(null)
   const notes = ref('')
 
   // ============================================
@@ -286,28 +292,9 @@
   // ============================================
 
   /**
-   * Get avatar color based on email hash
-   */
-  const getAvatarColor = email => {
-    const colors = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
-    const hash = (email || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[hash % colors.length]
-  }
-
-  /**
-   * Get initials from name
-   */
-  const getInitials = name => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
-  /**
    * Get role color
    */
-  const getRoleColor = role => {
+  const getRoleColor = (role: string) => {
     return useGetRoleColor(role)
   }
 
@@ -317,24 +304,30 @@
   const fetchAvailableCurators = async () => {
     loadingCurators.value = true
     try {
-      const members = await scopesStore.fetchMembers(props.scopeId)
+      const members = (await scopesStore.fetchMembers(props.scopeId)) as Array<
+        Record<string, string | null | undefined>
+      > | null
 
       // Map members with display name - include all who can curate
       availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin', 'reviewer'].includes(m.role))
+        .filter(m => ['curator', 'scope_admin', 'admin', 'reviewer'].includes(m.role as string))
         .map(member => ({
           ...member,
+          user_id: member.user_id as string,
+          role: member.role as string,
           full_name: member.user_full_name || member.full_name,
           email: member.user_email || member.email,
-          displayName:
-            member.user_full_name || member.full_name || member.user_email || member.email
+          displayName: (member.user_full_name ||
+            member.full_name ||
+            member.user_email ||
+            member.email) as string
         }))
 
       logger.debug('Available curators loaded for reassignment', {
         count: availableCurators.value.length
       })
     } catch (error) {
-      logger.error('Failed to fetch curators', { error: error.message })
+      logger.error('Failed to fetch curators', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load curators', 'error')
     } finally {
       loadingCurators.value = false
@@ -362,10 +355,10 @@
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!canSubmit.value) return
+    if (!canSubmit.value || !props.gene || !selectedCurator.value) return
 
     // Validate form
-    const { valid } = await formRef.value.validate()
+    const { valid } = await formRef.value!.validate()
     if (!valid) return
 
     isReassigning.value = true
@@ -390,9 +383,10 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to reassign gene', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to reassign gene', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to reassign: ${error.response?.data?.detail || error.message}`,
+        `Failed to reassign: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {
