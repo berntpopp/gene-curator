@@ -27,6 +27,20 @@ vi.mock('vue-router', async importOriginal => ({
 }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/api/users', () => ({ usersApi: { searchUsers: vi.fn() } }))
+vi.mock('@/api/schemas', () => ({
+  schemasAPI: {
+    getWorkflowPairs: vi.fn().mockResolvedValue([
+      {
+        id: 'wp-1',
+        name: 'ClinGen',
+        version: '11',
+        precuration_schema_id: 'a',
+        curation_schema_id: 'b'
+      }
+    ]),
+    getSchemas: vi.fn().mockResolvedValue([])
+  }
+}))
 
 let pinia: ReturnType<typeof createPinia>
 const opts = () => ({
@@ -93,6 +107,20 @@ describe('ScopeCreate', () => {
     expect(vm.nameExists).toBe(false)
   })
 
+  it('requires a methodology and offers the loaded workflow pairs', async () => {
+    const { wrapper } = await mountView()
+    const select = wrapper
+      .findAllComponents({ name: 'VSelect' })
+      .find(c => c.props('label') === 'Methodology')
+
+    expect(select?.props('items')).toEqual([
+      expect.objectContaining({ id: 'wp-1', displayName: 'ClinGen (11)' })
+    ])
+    const rule = (select?.props('rules') as Array<(v: unknown) => unknown>)[0]
+    expect(rule?.(null)).toBe('Choose a methodology')
+    expect(rule?.('wp-1')).toBe(true)
+  })
+
   it('does not submit an invalid form', async () => {
     const { store, vm } = await mountView()
     const create = vi.spyOn(store, 'createScope').mockResolvedValue({ id: 's9' } as never)
@@ -117,7 +145,8 @@ describe('ScopeCreate', () => {
       display_name: 'Kidney Genetics',
       description: '',
       institution: '',
-      is_public: true
+      is_public: true,
+      default_workflow_pair_id: 'wp-1'
     }
     vm.pendingMembers = [
       { user: { id: 'u1' }, role: 'curator' },
@@ -129,7 +158,8 @@ describe('ScopeCreate', () => {
       display_name: 'Kidney Genetics',
       description: '',
       institution: '',
-      is_public: true
+      is_public: true,
+      default_workflow_pair_id: 'wp-1'
     })
     expect(invite).toHaveBeenCalledTimes(2)
     expect(invite).toHaveBeenCalledWith('s9', { user_id: 'u1', role: 'curator' })

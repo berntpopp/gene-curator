@@ -83,6 +83,19 @@
                 required
               ></v-text-field>
 
+              <v-select
+                v-model="scopeData.default_workflow_pair_id"
+                :items="workflowPairs"
+                item-title="displayName"
+                item-value="id"
+                label="Methodology"
+                :rules="[v => !!v || 'Choose a methodology']"
+                :loading="loadingWorkflowPairs"
+                hint="Workflow pair that defines the precuration and curation schemas"
+                persistent-hint
+                prepend-icon="mdi-sitemap"
+              ></v-select>
+
               <!-- Description -->
               <v-textarea
                 v-model="scopeData.description"
@@ -181,62 +194,7 @@
           </v-card-actions>
         </v-card>
 
-        <!-- Help Card -->
-        <v-card class="mt-4">
-          <v-card-title>
-            <v-icon start>mdi-help-circle</v-icon>
-            Scope Naming Guidelines
-          </v-card-title>
-          <v-card-text>
-            <v-list density="compact">
-              <v-list-item>
-                <template #prepend>
-                  <v-icon icon="mdi-check" color="success"></v-icon>
-                </template>
-                <v-list-item-title> Use lowercase letters (a-z) </v-list-item-title>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon icon="mdi-check" color="success"></v-icon>
-                </template>
-                <v-list-item-title> Separate words with dashes (-) </v-list-item-title>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon icon="mdi-check" color="success"></v-icon>
-                </template>
-                <v-list-item-title> Length: 4-64 characters </v-list-item-title>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon icon="mdi-close" color="error"></v-icon>
-                </template>
-                <v-list-item-title> No consecutive dashes (--) </v-list-item-title>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon icon="mdi-close" color="error"></v-icon>
-                </template>
-                <v-list-item-title> No spaces or special characters </v-list-item-title>
-              </v-list-item>
-            </v-list>
-
-            <v-divider class="my-2" />
-
-            <div class="text-caption text-medium-emphasis">
-              <strong>Examples:</strong>
-              <ul>
-                <li>kidney-genetics</li>
-                <li>cardio-genetics</li>
-                <li>neuro-oncology</li>
-              </ul>
-            </div>
-          </v-card-text>
-        </v-card>
+        <ScopeNamingHelp />
       </v-col>
     </v-row>
 
@@ -319,6 +277,8 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { usersApi } from '@/api/users'
+  import { useWorkflowPairs } from '@/components/scope/useWorkflowPairs'
+  import ScopeNamingHelp from './ScopeNamingHelp.vue'
   import { getInitials, displayNameRules } from './ScopeCreate.utils'
   import type {
     ErrorLike,
@@ -346,6 +306,7 @@
    * Load existing scopes on mount for name validation
    */
   onMounted(async () => {
+    loadWorkflowPairs()
     try {
       if (scopeStore.scopes.length === 0) {
         logger.debug('Loading existing scopes for name validation')
@@ -372,13 +333,24 @@
     display_name: '',
     description: '',
     institution: '',
-    is_public: false
+    is_public: false,
+    default_workflow_pair_id: null
   })
 
   // Snackbar
   const showSnackbar = ref(false)
   const snackbarMessage = ref('')
   const snackbarColor = ref('success')
+
+  const {
+    workflowPairs,
+    loading: loadingWorkflowPairs,
+    loadWorkflowPairs
+  } = useWorkflowPairs(message => {
+    snackbarMessage.value = message
+    snackbarColor.value = 'error'
+    showSnackbar.value = true
+  })
 
   // Initial members
   const showAddMemberDialog = ref(false)

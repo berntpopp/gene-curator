@@ -252,11 +252,11 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { isAxiosError } from 'axios'
   import { scopesAPI } from '@/api/scopes'
-  import { schemasAPI } from '@/api/schemas'
   import { useAuthStore } from '@/stores/auth'
   import { useScopesStore } from '@/stores/scopes'
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { logService } from '@/services/logService'
+  import { useWorkflowPairs } from './useWorkflowPairs'
 
   /** Scope fields this panel reads and edits */
   interface SettingsScope {
@@ -273,17 +273,6 @@
   /** Only the counter used for the delete warning */
   interface SettingsStatistics {
     total_genes_assigned?: number
-  }
-
-  /** Workflow pair with the names of its linked schemas (the API returns only their ids) */
-  interface WorkflowPairOption {
-    id: string
-    name: string
-    version: string
-    description?: string | null
-    precuration_schema_name?: string
-    curation_schema_name?: string
-    displayName: string
   }
 
   const props = withDefaults(
@@ -307,13 +296,11 @@
   const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
 
   // State
-  const loadingWorkflowPairs = ref(false)
   const saving = ref(false)
   const deleting = ref(false)
   const showDeleteDialog = ref(false)
   const deleteConfirmed = ref(false)
   const isDirty = ref(false)
-  const workflowPairs = ref<WorkflowPairOption[]>([])
   const selectedWorkflowPairId = ref<string | null>(null)
   const editableScope = ref({
     display_name: '',
@@ -326,6 +313,12 @@
   const showSnackbar = ref(false)
   const snackbarMessage = ref('')
   const snackbarColor = ref('success')
+
+  const {
+    workflowPairs,
+    loading: loadingWorkflowPairs,
+    loadWorkflowPairs
+  } = useWorkflowPairs(showError)
 
   // Computed
   const canEditSettings = computed(() => authStore.isAdmin || canManageScope.value)
@@ -353,33 +346,6 @@
   // Methods
   function markDirty() {
     isDirty.value = true
-  }
-
-  async function loadWorkflowPairs() {
-    loadingWorkflowPairs.value = true
-    try {
-      const [pairs, schemas] = await Promise.all([
-        schemasAPI.getWorkflowPairs({ active_only: true }),
-        schemasAPI.getSchemas()
-      ])
-      const schemaNames = new Map(schemas.map(schema => [schema.id, schema.name]))
-      workflowPairs.value = pairs.map(pair => ({
-        id: pair.id,
-        name: pair.name,
-        version: pair.version,
-        description: pair.description,
-        precuration_schema_name: schemaNames.get(pair.precuration_schema_id),
-        curation_schema_name: schemaNames.get(pair.curation_schema_id),
-        displayName: `${pair.name} (${pair.version})`
-      }))
-    } catch (error) {
-      logService.error('Failed to load workflow pairs', {
-        error: error instanceof Error ? error.message : undefined
-      })
-      showError('Failed to load workflow pairs')
-    } finally {
-      loadingWorkflowPairs.value = false
-    }
   }
 
   function handleWorkflowPairChange() {
