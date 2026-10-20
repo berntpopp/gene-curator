@@ -88,7 +88,7 @@ const CLASSIFICATION_ICONS: Record<string, string> = {
   moderate: 'mdi-alert-circle',
   limited: 'mdi-help-circle',
   no_known: 'mdi-minus-circle',
-  disputed: 'mdi-alert-triangle',
+  disputed: 'mdi-alert',
   refuted: 'mdi-close-circle'
 }
 

@@ -86,8 +86,8 @@
             <v-chip v-else size="small" variant="outlined">Unassigned</v-chip>
           </td>
           <td>
-            <v-chip :color="getStatusColor(item.status)" size="small">
-              {{ getStatusLabel(item.status) }}
+            <v-chip :color="curationStatusColor(item.status)" size="small">
+              {{ curationStatusLabel(item.status) }}
             </v-chip>
           </td>
           <td>
@@ -170,8 +170,8 @@
               <v-icon icon="mdi-dna" class="mr-2" />
               {{ curation.gene_symbol }}
               <v-spacer />
-              <v-chip :color="getStatusColor(curation.status)" size="small">
-                {{ getStatusLabel(curation.status) }}
+              <v-chip :color="curationStatusColor(curation.status)" size="small">
+                {{ curationStatusLabel(curation.status) }}
               </v-chip>
             </v-card-title>
 
@@ -294,6 +294,7 @@
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { useAuthStore } from '@/stores/auth'
+  import { CURATION_STATUS, curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useScopesStore } from '@/stores/scopes'
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useCurationsStore } from '@/stores/curations'
@@ -359,7 +360,7 @@
   const statusOptions = [
     { title: 'Draft', value: 'draft' },
     { title: 'Submitted', value: 'submitted' },
-    { title: 'Under Review', value: 'under_review' },
+    { title: CURATION_STATUS.in_review.label, value: 'in_review' },
     { title: 'Approved', value: 'approved' },
     { title: 'Active', value: 'active' }
   ]
@@ -465,34 +466,6 @@
       logger.error('Failed to fetch curations', { error: (error as Error).message })
       notificationStore.addToast('Failed to load curations', 'error')
     }
-  }
-
-  /**
-   * Get status color
-   */
-  function getStatusColor(status: string): string {
-    const colors: Record<string, string> = {
-      draft: 'grey',
-      submitted: 'info',
-      under_review: 'warning',
-      approved: 'success',
-      active: 'primary'
-    }
-    return colors[status] || 'grey'
-  }
-
-  /**
-   * Get status label
-   */
-  function getStatusLabel(status: string): string {
-    const labels: Record<string, string> = {
-      draft: 'Draft',
-      submitted: 'Submitted',
-      under_review: 'Under Review',
-      approved: 'Approved',
-      active: 'Active'
-    }
-    return labels[status] || status
   }
 
   /**

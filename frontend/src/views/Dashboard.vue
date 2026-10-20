@@ -59,7 +59,7 @@
             Quick Actions
           </v-card-title>
           <v-card-text>
-            <div class="d-grid gap-2">
+            <div class="d-grid ga-2">
               <v-btn color="primary" variant="outlined" block to="/scope-selection">
                 <v-icon start>mdi-plus</v-icon>
                 New Curation
@@ -117,9 +117,5 @@
 <style scoped>
   .d-grid {
     display: grid;
-  }
-
-  .gap-2 {
-    gap: 8px;
   }
 </style>

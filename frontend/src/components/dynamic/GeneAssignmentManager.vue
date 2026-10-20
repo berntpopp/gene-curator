@@ -43,7 +43,7 @@
 
       <!-- Quick Actions -->
       <div class="d-flex justify-space-between align-center mb-4">
-        <div class="d-flex gap-2">
+        <div class="d-flex ga-2">
           <v-btn
             color="primary"
             variant="flat"
@@ -64,7 +64,7 @@
           </v-tooltip>
         </div>
 
-        <div class="d-flex gap-2">
+        <div class="d-flex ga-2">
           <v-tooltip text="Coming soon" location="top">
             <template #activator="{ props }">
               <v-btn v-bind="props" variant="outlined" disabled>
@@ -140,7 +140,7 @@
         </template>
 
         <template #item.actions="{ item }">
-          <div class="d-flex gap-1">
+          <div class="d-flex ga-1">
             <v-btn
               aria-label="Edit assignment"
               icon="mdi-pencil"

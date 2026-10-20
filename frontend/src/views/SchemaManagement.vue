@@ -97,7 +97,7 @@
         </template>
 
         <template #item.actions="{ item }">
-          <div class="d-flex gap-1">
+          <div class="d-flex ga-1">
             <v-btn
               aria-label="Edit schema"
               icon="mdi-pencil"

@@ -140,7 +140,7 @@
                 <v-row dense>
                   <v-col v-if="aliasSymbols?.length" cols="12" sm="6">
                     <div class="text-caption text-medium-emphasis mb-2">Alias Symbols</div>
-                    <div class="d-flex flex-wrap gap-1">
+                    <div class="d-flex flex-wrap ga-1">
                       <v-chip
                         v-for="alias in aliasSymbols"
                         :key="alias"
@@ -153,7 +153,7 @@
                   </v-col>
                   <v-col v-if="previousSymbols?.length" cols="12" sm="6">
                     <div class="text-caption text-medium-emphasis mb-2">Previous Symbols</div>
-                    <div class="d-flex flex-wrap gap-1">
+                    <div class="d-flex flex-wrap ga-1">
                       <v-chip
                         v-for="prev in previousSymbols"
                         :key="prev"
@@ -359,8 +359,4 @@
   watch(() => route.params.id as string, loadGene, { immediate: true })
 </script>
 
-<style scoped>
-  .gap-1 {
-    gap: 4px;
-  }
-</style>
+<style scoped></style>

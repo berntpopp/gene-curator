@@ -111,7 +111,7 @@
         </template>
 
         <template #item.issues="{ item }">
-          <div class="d-flex flex-column gap-1">
+          <div class="d-flex flex-column ga-1">
             <v-chip
               v-for="issue in item.issues.slice(0, 2)"
               :key="issue.id"

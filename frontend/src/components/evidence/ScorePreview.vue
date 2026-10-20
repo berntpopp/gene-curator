@@ -12,7 +12,7 @@
     <v-card-text>
       <!-- Total Score Display -->
       <div class="text-center mb-4">
-        <div class="d-flex align-center justify-center gap-2">
+        <div class="d-flex align-center justify-center ga-2">
           <div :class="`text-h2 font-weight-bold text-${classificationColor}`">
             {{ breakdown.total_score.toFixed(2) }}
           </div>
@@ -250,9 +250,6 @@
 
 <style scoped>
   /* Ensure consistent spacing */
-  .gap-2 {
-    gap: 8px;
-  }
 
   /* Smooth transitions for score changes */
   .text-h2 {

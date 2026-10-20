@@ -98,7 +98,7 @@ describe('CurationHeader', () => {
     })
     expect(wrapper.text()).toContain('HNF1B')
     expect(wrapper.text()).toContain('Renal cysts')
-    expect(wrapper.text()).toContain('In Review')
+    expect(wrapper.text()).toContain('In review')
     expect(wrapper.text()).toContain('ID: 123e4567...')
     expect(wrapper.text()).toContain('Expert Panel: Kidney GCEP')
   })

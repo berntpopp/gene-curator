@@ -308,10 +308,6 @@
     font-weight: 600;
   }
 
-  .gap-2 {
-    gap: 8px;
-  }
-
   /* Ensure proper spacing */
   .v-container {
     max-width: 1200px;

@@ -18,7 +18,7 @@
     <!-- Workflow Pairs Table -->
     <v-card class="mb-6">
       <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-workflow</v-icon>
+        <v-icon start>mdi-sitemap-outline</v-icon>
         Workflow Pairs ({{ workflowPairs.length }})
       </v-card-title>
 
@@ -58,7 +58,7 @@
         </template>
 
         <template #item.actions="{ item }">
-          <div class="d-flex gap-1">
+          <div class="d-flex ga-1">
             <v-btn
               aria-label="View workflow"
               icon="mdi-eye"
@@ -169,7 +169,7 @@
           <!-- Stage Pipeline -->
           <div class="mt-4">
             <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
-            <div class="d-flex align-center gap-2 flex-wrap">
+            <div class="d-flex align-center ga-2 flex-wrap">
               <v-chip
                 v-for="stage in workflowStages"
                 :key="stage.id"

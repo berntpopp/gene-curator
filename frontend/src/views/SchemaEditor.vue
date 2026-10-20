@@ -24,7 +24,7 @@
           </p>
         </div>
         <v-spacer />
-        <div class="d-flex gap-2">
+        <div class="d-flex ga-2">
           <v-btn v-if="!isEditing" color="primary" variant="outlined" @click="isEditing = true">
             <v-icon start>mdi-pencil</v-icon>
             Edit
@@ -176,7 +176,7 @@
           <v-card>
             <v-card-title>Actions</v-card-title>
             <v-card-text>
-              <div class="d-grid gap-2">
+              <div class="d-grid ga-2">
                 <v-btn
                   color="info"
                   variant="outlined"
@@ -425,9 +425,5 @@
 
   .d-grid {
     display: grid;
-  }
-
-  .gap-2 {
-    gap: 8px;
   }
 </style>
