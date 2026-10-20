@@ -17,8 +17,10 @@ from sqlalchemy.orm import DeclarativeBase, Session, mapped_column
 from app.core.config import settings
 
 # Create synchronous database engine
+# SQLAlchemy 2.1 defaults postgresql:// to psycopg 3, whose typed parameters break the
+# enum columns mapped as strings; stay on psycopg2 explicitly.
 engine = create_engine(
-    settings.DATABASE_URL,
+    settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1),
     pool_pre_ping=True,
     pool_size=10,
     max_overflow=20,

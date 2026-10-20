@@ -61,7 +61,7 @@ def db() -> Generator[Session, None, None]:
 
     test_db_url = settings.DATABASE_URL.replace(
         "dev_user:dev_password", "test_user:test_password"
-    )
+    ).replace("postgresql://", "postgresql+psycopg2://", 1)
     test_engine = create_engine(test_db_url, pool_pre_ping=True)
 
     # Create a connection from the test engine

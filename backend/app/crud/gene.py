@@ -262,7 +262,7 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
 
     @staticmethod
-    def _scope_genes_stmt(scope_id: UUID, assigned_only: bool) -> Select[tuple[Gene]]:
+    def _scope_genes_stmt(scope_id: UUID, assigned_only: bool) -> Select[Gene]:
         if not assigned_only:
             # All genes (could be filtered by scope preferences in the future)
             return select(Gene)

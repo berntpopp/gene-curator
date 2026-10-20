@@ -308,7 +308,7 @@ class WorkflowEngine:
         if item_type != "curation":
             raise ValueError("Peer review is only supported for curations")
 
-        current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
+        current_stage, _item = self._get_current_stage_and_item(db, item_id, item_type)
 
         if current_stage != WorkflowStage.REVIEW:
             raise ValueError("Item must be in review stage to assign peer reviewer")

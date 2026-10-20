@@ -107,13 +107,7 @@ export type ScopeOption = Schema<'ScopeListItem'>
 
 /** Vuetify input variants accepted by the field wrappers */
 export type FieldVariant =
-  | 'outlined'
-  | 'plain'
-  | 'filled'
-  | 'underlined'
-  | 'solo'
-  | 'solo-inverted'
-  | 'solo-filled'
+  'outlined' | 'plain' | 'filled' | 'underlined' | 'solo' | 'solo-inverted' | 'solo-filled'
 
 /** Payload of `component-fallback`: a schema-named component was not in the registry. */
 export interface ComponentFallbackEvent {

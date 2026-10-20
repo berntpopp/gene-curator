@@ -558,7 +558,7 @@ class TestConvenienceFunction:
             "ui_configuration": {"sections": [{"title": "General"}]},
         }
 
-        errors, warnings = validate_schema_structure(schema)
+        errors, _warnings = validate_schema_structure(schema)
 
         assert len(errors) == 0
         # May have warnings (e.g., missing sections is OK if sections is present)
@@ -567,7 +567,7 @@ class TestConvenienceFunction:
         """Test convenience function with errors."""
         schema: dict[str, Any] = {}
 
-        errors, warnings = validate_schema_structure(schema)
+        errors, _warnings = validate_schema_structure(schema)
 
         assert len(errors) >= 3  # Missing 3 required fields
         assert all(isinstance(e, str) for e in errors)
