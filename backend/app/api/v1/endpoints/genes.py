@@ -116,7 +116,7 @@ def get_genes(
         )
         gene_summaries.append(summary)
 
-    total = len(genes)  # This would be a proper count query in real implementation
+    total = gene_crud.count_genes(db, scope_id=scope_id, assigned_only=assigned_only)
 
     return GeneListResponse(
         genes=gene_summaries,
@@ -466,7 +466,6 @@ def get_scope_genes(
 
     # Convert to summary format
     gene_summaries = []
-    assigned_count = 0
     for gene in genes:
         assignment_status = gene_crud.get_gene_assignment_status(
             db, gene_id=gene.id, scope_id=scope_id
@@ -476,8 +475,6 @@ def get_scope_genes(
         )
 
         is_assigned = str(scope_id) in assignment_status["scope_assignments"]
-        if is_assigned:
-            assigned_count += 1
 
         summary = GeneSummary(
             id=gene.id,
@@ -490,8 +487,9 @@ def get_scope_genes(
         )
         gene_summaries.append(summary)
 
-    total = len(genes)
-    unassigned_count = total - assigned_count
+    total = gene_crud.count_genes(db, scope_id=scope_id, assigned_only=assigned_only)
+    assigned_count = gene_crud.count_genes(db, scope_id=scope_id, assigned_only=True)
+    unassigned_count = gene_crud.count_genes(db, scope_id=scope_id) - assigned_count
 
     return ScopeGeneListResponse(
         scope_id=scope_id,

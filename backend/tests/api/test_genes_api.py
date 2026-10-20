@@ -162,8 +162,8 @@ def test_list_genes_with_pagination_and_summary_flags(
 
     assert response.status_code == 200
     body = response.json()
-    assert body["total"] == 1  # page size, not a count query
-    assert body["has_next"] is False
+    assert body["total"] == 2
+    assert body["has_next"] is True
     assert body["has_prev"] is False
     assert body["genes"][0]["is_assigned"] is False
 

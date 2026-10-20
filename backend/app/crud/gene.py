@@ -8,7 +8,7 @@ from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select, text
+from sqlalchemy import Select, and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.logging import batch_operation, database_query, timed_operation
@@ -247,21 +247,33 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         assigned_only: bool = False,
     ) -> Sequence[Gene]:
         """Get genes available or assigned to a specific scope."""
-        if assigned_only:
-            # Get only genes assigned to this scope
-            stmt = select(Gene).join(
-                GeneScopeAssignment,
-                and_(
-                    GeneScopeAssignment.gene_id == Gene.id,
-                    GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
-                ),
-            )
-        else:
-            # Get all genes (could be filtered by scope preferences in the future)
-            stmt = select(Gene)
-
+        stmt = self._scope_genes_stmt(scope_id, assigned_only)
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
+
+    def count_genes(
+        self, db: Session, *, scope_id: UUID | None = None, assigned_only: bool = False
+    ) -> int:
+        """Total for the same filter as get_multi / get_genes_for_scope (pagination)."""
+        stmt = (
+            self._scope_genes_stmt(scope_id, assigned_only)
+            if scope_id
+            else select(Gene)
+        )
+        return db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+
+    @staticmethod
+    def _scope_genes_stmt(scope_id: UUID, assigned_only: bool) -> Select[tuple[Gene]]:
+        if not assigned_only:
+            # All genes (could be filtered by scope preferences in the future)
+            return select(Gene)
+        return select(Gene).join(
+            GeneScopeAssignment,
+            and_(
+                GeneScopeAssignment.gene_id == Gene.id,
+                GeneScopeAssignment.scope_id == scope_id,
+                GeneScopeAssignment.is_active,
+            ),
+        )
 
     def get_gene_assignment_status(
         self, db: Session, *, gene_id: UUID, scope_id: UUID | None = None
