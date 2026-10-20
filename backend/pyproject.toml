@@ -235,7 +235,7 @@ omit = [
 
 [tool.coverage.report]
 # Ratchet floor: raise as coverage grows, never lower (target 90%, AGENTS.md)
-fail_under = 59
+fail_under = 81
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
