@@ -221,8 +221,7 @@
   const priorityOptions = [
     { title: 'Low', value: 'low' },
     { title: 'Medium', value: 'medium' },
-    { title: 'High', value: 'high' },
-    { title: 'Urgent', value: 'urgent' }
+    { title: 'High', value: 'high' }
   ]
 
   const canCreateAssignment = computed(() => {

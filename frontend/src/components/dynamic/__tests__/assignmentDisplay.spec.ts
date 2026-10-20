@@ -8,13 +8,13 @@ import { describe, it, expect } from 'vitest'
 import { formatPriority, getPriorityColor, priorityOptions } from '../assignmentDisplay'
 
 describe('assignmentDisplay', () => {
-  it('lists priorities from low to urgent', () => {
-    expect(priorityOptions.map(o => o.title)).toEqual(['Low', 'Medium', 'High', 'Urgent'])
+  it('only offers priorities the backend accepts', () => {
+    expect(priorityOptions.map(o => o.title)).toEqual(['Low', 'Medium', 'High'])
   })
 
   describe('getPriorityColor', () => {
     it('maps known priorities to their colour', () => {
-      expect(getPriorityColor('urgent')).toBe('deep-purple')
+      expect(getPriorityColor('urgent')).toBe('grey')
       expect(getPriorityColor('low')).toBe('green')
     })
 

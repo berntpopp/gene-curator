@@ -510,8 +510,7 @@
         low: 'low',
         normal: 'medium',
         medium: 'medium',
-        high: 'high',
-        urgent: 'high'
+        high: 'high'
       }
       const curatorId = selectedCurator.value.user_id
       const promises = selectedGenes.value.map(gene =>

@@ -159,7 +159,7 @@ describe('AssignCuratorModal', () => {
 
     vm.selectedGenes = [{ id: 'g-1' }, { id: 'g-3' }]
     vm.selectedCurator = { user_id: 'u-1', full_name: 'Ada Lovelace' } as never
-    vm.priority = 'urgent'
+    vm.priority = 'normal'
     vm.notes = 'please'
     await flushPromises()
     await vm.handleSubmit()
@@ -169,7 +169,7 @@ describe('AssignCuratorModal', () => {
       gene_id: 'g-1',
       scope_id: 'scope-1',
       assigned_curator_id: 'u-1',
-      priority_level: 'high',
+      priority_level: 'medium',
       assignment_notes: 'please'
     })
     expect(addToast).toHaveBeenCalledWith('2 gene(s) assigned to Ada Lovelace', 'success')

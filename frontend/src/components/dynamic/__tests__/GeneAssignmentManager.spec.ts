@@ -286,7 +286,7 @@ describe('GeneAssignmentManager', () => {
 
       await buttonWithText(wrapper, 'Bulk Assign (2)').trigger('click')
       byLabel(wrapper, 'Assign to User').vm.$emit('update:model-value', curatorUser)
-      byLabel(wrapper, 'Set Priority').vm.$emit('update:model-value', 'urgent')
+      byLabel(wrapper, 'Set Priority').vm.$emit('update:model-value', 'high')
       await flushPromises()
 
       await buttonWithText(wrapper, 'Assign').trigger('click')
@@ -296,7 +296,7 @@ describe('GeneAssignmentManager', () => {
       expect(api.assignCurator).toHaveBeenCalledWith('a1', 'curator-1')
       expect(api.assignCurator).toHaveBeenCalledWith('a2', 'curator-1')
       expect(api.updateAssignment).toHaveBeenCalledWith('a2', {
-        priority_level: 'urgent'
+        priority_level: 'high'
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Successfully assigned 2 items')
     })
