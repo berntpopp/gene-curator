@@ -1,121 +1,101 @@
 # Gene Curator
 
-**A flexible, methodology-agnostic platform for genetic evidence curation and gene-disease validity assessment.**
+<p align="center">
+  <a href="https://github.com/berntpopp/gene-curator/actions/workflows/ci.yml"><img src="https://github.com/berntpopp/gene-curator/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
+  <a href="backend/pyproject.toml"><img src="https://img.shields.io/badge/python-3.12-3776ab?logo=python&logoColor=white" alt="Python 3.12"></a>
+  <a href="backend/pyproject.toml"><img src="https://img.shields.io/badge/FastAPI-0.139-009688?logo=fastapi&logoColor=white" alt="FastAPI"></a>
+  <a href="frontend/package.json"><img src="https://img.shields.io/badge/typescript-6.0-3178c6?logo=typescript&logoColor=white" alt="TypeScript"></a>
+  <a href="frontend/package.json"><img src="https://img.shields.io/badge/vue-3.5-4fc08d?logo=vuedotjs&logoColor=white" alt="Vue 3.5"></a>
+  <a href="database/sql"><img src="https://img.shields.io/badge/PostgreSQL-15-4169e1?logo=postgresql&logoColor=white" alt="PostgreSQL 15"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
 
-## Purpose
+**Gene Curator** is a methodology-agnostic platform for curating gene-disease associations.
+Teams capture evidence in structured, schema-driven forms, get scores computed automatically, and
+move every assertion through an independent peer review before it becomes the team's active call.
+ClinGen SOP v11 and GenCC ship built in; your own method is a schema away.
 
-Gene Curator enables clinical genetics teams to curate gene-disease associations using any methodology—whether ClinGen SOP, GenCC standards, or institution-specific approaches. The platform ensures scientific rigor through structured evidence capture, automated scoring, peer review workflows, and complete provenance tracking.
+## What it does
 
-## Core Capabilities
+- **Any methodology:** field definitions, validation rules, scoring and form layout live in
+  versioned curation schemas in the database. ClinGen SOP v11, GenCC and a qualitative method are
+  included; new scoring engines plug into a registry.
+- **Scope-based teams:** curation happens inside scopes (for example kidney genetics or
+  cardiology) with per-scope roles: admin, curator, reviewer, viewer. Invitations are GitHub-style
+  and grant nothing until accepted.
+- **Multi-stage workflow:** Entry → Precuration (disease entity, lumping/splitting) → Curation →
+  Review → Active. Review follows the 4-eyes principle, backward transitions are allowed, and there
+  is one active curation per gene and scope.
+- **Evidence capture with live checks:** genes, HPO terms and PubMed IDs are validated against
+  HGNC, HPO and PubMed while you type. Scores update as evidence changes.
+- **Traceable records:** audit log, content hashes on records, optimistic locking against
+  concurrent edits, and PostgreSQL row-level security for tenant isolation.
 
-- **Methodology Flexibility**: Support for ClinGen, GenCC, or custom curation frameworks through configurable schemas
-- **Clinical Organization**: Scope-based structure for specialty domains (kidney genetics, cardiology, neurology, etc.)
-- **Quality Assurance**: Multi-stage workflow with mandatory peer review (4-eyes principle)
-- **Evidence Management**: Structured capture with real-time validation and automated scoring
-- **Team Collaboration**: Role-based access control with curator workload management
-- **Scientific Integrity**: Complete audit trails with cryptographic record verification
+## Quick start
 
-## Quick Start
-
-### Prerequisites
-
-- Docker and Docker Compose
-- Make (optional, for convenience commands)
-- Git
-
-### Development Setup
-
-1. **Clone and start the development environment:**
-   ```bash
-   git clone https://github.com/halbritter-lab/gene-curator.git
-   cd gene-curator
-   make dev
-   ```
-
-2. **Access the applications:**
-   - **Frontend Application**: http://localhost:3051
-   - **API Documentation**: http://localhost:8051/docs
-   - **Database**: localhost:5454 (credentials in docker-compose.dev.yml)
-
-3. **Check service health:**
-   ```bash
-   make health
-   ```
-
-## Common Commands
+Requires Docker, GNU Make, [uv](https://docs.astral.sh/uv/) and Node.js 24 (`.nvmrc`).
 
 ```bash
-# Environment management
-make dev          # Start development environment
-make dev-build    # Rebuild and start
-make dev-down     # Stop environment
-make status       # Show service status
-
-# Database operations
-make db-init      # Initialize database with schema and seed data
-make db-reset     # Reset database completely
-
-# Code quality
-make test         # Run all tests
-make lint         # Run linting (backend + frontend)
-make format       # Format code (backend + frontend)
+git clone https://github.com/berntpopp/gene-curator.git
+cd gene-curator
+make install      # backend + frontend dependencies and git hooks
+make hybrid-up    # PostgreSQL + Redis in Docker
+make backend      # terminal 1: API on http://localhost:8051/docs
+make frontend     # terminal 2: UI on http://localhost:5193
 ```
 
-## How It Works
+Create `frontend/.env.local` with `VITE_API_BASE_URL=http://localhost:8051` and
+`VITE_ENABLE_DEV_LOGIN=true`, then sign in as `admin@genecurator.org` / `admin123` (seeded
+development data only). Prefer everything in containers? `make dev` (UI on port 3051).
 
-### Multi-Stage Curation Workflow
+## Development and verification
 
-1. **Entry**: Genes are assigned to clinical scopes and curators
-2. **Precuration**: Initial disease association assessment with lumping/splitting analysis
-3. **Curation**: Detailed evidence collection following the selected methodology
-4. **Review**: Independent peer review by a different curator (4-eyes principle)
-5. **Active**: Approved curations become the authoritative gene-disease assertion
+Checks run locally first; GitHub Actions runs the same `make` targets and only confirms.
 
-### Methodology Support
+| Command | Purpose |
+| --- | --- |
+| `make check` | Fast gate (pre-push hook): lint, types, file-size limit, unit tests |
+| `make ci` | Everything CI runs, including coverage gates, the PostgreSQL lane and the production build |
+| `make format` | Auto-fix formatting and lint findings |
+| `make test` / `make test-frontend` | Backend (pytest) / frontend (Vitest) tests |
+| `make test-postgres` | Builds a fresh database from `database/sql` and runs the RLS tests on it |
+| `make test-e2e` | Playwright end-to-end tests against a running stack |
+| `make api-types` | Regenerate frontend API types from the backend OpenAPI schema |
+| `make audit` | Known-vulnerability scan of both lockfiles |
+| `make db-shell` / `make db-reset` | psql into the dev database / rebuild it from scratch |
+| `make help` | All targets |
 
-Gene Curator adapts to your curation approach through:
-- **Configurable Schemas**: Define evidence fields, validation rules, and scoring logic
-- **Pluggable Scoring Engines**: Built-in support for ClinGen SOP v11, GenCC, and custom algorithms
-- **Dynamic Forms**: UI automatically adapts to your methodology's requirements
-- **Flexible Workflows**: Customize stages, transitions, and approval processes
-
-### Default Login Credentials (Development)
-
-- Admin: `admin@gene-curator.dev` / `admin123`
-- Curator: `curator@gene-curator.dev` / `curator123`
-- Viewer: `viewer@gene-curator.dev` / `viewer123`
+Quality bar: source files at most 650 lines, at least 90% coverage on changed lines with ratcheting
+global floors, strict mypy and vue-tsc, and no `print` or `console.*` outside the logging layer.
+Details are in [AGENTS.md](AGENTS.md).
 
 ## Architecture
 
-```
-gene-curator/
-├── backend/                 # FastAPI + PostgreSQL backend
-│   ├── app/api/v1/         # REST API endpoints
-│   ├── app/scoring/        # Pluggable scoring engines
-│   └── app/tests/          # Test suite
-├── frontend/               # Vue 3 + Vite application
-│   ├── src/components/     # UI components
-│   └── src/stores/         # State management
-└── database/sql/           # PostgreSQL schema definitions
-```
+| Layer | Path | Responsibility |
+| --- | --- | --- |
+| API | `backend/app/api/v1/endpoints/` | FastAPI routers, auth and scope-role dependencies |
+| Domain | `backend/app/crud/`, `backend/app/services/` | Data access, workflow engine, permissions, external validators |
+| Scoring | `backend/app/scoring/` | ClinGen, GenCC and qualitative engines behind a registry |
+| Database | `database/sql/` | Schema, RLS policies, triggers, seed data (numbered SQL migrations) |
+| UI | `frontend/src/` | Vue 3 + Vuetify views, Pinia stores, schema-driven dynamic forms |
+| Contract | `frontend/src/types/api.generated.ts` | TypeScript types generated from the API's OpenAPI schema |
+
+Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
+Vuetify 3 · PostgreSQL 15 · Redis 7.
 
 ## Documentation
 
-- **API Documentation**: http://localhost:8051/docs (interactive OpenAPI)
-- **Development Guide**: See `CLAUDE.md` for architecture and developer guidelines
-- **Contributing**: See `CONTRIBUTING.md` for contributor onboarding
+- [AGENTS.md](AGENTS.md): developer and coding-agent guide (setup, commands, architecture, rules)
+- [CONTRIBUTING.md](CONTRIBUTING.md): how to propose changes
+- API reference: http://localhost:8051/docs (interactive OpenAPI) while the backend runs
+- `backend/docs/`: architecture and schema format notes
 
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+MIT, see [LICENSE](LICENSE).
 
 ## Acknowledgments
 
-- **ClinGen Consortium**: For establishing the Gene-Disease Validity Standard Operating Procedures
-- **GenCC**: For the Gene Curation Coalition standards and guidelines
-- **Scientific Community**: For the principles of verifiable, attributable, and replicable genetic curation
-- **Vue.js & FastAPI Communities**: For excellent frameworks that enable rapid development
-
----
-
-**Gene Curator** - Supporting the future of genetic curation through flexible, methodology-agnostic architecture.
+The [ClinGen](https://clinicalgenome.org/) Gene-Disease Validity working group for the SOPs this
+platform implements, and the [Gene Curation Coalition (GenCC)](https://thegencc.org/) for its
+harmonised standards.

@@ -42,3 +42,4 @@ test-results/
 
 # Agent worktrees
 .claude/worktrees/
+CLAUDE.local.md
