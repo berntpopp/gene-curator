@@ -330,8 +330,8 @@ async def cleanup_old_partitions(db: AsyncSession, days: int = 90) -> dict[str, 
         Dictionary with cleanup results
     """
     # Call the PostgreSQL function
-    query = text("SELECT cleanup_old_logs()")
-    await db.execute(query)
+    query = text("SELECT cleanup_old_logs(:days)")
+    await db.execute(query, {"days": days})
     await db.commit()
 
     return {

@@ -152,10 +152,7 @@ class CRUDGeneScopeAssignment(
         has_curator: bool | None = None,
         is_active: bool = True,
     ) -> Sequence[GeneScopeAssignment]:
-        """Get assignments (active by default) with related entity details.
-
-        scope_ids restricts results to those scopes (None = unrestricted).
-        """
+        """Get assignments with details; scope_ids=None means unrestricted."""
         stmt = (
             select(GeneScopeAssignment)
             .options(
@@ -182,10 +179,8 @@ class CRUDGeneScopeAssignment(
             stmt = stmt.where(GeneScopeAssignment.priority == priority)
 
         if has_curator is not None:
-            curator_col = GeneScopeAssignment.assigned_curator_id
-            stmt = stmt.where(
-                curator_col.is_not(None) if has_curator else curator_col.is_(None)
-            )
+            has_curator_col = GeneScopeAssignment.assigned_curator_id.is_not(None)
+            stmt = stmt.where(has_curator_col == has_curator)
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
 

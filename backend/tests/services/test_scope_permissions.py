@@ -20,6 +20,7 @@ from app.services.scope_permissions import (
     _is_global_admin,
     admin_bypass_returns_true,
 )
+from tests.api.scopes.factories import make_member
 
 # =============================================================================
 # Test Fixtures
@@ -116,17 +117,7 @@ def curator_membership(
     db_session: Session, regular_user: UserNew, scope: Scope
 ) -> ScopeMembership:
     """Create active curator membership."""
-    membership = ScopeMembership(
-        user_id=regular_user.id,
-        scope_id=scope.id,
-        role="curator",
-        is_active=True,
-        accepted_at=datetime.now(UTC),
-    )
-    db_session.add(membership)
-    db_session.commit()
-    db_session.refresh(membership)
-    return membership
+    return make_member(db_session, scope, regular_user, "curator", is_active=True)
 
 
 @pytest.fixture
@@ -134,17 +125,7 @@ def viewer_membership(
     db_session: Session, regular_user: UserNew, scope: Scope
 ) -> ScopeMembership:
     """Create active viewer membership."""
-    membership = ScopeMembership(
-        user_id=regular_user.id,
-        scope_id=scope.id,
-        role="viewer",
-        is_active=True,
-        accepted_at=datetime.now(UTC),
-    )
-    db_session.add(membership)
-    db_session.commit()
-    db_session.refresh(membership)
-    return membership
+    return make_member(db_session, scope, regular_user, "viewer", is_active=True)
 
 
 @pytest.fixture
@@ -152,17 +133,7 @@ def inactive_membership(
     db_session: Session, regular_user: UserNew, scope: Scope
 ) -> ScopeMembership:
     """Create inactive membership."""
-    membership = ScopeMembership(
-        user_id=regular_user.id,
-        scope_id=scope.id,
-        role="curator",
-        is_active=False,
-        accepted_at=datetime.now(UTC),
-    )
-    db_session.add(membership)
-    db_session.commit()
-    db_session.refresh(membership)
-    return membership
+    return make_member(db_session, scope, regular_user, "curator", is_active=False)
 
 
 @pytest.fixture
@@ -170,17 +141,7 @@ def reviewer_membership(
     db_session: Session, regular_user: UserNew, scope: Scope
 ) -> ScopeMembership:
     """Create active reviewer membership."""
-    membership = ScopeMembership(
-        user_id=regular_user.id,
-        scope_id=scope.id,
-        role="reviewer",
-        is_active=True,
-        accepted_at=datetime.now(UTC),
-    )
-    db_session.add(membership)
-    db_session.commit()
-    db_session.refresh(membership)
-    return membership
+    return make_member(db_session, scope, regular_user, "reviewer", is_active=True)
 
 
 # =============================================================================

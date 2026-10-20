@@ -120,11 +120,6 @@ class ScopePermissionService:
 
         # Admin can view all
         if user.role.value == "admin":
-            logger.debug(
-                "Admin can view all scopes",
-                user_id=str(user.id),
-                scope_id=str(scope.id),
-            )
             return True
 
         # Check if user is scope member

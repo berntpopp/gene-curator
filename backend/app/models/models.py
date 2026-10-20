@@ -24,6 +24,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -42,15 +43,7 @@ from app.core.db_types import (
 
 
 class UserRoleNew(str, enum.Enum):
-    """
-    Application-level user roles (NOT scope-specific).
-
-    - ADMIN: Platform administrator with full access
-    - USER: Standard user (scope-specific roles assigned via scope_memberships)
-
-    Note: Scope-specific roles (curator, reviewer, viewer, admin) are managed
-    in the scope_memberships table, not at the application level.
-    """
+    """Application-level roles (admin/user); scope roles live in scope_memberships."""
 
     ADMIN = "admin"
     USER = "user"
@@ -1069,8 +1062,15 @@ class ActiveCuration(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("gene_id", "scope_id", name="uq_active_curation_gene_scope"),
-        Index("idx_active_curations_gene_scope", "gene_id", "scope_id"),
+        # Only one non-archived row per gene-scope; archived history may repeat
+        Index(
+            "uq_active_curation_gene_scope_current",
+            "gene_id",
+            "scope_id",
+            unique=True,
+            postgresql_where="archived_at IS NULL",
+            sqlite_where=text("archived_at IS NULL"),
+        ),
         Index(
             "idx_active_curations_current",
             "archived_at",

@@ -63,13 +63,7 @@ def get_gene_assignments(
     has_curator: bool | None = Query(None, description="Filter by curator assignment"),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignmentListResponse:
-    """
-    Retrieve gene-scope assignments with filtering.
-    """
-    # All authenticated users can view assignments
-    # RLS policies + scope membership checks handle access control
-
-    # Regular users can only see assignments in their scopes
+    """Retrieve gene-scope assignments with filtering."""
     if scope_id and not ScopePermissionService.has_scope_access(
         db, current_user, scope_id
     ):
@@ -77,10 +71,10 @@ def get_gene_assignments(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    # Non-admins only see assignments in scopes they are accepted members of
-    visible_scope_ids = (
+    # Non-admins only see assignments in their own scopes
+    visible = (
         None
-        if scope_id or current_user.role.value == "admin"
+        if scope_id
         else ScopePermissionService.get_user_scope_ids(db, current_user)
     )
 
@@ -89,7 +83,7 @@ def get_gene_assignments(
         skip=skip,
         limit=limit,
         scope_id=scope_id,
-        scope_ids=visible_scope_ids,
+        scope_ids=visible,
         curator_id=curator_id,
         gene_id=gene_id,
         priority="normal" if priority_level == "medium" else priority_level,
