@@ -14,6 +14,8 @@ from app.models import (
     ActiveCuration,
     CurationNew,
     CurationStatus,
+    NotificationNew,
+    NotificationType,
     PrecurationNew,
     Review,
     ReviewStatus,
@@ -199,65 +201,59 @@ class WorkflowEngine:
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
-        # Execute the transition based on target stage
-        transition_result = None
+        try:
+            # Execute the transition based on target stage
+            transition_result = None
 
-        if target_stage == WorkflowStage.PRECURATION:
-            transition_result = self._transition_to_precuration(
-                db, item, user_id, notes, metadata
+            if target_stage == WorkflowStage.PRECURATION:
+                transition_result = self._transition_to_precuration(
+                    db, item, user_id, notes, metadata
+                )
+
+            elif target_stage == WorkflowStage.CURATION:
+                transition_result = self._transition_to_curation(
+                    db, item, user_id, notes, metadata
+                )
+
+            elif target_stage == WorkflowStage.REVIEW:
+                transition_result = self._transition_to_review(
+                    db, item, user_id, notes, metadata
+                )
+
+            elif target_stage == WorkflowStage.ACTIVE:
+                transition_result = self._transition_to_active(
+                    db, item, user_id, notes, metadata
+                )
+
+            elif target_stage == WorkflowStage.ENTRY:
+                transition_result = self._transition_to_entry(
+                    db, item, user_id, notes, metadata
+                )
+
+            else:
+                raise ValueError(f"Unsupported target stage: {target_stage}")
+
+            # Emit notifications for workflow transitions
+            self._emit_transition_notification(
+                db, item, item_type, current_stage, target_stage, user_id
             )
 
-        elif target_stage == WorkflowStage.CURATION:
-            transition_result = self._transition_to_curation(
-                db, item, user_id, notes, metadata
+            transition = WorkflowTransition(
+                item_id=item_id,
+                item_type=item_type,
+                from_stage=current_stage,
+                to_stage=target_stage,
+                executed_by=user_id,
+                executed_at=datetime.now(UTC),
+                notes=notes,
+                metadata=metadata or {},
+                **transition_result,
             )
-
-        elif target_stage == WorkflowStage.REVIEW:
-            transition_result = self._transition_to_review(
-                db, item, user_id, notes, metadata
-            )
-
-        elif target_stage == WorkflowStage.ACTIVE:
-            transition_result = self._transition_to_active(
-                db, item, user_id, notes, metadata
-            )
-
-        elif target_stage == WorkflowStage.ENTRY:
-            transition_result = self._transition_to_entry(
-                db, item, user_id, notes, metadata
-            )
-
-        else:
-            raise ValueError(f"Unsupported target stage: {target_stage}")
-
-        # Log the transition in audit trail
-        self._log_workflow_transition(
-            db,
-            item_id,
-            item_type,
-            current_stage,
-            target_stage,
-            user_id,
-            notes,
-            metadata,
-        )
-
-        # Emit notifications for workflow transitions
-        self._emit_transition_notification(
-            db, item, item_type, current_stage, target_stage, user_id
-        )
-
-        return WorkflowTransition(
-            item_id=item_id,
-            item_type=item_type,
-            from_stage=current_stage,
-            to_stage=target_stage,
-            executed_by=user_id,
-            executed_at=datetime.now(UTC),
-            notes=notes,
-            metadata=metadata or {},
-            **transition_result,
-        )
+            db.commit()
+            return transition
+        except Exception:
+            db.rollback()
+            raise
 
     def get_workflow_state(
         self, db: Session, item_id: UUID, item_type: str
@@ -337,31 +333,36 @@ class WorkflowEngine:
             assigned_at=datetime.now(UTC),
         )
 
-        db.add(review)
-        db.commit()
-        db.refresh(review)
+        try:
+            db.add(review)
+            db.flush()
 
-        # Notify the assigned reviewer
-        from app.crud.notification import notification_crud
-        from app.models.models import NotificationType
+            # Notify the assigned reviewer
 
-        gene_symbol = "Unknown"
-        if (
-            item_type == "curation"
-            and curation_result
-            and hasattr(curation_result, "gene")
-            and curation_result.gene
-        ):
-            gene_symbol = getattr(curation_result.gene, "approved_symbol", "Unknown")
+            gene_symbol = "Unknown"
+            if (
+                item_type == "curation"
+                and curation_result
+                and hasattr(curation_result, "gene")
+                and curation_result.gene
+            ):
+                gene_symbol = getattr(
+                    curation_result.gene, "approved_symbol", "Unknown"
+                )
 
-        notification_crud.create_for_user(
-            db,
-            user_id=reviewer_id,
-            notification_type=NotificationType.REVIEW_ASSIGNED,
-            title="New review assigned",
-            message=f"New review assigned: {gene_symbol}",
-            link=f"/curations/{item_id}",
-        )
+            db.add(
+                NotificationNew(
+                    user_id=reviewer_id,
+                    type=NotificationType.REVIEW_ASSIGNED,
+                    title="New review assigned",
+                    message=f"New review assigned: {gene_symbol}",
+                    link=f"/scopes/{curation_result.scope_id}/curations/{item_id}",
+                )
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         return PeerReviewRequest(
             review_id=review.id,
@@ -402,64 +403,66 @@ class WorkflowEngine:
         if decision not in valid_decisions:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
 
-        # Update review
-        review.status = {
-            "approve": ReviewStatus.APPROVED,
-            "request_changes": ReviewStatus.NEEDS_REVISION,
-            "reject": ReviewStatus.REJECTED,
-        }[decision]
-        review.recommendation = decision
-        review.comments = comments
-        review.feedback_data = suggested_changes or {}
-        review.reviewed_at = datetime.now(UTC)
+        try:
+            # Update review
+            review.status = {
+                "approve": ReviewStatus.APPROVED,
+                "request_changes": ReviewStatus.NEEDS_REVISION,
+                "reject": ReviewStatus.REJECTED,
+            }[decision]
+            review.recommendation = decision
+            review.comments = comments
+            review.feedback_data = suggested_changes or {}
+            review.reviewed_at = datetime.now(UTC)
 
-        db.commit()
+            db.flush()
 
-        # Notify the curation creator of the review decision
-        from app.crud.notification import notification_crud
-        from app.models.models import NotificationType
+            # Notify the curation creator of the review decision
 
-        curation = (
-            db.execute(select(CurationNew).where(CurationNew.id == review.curation_id))
-            .scalars()
-            .first()
-        )
-        if curation and curation.created_by and curation.created_by != reviewer_id:
-            gene_symbol = "Unknown"
-            if hasattr(curation, "gene") and curation.gene:
-                gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
-
-            notification_config = {
-                "reject": (
-                    NotificationType.CURATION_REJECTED,
-                    "Curation rejected",
-                    f"Curation rejected: {gene_symbol}",
-                ),
-                "request_changes": (
-                    NotificationType.REVISION_REQUESTED,
-                    "Revision requested",
-                    f"Revision requested: {gene_symbol}",
-                ),
-            }.get(decision)
-
-            if notification_config:
-                notification_type, title, message = notification_config
-                notification_crud.create_for_user(
-                    db,
-                    user_id=curation.created_by,
-                    notification_type=notification_type,
-                    title=title,
-                    message=message,
-                    link=f"/curations/{curation.id}",
+            curation = (
+                db.execute(
+                    select(CurationNew).where(CurationNew.id == review.curation_id)
                 )
+                .scalars()
+                .first()
+            )
+            if curation and curation.created_by and curation.created_by != reviewer_id:
+                gene_symbol = "Unknown"
+                if hasattr(curation, "gene") and curation.gene:
+                    gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
 
-        # If approved, check if all required reviews are complete
-        if decision == "approve":
-            all_reviews_complete = self._check_all_reviews_complete(
-                db, review.curation_id, item_type="curation"
+                notification_config = {
+                    "reject": (
+                        NotificationType.CURATION_REJECTED,
+                        "Curation rejected",
+                        f"Curation rejected: {gene_symbol}",
+                    ),
+                    "request_changes": (
+                        NotificationType.REVISION_REQUESTED,
+                        "Revision requested",
+                        f"Revision requested: {gene_symbol}",
+                    ),
+                }.get(decision)
+
+                if notification_config:
+                    notification_type, title, message = notification_config
+                    db.add(
+                        NotificationNew(
+                            user_id=curation.created_by,
+                            type=notification_type,
+                            title=title,
+                            message=message,
+                            link=f"/scopes/{curation.scope_id}/curations/{curation.id}",
+                        )
+                    )
+
+            all_reviews_complete = (
+                decision == "approve"
+                and self._check_all_reviews_complete(
+                    db, review.curation_id, item_type="curation"
+                )
             )
             if all_reviews_complete:
-                # Automatically transition to active if all reviews approved
                 self.execute_transition(
                     db,
                     review.curation_id,
@@ -468,12 +471,17 @@ class WorkflowEngine:
                     reviewer_id,
                     notes="All peer reviews approved - automatically activated",
                 )
+            else:
+                db.commit()
+        except Exception:
+            db.rollback()
+            raise
 
         return {
             "review_id": review_id,
             "decision": decision,
             "status": "completed",
-            "auto_transitioned": decision == "approve" and all_reviews_complete,
+            "auto_transitioned": all_reviews_complete,
         }
 
     def get_workflow_statistics(
@@ -861,7 +869,7 @@ class WorkflowEngine:
         # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.PRECURATION
-        db.commit()
+        db.flush()
         return {"success": True, "message": "Transitioned to precuration"}
 
     def _transition_to_curation(
@@ -878,7 +886,7 @@ class WorkflowEngine:
             item.workflow_stage = WorkflowStage.CURATION
         if hasattr(item, "status"):
             item.status = CurationStatus.DRAFT
-        db.commit()
+        db.flush()
         return {"success": True, "message": "Transitioned to curation"}
 
     def _transition_to_review(
@@ -954,7 +962,7 @@ class WorkflowEngine:
             )
             db.add(active_curation)
 
-        db.commit()
+        db.flush()
         return {"success": True, "message": "Transitioned to active"}
 
     def _transition_to_entry(
@@ -969,7 +977,7 @@ class WorkflowEngine:
         # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.ENTRY
-        db.commit()
+        db.flush()
         return {"success": True, "message": "Transitioned back to entry"}
 
     def _emit_transition_notification(
@@ -982,8 +990,6 @@ class WorkflowEngine:
         acted_by: UUID,
     ) -> None:
         """Emit notifications for workflow state transitions."""
-        from app.crud.notification import notification_crud
-        from app.models.models import NotificationType
 
         # Determine gene symbol for notification message
         gene_symbol = "Unknown"
@@ -999,53 +1005,41 @@ class WorkflowEngine:
             for review_info in pending_reviews:
                 reviewer_id = review_info.get("reviewer_id")
                 if reviewer_id and reviewer_id != acted_by:
-                    notification_crud.create_for_user(
-                        db,
-                        user_id=reviewer_id,
-                        notification_type=NotificationType.REVIEW_ASSIGNED,
-                        title="New review assigned",
-                        message=f"New review assigned: {gene_symbol}",
-                        link=f"/curations/{item.id}",
+                    db.add(
+                        NotificationNew(
+                            user_id=reviewer_id,
+                            type=NotificationType.REVIEW_ASSIGNED,
+                            title="New review assigned",
+                            message=f"New review assigned: {gene_symbol}",
+                            link=f"/scopes/{item.scope_id}/curations/{item.id}",
+                        )
                     )
 
         # REVIEW → ACTIVE: notify the curator (creator) of approval
         elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.ACTIVE:
             if creator_id and creator_id != acted_by:
-                notification_crud.create_for_user(
-                    db,
-                    user_id=creator_id,
-                    notification_type=NotificationType.CURATION_APPROVED,
-                    title="Curation approved",
-                    message=f"Curation approved: {gene_symbol}",
-                    link=f"/curations/{item.id}",
+                db.add(
+                    NotificationNew(
+                        user_id=creator_id,
+                        type=NotificationType.CURATION_APPROVED,
+                        title="Curation approved",
+                        message=f"Curation approved: {gene_symbol}",
+                        link=f"/scopes/{item.scope_id}/curations/{item.id}",
+                    )
                 )
 
         # REVIEW → CURATION: notify the curator of rejection/revision request
         elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.CURATION:
             if creator_id and creator_id != acted_by:
-                notification_crud.create_for_user(
-                    db,
-                    user_id=creator_id,
-                    notification_type=NotificationType.REVISION_REQUESTED,
-                    title="Revision requested",
-                    message=f"Revision requested: {gene_symbol}",
-                    link=f"/curations/{item.id}",
+                db.add(
+                    NotificationNew(
+                        user_id=creator_id,
+                        type=NotificationType.REVISION_REQUESTED,
+                        title="Revision requested",
+                        message=f"Revision requested: {gene_symbol}",
+                        link=f"/scopes/{item.scope_id}/curations/{item.id}",
+                    )
                 )
-
-    def _log_workflow_transition(
-        self,
-        db: Session,
-        item_id: UUID,
-        item_type: str,
-        from_stage: WorkflowStage,
-        to_stage: WorkflowStage,
-        user_id: UUID,
-        notes: str | None,
-        metadata: dict[str, Any] | None,
-    ) -> None:
-        """Log workflow transition in audit trail."""
-        # This would log to the audit_log table
-        pass
 
     def _get_workflow_history(
         self, db: Session, item_id: UUID, item_type: str
