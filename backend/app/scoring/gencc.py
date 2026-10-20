@@ -246,7 +246,7 @@ class GenCCEngine(ScoringEngine):
 
         for i, case in enumerate(case_level_data):
             # Validate PMID
-            pmid = case.get("pmid", "")
+            pmid = str(case.get("pmid", ""))  # PMIDs may arrive as JSON numbers
             if not pmid or not pmid.isdigit() or len(pmid) < 7:
                 errors.append(f"Case-level item {i + 1}: Invalid PMID format")
 
