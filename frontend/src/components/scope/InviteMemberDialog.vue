@@ -361,8 +361,7 @@
       })
 
       const result = (await scopeStore.inviteMember(props.scopeId, invitationData)) as
-        | InvitedPayload
-        | undefined
+        InvitedPayload | undefined
 
       logger.info('Invitation sent successfully', {
         scopeId: props.scopeId,

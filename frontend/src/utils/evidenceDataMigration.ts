@@ -68,7 +68,7 @@ export function migrateLegacyFormat<T extends EvidenceData | null | undefined>(e
 export function isLegacyFormat(evidenceData: EvidenceData | null | undefined): boolean {
   return Boolean(
     evidenceData &&
-      !evidenceData._version &&
-      (evidenceData.evidence_items !== undefined || evidenceData.disease_entity !== undefined)
+    !evidenceData._version &&
+    (evidenceData.evidence_items !== undefined || evidenceData.disease_entity !== undefined)
   )
 }
