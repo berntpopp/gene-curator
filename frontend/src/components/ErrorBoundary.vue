@@ -29,7 +29,7 @@
     </v-alert>
 
     <!-- Additional actions -->
-    <div class="mt-4 d-flex gap-2">
+    <div class="mt-4 d-flex ga-2">
       <v-btn variant="text" prepend-icon="mdi-home" @click="goHome"> Go to Dashboard </v-btn>
     </div>
   </div>
@@ -133,7 +133,4 @@
   }
 
   /* Ensure proper spacing for action buttons */
-  .gap-2 {
-    gap: 8px;
-  }
 </style>

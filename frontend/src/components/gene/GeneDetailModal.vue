@@ -128,7 +128,7 @@
             <v-row dense>
               <v-col v-if="geneData.alias_symbols?.length" cols="12" sm="6">
                 <div class="text-caption text-medium-emphasis">Alias Symbols</div>
-                <div class="d-flex flex-wrap gap-1 mt-1">
+                <div class="d-flex flex-wrap ga-1 mt-1">
                   <v-chip
                     v-for="alias in geneData.alias_symbols"
                     :key="alias"
@@ -141,7 +141,7 @@
               </v-col>
               <v-col v-if="geneData.previous_symbols?.length" cols="12" sm="6">
                 <div class="text-caption text-medium-emphasis">Previous Symbols</div>
-                <div class="d-flex flex-wrap gap-1 mt-1">
+                <div class="d-flex flex-wrap ga-1 mt-1">
                   <v-chip
                     v-for="prev in geneData.previous_symbols"
                     :key="prev"
@@ -330,8 +330,4 @@
   )
 </script>
 
-<style scoped>
-  .gap-1 {
-    gap: 4px;
-  }
-</style>
+<style scoped></style>

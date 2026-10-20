@@ -10,7 +10,7 @@
             Advanced platform for genetic information curation and management with ClinGen
             compliance
           </p>
-          <div class="d-flex justify-center gap-4 flex-wrap">
+          <div class="d-flex justify-center ga-4 flex-wrap">
             <v-btn
               :to="{ name: 'GeneCatalogue' }"
               color="primary"
@@ -251,14 +251,6 @@
     min-height: 400px;
     display: flex;
     align-items: center;
-  }
-
-  .gap-4 {
-    gap: 1rem;
-  }
-
-  .h-100 {
-    height: 100%;
   }
 
   .v-card {

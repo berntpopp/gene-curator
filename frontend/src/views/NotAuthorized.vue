@@ -7,7 +7,7 @@
         <p class="text-h6 mb-6 text-medium-emphasis">
           You don't have permission to access this page.
         </p>
-        <div class="d-flex justify-center gap-3">
+        <div class="d-flex justify-center ga-4">
           <v-btn :to="{ name: 'Home' }" color="primary"> Go Home </v-btn>
           <v-btn :to="{ name: 'GeneCatalogue' }" color="secondary"> Browse Genes </v-btn>
         </div>
@@ -23,9 +23,5 @@
 <style scoped>
   .fill-height {
     min-height: 70vh;
-  }
-
-  .gap-3 {
-    gap: 1rem;
   }
 </style>

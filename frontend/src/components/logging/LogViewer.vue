@@ -122,7 +122,7 @@
           <!-- Log Statistics -->
           <v-row v-if="logStore.logCount > 0" dense class="mt-2">
             <v-col cols="12">
-              <div class="d-flex gap-2 flex-wrap">
+              <div class="d-flex ga-2 flex-wrap">
                 <template v-for="(count, level) in logStore.logsByLevel" :key="level">
                   <v-chip
                     v-if="count > 0"
@@ -160,7 +160,7 @@
             <v-card-text class="py-2">
               <!-- Log Header -->
               <div class="d-flex align-center justify-space-between mb-1">
-                <div class="d-flex align-center gap-2">
+                <div class="d-flex align-center ga-2">
                   <v-chip :color="getLogColor(log.level)" size="x-small" variant="flat">
                     {{ log.level }}
                   </v-chip>
@@ -500,9 +500,5 @@
   .log-data .v-expansion-panel-title {
     min-height: 32px;
     padding: 4px 8px;
-  }
-
-  .gap-2 {
-    gap: 8px;
   }
 </style>

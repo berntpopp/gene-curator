@@ -81,7 +81,7 @@
             Development Quick Login
           </v-card-title>
           <v-card-text>
-            <div class="d-flex flex-column gap-2">
+            <div class="d-flex flex-column ga-2">
               <v-btn
                 size="small"
                 variant="outlined"
@@ -243,10 +243,6 @@
       rgb(var(--v-theme-surface)) 0%,
       rgb(var(--v-theme-background)) 100%
     );
-  }
-
-  .gap-2 {
-    gap: 0.5rem;
   }
 
   .v-card {

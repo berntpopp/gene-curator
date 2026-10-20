@@ -10,7 +10,7 @@
             </v-btn>
             <h1 class="text-h4 d-inline">Curation Details</h1>
           </div>
-          <div class="d-flex gap-2">
+          <div class="d-flex ga-2">
             <v-btn
               v-if="canEdit"
               color="primary"
@@ -61,7 +61,7 @@
                   <div class="text-caption mt-2">Gene-Disease Validity Classification</div>
                 </v-col>
                 <v-col cols="12" md="4">
-                  <div class="d-flex justify-center justify-md-end gap-6">
+                  <div class="d-flex justify-center justify-md-end ga-6">
                     <div class="text-center">
                       <div class="text-h5 font-weight-medium">{{ scores.genetic.toFixed(2) }}</div>
                       <div class="text-caption">Genetic (max 12)</div>
@@ -92,7 +92,7 @@
                     <v-col cols="12" md="6">
                       <div class="mb-4">
                         <div class="text-caption text-medium-emphasis">Gene Symbol</div>
-                        <div class="d-flex align-center gap-2 mt-1">
+                        <div class="d-flex align-center ga-2 mt-1">
                           <v-chip color="primary" variant="tonal" size="large">
                             <v-icon start>mdi-dna</v-icon>
                             {{ curation.gene_symbol || 'Unknown' }}
@@ -173,7 +173,7 @@
                   Workflow Actions
                 </v-card-title>
                 <v-card-text>
-                  <div class="d-flex flex-column gap-2">
+                  <div class="d-flex flex-column ga-2">
                     <v-btn
                       v-if="canSubmitForReview"
                       color="primary"
@@ -822,12 +822,4 @@
   })
 </script>
 
-<style scoped>
-  .gap-2 {
-    gap: 8px;
-  }
-
-  .gap-6 {
-    gap: 24px;
-  }
-</style>
+<style scoped></style>
