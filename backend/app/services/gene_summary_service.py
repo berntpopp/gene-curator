@@ -9,7 +9,7 @@ Design Principles:
 - Flexibility: Works with active curations from ActiveCuration table
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -187,7 +187,7 @@ class GeneSummaryService:
         summary.scope_summaries = scope_summaries
         summary.has_conflicts = has_conflicts
         summary.is_stale = False
-        summary.last_computed_at = datetime.now()
+        summary.last_computed_at = datetime.now(UTC)
 
         # Compute consensus (simple majority for MVP)
         if classification_summary:

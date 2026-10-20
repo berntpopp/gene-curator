@@ -1,6 +1,6 @@
 """Evidence CRUD operations for ClinGen SOP v11"""
 
-from datetime import datetime
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import select
@@ -100,7 +100,7 @@ class CRUDEvidence(CRUDBase[EvidenceItem, EvidenceItemCreate, EvidenceItemUpdate
     ) -> EvidenceItem:
         """Soft delete evidence item (preserves audit trail)"""
         db_obj.is_deleted = True
-        db_obj.deleted_at = datetime.now()
+        db_obj.deleted_at = datetime.now(UTC)
         db_obj.deleted_by = deleted_by
 
         db.add(db_obj)
