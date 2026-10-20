@@ -29,75 +29,28 @@
     <template v-else>
       <v-row>
         <v-col cols="12">
-          <!-- Prominent Header with Gene Context (KEPT from original) -->
-          <v-card class="mb-6 bg-primary" variant="flat">
-            <v-card-text class="pa-6">
-              <div class="d-flex align-center">
-                <v-btn
-                  icon="mdi-arrow-left"
-                  variant="tonal"
-                  color="white"
-                  class="mr-4"
-                  aria-label="Go back"
-                  @click="handleCancel"
-                />
-                <div class="flex-grow-1">
-                  <!-- Gene Name - MOST PROMINENT -->
-                  <div class="d-flex align-center mb-2">
-                    <v-icon size="x-large" color="white" class="mr-3">mdi-dna</v-icon>
-                    <h1 class="text-h3 font-weight-bold text-white">
-                      {{ gene?.gene_symbol || gene?.symbol || 'Unknown Gene' }}
-                    </h1>
-                    <v-chip
-                      v-if="gene?.gene_name || gene?.name"
-                      color="white"
-                      variant="flat"
-                      class="ml-4 text-primary"
-                    >
-                      {{ gene?.gene_name || gene?.name }}
-                    </v-chip>
-                  </div>
-
-                  <!-- Breadcrumb context -->
-                  <div class="d-flex align-center text-white-darken-1">
-                    <v-icon size="small" class="mr-1">mdi-folder-outline</v-icon>
-                    <span class="mr-2">{{ scope?.display_name || 'Scope' }}</span>
-                    <v-icon size="x-small">mdi-chevron-right</v-icon>
-                    <span class="mx-2">Precuration</span>
-                    <v-chip size="small" color="white" variant="flat" class="text-primary">
-                      <v-icon start size="small">mdi-clipboard-text</v-icon>
-                      New
-                    </v-chip>
-                  </div>
-                </div>
-
-                <!-- Gene external links -->
-                <div v-if="gene?.hgnc_id" class="d-flex flex-column ga-2">
-                  <v-btn
-                    size="small"
-                    variant="tonal"
-                    color="white"
-                    :href="`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${gene.hgnc_id}`"
-                    target="_blank"
-                  >
-                    <v-icon start size="small">mdi-open-in-new</v-icon>
-                    HGNC
-                  </v-btn>
-                  <v-btn
-                    v-if="gene?.ncbi_gene_id || gene?.entrez_id"
-                    size="small"
-                    variant="tonal"
-                    color="white"
-                    :href="`https://www.ncbi.nlm.nih.gov/gene/${gene.ncbi_gene_id || gene.entrez_id}`"
-                    target="_blank"
-                  >
-                    <v-icon start size="small">mdi-open-in-new</v-icon>
-                    NCBI
-                  </v-btn>
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
+          <div class="d-flex align-center mb-4">
+            <v-btn
+              icon="mdi-arrow-left"
+              variant="text"
+              class="mr-2"
+              aria-label="Go back"
+              @click="handleCancel"
+            />
+            <h1 class="text-h5">{{ formGene.symbol || 'Unknown gene' }}</h1>
+            <span class="text-medium-emphasis ml-3">
+              {{ scope?.display_name || 'Scope' }} &middot; Precuration
+            </span>
+            <v-spacer />
+            <a
+              v-if="gene?.hgnc_id"
+              :href="`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${gene.hgnc_id}`"
+              target="_blank"
+              rel="noopener"
+            >
+              HGNC
+            </a>
+          </div>
         </v-col>
       </v-row>
 
@@ -109,7 +62,7 @@
             :schema-id="precurationSchemaId"
             :scope-id="scopeId"
             :gene-id="geneId"
-            :gene="gene"
+            :gene="formGene"
             :readonly="readonly"
             @submit="handleFormSubmit"
             @cancel="handleCancel"
@@ -160,13 +113,8 @@
   }
 
   interface GeneRecord {
-    gene_name?: string | null
-    name?: string | null
+    approved_symbol?: string | null
     hgnc_id?: string | null
-    ncbi_gene_id?: string | number | null
-    entrez_id?: string | number | null
-    gene_symbol?: string | null
-    symbol?: string | null
   }
 
   interface WorkflowPairRecord {
@@ -191,6 +139,8 @@
   const scope = ref<ScopeRecord | null>(null)
   // Undefined until loaded. Typed non-null because vue-tsc drops v-if narrowing inside slot closures.
   const gene = ref(undefined as unknown as GeneRecord)
+  // The API field is `approved_symbol`; the form reads `gene.symbol`
+  const formGene = computed(() => ({ symbol: gene.value?.approved_symbol }))
   const precurationSchemaId = ref<string | undefined>(undefined)
   const loading = ref(true)
   const loadError = ref<string | null>(null)
@@ -235,7 +185,7 @@
       gene.value = (await genesAPI.getGeneById(geneId.value)) as GeneRecord
       logger.debug('Gene loaded for precuration', {
         gene_id: geneId.value,
-        gene_symbol: gene.value?.gene_symbol || gene.value?.symbol
+        gene_symbol: gene.value?.approved_symbol
       })
     } catch (err) {
       const e = err as ErrorLike

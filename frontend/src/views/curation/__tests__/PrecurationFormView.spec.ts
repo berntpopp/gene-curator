@@ -28,7 +28,7 @@ describe('PrecurationFormView', () => {
   })
 
   it('loads the scope, its precuration schema and the gene', async () => {
-    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ gene_symbol: 'BRCA1' } as never)
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'BRCA1' } as never)
     const wrapper = mount(PrecurationFormView, {
       global: { stubs: { SchemaDrivenPrecurationForm: true } }
     })
@@ -36,6 +36,10 @@ describe('PrecurationFormView', () => {
     expect(scopesAPI.getScopeById).toHaveBeenCalledWith('sc1')
     expect(genesAPI.getGeneById).toHaveBeenCalledWith('g1')
     expect(wrapper.text()).toContain('BRCA1')
+    expect(wrapper.text()).not.toContain('Unknown')
+    expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).props('gene')).toEqual({
+      symbol: 'BRCA1'
+    })
   })
 
   it('shows an error when the gene cannot be loaded', async () => {

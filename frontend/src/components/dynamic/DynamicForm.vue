@@ -4,7 +4,7 @@
       <!-- Main form content -->
       <v-col cols="12" :lg="showScoring ? 8 : 12">
         <v-card>
-          <v-card-title class="d-flex align-center">
+          <v-card-title v-if="title" class="d-flex align-center">
             <v-icon start>mdi-form-select</v-icon>
             {{ title }}
           </v-card-title>

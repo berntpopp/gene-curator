@@ -54,7 +54,7 @@ describe('EvidenceDataTable', () => {
 
   it('commits number-field input as a number on change', async () => {
     const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find<HTMLInputElement>('input[type="number"]')
     input.element.value = '2.5'
     await input.trigger('change')
     expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 2.5 }])
@@ -88,7 +88,7 @@ describe('EvidenceDataTable', () => {
 
   it('keeps an out-of-range number instead of coercing it to zero', async () => {
     const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
-    const input = wrapper.find('input[type="number"]')
+    const input = wrapper.find<HTMLInputElement>('input[type="number"]')
     input.element.value = '9'
     await input.trigger('change')
     expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 9 }])

@@ -22,7 +22,7 @@
             v-else-if="schemaId"
             :schema-id="schemaId"
             :initial-data="evidenceData"
-            :title="schema?.name || 'Precuration Form'"
+            :title="''"
             :readonly="readonly"
             hide-actions
             @update:model-value="handleEvidenceChange"
@@ -103,7 +103,6 @@
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
-  import type { Schema } from '@/types/api'
   import type { ApiErrorLike } from './types'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
@@ -149,11 +148,6 @@
   const savingDraft = ref(false)
   const submitting = ref(false)
   const isValid = ref(true) // Updated via validation-change event
-
-  // Schema data
-  const schema = computed<Schema<'CurationSchema'> | undefined>(() =>
-    schemasStore.getSchemaById(props.schemaId)
-  )
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
