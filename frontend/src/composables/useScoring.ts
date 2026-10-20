@@ -11,46 +11,63 @@
  */
 
 import { computed } from 'vue'
+import type { ComputedRef } from 'vue'
 
-export function useScoring(evidenceItems) {
+/** Minimal evidence shape used for scoring (backend EvidenceItem fields). */
+export interface ScoredEvidence {
+  evidence_type?: string | null
+  evidence_category?: string | null
+  computed_score?: number | null
+}
+
+export interface ScoringBreakdown {
+  genetic_total: number
+  experimental_total: number
+  total_score: number
+  classification: string
+  case_level_score: number
+  segregation_score: number
+  case_control_score: number
+  expression_score: number
+  function_score: number
+  models_score: number
+  rescue_score: number
+}
+
+export interface UseScoringReturn {
+  breakdown: ComputedRef<ScoringBreakdown>
+  classificationColor: ComputedRef<string>
+  progressPercentage: ComputedRef<number>
+  isSufficientEvidence: ComputedRef<boolean>
+}
+
+const sumScores = (items: readonly ScoredEvidence[], category: string): number =>
+  items
+    .filter(e => e.evidence_category === category)
+    .reduce((sum, e) => sum + (e.computed_score || 0), 0)
+
+export function useScoring(evidenceItems: {
+  readonly value: readonly ScoredEvidence[]
+}): UseScoringReturn {
   /**
    * Calculate scoring breakdown from evidence items
    */
-  const breakdown = computed(() => {
+  const breakdown = computed<ScoringBreakdown>(() => {
     const genetic = evidenceItems.value.filter(e => e.evidence_type === 'genetic')
     const experimental = evidenceItems.value.filter(e => e.evidence_type === 'experimental')
 
     // Genetic scores by category
-    const case_level_score = genetic
-      .filter(e => e.evidence_category === 'case_level')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
-
-    const segregation_score = genetic
-      .filter(e => e.evidence_category === 'segregation')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
-
-    const case_control_score = genetic
-      .filter(e => e.evidence_category === 'case_control')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
+    const case_level_score = sumScores(genetic, 'case_level')
+    const segregation_score = sumScores(genetic, 'segregation')
+    const case_control_score = sumScores(genetic, 'case_control')
 
     const genetic_total = Math.min(case_level_score + segregation_score + case_control_score, 12.0)
 
     // Experimental scores by category
-    const expression_score = experimental
-      .filter(e => e.evidence_category === 'expression')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
-
-    const function_score = experimental
-      .filter(e => e.evidence_category === 'protein_function')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
-
-    const models_score = experimental
-      .filter(e => e.evidence_category === 'models')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
-
-    const rescue_score = experimental
-      .filter(e => e.evidence_category === 'rescue')
-      .reduce((sum, e) => sum + (e.computed_score || 0), 0)
+    const expression_score = sumScores(experimental, 'expression')
+    const function_score = sumScores(experimental, 'protein_function')
+    const models_score = sumScores(experimental, 'models')
+    const rescue_score = sumScores(experimental, 'rescue')
 
     const experimental_total = Math.min(
       expression_score + function_score + models_score + rescue_score,
@@ -84,7 +101,7 @@ export function useScoring(evidenceItems) {
   /**
    * Get Vuetify color for classification
    */
-  const classificationColor = computed(() => {
+  const classificationColor = computed<string>(() => {
     const cls = breakdown.value.classification
     if (cls === 'Definitive') return 'success'
     if (cls === 'Strong') return 'info'
@@ -96,7 +113,7 @@ export function useScoring(evidenceItems) {
   /**
    * Get progress percentage (0-100)
    */
-  const progressPercentage = computed(() => {
+  const progressPercentage = computed<number>(() => {
     const total = breakdown.value.total_score
     return Math.min((total / 12) * 100, 100)
   })
@@ -104,7 +121,7 @@ export function useScoring(evidenceItems) {
   /**
    * Check if score is sufficient for classification
    */
-  const isSufficientEvidence = computed(() => {
+  const isSufficientEvidence = computed<boolean>(() => {
     return breakdown.value.total_score >= 0.1
   })
 

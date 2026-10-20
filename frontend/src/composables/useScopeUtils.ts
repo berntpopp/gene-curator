@@ -15,17 +15,7 @@
  *
  * @example
  * ```vue
- * <template>
- *   <div>
- *     <v-chip :prepend-icon="getScopeVisibilityIcon(scope.is_public)">
- *       {{ getScopeVisibilityLabel(scope.is_public) }}
- *     </v-chip>
- *     <div>Due: {{ formatDate(scope.due_date) }}</div>
- *     <v-progress-linear :model-value="progress"></v-progress-linear>
- *   </div>
- * </template>
- *
- * <script setup>
+ * <script setup lang="ts">
  * import { computed } from 'vue'
  * import { useScopeUtils } from '@/composables/useScopeUtils'
  *
@@ -39,30 +29,41 @@
 
 import { logService } from '@/services/logService'
 
+export interface UseScopeUtilsReturn {
+  formatDate: (date: string | Date | null | undefined) => string
+  calculateProgress: (
+    completed: number | null | undefined,
+    total: number | null | undefined
+  ) => number
+  getScopeVisibilityIcon: (isPublic: boolean) => string
+  getScopeVisibilityLabel: (isPublic: boolean) => string
+  formatScopeName: (name: string | null | undefined) => string
+  isValidScopeName: (name: string | null | undefined) => boolean
+}
+
 /**
  * Get utility functions for scope operations
- * @returns {Object} Scope utility functions
  */
-export function useScopeUtils() {
+export function useScopeUtils(): UseScopeUtilsReturn {
   /**
    * Format date for display
    * Converts ISO date string to locale date string
-   *
-   * @param {string|Date|null} date - Date to format (ISO string or Date object)
-   * @returns {string} Formatted date string or 'No due date'
    *
    * @example
    * formatDate('2025-12-31') // "12/31/2025" (US locale)
    * formatDate(null) // "No due date"
    */
-  const formatDate = date => {
+  const formatDate = (date: string | Date | null | undefined): string => {
     if (!date) return 'No due date'
 
     try {
       const dateObj = typeof date === 'string' ? new Date(date) : date
       return dateObj.toLocaleDateString()
     } catch (error) {
-      logService.warn('Invalid date format', { date, error: error.message })
+      logService.warn('Invalid date format', {
+        date,
+        error: error instanceof Error ? error.message : undefined
+      })
       return 'Invalid date'
     }
   }
@@ -71,16 +72,15 @@ export function useScopeUtils() {
    * Calculate progress percentage
    * Returns rounded percentage (0-100)
    *
-   * @param {number} completed - Number of completed items
-   * @param {number} total - Total number of items
-   * @returns {number} Progress percentage (0-100)
-   *
    * @example
    * calculateProgress(7, 10) // 70
    * calculateProgress(0, 10) // 0
    * calculateProgress(5, 0) // 0 (handles division by zero)
    */
-  const calculateProgress = (completed, total) => {
+  const calculateProgress = (
+    completed: number | null | undefined,
+    total: number | null | undefined
+  ): number => {
     if (!total || total === 0) return 0
     if (!completed || completed < 0) return 0
 
@@ -91,28 +91,22 @@ export function useScopeUtils() {
   /**
    * Get icon for scope visibility
    *
-   * @param {boolean} isPublic - Whether scope is public
-   * @returns {string} Material Design Icon name
-   *
    * @example
    * getScopeVisibilityIcon(true) // 'mdi-earth' (public)
    * getScopeVisibilityIcon(false) // 'mdi-lock' (private)
    */
-  const getScopeVisibilityIcon = isPublic => {
+  const getScopeVisibilityIcon = (isPublic: boolean): string => {
     return isPublic ? 'mdi-earth' : 'mdi-lock'
   }
 
   /**
    * Get label for scope visibility
    *
-   * @param {boolean} isPublic - Whether scope is public
-   * @returns {string} Visibility label
-   *
    * @example
    * getScopeVisibilityLabel(true) // 'Public'
    * getScopeVisibilityLabel(false) // 'Private'
    */
-  const getScopeVisibilityLabel = isPublic => {
+  const getScopeVisibilityLabel = (isPublic: boolean): string => {
     return isPublic ? 'Public' : 'Private'
   }
 
@@ -120,14 +114,11 @@ export function useScopeUtils() {
    * Format scope name for display
    * Converts machine-readable name to title case
    *
-   * @param {string} name - Machine-readable scope name (e.g., 'kidney-genetics')
-   * @returns {string} Title case name (e.g., 'Kidney Genetics')
-   *
    * @example
    * formatScopeName('kidney-genetics') // 'Kidney Genetics'
    * formatScopeName('neuro-oncology') // 'Neuro Oncology'
    */
-  const formatScopeName = name => {
+  const formatScopeName = (name: string | null | undefined): string => {
     if (!name) return ''
 
     return name
@@ -140,15 +131,12 @@ export function useScopeUtils() {
    * Validate scope name format
    * Checks if name follows naming convention (lowercase-with-dashes)
    *
-   * @param {string} name - Scope name to validate
-   * @returns {boolean} True if valid
-   *
    * @example
    * isValidScopeName('kidney-genetics') // true
    * isValidScopeName('Kidney Genetics') // false (uppercase)
    * isValidScopeName('kidney_genetics') // false (underscore)
    */
-  const isValidScopeName = name => {
+  const isValidScopeName = (name: string | null | undefined): boolean => {
     if (!name || typeof name !== 'string') return false
 
     // Must be lowercase with dashes, 4-64 chars, no consecutive dashes

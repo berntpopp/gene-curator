@@ -11,19 +11,44 @@
  */
 
 import { ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { useExternalValidationStore } from '@/stores/externalValidation'
 import { logService } from '@/services/logService'
 
+export type ValidatorType = 'hgnc' | 'pubmed' | 'hpo'
+
+/** Result returned by the external validation endpoints (HGNC, PubMed, HPO). */
+export interface ValidationOutcome {
+  is_valid: boolean
+  [key: string]: unknown
+}
+
+export interface UseValidationReturn {
+  value: Ref<string>
+  result: Ref<ValidationOutcome | null>
+  isValidating: Ref<boolean>
+  error: Ref<string | null>
+  validate: (val?: string) => Promise<ValidationOutcome | null>
+  reset: () => void
+}
+
 // Simple debounce implementation
-function debounce(fn, delay) {
-  let timeoutId
-  return function (...args) {
+function debounce<T extends unknown[]>(
+  fn: (...args: T) => void,
+  delay: number
+): (...args: T) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  return function (...args: T) {
     clearTimeout(timeoutId)
     timeoutId = setTimeout(() => fn(...args), delay)
   }
 }
 
-export function useValidation(validator) {
+function errorMessageOf(e: unknown): string | undefined {
+  return e instanceof Error ? e.message : undefined
+}
+
+export function useValidation(validator: ValidatorType): UseValidationReturn {
   if (!['hgnc', 'pubmed', 'hpo'].includes(validator)) {
     throw new Error(`Invalid validator: ${validator}. Must be 'hgnc', 'pubmed', or 'hpo'`)
   }
@@ -31,14 +56,21 @@ export function useValidation(validator) {
   const validationStore = useExternalValidationStore()
 
   const value = ref('')
-  const result = ref(null)
+  const result = ref<ValidationOutcome | null>(null)
   const isValidating = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
+
+  /** Dispatch to the store method matching the validator type */
+  const callValidator = (val: string): Promise<ValidationOutcome> => {
+    if (validator === 'hgnc') return validationStore.validateHGNC(val)
+    if (validator === 'pubmed') return validationStore.validatePubMed(val)
+    return validationStore.validateHPO(val)
+  }
 
   /**
    * Validate a value with debouncing
    */
-  const validateDebounced = debounce(async val => {
+  const validateDebounced = debounce(async (val: string) => {
     if (!val || val.length < 2) {
       result.value = null
       return
@@ -48,15 +80,7 @@ export function useValidation(validator) {
     error.value = null
 
     try {
-      let validationResult
-
-      if (validator === 'hgnc') {
-        validationResult = await validationStore.validateHGNC(val)
-      } else if (validator === 'pubmed') {
-        validationResult = await validationStore.validatePubMed(val)
-      } else {
-        validationResult = await validationStore.validateHPO(val)
-      }
+      const validationResult = await callValidator(val)
 
       result.value = validationResult
       logService.debug('Validation complete', {
@@ -65,8 +89,8 @@ export function useValidation(validator) {
         isValid: validationResult.is_valid
       })
     } catch (e) {
-      error.value = e.message || 'Validation failed'
-      logService.error('Validation error', { validator, value: val, error: e.message })
+      error.value = errorMessageOf(e) || 'Validation failed'
+      logService.error('Validation error', { validator, value: val, error: errorMessageOf(e) })
     } finally {
       isValidating.value = false
     }
@@ -79,10 +103,10 @@ export function useValidation(validator) {
 
   /**
    * Manually validate a value without debouncing
-   * @param {string} val - Value to validate (optional, uses current value if not provided)
-   * @returns {Promise<Object|null>} Validation result
+   * @param val - Value to validate (optional, uses current value if not provided)
+   * @returns Validation result, or null when empty or on error
    */
-  async function validate(val) {
+  async function validate(val?: string): Promise<ValidationOutcome | null> {
     const valueToValidate = val || value.value
 
     if (!valueToValidate) {
@@ -94,15 +118,7 @@ export function useValidation(validator) {
     error.value = null
 
     try {
-      let validationResult
-
-      if (validator === 'hgnc') {
-        validationResult = await validationStore.validateHGNC(valueToValidate)
-      } else if (validator === 'pubmed') {
-        validationResult = await validationStore.validatePubMed(valueToValidate)
-      } else {
-        validationResult = await validationStore.validateHPO(valueToValidate)
-      }
+      const validationResult = await callValidator(valueToValidate)
 
       result.value = validationResult
       logService.info('Manual validation complete', {
@@ -112,11 +128,11 @@ export function useValidation(validator) {
       })
       return validationResult
     } catch (e) {
-      error.value = e.message || 'Validation failed'
+      error.value = errorMessageOf(e) || 'Validation failed'
       logService.error('Manual validation error', {
         validator,
         value: valueToValidate,
-        error: e.message
+        error: errorMessageOf(e)
       })
       return null
     } finally {
@@ -127,7 +143,7 @@ export function useValidation(validator) {
   /**
    * Reset validation state
    */
-  function reset() {
+  function reset(): void {
     value.value = ''
     result.value = null
     error.value = null

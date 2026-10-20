@@ -18,94 +18,116 @@
  */
 
 import { computed, ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { useEvidenceStore } from '@/stores/evidence'
+import type { ScoredEvidence } from './useScoring'
 
-export function useEvidence(curationId) {
+/** Evidence item as used by this composable (fields beyond these are passed through). */
+export interface EvidenceItem extends ScoredEvidence {
+  [key: string]: unknown
+}
+
+export interface UseEvidenceReturn {
+  loading: Ref<boolean>
+  error: Ref<string | null>
+  evidenceItems: ComputedRef<EvidenceItem[]>
+  geneticEvidence: ComputedRef<EvidenceItem[]>
+  experimentalEvidence: ComputedRef<EvidenceItem[]>
+  totalScore: ComputedRef<number>
+  evidenceByCategory: ComputedRef<Record<string, EvidenceItem[]>>
+  fetchEvidence: () => Promise<void>
+  addEvidence: (data: Record<string, unknown>) => Promise<void>
+  updateEvidence: (itemId: string, data: Record<string, unknown>) => Promise<void>
+  removeEvidence: (itemId: string) => Promise<void>
+}
+
+export function useEvidence(curationId: string): UseEvidenceReturn {
   const evidenceStore = useEvidenceStore()
 
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // Computed properties
-  const evidenceItems = computed(() => {
+  const evidenceItems = computed<EvidenceItem[]>(() => {
     return evidenceStore.getEvidenceByCuration(curationId)
   })
 
-  const geneticEvidence = computed(() => {
+  const geneticEvidence = computed<EvidenceItem[]>(() => {
     return evidenceItems.value.filter(item => item.evidence_type === 'genetic')
   })
 
-  const experimentalEvidence = computed(() => {
+  const experimentalEvidence = computed<EvidenceItem[]>(() => {
     return evidenceItems.value.filter(item => item.evidence_type === 'experimental')
   })
 
-  const totalScore = computed(() => {
+  const totalScore = computed<number>(() => {
     return evidenceItems.value.reduce((sum, item) => {
       return sum + (item.computed_score || 0)
     }, 0)
   })
 
-  const evidenceByCategory = computed(() => {
-    const categories = {}
+  const evidenceByCategory = computed<Record<string, EvidenceItem[]>>(() => {
+    const categories: Record<string, EvidenceItem[]> = {}
     evidenceItems.value.forEach(item => {
-      if (!categories[item.evidence_category]) {
-        categories[item.evidence_category] = []
+      const category = String(item.evidence_category)
+      if (!categories[category]) {
+        categories[category] = []
       }
-      categories[item.evidence_category].push(item)
+      categories[category].push(item)
     })
     return categories
   })
 
   // Actions
-  async function fetchEvidence() {
+  async function fetchEvidence(): Promise<void> {
     loading.value = true
     error.value = null
 
     try {
       await evidenceStore.fetchEvidenceForCuration(curationId)
     } catch (e) {
-      error.value = e.message || 'Failed to fetch evidence'
+      error.value = (e instanceof Error && e.message) || 'Failed to fetch evidence'
     } finally {
       loading.value = false
     }
   }
 
-  async function addEvidence(data) {
+  async function addEvidence(data: Record<string, unknown>): Promise<void> {
     loading.value = true
     error.value = null
 
     try {
       await evidenceStore.createEvidence(curationId, data)
     } catch (e) {
-      error.value = e.message || 'Failed to add evidence'
+      error.value = (e instanceof Error && e.message) || 'Failed to add evidence'
       throw e
     } finally {
       loading.value = false
     }
   }
 
-  async function updateEvidence(itemId, data) {
+  async function updateEvidence(itemId: string, data: Record<string, unknown>): Promise<void> {
     loading.value = true
     error.value = null
 
     try {
       await evidenceStore.updateEvidence(curationId, itemId, data)
     } catch (e) {
-      error.value = e.message || 'Failed to update evidence'
+      error.value = (e instanceof Error && e.message) || 'Failed to update evidence'
       throw e
     } finally {
       loading.value = false
     }
   }
 
-  async function removeEvidence(itemId) {
+  async function removeEvidence(itemId: string): Promise<void> {
     loading.value = true
     error.value = null
 
     try {
       await evidenceStore.deleteEvidence(curationId, itemId)
     } catch (e) {
-      error.value = e.message || 'Failed to delete evidence'
+      error.value = (e instanceof Error && e.message) || 'Failed to delete evidence'
       throw e
     } finally {
       loading.value = false

@@ -14,10 +14,10 @@
  * @example
  * ```vue
  * <template>
- *   <v-btn v-if="can.createCuration" @click="create">New Curation</v-btn>
+ *   <v-btn v-if="can.createCuration.value" @click="create">New Curation</v-btn>
  * </template>
  *
- * <script setup>
+ * <script setup lang="ts">
  * import { usePermissions } from '@/composables/usePermissions'
  * const { can } = usePermissions()
  * </script>
@@ -27,170 +27,94 @@
  */
 
 import { computed } from 'vue'
+import type { ComputedRef } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+
+/** Computed permission flags. Each is a ComputedRef<boolean> that tracks auth state. */
+export interface PermissionChecks {
+  // View permissions
+  viewDashboard: ComputedRef<boolean>
+  viewCurations: ComputedRef<boolean>
+  viewValidation: ComputedRef<boolean>
+  viewAdminPages: ComputedRef<boolean>
+
+  // Action permissions
+  createAssignment: ComputedRef<boolean>
+  createPrecuration: ComputedRef<boolean>
+  createCuration: ComputedRef<boolean>
+  reviewCuration: ComputedRef<boolean>
+  editOwnCuration: ComputedRef<boolean>
+  deleteOwnCuration: ComputedRef<boolean>
+  submitForReview: ComputedRef<boolean>
+  approveCuration: ComputedRef<boolean>
+  rejectCuration: ComputedRef<boolean>
+
+  // Admin permissions
+  manageUsers: ComputedRef<boolean>
+  manageGenes: ComputedRef<boolean>
+  configureCuration: ComputedRef<boolean>
+  manageScopes: ComputedRef<boolean>
+  manageSchemas: ComputedRef<boolean>
+  manageWorkflows: ComputedRef<boolean>
+
+  // Scope admin permissions
+  manageScopeUsers: ComputedRef<boolean>
+  assignCurators: ComputedRef<boolean>
+  viewScopeStats: ComputedRef<boolean>
+
+  // Helper methods
+  hasRole: (role: string) => boolean
+  hasAnyRole: (roles: string[]) => boolean
+  hasAllRoles: (roles: string[]) => boolean
+}
+
+export interface UsePermissionsReturn {
+  can: PermissionChecks
+  user: ComputedRef<ReturnType<typeof useAuthStore>['user']>
+  userRole: ComputedRef<string>
+  isAuthenticated: ComputedRef<boolean>
+}
 
 /**
  * Permission check composable
- * @returns {Object} Permission checking utilities
  */
-export function usePermissions() {
+export function usePermissions(): UsePermissionsReturn {
   const authStore = useAuthStore()
 
   /**
    * Reactive permission checks
    * Each property is a computed that automatically updates with auth state
    */
-  const can = {
-    // ========================================
-    // View Permissions
-    // ========================================
-
-    /**
-     * Can view dashboard (any authenticated user)
-     */
+  const can: PermissionChecks = {
     viewDashboard: computed(() => authStore.isAuthenticated),
-
-    /**
-     * Can view curations (curator, reviewer, admin)
-     */
     viewCurations: computed(() => authStore.hasAnyRole(['curator', 'reviewer', 'admin'])),
-
-    /**
-     * Can view validation dashboard (curator, reviewer, admin)
-     */
     viewValidation: computed(() => authStore.hasAnyRole(['curator', 'reviewer', 'admin'])),
-
-    /**
-     * Can view admin pages (admin only)
-     */
     viewAdminPages: computed(() => authStore.hasRole('admin')),
 
-    // ========================================
-    // Action Permissions
-    // ========================================
-
-    /**
-     * Can create assignments (curator, admin)
-     */
     createAssignment: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can create precurations (curator, admin)
-     */
     createPrecuration: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can create curations (curator, admin)
-     */
     createCuration: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can review curations (reviewer, admin)
-     */
     reviewCuration: computed(() => authStore.hasAnyRole(['reviewer', 'admin'])),
-
-    /**
-     * Can edit own curations (curator, admin)
-     */
     editOwnCuration: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can delete own curations (curator, admin)
-     */
     deleteOwnCuration: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can submit for review (curator, admin)
-     */
     submitForReview: computed(() => authStore.hasAnyRole(['curator', 'admin'])),
-
-    /**
-     * Can approve curations (reviewer, admin)
-     */
     approveCuration: computed(() => authStore.hasAnyRole(['reviewer', 'admin'])),
-
-    /**
-     * Can reject curations (reviewer, admin)
-     */
     rejectCuration: computed(() => authStore.hasAnyRole(['reviewer', 'admin'])),
 
-    // ========================================
-    // Admin Permissions
-    // ========================================
-
-    /**
-     * Can manage users (admin only)
-     */
     manageUsers: computed(() => authStore.hasRole('admin')),
-
-    /**
-     * Can manage genes (admin only)
-     */
     manageGenes: computed(() => authStore.hasRole('admin')),
-
-    /**
-     * Can configure curation settings (admin only)
-     */
     configureCuration: computed(() => authStore.hasRole('admin')),
-
-    /**
-     * Can manage scopes (admin only)
-     */
     manageScopes: computed(() => authStore.hasRole('admin')),
-
-    /**
-     * Can manage schemas (admin only)
-     */
     manageSchemas: computed(() => authStore.hasRole('admin')),
-
-    /**
-     * Can manage workflows (admin only)
-     */
     manageWorkflows: computed(() => authStore.hasRole('admin')),
 
-    // ========================================
-    // Scope Admin Permissions
-    // ========================================
-
-    /**
-     * Can manage users within scope (scope_admin, admin)
-     */
     manageScopeUsers: computed(() => authStore.hasAnyRole(['scope_admin', 'admin'])),
-
-    /**
-     * Can assign curators within scope (scope_admin, admin)
-     */
     assignCurators: computed(() => authStore.hasAnyRole(['scope_admin', 'admin'])),
-
-    /**
-     * Can view scope statistics (scope_admin, admin)
-     */
     viewScopeStats: computed(() => authStore.hasAnyRole(['scope_admin', 'admin'])),
 
-    // ========================================
-    // Helper Methods
-    // ========================================
-
-    /**
-     * Check if user has specific role
-     * @param {string} role - Role to check
-     * @returns {boolean} True if user has role
-     */
-    hasRole: role => authStore.hasRole(role),
-
-    /**
-     * Check if user has any of the specified roles
-     * @param {string[]} roles - Array of roles to check
-     * @returns {boolean} True if user has any role
-     */
-    hasAnyRole: roles => authStore.hasAnyRole(roles),
-
-    /**
-     * Check if user has all of the specified roles
-     * @param {string[]} roles - Array of roles to check
-     * @returns {boolean} True if user has all roles
-     */
-    hasAllRoles: roles => roles.every(role => authStore.hasRole(role))
+    hasRole: (role: string): boolean => authStore.hasRole(role),
+    hasAnyRole: (roles: string[]): boolean => authStore.hasAnyRole(roles),
+    hasAllRoles: (roles: string[]): boolean => roles.every(role => authStore.hasRole(role))
   }
 
   /**

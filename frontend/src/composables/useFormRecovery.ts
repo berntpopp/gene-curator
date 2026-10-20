@@ -10,12 +10,12 @@
  * - Pauses auto-save after discard to prevent immediate re-save of empty state
  * - Clear on successful submission
  *
- * @param {string} formId - Unique form identifier (e.g., 'precuration-new', 'curation-123')
- * @param {Ref} formData - Reactive form data reference
- * @param {Object} options - Configuration options
- * @param {number} options.maxAge - Maximum age of recovery data in milliseconds (default: 24h)
- * @param {number} options.saveInterval - Auto-save interval in milliseconds (default: 5s)
- * @returns {Object} Recovery state and methods
+ * @param formId - Unique form identifier (e.g., 'precuration-new', 'curation-123')
+ * @param formData - Reactive form data reference
+ * @param options - Configuration options
+ * @param options.maxAge - Maximum age of recovery data in milliseconds (default: 24h)
+ * @param options.saveInterval - Auto-save interval in milliseconds (default: 5s)
+ * @returns Recovery state and methods
  *
  * @example
  * const formData = ref({ gene: '', rationale: '' })
@@ -24,47 +24,73 @@
  */
 
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import type { Ref } from 'vue'
 import { useLogger } from './useLogger'
 
-export function useFormRecovery(formId, formData, options = {}) {
+export interface FormRecoveryOptions {
+  maxAge?: number
+  saveInterval?: number
+}
+
+interface RecoverySnapshot {
+  data: unknown
+  timestamp: string
+  url: string
+  formId: string
+}
+
+export interface UseFormRecoveryReturn {
+  showRecoveryDialog: Ref<boolean>
+  recoveryData: Ref<unknown>
+  recoveryTimestamp: Ref<string | null>
+  lastSaved: Ref<string | null>
+  restoreRecovery: () => void
+  discardRecovery: () => void
+  clearRecovery: () => void
+  resumeAutoSave: () => void
+}
+
+/**
+ * Check if data object has meaningful (non-empty) values
+ * Recursively checks nested objects and arrays
+ */
+function hasNonEmptyData(data: unknown): boolean {
+  if (data === null || data === undefined) return false
+  if (typeof data === 'string') return data.trim().length > 0
+  if (typeof data === 'number' || typeof data === 'boolean') return true
+  if (Array.isArray(data)) return data.length > 0 && data.some(item => hasNonEmptyData(item))
+  if (typeof data === 'object') {
+    const values = Object.values(data)
+    if (values.length === 0) return false
+    return values.some(value => hasNonEmptyData(value))
+  }
+  return false
+}
+
+export function useFormRecovery<T extends object>(
+  formId: string,
+  formData: Ref<T>,
+  options: FormRecoveryOptions = {}
+): UseFormRecoveryReturn {
   const logger = useLogger()
   const recoveryKey = `form_recovery_${formId}`
   const maxAge = options.maxAge || 24 * 60 * 60 * 1000 // 24 hours
   const saveInterval = options.saveInterval || 5000 // 5 seconds
 
   const showRecoveryDialog = ref(false)
-  const recoveryData = ref(null)
-  const recoveryTimestamp = ref(null)
-  const lastSaved = ref(null)
+  const recoveryData = ref<unknown>(null)
+  const recoveryTimestamp = ref<string | null>(null)
+  const lastSaved = ref<string | null>(null)
   const isPaused = ref(false) // Pause auto-save after discard
 
-  let saveTimer = null
-
-  /**
-   * Check if data object has meaningful (non-empty) values
-   * Recursively checks nested objects and arrays
-   * @param {any} data - Data to check
-   * @returns {boolean} True if data has meaningful values
-   */
-  function hasNonEmptyData(data) {
-    if (data === null || data === undefined) return false
-    if (typeof data === 'string') return data.trim().length > 0
-    if (typeof data === 'number' || typeof data === 'boolean') return true
-    if (Array.isArray(data)) return data.length > 0 && data.some(item => hasNonEmptyData(item))
-    if (typeof data === 'object') {
-      const keys = Object.keys(data)
-      if (keys.length === 0) return false
-      return keys.some(key => hasNonEmptyData(data[key]))
-    }
-    return false
-  }
+  let saveTimer: ReturnType<typeof setInterval> | null = null
 
   /**
    * Save form data to localStorage with metadata
    * Uses deep clone to avoid reactivity issues
    * Only saves if form has meaningful data
    */
-  function saveToLocalStorage() {
+  function saveToLocalStorage(): void {
     // Skip if paused or no meaningful data
     if (isPaused.value) {
       return
@@ -76,7 +102,7 @@ export function useFormRecovery(formId, formData, options = {}) {
     }
 
     try {
-      const snapshot = {
+      const snapshot: RecoverySnapshot = {
         data: JSON.parse(JSON.stringify(formData.value)),
         timestamp: new Date().toISOString(),
         url: window.location.href,
@@ -87,7 +113,10 @@ export function useFormRecovery(formId, formData, options = {}) {
       logger.debug('Form auto-saved', { formId, timestamp: snapshot.timestamp })
     } catch (error) {
       // Silently fail for quota exceeded or other localStorage errors
-      logger.error('Failed to save form', { formId, error: error.message })
+      logger.error('Failed to save form', {
+        formId,
+        error: error instanceof Error ? error.message : undefined
+      })
     }
   }
 
@@ -99,7 +128,7 @@ export function useFormRecovery(formId, formData, options = {}) {
     try {
       const saved = localStorage.getItem(recoveryKey)
       if (saved) {
-        const snapshot = JSON.parse(saved)
+        const snapshot: RecoverySnapshot = JSON.parse(saved)
         const age = Date.now() - new Date(snapshot.timestamp).getTime()
 
         // Check if data is still valid (not expired)
@@ -126,7 +155,10 @@ export function useFormRecovery(formId, formData, options = {}) {
         }
       }
     } catch (error) {
-      logger.error('Failed to check recovery data', { formId, error: error.message })
+      logger.error('Failed to check recovery data', {
+        formId,
+        error: error instanceof Error ? error.message : undefined
+      })
     }
 
     // Start auto-save timer
@@ -154,7 +186,7 @@ export function useFormRecovery(formId, formData, options = {}) {
    * Restore recovered data into form
    * Resumes auto-save since form now has data
    */
-  function restoreRecovery() {
+  function restoreRecovery(): void {
     if (recoveryData.value) {
       Object.assign(formData.value, recoveryData.value)
       showRecoveryDialog.value = false
@@ -167,7 +199,7 @@ export function useFormRecovery(formId, formData, options = {}) {
    * Discard recovery data and start fresh
    * Pauses auto-save temporarily to prevent immediate re-save of empty state
    */
-  function discardRecovery() {
+  function discardRecovery(): void {
     localStorage.removeItem(recoveryKey)
     recoveryData.value = null
     recoveryTimestamp.value = null
@@ -191,7 +223,7 @@ export function useFormRecovery(formId, formData, options = {}) {
    * Clear recovery data on successful submit
    * Call this after form is successfully submitted
    */
-  function clearRecovery() {
+  function clearRecovery(): void {
     localStorage.removeItem(recoveryKey)
     lastSaved.value = null
     isPaused.value = true // Prevent re-saving after submit
@@ -201,7 +233,7 @@ export function useFormRecovery(formId, formData, options = {}) {
   /**
    * Manually resume auto-save (e.g., after navigation)
    */
-  function resumeAutoSave() {
+  function resumeAutoSave(): void {
     isPaused.value = false
   }
 
