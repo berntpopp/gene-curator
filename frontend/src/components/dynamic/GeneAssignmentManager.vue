@@ -17,7 +17,6 @@
             label="Filter by Scope"
             variant="outlined"
             clearable
-            @update:model-value="applyFilters"
           >
             <template #prepend-inner>
               <v-icon>mdi-domain</v-icon>
@@ -34,7 +33,6 @@
             label="Filter by Assignee"
             variant="outlined"
             clearable
-            @update:model-value="applyFilters"
           >
             <template #prepend-inner>
               <v-icon>mdi-account</v-icon>
@@ -221,7 +219,6 @@
               label="Priority"
               variant="outlined"
             />
-            <v-textarea v-model="editFormData.notes" label="Notes" variant="outlined" rows="3" />
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -307,12 +304,6 @@
               :rules="[v => !!v || 'Please select a curator']"
               required
             />
-            <v-textarea
-              v-model="reassignNote"
-              label="Transfer Note (Optional)"
-              variant="outlined"
-              rows="2"
-            />
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -355,7 +346,6 @@
 
   interface EditFormData {
     priority_level: string | null
-    notes: string
   }
 
   // Reactive data
@@ -374,8 +364,7 @@
   const editDialog = ref(false)
   const saving = ref(false)
   const editFormData = ref<EditFormData>({
-    priority_level: null,
-    notes: ''
+    priority_level: null
   })
   let editingAssignmentId: string | null = null
   const reassignDialog = ref(false)
@@ -383,7 +372,6 @@
   const reassigning = ref(false)
   const reassigningAssignment = ref<GeneAssignment | null>(null)
   const reassignCuratorId = ref<string | null>(null)
-  const reassignNote = ref('')
 
   const loading = computed(() => assignmentsStore.loading)
   const assignments = computed(() => assignmentsStore.assignments)
@@ -427,10 +415,6 @@
   })
 
   // Actions
-  const applyFilters = () => {
-    // Filters are applied reactively through computed property
-  }
-
   const openBulkAssignDialog = () => {
     bulkAssignDialog.value = true
     bulkAssignee.value = null
@@ -492,8 +476,7 @@
     logger.info('Edit assignment requested', { assignmentId: assignment.id })
     editingAssignmentId = assignment.id
     editFormData.value = {
-      priority_level: assignment.priority,
-      notes: ''
+      priority_level: assignment.priority
     }
     editDialog.value = true
   }
@@ -503,8 +486,7 @@
     saving.value = true
     try {
       await assignmentsStore.updateAssignment(editingAssignmentId, {
-        priority_level: editFormData.value.priority_level,
-        ...(editFormData.value.notes && { assignment_notes: editFormData.value.notes })
+        priority_level: editFormData.value.priority_level
       })
       showSuccess('Assignment updated successfully')
       editDialog.value = false
@@ -523,7 +505,6 @@
     })
     reassigningAssignment.value = assignment
     reassignCuratorId.value = null
-    reassignNote.value = ''
     reassignDialog.value = true
   }
 

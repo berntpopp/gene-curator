@@ -8,7 +8,6 @@
   - Displays current gene info (read-only)
   - Shows current curator assignment
   - Allows selecting a new curator
-  - Optional reassignment notes
 
   **Props**:
   - modelValue: v-model for dialog visibility
@@ -137,18 +136,6 @@
               </div>
             </template>
           </v-autocomplete>
-
-          <!-- Optional Notes -->
-          <v-textarea
-            v-model="notes"
-            label="Reassignment Notes (optional)"
-            variant="outlined"
-            density="compact"
-            rows="2"
-            counter="500"
-            placeholder="Add context for the reassignment..."
-            :rules="[v => !v || v.length <= 500 || 'Max 500 characters']"
-          />
         </v-form>
 
         <!-- Reassignment Preview -->
@@ -266,7 +253,6 @@
 
   // Form state
   const selectedCurator = ref<CuratorOption | null>(null)
-  const notes = ref('')
 
   // ============================================
   // COMPUTED
@@ -304,9 +290,9 @@
     try {
       const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Include all who can curate
+      // Reviewers must not curate (four-eyes principle)
       availableCurators.value = members
-        .filter(m => ['curator', 'admin', 'reviewer'].includes(m.role))
+        .filter(m => ['curator', 'admin'].includes(m.role))
         .map(toCuratorOption)
 
       logger.debug('Available curators loaded for reassignment', {
@@ -325,7 +311,6 @@
    */
   const resetForm = () => {
     selectedCurator.value = null
-    notes.value = ''
     formValid.value = false
   }
 
