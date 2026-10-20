@@ -4,6 +4,7 @@ import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
 import { useScopesStore } from '@/stores/scopes'
 import Dashboard from '@/views/Dashboard.vue'
+import { vmOf } from './vm'
 
 const mountView = () =>
   mount(Dashboard, {
@@ -24,9 +25,7 @@ describe('Dashboard view', () => {
     const wrapper = mountView()
     await flushPromises()
     expect(useScopesStore().fetchUserScopes).toHaveBeenCalled()
-    expect(
-      (wrapper.vm as unknown as { stats: { active_scopes: number } }).stats.active_scopes
-    ).toBe(1)
+    expect((vmOf(wrapper).stats as { active_scopes: number }).active_scopes).toBe(1)
   })
 
   it('greets the signed-in user', () => {

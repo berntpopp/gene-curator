@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { call, vmOf } from './vm'
 import { reactive } from 'vue'
 import ScopeSelection from '@/views/ScopeSelection.vue'
 import UserManagement from '@/views/UserManagement.vue'
@@ -98,15 +99,12 @@ describe('ScopeSelection', () => {
       .spyOn(genes, 'searchGenes')
       .mockResolvedValue([{ id: 'g1', approved_symbol: 'BRCA1' }] as never)
     const wrapper = mountView()
-    const vm = wrapper.vm as unknown as {
-      searchGenes: (q: string) => Promise<void>
-      availableGenes: unknown[]
-    }
+    const vm = vmOf(wrapper)
 
-    await vm.searchGenes('B')
+    await call(vm, 'searchGenes', 'B')
     expect(search).not.toHaveBeenCalled()
 
-    await vm.searchGenes('BR')
+    await call(vm, 'searchGenes', 'BR')
     expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'BR', limit: 20 }))
     expect(vm.availableGenes).toEqual([{ id: 'g1', approved_symbol: 'BRCA1' }])
   })
@@ -114,11 +112,8 @@ describe('ScopeSelection', () => {
   it('clears gene results and logs when the gene search fails', async () => {
     vi.spyOn(useGenesStore(), 'searchGenes').mockRejectedValue(new Error('timeout'))
     const wrapper = mountView()
-    const vm = wrapper.vm as unknown as {
-      searchGenes: (q: string) => Promise<void>
-      availableGenes: unknown[]
-    }
-    await vm.searchGenes('BRCA')
+    const vm = vmOf(wrapper)
+    await call(vm, 'searchGenes', 'BRCA')
     expect(vm.availableGenes).toEqual([])
     expect(logger.error).toHaveBeenCalledWith(
       'Gene search failed:',
@@ -131,9 +126,7 @@ describe('ScopeSelection', () => {
     const createAssignment = vi.fn(async () => ({ id: 'a-9' }))
     Object.assign(assignments, { createAssignment })
     const wrapper = mountView()
-    const vm = wrapper.vm as unknown as Record<string, unknown> & {
-      createAssignment: () => Promise<void>
-    }
+    const vm = vmOf(wrapper)
     vm.selectedScope = { id: 'scope-1' }
     vm.selectedSchemas = {
       workflowPair: { id: 'wp' },
@@ -144,7 +137,7 @@ describe('ScopeSelection', () => {
     vm.assignmentPriority = 'high'
     vm.assignmentNotes = 'urgent'
 
-    await vm.createAssignment()
+    await call(vm, 'createAssignment')
     expect(createAssignment).toHaveBeenCalledWith({
       gene_id: 'g1',
       scope_id: 'scope-1',
@@ -157,13 +150,11 @@ describe('ScopeSelection', () => {
   it('logs and stays put when creating the assignment fails', async () => {
     const assignments = useAssignmentsStore()
     Object.assign(assignments, { createAssignment: vi.fn().mockRejectedValue(new Error('no')) })
-    const vm = mountView().vm as unknown as Record<string, unknown> & {
-      createAssignment: () => Promise<void>
-    }
+    const vm = vmOf(mountView())
     vm.selectedScope = { id: 'scope-1' }
     vm.selectedSchemas = { workflowPair: null, precurationSchema: null, curationSchema: null }
     vm.selectedGene = { id: 'g1' }
-    await vm.createAssignment()
+    await call(vm, 'createAssignment')
     expect(logger.error).toHaveBeenCalledWith(
       'Failed to create assignment:',
       expect.objectContaining({ error: 'no' })
@@ -173,14 +164,14 @@ describe('ScopeSelection', () => {
 
   it('advances through the steps when a scope and schemas are chosen', async () => {
     const wrapper = mountView()
-    const vm = wrapper.vm as unknown as {
-      handleScopeSelected: (s: unknown) => void
-      handleSchemasSelected: (s: unknown) => void
-      currentStep: number
-    }
-    vm.handleScopeSelected({ id: 'scope-1' })
+    const vm = vmOf(wrapper)
+    call(vm, 'handleScopeSelected', { id: 'scope-1' })
     expect(vm.currentStep).toBe(2)
-    vm.handleSchemasSelected({ workflowPair: null, precurationSchema: null, curationSchema: null })
+    call(vm, 'handleSchemasSelected', {
+      workflowPair: null,
+      precurationSchema: null,
+      curationSchema: null
+    })
     expect(vm.currentStep).toBe(3)
   })
 
@@ -188,8 +179,7 @@ describe('ScopeSelection', () => {
     const assignments = useAssignmentsStore()
     const createAssignment = vi.fn()
     Object.assign(assignments, { createAssignment })
-    const vm = mountView().vm as unknown as { createAssignment: () => Promise<void> }
-    await vm.createAssignment()
+    await call(vmOf(mountView()), 'createAssignment')
     expect(createAssignment).not.toHaveBeenCalled()
   })
 })
@@ -251,12 +241,9 @@ describe('UserManagement', () => {
   it('deletes the chosen user through the store', async () => {
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
-    const vm = wrapper.vm as unknown as {
-      confirmDeleteUser: (u: typeof alice) => void
-      performDeleteUser: () => Promise<void>
-    }
-    vm.confirmDeleteUser(alice)
-    await vm.performDeleteUser()
+    const vm = vmOf(wrapper)
+    call(vm, 'confirmDeleteUser', alice)
+    await call(vm, 'performDeleteUser')
     expect(users.deleteUser).toHaveBeenCalledWith('u1')
   })
 
@@ -267,9 +254,7 @@ describe('UserManagement', () => {
     )
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
-    await (
-      wrapper.vm as unknown as { resetPassword: (u: typeof alice) => Promise<void> }
-    ).resetPassword(alice)
+    await call(vmOf(wrapper), 'resetPassword', alice)
     expect(users.updateUserPassword).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('Password must be at least 8 characters long')
     vi.unstubAllGlobals()
@@ -278,12 +263,8 @@ describe('UserManagement', () => {
   it('creates a new user from the dialog form values', async () => {
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
-    const vm = wrapper.vm as unknown as {
-      openCreateUserDialog: () => void
-      userFormData: Record<string, unknown>
-      saveUser: () => Promise<void>
-    }
-    vm.openCreateUserDialog()
+    const vm = vmOf(wrapper)
+    call(vm, 'openCreateUserDialog')
     vm.userFormData = {
       name: 'Bob',
       email: 'bob@example.org',
@@ -292,7 +273,7 @@ describe('UserManagement', () => {
       is_active: true
     }
     await flushPromises()
-    await vm.saveUser()
+    await call(vm, 'saveUser')
     expect(users.createUser).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'bob@example.org' })
     )
@@ -302,9 +283,7 @@ describe('UserManagement', () => {
   it('opens the details dialog and loads the user activity', async () => {
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
-    await (wrapper.vm as unknown as { viewUser: (u: typeof alice) => Promise<void> }).viewUser(
-      alice
-    )
+    await call(vmOf(wrapper), 'viewUser', alice)
     await flushPromises()
     expect(users.fetchUserActivity).toHaveBeenCalledWith('u1')
     expect(document.body.textContent).toContain('User Details: Alice')
@@ -395,12 +374,10 @@ describe('UserProfile', () => {
     vi.spyOn(useUsersStore(), 'fetchUserActivity').mockResolvedValue({} as never)
     const wrapper = mount(UserProfile, opts())
     await flushPromises()
-    const vm = wrapper.vm as unknown as {
-      passwordData: { current_password: string; new_password: string }
-    }
+    const vm = vmOf(wrapper)
     vm.passwordData = { current_password: 'oldpassword', new_password: 'newpassword1' }
     await flushPromises()
-    await (wrapper.vm as unknown as { changePassword: () => Promise<void> }).changePassword()
+    await call(vm, 'changePassword')
     expect(authApi.changePassword).toHaveBeenCalledWith({
       current_password: 'oldpassword',
       new_password: 'newpassword1'
@@ -442,14 +419,7 @@ describe('WorkflowManagement', () => {
     )
     const wrapper = mount(WorkflowManagement, opts())
     await flushPromises()
-    await (
-      wrapper.vm as unknown as {
-        deleteWorkflow: (w: { id: string; name: string }) => Promise<void>
-      }
-    ).deleteWorkflow({
-      id: 'wp1',
-      name: 'ClinGen flow'
-    })
+    await call(vmOf(wrapper), 'deleteWorkflow', { id: 'wp1', name: 'ClinGen flow' })
     expect(deleteWorkflowPair).toHaveBeenCalledWith('wp1')
     expect(showSuccess).toHaveBeenCalledWith('Workflow deleted successfully')
     vi.unstubAllGlobals()
