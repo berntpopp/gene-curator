@@ -235,15 +235,14 @@ describe('WorkflowManagement', () => {
     vi.unstubAllGlobals()
   })
 
-  it('maps stage types to colours and icons and announces stage editing', async () => {
+  it('maps stage types to colours and icons and lacks the removed stage-edit placeholder', async () => {
     const { vm } = await mountView()
     expect(call(vm, 'getStageColor', 'review')).toBe('purple')
     expect(call(vm, 'getStageColor', 'other')).toBe('grey')
     expect(call(vm, 'getStageIcon', 'entry')).toBe('mdi-file-document-plus')
     expect(call(vm, 'getStageIcon', 'other')).toBe('mdi-circle')
     expect(call(vm, 'getSchemaName', null, 'curation')).toBe('N/A')
-    call(vm, 'editStage', { id: 'st1' })
-    expect(showInfo).toHaveBeenCalledWith('Stage editing coming soon')
+    expect(vm.editStage).toBeUndefined()
   })
 })
 
@@ -282,8 +281,7 @@ describe('SchemaManagement', () => {
     })
     call(vm, 'editSchema', row)
     expect(showError).toHaveBeenCalledWith('Failed to open schema editor')
-    call(vm, 'viewSchema', row)
-    expect(logger.info).toHaveBeenCalledWith('View schema requested', expect.anything())
+    expect(vm.viewSchema).toBeUndefined()
   })
 
   it('duplicates a schema through the store', async () => {

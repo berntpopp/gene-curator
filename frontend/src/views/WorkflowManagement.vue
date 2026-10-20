@@ -96,12 +96,6 @@
                 </div>
                 <div class="text-caption text-medium-emphasis">Order: {{ stage.order }}</div>
               </v-card-text>
-              <v-card-actions>
-                <v-btn size="small" variant="text" @click="editStage(stage)">
-                  <v-icon start>mdi-pencil</v-icon>
-                  Edit
-                </v-btn>
-              </v-card-actions>
             </v-card>
           </v-col>
         </v-row>
@@ -287,7 +281,7 @@
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
-  import { showError, showSuccess, showInfo } from '@/composables/useNotifications'
+  import { showError, showSuccess } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
@@ -448,12 +442,6 @@
         showError('Failed to delete workflow')
       }
     }
-  }
-
-  const editStage = (stage: { id: string; name?: string }) => {
-    logger.info('Edit stage requested', { stageId: stage.id, stageName: stage.name })
-    // TODO: Implement stage edit when available
-    showInfo('Stage editing coming soon')
   }
 
   const createWorkflow = async () => {

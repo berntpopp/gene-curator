@@ -98,7 +98,6 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewSchema(item)" />
             <v-btn icon="mdi-pencil" size="small" variant="text" @click="editSchema(item)" />
             <v-btn
               icon="mdi-content-copy"
@@ -279,11 +278,6 @@
 
   const formatDate = (dateString: string | null | undefined) => {
     return dateString ? new Date(dateString).toLocaleDateString() : ''
-  }
-
-  const viewSchema = (schema: SchemaRow) => {
-    logger.info('View schema requested', { schemaId: schema.id, schemaName: schema.name })
-    // TODO: Implement schema detail view when available
   }
 
   const editSchema = (schema: SchemaRow) => {

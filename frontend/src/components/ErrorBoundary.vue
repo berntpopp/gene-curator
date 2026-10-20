@@ -31,9 +31,6 @@
     <!-- Additional actions -->
     <div class="mt-4 d-flex gap-2">
       <v-btn variant="text" prepend-icon="mdi-home" @click="goHome"> Go to Dashboard </v-btn>
-      <v-btn variant="text" prepend-icon="mdi-bug-outline" @click="reportError">
-        Report Issue
-      </v-btn>
     </div>
   </div>
   <slot v-else />
@@ -112,25 +109,6 @@
     errorInfo.value = null
     router.push('/dashboard')
     logger.info('Error boundary - navigated to dashboard')
-  }
-
-  /**
-   * Open issue reporting (GitHub issues or support)
-   * Placeholder for actual reporting mechanism
-   */
-  function reportError() {
-    const errorDetails = {
-      message: error.value?.message,
-      stack: error.value?.stack,
-      info: errorInfo.value,
-      url: window.location.href,
-      timestamp: new Date().toISOString()
-    }
-
-    logger.error('Error report initiated', errorDetails)
-
-    // TODO: Implement actual error reporting
-    // window.open(`https://github.com/yourrepo/issues/new?body=${encodeURIComponent(JSON.stringify(errorDetails))}`)
   }
 </script>
 
