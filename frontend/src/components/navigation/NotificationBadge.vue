@@ -11,7 +11,7 @@
   </v-badge>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * NotificationBadge Component
    *
@@ -36,43 +36,26 @@
 
   import { computed } from 'vue'
 
-  const props = defineProps({
-    /**
-     * Notification count
-     */
-    count: {
-      type: Number,
-      default: 0
-    },
+  type NotificationPriority = 'critical' | 'warning' | 'info'
 
-    /**
-     * Priority level (affects color)
-     * 'critical' -> error (red)
-     * 'warning' -> warning (orange)
-     * 'info' -> info (blue)
-     */
-    priority: {
-      type: String,
-      default: 'info',
-      validator: value => ['critical', 'warning', 'info'].includes(value)
-    },
-
-    /**
-     * Maximum count to display (shows "max+" above this)
-     */
-    max: {
-      type: Number,
-      default: 99
-    },
-
-    /**
-     * Force show badge even when count is 0
-     */
-    forceShow: {
-      type: Boolean,
-      default: false
+  const props = withDefaults(
+    defineProps<{
+      /** Notification count */
+      count?: number
+      /** Priority level (affects color): critical -> error, warning -> warning, info -> info */
+      priority?: NotificationPriority
+      /** Maximum count to display (shows "max+" above this) */
+      max?: number
+      /** Force show badge even when count is 0 */
+      forceShow?: boolean
+    }>(),
+    {
+      count: 0,
+      priority: 'info',
+      max: 99,
+      forceShow: false
     }
-  })
+  )
 
   /**
    * Whether to show the badge

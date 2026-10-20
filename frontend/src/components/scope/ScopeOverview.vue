@@ -161,19 +161,35 @@
   </div>
 </template>
 
-<script setup>
-  import { defineProps } from 'vue'
+<script setup lang="ts">
+  /** Scope fields shown in the information card */
+  interface ScopeInfo {
+    name: string
+    display_name: string
+    description?: string | null
+    institution?: string | null
+    is_public: boolean
+    is_active: boolean
+  }
 
-  defineProps({
-    scope: {
-      type: Object,
-      required: true
-    },
-    statistics: {
-      type: Object,
-      default: null
-    }
-  })
+  /** Counters shown in the statistics cards (all optional, missing counts show as 0) */
+  interface ScopeStatisticsView {
+    total_genes_assigned?: number
+    genes_with_curator?: number
+    total_precurations?: number
+    total_curations?: number
+    total_reviews?: number
+    active_curations?: number
+    active_curators?: number
+    active_reviewers?: number
+    curations_last_30_days?: number
+    activations_last_30_days?: number
+  }
+
+  defineProps<{
+    scope: ScopeInfo
+    statistics?: ScopeStatisticsView | null
+  }>()
 </script>
 
 <style scoped>

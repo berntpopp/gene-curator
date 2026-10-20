@@ -175,7 +175,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ScorePreview Component
    *
@@ -201,39 +201,35 @@
   import { computed } from 'vue'
   import { useScoring } from '@/composables/useScoring'
 
-  const props = defineProps({
-    /**
-     * Array of evidence items with computed scores
-     * Each item should have: evidence_type, evidence_category, computed_score
-     */
-    evidenceItems: {
-      type: Array,
-      default: () => []
-    },
-    /**
-     * Show expandable detailed breakdown
-     */
-    showDetails: {
-      type: Boolean,
-      default: true
-    },
-    /**
-     * Show "View Full Scorecard" link
-     */
-    showFullScoreLink: {
-      type: Boolean,
-      default: false
-    },
-    /**
-     * Compact mode (smaller text, less padding)
-     */
-    compact: {
-      type: Boolean,
-      default: false
-    }
-  })
+  interface ScorePreviewItem {
+    evidence_type?: string
+    evidence_category?: string
+    computed_score?: number | null
+  }
 
-  defineEmits(['view-full-score'])
+  const props = withDefaults(
+    defineProps<{
+      /**
+       * Array of evidence items with computed scores
+       * Each item should have: evidence_type, evidence_category, computed_score
+       */
+      evidenceItems?: ScorePreviewItem[]
+      /** Show expandable detailed breakdown */
+      showDetails?: boolean
+      /** Show "View Full Scorecard" link */
+      showFullScoreLink?: boolean
+      /** Compact mode (smaller text, less padding) */
+      compact?: boolean
+    }>(),
+    {
+      evidenceItems: () => [],
+      showDetails: true,
+      showFullScoreLink: false,
+      compact: false
+    }
+  )
+
+  defineEmits<{ 'view-full-score': [] }>()
 
   // Reactive evidence items reference
   const evidenceItemsRef = computed(() => props.evidenceItems || [])

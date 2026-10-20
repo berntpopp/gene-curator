@@ -18,6 +18,13 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import NotificationBadge from '../NotificationBadge.vue'
 
+/** Internal computed values the tests inspect; they are not part of the component's public type */
+interface BadgeInternals {
+  badgeColor: string
+  hasNotifications: boolean
+}
+const internals = (wrapper: { vm: unknown }) => wrapper.vm as unknown as BadgeInternals
+
 describe('NotificationBadge', () => {
   describe('Badge Display', () => {
     it('should display badge when count > 0', () => {
@@ -56,6 +63,7 @@ describe('NotificationBadge', () => {
     it('should handle null count gracefully', () => {
       const wrapper = mount(NotificationBadge, {
         props: {
+          // @ts-expect-error null count is passed on purpose to check graceful handling
           count: null
         },
         slots: {
@@ -154,7 +162,7 @@ describe('NotificationBadge', () => {
       })
 
       // Check the computed badgeColor value
-      expect(wrapper.vm.badgeColor).toBe('error')
+      expect(internals(wrapper).badgeColor).toBe('error')
     })
 
     it('should use warning color for warning priority', () => {
@@ -169,7 +177,7 @@ describe('NotificationBadge', () => {
       })
 
       // Check the computed badgeColor value
-      expect(wrapper.vm.badgeColor).toBe('warning')
+      expect(internals(wrapper).badgeColor).toBe('warning')
     })
 
     it('should use info color for info priority', () => {
@@ -184,7 +192,7 @@ describe('NotificationBadge', () => {
       })
 
       // Check the computed badgeColor value
-      expect(wrapper.vm.badgeColor).toBe('info')
+      expect(internals(wrapper).badgeColor).toBe('info')
     })
 
     it('should default to info color when priority not specified', () => {
@@ -198,7 +206,7 @@ describe('NotificationBadge', () => {
       })
 
       // Check the computed badgeColor value
-      expect(wrapper.vm.badgeColor).toBe('info')
+      expect(internals(wrapper).badgeColor).toBe('info')
     })
   })
 
@@ -258,7 +266,7 @@ describe('NotificationBadge', () => {
 
   describe('Priority Prop Behavior', () => {
     it('should accept all valid priority values', () => {
-      const validPriorities = ['critical', 'warning', 'info']
+      const validPriorities = ['critical', 'warning', 'info'] as const
       const expectedColors = ['error', 'warning', 'info']
 
       validPriorities.forEach((priority, index) => {
@@ -272,7 +280,7 @@ describe('NotificationBadge', () => {
           }
         })
 
-        expect(wrapper.vm.badgeColor).toBe(expectedColors[index])
+        expect(internals(wrapper).badgeColor).toBe(expectedColors[index])
       })
     })
 
@@ -290,7 +298,7 @@ describe('NotificationBadge', () => {
       // Component should render and pass correct color to v-badge
       const badge = wrapper.find('.v-badge')
       expect(badge.exists()).toBe(true)
-      expect(wrapper.vm.badgeColor).toBe('error')
+      expect(internals(wrapper).badgeColor).toBe('error')
     })
   })
 
@@ -306,7 +314,7 @@ describe('NotificationBadge', () => {
       })
 
       // Component handles negative counts by setting hasNotifications to false
-      expect(wrapper.vm.hasNotifications).toBe(false)
+      expect(internals(wrapper).hasNotifications).toBe(false)
       // Badge element still renders but model-value is false
       const badge = wrapper.find('.v-badge')
       expect(badge.exists()).toBe(true)
@@ -328,6 +336,7 @@ describe('NotificationBadge', () => {
     it('should handle count as string', () => {
       const wrapper = mount(NotificationBadge, {
         props: {
+          // @ts-expect-error string count is passed on purpose to check coercion
           count: '42'
         },
         slots: {
@@ -352,6 +361,7 @@ describe('NotificationBadge', () => {
       const wrapper = mount(NotificationBadge, {
         props: {
           count: 5,
+          // @ts-expect-error invalid priority is passed on purpose to check graceful handling
           priority: 'invalid'
         },
         slots: {
@@ -362,7 +372,7 @@ describe('NotificationBadge', () => {
       const badge = wrapper.find('.v-badge')
       expect(badge.exists()).toBe(true)
       // Should default to info color via the default case in badgeColor computed
-      expect(wrapper.vm.badgeColor).toBe('info')
+      expect(internals(wrapper).badgeColor).toBe('info')
     })
   })
 
@@ -428,12 +438,12 @@ describe('NotificationBadge', () => {
       })
 
       // Check initial badgeColor computed value
-      expect(wrapper.vm.badgeColor).toBe('info')
+      expect(internals(wrapper).badgeColor).toBe('info')
 
       await wrapper.setProps({ priority: 'critical' })
 
       // Check updated badgeColor computed value
-      expect(wrapper.vm.badgeColor).toBe('error')
+      expect(internals(wrapper).badgeColor).toBe('error')
     })
 
     it('should update hasNotifications when count changes', async () => {
@@ -447,17 +457,17 @@ describe('NotificationBadge', () => {
       })
 
       // Initially hasNotifications should be true
-      expect(wrapper.vm.hasNotifications).toBe(true)
+      expect(internals(wrapper).hasNotifications).toBe(true)
 
       await wrapper.setProps({ count: 0 })
 
       // After setting count to 0, hasNotifications should be false
-      expect(wrapper.vm.hasNotifications).toBe(false)
+      expect(internals(wrapper).hasNotifications).toBe(false)
 
       await wrapper.setProps({ count: 3 })
 
       // After setting count to 3, hasNotifications should be true again
-      expect(wrapper.vm.hasNotifications).toBe(true)
+      expect(internals(wrapper).hasNotifications).toBe(true)
     })
   })
 })

@@ -33,7 +33,7 @@
               :key="pmid"
               size="x-small"
               variant="outlined"
-              :href="`https://pubmed.ncbi.nlm.nih.gov/${pmid}/`"
+              :href="pubmedUrl(pmid)"
               target="_blank"
               class="text-no-wrap"
             >
@@ -85,7 +85,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * EvidenceItemCard Component
    *
@@ -101,24 +101,32 @@
    * />
    */
 
-  defineProps({
-    evidence: {
-      type: Object,
-      required: true
-    },
-    index: {
-      type: Number,
-      required: true
-    }
-  })
+  interface EvidenceCardMetadata {
+    variant_count?: number
+    family_count?: number
+    proband_count?: number
+  }
 
-  const emit = defineEmits(['edit', 'delete'])
+  interface EvidenceCardItem {
+    evidence_category: string
+    description?: string | null
+    computed_score?: number | null
+    pmids?: string[] | null
+    metadata?: EvidenceCardMetadata | null
+  }
+
+  defineProps<{
+    evidence: EvidenceCardItem
+    index: number
+  }>()
+
+  const emit = defineEmits<{ edit: []; delete: [] }>()
 
   /**
    * Get color for evidence category chip
    */
-  function getCategoryColor(category) {
-    const colorMap = {
+  function getCategoryColor(category: string): string {
+    const colorMap: Record<string, string> = {
       case_level: 'blue',
       segregation: 'purple',
       case_control: 'teal',
@@ -131,10 +139,15 @@
     return colorMap[category] || 'grey'
   }
 
+  /** PubMed link for a PMID (kept out of the template: vue-tsc loses v-for scope on template literals) */
+  function pubmedUrl(pmid: string): string {
+    return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+  }
+
   /**
    * Format category name for display
    */
-  function formatCategory(category) {
+  function formatCategory(category: string): string {
     return category
       .split('_')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
@@ -144,7 +157,7 @@
   /**
    * Format metadata object to readable string
    */
-  function formatMetadata(metadata) {
+  function formatMetadata(metadata: EvidenceCardMetadata | null | undefined): string {
     if (!metadata || typeof metadata !== 'object') return ''
 
     const parts = []

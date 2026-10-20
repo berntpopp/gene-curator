@@ -113,8 +113,8 @@
             class="mt-4"
             variant="outlined"
           >
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props" :title="undefined">
+            <template #item="{ item, props: itemProps }">
+              <v-list-item v-bind="itemProps" :title="undefined">
                 <template #prepend>
                   <v-icon :icon="item.raw.icon" :color="item.raw.color" />
                 </template>
@@ -162,60 +162,78 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import UserSearchAutocomplete from '@/components/common/UserSearchAutocomplete.vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
 
+  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
+  type LogFn = (message: string, data?: Record<string, unknown>) => void
+  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
+
+  /** User picked in the search autocomplete */
+  interface InviteCandidate {
+    id: string
+    name?: string | null
+    email?: string | null
+  }
+
+  /** Payload emitted after a successful invitation */
+  interface InvitedPayload {
+    id?: string
+    userName?: string | null
+    userEmail?: string | null
+  }
+
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    /**
-     * v-model for dialog visibility
-     */
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    /**
-     * Scope UUID for the invitation
-     */
-    scopeId: {
-      type: String,
-      required: true
-    },
-    /**
-     * User IDs already in the scope (to exclude from search)
-     */
-    existingMemberIds: {
-      type: Array,
-      default: () => []
+  const props = withDefaults(
+    defineProps<{
+      /** v-model for dialog visibility */
+      modelValue?: boolean
+      /** Scope UUID for the invitation */
+      scopeId: string
+      /** User IDs already in the scope (to exclude from search) */
+      existingMemberIds?: string[]
+    }>(),
+    {
+      modelValue: false,
+      existingMemberIds: () => []
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'invited'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    invited: [result: InvitedPayload]
+  }>()
 
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
+  /** Narrowed view of useRoleColors() (its JSDoc types the return as Object) */
+  interface RoleColorUtils {
+    getRoleColor: (role: string) => string
+    getRoleIcon: (role: string) => string
+  }
+
   const scopeStore = useScopesStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const logger = useLogger()
+  const { getRoleColor, getRoleIcon } = useRoleColors() as RoleColorUtils
+  const logger = useLogger() as ComponentLogger
 
   // ============================================
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  const formRef = ref<{ reset: () => void } | null>(null)
   const formValid = ref(false)
   const submitting = ref(false)
   const inviteTab = ref('existing')
-  const selectedUser = ref(null)
+  const selectedUser = ref<InviteCandidate | undefined>(undefined)
   const emailInvite = ref('')
   const selectedRole = ref('viewer')
   const notes = ref('')
@@ -272,13 +290,15 @@
   // ============================================
 
   const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid'
+    (v: string) => !!v || 'Email is required',
+    (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
-  const roleRules = [v => !!v || 'Role is required']
+  const roleRules = [(v: string) => !!v || 'Role is required']
 
-  const notesRules = [v => !v || v.length <= 200 || 'Notes must be 200 characters or less']
+  const notesRules = [
+    (v: string) => !v || v.length <= 200 || 'Notes must be 200 characters or less'
+  ]
 
   // ============================================
   // METHODS
@@ -287,18 +307,20 @@
   /**
    * Get initials from name
    */
-  const getInitials = name => {
+  const getInitials = (name: string | null | undefined): string => {
     if (!name) return '?'
     const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+    const first = parts[0] ?? ''
+    if (parts.length === 1) return first.charAt(0).toUpperCase()
+    const last = parts[parts.length - 1] ?? ''
+    return (first.charAt(0) + last.charAt(0)).toUpperCase()
   }
 
   /**
    * Reset form to initial state
    */
   const resetForm = () => {
-    selectedUser.value = null
+    selectedUser.value = undefined
     emailInvite.value = ''
     selectedRole.value = 'viewer'
     notes.value = ''
@@ -325,7 +347,7 @@
     submitting.value = true
 
     try {
-      const invitationData = {
+      const invitationData: { role: string; user_id?: string; email?: string; notes?: string } = {
         role: selectedRole.value
       }
 
@@ -345,7 +367,9 @@
         role: selectedRole.value
       })
 
-      const result = await scopeStore.inviteMember(props.scopeId, invitationData)
+      const result = (await scopeStore.inviteMember(props.scopeId, invitationData)) as
+        | InvitedPayload
+        | undefined
 
       logger.info('Invitation sent successfully', {
         scopeId: props.scopeId,
@@ -363,10 +387,11 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
+      const err = error instanceof Error ? error : undefined
       logger.error('Failed to send invitation', {
         scopeId: props.scopeId,
-        error: error.message,
-        stack: error.stack
+        error: err?.message,
+        stack: err?.stack
       })
       // Error handling is done by the store/component using this dialog
       throw error

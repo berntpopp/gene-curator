@@ -20,7 +20,12 @@
       <v-list-subheader v-if="item.raw.isHeader">
         {{ item.raw.displayText }}
       </v-list-subheader>
-      <v-list-item v-else v-bind="itemProps" :subtitle="item.raw.definition" class="py-2">
+      <v-list-item
+        v-else
+        v-bind="itemProps"
+        :subtitle="item.raw.definition ?? undefined"
+        class="py-2"
+      >
         <template #prepend>
           <v-icon :color="item.raw.category === 'mendelian' ? 'primary' : 'secondary'" size="small">
             mdi-family-tree
@@ -71,7 +76,7 @@
   </v-select>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * HPOInheritanceSelect Component
    *
@@ -91,48 +96,56 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { ontologyAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: String,
-      default: ''
-    },
-    hpoId: {
-      type: String,
-      default: ''
-    },
-    label: {
-      type: String,
-      default: 'Mode of Inheritance'
-    },
-    hint: {
-      type: String,
-      default: 'Select the inheritance pattern'
-    },
-    required: {
-      type: Boolean,
-      default: false
-    },
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-    clearable: {
-      type: Boolean,
-      default: true
-    },
-    prependIcon: {
-      type: String,
-      default: 'mdi-family-tree'
+  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
+  type LogFn = (message: string, data?: Record<string, unknown>) => void
+  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
+
+  /** One selectable inheritance pattern; `isHeader` rows are section labels in the list */
+  interface InheritanceItem {
+    hpo_id: string
+    name?: string
+    definition?: string | null
+    category?: string
+    shortcode?: string | null
+    displayText?: string
+    isHeader?: boolean
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string
+      hpoId?: string
+      label?: string
+      hint?: string
+      required?: boolean
+      disabled?: boolean
+      clearable?: boolean
+      prependIcon?: string
+    }>(),
+    {
+      modelValue: '',
+      hpoId: '',
+      label: 'Mode of Inheritance',
+      hint: 'Select the inheritance pattern',
+      required: false,
+      disabled: false,
+      clearable: true,
+      prependIcon: 'mdi-family-tree'
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'update:hpoId', 'select'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: string]
+    'update:hpoId': [value: string]
+    select: [item: InheritanceItem | null]
+  }>()
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
   // HPO ID to shortcode mapping for common patterns
-  const HPO_SHORTCODES = {
+  const HPO_SHORTCODES: Record<string, string> = {
     'HP:0000006': 'AD', // Autosomal dominant
     'HP:0000007': 'AR', // Autosomal recessive
     'HP:0001417': 'XLD', // X-linked dominant
@@ -149,14 +162,14 @@
 
   // State
   const isLoading = ref(false)
-  const loadError = ref(null)
-  const mendelianPatterns = ref([])
-  const nonMendelianPatterns = ref([])
-  const selectedItem = ref(null)
+  const loadError = ref<string | null | undefined>(null)
+  const mendelianPatterns = ref<InheritanceItem[]>([])
+  const nonMendelianPatterns = ref<InheritanceItem[]>([])
+  const selectedItem = ref<InheritanceItem | null>(null)
 
   // Compute items for v-select with headers
   const inheritanceItems = computed(() => {
-    const items = []
+    const items: InheritanceItem[] = []
 
     // Mendelian patterns
     if (mendelianPatterns.value.length > 0) {
@@ -207,7 +220,8 @@
     loadError.value = null
 
     try {
-      const response = await ontologyAPI.getInheritancePatterns()
+      const response =
+        (await ontologyAPI.getInheritancePatterns()) as Schema<'HPOInheritanceResponse'>
 
       // Add shortcodes to patterns
       mendelianPatterns.value = response.mendelian.map(p => ({
@@ -231,8 +245,9 @@
         findAndSelectItem(props.hpoId || props.modelValue)
       }
     } catch (e) {
-      loadError.value = e.message
-      logger.error('Failed to load inheritance patterns', { error: e.message })
+      const message = e instanceof Error ? e.message : undefined
+      loadError.value = message
+      logger.error('Failed to load inheritance patterns', { error: message })
     } finally {
       isLoading.value = false
     }
@@ -241,7 +256,7 @@
   /**
    * Find and select an item by HPO ID or shortcode
    */
-  function findAndSelectItem(value) {
+  function findAndSelectItem(value: string) {
     if (!value) return
 
     // First try to find by HPO ID
@@ -267,7 +282,7 @@
   /**
    * Handle item selection
    */
-  function handleSelect(item) {
+  function handleSelect(item: InheritanceItem | null | undefined) {
     if (item && !item.isHeader) {
       selectedItem.value = item
       // Emit shortcode if available, otherwise HPO ID
@@ -298,7 +313,7 @@
   )
 
   // Error messages for form validation
-  const errorMessages = computed(() => {
+  const errorMessages = computed<string[]>(() => {
     if (loadError.value) return ['Failed to load options']
     if (props.required && !props.modelValue) {
       return ['Mode of inheritance is required']
