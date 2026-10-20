@@ -27,6 +27,7 @@ def test_detailed_statistics_counts_only_accepted_members(
     stats = scope_crud.get_detailed_statistics(db, scope_id=test_scope.id)
 
     assert stats["member_count"] == 1
+    assert stats["completed_genes"] <= stats["total_genes_assigned"]
 
 
 def test_performance_metrics_empty_scope(

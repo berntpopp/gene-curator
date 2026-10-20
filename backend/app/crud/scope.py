@@ -148,18 +148,8 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         result = []
         for scope in scopes:
-            # Get gene count for this scope
-            gene_count = (
-                db.execute(
-                    select(func.count(GeneScopeAssignment.id)).where(
-                        GeneScopeAssignment.scope_id == scope.id,
-                        GeneScopeAssignment.is_active,
-                    )
-                ).scalar()
-                or 0
-            )
+            gene_count, _ = self.get_gene_counts(db, scope_id=scope.id)
 
-            # Get member count for this scope
             member_count = (
                 db.execute(
                     select(func.count(ScopeMembership.id)).where(
@@ -171,7 +161,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 or 0
             )
 
-            # Convert scope to dict and add counts
             scope_dict = {
                 "id": scope.id,
                 "name": scope.name,
@@ -223,33 +212,46 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         if not scope:
             return None
 
-        # Get basic statistics
         stats = self.get_detailed_statistics(db, scope_id=scope_id)
 
         return {**scope.__dict__, "statistics": stats}
 
+    def get_gene_counts(self, db: Session, *, scope_id: UUID) -> tuple[int, int]:
+        """(total, completed) genes of a scope.
+
+        Total: distinct genes with an active assignment or a curation. Completed:
+        genes with an active curation, so completed never exceeds total.
+        """
+        assigned = select(GeneScopeAssignment.gene_id).where(
+            GeneScopeAssignment.scope_id == scope_id, GeneScopeAssignment.is_active
+        )
+        curated = select(CurationNew.gene_id).where(
+            CurationNew.scope_id == scope_id,
+            CurationNew.status != CurationStatus.ARCHIVED,
+        )
+        active = select(ActiveCuration.gene_id).where(
+            ActiveCuration.scope_id == scope_id, ActiveCuration.archived_at.is_(None)
+        )
+        total = db.scalar(
+            select(func.count()).select_from(assigned.union(curated, active).subquery())
+        )
+        completed = db.scalar(
+            select(func.count()).select_from(active.distinct().subquery())
+        )
+        return total or 0, completed or 0
+
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
-        # Gene assignment counts
-        gene_stats_row = db.execute(
-            select(
-                func.count(GeneScopeAssignment.id).label("total_genes_assigned"),
-                func.count(GeneScopeAssignment.assigned_curator_id).label(
-                    "genes_with_curator"
-                ),
-            ).where(
-                GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
+        total_genes, completed_genes = self.get_gene_counts(db, scope_id=scope_id)
+        genes_with_curator = (
+            db.scalar(
+                select(func.count(GeneScopeAssignment.assigned_curator_id)).where(
+                    GeneScopeAssignment.scope_id == scope_id,
+                    GeneScopeAssignment.is_active,
+                )
             )
-        ).first()
-
-        # Handle None case
-        if not gene_stats_row:
-            gene_stats = type(
-                "obj", (), {"total_genes_assigned": 0, "genes_with_curator": 0}
-            )()
-        else:
-            gene_stats = gene_stats_row
+            or 0
+        )
 
         # Curation stage counts
         precuration_count = (
@@ -261,7 +263,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             or 0
         )
 
-        # Count curations excluding archived
         curation_count = (
             db.execute(
                 select(func.count(CurationNew.id)).where(
@@ -319,7 +320,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             .where(CurationNew.scope_id == scope_id)
         ).first()
 
-        # Handle None case
         if not review_stats_row:
             review_stats = type(
                 "obj",
@@ -334,7 +334,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             review_stats = review_stats_row
 
         # Team metrics
-        # Total scope members (from scope_memberships table)
         member_count = (
             db.execute(
                 select(func.count(ScopeMembership.id)).where(
@@ -407,8 +406,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         )
 
         return {
-            "total_genes_assigned": gene_stats.total_genes_assigned or 0,
-            "genes_with_curator": gene_stats.genes_with_curator or 0,
+            "total_genes_assigned": total_genes,
+            "completed_genes": completed_genes,
+            "genes_with_curator": genes_with_curator,
             "total_precurations": precuration_count,
             "total_curations": curation_count,
             "total_reviews": review_count,
