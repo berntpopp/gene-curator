@@ -9,5 +9,7 @@ describe('passwordRules', () => {
     expect(check('')).toBe('Password is required')
     expect(check('1234567')).toBe('Password must be at least 8 characters')
     expect(check('12345678')).toBe(true)
+    expect(check('x'.repeat(128))).toBe(true)
+    expect(check('x'.repeat(129))).toBe('Password must be at most 128 characters')
   })
 })
