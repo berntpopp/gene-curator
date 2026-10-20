@@ -21,7 +21,7 @@ classifiers = [
 dependencies = [
     "fastapi>=0.139.0",
     "uvicorn[standard]>=0.24.0",
-    "sqlalchemy>=2.0.23",
+    "sqlalchemy[asyncio]>=2.1.4",  # 2.1 no longer pulls in greenlet; the async engine needs it
     "psycopg2-binary>=2.9.9",
     "asyncpg>=0.29.0",
     "pydantic[email]>=2.5.0",
@@ -107,6 +107,7 @@ ignore = [
     "S110",  # try-except-pass (sometimes needed for optional imports)
     "N805",  # first argument naming (false positive for class methods with cls)
     "UP046", "UP047",  # PEP 695 generics: migrate CRUDBase/decorators deliberately, not via autofix
+    "UP042",  # (str, Enum) -> StrEnum changes str() of DB-stored enums; migrate deliberately
 ]
 
 [tool.ruff.lint.per-file-ignores]

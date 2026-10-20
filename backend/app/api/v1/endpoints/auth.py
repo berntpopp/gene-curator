@@ -94,7 +94,7 @@ async def login(
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105 - OAuth token type, not a secret
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
@@ -133,7 +133,7 @@ async def refresh_token(
     return {
         "access_token": access_token,
         "refresh_token": new_refresh_token,
-        "token_type": "bearer",
+        "token_type": "bearer",  # nosec B105 - OAuth token type, not a secret
         "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     }
 
@@ -241,6 +241,6 @@ async def auth_info() -> dict[str, Any]:
             "register": "/api/v1/auth/register",
             "logout": "/api/v1/auth/logout",
         },
-        "token_type": "Bearer JWT",
+        "token_type": "Bearer JWT",  # nosec B105 - auth scheme name, not a secret
         "expires_in_minutes": settings.ACCESS_TOKEN_EXPIRE_MINUTES,
     }

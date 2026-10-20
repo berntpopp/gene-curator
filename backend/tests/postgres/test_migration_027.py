@@ -16,7 +16,9 @@ pytestmark = pytest.mark.postgres
 @pytest.fixture
 def owner_session() -> Generator[Session, None, None]:
     """Table-owner connection (DDL allowed); everything is rolled back."""
-    engine = create_engine(settings.DATABASE_URL)
+    engine = create_engine(
+        settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
+    )
     connection = engine.connect()
     transaction = connection.begin()
     session = Session(bind=connection)

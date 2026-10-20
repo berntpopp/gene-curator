@@ -3,9 +3,10 @@ CRUD operations for notifications.
 """
 
 from collections.abc import Sequence
+from typing import Any, cast
 from uuid import UUID
 
-from sqlalchemy import select, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 from sqlalchemy.sql import func
 
@@ -112,7 +113,8 @@ class CRUDNotification(
             .values(is_read=True)
         )
         db.commit()
-        return result.rowcount
+        # UPDATE returns a CursorResult; SQLAlchemy 2.1 types execute() as plain Result
+        return cast(CursorResult[Any], result).rowcount
 
 
 notification_crud = CRUDNotification(NotificationNew)
