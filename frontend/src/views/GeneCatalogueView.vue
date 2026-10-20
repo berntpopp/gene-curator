@@ -129,6 +129,12 @@
       </v-row>
     </v-container>
 
+    <v-container v-if="catalogueStore.error">
+      <v-alert type="error" variant="tonal" data-testid="catalogue-error">
+        {{ catalogueStore.error.message }}
+      </v-alert>
+    </v-container>
+
     <!-- Catalogue Table -->
     <v-container>
       <v-card>
@@ -603,6 +609,7 @@
   interface CatalogueStore {
     entries: CatalogueRow[]
     loading: boolean
+    error: { message: string } | null
     pagination: { page: number; perPage: number; total: number; hasNext: boolean; hasPrev: boolean }
     filterOptions: {
       classifications: string[]
@@ -729,13 +736,16 @@
   }
 
   const navigateToScope = (curation: ScopeCuration) => {
-    router.push({ name: 'ScopeDashboard', params: { scopeId: curation.scope_id } })
+    router.push({ name: 'scope-dashboard', params: { scopeId: curation.scope_id } })
   }
 
   // Initialize on mount
   onMounted(async () => {
     // Load filter options and initial data in parallel
-    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()])
+    // Failures are surfaced via catalogueStore.error (alert above the table)
+    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()]).catch(
+      () => undefined
+    )
   })
 
   // Watch for page changes from store
