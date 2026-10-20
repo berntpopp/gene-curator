@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
+from app.crud.scope_counts import get_counts_for_scopes
 from app.models import (
     ActiveCuration,
     CurationNew,
@@ -146,20 +147,10 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         scopes = db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
+        counts = get_counts_for_scopes(db, [sc.id for sc in scopes])
         result = []
         for scope in scopes:
-            gene_count, _ = self.get_gene_counts(db, scope_id=scope.id)
-
-            member_count = (
-                db.execute(
-                    select(func.count(ScopeMembership.id)).where(
-                        ScopeMembership.scope_id == scope.id,
-                        ScopeMembership.is_active,
-                        ScopeMembership.accepted_at.isnot(None),
-                    )
-                ).scalar()
-                or 0
-            )
+            c = counts[scope.id]
 
             scope_dict = {
                 "id": scope.id,
@@ -174,8 +165,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 "created_at": scope.created_at,
                 "updated_at": scope.updated_at,
                 "created_by": scope.created_by,
-                "gene_count": gene_count,
-                "member_count": member_count,
+                "gene_count": c["total"],
+                "completed_genes": c["completed"],
+                "member_count": c["members"],
             }
             result.append(scope_dict)
 
@@ -216,33 +208,10 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         return {**scope.__dict__, "statistics": stats}
 
-    def get_gene_counts(self, db: Session, *, scope_id: UUID) -> tuple[int, int]:
-        """(total, completed) genes of a scope.
-
-        Total: distinct genes with an active assignment or a curation. Completed:
-        genes with an active curation, so completed never exceeds total.
-        """
-        assigned = select(GeneScopeAssignment.gene_id).where(
-            GeneScopeAssignment.scope_id == scope_id, GeneScopeAssignment.is_active
-        )
-        curated = select(CurationNew.gene_id).where(
-            CurationNew.scope_id == scope_id,
-            CurationNew.status != CurationStatus.ARCHIVED,
-        )
-        active = select(ActiveCuration.gene_id).where(
-            ActiveCuration.scope_id == scope_id, ActiveCuration.archived_at.is_(None)
-        )
-        total = db.scalar(
-            select(func.count()).select_from(assigned.union(curated, active).subquery())
-        )
-        completed = db.scalar(
-            select(func.count()).select_from(active.distinct().subquery())
-        )
-        return total or 0, completed or 0
-
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
-        total_genes, completed_genes = self.get_gene_counts(db, scope_id=scope_id)
+        counts = get_counts_for_scopes(db, [scope_id])[scope_id]
+        total_genes, completed_genes = counts["total"], counts["completed"]
         genes_with_curator = (
             db.scalar(
                 select(func.count(GeneScopeAssignment.assigned_curator_id)).where(
@@ -345,6 +314,17 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             or 0
         )
 
+        pending_invitations = (
+            db.scalar(
+                select(func.count(ScopeMembership.id)).where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.is_(None),
+                )
+            )
+            or 0
+        )
+
         curator_count = (
             db.execute(
                 select(
@@ -429,6 +409,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             ),
             # Team metrics
             "member_count": member_count,  # Total accepted members
+            "pending_invitations": pending_invitations,
             "active_curators": curator_count,  # Curators with assignments
             "active_reviewers": reviewer_count,  # Reviewers with reviews
             # Verdict distribution

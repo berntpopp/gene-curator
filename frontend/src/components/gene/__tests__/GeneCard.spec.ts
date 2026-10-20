@@ -102,4 +102,13 @@ describe('GeneCard', () => {
 
     expect(wrapper.emitted('view')).toHaveLength(1)
   })
+
+  it('disables the start buttons when the scope has no methodology', () => {
+    const wrapper = mount(GeneCard, {
+      props: { gene: gene(), workflow: workflow(), startBlockedReason: 'No methodology' }
+    })
+
+    const start = wrapper.findAll('button').find(b => b.text().includes('Start Precuration'))
+    expect(start?.attributes('disabled')).toBeDefined()
+  })
 })

@@ -2,7 +2,7 @@
 
 from sqlalchemy.orm import Session
 
-from app.crud.scope import scope_crud
+from app.crud.scope_counts import get_counts_for_scopes
 from app.models.models import (
     ActiveCuration,
     CurationNew,
@@ -48,11 +48,34 @@ def test_total_counts_assigned_and_curated_genes_and_completed_never_exceeds_it(
     )
     db_session.commit()
 
-    total, completed = scope_crud.get_gene_counts(db_session, scope_id=test_scope.id)
+    c = get_counts_for_scopes(db_session, [test_scope.id])[test_scope.id]
+    total, completed = c["total"], c["completed"]
 
     assert (total, completed) == (2, 1)
     assert completed <= total
 
 
 def test_empty_scope_has_no_genes(db_session: Session, test_scope: Scope) -> None:
-    assert scope_crud.get_gene_counts(db_session, scope_id=test_scope.id) == (0, 0)
+    c = get_counts_for_scopes(db_session, [test_scope.id])[test_scope.id]
+    assert c == {"total": 0, "completed": 0, "members": 0, "pending": 0}
+
+
+def test_member_and_pending_invitation_counts_are_grouped_per_scope(
+    db_session: Session, test_scope: Scope
+) -> None:
+    from tests.api.scopes.factories import make_member, make_scope, make_user
+
+    other = make_scope(db_session)
+    make_member(db_session, test_scope, make_user(db_session), "viewer")
+    make_member(
+        db_session, test_scope, make_user(db_session), "curator", accepted=False
+    )
+    make_member(db_session, other, make_user(db_session), "viewer")
+
+    counts = get_counts_for_scopes(db_session, [test_scope.id, other.id])
+
+    assert (counts[test_scope.id]["members"], counts[test_scope.id]["pending"]) == (
+        1,
+        1,
+    )
+    assert (counts[other.id]["members"], counts[other.id]["pending"]) == (1, 0)

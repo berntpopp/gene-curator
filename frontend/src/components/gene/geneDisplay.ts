@@ -37,7 +37,6 @@ export function getPriorityColor(priority: string): string {
   const colors: Record<string, string> = {
     high: 'error',
     medium: 'warning',
-    normal: 'warning',
     low: 'grey'
   }
   return colors[priority] || 'grey'
@@ -47,7 +46,6 @@ export function getPriorityIcon(priority: string): string {
   const icons: Record<string, string> = {
     high: 'mdi-flag',
     medium: 'mdi-flag',
-    normal: 'mdi-flag',
     low: 'mdi-flag-outline'
   }
   return icons[priority] || 'mdi-flag-outline'
@@ -57,7 +55,6 @@ export function getPriorityLabel(priority: string): string {
   const labels: Record<string, string> = {
     high: 'High',
     medium: 'Medium',
-    normal: 'Medium',
     low: 'Low'
   }
   return labels[priority] || priority

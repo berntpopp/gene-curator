@@ -114,8 +114,8 @@
                 <div class="text-overline">Members</div>
               </div>
               <div class="text-h4">{{ scopeStats?.member_count || 0 }}</div>
-              <div class="text-caption text-medium-emphasis">
-                accepted; invitations are listed separately
+              <div v-if="scopeStats?.pending_invitations" class="text-caption text-medium-emphasis">
+                {{ scopeStats.pending_invitations }} invited
               </div>
             </v-card-text>
           </v-card>
@@ -267,6 +267,7 @@
     total_genes_assigned?: number
     active_curations?: number
     completed_genes?: number
+    pending_invitations?: number
     curations_last_30_days?: number
     activations_last_30_days?: number
     draft_curations?: number

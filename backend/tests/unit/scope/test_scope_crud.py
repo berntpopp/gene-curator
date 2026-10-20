@@ -13,13 +13,19 @@ from tests.api.scopes.factories import (
     make_member,
     make_scope,
     make_user,
+    make_workflow_pair,
 )
 
 pytestmark = pytest.mark.unit
 
 
-def _scope_create(name: str) -> ScopeCreate:
-    return ScopeCreate(name=name, display_name="Display", description="d")
+def _scope_create(db: Session, name: str) -> ScopeCreate:
+    return ScopeCreate(
+        name=name,
+        display_name="Display",
+        description="d",
+        default_workflow_pair_id=make_workflow_pair(db).id,
+    )
 
 
 # -----------------------------------------------------------------------------
@@ -32,7 +38,7 @@ def test_create_with_owner_records_creator(db_session: Session) -> None:
     name = f"crud-{uuid4().hex[:8]}"
 
     scope = scope_crud.create_with_owner(
-        db_session, obj_in=_scope_create(name), owner_id=owner.id
+        db_session, obj_in=_scope_create(db_session, name), owner_id=owner.id
     )
 
     assert scope.created_by == owner.id
@@ -45,7 +51,7 @@ def test_create_scope_wrapper_and_lookup_by_name(db_session: Session) -> None:
     name = f"wrap-{uuid4().hex[:8]}"
 
     created = scope_crud.create_scope(
-        db_session, obj_in=_scope_create(name), owner_id=owner.id
+        db_session, obj_in=_scope_create(db_session, name), owner_id=owner.id
     )
 
     assert scope_crud.get_scope_by_name(db_session, name=name).id == created.id

@@ -58,6 +58,7 @@
         size="small"
         color="primary"
         variant="tonal"
+        :disabled="!!startBlockedReason"
         @click="emit('start-precuration', gene)"
       >
         <v-icon start>mdi-clipboard-text</v-icon>
@@ -68,6 +69,7 @@
         size="small"
         color="warning"
         variant="tonal"
+        :disabled="!!startBlockedReason"
         @click="emit('complete-precuration', gene)"
       >
         <v-icon start>mdi-clipboard-check</v-icon>
@@ -78,6 +80,7 @@
         size="small"
         color="success"
         variant="tonal"
+        :disabled="!!startBlockedReason"
         @click="emit('start-curation', gene)"
       >
         <v-icon start>mdi-pencil</v-icon>
@@ -105,6 +108,8 @@
   const props = defineProps<{
     gene: GeneRow
     workflow: GeneWorkflowStatus
+    /** Why starting precuration/curation is unavailable (no methodology), if it is. */
+    startBlockedReason?: string | null
   }>()
 
   const emit = defineEmits<{

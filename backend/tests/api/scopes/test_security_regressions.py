@@ -15,6 +15,7 @@ from tests.api.scopes.factories import (
     make_gene,
     make_member,
     make_scope,
+    make_workflow_pair,
 )
 
 pytestmark = pytest.mark.unit
@@ -157,7 +158,12 @@ def test_create_scope_rolls_back_when_owner_membership_fails(
     ):
         client.post(
             "/api/v1/scopes/",
-            json={"name": name, "display_name": "X", "description": "y"},
+            json={
+                "name": name,
+                "display_name": "X",
+                "description": "y",
+                "default_workflow_pair_id": str(make_workflow_pair(db_session).id),
+            },
             headers=auth_headers(owner),
         )
     assert db_session.query(Scope).filter(Scope.name == name).count() == 0

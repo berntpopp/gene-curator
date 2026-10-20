@@ -178,6 +178,7 @@
           <GeneCard
             :gene="gene"
             :workflow="workflow"
+            :start-blocked-reason="startBlockedReason"
             @view="viewGene"
             @start-precuration="startPrecuration"
             @complete-precuration="completePrecuration"

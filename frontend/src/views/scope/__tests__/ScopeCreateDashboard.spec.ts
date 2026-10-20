@@ -322,6 +322,18 @@ describe('ScopeDashboard', () => {
     })
   })
 
+  it('shows pending invitations next to the member count', async () => {
+    const { store, vm, wrapper } = await mountView()
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
+      member_count: 2,
+      pending_invitations: 1
+    } as never)
+    await call(vm, 'fetchScopeData')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1 invited')
+  })
+
   it('never shows more completed genes than total genes', async () => {
     const { store, vm } = await mountView()
     vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
