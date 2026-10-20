@@ -12,12 +12,19 @@ updates:
     schedule: { interval: weekly, day: monday, time: '07:00', timezone: Europe/Berlin }
     cooldown: { default-days: 7 }
     groups:
+      vitest: # vitest and @vitest/* must share one version
+        patterns: [vitest, '@vitest/*']
       npm-dev:
         dependency-type: development
         update-types: [minor, patch]
       npm-prod:
         dependency-type: production
         update-types: [minor, patch]
+    ignore:
+      - dependency-name: '@types/node' # must match the Node runtime (.nvmrc = 24)
+        update-types: [version-update:semver-major]
+      - dependency-name: happy-dom # >=20.11 recurses forever on Vuetify CSS variables
+        versions: ['>=20.11.0']
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly, day: monday, time: '07:00', timezone: Europe/Berlin }
@@ -28,3 +35,9 @@ updates:
     directories: [/backend, /frontend]
     schedule: { interval: weekly, day: monday, time: '07:00', timezone: Europe/Berlin }
     cooldown: { default-days: 7 }
+    ignore:
+      # Runtime upgrades are deliberate: Node stays on even (LTS) majors, Python on 3.12
+      - dependency-name: node
+        update-types: [version-update:semver-major]
+      - dependency-name: python
+        update-types: [version-update:semver-major, version-update:semver-minor]
