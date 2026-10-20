@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 export const genesAPI = {
   /**
@@ -37,8 +38,8 @@ export const genesAPI = {
   /**
    * Delete gene
    */
-  async deleteGene(id: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/genes/${id}`)
+  async deleteGene(id: string): Promise<MessageResponse> {
+    const response = await apiClient.delete<MessageResponse>(`/genes/${id}`)
     return response.data
   },
 
@@ -64,17 +65,17 @@ export const genesAPI = {
    * Get gene curation progress by scope
    */
   async getGeneCurationProgress(id: string): Promise<Schema<'GeneCurationProgress'>> {
-    const response = await apiClient.get<Schema<'GeneCurationProgress'>>(
-      `/genes/${id}/curation-progress`
-    )
+    const response = await apiClient.get<Schema<'GeneCurationProgress'>>(`/genes/${id}/progress`)
     return response.data
   },
 
   /**
-   * Search genes
+   * Search genes (GET /genes/search; query, chromosome, hgnc_id, scope_id, skip, limit, ...)
    */
-  async searchGenes(searchParams: Record<string, unknown>): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/genes/search', searchParams)
+  async searchGenes(searchParams: Record<string, unknown> = {}): Promise<Schema<'GeneSummary'>[]> {
+    const response = await apiClient.get<Schema<'GeneSummary'>[]>('/genes/search', {
+      params: searchParams
+    })
     return response.data
   },
 

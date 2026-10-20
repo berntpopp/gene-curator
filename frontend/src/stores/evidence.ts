@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import { evidenceAPI } from '@/api/evidence'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
@@ -70,7 +70,7 @@ export const useEvidenceStore = defineStore('evidence', {
       this.error = null
 
       try {
-        const items = apiData<EvidenceRecord[]>(await evidenceAPI.getEvidenceItems(curationId))
+        const items = await evidenceAPI.getEvidenceItems(curationId)
         items.forEach(item => this.evidence.set(item.id, item))
         logService.info('Evidence items fetched', { curationId, count: items.length })
         return items
@@ -94,9 +94,8 @@ export const useEvidenceStore = defineStore('evidence', {
       this.error = null
 
       try {
-        const created = apiData<EvidenceRecord>(
-          await evidenceAPI.createEvidenceItem(curationId, data)
-        )
+        const created = await evidenceAPI.createEvidenceItem(curationId, data)
+
         this.evidence.set(created.id, created)
         logService.info('Evidence item created', { curationId, itemId: created.id })
         return created
@@ -120,9 +119,8 @@ export const useEvidenceStore = defineStore('evidence', {
       this.error = null
 
       try {
-        const updated = apiData<EvidenceRecord>(
-          await evidenceAPI.updateEvidenceItem(curationId, itemId, data)
-        )
+        const updated = await evidenceAPI.updateEvidenceItem(curationId, itemId, data)
+
         this.evidence.set(updated.id, updated)
         logService.info('Evidence item updated', { curationId, itemId })
         return updated

@@ -1,13 +1,14 @@
 import { defineStore } from 'pinia'
 import { genesAPI } from '@/api'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
+import { pageStateFrom, type PageState } from './pagination'
 import type { Schema } from '@/types/api'
 
-/** Gene row in the store: API schema plus the scope-assignment list the table filters on. */
-export interface GeneRecord extends Schema<'GeneWithAssignments'> {
-  assignments?: Array<{ scope_id: string }>
-}
+/** Gene row as listed by the API. */
+export type GeneRecord = Schema<'GeneSummary'>
+export type GeneDetail = Schema<'GeneWithAssignments'>
 
+/** Client-side list state; `sort_*` and `scope_id` are sent to GET /genes/, the rest is UI filter state. */
 export interface GeneSearchParams {
   query: string
   scope_id: string | null
@@ -17,23 +18,54 @@ export interface GeneSearchParams {
   sort_order: 'asc' | 'desc'
 }
 
-interface GenesPagination {
-  page: number
-  per_page: number
-  total: number
-  pages: number
+/** Parameters accepted by `fetchGenes` / `searchGenes`; `page` is 1-based and converted to skip/limit. */
+export interface GeneListParams {
+  page?: number
+  skip?: number
+  limit?: number
+  scope_id?: string | null
+  assigned_only?: boolean
+  has_active_work?: boolean | null
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+  query?: string | null
+  chromosome?: string | null
+  hgnc_id?: string | null
 }
 
 interface GenesState {
   genes: GeneRecord[]
-  currentGene: GeneRecord | null
+  currentGene: GeneDetail | null
   searchResults: GeneRecord[]
-  geneAssignments: Record<string, Schema<'GeneScopeAssignment'>[]>
+  geneAssignments: Record<string, Schema<'GeneAssignmentStatus'>>
   geneCurationProgress: Record<string, Schema<'GeneCurationProgress'>>
   loading: boolean
   error: string | null
-  pagination: GenesPagination
+  pagination: PageState
   searchParams: GeneSearchParams
+}
+
+/** Collapse a detail/created gene into the list-row shape. */
+function toRecord(gene: Schema<'Gene'> | GeneDetail, previous?: GeneRecord): GeneRecord {
+  return {
+    id: gene.id,
+    hgnc_id: gene.hgnc_id,
+    approved_symbol: gene.approved_symbol,
+    chromosome: gene.chromosome ?? null,
+    location: gene.location ?? null,
+    is_assigned: 'is_assigned_to_any_scope' in gene ? gene.is_assigned_to_any_scope : false,
+    has_active_work: previous?.has_active_work ?? false
+  }
+}
+
+/** Translate UI params (1-based page) to the backend's skip/limit query. */
+function toQuery(params: GeneListParams, perPage: number): Record<string, unknown> {
+  const { page, ...rest } = params
+  const limit = rest.limit ?? perPage
+  const skip = rest.skip ?? (page ? (page - 1) * limit : 0)
+  return Object.fromEntries(
+    Object.entries({ ...rest, skip, limit }).filter(([, v]) => v !== null && v !== undefined)
+  )
 }
 
 export const useGenesStore = defineStore('genes', {
@@ -66,47 +98,31 @@ export const useGenesStore = defineStore('genes', {
       return state.genes.find(gene => gene.id === id)
     },
 
-    getGenesByScope: state => (scopeId: string) => {
-      return state.genes.filter(gene =>
-        gene.assignments?.some(assignment => assignment.scope_id === scopeId)
-      )
-    },
-
     getGeneAssignments: state => (geneId: string) => {
-      return state.geneAssignments[geneId] || []
+      return state.geneAssignments[geneId]
     },
 
     getGeneCurationProgress: state => (geneId: string) => {
-      return state.geneCurationProgress[geneId] || {}
+      return state.geneCurationProgress[geneId]
     },
 
     getUnassignedGenes: state => {
-      return state.genes.filter(gene => !gene.assignments || gene.assignments.length === 0)
+      return state.genes.filter(gene => !gene.is_assigned)
     }
   },
 
   actions: {
-    async fetchGenes(params: Partial<GeneSearchParams> = {}) {
+    async fetchGenes(params: GeneListParams = {}) {
       this.loading = true
       this.error = null
       try {
-        const response = apiData<
-          { genes?: GeneRecord[]; data?: GeneRecord[]; pagination?: GenesPagination } & Record<
-            string,
-            unknown
-          >
-        >(
-          await genesAPI.getGenes({
-            ...this.searchParams,
-            ...params
-          })
+        const { sort_by, sort_order, scope_id } = this.searchParams
+        const response = await genesAPI.getGenes(
+          toQuery({ sort_by, sort_order, scope_id, ...params }, this.pagination.per_page)
         )
 
-        this.genes = response.genes || response.data || (response as unknown as GeneRecord[])
-
-        if (response.pagination) {
-          this.pagination = response.pagination
-        }
+        this.genes = response.genes
+        this.pagination = pageStateFrom(response)
 
         return response
       } catch (error) {
@@ -121,15 +137,15 @@ export const useGenesStore = defineStore('genes', {
       this.loading = true
       this.error = null
       try {
-        const gene = apiData<GeneRecord>(await genesAPI.getGeneById(id))
+        const gene = await genesAPI.getGeneById(id)
         this.currentGene = gene
 
         // Update the gene in the list if it exists
         const index = this.genes.findIndex(g => g.id === id)
         if (index !== -1) {
-          this.genes[index] = gene
+          this.genes[index] = toRecord(gene, this.genes[index])
         } else {
-          this.genes.push(gene)
+          this.genes.push(toRecord(gene))
         }
 
         return gene
@@ -145,8 +161,8 @@ export const useGenesStore = defineStore('genes', {
       this.loading = true
       this.error = null
       try {
-        const newGene = apiData<GeneRecord>(await genesAPI.createGene(geneData))
-        this.genes.push(newGene)
+        const newGene = await genesAPI.createGene(geneData)
+        this.genes.push(toRecord(newGene))
         return newGene
       } catch (error) {
         this.error = toApiError(error).message ?? null
@@ -160,13 +176,13 @@ export const useGenesStore = defineStore('genes', {
       this.loading = true
       this.error = null
       try {
-        const updatedGene = apiData<GeneRecord>(await genesAPI.updateGene(id, geneData))
+        const updatedGene = await genesAPI.updateGene(id, geneData)
         const index = this.genes.findIndex(g => g.id === id)
         if (index !== -1) {
-          this.genes[index] = updatedGene
+          this.genes[index] = toRecord(updatedGene, this.genes[index])
         }
         if (this.currentGene && this.currentGene.id === id) {
-          this.currentGene = updatedGene
+          this.currentGene = { ...this.currentGene, ...updatedGene }
         }
         return updatedGene
       } catch (error) {
@@ -197,9 +213,8 @@ export const useGenesStore = defineStore('genes', {
 
     async fetchGeneAssignments(id: string) {
       try {
-        const assignments = apiData<Schema<'GeneScopeAssignment'>[]>(
-          await genesAPI.getGeneAssignments(id)
-        )
+        const assignments = await genesAPI.getGeneAssignments(id)
+
         this.geneAssignments[id] = assignments
         return assignments
       } catch (error) {
@@ -210,9 +225,8 @@ export const useGenesStore = defineStore('genes', {
 
     async fetchGeneCurationProgress(id: string) {
       try {
-        const progress = apiData<Schema<'GeneCurationProgress'>>(
-          await genesAPI.getGeneCurationProgress(id)
-        )
+        const progress = await genesAPI.getGeneCurationProgress(id)
+
         this.geneCurationProgress[id] = progress
         return progress
       } catch (error) {
@@ -221,15 +235,12 @@ export const useGenesStore = defineStore('genes', {
       }
     },
 
-    async searchGenes(searchParams: Record<string, unknown>) {
+    async searchGenes(searchParams: GeneListParams) {
       this.loading = true
       this.error = null
       try {
-        const response = apiData<
-          { genes?: GeneRecord[]; data?: GeneRecord[] } & Record<string, unknown>
-        >(await genesAPI.searchGenes(searchParams))
-        this.searchResults =
-          response.genes || response.data || (response as unknown as GeneRecord[])
+        const response = await genesAPI.searchGenes(toQuery(searchParams, this.pagination.per_page))
+        this.searchResults = response
         return response
       } catch (error) {
         this.error = toApiError(error).message ?? null
@@ -243,7 +254,7 @@ export const useGenesStore = defineStore('genes', {
       this.searchParams = { ...this.searchParams, ...params }
     },
 
-    setCurrentGene(gene: GeneRecord | null) {
+    setCurrentGene(gene: GeneDetail | null) {
       this.currentGene = gene
     },
 
@@ -257,7 +268,7 @@ export const useGenesStore = defineStore('genes', {
 
     async fetchStatistics() {
       try {
-        const stats = apiData<Schema<'GeneStatistics'>>(await genesAPI.getStatistics())
+        const stats = await genesAPI.getStatistics()
         return stats
       } catch (error) {
         this.error = toApiError(error).message ?? null

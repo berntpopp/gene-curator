@@ -69,8 +69,8 @@ export const useAuthStore = defineStore('auth', {
 
         return response
       } catch (error) {
+        this.clearAuth() // Clear any partial state on error (also resets error)
         this.error = toApiError(error).response?.data?.detail || 'Login failed'
-        this.clearAuth() // Clear any partial state on error
         throw error
       } finally {
         this.loading = false
@@ -85,7 +85,7 @@ export const useAuthStore = defineStore('auth', {
         const response = await authAPI.register(userData)
 
         // Auto-login after successful registration
-        if (response.user) {
+        if (response.id) {
           await this.login({
             email: userData.email,
             password: userData.password
@@ -125,7 +125,9 @@ export const useAuthStore = defineStore('auth', {
         const response = await authAPI.refresh(this.refreshToken)
 
         this.token = response.access_token
+        this.refreshToken = response.refresh_token
         localStorage.setItem('access_token', response.access_token)
+        localStorage.setItem('refresh_token', response.refresh_token)
 
         return response.access_token
       } catch (error) {

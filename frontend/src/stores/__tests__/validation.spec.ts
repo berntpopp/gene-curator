@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useValidationStore } from '@/stores/validation'
 import { validationAPI } from '@/api'
+import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
   validationAPI: {
@@ -20,6 +21,30 @@ vi.mock('@/services/logService', () => ({
 
 const api = vi.mocked(validationAPI)
 
+const response = (is_valid: boolean): Schema<'ValidationResponse'> => ({
+  is_valid,
+  errors: [],
+  warnings: [],
+  field_validations: {},
+  business_rule_violations: [],
+  score_calculations: {},
+  completeness_score: 1,
+  required_fields_missing: [],
+  suggested_improvements: []
+})
+
+const jsonSchema = (): Schema<'JSONSchemaResponse'> => ({
+  json_schema: { type: 'object' },
+  field_count: 1,
+  validation_rules_count: 0
+})
+
+const fieldRequest: Schema<'FieldValidationRequest'> = {
+  field_name: 'x',
+  field_value: 1,
+  field_config: {}
+}
+
 describe('useValidationStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -29,13 +54,13 @@ describe('useValidationStore', () => {
   describe('getters', () => {
     it('looks up stored results, schemas and field types', () => {
       const store = useValidationStore()
-      store.validationResults = { k: { is_valid: true } as never }
-      store.jsonSchemas = { s: { json_schema: {} } as never }
+      store.validationResults = { k: response(true) }
+      store.jsonSchemas = { s: jsonSchema() }
       store.supportedFieldTypes = [{ name: 'text' }, { name: 'number' }]
 
-      expect(store.getValidationResult('k')).toEqual({ is_valid: true })
+      expect(store.getValidationResult('k')).toEqual(response(true))
       expect(store.getValidationResult('none')).toBeUndefined()
-      expect(store.getJsonSchema('s')).toEqual({ json_schema: {} })
+      expect(store.getJsonSchema('s')).toEqual(jsonSchema())
       expect(store.getSupportedFieldType('number')).toEqual({ name: 'number' })
       expect(store.getSupportedFieldType('none')).toBeUndefined()
     })
@@ -44,7 +69,7 @@ describe('useValidationStore', () => {
   describe('validateEvidence', () => {
     it('stores the result under the key and returns it', async () => {
       const store = useValidationStore()
-      api.validateEvidence.mockResolvedValue({ is_valid: true })
+      api.validateEvidence.mockResolvedValue(response(true))
 
       const result = await store.validateEvidence({ score: 1 }, 'schema-1', 'custom')
 
@@ -52,18 +77,18 @@ describe('useValidationStore', () => {
         evidence_data: { score: 1 },
         schema_id: 'schema-1'
       })
-      expect(result).toEqual({ is_valid: true })
-      expect(store.validationResults.custom).toEqual({ is_valid: true })
+      expect(result).toEqual(response(true))
+      expect(store.validationResults.custom).toEqual(response(true))
       expect(store.loading).toBe(false)
     })
 
     it('uses the default key when none is given', async () => {
       const store = useValidationStore()
-      api.validateEvidence.mockResolvedValue({ is_valid: false })
+      api.validateEvidence.mockResolvedValue(response(false))
 
       await store.validateEvidence({}, 's')
 
-      expect(store.validationResults.default).toEqual({ is_valid: false })
+      expect(store.validationResults.default).toEqual(response(false))
     })
 
     it('records the error and rethrows', async () => {
@@ -79,9 +104,9 @@ describe('useValidationStore', () => {
   describe('validateSchema and generateJsonSchema', () => {
     it('validateSchema forwards the definition and returns the result', async () => {
       const store = useValidationStore()
-      api.validateSchema.mockResolvedValue({ valid: true })
+      api.validateSchema.mockResolvedValue(response(true))
 
-      await expect(store.validateSchema({ type: 'object' })).resolves.toEqual({ valid: true })
+      await expect(store.validateSchema({ type: 'object' })).resolves.toEqual(response(true))
       expect(api.validateSchema).toHaveBeenCalledWith({ schema_definition: { type: 'object' } })
     })
 
@@ -95,12 +120,12 @@ describe('useValidationStore', () => {
 
     it('generateJsonSchema caches the schema by id', async () => {
       const store = useValidationStore()
-      api.generateJsonSchema.mockResolvedValue({ json_schema: { type: 'object' } })
+      api.generateJsonSchema.mockResolvedValue(jsonSchema())
 
       await store.generateJsonSchema('s1')
 
       expect(api.generateJsonSchema).toHaveBeenCalledWith('s1')
-      expect(store.jsonSchemas.s1).toEqual({ json_schema: { type: 'object' } })
+      expect(store.jsonSchemas.s1).toEqual(jsonSchema())
     })
 
     it('generateJsonSchema records errors and rethrows', async () => {
@@ -115,13 +140,14 @@ describe('useValidationStore', () => {
   describe('cached catalog fetches', () => {
     it('fetchSupportedFieldTypes loads once and then serves the cache', async () => {
       const store = useValidationStore()
-      api.getSupportedFieldTypes.mockResolvedValue([{ name: 'text' }])
+      api.getSupportedFieldTypes.mockResolvedValue({ text: { description: 'Text input' } })
+      const expected = [{ name: 'text', description: 'Text input' }]
 
-      await expect(store.fetchSupportedFieldTypes()).resolves.toEqual([{ name: 'text' }])
-      await expect(store.fetchSupportedFieldTypes()).resolves.toEqual([{ name: 'text' }])
+      await expect(store.fetchSupportedFieldTypes()).resolves.toEqual(expected)
+      await expect(store.fetchSupportedFieldTypes()).resolves.toEqual(expected)
 
       expect(api.getSupportedFieldTypes).toHaveBeenCalledTimes(1)
-      expect(store.supportedFieldTypes).toEqual([{ name: 'text' }])
+      expect(store.supportedFieldTypes).toEqual(expected)
     })
 
     it('fetchSupportedFieldTypes records errors and rethrows', async () => {
@@ -134,10 +160,11 @@ describe('useValidationStore', () => {
 
     it('fetchBusinessRules loads once and then serves the cache', async () => {
       const store = useValidationStore()
-      api.getBusinessRules.mockResolvedValue([{ rule: 'r1' }])
+      api.getBusinessRules.mockResolvedValue({ r1: { description: 'Rule one' } })
+      const expected = [{ name: 'r1', description: 'Rule one' }]
 
-      await expect(store.fetchBusinessRules()).resolves.toEqual([{ rule: 'r1' }])
-      await expect(store.fetchBusinessRules()).resolves.toEqual([{ rule: 'r1' }])
+      await expect(store.fetchBusinessRules()).resolves.toEqual(expected)
+      await expect(store.fetchBusinessRules()).resolves.toEqual(expected)
 
       expect(api.getBusinessRules).toHaveBeenCalledTimes(1)
     })
@@ -154,19 +181,23 @@ describe('useValidationStore', () => {
   describe('validateField', () => {
     it('returns the field validation result', async () => {
       const store = useValidationStore()
-      api.validateField.mockResolvedValue({ is_valid: true, errors: [] })
-
-      await expect(store.validateField({ field: 'x' } as never)).resolves.toEqual({
+      const outcome: Schema<'FieldValidationResponse'> = {
+        field_name: 'x',
         is_valid: true,
-        errors: []
-      })
+        errors: [],
+        warnings: [],
+        suggestions: []
+      }
+      api.validateField.mockResolvedValue(outcome)
+
+      await expect(store.validateField(fieldRequest)).resolves.toEqual(outcome)
     })
 
     it('records the error and rethrows', async () => {
       const store = useValidationStore()
       api.validateField.mockRejectedValue(new Error('field'))
 
-      await expect(store.validateField({} as never)).rejects.toThrow('field')
+      await expect(store.validateField(fieldRequest)).rejects.toThrow('field')
       expect(store.error).toBe('field')
     })
   })
@@ -174,7 +205,7 @@ describe('useValidationStore', () => {
   describe('clearing', () => {
     it('clears one result, all results, and the error', () => {
       const store = useValidationStore()
-      store.validationResults = { a: { is_valid: true } as never, b: { is_valid: false } as never }
+      store.validationResults = { a: response(true), b: response(false) }
       store.error = 'x'
 
       store.clearValidationResult('a')

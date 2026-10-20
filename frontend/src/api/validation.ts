@@ -1,12 +1,15 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
 
+type EvidenceValidationRequest =
+  Schema<'app__api__v1__endpoints__schema_validation__ValidationRequest'>
+
 export const validationAPI = {
   /**
    * Validate evidence data against schema
    */
   async validateEvidence(
-    validationData: Record<string, unknown>
+    validationData: EvidenceValidationRequest
   ): Promise<Schema<'ValidationResponse'>> {
     const response = await apiClient.post<Schema<'ValidationResponse'>>(
       '/validation/validate-evidence',
@@ -31,27 +34,30 @@ export const validationAPI = {
   /**
    * Generate JSON Schema for UI from schema definition
    */
-  async generateJsonSchema(schemaId: string): Promise<unknown> {
-    const response = await apiClient.get<{ json_schema?: unknown }>(
+  async generateJsonSchema(schemaId: string): Promise<Schema<'JSONSchemaResponse'>> {
+    const response = await apiClient.get<Schema<'JSONSchemaResponse'>>(
       `/validation/schema/${schemaId}/json-schema`
     )
-    // Extract json_schema from the response wrapper
-    return response.data.json_schema || response.data
+    return response.data
   },
 
   /**
    * Get supported field types
    */
-  async getSupportedFieldTypes(): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/validation/supported-field-types')
+  async getSupportedFieldTypes(): Promise<Record<string, Record<string, unknown>>> {
+    const response = await apiClient.get<Record<string, Record<string, unknown>>>(
+      '/validation/supported-field-types'
+    )
     return response.data
   },
 
   /**
    * Get business rules documentation
    */
-  async getBusinessRules(): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/validation/business-rules')
+  async getBusinessRules(): Promise<Record<string, Record<string, unknown>>> {
+    const response = await apiClient.get<Record<string, Record<string, unknown>>>(
+      '/validation/business-rules'
+    )
     return response.data
   },
 

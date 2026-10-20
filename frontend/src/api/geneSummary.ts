@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 /**
  * Gene Summary API client for cross-scope aggregation
@@ -35,8 +36,8 @@ export const geneSummaryAPI = {
    * Get list of scopes curating this gene
    * @param geneId - Gene UUID
    */
-  async getGeneScopes(geneId: string): Promise<unknown> {
-    const response = await apiClient.get<unknown>(`/genes/${geneId}/scopes`)
+  async getGeneScopes(geneId: string): Promise<Record<string, unknown>[]> {
+    const response = await apiClient.get<Record<string, unknown>[]>(`/genes/${geneId}/scopes`)
     return response.data
   },
 
@@ -44,8 +45,8 @@ export const geneSummaryAPI = {
    * Manually recompute gene summary (admin only)
    * @param geneId - Gene UUID
    */
-  async recomputeSummary(geneId: string): Promise<unknown> {
-    const response = await apiClient.post<unknown>(`/genes/${geneId}/summary/recompute`)
+  async recomputeSummary(geneId: string): Promise<MessageResponse> {
+    const response = await apiClient.post<MessageResponse>(`/genes/${geneId}/summary/recompute`)
     return response.data
   }
 }

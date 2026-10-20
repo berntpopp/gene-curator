@@ -97,28 +97,6 @@ export const curationsAPI = {
   },
 
   /**
-   * Get curation statistics
-   * @param params - Query parameters
-   */
-  async getCurationStatistics(params: Record<string, unknown> = {}): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/curations/statistics', { params })
-    return response.data
-  },
-
-  /**
-   * Validate curation data against schema
-   * @param data - Curation data to validate
-   * @param schemaId - Schema UUID
-   */
-  async validateCurationData(data: Record<string, unknown>, schemaId: string): Promise<unknown> {
-    const response = await apiClient.post<unknown>('/curations/validate', {
-      data,
-      schema_id: schemaId
-    })
-    return response.data
-  },
-
-  /**
    * Add evidence item to curation
    * @param id - Curation UUID
    * @param evidenceItem - Evidence item data (category, type, description, pmids)
@@ -157,11 +135,8 @@ export const curationsAPI = {
    * @param curationId - Curation UUID
    * @param evidenceId - Evidence item UUID
    */
-  async deleteEvidenceItem(curationId: string, evidenceId: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(
-      `/curations/${curationId}/evidence/${evidenceId}`
-    )
-    return response.data
+  async deleteEvidenceItem(curationId: string, evidenceId: string): Promise<void> {
+    await apiClient.delete(`/curations/${curationId}/evidence/${evidenceId}`)
   },
 
   /**

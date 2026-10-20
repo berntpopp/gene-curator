@@ -40,10 +40,9 @@ export const scopesAPI = {
    * @param options - Options
    * @param options.force - Force deletion even with active gene assignments
    */
-  async deleteScope(id: string, { force = false }: { force?: boolean } = {}): Promise<unknown> {
+  async deleteScope(id: string, { force = false }: { force?: boolean } = {}): Promise<void> {
     const params = force ? { force: true } : {}
-    const response = await apiClient.delete<unknown>(`/scopes/${id}`, { params })
-    return response.data
+    await apiClient.delete(`/scopes/${id}`, { params })
   },
 
   /**
@@ -51,34 +50,6 @@ export const scopesAPI = {
    */
   async getScopeStatistics(id: string): Promise<Schema<'ScopeStatistics'>> {
     const response = await apiClient.get<Schema<'ScopeStatistics'>>(`/scopes/${id}/statistics`)
-    return response.data
-  },
-
-  /**
-   * Get users in scope
-   */
-  async getScopeUsers(id: string): Promise<unknown> {
-    const response = await apiClient.get<unknown>(`/scopes/${id}/users`)
-    return response.data
-  },
-
-  /**
-   * Assign user to scope
-   */
-  async assignUserToScope(
-    scopeId: string,
-    userId: string,
-    roleData: Record<string, unknown>
-  ): Promise<unknown> {
-    const response = await apiClient.post<unknown>(`/scopes/${scopeId}/users/${userId}`, roleData)
-    return response.data
-  },
-
-  /**
-   * Remove user from scope
-   */
-  async removeUserFromScope(scopeId: string, userId: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/scopes/${scopeId}/users/${userId}`)
     return response.data
   }
 }

@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 export const assignmentsAPI = {
   /**
@@ -68,10 +69,14 @@ export const assignmentsAPI = {
   /**
    * Update assignment priority
    */
-  async updateAssignmentPriority(assignmentId: string, priority: string): Promise<unknown> {
-    const response = await apiClient.put<unknown>(`/gene-assignments/${assignmentId}/priority`, {
-      priority_level: priority
-    })
+  async updateAssignmentPriority(
+    assignmentId: string,
+    priority: string
+  ): Promise<Schema<'GeneScopeAssignment'>> {
+    const response = await apiClient.put<Schema<'GeneScopeAssignment'>>(
+      `/gene-assignments/${assignmentId}`,
+      { priority_level: priority }
+    )
     return response.data
   },
 
@@ -92,8 +97,8 @@ export const assignmentsAPI = {
   /**
    * Assign a curator to a gene-scope assignment
    */
-  async assignCurator(assignmentId: string, curatorId: string): Promise<unknown> {
-    const response = await apiClient.post<unknown>(
+  async assignCurator(assignmentId: string, curatorId: string): Promise<MessageResponse> {
+    const response = await apiClient.post<MessageResponse>(
       `/gene-assignments/${assignmentId}/assign-curator`,
       { curator_id: curatorId }
     )
@@ -105,8 +110,11 @@ export const assignmentsAPI = {
    * @param assignmentId - Assignment UUID
    * @param reason - Reason for removal
    */
-  async removeAssignment(assignmentId: string, reason = 'Removed from scope'): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/gene-assignments/${assignmentId}`, {
+  async removeAssignment(
+    assignmentId: string,
+    reason = 'Removed from scope'
+  ): Promise<MessageResponse> {
+    const response = await apiClient.delete<MessageResponse>(`/gene-assignments/${assignmentId}`, {
       data: { reason }
     })
     return response.data

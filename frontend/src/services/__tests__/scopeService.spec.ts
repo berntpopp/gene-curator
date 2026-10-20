@@ -30,12 +30,6 @@ describe('scopeService', () => {
       await expect(scopeService.fetchScopes({ limit: 5 })).resolves.toEqual([{ id: 's1' }])
       expect(client.get).toHaveBeenCalledWith('/scopes/', { params: { limit: 5 } })
     })
-
-    it('unwraps a wrapped { scopes } response', async () => {
-      client.get.mockResolvedValue(response({ scopes: [{ id: 's2' }], total: 1 }))
-
-      await expect(scopeService.fetchScopes()).resolves.toEqual([{ id: 's2' }])
-    })
   })
 
   it('fetchScope, createScope and updateScope call the scope endpoints', async () => {
@@ -86,12 +80,6 @@ describe('scopeService', () => {
       })
     })
 
-    it('falls back to the raw body when there is no members key', async () => {
-      client.get.mockResolvedValue(response([{ user_id: 'u2' }]))
-
-      await expect(scopeService.fetchMembers('s1')).resolves.toEqual([{ user_id: 'u2' }])
-    })
-
     it('fetchMembersWithStats returns the full payload', async () => {
       const payload = { scope_id: 's1', total: 2, members: [], active_count: 2 }
       client.get.mockResolvedValue(response(payload))
@@ -109,10 +97,12 @@ describe('scopeService', () => {
   describe('fetchUserRole', () => {
     it('returns the matching membership', async () => {
       client.get.mockResolvedValue(
-        response([
-          { user_id: 'u1', role: 'admin' },
-          { user_id: 'u2', role: 'viewer' }
-        ])
+        response({
+          members: [
+            { user_id: 'u1', role: 'admin' },
+            { user_id: 'u2', role: 'viewer' }
+          ]
+        })
       )
 
       await expect(scopeService.fetchUserRole('s1', 'u2')).resolves.toEqual({
@@ -122,7 +112,7 @@ describe('scopeService', () => {
     })
 
     it('returns null when the user is not a member', async () => {
-      client.get.mockResolvedValue(response([{ user_id: 'u1', role: 'admin' }]))
+      client.get.mockResolvedValue(response({ members: [{ user_id: 'u1', role: 'admin' }] }))
 
       await expect(scopeService.fetchUserRole('s1', 'nobody')).resolves.toBeNull()
     })
@@ -171,16 +161,11 @@ describe('scopeService', () => {
     expect(client.patch).toHaveBeenCalledWith('/scopes/s1/members/u1', { role: 'reviewer' })
   })
 
-  it('fetchUserScopes, acceptInvitation and declineInvitation hit the invitation endpoints', async () => {
-    client.get.mockResolvedValue(response(['s1']))
-    client.post.mockResolvedValue(response({ accepted: true }))
+  it('declineInvitation hits the decline endpoint', async () => {
+    client.post.mockResolvedValue(response({}))
 
-    await expect(scopeService.fetchUserScopes('u1')).resolves.toEqual(['s1'])
-    await expect(scopeService.acceptInvitation('i1')).resolves.toEqual({ accepted: true })
     await expect(scopeService.declineInvitation('i1')).resolves.toBeUndefined()
 
-    expect(client.get).toHaveBeenCalledWith('/users/u1/scopes')
-    expect(client.post).toHaveBeenCalledWith('/invitations/i1/accept')
     expect(client.post).toHaveBeenCalledWith('/invitations/i1/decline')
   })
 })

@@ -16,7 +16,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 const POLL_INTERVAL_MS = 60000
@@ -81,10 +81,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
     error.value = null
 
     try {
-      const response = apiData<{ notifications?: Notification[] }>(
-        await notificationsAPI.getNotifications({ limit: 50 })
-      )
-      notifications.value = response.notifications || []
+      const response = await notificationsAPI.getNotifications({ limit: 50 })
+
+      notifications.value = response.notifications
 
       logService.debug('Fetched notifications', {
         count: notifications.value.length,

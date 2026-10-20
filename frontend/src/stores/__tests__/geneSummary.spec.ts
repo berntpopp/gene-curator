@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useGeneSummaryStore } from '@/stores/geneSummary'
 import { geneSummaryAPI } from '@/api/geneSummary'
+import type { Schema } from '@/types/api'
 
 vi.mock('@/api/geneSummary', () => ({
   geneSummaryAPI: {
@@ -25,8 +26,8 @@ describe('useGeneSummaryStore', () => {
 
   it('getters return cached summaries or null', () => {
     const store = useGeneSummaryStore()
-    store.publicSummaries.set('g1', { gene_id: 'g1' } as never)
-    store.fullSummaries.set('g1', { gene_id: 'g1', is_stale: false } as never)
+    store.publicSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
+    store.fullSummaries.set('g1', { gene_id: 'g1', is_stale: false } as Schema<'GeneSummaryFull'>)
 
     expect(store.getPublicSummary('g1')).toEqual({ gene_id: 'g1' })
     expect(store.getPublicSummary('g2')).toBeNull()
@@ -37,7 +38,7 @@ describe('useGeneSummaryStore', () => {
   describe('fetchPublicSummary', () => {
     it('caches a found summary', async () => {
       const store = useGeneSummaryStore()
-      api.getPublicSummary.mockResolvedValue({ gene_id: 'g1' })
+      api.getPublicSummary.mockResolvedValue({ gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
 
       await expect(store.fetchPublicSummary('g1')).resolves.toEqual({ gene_id: 'g1' })
       expect(store.getPublicSummary('g1')).toEqual({ gene_id: 'g1' })
@@ -73,7 +74,10 @@ describe('useGeneSummaryStore', () => {
   describe('fetchFullSummary', () => {
     it('caches the full summary', async () => {
       const store = useGeneSummaryStore()
-      api.getFullSummary.mockResolvedValue({ gene_id: 'g1', total_scopes_curated: 2 })
+      api.getFullSummary.mockResolvedValue({
+        gene_id: 'g1',
+        total_scopes_curated: 2
+      } as Schema<'GeneSummaryFull'>)
 
       await expect(store.fetchFullSummary('g1')).resolves.toEqual({
         gene_id: 'g1',
@@ -102,9 +106,9 @@ describe('useGeneSummaryStore', () => {
   describe('recomputeSummary', () => {
     it('invalidates both cached summaries for the gene', async () => {
       const store = useGeneSummaryStore()
-      store.publicSummaries.set('g1', { gene_id: 'g1' } as never)
-      store.fullSummaries.set('g1', { gene_id: 'g1' } as never)
-      api.recomputeSummary.mockResolvedValue({} as never)
+      store.publicSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
+      store.fullSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryFull'>)
+      api.recomputeSummary.mockResolvedValue({})
 
       await store.recomputeSummary('g1')
 
@@ -133,8 +137,8 @@ describe('useGeneSummaryStore', () => {
   describe('clearing', () => {
     it('clearSummaries empties caches and error; clearError resets only the error', () => {
       const store = useGeneSummaryStore()
-      store.publicSummaries.set('g1', { gene_id: 'g1' } as never)
-      store.fullSummaries.set('g1', { gene_id: 'g1' } as never)
+      store.publicSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
+      store.fullSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryFull'>)
       store.error = 'x'
 
       store.clearError()

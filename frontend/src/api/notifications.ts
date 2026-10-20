@@ -29,8 +29,10 @@ export const notificationsAPI = {
   /**
    * Mark all notifications as read
    */
-  async markAllAsRead(): Promise<unknown> {
-    const response = await apiClient.patch<unknown>('/notifications/read-all')
+  async markAllAsRead(): Promise<{ message: string; count: number }> {
+    const response = await apiClient.patch<{ message: string; count: number }>(
+      '/notifications/read-all'
+    )
     return response.data
   }
 }
