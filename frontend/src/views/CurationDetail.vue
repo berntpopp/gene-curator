@@ -442,7 +442,7 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useCurationsStore, useAuthStore } from '@/stores'
-  import { showError, showSuccess } from '@/composables/useNotifications.js'
+  import { showError, showSuccess } from '@/composables/useNotifications'
   import ClinGenScoreCard from '@/components/clingen/ClinGenScoreCard.vue'
   import CurationForm from '@/components/forms/CurationForm.vue'
 

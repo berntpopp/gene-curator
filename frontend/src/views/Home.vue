@@ -134,8 +134,8 @@
 
   const logger = useLogger()
   import { ref, onMounted, computed } from 'vue'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useGenesStore } from '@/stores/genes.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { useGenesStore } from '@/stores/genes'
 
   const authStore = useAuthStore()
   const genesStore = useGenesStore()

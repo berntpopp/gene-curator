@@ -199,7 +199,7 @@
    */
 
   import { computed } from 'vue'
-  import { useScoring } from '@/composables/useScoring.js'
+  import { useScoring } from '@/composables/useScoring'
 
   const props = defineProps({
     /**

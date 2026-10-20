@@ -118,7 +118,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
     try {
       // Use scope memberships endpoint for accept
-      const { default: apiClient } = await import('@/api/client.js')
+      const { default: apiClient } = await import('@/api/client')
       const response = await apiClient.post(`/scopes/${scopeId}/invitations/${invitationId}/accept`)
 
       // Remove from local state

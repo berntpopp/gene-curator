@@ -30,10 +30,10 @@
 
 <script setup>
   import { ref, watch, onMounted, onUnmounted } from 'vue'
-  import { useAuthStore } from '@/stores/auth.js'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
-  import { snackbarState } from '@/composables/useNotifications.js'
+  import { snackbarState } from '@/composables/useNotifications'
   import { useLogger } from '@/composables/useLogger'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'

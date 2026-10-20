@@ -17,7 +17,7 @@
 
 <script setup>
   import { useRouter, useRoute } from 'vue-router'
-  import { showSuccess } from '@/composables/useNotifications.js'
+  import { showSuccess } from '@/composables/useNotifications'
   import PrecurationForm from '@/components/clingen/PrecurationForm.vue'
 
   const router = useRouter()

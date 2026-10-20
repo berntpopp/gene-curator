@@ -1,4 +1,4 @@
-import apiClient from './client.js'
+import apiClient from './client'
 
 /**
  * Publications API client for PMID validation and publication data

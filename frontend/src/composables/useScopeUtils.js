@@ -37,6 +37,8 @@
  * @see docs/refactoring/FRONTEND_IMPLEMENTATION.md#step-12-create-scope-utilities-composable
  */
 
+import { logService } from '@/services/logService'
+
 /**
  * Get utility functions for scope operations
  * @returns {Object} Scope utility functions
@@ -60,7 +62,7 @@ export function useScopeUtils() {
       const dateObj = typeof date === 'string' ? new Date(date) : date
       return dateObj.toLocaleDateString()
     } catch (error) {
-      console.error('Invalid date format:', date, error)
+      logService.warn('Invalid date format', { date, error: error.message })
       return 'Invalid date'
     }
   }

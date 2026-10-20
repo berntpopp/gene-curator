@@ -8,9 +8,5 @@
     "strict": true,
     "types": ["node"]
   },
-  "include": [
-    "vite.config.js",
-    "vite.config.ts",
-    "eslint.config.js"
-  ]
+  "include": ["vite.config.*", "eslint.config.*", "playwright.config.*"]
 }

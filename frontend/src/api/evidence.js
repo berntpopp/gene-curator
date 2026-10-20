@@ -1,4 +1,4 @@
-import apiClient from './client.js'
+import apiClient from './client'
 
 /**
  * Evidence API client for ClinGen SOP v11 evidence management

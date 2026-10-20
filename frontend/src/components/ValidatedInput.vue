@@ -55,7 +55,7 @@
 
 <script setup>
   import { computed, watch } from 'vue'
-  import { useValidation } from '@/composables/useValidation.js'
+  import { useValidation } from '@/composables/useValidation'
   import { useLogger } from '@/composables/useLogger'
 
   const props = defineProps({

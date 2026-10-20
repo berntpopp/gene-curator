@@ -11,7 +11,7 @@
  */
 
 import { ref, watch } from 'vue'
-import { useExternalValidationStore } from '@/stores/externalValidation.js'
+import { useExternalValidationStore } from '@/stores/externalValidation'
 import { logService } from '@/services/logService'
 
 // Simple debounce implementation

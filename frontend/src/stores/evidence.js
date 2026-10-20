@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { evidenceAPI } from '@/api/evidence.js'
+import { evidenceAPI } from '@/api/evidence'
 import { logService } from '@/services/logService'
 
 /**

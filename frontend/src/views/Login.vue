@@ -128,8 +128,8 @@
   const logger = useLogger()
   import { ref, reactive, computed } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { showSuccess, showError } from '@/composables/useNotifications.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { showSuccess, showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const route = useRoute()

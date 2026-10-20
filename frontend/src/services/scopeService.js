@@ -30,7 +30,7 @@
  * @see docs/refactoring/FRONTEND_IMPLEMENTATION.md#step-21-create-separate-api-service-layer
  */
 
-import apiClient from '@/api/client.js'
+import apiClient from '@/api/client'
 
 export const scopeService = {
   /**

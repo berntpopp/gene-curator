@@ -8,7 +8,7 @@
  * @see backend/app/api/v1/endpoints/invitations.py
  */
 
-import apiClient from '@/api/client.js'
+import apiClient from '@/api/client'
 
 export const invitationsApi = {
   /**

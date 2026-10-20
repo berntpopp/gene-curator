@@ -120,8 +120,8 @@
 <script setup>
   import { ref, computed, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
-  import { useGeneSummaryStore } from '@/stores/geneSummary.js'
-  import { useGenesStore } from '@/stores/genes.js'
+  import { useGeneSummaryStore } from '@/stores/geneSummary'
+  import { useGenesStore } from '@/stores/genes'
   import { useLogger } from '@/composables/useLogger'
   import ScopeSummaryCard from '@/components/clingen/ScopeSummaryCard.vue'
 

@@ -212,9 +212,9 @@
 
   const logger = useLogger()
   import { ref, onMounted, watch } from 'vue'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useUsersStore } from '@/stores/users.js'
-  import { authApi } from '@/api/auth.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { useUsersStore } from '@/stores/users'
+  import { authApi } from '@/api/auth'
 
   const authStore = useAuthStore()
   const usersStore = useUsersStore()

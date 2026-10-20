@@ -328,7 +328,7 @@
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { usePrecurationsStore, useAuthStore } from '@/stores'
-  import { showError, showSuccess } from '@/composables/useNotifications.js'
+  import { showError, showSuccess } from '@/composables/useNotifications'
   import PrecurationForm from '@/components/clingen/PrecurationForm.vue'
 
   const props = defineProps({

@@ -18,7 +18,7 @@
  */
 
 import { computed, ref } from 'vue'
-import { useEvidenceStore } from '@/stores/evidence.js'
+import { useEvidenceStore } from '@/stores/evidence'
 
 export function useEvidence(curationId) {
   const evidenceStore = useEvidenceStore()

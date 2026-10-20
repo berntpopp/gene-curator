@@ -239,7 +239,7 @@
 
   import { ref, computed, onMounted } from 'vue'
   import { useRoute } from 'vue-router'
-  import { useGenesStore } from '@/stores/genes.js'
+  import { useGenesStore } from '@/stores/genes'
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
 

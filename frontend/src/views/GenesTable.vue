@@ -246,9 +246,9 @@
 <script setup>
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useGenesStore } from '@/stores/genes.js'
-  import { showError } from '@/composables/useNotifications.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { useGenesStore } from '@/stores/genes'
+  import { showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const authStore = useAuthStore()

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { externalValidationAPI } from '@/api/externalValidation.js'
+import { externalValidationAPI } from '@/api/externalValidation'
 import { logService } from '@/services/logService'
 
 /**

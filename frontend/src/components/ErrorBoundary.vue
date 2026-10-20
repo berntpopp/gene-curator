@@ -124,11 +124,7 @@
       timestamp: new Date().toISOString()
     }
 
-    logger.info('Error report initiated', errorDetails)
-
-    // In production, this would open GitHub issues or support form
-    // For now, log to console
-    console.error('Error Report:', errorDetails)
+    logger.error('Error report initiated', errorDetails)
 
     // TODO: Implement actual error reporting
     // window.open(`https://github.com/yourrepo/issues/new?body=${encodeURIComponent(JSON.stringify(errorDetails))}`)

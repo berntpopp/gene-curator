@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { geneSummaryAPI } from '@/api/geneSummary.js'
+import { geneSummaryAPI } from '@/api/geneSummary'
 import { logService } from '@/services/logService'
 
 /**

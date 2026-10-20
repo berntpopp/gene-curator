@@ -31,3 +31,11 @@ backups/
 
 # UI/UX review iteration tracking (auto-generated)
 plan/enhancements/tracking/.ui-ux-review-iterations
+
+# Test & coverage output
+coverage/
+coverage.xml
+.coverage
+htmlcov/
+playwright-report/
+test-results/

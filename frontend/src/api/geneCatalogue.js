@@ -6,7 +6,7 @@
  * read operations.
  */
 
-import apiClient from './client.js'
+import apiClient from './client'
 
 export const geneCatalogueAPI = {
   /**

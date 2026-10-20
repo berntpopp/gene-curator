@@ -1,4 +1,4 @@
-import apiClient from './client.js'
+import apiClient from './client'
 
 /**
  * Ontology Search API client for MONDO, OMIM, and HPO

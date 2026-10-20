@@ -4,10 +4,7 @@ import vuetify from 'vite-plugin-vuetify'
 import { fileURLToPath, URL } from 'node:url'
 
 export default defineConfig({
-  plugins: [
-    vue(),
-    vuetify({ autoImport: true })
-  ],
+  plugins: [vue(), vuetify({ autoImport: true })],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
@@ -43,19 +40,15 @@ export default defineConfig({
         inline: ['vuetify']
       }
     },
-    exclude: [
-      '**/node_modules/**',
-      '**/dist/**',
-      '**/tests/e2e/**'
-    ],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/tests/e2e/**'],
     coverage: {
       provider: 'v8',
-      reporter: ['text', 'json', 'html'],
-      exclude: [
-        'node_modules/',
-        'src/test/',
-        '**/*.spec.js'
-      ]
+      // lcov feeds diff-cover (90% on changed lines); text-summary for the console
+      reporter: ['text-summary', 'lcov', 'html'],
+      include: ['src/**/*.{js,vue}'],
+      exclude: ['src/test/**', '**/__tests__/**', '**/*.spec.js'],
+      // Ratchet floor: raise when coverage rises, never lower (target 90%, see AGENTS.md)
+      thresholds: { lines: 7, statements: 7, branches: 5, functions: 5 }
     }
   }
 })

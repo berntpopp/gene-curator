@@ -133,7 +133,7 @@
    */
 
   import { ref, computed, watch } from 'vue'
-  import { useExternalValidationStore } from '@/stores/externalValidation.js'
+  import { useExternalValidationStore } from '@/stores/externalValidation'
   import { useLogger } from '@/composables/useLogger'
 
   const props = defineProps({
