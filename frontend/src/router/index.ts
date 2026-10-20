@@ -217,7 +217,8 @@ const routes: RouteRecordRaw[] = [
     component: GenesTable,
     meta: {
       title: 'Gene Database',
-      requiresAuth: true
+      requiresAuth: true,
+      requiredRoles: ['admin']
     }
   },
   {
@@ -344,7 +345,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'User Management',
       requiresAuth: true,
-      requiredRoles: ['admin']
+      requiredRoles: ['admin'],
+      showInDropdown: 'curationSetup',
+      icon: 'mdi-account-group',
+      label: 'Users',
+      order: 3
     }
   },
   {
@@ -386,7 +391,7 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach(async (to, _from, next) => {
+router.beforeEach(async to => {
   const authStore = useAuthStore()
 
   // Initialize auth store if not already done
@@ -407,28 +412,25 @@ router.beforeEach(async (to, _from, next) => {
 
   // Handle guest-only routes (login, register)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return next({ name: 'Home' })
+    return { name: 'Home' }
   }
 
   // Handle protected routes
   if (to.meta.requiresAuth) {
     if (!authStore.isAuthenticated) {
-      return next({
-        name: 'Login',
-        query: { redirect: to.fullPath }
-      })
+      return { name: 'Login', query: { redirect: to.fullPath } }
     }
 
     // Check role requirements
     if (to.meta.requiredRoles) {
       const hasRequiredRole = to.meta.requiredRoles.some(role => authStore.hasRole(role))
       if (!hasRequiredRole) {
-        return next({ name: 'NotAuthorized' })
+        return { name: 'NotAuthorized', query: { redirect: to.fullPath } }
       }
     }
   }
 
-  next()
+  return true
 })
 
 export default router

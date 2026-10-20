@@ -14,6 +14,7 @@ vi.mock('@/views/About.vue', () => stub)
 vi.mock('@/views/NotAuthorized.vue', () => stub)
 vi.mock('@/views/UserManagement.vue', () => stub)
 vi.mock('@/views/GeneAssignments.vue', () => stub)
+vi.mock('@/views/GenesTable.vue', () => stub)
 vi.mock('@/views/curation/ReviewQueueView.vue', () => stub)
 
 // Real auth store: scope roles (curator, reviewer) are not application roles, so an
@@ -51,5 +52,23 @@ describe('router with the real auth store', () => {
     await router.push('/review-queue')
     expect(router.currentRoute.value.name).toBe('Login')
     expect(router.currentRoute.value.query).toEqual({ redirect: '/review-queue' })
+  })
+
+  it('restricts /admin/genes to admins and hands the blocked path to the 403 page', async () => {
+    signIn('user')
+    await router.push('/admin/genes')
+    expect(router.currentRoute.value.name).toBe('NotAuthorized')
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/admin/genes' })
+
+    signIn('admin')
+    await router.push('/admin/genes')
+    expect(router.currentRoute.value.name).toBe('GeneAdmin')
+  })
+
+  it('lists User Management in the Curation Setup menu', () => {
+    expect(router.getRoutes().find(r => r.name === 'UserManagement')?.meta).toMatchObject({
+      showInDropdown: 'curationSetup',
+      label: 'Users'
+    })
   })
 })
