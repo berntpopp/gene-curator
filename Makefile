@@ -128,7 +128,7 @@ test-e2e: ## Playwright E2E (needs `make hybrid-up`, backend and frontend runnin
 ##@ CI (GitHub Actions runs exactly these)
 ci: ci-backend test-postgres ci-frontend ci-repo diff-cover ## Everything CI runs
 
-ci-backend: ## Backend: ruff, mypy, bandit, tests + coverage floor
+ci-backend: api-types-check ## Backend: ruff, mypy, bandit, tests + coverage floor, API types fresh
 	cd backend && uv run ruff check app tests && uv run ruff format --check app tests \
 		&& uv run mypy app && uv run bandit -q -c .bandit -r app \
 		&& uv run pytest -q --cov=app --cov-report=xml --cov-report=term:skip-covered
@@ -137,7 +137,7 @@ ci-frontend: ## Frontend: eslint, prettier, vue-tsc, tests + coverage floor, bui
 	cd frontend && npm run lint:check && npm run format:check && npm run typecheck \
 		&& npx vitest run --coverage && npm run build
 
-ci-repo: api-types-check ## Repo rules: file size limit, generated API types up to date
+ci-repo: workflows ## Repo rules: file size limit, workflow lint
 	python3 scripts/check_file_size.py
 
 diff-cover: ## Changed lines must be >= $(DIFF_COVER_MIN)% covered (uses whichever coverage reports exist)

@@ -52,6 +52,8 @@ Verify locally; CI only confirms. `.github/workflows/ci.yml` calls the same make
   vue-tsc, Vitest, production build; file-size limit, generated API types up to date, zizmor.
 - Required check: the `CI gate` job. Never use `continue-on-error`, `|| true`, `.skip`, `xit` or
   commented-out tests to get green; fix the cause.
+- Cost: open PRs as drafts while iterating (drafts run no CI), mark ready once `make ci` passes,
+  batch pushes. Do not add workflow triggers, cron jobs or matrix legs without an owner decision.
 - Workflow changes: run `make workflows`. Actions stay pinned to a commit SHA with the version in a comment.
 
 ## Rules enforced by tools

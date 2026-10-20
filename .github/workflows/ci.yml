@@ -1,10 +1,12 @@
 name: CI
 
 # Every job calls the same `make` target developers run locally (`make ci` = all of them).
+# Cost model: verify locally, CI confirms once. Draft PRs run nothing (mark ready to test), there
+# is no second run on master after merge, and work is packed into two heavy jobs because each
+# job bills a rounded-up minute plus setup.
 on:
   pull_request:
-  push:
-    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
 permissions:
@@ -12,15 +14,15 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: true
 
 env:
-  # diff-cover compares against the PR base (or the previous commit on master)
-  BASE: ${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD~1' }}
+  BASE: origin/${{ github.base_ref || 'master' }} # diff-cover: changed lines vs the PR base
 
 jobs:
   changes:
-    name: Detect changes
+    name: Changes + repo rules
+    if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -36,28 +38,11 @@ jobs:
           filters: |
             backend: ['backend/**', 'database/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml']
             frontend: ['frontend/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml']
-
-  repo:
-    name: Repo rules (file size, API types, workflows)
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
-        with:
-          node-version-file: .nvmrc
-      - run: cd backend && uv sync --extra dev --frozen
       - run: make ci-repo
-      - run: make workflows
 
   backend:
-    name: Backend (lint, types, tests, coverage)
+    name: Backend (lint, types, SQLite + PostgreSQL tests, coverage)
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
@@ -73,24 +58,8 @@ jobs:
           cache-dependency-glob: backend/uv.lock
       - run: cd backend && uv sync --extra dev --frozen
       - run: make ci-backend
-      - run: make diff-cover
-
-  postgres:
-    name: Backend on PostgreSQL (fresh DB build + RLS)
-    needs: changes
-    if: needs.changes.outputs.backend == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
-        with:
-          enable-cache: true
-          cache-dependency-glob: backend/uv.lock
-      - run: cd backend && uv sync --extra dev --frozen
       - run: make test-postgres
+      - run: make diff-cover
 
   frontend:
     name: Frontend (lint, types, tests, coverage, build)
@@ -116,8 +85,8 @@ jobs:
   gate:
     # The single required status check: passes only if every job passed or was skipped.
     name: CI gate
-    needs: [changes, repo, backend, postgres, frontend]
-    if: always()
+    needs: [changes, backend, frontend]
+    if: ${{ always() && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
