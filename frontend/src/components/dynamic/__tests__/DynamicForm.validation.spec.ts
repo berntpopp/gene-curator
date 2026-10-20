@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import DynamicForm from '../DynamicForm.vue'
+import { vmOf } from './testHelpers'
+import { getTabFieldPaths } from '../composables/useFormTabs'
 
 // Default mock schema
 const defaultMockSchema = {
@@ -12,7 +14,7 @@ const defaultMockSchema = {
 }
 
 // Mock validation store with configurable schema
-let mockSchema = defaultMockSchema
+let mockSchema: Record<string, unknown> = defaultMockSchema
 
 vi.mock('@/stores', () => ({
   useValidationStore: () => ({
@@ -80,8 +82,8 @@ describe('DynamicForm Validation', () => {
         }
       })
 
-      expect(wrapper.vm.backendErrors).toEqual({})
-      expect(wrapper.vm.nonFieldErrors).toEqual([])
+      expect(vmOf(wrapper).backendErrors).toEqual({})
+      expect(vmOf(wrapper).nonFieldErrors).toEqual([])
     })
 
     it('maps backend field errors to backendErrors state', () => {
@@ -106,10 +108,10 @@ describe('DynamicForm Validation', () => {
         }
       }
 
-      wrapper.vm.handleBackendValidation(mockResult)
+      vmOf(wrapper).handleBackendValidation(mockResult)
 
       // Should take first error only per CONTEXT.md decision
-      expect(wrapper.vm.backendErrors).toEqual({
+      expect(vmOf(wrapper).backendErrors).toEqual({
         email: ['Invalid email format'],
         name: ['Name is required']
       })
@@ -133,10 +135,10 @@ describe('DynamicForm Validation', () => {
         ]
       }
 
-      wrapper.vm.handleBackendValidation(mockResult)
+      vmOf(wrapper).handleBackendValidation(mockResult)
 
-      expect(wrapper.vm.nonFieldErrors).toContain('General form error')
-      expect(wrapper.vm.nonFieldErrors).toContain('Unknown field error')
+      expect(vmOf(wrapper).nonFieldErrors).toContain('General form error')
+      expect(vmOf(wrapper).nonFieldErrors).toContain('Unknown field error')
     })
 
     it('clears backend error when field value changes', () => {
@@ -150,12 +152,12 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set initial error
-      wrapper.vm.backendErrors = { email: ['Invalid email'] }
+      vmOf(wrapper).backendErrors = { email: ['Invalid email'] }
 
       // Clear error
-      wrapper.vm.clearFieldBackendError('email')
+      vmOf(wrapper).clearFieldBackendError('email')
 
-      expect(wrapper.vm.backendErrors.email).toBeUndefined()
+      expect(vmOf(wrapper).backendErrors.email).toBeUndefined()
     })
 
     it('shows non-field errors in alert', async () => {
@@ -168,7 +170,7 @@ describe('DynamicForm Validation', () => {
         }
       })
 
-      wrapper.vm.nonFieldErrors = ['General form error']
+      vmOf(wrapper).nonFieldErrors = ['General form error']
       await wrapper.vm.$nextTick()
 
       expect(wrapper.html()).toContain('General form error')
@@ -209,31 +211,23 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set backend error on field1
-      wrapper.vm.backendErrors = { field1: ['Error message'] }
+      vmOf(wrapper).backendErrors = { field1: ['Error message'] }
       await wrapper.vm.$nextTick()
 
-      const tabErrors = wrapper.vm.tabValidationErrors
+      const tabErrors = vmOf(wrapper).tabValidationErrors
 
       expect(tabErrors.tab1).toBe(true)
       expect(tabErrors.tab2).toBe(false)
     })
 
     it('extracts all field paths from tab sections', () => {
-      const wrapper = mount(DynamicForm, {
-        props: {
-          schemaId: 'test-schema'
-        },
-        global: {
-          stubs: vuetifyStubs
-        }
-      })
-
       const tab = {
         id: 'test-tab',
+        name: 'Test Tab',
         sections: [{ fields: ['field1', 'field2'] }, { fields: ['field3'] }]
       }
 
-      const paths = wrapper.vm.getTabFieldPaths(tab)
+      const paths = getTabFieldPaths(tab)
 
       expect(paths).toEqual(['field1', 'field2', 'field3'])
     })
@@ -252,9 +246,9 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set backend errors
-      wrapper.vm.backendErrors = { email: ['Invalid email'] }
+      vmOf(wrapper).backendErrors = { email: ['Invalid email'] }
 
-      expect(wrapper.vm.canSubmit).toBe(false)
+      expect(vmOf(wrapper).canSubmit).toBe(false)
     })
 
     it('blocks submission when validation fails', () => {
@@ -271,9 +265,9 @@ describe('DynamicForm Validation', () => {
       })
 
       // Mock validation result
-      wrapper.vm.validationResult = { is_valid: false }
+      vmOf(wrapper).validationResult = { is_valid: false }
 
-      expect(wrapper.vm.canSubmit).toBe(false)
+      expect(vmOf(wrapper).canSubmit).toBe(false)
     })
 
     it('blocks submission when no changes made', () => {
@@ -288,8 +282,8 @@ describe('DynamicForm Validation', () => {
       })
 
       // No changes made (formData equals initialData)
-      expect(wrapper.vm.hasChanges).toBe(false)
-      expect(wrapper.vm.canSubmit).toBe(false)
+      expect(vmOf(wrapper).hasChanges).toBe(false)
+      expect(vmOf(wrapper).canSubmit).toBe(false)
     })
 
     it('allows submission when validation passes and has changes', () => {
@@ -304,13 +298,13 @@ describe('DynamicForm Validation', () => {
       })
 
       // Make changes
-      wrapper.vm.formData = { name: 'test-modified' }
+      vmOf(wrapper).formData = { name: 'test-modified' }
       // No backend errors
-      wrapper.vm.backendErrors = {}
+      vmOf(wrapper).backendErrors = {}
       // Validation passed
-      wrapper.vm.validationResult = { is_valid: true }
+      vmOf(wrapper).validationResult = { is_valid: true }
 
-      expect(wrapper.vm.canSubmit).toBe(true)
+      expect(vmOf(wrapper).canSubmit).toBe(true)
     })
 
     it('finds first invalid tab', async () => {
@@ -351,10 +345,10 @@ describe('DynamicForm Validation', () => {
       })
 
       // Set up backend errors for tab2 field
-      wrapper.vm.backendErrors = { field2: ['Error message'] }
+      vmOf(wrapper).backendErrors = { field2: ['Error message'] }
       await wrapper.vm.$nextTick()
 
-      const firstInvalidTab = wrapper.vm.findFirstInvalidTab()
+      const firstInvalidTab = vmOf(wrapper).findFirstInvalidTab()
 
       expect(firstInvalidTab).toBe('tab2')
     })
@@ -379,13 +373,13 @@ describe('DynamicForm Validation', () => {
       })
 
       // Make changes
-      wrapper.vm.formData = { name: 'test-modified' }
-      wrapper.vm.validationResult = { is_valid: true }
+      vmOf(wrapper).formData = { name: 'test-modified' }
+      vmOf(wrapper).validationResult = { is_valid: true }
 
-      await wrapper.vm.handleSubmit()
+      await vmOf(wrapper).handleSubmit()
 
       expect(wrapper.emitted('submit')).toBeTruthy()
-      expect(wrapper.emitted('submit')[0]).toEqual([{ name: 'test-modified' }])
+      expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'test-modified' }])
     })
   })
 })
