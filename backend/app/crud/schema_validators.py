@@ -233,8 +233,17 @@ class WorkflowStatesValidator(SchemaValidator):
 
         workflow_states = schema_data["workflow_states"]
 
-        # Validate structure type
-        if not isinstance(workflow_states, list):
+        # Seeded schemas use {"states": [{"name": ...}], "transitions": {...}};
+        # a plain list of state names is also accepted.
+        if isinstance(workflow_states, dict):
+            state_names = [
+                s.get("name")
+                for s in workflow_states.get("states", [])
+                if isinstance(s, dict)
+            ]
+        elif isinstance(workflow_states, list):
+            state_names = workflow_states
+        else:
             messages.append(
                 ValidationMessage(
                     severity="error",
@@ -247,7 +256,7 @@ class WorkflowStatesValidator(SchemaValidator):
         # Check for required states
         required_states = ["draft", "submitted"]
         for state in required_states:
-            if state not in workflow_states:
+            if state not in state_names:
                 messages.append(
                     ValidationMessage(
                         severity="error",
@@ -331,8 +340,9 @@ class ScoringConfigurationValidator(SchemaValidator):
         """
         messages: list[ValidationMessage] = []
 
-        if "scoring_configuration" not in schema_data:
-            return messages  # Optional field
+        # Optional field: absent or explicit null both mean "no scoring"
+        if schema_data.get("scoring_configuration") is None:
+            return messages
 
         scoring_config = schema_data["scoring_configuration"]
 

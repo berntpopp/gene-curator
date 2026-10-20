@@ -13,6 +13,7 @@ References:
 """
 
 import math
+from collections.abc import Iterator
 from datetime import UTC, datetime
 from typing import Any, Final
 
@@ -1144,35 +1145,23 @@ class ClinGenEngine(ScoringEngine):
         experimental_evidence: list[dict[str, Any]] | dict[str, Any],
     ) -> int:
         """Count evidence items with missing or invalid PMIDs."""
-        count = 0
+        # Genetic and experimental evidence: nested SOP v11 dict or legacy list
+        items = [
+            *self._iter_evidence_items(genetic_evidence),
+            *self._iter_evidence_items(experimental_evidence),
+        ]
+        return sum(1 for item in items if not self._is_valid_pmid(item.get("pmid", "")))
 
-        # Check genetic evidence
-        for item in genetic_evidence:
-            if not self._is_valid_pmid(item.get("pmid", "")):
-                count += 1
-
-        # Check experimental evidence
-        if isinstance(experimental_evidence, dict):
-            count += self._count_missing_pmids_nested(experimental_evidence)
-        elif isinstance(experimental_evidence, list):
-            for item in experimental_evidence:
-                if not self._is_valid_pmid(item.get("pmid", "")):
-                    count += 1
-
-        return count
-
-    def _count_missing_pmids_nested(self, exp_data: dict[str, Any]) -> int:
-        """Count missing PMIDs in nested experimental evidence."""
-        count = 0
-        for category in ["function", "functional_alteration", "models", "rescue"]:
-            cat_data = exp_data.get(category, {})
-            if isinstance(cat_data, dict):
-                for items in cat_data.values():
-                    if isinstance(items, list):
-                        for item in items:
-                            if not self._is_valid_pmid(item.get("pmid", "")):
-                                count += 1
-        return count
+    @classmethod
+    def _iter_evidence_items(cls, node: Any) -> Iterator[dict[str, Any]]:
+        """Yield evidence item dicts from a flat list or a nested SOP v11 dict."""
+        if isinstance(node, list):
+            for item in node:
+                if isinstance(item, dict):
+                    yield item
+        elif isinstance(node, dict):
+            for child in node.values():
+                yield from cls._iter_evidence_items(child)
 
     def _is_valid_pmid(self, pmid: Any) -> bool:
         """Check if a PMID is valid."""

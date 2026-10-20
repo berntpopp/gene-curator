@@ -2,6 +2,8 @@
 CRUD operations for schema repository management.
 """
 
+import hashlib
+import json
 from collections.abc import Sequence
 from typing import Any
 from uuid import UUID
@@ -24,6 +26,25 @@ from app.schemas.schema_repository import (
     WorkflowPairCreate,
     WorkflowPairUpdate,
 )
+
+
+def _schema_content_hash(schema_data: dict[str, Any]) -> str:
+    """SHA-256 checksum over the schema definition (stable key order)."""
+    definition = {
+        key: schema_data.get(key)
+        for key in (
+            "name",
+            "version",
+            "field_definitions",
+            "validation_rules",
+            "workflow_states",
+            "ui_configuration",
+            "scoring_configuration",
+        )
+    }
+    return hashlib.sha256(
+        json.dumps(definition, sort_keys=True, default=str).encode()
+    ).hexdigest()
 
 
 class CRUDCurationSchema(
@@ -83,6 +104,9 @@ class CRUDCurationSchema(
         """Create schema with owner."""
         obj_in_data = obj_in.model_dump()
         obj_in_data["created_by"] = owner_id
+        # schema_hash is NOT NULL in the database and not supplied by clients
+        if not obj_in_data.get("schema_hash"):
+            obj_in_data["schema_hash"] = _schema_content_hash(obj_in_data)
         db_obj = CurationSchema(**obj_in_data)
         db.add(db_obj)
         db.commit()
