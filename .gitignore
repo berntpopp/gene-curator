@@ -43,3 +43,10 @@ test-results/
 # Agent worktrees
 .claude/worktrees/
 CLAUDE.local.md
+
+# UI/UX audit artifacts (screenshots, raw tool output); keep only the markdown reports
+audit/**/screens/
+audit/**/data/
+# Design mock-ups (HTML sources, PNG renders); local reference only, the markdown docs are tracked
+docs/design/**/renders/
+docs/design/**/source/
