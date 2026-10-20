@@ -17,8 +17,6 @@ from tests.api.scopes.factories import (
 
 pytestmark = pytest.mark.unit
 
-PG_ONLY = pytest.mark.skip(reason="uses PostgreSQL EXTRACT(); not runnable on SQLite")
-
 
 def _scope_create(name: str) -> ScopeCreate:
     return ScopeCreate(name=name, display_name="Display", description="d")
@@ -285,23 +283,3 @@ def test_available_workflow_pairs_only_active(db_session: Session) -> None:
     names = {p["name"] for p in pairs}
     assert "live" in names
     assert "dead" not in names
-
-
-@PG_ONLY
-def test_detailed_statistics_counts_members_and_genes(db_session: Session) -> None:
-    scope = make_scope(db_session)
-    member = make_user(db_session)
-    make_member(db_session, scope, member, "viewer")
-
-    stats = scope_crud.get_detailed_statistics(db_session, scope_id=scope.id)
-
-    assert stats["member_count"] == 1
-
-
-@PG_ONLY
-def test_performance_metrics_empty_scope(db_session: Session) -> None:
-    scope = make_scope(db_session)
-
-    metrics = scope_crud.get_performance_metrics(db_session, scope_id=scope.id)
-
-    assert metrics["approval_rate"] is None

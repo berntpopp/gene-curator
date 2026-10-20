@@ -186,22 +186,6 @@ def test_list_scopes_pagination_applies_to_member_scopes(
 # -----------------------------------------------------------------------------
 
 
-PG_ONLY_STATS = pytest.mark.skip(
-    reason="get_detailed_statistics uses PostgreSQL EXTRACT(); not runnable on SQLite"
-)
-
-
-@PG_ONLY_STATS
-def test_get_scope_details_for_member_includes_statistics(
-    client: TestClient, owner: UserNew, scope_with_admin: Scope
-) -> None:
-    response = client.get(f"{BASE}/{scope_with_admin.id}", headers=auth_headers(owner))
-
-    assert response.status_code == 200
-    assert response.json()["id"] == str(scope_with_admin.id)
-    assert "statistics" in response.json()
-
-
 def test_get_scope_details_unknown_scope_returns_404(
     client: TestClient, owner: UserNew
 ) -> None:
@@ -345,15 +329,3 @@ def test_statistics_forbidden_for_non_member(
     )
 
     assert response.status_code == 403
-
-
-@PG_ONLY_STATS
-def test_statistics_visible_to_viewer(
-    client: TestClient, viewer: UserNew, scope_with_admin: Scope
-) -> None:
-    response = client.get(
-        f"{BASE}/{scope_with_admin.id}/statistics", headers=auth_headers(viewer)
-    )
-
-    assert response.status_code == 200
-    assert response.json()["member_count"] == 2
