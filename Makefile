@@ -1,606 +1,179 @@
-# ═══════════════════════════════════════════════════════════════
-# Gene Curator - Comprehensive Development Makefile
-# ═══════════════════════════════════════════════════════════════
-#
-# This Makefile provides 50+ commands for development, testing,
-# and production workflows. Supports hybrid mode (DB in Docker,
-# API/Frontend local) for fast iteration.
-#
-# Quick Start:
-#   make help          # Show all commands
-#   make hybrid-up     # Start hybrid dev mode (RECOMMENDED)
-#   make status        # Show system status
-#
-# ═══════════════════════════════════════════════════════════════
+# Gene Curator - command surface. `make help` lists every target (from the ## comments).
+# Local runs and GitHub Actions call the same targets: if `make ci` passes, CI passes.
 
-.PHONY: help
 .DEFAULT_GOAL := help
+SHELL := /bin/bash
 
-# ───────────────────────────────────────────────────────────────
-# CONFIGURATION
-# ───────────────────────────────────────────────────────────────
-
-# Load environment variables from .env.dev
 include .env.dev
 export
 
-# Docker Compose files (using integrated 'docker compose' command)
-DOCKER_COMPOSE_INFRA := docker compose -f docker-compose.yml --env-file .env.dev
-DOCKER_COMPOSE := docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev
-DOCKER_COMPOSE_PROD := docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.dev
-
-# Container names (from .env.dev)
+DC_INFRA := docker compose -f docker-compose.yml --env-file .env.dev
+DC_DEV   := docker compose -f docker-compose.yml -f docker-compose.dev.yml --env-file .env.dev
+DC_PROD  := docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.dev
 POSTGRES_CONTAINER := gene_curator_postgres
-BACKEND_CONTAINER := gene_curator_backend
-FRONTEND_CONTAINER := gene_curator_frontend
-
-# Directories
 BACKUP_DIR := backups
-BACKEND_DIR := backend
-FRONTEND_DIR := frontend
+BASE ?= origin/master
+# Changed lines must be covered (AGENTS.md). Global floors live in pyproject.toml / vite.config.js.
+DIFF_COVER_MIN ?= 90
 
-# Colors for output
-BLUE := \033[0;34m
-GREEN := \033[0;32m
-YELLOW := \033[0;33m
-RED := \033[0;31m
-NC := \033[0m # No Color
+.PHONY: help
+help: ## Show this help
+	@grep -hE '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
-# ═══════════════════════════════════════════════════════════════
-# HELP SYSTEM
-# ═══════════════════════════════════════════════════════════════
+##@ Setup
+install: ## Install backend + frontend deps and git hooks
+	cd backend && uv sync --extra dev
+	cd frontend && npm ci --no-audit --no-fund
+	git config core.hooksPath .githooks
 
-help: ## Show this help message
-	@echo "╔════════════════════════════════════════════════════════════════╗"
-	@echo "║         Gene Curator - Development Commands                    ║"
-	@echo "╚════════════════════════════════════════════════════════════════╝"
-	@echo ""
-	@echo "🚀 HYBRID DEVELOPMENT (Recommended for fast iteration):"
-	@echo "  make hybrid-up       - Start DB in Docker + instructions for local API/Frontend"
-	@echo "  make hybrid-down     - Stop all hybrid mode services"
-	@echo "  make backend         - Start backend API locally (port $(BACKEND_PORT))"
-	@echo "  make frontend        - Start frontend dev server locally (port $(VITE_DEV_PORT))"
-	@echo "  make services-up     - Start only database services in Docker"
-	@echo "  make services-down   - Stop only database services"
-	@echo ""
-	@echo "🐳 FULL DOCKER DEVELOPMENT:"
-	@echo "  make dev             - Start all services in Docker (ports: API=$(BACKEND_PORT), UI=$(FRONTEND_PORT), DB=$(POSTGRES_PORT))"
-	@echo "  make dev-build       - Build and start development environment"
-	@echo "  make dev-down        - Stop all Docker services"
-	@echo "  make dev-restart     - Restart all Docker services"
-	@echo "  make dev-logs        - Show Docker logs (all services)"
-	@echo "  make dev-logs-api    - Show backend API logs only"
-	@echo "  make dev-logs-ui     - Show frontend logs only"
-	@echo "  make dev-logs-db     - Show database logs only"
-	@echo ""
-	@echo "🚀 PRODUCTION DOCKER:"
-	@echo "  make prod            - Start production stack"
-	@echo "  make prod-build      - Build and start production images"
-	@echo "  make prod-down       - Stop production stack"
-	@echo "  make prod-logs       - Show production logs"
-	@echo ""
-	@echo "🗄️  DATABASE MANAGEMENT:"
-	@echo "  make db-init         - Initialize database with seed data"
-	@echo "  make db-reset        - Complete database reset (structure + data)"
-	@echo "  make db-clean        - Remove all data (keep structure)"
-	@echo "  make db-shell        - Open PostgreSQL shell"
-	@echo "  make db-backup-full  - Create full database backup"
-	@echo "  make db-backup-schema - Create schema-only backup"
-	@echo "  make db-restore      - Restore database from backup"
-	@echo "  make db-migrate      - Run database migrations"
-	@echo ""
-	@echo "📊 MONITORING & STATUS:"
-	@echo "  make status          - Show comprehensive system status"
-	@echo "  make health          - Health checks for all services"
-	@echo "  make version         - Show component versions"
-	@echo "  make ps              - Show running containers"
-	@echo "  make top             - Show container resource usage"
-	@echo ""
-	@echo "🧪 TESTING:"
-	@echo "  make test            - Run all backend tests"
-	@echo "  make test-unit       - Run unit tests only (fast)"
-	@echo "  make test-integration - Run integration tests"
-	@echo "  make test-coverage   - Run tests with coverage report"
-	@echo "  make test-failed     - Re-run failed tests"
-	@echo "  make test-watch      - Run tests in watch mode"
-	@echo "  make test-frontend   - Run frontend tests"
-	@echo ""
-	@echo "🔧 CODE QUALITY:"
-	@echo "  make lint            - Lint backend code (ruff, mypy, bandit)"
-	@echo "  make lint-check      - Check backend code quality (no auto-fix, for CI/CD)"
-	@echo "  make lint-frontend   - Lint frontend code (ESLint + auto-fix)"
-	@echo "  make lint-frontend-check - Check frontend code quality (no auto-fix, for CI/CD)"
-	@echo "  make lint-all        - Lint all code (backend + frontend)"
-	@echo "  make lint-all-check  - Check all code quality without auto-fix (for CI/CD)"
-	@echo "  make format          - Format backend code (ruff)"
-	@echo "  make format-frontend - Format frontend code (Prettier)"
-	@echo "  make format-all      - Format all code (backend + frontend)"
-	@echo "  make check           - Run all backend quality checks (lint + test)"
-	@echo "  make check-all       - Run all quality checks (backend + frontend)"
-	@echo ""
-	@echo "🚀 CI/CD (matches GitHub Actions):"
-	@echo "  make ci              - Run full CI locally (backend + frontend)"
-	@echo "  make ci-backend      - Run backend CI locally"
-	@echo "  make ci-frontend     - Run frontend CI locally"
-	@echo ""
-	@echo "🛠️  UTILITIES:"
-	@echo "  make backend-shell   - Open bash shell in backend container"
-	@echo "  make frontend-shell  - Open bash shell in frontend container"
-	@echo "  make clean           - Clean up Docker resources"
-	@echo "  make clean-backend   - Clean Python cache files (__pycache__, .pyc, etc.)"
-	@echo "  make clean-all       - Stop everything and clean all data"
-	@echo "  make install-backend - Install backend dependencies"
-	@echo "  make install-frontend - Install frontend dependencies"
-	@echo "  make install-all     - Install all dependencies"
-	@echo ""
-	@echo "📝 DOCUMENTATION:"
-	@echo "  make docs            - Show API documentation URL"
-	@echo "  make api-docs        - Open API docs in browser"
-	@echo ""
-	@echo "ℹ️  For detailed help on any command, check the Makefile source."
-	@echo ""
+##@ Hybrid development (DB in Docker, API/UI local - recommended)
+hybrid-up: services-up ## Start Postgres + Redis, then run `make backend` and `make frontend`
+	@echo "API: make backend -> http://localhost:$(BACKEND_PORT)/docs | UI: make frontend -> http://localhost:$(VITE_DEV_PORT)"
 
-# ═══════════════════════════════════════════════════════════════
-# HYBRID DEVELOPMENT MODE (DB in Docker, API/Frontend local)
-# ═══════════════════════════════════════════════════════════════
-# This is the RECOMMENDED development mode for fastest iteration.
-# Changes to code are reflected immediately without Docker rebuild.
-# ═══════════════════════════════════════════════════════════════
+hybrid-down: ## Stop local API/UI and DB services
+	-pkill -f "uvicorn app.main:app"
+	-pkill -f "vite.*$(VITE_DEV_PORT)"
+	$(MAKE) services-down
 
-hybrid-up: services-up ## Start hybrid dev mode (DB in Docker, API/Frontend local)
-	@echo ""
-	@echo "$(GREEN)✅ Database services running in Docker$(NC)"
-	@echo ""
-	@echo "$(BLUE)📝 Now start API and Frontend in separate terminals:$(NC)"
-	@echo ""
-	@echo "$(YELLOW)  Terminal 1 (Backend API):$(NC)"
-	@echo "    cd $(BACKEND_DIR) && source .venv/bin/activate"
-	@echo "    uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_PORT)"
-	@echo ""
-	@echo "$(YELLOW)  OR use make:$(NC)"
-	@echo "    make backend"
-	@echo ""
-	@echo "$(YELLOW)  Terminal 2 (Frontend):$(NC)"
-	@echo "    cd $(FRONTEND_DIR) && npm run dev -- --port $(VITE_DEV_PORT)"
-	@echo ""
-	@echo "$(YELLOW)  OR use make:$(NC)"
-	@echo "    make frontend"
-	@echo ""
-	@echo "$(BLUE)🌐 Access points:$(NC)"
-	@echo "   Frontend (Vite): $(GREEN)http://localhost:$(VITE_DEV_PORT)$(NC)"
-	@echo "   Backend API:     $(GREEN)http://localhost:$(BACKEND_PORT)/docs$(NC)"
-	@echo "   Database:        $(GREEN)localhost:$(POSTGRES_PORT)$(NC)"
-	@echo ""
-	@echo "$(BLUE)💡 Tip: Use 'make status' to check service health$(NC)"
-	@echo ""
+services-up: ## Start only Postgres + Redis
+	$(DC_INFRA) up -d --wait postgres redis
 
-hybrid-down: ## Stop hybrid development environment
-	@echo "$(YELLOW)Stopping hybrid development environment...$(NC)"
-	@-pkill -f "uvicorn app.main:app" 2>/dev/null || true
-	@-pkill -f "vite.*$(VITE_DEV_PORT)" 2>/dev/null || true
-	@$(MAKE) services-down
-	@echo "$(GREEN)✅ Hybrid environment stopped$(NC)"
+services-down: ## Stop Postgres + Redis
+	$(DC_INFRA) stop postgres redis
 
-services-up: ## Start only database services in Docker
-	@echo "$(BLUE)Starting database services...$(NC)"
-	@$(DOCKER_COMPOSE_INFRA) up -d postgres redis
-	@echo "$(GREEN)✅ Database services started$(NC)"
-	@echo "$(BLUE)Waiting for PostgreSQL to be ready...$(NC)"
-	@sleep 5
-	@docker exec $(POSTGRES_CONTAINER) pg_isready -U $(POSTGRES_USER) > /dev/null 2>&1 && \
-		echo "$(GREEN)✅ PostgreSQL is ready$(NC)" || \
-		echo "$(YELLOW)⚠️  PostgreSQL still starting...$(NC)"
+backend: ## Run the API locally with reload
+	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_PORT)
 
-services-down: ## Stop only database services
-	@echo "$(YELLOW)Stopping database services...$(NC)"
-	@$(DOCKER_COMPOSE_INFRA) stop postgres redis
-	@echo "$(GREEN)✅ Database services stopped$(NC)"
+frontend: ## Run the Vite dev server locally
+	cd frontend && npm run dev -- --host 0.0.0.0 --port $(VITE_DEV_PORT)
 
-backend: ## Start backend API locally (hybrid mode)
-	@echo "$(BLUE)Starting backend API on port $(BACKEND_PORT)...$(NC)"
-	@echo "$(YELLOW)Database URL: $(DATABASE_URL)$(NC)"
-	@cd $(BACKEND_DIR) && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_PORT)
-
-frontend: ## Start frontend dev server locally (hybrid mode)
-	@echo "$(BLUE)Starting frontend dev server on port $(VITE_DEV_PORT)...$(NC)"
-	@echo "$(YELLOW)API URL: $(VITE_API_BASE_URL)$(NC)"
-	@cd $(FRONTEND_DIR) && npm run dev -- --host 0.0.0.0 --port $(VITE_DEV_PORT)
-
-# ═══════════════════════════════════════════════════════════════
-# FULL DOCKER DEVELOPMENT
-# ═══════════════════════════════════════════════════════════════
-
+##@ Full Docker
 dev: ## Start all services in Docker
-	@echo "$(BLUE)Starting Gene Curator development environment...$(NC)"
-	@$(DOCKER_COMPOSE) up -d
-	@echo ""
-	@echo "$(GREEN)✅ Development environment started!$(NC)"
-	@echo ""
-	@echo "$(BLUE)🌐 Access points:$(NC)"
-	@echo "   Frontend:  $(GREEN)http://localhost:$(FRONTEND_PORT)$(NC)"
-	@echo "   Backend:   $(GREEN)http://localhost:$(BACKEND_PORT)/docs$(NC)"
-	@echo "   Database:  $(GREEN)localhost:$(POSTGRES_PORT)$(NC)"
-	@echo ""
-	@echo "$(BLUE)💡 Useful commands:$(NC)"
-	@echo "   make status      - Show system status"
-	@echo "   make dev-logs    - View logs"
-	@echo "   make dev-down    - Stop services"
-	@echo ""
+	$(DC_DEV) up -d
 
-dev-build: ## Build and start development environment
-	@echo "$(BLUE)Building and starting development environment...$(NC)"
-	@$(DOCKER_COMPOSE) up -d --build
-	@echo "$(GREEN)✅ Development environment built and started!$(NC)"
+dev-build: ## Rebuild and start all services
+	$(DC_DEV) up -d --build
 
-dev-down: ## Stop all Docker services
-	@echo "$(YELLOW)Stopping development environment...$(NC)"
-	@$(DOCKER_COMPOSE) down
-	@echo "$(GREEN)✅ Development environment stopped$(NC)"
+dev-down: ## Stop all services
+	$(DC_DEV) down
 
-dev-restart: ## Restart all Docker services
-	@$(MAKE) dev-down
-	@$(MAKE) dev
+dev-logs: ## Follow logs of all services
+	$(DC_DEV) logs -f
 
-dev-logs: ## Show Docker logs (all services)
-	@$(DOCKER_COMPOSE) logs -f
+prod: ## Start the production stack
+	$(DC_PROD) up -d
 
-dev-logs-api: ## Show backend API logs only
-	@$(DOCKER_COMPOSE) logs -f backend
+prod-build: ## Rebuild and start the production stack
+	$(DC_PROD) up -d --build
 
-dev-logs-ui: ## Show frontend logs only
-	@$(DOCKER_COMPOSE) logs -f frontend
+prod-down: ## Stop the production stack
+	$(DC_PROD) down
 
-dev-logs-db: ## Show database logs only
-	@$(DOCKER_COMPOSE) logs -f postgres
+prod-logs: ## Follow production logs
+	$(DC_PROD) logs -f
 
-# ═══════════════════════════════════════════════════════════════
-# PRODUCTION DOCKER
-# ═══════════════════════════════════════════════════════════════
+##@ Database
+db-reset: ## DESTRUCTIVE: drop the dev volume and rebuild from database/sql
+	@read -p "Delete ALL dev data? [y/N] " r; [[ $$r =~ ^[Yy]$$ ]] || exit 1
+	$(DC_DEV) down -v
+	$(DC_INFRA) up -d --wait postgres
 
-prod: ## Start production stack
-	@echo "$(BLUE)Starting Gene Curator production environment...$(NC)"
-	@$(DOCKER_COMPOSE_PROD) up -d
-	@echo ""
-	@echo "$(GREEN)✅ Production environment started!$(NC)"
-	@echo ""
-	@echo "$(BLUE)🌐 Access points:$(NC)"
-	@echo "   Frontend:  $(GREEN)http://localhost:$(FRONTEND_PORT)$(NC)"
-	@echo "   Backend:   $(GREEN)http://localhost:$(BACKEND_PORT)/docs$(NC)"
-	@echo ""
+db-migrate: ## Apply one SQL file to the dev DB: make db-migrate FILE=database/sql/027_x.sql
+	@test -n "$(FILE)" || { echo "usage: make db-migrate FILE=database/sql/<file>.sql"; exit 1; }
+	docker exec -i $(POSTGRES_CONTAINER) psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) < $(FILE)
 
-prod-build: ## Build and start production environment
-	@echo "$(BLUE)Building and starting production environment...$(NC)"
-	@$(DOCKER_COMPOSE_PROD) up -d --build
-	@echo "$(GREEN)✅ Production environment built and started!$(NC)"
+db-shell: ## Open psql in the dev DB
+	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
-prod-down: ## Stop production stack
-	@echo "$(YELLOW)Stopping production environment...$(NC)"
-	@$(DOCKER_COMPOSE_PROD) down
-	@echo "$(GREEN)✅ Production environment stopped$(NC)"
-
-prod-logs: ## Show production Docker logs
-	@$(DOCKER_COMPOSE_PROD) logs -f
-
-# ═══════════════════════════════════════════════════════════════
-# DATABASE MANAGEMENT
-# ═══════════════════════════════════════════════════════════════
-
-db-init: ## Initialize database with seed data
-	@echo "$(BLUE)Initializing database...$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) /bin/bash -c "cd /docker-entrypoint-initdb.d && ./init.sh"
-	@echo "$(GREEN)✅ Database initialized$(NC)"
-
-db-reset: ## Complete database reset (structure + data)
-	@echo "$(RED)⚠️  WARNING: This will delete ALL data!$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		echo "$(YELLOW)Resetting database...$(NC)"; \
-		$(DOCKER_COMPOSE) down -v; \
-		$(DOCKER_COMPOSE) up -d postgres; \
-		sleep 10; \
-		$(MAKE) db-init; \
-		echo "$(GREEN)✅ Database reset complete$(NC)"; \
-	else \
-		echo "$(YELLOW)Database reset cancelled$(NC)"; \
-	fi
-
-db-clean: ## Remove all data (keep structure)
-	@echo "$(YELLOW)Cleaning database data...$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\
-		TRUNCATE TABLE users, genes, precurations, curations, reviews CASCADE; \
-	"
-	@echo "$(GREEN)✅ Database data cleaned$(NC)"
-
-db-shell: ## Open PostgreSQL shell
-	@echo "$(BLUE)Opening PostgreSQL shell...$(NC)"
-	@docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
-
-db-backup-full: ## Create full database backup
-	@echo "$(BLUE)Creating full database backup...$(NC)"
+db-backup: ## Dump the dev DB to backups/
 	@mkdir -p $(BACKUP_DIR)
-	@timestamp=$$(date +%Y%m%d_%H%M%S); \
-	docker exec $(POSTGRES_CONTAINER) pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -F c > $(BACKUP_DIR)/backup_$$timestamp.dump; \
-	echo "$(GREEN)✅ Backup saved to $(BACKUP_DIR)/backup_$$timestamp.dump$(NC)"
+	docker exec $(POSTGRES_CONTAINER) pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) -F c > $(BACKUP_DIR)/backup_$$(date +%Y%m%d_%H%M%S).dump
 
-db-backup-schema: ## Create schema-only backup
-	@echo "$(BLUE)Creating schema-only backup...$(NC)"
-	@mkdir -p $(BACKUP_DIR)
-	@timestamp=$$(date +%Y%m%d_%H%M%S); \
-	docker exec $(POSTGRES_CONTAINER) pg_dump -U $(POSTGRES_USER) -d $(POSTGRES_DB) --schema-only > $(BACKUP_DIR)/schema_$$timestamp.sql; \
-	echo "$(GREEN)✅ Schema backup saved to $(BACKUP_DIR)/schema_$$timestamp.sql$(NC)"
+db-restore: ## Restore a dump: make db-restore FILE=backups/x.dump
+	@test -f "$(FILE)" || { echo "usage: make db-restore FILE=backups/<file>.dump"; exit 1; }
+	docker exec -i $(POSTGRES_CONTAINER) pg_restore -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c < $(FILE)
 
-db-restore: ## Restore database from backup
-	@echo "$(RED)⚠️  WARNING: This will overwrite the current database!$(NC)"
-	@read -p "Backup file path: " backup_file; \
-	if [ -f "$$backup_file" ]; then \
-		echo "$(YELLOW)Restoring from $$backup_file...$(NC)"; \
-		cat $$backup_file | docker exec -i $(POSTGRES_CONTAINER) pg_restore -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c; \
-		echo "$(GREEN)✅ Database restored$(NC)"; \
-	else \
-		echo "$(RED)❌ File not found: $$backup_file$(NC)"; \
-	fi
+##@ Status
+status: ## Containers and row counts
+	@docker ps --filter "name=gene_curator" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "SELECT (SELECT COUNT(*) FROM scopes) scopes, (SELECT COUNT(*) FROM genes) genes, (SELECT COUNT(*) FROM curations) curations, (SELECT COUNT(*) FROM users) users;" 2>/dev/null || echo "DB not running"
 
-db-migrate: ## Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	@cd $(BACKEND_DIR) && uv run alembic upgrade head
-	@echo "$(GREEN)✅ Migrations complete$(NC)"
+health: ## Probe API, UI and DB
+	@curl -fsS http://localhost:$(BACKEND_PORT)/health && echo || echo "API down"
+	@curl -fsS -o /dev/null http://localhost:$(VITE_DEV_PORT) && echo "UI up" || echo "UI down"
+	@docker exec $(POSTGRES_CONTAINER) pg_isready -U $(POSTGRES_USER) || true
 
-# ═══════════════════════════════════════════════════════════════
-# MONITORING & STATUS
-# ═══════════════════════════════════════════════════════════════
+##@ Fast loop
+check: ## Fast pre-push gate: lint, types, size limit, unit tests (no coverage)
+	cd backend && uv run ruff check app tests && uv run ruff format --check app tests && uv run mypy app && uv run pytest -q
+	cd frontend && npm run lint:check && npm run format:check && npm run typecheck && npx vitest run
+	python3 scripts/check_file_size.py
 
-status: ## Show comprehensive system status
-	@echo "╔════════════════════════════════════════════════════════════════╗"
-	@echo "║         Gene Curator - System Status                           ║"
-	@echo "╚════════════════════════════════════════════════════════════════╝"
-	@echo ""
-	@echo "$(BLUE)📊 DOCKER SERVICES:$(NC)"
-	@docker ps --filter "name=gene_curator" --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" 2>/dev/null || echo "$(YELLOW)No Docker services running$(NC)"
-	@echo ""
-	@echo "$(BLUE)🗄️  DATABASE STATISTICS:$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB) -c "\
-		SELECT \
-			(SELECT COUNT(*) FROM scopes) as scopes, \
-			(SELECT COUNT(*) FROM genes) as genes, \
-			(SELECT COUNT(*) FROM curations) as curations, \
-			(SELECT COUNT(*) FROM precurations) as precurations, \
-			(SELECT COUNT(*) FROM curation_schemas) as schemas, \
-			(SELECT COUNT(*) FROM users) as users; \
-	" 2>/dev/null || echo "$(RED)❌ Database not accessible$(NC)"
-	@echo ""
-	@echo "$(BLUE)💾 DISK USAGE:$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) du -sh /var/lib/postgresql/data 2>/dev/null || echo "$(YELLOW)N/A$(NC)"
-	@echo ""
-	@echo "$(BLUE)⏱️  CONTAINER UPTIME:$(NC)"
-	@docker ps --filter "name=$(POSTGRES_CONTAINER)" --format "PostgreSQL: {{.Status}}" 2>/dev/null || echo "$(RED)❌ PostgreSQL not running$(NC)"
-	@docker ps --filter "name=$(BACKEND_CONTAINER)" --format "Backend:    {{.Status}}" 2>/dev/null || echo "$(YELLOW)Backend not running in Docker (may be running locally)$(NC)"
-	@docker ps --filter "name=$(FRONTEND_CONTAINER)" --format "Frontend:   {{.Status}}" 2>/dev/null || echo "$(YELLOW)Frontend not running in Docker (may be running locally)$(NC)"
-	@echo ""
+format: ## Auto-fix formatting and lint (backend + frontend)
+	cd backend && uv run ruff check --fix app tests && uv run ruff format app tests
+	cd frontend && npm run lint && npm run format
 
-health: ## Health checks for all services
-	@echo "$(BLUE)🏥 Health Checks:$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Backend API:$(NC)"
-	@curl -s http://localhost:$(BACKEND_PORT)/health 2>/dev/null | jq '.' || echo "$(RED)❌ Not responding (URL: http://localhost:$(BACKEND_PORT)/health)$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Frontend:$(NC)"
-	@curl -s http://localhost:$(FRONTEND_PORT) > /dev/null 2>&1 && echo "$(GREEN)✅ Running$(NC)" || \
-		curl -s http://localhost:$(VITE_DEV_PORT) > /dev/null 2>&1 && echo "$(GREEN)✅ Running (Vite dev)$(NC)" || \
-		echo "$(RED)❌ Not running$(NC)"
-	@echo ""
-	@echo "$(YELLOW)Database:$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) pg_isready -U $(POSTGRES_USER) > /dev/null 2>&1 && echo "$(GREEN)✅ Ready$(NC)" || echo "$(RED)❌ Not ready$(NC)"
-	@echo ""
+test: ## Backend tests (SQLite)
+	cd backend && uv run pytest
 
-version: ## Show component versions
-	@echo "╔════════════════════════════════════════════════════════════════╗"
-	@echo "║         Gene Curator - Component Versions                      ║"
-	@echo "╚════════════════════════════════════════════════════════════════╝"
-	@echo ""
-	@echo "$(BLUE)🐍 Python:$(NC)"
-	@python3 --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)📦 UV:$(NC)"
-	@uv --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)🟢 Node.js:$(NC)"
-	@node --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)📦 npm:$(NC)"
-	@npm --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)🐳 Docker:$(NC)"
-	@docker --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)🐳 Docker Compose:$(NC)"
-	@docker compose version 2>/dev/null || docker-compose --version 2>/dev/null || echo "$(YELLOW)Not installed$(NC)"
-	@echo ""
-	@echo "$(BLUE)🐘 PostgreSQL:$(NC)"
-	@docker exec $(POSTGRES_CONTAINER) psql --version 2>/dev/null || echo "$(YELLOW)Not running$(NC)"
-	@echo ""
+test-postgres: ## Backend RLS/scope tests on a throwaway Postgres built from database/sql
+	scripts/test-postgres.sh -q
 
-ps: ## Show running containers
-	@docker ps --filter "name=gene_curator"
+test-frontend: ## Frontend unit tests
+	cd frontend && npx vitest run
 
-top: ## Show container resource usage
-	@echo "$(BLUE)📊 Container Resource Usage:$(NC)"
-	@docker stats --no-stream --format "table {{.Container}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.NetIO}}" \
-		$(POSTGRES_CONTAINER) $(BACKEND_CONTAINER) $(FRONTEND_CONTAINER) 2>/dev/null || \
-		echo "$(YELLOW)No containers running$(NC)"
+test-e2e: ## Playwright E2E (needs `make hybrid-up`, backend and frontend running)
+	cd frontend && npm run test:e2e
 
-# ═══════════════════════════════════════════════════════════════
-# TESTING
-# ═══════════════════════════════════════════════════════════════
+##@ CI (GitHub Actions runs exactly these)
+ci: ci-backend test-postgres ci-frontend ci-repo diff-cover ## Everything CI runs
 
-test: ## Run all backend tests
-	@echo "$(BLUE)Running all tests...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest
+ci-backend: ## Backend: ruff, mypy, bandit, tests + coverage floor
+	cd backend && uv run ruff check app tests && uv run ruff format --check app tests \
+		&& uv run mypy app && uv run bandit -q -c .bandit -r app \
+		&& uv run pytest -q --cov=app --cov-report=xml --cov-report=term:skip-covered
 
-test-unit: ## Run unit tests only (fast)
-	@echo "$(BLUE)Running unit tests...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest tests/unit -v
+ci-frontend: ## Frontend: eslint, prettier, vue-tsc, tests + coverage floor, build
+	cd frontend && npm run lint:check && npm run format:check && npm run typecheck \
+		&& npx vitest run --coverage && npm run build
 
-test-integration: ## Run integration tests
-	@echo "$(BLUE)Running integration tests...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest tests/integration -v
+ci-repo: api-types-check ## Repo rules: file size limit, generated API types up to date
+	python3 scripts/check_file_size.py
 
-test-coverage: ## Run tests with coverage report
-	@echo "$(BLUE)Running tests with coverage...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest --cov=app --cov-report=html --cov-report=term
-	@echo ""
-	@echo "$(GREEN)📊 Coverage report: $(BACKEND_DIR)/htmlcov/index.html$(NC)"
+diff-cover: ## Changed lines must be >= $(DIFF_COVER_MIN)% covered (uses whichever coverage reports exist)
+	@if [ -f frontend/coverage/lcov.info ]; then sed 's#^SF:#SF:frontend/#' frontend/coverage/lcov.info > frontend/coverage/lcov.repo.info; fi
+	uvx diff-cover@9.7.1 $(wildcard backend/coverage.xml frontend/coverage/lcov.repo.info) \
+		--compare-branch=$(BASE) --fail-under=$(DIFF_COVER_MIN)
 
-test-failed: ## Re-run failed tests
-	@echo "$(BLUE)Re-running failed tests...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest --lf -v
+api-types: ## Regenerate frontend/src/types/api.generated.ts from the backend OpenAPI schema
+	cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" 2>/dev/null > ../frontend/openapi.json
+	cd frontend && npx --yes openapi-typescript@7.13.0 openapi.json -o src/types/api.generated.ts && rm openapi.json
 
-test-watch: ## Run tests in watch mode
-	@echo "$(BLUE)Running tests in watch mode...$(NC)"
-	@cd $(BACKEND_DIR) && uv run pytest-watch
+api-types-check: api-types ## Fail if the generated API types are stale
+	git diff --exit-code -- frontend/src/types/api.generated.ts
 
-test-frontend: ## Run frontend tests
-	@echo "$(BLUE)Running frontend tests...$(NC)"
-	@cd $(FRONTEND_DIR) && npm run test
+audit: audit-backend audit-frontend ## Known-vulnerability scan of both lockfiles
 
-# ═══════════════════════════════════════════════════════════════
-# CODE QUALITY
-# ═══════════════════════════════════════════════════════════════
+audit-backend: ## pip-audit against backend/uv.lock
+	cd backend && uv export --frozen --no-hashes --no-emit-project --all-extras \
+		| uvx pip-audit@2.10.0 --strict --disable-pip --no-deps -r /dev/stdin
 
-lint: ## Lint backend code (ruff, mypy, bandit)
-	@echo "$(BLUE)Linting backend code...$(NC)"
-	@cd $(BACKEND_DIR) && uv run python scripts/lint.py
+audit-frontend: ## npm audit (high and critical) of shipped dependencies; dev tooling is not shipped
+	cd frontend && npm audit --omit=dev --audit-level=high
 
-lint-check: ## Lint backend without auto-fix (for CI/CD)
-	@echo "$(BLUE)Checking backend code quality (no auto-fix)...$(NC)"
-	@cd $(BACKEND_DIR) && uv run ruff check app/ tests/ && \
-		uv run ruff format --check app/ tests/ && \
-		uv run mypy app/ && \
-		uv run bandit -c .bandit -r app/
-	@echo "$(GREEN)✅ All checks passed!$(NC)"
+workflows: ## Lint GitHub workflows (zizmor)
+	uvx zizmor@1.31.1 --min-severity medium .github/
 
-lint-frontend: ## Lint frontend code (ESLint)
-	@echo "$(BLUE)Linting frontend code...$(NC)"
-	@cd $(FRONTEND_DIR) && npm run lint
+##@ Cleanup
+clean: ## Remove caches and build output
+	find backend -type d \( -name __pycache__ -o -name .pytest_cache -o -name .mypy_cache -o -name .ruff_cache \) -prune -exec rm -rf {} +
+	rm -rf backend/htmlcov backend/coverage.xml frontend/dist frontend/coverage
 
-lint-frontend-check: ## Lint frontend without auto-fix (for CI/CD)
-	@echo "$(BLUE)Checking frontend code quality (no auto-fix)...$(NC)"
-	@cd $(FRONTEND_DIR) && npm run lint:check && npm run format:check
-	@echo "$(GREEN)✅ All checks passed!$(NC)"
+clean-all: ## DESTRUCTIVE: stop everything and delete Docker volumes
+	@read -p "Delete ALL Docker volumes for this project? [y/N] " r; [[ $$r =~ ^[Yy]$$ ]] || exit 1
+	$(DC_DEV) down -v --remove-orphans
 
-lint-all: lint lint-frontend ## Lint all code (backend + frontend)
-
-lint-all-check: lint-check lint-frontend-check ## Check all code quality without auto-fix (for CI/CD)
-
-format: ## Format backend code
-	@echo "$(BLUE)Formatting backend code...$(NC)"
-	@cd $(BACKEND_DIR) && uv run python scripts/format.py
-
-format-frontend: ## Format frontend code (Prettier)
-	@echo "$(BLUE)Formatting frontend code...$(NC)"
-	@cd $(FRONTEND_DIR) && npm run format
-
-format-all: format format-frontend ## Format all code (backend + frontend)
-
-check: lint test ## Run all quality checks (lint + test)
-
-check-all: lint-all test test-frontend ## Run all quality checks (backend + frontend)
-
-# ═══════════════════════════════════════════════════════════════
-# CI/CD COMMANDS (matches GitHub Actions exactly)
-# ═══════════════════════════════════════════════════════════════
-
-ci-backend: ## Run backend CI locally (matches GitHub Actions)
-	@echo "$(BLUE)Running backend CI checks...$(NC)"
-	@cd $(BACKEND_DIR) && \
-		echo "🔍 Ruff check..." && uv run ruff check app/ tests/ && \
-		echo "🔍 Ruff format check..." && uv run ruff format --check app/ tests/ && \
-		echo "🔍 MyPy type check..." && uv run mypy app/ && \
-		echo "🔍 Bandit security check..." && uv run bandit -c .bandit -r app/ && \
-		echo "🧪 Running tests..." && uv run pytest tests/ -v --cov=app --cov-report=term-missing
-	@echo "$(GREEN)✅ Backend CI passed!$(NC)"
-
-ci-frontend: ## Run frontend CI locally (matches GitHub Actions)
-	@echo "$(BLUE)Running frontend CI checks...$(NC)"
-	@cd $(FRONTEND_DIR) && \
-		echo "🔍 ESLint check..." && npm run lint:check && \
-		echo "🔍 Prettier format check..." && npm run format:check && \
-		echo "🧪 Running tests..." && npm run test:run && \
-		echo "📦 Building..." && npm run build
-	@echo "$(GREEN)✅ Frontend CI passed!$(NC)"
-
-ci: ci-backend ci-frontend ## Run full CI locally (matches GitHub Actions)
-
-# ═══════════════════════════════════════════════════════════════
-# UTILITIES
-# ═══════════════════════════════════════════════════════════════
-
-backend-shell: ## Open bash shell in backend container
-	@docker exec -it $(BACKEND_CONTAINER) /bin/bash
-
-frontend-shell: ## Open bash shell in frontend container
-	@docker exec -it $(FRONTEND_CONTAINER) /bin/bash
-
-clean: ## Clean up Docker resources
-	@echo "$(YELLOW)Cleaning up Docker resources...$(NC)"
-	@$(DOCKER_COMPOSE) down --remove-orphans
-	@docker system prune -f
-	@echo "$(GREEN)✅ Cleanup complete$(NC)"
-
-clean-backend: ## Clean Python cache files (__pycache__, .pyc, etc.)
-	@echo "$(BLUE)Cleaning backend cache files...$(NC)"
-	@echo "  Removing Python cache directories..."
-	@find $(BACKEND_DIR) -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	@find $(BACKEND_DIR) -type f -name "*.pyc" -delete 2>/dev/null || true
-	@find $(BACKEND_DIR) -type f -name "*.pyo" -delete 2>/dev/null || true
-	@find $(BACKEND_DIR) -type d -name "*.egg-info" -exec rm -rf {} + 2>/dev/null || true
-	@echo "  Removing .cache directory..."
-	@rm -rf $(BACKEND_DIR)/.cache 2>/dev/null || true
-	@echo "  Removing pytest cache..."
-	@rm -rf $(BACKEND_DIR)/.pytest_cache 2>/dev/null || true
-	@echo "  Removing ruff cache..."
-	@rm -rf $(BACKEND_DIR)/.ruff_cache 2>/dev/null || true
-	@echo "  Removing mypy cache..."
-	@rm -rf $(BACKEND_DIR)/.mypy_cache 2>/dev/null || true
-	@echo "$(GREEN)✅ Backend cache cleaned!$(NC)"
-
-clean-all: ## Stop everything and clean all data
-	@echo "$(RED)⚠️  WARNING: This will delete ALL Docker volumes and data!$(NC)"
-	@read -p "Are you sure? [y/N] " -n 1 -r; \
-	echo; \
-	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		echo "$(YELLOW)Cleaning everything...$(NC)"; \
-		$(DOCKER_COMPOSE) down -v --remove-orphans; \
-		docker system prune -af --volumes; \
-		echo "$(GREEN)✅ All Docker resources cleaned$(NC)"; \
-	else \
-		echo "$(YELLOW)Cleanup cancelled$(NC)"; \
-	fi
-
-install-backend: ## Install backend dependencies
-	@echo "$(BLUE)Installing backend dependencies...$(NC)"
-	@cd $(BACKEND_DIR) && uv sync
-	@echo "$(GREEN)✅ Backend dependencies installed$(NC)"
-
-install-frontend: ## Install frontend dependencies
-	@echo "$(BLUE)Installing frontend dependencies...$(NC)"
-	@cd $(FRONTEND_DIR) && npm install
-	@echo "$(GREEN)✅ Frontend dependencies installed$(NC)"
-
-install-all: install-backend install-frontend ## Install all dependencies
-
-# ═══════════════════════════════════════════════════════════════
-# DOCUMENTATION
-# ═══════════════════════════════════════════════════════════════
-
-docs: ## Show API documentation URL
-	@echo "$(BLUE)📚 API Documentation:$(NC)"
-	@echo "   Swagger UI: $(GREEN)http://localhost:$(BACKEND_PORT)/docs$(NC)"
-	@echo "   ReDoc:      $(GREEN)http://localhost:$(BACKEND_PORT)/redoc$(NC)"
-
-api-docs: ## Open API docs in browser
-	@echo "$(BLUE)Opening API documentation...$(NC)"
-	@python3 -m webbrowser http://localhost:$(BACKEND_PORT)/docs 2>/dev/null || \
-		xdg-open http://localhost:$(BACKEND_PORT)/docs 2>/dev/null || \
-		open http://localhost:$(BACKEND_PORT)/docs 2>/dev/null || \
-		echo "$(YELLOW)Please open http://localhost:$(BACKEND_PORT)/docs in your browser$(NC)"
+.PHONY: install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
+	prod prod-build prod-down prod-logs db-reset db-migrate db-shell db-backup db-restore status health \
+	check format test test-postgres test-frontend test-e2e ci ci-backend ci-frontend ci-repo diff-cover \
+	api-types api-types-check workflows clean clean-all

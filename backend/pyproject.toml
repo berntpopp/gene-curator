@@ -48,7 +48,6 @@ dev = [
     "pytest-cov>=4.1.0",
     "ruff>=0.1.6",
     "mypy>=1.7.1",
-    "diff-cover>=9.2.0",
     "bandit>=1.7.5",
     "pip-audit>=2.6.0",
     "types-defusedxml>=0.7.0",
@@ -235,6 +234,8 @@ omit = [
 ]
 
 [tool.coverage.report]
+# Ratchet floor: raise as coverage grows, never lower (target 90%, AGENTS.md)
+fail_under = 59
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",

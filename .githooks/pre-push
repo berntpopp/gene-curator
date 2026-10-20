@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Local gate before code leaves the machine: lint, types, size limit, unit tests.
+# `make ci` is the full gate (adds coverage, PostgreSQL lane, build). Bypass: `git push --no-verify`.
+exec make check

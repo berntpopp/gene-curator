@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+# Fast checks on staged files only. Installed by `make install` (core.hooksPath=.githooks).
+# Bypass with `git commit --no-verify` only after checking the finding by hand.
+set -euo pipefail
+staged() { git diff --cached --name-only --diff-filter=ACMR -- "$@"; }
+
+mapfile -t py < <(staged 'backend/*.py' | sed 's#^backend/##')
+if ((${#py[@]})); then
+  (cd backend && uv run ruff check "${py[@]}" && uv run ruff format --check "${py[@]}")
+fi
+
+mapfile -t fe < <(staged 'frontend/*.js' 'frontend/*.ts' 'frontend/*.vue' | sed 's#^frontend/##')
+if ((${#fe[@]})); then
+  (cd frontend && npx eslint --no-warn-ignored "${fe[@]}" && npx prettier --check --ignore-unknown "${fe[@]}")
+fi
+
+python3 scripts/check_file_size.py

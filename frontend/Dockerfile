@@ -1,5 +1,5 @@
 # Multi-stage build for production
-FROM node:20-alpine as build-stage
+FROM node:24-alpine AS build-stage
 
 WORKDIR /app
 
@@ -14,7 +14,8 @@ COPY . .
 
 # Set build-time environment variables
 ARG VITE_API_BASE_URL=http://localhost:8051
-ARG VITE_ENABLE_DEV_LOGIN=true
+# Quick-login buttons expose seeded credentials: never on by default in a production image
+ARG VITE_ENABLE_DEV_LOGIN=false
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
 ENV VITE_ENABLE_DEV_LOGIN=$VITE_ENABLE_DEV_LOGIN
 
@@ -22,7 +23,7 @@ ENV VITE_ENABLE_DEV_LOGIN=$VITE_ENABLE_DEV_LOGIN
 RUN npm run build
 
 # Production stage
-FROM nginx:alpine as production-stage
+FROM nginx:alpine AS production-stage
 
 # Copy built assets from build stage
 COPY --from=build-stage /app/dist /usr/share/nginx/html
