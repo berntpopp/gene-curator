@@ -7,13 +7,16 @@ vi.mock('@/api', () => ({
   externalValidationAPI: { fetchHGNCGene: vi.fn() }
 }))
 
-vi.mock('vue-router', () => ({
-  useRoute: () => ({ params: { id: 'gene-1' } })
-}))
+vi.mock('vue-router', async () => {
+  const { reactive } = await import('vue')
+  const route = reactive({ params: { id: 'gene-1' } })
+  return { useRoute: () => route }
+})
 
 import { genesAPI, externalValidationAPI } from '@/api'
 import { useGenesStore } from '@/stores/genes'
 import GeneDetail from '@/views/GeneDetail.vue'
+import { useRoute } from 'vue-router'
 
 const localGene = {
   id: 'gene-1',
@@ -83,5 +86,17 @@ describe('GeneDetail view', () => {
     await flushPromises()
     expect(genesAPI.getGeneById).toHaveBeenCalledWith('gene-1')
     expect(useGenesStore().currentGene).toEqual(localGene)
+  })
+
+  it('reloads when the route id changes', async () => {
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
+    vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({ results: [] } as never)
+    mountView()
+    await flushPromises()
+    expect(genesAPI.getGeneById).toHaveBeenLastCalledWith('gene-1')
+
+    useRoute().params = { id: 'gene-2' }
+    await flushPromises()
+    expect(genesAPI.getGeneById).toHaveBeenLastCalledWith('gene-2')
   })
 })

@@ -243,7 +243,7 @@
    * combined with local database metadata.
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGenesStore } from '@/stores/genes'
   import { externalValidationAPI } from '@/api'
@@ -308,11 +308,9 @@
     if (!hgncId) return
 
     try {
-      const response = (await externalValidationAPI.fetchHGNCGene(hgncId)) as {
-        results?: HgncGene[]
-      }
+      const response = await externalValidationAPI.fetchHGNCGene(hgncId)
 
-      if (response.results && response.results.length > 0) {
+      if (response.results.length > 0) {
         hgncData.value = response.results[0] ?? null
         logger.debug('HGNC data fetched', {
           hgnc_id: hgncId,
@@ -328,12 +326,12 @@
     }
   }
 
-  onMounted(async () => {
+  async function loadGene(geneId: string) {
     try {
       loading.value = true
       error.value = null
+      hgncData.value = null
 
-      const geneId = route.params.id as string
       const gene = await genesStore.fetchGeneById(geneId)
 
       // Fetch HGNC data for enhanced information
@@ -355,7 +353,10 @@
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  // Reload when navigating between genes (the component is reused for /genes/:id)
+  watch(() => route.params.id as string, loadGene, { immediate: true })
 </script>
 
 <style scoped>

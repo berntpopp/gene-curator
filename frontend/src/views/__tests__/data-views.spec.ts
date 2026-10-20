@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { useRoute } from 'vue-router'
 import GeneSummaryView from '@/views/GeneSummaryView.vue'
 import GenesTable from '@/views/GenesTable.vue'
 import SchemaManagement from '@/views/SchemaManagement.vue'
@@ -22,11 +23,16 @@ const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(()
   showSuccess: vi.fn()
 }))
 
-vi.mock('vue-router', async importOriginal => ({
-  ...(await importOriginal<typeof import('vue-router')>()),
-  useRouter: () => ({ push: routerPush, back: vi.fn() }),
-  useRoute: () => routeState
-}))
+vi.mock('vue-router', async importOriginal => {
+  const { reactive } = await import('vue')
+  // Reactive view of routeState so tests can simulate in-place navigation
+  const reactiveRoute = reactive(routeState)
+  return {
+    ...(await importOriginal<typeof import('vue-router')>()),
+    useRouter: () => ({ push: routerPush, back: vi.fn() }),
+    useRoute: () => reactiveRoute
+  }
+})
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/composables/useNotifications', () => ({
   showError,
@@ -74,6 +80,20 @@ describe('GeneSummaryView', () => {
     expect(wrapper.text()).toContain('Scopes Curating')
     expect(wrapper.text()).toContain('Definitive')
     expect(wrapper.text()).toContain('Conflicting Classifications')
+  })
+
+  it('reloads the summary when the route gene changes', async () => {
+    const fetchSummary = vi
+      .spyOn(useGeneSummaryStore(), 'fetchPublicSummary')
+      .mockResolvedValue(undefined as never)
+    vi.spyOn(useGenesStore(), 'fetchGeneById').mockResolvedValue({ approved_symbol: 'X' } as never)
+    mount(GeneSummaryView, opts())
+    await flushPromises()
+    expect(fetchSummary).toHaveBeenLastCalledWith('gene-1')
+
+    useRoute().params = { geneId: 'gene-2' }
+    await flushPromises()
+    expect(fetchSummary).toHaveBeenLastCalledWith('gene-2')
   })
 
   it('shows the loading indicator while the summary is being fetched', () => {

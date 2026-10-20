@@ -249,12 +249,11 @@
     searchingGenes.value = true
     try {
       // The API answers with a plain GeneSummary list (is_assigned replaces the old status field)
-      const results = (await genesStore.searchGenes({
+      availableGenes.value = await genesStore.searchGenes({
         query,
         scope_id: selectedScope.value?.id,
         limit: 20
-      })) as unknown as GeneOption[]
-      availableGenes.value = results
+      })
     } catch (error) {
       const err = error as ApiError
       logger.error('Gene search failed:', { error: err.message, stack: err.stack })
