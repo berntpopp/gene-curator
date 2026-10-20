@@ -9,9 +9,9 @@
             label="New password"
             type="password"
             autocomplete="new-password"
-            :rules="[minLength]"
+            :rules="passwordRules"
             variant="outlined"
-            hint="Minimum 8 characters"
+            :hint="`${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} characters`"
           />
           <v-text-field
             v-model="confirm"
@@ -34,6 +34,7 @@
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
+  import { passwordRules, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/config/password'
   import type { UserRecord } from '@/views/user-management/userManagementHelpers'
 
   defineProps<{ user: UserRecord | null }>()
@@ -44,7 +45,6 @@
   const password = ref('')
   const confirm = ref('')
 
-  const minLength = (v: string) => (!!v && v.length >= 8) || 'Minimum 8 characters required'
   const matches = (v: string) => v === password.value || 'Passwords do not match'
 
   // Never keep a typed password around after the dialog closes

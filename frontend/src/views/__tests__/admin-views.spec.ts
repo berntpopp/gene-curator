@@ -276,6 +276,14 @@ describe('UserManagement', () => {
     expect(users.updateUserPassword).not.toHaveBeenCalled()
     expect(document.body.textContent).toContain('Passwords do not match')
 
+    await type(0, 'x'.repeat(129))
+    await type(1, 'x'.repeat(129))
+    reset.click()
+    await flushPromises()
+    expect(users.updateUserPassword).not.toHaveBeenCalled()
+    expect(document.body.textContent).toContain('at most 128')
+
+    await type(0, 'longpassword')
     await type(1, 'longpassword')
     reset.click()
     await flushPromises()
