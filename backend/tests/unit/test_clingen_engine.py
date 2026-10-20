@@ -40,21 +40,19 @@ def _null_item(points: float = 1.5, pmid: str = VALID_PMID) -> dict:
     return {"pmid": pmid, "proband_counted_points": points}
 
 
-# =============================================================================
 # Classification thresholds
-# =============================================================================
 
 
 class TestClassification:
     @pytest.mark.parametrize(
         ("total", "expected"),
         [
-            (18.0, "definitive"),
-            (12.0, "definitive"),
-            (11.99, "strong"),
-            (7.0, "strong"),
-            (6.99, "moderate"),
-            (2.0, "moderate"),
+            (18.0, "strong"),
+            (12.0, "strong"),
+            (11.99, "moderate"),
+            (7.0, "moderate"),
+            (6.99, "limited"),
+            (2.0, "limited"),
             (1.99, "limited"),
             (0.1, "limited"),
             (0.09, "no_known"),
@@ -91,9 +89,7 @@ class TestClassification:
         assert result.metadata["scope_context"] == {"scope": "x"}
 
 
-# =============================================================================
 # Nested SOP v11 format - genetic evidence
-# =============================================================================
 
 
 class TestNestedGeneticEvidence:
@@ -114,7 +110,7 @@ class TestNestedGeneticEvidence:
 
         assert result.scores["genetic_evidence_total"] == pytest.approx(3.1)
         assert result.scores["experimental_evidence_total"] == 0.0
-        assert result.verdict == "moderate"
+        assert result.verdict == "limited"
 
     def test_case_level_null_default_points(self, engine: ClinGenEngine):
         score, _ = engine._calculate_genetic_evidence(
@@ -207,9 +203,7 @@ class TestNestedGeneticEvidence:
         assert score == pytest.approx(12.0)  # 12 + 3 + 6 = 21, capped
 
 
-# =============================================================================
 # Nested SOP v11 format - experimental evidence
-# =============================================================================
 
 
 class TestNestedExperimentalEvidence:
@@ -252,9 +246,7 @@ class TestNestedExperimentalEvidence:
         assert total == pytest.approx(1.0)
 
 
-# =============================================================================
 # Nested format end-to-end
-# =============================================================================
 
 
 class TestNestedEndToEnd:
@@ -272,7 +264,7 @@ class TestNestedEndToEnd:
         result = engine.calculate_scores(evidence, {})
 
         assert result.total_score == pytest.approx(4.0)
-        assert result.verdict == "moderate"
+        assert result.verdict == "limited"
         assert result.scores["genetic_evidence_total"] == pytest.approx(3.0)
         assert result.scores["experimental_evidence_total"] == pytest.approx(1.0)
 
@@ -313,9 +305,7 @@ class TestNestedEndToEnd:
         assert any("Segregation evidence missing" in w for w in result.warnings)
 
 
-# =============================================================================
 # Legacy flat-list format
-# =============================================================================
 
 
 class TestLegacyFormat:
@@ -494,13 +484,11 @@ class TestLegacyFormat:
         # case-level: 4*2.0 + 2*1.5 = 11.0; segregation LOD 6.0 -> 2.0 points;
         # raw 13.0 is capped at 12
         assert result.scores["genetic_evidence_total"] == pytest.approx(12.0)
-        assert result.verdict == "definitive"
+        assert result.verdict == "strong"
         assert result.total_score == pytest.approx(12.0)
 
 
-# =============================================================================
 # Validation
-# =============================================================================
 
 
 class TestValidateEvidence:
@@ -647,3 +635,15 @@ def test_supports_schema_only_sop_v11(engine: ClinGenEngine):
     assert engine.supports_schema("ClinGen_SOP_11.0", "11.0") is True
     assert engine.supports_schema("ClinGen_SOP_10", "10.0") is False
     assert engine.supports_schema("GenCC", "1.0") is False
+
+
+@pytest.mark.parametrize(
+    "item",
+    [
+        {"evidence_category": "case_control"},
+        {"evidence_category": "case_control", "computed_score": None},
+    ],
+)
+def test_unscored_case_control_awards_no_points(engine: ClinGenEngine, item):
+    result = engine.calculate_scores({"genetic_evidence": [item]}, {})
+    assert result.total_score == 0
