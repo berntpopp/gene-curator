@@ -3,7 +3,7 @@
 # ═══════════════════════════════════════════════════════════════
 #
 # Shared infrastructure used by both hybrid and full Docker modes.
-# Contains only database and cache services.
+# Contains only the database service.
 #
 # Usage:
 #   docker compose up -d                          # Infrastructure only (hybrid mode)
@@ -35,27 +35,9 @@ services:
     networks:
       - gene_curator_network
 
-  # Redis Cache
-  redis:
-    image: redis:7-alpine
-    container_name: ${REDIS_CONTAINER:-gene_curator_redis}
-    ports:
-      - "${REDIS_PORT:-6399}:6379"
-    volumes:
-      - redis_data:/data
-    command: redis-server --appendonly yes
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - gene_curator_network
 
 volumes:
   dev_postgres_data:
-    driver: local
-  redis_data:
     driver: local
 
 networks:

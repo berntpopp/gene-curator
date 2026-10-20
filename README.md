@@ -43,7 +43,7 @@ Requires Docker, GNU Make, [uv](https://docs.astral.sh/uv/) and Node.js 24 (`.nv
 git clone https://github.com/berntpopp/gene-curator.git
 cd gene-curator
 make install      # backend + frontend dependencies and git hooks
-make hybrid-up    # PostgreSQL + Redis in Docker
+make hybrid-up    # PostgreSQL in Docker
 make backend      # terminal 1: API on http://localhost:8051/docs
 make frontend     # terminal 2: UI on http://localhost:5193
 ```
@@ -85,7 +85,7 @@ Details are in [AGENTS.md](AGENTS.md).
 | Contract | `frontend/src/types/api.generated.ts` | TypeScript types generated from the API's OpenAPI schema |
 
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
-Vuetify 3 · PostgreSQL 15 · Redis 7.
+Vuetify 3 · PostgreSQL 15.
 
 ## Documentation
 

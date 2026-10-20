@@ -28,7 +28,7 @@ install: ## Install backend + frontend deps and git hooks
 	git config core.hooksPath .githooks
 
 ##@ Hybrid development (DB in Docker, API/UI local - recommended)
-hybrid-up: services-up ## Start Postgres + Redis, then run `make backend` and `make frontend`
+hybrid-up: services-up ## Start Postgres, then run `make backend` and `make frontend`
 	@echo "API: make backend -> http://localhost:$(BACKEND_PORT)/docs | UI: make frontend -> http://localhost:$(VITE_DEV_PORT)"
 
 hybrid-down: ## Stop local API/UI and DB services
@@ -36,11 +36,11 @@ hybrid-down: ## Stop local API/UI and DB services
 	-pkill -f "vite.*$(VITE_DEV_PORT)"
 	$(MAKE) services-down
 
-services-up: ## Start only Postgres + Redis
-	$(DC_INFRA) up -d --wait postgres redis
+services-up: ## Start only Postgres
+	$(DC_INFRA) up -d --wait postgres
 
-services-down: ## Stop Postgres + Redis
-	$(DC_INFRA) stop postgres redis
+services-down: ## Stop Postgres
+	$(DC_INFRA) stop postgres
 
 backend: ## Run the API locally with reload
 	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_PORT)
@@ -79,9 +79,22 @@ db-reset: ## DESTRUCTIVE: drop the dev volume and rebuild from database/sql
 	$(DC_DEV) down -v
 	$(DC_INFRA) up -d --wait postgres
 
-db-migrate: ## Apply one SQL file to the dev DB: make db-migrate FILE=database/sql/027_x.sql
-	@test -n "$(FILE)" || { echo "usage: make db-migrate FILE=database/sql/<file>.sql"; exit 1; }
-	docker exec -i $(POSTGRES_CONTAINER) psql -v ON_ERROR_STOP=1 -U $(POSTGRES_USER) -d $(POSTGRES_DB) < $(FILE)
+db-migrate: ## Apply pending SQL files once (optional FILE=database/sql/NNN_x.sql)
+	@set -euo pipefail; \
+	files=( $(if $(FILE),"$(FILE)",database/sql/[0-9][0-9][0-9]_*.sql) ); \
+	for file in "$${files[@]}"; do \
+		[[ "$$file" =~ ^database/sql/[0-9]{3}_[a-zA-Z0-9_]+\.sql$$ && -f "$$file" ]] || { echo "Invalid migration: $$file" >&2; exit 1; }; \
+	done; \
+	{ \
+		printf '%s\n' 'SELECT pg_advisory_xact_lock(158030);'; \
+		cat database/sql/030_schema_migrations.sql; \
+		for file in "$${files[@]}"; do \
+			name=$${file##*/}; \
+			printf "SELECT NOT EXISTS (SELECT 1 FROM schema_migrations WHERE filename = '%s') AS pending \\gset\n\\if :pending\n" "$$name"; \
+			sed -E '/^(BEGIN|COMMIT);[[:space:]]*$$/d' "$$file"; \
+			printf "\nINSERT INTO schema_migrations (filename) VALUES ('%s') ON CONFLICT DO NOTHING;\n\\\\endif\n" "$$name"; \
+		done; \
+	} | docker exec -i $(POSTGRES_CONTAINER) psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 db-shell: ## Open psql in the dev DB
 	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
@@ -118,7 +131,7 @@ test: ## Backend tests (SQLite)
 	cd backend && uv run pytest
 
 test-postgres: ## Backend RLS/scope tests on a throwaway Postgres built from database/sql
-	scripts/test-postgres.sh -q
+	scripts/test-postgres.sh -q tests ../database/sql/test_migrations.py
 
 test-frontend: ## Frontend unit tests
 	cd frontend && npx vitest run

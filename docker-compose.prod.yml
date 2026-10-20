@@ -13,7 +13,7 @@
 #   make prod-build  # Build and start
 #
 # Note: For true production deployments, consider overriding
-# postgres/redis ports in your .env to avoid external exposure,
+# the PostgreSQL port in your .env to avoid external exposure,
 # or use a dedicated production docker-compose.yml without ports.
 #
 # ═══════════════════════════════════════════════════════════════
