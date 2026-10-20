@@ -72,9 +72,9 @@
   import { useLogger } from '@/composables/useLogger'
   import { useScopesStore } from '@/stores'
   import { errorDetails } from './errorDetails'
-  import type { ComponentLogger, ScopeOption } from './types'
+  import type { ScopeOption } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const emit = defineEmits<{
     'scope-selected': [scope: ScopeOption]

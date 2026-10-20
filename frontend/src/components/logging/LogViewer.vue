@@ -208,20 +208,17 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, type Ref } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { useLogStore } from '@/stores/logStore'
-  import { LogLevel, logService, type LogEntry } from '@/services/logService'
+  import { LogLevel, logService } from '@/services/logService'
+  import type { LogEntry } from '@/stores/logStore'
   import { useDrawerState } from '@/composables/useDrawerState'
 
   // Store access
   const logStore = useLogStore()
 
   // Use drawer state for single-open-drawer pattern
-  // useDrawerState() is still JavaScript; its return type is inferred as {}.
-  const { isOpen: drawerIsOpen, close: closeDrawer } = useDrawerState('log-viewer') as {
-    isOpen: Ref<boolean>
-    close: () => void
-  }
+  const { isOpen: drawerIsOpen, close: closeDrawer } = useDrawerState('log-viewer')
 
   // Computed property to sync drawer state with logStore
   const drawerVisible = computed({
@@ -335,7 +332,8 @@
     }
   }
 
-  function formatTimestamp(timestamp: string): string {
+  function formatTimestamp(timestamp: string | undefined): string {
+    if (!timestamp) return ''
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour12: false,
       hour: '2-digit',

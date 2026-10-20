@@ -136,10 +136,6 @@
   import { useExternalValidationStore } from '@/stores/externalValidation'
   import { useLogger } from '@/composables/useLogger'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   /** Per-term result returned by the external validation endpoint */
   interface HPOTermResult {
     is_valid: boolean
@@ -165,7 +161,7 @@
 
   const emit = defineEmits<{ 'update:modelValue': [value: string[]] }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const validationStore = useExternalValidationStore()
 
   const internalTerms = ref<string[]>([...(props.modelValue || [])])

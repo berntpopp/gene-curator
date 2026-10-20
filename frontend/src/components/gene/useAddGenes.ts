@@ -2,7 +2,7 @@ import type { Ref } from 'vue'
 import { genesAPI, assignmentsAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
-import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+import type { ApiErrorLike } from '@/components/forms/types'
 import type { Schema } from '@/types/api'
 import type { BulkValidationEntry } from '@/composables/useHgncSearch'
 
@@ -23,7 +23,7 @@ export interface AddGenesOptions {
  * optionally assign them to the current scope.
  */
 export function useAddGenes(options: AddGenesOptions) {
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
   const { scopeId, selectedGene, bulkValidationResults, skipDuplicates } = options
 

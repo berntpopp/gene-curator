@@ -298,8 +298,6 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
-  import type { Schema } from '@/types/api'
-  import type { ComponentLogger } from '../clingen/types'
 
   /** Row shape shared by the table and the card view (transformed from the store). */
   interface CurationRow {
@@ -329,7 +327,7 @@
   const router = useRouter()
   const authStore = useAuthStore()
   const curationsStore = useCurationsStore()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // Extract reactive state from store using storeToRefs
@@ -391,7 +389,7 @@
   // Transform store curations to component format
   const transformedCurations = computed<CurationRow[]>(() => {
     // The list endpoint returns CurationSummary rows
-    return (curations.value as Schema<'CurationSummary'>[]).map(curation => ({
+    return curations.value.map(curation => ({
       curation_id: curation.id,
       gene_id: curation.gene_id,
       gene_symbol: curation.gene_symbol || '—',

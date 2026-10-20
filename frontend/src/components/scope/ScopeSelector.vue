@@ -84,25 +84,16 @@
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
   type UserScope = Schema<'ScopeListItem'>
 
-  /** Narrowed view of useScopeUtils() (its JSDoc types the return as Object) */
-  interface ScopeUtils {
-    getScopeVisibilityIcon: (isPublic: boolean) => string
-  }
-
   const scopeStore = useScopesStore()
   const router = useRouter()
-  const { getScopeVisibilityIcon } = useScopeUtils() as ScopeUtils
-  const logger = useLogger() as ComponentLogger
+  const { getScopeVisibilityIcon } = useScopeUtils()
+  const logger = useLogger()
 
   // ============================================
   // COMPUTED PROPERTIES

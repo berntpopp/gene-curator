@@ -104,7 +104,7 @@
 
   // Filter schemas by type (curation or combined)
   const availableSchemas = computed<CurationSchema[]>(() => {
-    return (schemasStore.schemas as CurationSchema[]).filter(
+    return schemasStore.schemas.filter(
       s => s.schema_type === props.schemaType || s.schema_type === 'combined'
     )
   })

@@ -48,7 +48,6 @@ interface AssignVm {
   hasOptionalSettings: unknown
   priority: string
   notes: string
-  dueDate: string | null
   toggleSelectAll(): void
   isGeneSelected(gene: { id: string }): boolean
   handleSubmit(): Promise<void>
@@ -147,10 +146,9 @@ describe('AssignCuratorModal', () => {
     const vm = internals(wrapper)
 
     expect(vm.hasOptionalSettings).toBeFalsy()
-    vm.dueDate = '2025-07-01'
     vm.priority = 'high'
     vm.notes = 'urgent'
-    expect(vm.optionalSettingsCount).toBe(3)
+    expect(vm.optionalSettingsCount).toBe(2)
     expect(vm.hasOptionalSettings).toBeTruthy()
   })
 

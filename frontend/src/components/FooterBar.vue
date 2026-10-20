@@ -77,9 +77,8 @@
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
   const currentYear = computed(() => new Date().getFullYear())

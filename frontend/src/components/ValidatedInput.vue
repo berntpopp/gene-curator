@@ -57,7 +57,6 @@
   import { computed, watch, type Ref } from 'vue'
   import { useValidation } from '@/composables/useValidation'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
 
   // useValidation() is still JavaScript; this is the shape the template and handlers rely on.
   interface ValidationResult {
@@ -83,7 +82,7 @@
 
   const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const {
     value: internalValue,

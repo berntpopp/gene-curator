@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import { precurationsAPI, curationsAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
-import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+import type { ApiErrorLike } from '@/components/forms/types'
 
 /** Latest precuration per gene (from the scope's precuration list). */
 export interface PrecurationStatus {
@@ -80,7 +80,7 @@ export function shouldReplaceCuration(
  * predicates and labels the gene list uses to choose workflow actions.
  */
 export function useGeneWorkflowStatus(scopeId: () => string) {
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const genePrecurations = ref<Record<string, PrecurationStatus>>({}) // gene_id -> precuration status
   const geneCurations = ref<Record<string, CurationStatus>>({}) // gene_id -> curation status

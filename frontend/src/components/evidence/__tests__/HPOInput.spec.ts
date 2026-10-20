@@ -26,8 +26,12 @@ interface HPOInputInternals {
   handleEnter: () => void
 }
 
-const validResult = { is_valid: true, data: { term_name: 'Abnormality', definition: 'A def' } }
-const invalidResult = { is_valid: false, data: null }
+const validResult = {
+  is_valid: true,
+  status: 'valid',
+  data: { term_name: 'Abnormality', definition: 'A def' }
+}
+const invalidResult = { is_valid: false, status: 'invalid', data: null }
 
 describe('HPOInput', () => {
   beforeEach(() => {
@@ -135,7 +139,11 @@ describe('HPOInput', () => {
   it('falls back to the store cache for term names not validated in this component', () => {
     // The store keys its cache by "<validator>:<lowercased value>"
     const store = useExternalValidationStore()
-    store.cache.set('hpo:hp:0000123', { is_valid: true, data: { term_name: 'Cached term' } })
+    store.cache.set('hpo:hp:0000123', {
+      is_valid: true,
+      status: 'valid',
+      data: { term_name: 'Cached term' }
+    })
     const { vm } = mountInput()
 
     expect(vm.getTermName('HP:0000123')).toBe('Cached term')

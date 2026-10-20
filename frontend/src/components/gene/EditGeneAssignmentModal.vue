@@ -206,7 +206,7 @@
   import { assignmentsAPI, genesAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import type { GeneRow } from './types'
 
   // ============================================
@@ -252,7 +252,7 @@
   // COMPOSABLES & STORES
   // ============================================
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // ============================================
@@ -388,7 +388,7 @@
     validationResult.value = null
 
     try {
-      const result = (await genesAPI.validateGene(props.gene.gene_id)) as GeneValidationResult
+      const result = await genesAPI.validateGene(props.gene.gene_id)
 
       validationResult.value = result
 

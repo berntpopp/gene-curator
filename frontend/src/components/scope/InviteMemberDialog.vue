@@ -170,10 +170,6 @@
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   /** User picked in the search autocomplete */
   interface InviteCandidate {
     id: string
@@ -218,15 +214,9 @@
   // COMPOSABLES & STORE
   // ============================================
 
-  /** Narrowed view of useRoleColors() (its JSDoc types the return as Object) */
-  interface RoleColorUtils {
-    getRoleColor: (role: string) => string
-    getRoleIcon: (role: string) => string
-  }
-
   const scopeStore = useScopesStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors() as RoleColorUtils
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const logger = useLogger()
 
   // ============================================
   // STATE

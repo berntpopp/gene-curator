@@ -81,10 +81,6 @@
   import BaseNavigationItem from './BaseNavigationItem.vue'
   import type { RouteRecordNormalized } from 'vue-router'
 
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
-
   /** Route meta keys this menu reads (vue-router meta is untyped here) */
   interface MenuRouteMeta {
     icon?: string
@@ -96,18 +92,12 @@
     requiredRoles?: string[]
   }
 
-  /** Auth store user fields shown in the menu (store state is typed null) */
-  interface MenuUser {
-    email?: string
-    role?: string
-  }
-
   const metaOf = (route: RouteRecordNormalized): MenuRouteMeta => route.meta as MenuRouteMeta
 
   const router = useRouter()
   const authStore = useAuthStore()
   const notificationsStore = useNotificationsStore()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   /**
    * User menu items from router
@@ -140,7 +130,7 @@
    * User authentication state
    */
   const isAuthenticated = computed(() => authStore.isAuthenticated)
-  const user = computed(() => authStore.user as MenuUser | null)
+  const user = computed(() => authStore.user)
 
   /**
    * User role label

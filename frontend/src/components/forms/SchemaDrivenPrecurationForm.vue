@@ -103,21 +103,13 @@
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
-  import type { ApiErrorLike, ComponentLogger } from './types'
+  import type { ApiErrorLike } from './types'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
 
   type EvidenceData = Record<string, unknown>
-
-  /** Store records read by this form (the JS stores do not type their state). */
-  interface PrecurationLike {
-    id: string
-    status?: string | null
-    lock_version?: number | null
-    evidence_data?: EvidenceData | null
-  }
 
   const props = withDefaults(
     defineProps<{
@@ -142,7 +134,7 @@
     saved: []
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const router = useRouter()
   const schemasStore = useSchemasStore()
   const precurationsStore = usePrecurationsStore()
@@ -156,7 +148,6 @@
   const savingDraft = ref(false)
   const submitting = ref(false)
   const isValid = ref(true) // Updated via validation-change event
-  const lockVersion = ref(0)
 
   // Schema data
   const schema = computed<Schema<'CurationSchema'> | undefined>(() =>
@@ -200,12 +191,9 @@
     undo: undoAction,
     redo: redoAction,
     clearHistory
-  } = useHistory(
-    recoveryKey.value,
-    (state: EvidenceData) => {
-      evidenceData.value = { ...state }
-    }
-  )
+  } = useHistory(recoveryKey.value, (state: EvidenceData) => {
+    evidenceData.value = { ...state }
+  })
 
   // Track changes for undo/redo
   watch(
@@ -284,6 +272,17 @@
     logger.debug('Redo performed')
   }
 
+  /** Payload for a new precuration; the API requires a gene. */
+  function createPayload() {
+    if (!props.geneId) throw new Error('A gene is required')
+    return {
+      gene_id: props.geneId,
+      scope_id: props.scopeId,
+      precuration_schema_id: props.schemaId,
+      evidence_data: evidenceData.value
+    }
+  }
+
   /**
    * Save draft
    */
@@ -292,22 +291,11 @@
     try {
       if (props.precurationId) {
         // Update existing precuration draft
-        const updated = (await precurationsStore.saveDraft(
-          props.precurationId,
-          evidenceData.value
-        )) as PrecurationLike | null
-        if (updated) {
-          lockVersion.value = updated.lock_version || 0
-          emit('saved')
-        }
+        const updated = await precurationsStore.saveDraft(props.precurationId, evidenceData.value)
+        if (updated) emit('saved')
       } else {
         // Create new precuration as draft
-        const created = (await precurationsStore.createPrecuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          precuration_schema_id: props.schemaId,
-          evidence_data: evidenceData.value
-        })) as PrecurationLike
+        const created = await precurationsStore.createPrecuration(createPayload())
         // Navigate to edit the created precuration
         router.replace({
           name: 'precuration-edit',
@@ -337,12 +325,7 @@
         await precurationsStore.submitForReview(props.precurationId)
       } else {
         // Create and submit
-        const created = (await precurationsStore.createPrecuration({
-          gene_id: props.geneId,
-          scope_id: props.scopeId,
-          precuration_schema_id: props.schemaId,
-          evidence_data: evidenceData.value
-        })) as PrecurationLike
+        const created = await precurationsStore.createPrecuration(createPayload())
         await precurationsStore.submitForReview(created.id)
       }
 
@@ -392,12 +375,9 @@
     if (!props.precurationId) return
 
     try {
-      const precuration = (await precurationsStore.fetchPrecurationById(
-        props.precurationId
-      )) as PrecurationLike | null
+      const precuration = await precurationsStore.fetchPrecurationById(props.precurationId)
       if (precuration) {
-        evidenceData.value = precuration.evidence_data || {}
-        lockVersion.value = precuration.lock_version || 0
+        evidenceData.value = precuration.evidence_data
         isDraft.value = precuration.status === 'draft'
       }
     } catch (error) {

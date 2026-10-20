@@ -119,7 +119,6 @@
   import { useInvitationsStore } from '@/stores/invitations'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
   import type { Schema } from '@/types/api'
 
   type Invitation = Schema<'PendingInvitationResponse'>
@@ -133,12 +132,8 @@
   // ============================================
 
   const invitationsStore = useInvitationsStore()
-  // useRoleColors() is still JavaScript; its return type is inferred as {}.
-  const { getRoleColor, getRoleIcon } = useRoleColors() as {
-    getRoleColor: (role: string) => string
-    getRoleIcon: (role: string) => string
-  }
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const logger = useLogger()
 
   // ============================================
   // STATE
@@ -154,7 +149,7 @@
   // ============================================
 
   // The store is still JavaScript; its list is typed as the pending-invitation contract.
-  const invitations = computed(() => invitationsStore.invitations as Invitation[])
+  const invitations = computed(() => invitationsStore.invitations)
   const pendingCount = computed(() => invitationsStore.pendingCount)
   const loading = computed(() => invitationsStore.loading)
 

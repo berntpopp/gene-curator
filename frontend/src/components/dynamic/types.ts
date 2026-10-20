@@ -122,17 +122,6 @@ export interface ComponentFallbackEvent {
   fallbackType: string
 }
 
-/**
- * Scoped logger from `useLogger()`. That composable's JSDoc types its return
- * as a bare `Object`, so components cast it to this interface.
- */
-export interface ComponentLogger {
-  debug: (message: string, data?: Record<string, unknown>) => void
-  info: (message: string, data?: Record<string, unknown>) => void
-  warn: (message: string, data?: Record<string, unknown>) => void
-  error: (message: string, data?: Record<string, unknown>) => void
-}
-
 /** The JSON schema document consumed by DynamicForm. */
 export interface JsonSchemaDocument {
   properties?: Record<string, FieldSchema>

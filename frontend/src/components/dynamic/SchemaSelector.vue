@@ -110,9 +110,9 @@
   import { useLogger } from '@/composables/useLogger'
   import { useSchemasStore } from '@/stores'
   import { errorDetails } from './errorDetails'
-  import type { ComponentLogger, SchemaOption, WorkflowPairOption } from './types'
+  import type { SchemaOption, WorkflowPairOption } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const emit = defineEmits<{
     'schemas-selected': [
@@ -145,7 +145,7 @@
   watch([selectedPrecurationSchema, selectedCurationSchema], () => {
     if (selectedPrecurationSchema.value && selectedCurationSchema.value) {
       // Check if workflow pair already exists
-      const pairs = schemasStore.workflowPairs as WorkflowPairOption[]
+      const pairs = schemasStore.workflowPairs
       existingWorkflowPair.value = pairs.find(
         pair =>
           pair.precuration_schema_id === selectedPrecurationSchema.value?.id &&
@@ -172,7 +172,7 @@
         is_active: true
       }
 
-      const newPair = (await schemasStore.createWorkflowPair(pairData)) as WorkflowPairOption
+      const newPair = await schemasStore.createWorkflowPair(pairData)
       existingWorkflowPair.value = newPair
     } catch (err) {
       logger.error('Failed to create workflow pair:', errorDetails(err))

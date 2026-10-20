@@ -9,7 +9,7 @@
 
 import { computed, type ComputedRef, type Ref } from 'vue'
 import { useLogger } from '@/composables/useLogger'
-import type { ComponentLogger, FormValidationResult, JsonSchemaDocument, TabConfig } from '../types'
+import type { FormValidationResult, JsonSchemaDocument, TabConfig } from '../types'
 
 /**
  * Extract all field paths from a tab's sections
@@ -42,7 +42,7 @@ export function useFormTabs({
   backendErrors,
   activeTab
 }: UseFormTabsOptions) {
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   const hasTabs = computed(() => {
     const layout = jsonSchema.value?.ui_configuration?.layout

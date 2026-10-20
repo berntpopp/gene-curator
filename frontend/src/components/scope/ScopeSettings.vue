@@ -273,12 +273,6 @@
     total_genes_assigned?: number
   }
 
-  /** Auth store user fields this panel reads (store state is typed null) */
-  interface SettingsUser {
-    id?: string
-    role?: string
-  }
-
   /** Workflow pair with the names of its linked schemas (the API returns only their ids) */
   interface WorkflowPairOption {
     id: string
@@ -306,7 +300,7 @@
   }>()
 
   const authStore = useAuthStore()
-  const currentUser = computed(() => authStore.user as SettingsUser | null)
+  const currentUser = computed(() => authStore.user)
 
   // State
   const loadingWorkflowPairs = ref(false)

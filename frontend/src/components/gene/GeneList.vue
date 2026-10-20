@@ -151,7 +151,6 @@
               No Precuration
             </v-chip>
           </td>
-          <td>{{ formatDate(item.due_date) }}</td>
           <td>
             <v-progress-linear
               :model-value="item.progress || 0"
@@ -317,7 +316,6 @@
   import { useGeneWorkflowStatus } from './useGeneWorkflowStatus'
   import { useScopeGenes } from './useScopeGenes'
   import {
-    formatDate,
     getPriorityColor,
     getPriorityIcon,
     getPriorityLabel,
@@ -325,7 +323,7 @@
     getStatusColor,
     getStatusLabel
   } from './geneDisplay'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import type { GeneRow } from './types'
 
   const props = defineProps<{
@@ -334,7 +332,7 @@
 
   const router = useRouter()
   const authStore = useAuthStore()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // Precuration/curation status per gene (maps and predicates)
@@ -391,7 +389,6 @@
     { title: 'Priority', key: 'priority', sortable: true },
     { title: 'Status', key: 'status', sortable: true },
     { title: 'Workflow', key: 'workflow', sortable: false },
-    { title: 'Due Date', key: 'due_date', sortable: true },
     { title: 'Progress', key: 'progress', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
   ]

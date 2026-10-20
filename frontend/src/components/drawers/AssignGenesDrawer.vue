@@ -154,7 +154,6 @@
   import { genesAPI, assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
   import { useNotificationsStore } from '@/stores/notifications'
 
   interface GeneOption {
@@ -185,7 +184,7 @@
   }>()
 
   const scopesStore = useScopesStore()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // Form state

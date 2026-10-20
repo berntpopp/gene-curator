@@ -61,10 +61,9 @@
   import { ref, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
 
   const router = useRouter()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // Vue hands over the thrown value as unknown; the template reads message/stack, which
   // is also safe for non-Error throws (they render the fallback text).

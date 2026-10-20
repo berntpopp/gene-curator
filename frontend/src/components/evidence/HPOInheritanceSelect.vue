@@ -96,11 +96,6 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { ontologyAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
-  import type { Schema } from '@/types/api'
-
-  /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
-  type LogFn = (message: string, data?: Record<string, unknown>) => void
-  type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
 
   /** One selectable inheritance pattern; `isHeader` rows are section labels in the list */
   interface InheritanceItem {
@@ -142,7 +137,7 @@
     select: [item: InheritanceItem | null]
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // HPO ID to shortcode mapping for common patterns
   const HPO_SHORTCODES: Record<string, string> = {
@@ -220,8 +215,7 @@
     loadError.value = null
 
     try {
-      const response =
-        (await ontologyAPI.getInheritancePatterns()) as Schema<'HPOInheritanceResponse'>
+      const response = await ontologyAPI.getInheritancePatterns()
 
       // Add shortcodes to patterns
       mendelianPatterns.value = response.mendelian.map(p => ({

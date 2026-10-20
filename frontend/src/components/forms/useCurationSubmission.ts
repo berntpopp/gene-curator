@@ -4,7 +4,7 @@ import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useLogger } from '@/composables/useLogger'
 import type { ClinGenEvidenceData } from '@/components/clingen/types'
-import type { ApiErrorLike, ComponentLogger } from './types'
+import type { ApiErrorLike } from './types'
 
 export type EvidenceData = Record<string, unknown>
 
@@ -45,7 +45,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     clearHistory
   } = options
   const router = useRouter()
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const curationsStore = useCurationsStore()
   const notificationsStore = useNotificationsStore()
 
@@ -73,16 +73,16 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
 
       const id = curationId()
       if (id) {
-        const updated = (await curationsStore.saveDraft(id, payload)) as
-          | CurationRecord
-          | undefined
+        const updated = (await curationsStore.saveDraft(id, payload)) as CurationRecord | undefined
         if (updated) {
           lockVersion.value = updated.lock_version as number
           options.onSaved()
         }
       } else {
         // Create new curation as draft
-        const created = (await curationsStore.createCuration(createPayload(evidenceData.value))) as CurationRecord
+        const created = (await curationsStore.createCuration(
+          createPayload(evidenceData.value)
+        )) as CurationRecord
         // Navigate to edit the created curation
         router.replace({
           name: 'curation-edit',
@@ -115,7 +115,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         })
       } else {
         // Create and submit
-        const created = (await curationsStore.createCuration(createPayload(evidenceData.value))) as CurationRecord
+        const created = (await curationsStore.createCuration(
+          createPayload(evidenceData.value)
+        )) as CurationRecord
         await curationsStore.submitCuration(created.id, { lock_version: 0 })
       }
 
@@ -135,7 +137,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
    * Handle ClinGen form submit
    * Receives full evidence data from ClinGenCurationForm
    */
-  async function handleClinGenSubmit(clingenEvidenceData: ClinGenEvidenceData) {
+  async function handleClinGenSubmit(clingenEvidenceData: ClinGenEvidenceData | EvidenceData) {
     submitting.value = true
     try {
       const id = curationId()
@@ -150,7 +152,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         })
       } else {
         // Create and submit new curation
-        const created = (await curationsStore.createCuration(createPayload({ ...clingenEvidenceData }))) as CurationRecord
+        const created = (await curationsStore.createCuration(
+          createPayload({ ...clingenEvidenceData })
+        )) as CurationRecord
         await curationsStore.submitCuration(created.id, { lock_version: 0 })
       }
 
@@ -168,7 +172,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   /**
    * Handle ClinGen form save draft
    */
-  async function handleClinGenSaveDraft(clingenEvidenceData: ClinGenEvidenceData) {
+  async function handleClinGenSaveDraft(clingenEvidenceData: ClinGenEvidenceData | EvidenceData) {
     savingDraft.value = true
     try {
       const id = curationId()
@@ -183,7 +187,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         }
       } else {
         // Create new curation as draft
-        const created = (await curationsStore.createCuration(createPayload({ ...clingenEvidenceData }))) as CurationRecord
+        const created = (await curationsStore.createCuration(
+          createPayload({ ...clingenEvidenceData })
+        )) as CurationRecord
         // Navigate to edit the created curation
         router.replace({
           name: 'curation-edit',

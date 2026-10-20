@@ -21,7 +21,6 @@ const gene: GeneRow = {
   assignment_id: 'a-1',
   gene_id: 'g-1',
   gene_symbol: 'BRCA1',
-  gene_name: '',
   gene_hgnc_id: '',
   curator_id: 'u-1',
   curator_name: 'Ada',

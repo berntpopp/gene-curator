@@ -215,7 +215,7 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import type { CuratorOption, GeneRow } from './types'
   import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
@@ -245,10 +245,8 @@
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors() as {
-    getRoleColor: (role: string) => string
-  }
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor: useGetRoleColor } = useRoleColors()
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // ============================================

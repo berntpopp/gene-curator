@@ -350,7 +350,7 @@
   import { useHgncSearch } from '@/composables/useHgncSearch'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import {
     getValidationClass,
     getValidationColor,
@@ -382,7 +382,7 @@
   // COMPOSABLES & STORES
   // ============================================
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
   const { results: searchResults, isSearching, search, validateBulk } = useHgncSearch()
 

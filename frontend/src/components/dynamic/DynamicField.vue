@@ -417,15 +417,9 @@
   import { useLogger } from '@/composables/useLogger'
   import { useValidationRules } from './composables/useValidationRules'
   import DynamicNestedField from './DynamicNestedField.vue'
-  import type {
-    ComponentFallbackEvent,
-    ComponentLogger,
-    FieldSchema,
-    FieldValidation,
-    FieldVariant
-  } from './types'
+  import type { ComponentFallbackEvent, FieldSchema, FieldValidation, FieldVariant } from './types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   /**
    * Maximum recursion depth for nested object/array fields.

@@ -192,18 +192,6 @@
               <v-expansion-panel-text>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
-                      v-model="dueDate"
-                      label="Due Date"
-                      type="date"
-                      variant="outlined"
-                      density="compact"
-                      hint="Target completion date"
-                      persistent-hint
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12" sm="6">
                     <v-select
                       v-model="priority"
                       :items="priorityOptions"
@@ -262,9 +250,6 @@
               <div class="text-body-2">
                 <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
                 <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
-                <span v-if="dueDate">
-                  with due date <strong>{{ formatDate(dueDate) }}</strong></span
-                >
                 <span v-if="priority !== 'normal'">
                   at <strong>{{ priority }}</strong> priority
                 </span>
@@ -302,7 +287,7 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
+  import type { ApiErrorLike } from '@/components/forms/types'
   import type { Schema } from '@/types/api'
   import type { CuratorOption } from './types'
   import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
@@ -336,10 +321,8 @@
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors() as {
-    getRoleColor: (role: string) => string
-  }
-  const logger = useLogger() as ComponentLogger
+  const { getRoleColor: useGetRoleColor } = useRoleColors()
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // ============================================
@@ -362,7 +345,6 @@
   // Form state
   const selectedGenes = ref<GeneCandidate[]>([])
   const selectedCurator = ref<CuratorOption | null>(null)
-  const dueDate = ref<string | null>(null)
   const priority = ref('medium')
   const notes = ref('')
 
@@ -397,12 +379,11 @@
   })
 
   const hasOptionalSettings = computed(() => {
-    return dueDate.value || priority.value !== 'medium' || notes.value
+    return priority.value !== 'medium' || notes.value
   })
 
   const optionalSettingsCount = computed(() => {
     let count = 0
-    if (dueDate.value) count++
     if (priority.value !== 'medium') count++
     if (notes.value) count++
     return count
@@ -435,14 +416,6 @@
    */
   const getRoleColor = (role: string) => {
     return useGetRoleColor(role)
-  }
-
-  /**
-   * Format date for display
-   */
-  const formatDate = (dateStr: string | null | undefined) => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString()
   }
 
   /**
@@ -505,7 +478,6 @@
   const resetForm = () => {
     selectedGenes.value = []
     selectedCurator.value = null
-    dueDate.value = null
     priority.value = 'medium'
     notes.value = ''
     formValid.value = false

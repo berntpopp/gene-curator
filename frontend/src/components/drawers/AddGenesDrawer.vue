@@ -171,7 +171,6 @@
   import { ref, computed, watch } from 'vue'
   import { genesAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { Schema } from '@/types/api'
 
@@ -201,7 +200,7 @@
     added: []
   }>()
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
   // State

@@ -102,9 +102,8 @@
 <script setup lang="ts">
   import { ref, computed } from 'vue'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // Props
   const props = withDefaults(defineProps<{ modelValue?: boolean }>(), { modelValue: false })

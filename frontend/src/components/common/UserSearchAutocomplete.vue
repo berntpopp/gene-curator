@@ -108,7 +108,6 @@
   import { ref, watch, computed } from 'vue'
   import { scopeService } from '@/services/scopeService'
   import { useLogger } from '@/composables/useLogger'
-  import type { ComponentLogger } from '@/components/logging/types'
 
   interface UserOption {
     id: string
@@ -157,7 +156,7 @@
   // COMPOSABLES
   // ============================================
 
-  const logger = useLogger() as ComponentLogger
+  const logger = useLogger()
 
   // ============================================
   // STATE
