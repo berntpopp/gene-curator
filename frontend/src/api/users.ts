@@ -3,6 +3,7 @@
  */
 import axios, { type InternalAxiosRequestConfig } from 'axios'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
 
@@ -88,8 +89,8 @@ export const usersApi = {
   /**
    * Get user statistics
    */
-  async getUserStatistics(): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/statistics')
+  async getUserStatistics(): Promise<Record<string, unknown>> {
+    const response = await apiClient.get<Record<string, unknown>>('/statistics')
     return response.data
   },
 
@@ -123,8 +124,8 @@ export const usersApi = {
   /**
    * Update user password (admin only)
    */
-  async updateUserPassword(userId: string, newPassword: string): Promise<unknown> {
-    const response = await apiClient.put<unknown>(`/${userId}/password`, {
+  async updateUserPassword(userId: string, newPassword: string): Promise<MessageResponse> {
+    const response = await apiClient.put<MessageResponse>(`/${userId}/password`, {
       new_password: newPassword
     })
     return response.data
@@ -133,32 +134,32 @@ export const usersApi = {
   /**
    * Activate user account
    */
-  async activateUser(userId: string): Promise<unknown> {
-    const response = await apiClient.put<unknown>(`/${userId}/activate`)
+  async activateUser(userId: string): Promise<MessageResponse> {
+    const response = await apiClient.put<MessageResponse>(`/${userId}/activate`)
     return response.data
   },
 
   /**
    * Deactivate user account
    */
-  async deactivateUser(userId: string): Promise<unknown> {
-    const response = await apiClient.put<unknown>(`/${userId}/deactivate`)
+  async deactivateUser(userId: string): Promise<MessageResponse> {
+    const response = await apiClient.put<MessageResponse>(`/${userId}/deactivate`)
     return response.data
   },
 
   /**
    * Delete a user
    */
-  async deleteUser(userId: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/${userId}`)
+  async deleteUser(userId: string): Promise<MessageResponse> {
+    const response = await apiClient.delete<MessageResponse>(`/${userId}`)
     return response.data
   },
 
   /**
    * Get user activity summary
    */
-  async getUserActivity(userId: string): Promise<unknown> {
-    const response = await apiClient.get<unknown>(`/${userId}/activity`)
+  async getUserActivity(userId: string): Promise<Record<string, unknown>> {
+    const response = await apiClient.get<Record<string, unknown>>(`/${userId}/activity`)
     return response.data
   }
 }

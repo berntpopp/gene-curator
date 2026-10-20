@@ -84,8 +84,8 @@ export const publicationsAPI = {
    * const stats = await publicationsAPI.getStats()
    * // Returns: { total_cached: 150, open_access_count: 45 }
    */
-  async getStats(): Promise<unknown> {
-    const response = await apiClient.get<unknown>('/publications/stats/count')
+  async getStats(): Promise<Record<string, unknown>> {
+    const response = await apiClient.get<Record<string, unknown>>('/publications/stats/count')
     return response.data
   }
 }

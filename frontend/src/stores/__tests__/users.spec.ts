@@ -268,9 +268,9 @@ describe('useUsersStore', () => {
   describe('updateUserPassword', () => {
     it('returns the API response', async () => {
       const store = useUsersStore()
-      api.updateUserPassword.mockResolvedValue({ ok: true })
+      api.updateUserPassword.mockResolvedValue({ message: 'ok' })
 
-      await expect(store.updateUserPassword('u1', 'pw')).resolves.toEqual({ ok: true })
+      await expect(store.updateUserPassword('u1', 'pw')).resolves.toEqual({ message: 'ok' })
       expect(api.updateUserPassword).toHaveBeenCalledWith('u1', 'pw')
     })
 
@@ -292,9 +292,9 @@ describe('useUsersStore', () => {
       const store = useUsersStore()
       store.users = [user('u1', { is_active: false })]
       store.selectedUser = user('u1', { is_active: false })
-      api.activateUser.mockResolvedValue({ ok: true })
+      api.activateUser.mockResolvedValue({ message: 'ok' })
 
-      await expect(store.activateUser('u1')).resolves.toEqual({ ok: true })
+      await expect(store.activateUser('u1')).resolves.toEqual({ message: 'ok' })
 
       expect(store.users[0]?.is_active).toBe(true)
       expect(store.selectedUser?.is_active).toBe(true)
@@ -304,7 +304,7 @@ describe('useUsersStore', () => {
       const store = useUsersStore()
       store.users = [user('u1')]
       store.selectedUser = user('u1')
-      api.deactivateUser.mockResolvedValue({ ok: true })
+      api.deactivateUser.mockResolvedValue({ message: 'ok' })
 
       await store.deactivateUser('u1')
 
@@ -343,9 +343,9 @@ describe('useUsersStore', () => {
       store.users = [user('u1'), user('u2')]
       store.selectedUser = user('u1')
       store.statistics = { total_users: 2 }
-      api.deleteUser.mockResolvedValue({ deleted: true })
+      api.deleteUser.mockResolvedValue({ message: 'deleted' })
 
-      await expect(store.deleteUser('u1')).resolves.toEqual({ deleted: true })
+      await expect(store.deleteUser('u1')).resolves.toEqual({ message: 'deleted' })
 
       expect(store.users.map(u => u.id)).toEqual(['u2'])
       expect(store.selectedUser).toBeNull()
@@ -355,7 +355,7 @@ describe('useUsersStore', () => {
     it('deleteUser keeps unrelated selection and records errors', async () => {
       const store = useUsersStore()
       store.selectedUser = user('keep')
-      api.deleteUser.mockResolvedValueOnce({} as never)
+      api.deleteUser.mockResolvedValueOnce({})
       await store.deleteUser('u1')
       expect(store.selectedUser?.id).toBe('keep')
 
@@ -372,9 +372,9 @@ describe('useUsersStore', () => {
   describe('fetchUserActivity', () => {
     it('returns the activity and records errors', async () => {
       const store = useUsersStore()
-      api.getUserActivity.mockResolvedValue([{ action: 'login' }])
+      api.getUserActivity.mockResolvedValue({ login_count: 3 })
 
-      await expect(store.fetchUserActivity('u1')).resolves.toEqual([{ action: 'login' }])
+      await expect(store.fetchUserActivity('u1')).resolves.toEqual({ login_count: 3 })
 
       api.getUserActivity.mockRejectedValue(withDetail('Forbidden'))
       await expect(store.fetchUserActivity('u1')).rejects.toThrow('request failed')

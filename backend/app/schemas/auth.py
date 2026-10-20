@@ -72,32 +72,8 @@ class TokenRefresh(BaseModel):
     refresh_token: str
 
 
-class TokenPayload(BaseModel):
-    """Schema for JWT token payload."""
-
-    sub: str  # user ID
-    email: str
-    role: str
-    exp: int
-    iat: int | None = None
-    type: str | None = "access"  # access or refresh
-
-
 class PasswordChange(BaseModel):
     """Schema for password change."""
 
     current_password: str
-    new_password: str = Field(..., min_length=8, max_length=128)
-
-
-class PasswordReset(BaseModel):
-    """Schema for password reset request."""
-
-    email: EmailStr
-
-
-class PasswordResetConfirm(BaseModel):
-    """Schema for password reset confirmation."""
-
-    token: str
     new_password: str = Field(..., min_length=8, max_length=128)

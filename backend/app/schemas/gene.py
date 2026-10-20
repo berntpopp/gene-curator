@@ -114,20 +114,6 @@ class GeneWithAssignments(Gene):
 
 
 # Gene with Curation Progress
-class GeneWithProgress(Gene):
-    """Gene with curation progress information."""
-
-    total_precurations: int = Field(default=0, description="Total precurations")
-    total_curations: int = Field(default=0, description="Total curations")
-    precuration_status_counts: dict[str, int] = Field(
-        default_factory=dict, description="Precuration counts by status"
-    )
-    curation_status_counts: dict[str, int] = Field(
-        default_factory=dict, description="Curation counts by status"
-    )
-    has_active_work: bool = Field(default=False, description="Has active work")
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Gene Summary for Lists
@@ -282,28 +268,6 @@ class ScopeGeneListResponse(BaseModel):
 
 
 # Gene Import/Export
-class GeneImportRequest(BaseModel):
-    """Request for gene import."""
-
-    source: str = Field(..., description="Import source (hgnc, manual, file)")
-    data: dict[str, Any] = Field(..., description="Import data")
-    options: dict[str, Any] = Field(default_factory=dict, description="Import options")
-
-
-class GeneImportResponse(BaseModel):
-    """Response for gene import."""
-
-    import_id: UUID
-    source: str
-    status: str
-    total_genes: int
-    processed_genes: int
-    successful_imports: int
-    failed_imports: int
-    warnings: list[str]
-    errors: list[str]
-    started_at: datetime
-    completed_at: datetime | None
 
 
 # Gene Validation

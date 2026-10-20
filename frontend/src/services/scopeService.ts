@@ -36,11 +36,6 @@ import type { Schema } from '@/types/api'
 type ScopeMember = Schema<'ScopeMemberListResponse'>['members'][number]
 type ScopeListItem = Schema<'ScopeListItem'>
 
-/** Member list endpoint: a bare array or an object wrapping `members` */
-interface ScopeListPayload {
-  scopes?: ScopeListItem[]
-}
-
 export interface MemberListOptions {
   includePending?: boolean
 }
@@ -59,10 +54,8 @@ export const scopeService = {
    * const scopes = await scopeService.fetchScopes({ limit: 50 })
    */
   async fetchScopes(params: Record<string, unknown> = {}): Promise<ScopeListItem[]> {
-    const response = await apiClient.get<ScopeListItem[] | ScopeListPayload>('/scopes/', { params })
-    // Handle different response formats (array or object with scopes array)
-    const data = response.data
-    return (!Array.isArray(data) && data.scopes) || (data as ScopeListItem[])
+    const response = await apiClient.get<ScopeListItem[]>('/scopes/', { params })
+    return response.data
   },
 
   /**
@@ -169,8 +162,7 @@ export const scopeService = {
       `/scopes/${scopeId}/members`,
       { params }
     )
-    // Return full response for statistics access, or just members for backward compatibility
-    return response.data.members || (response.data as unknown as ScopeMember[])
+    return response.data.members
   },
 
   /**
@@ -265,7 +257,7 @@ export const scopeService = {
   async updateMemberRole(
     scopeId: string,
     userId: string,
-    newRole: string
+    newRole: Schema<'ScopeRole'>
   ): Promise<Schema<'ScopeMembershipResponse'>> {
     const response = await apiClient.patch<Schema<'ScopeMembershipResponse'>>(
       `/scopes/${scopeId}/members/${userId}`,
@@ -308,34 +300,6 @@ export const scopeService = {
       }
       throw error
     }
-  },
-
-  /**
-   * Fetch scopes where user is a member
-   *
-   * @param userId - User UUID
-   * @returns Array of scope objects
-   *
-   * @example
-   * const userScopes = await scopeService.fetchUserScopes(userId)
-   */
-  async fetchUserScopes(userId: string): Promise<unknown> {
-    const response = await apiClient.get<unknown>(`/users/${userId}/scopes`)
-    return response.data
-  },
-
-  /**
-   * Accept scope invitation
-   *
-   * @param invitationId - Invitation UUID
-   * @returns Accepted membership object
-   *
-   * @example
-   * await scopeService.acceptInvitation(invitationId)
-   */
-  async acceptInvitation(invitationId: string): Promise<unknown> {
-    const response = await apiClient.post<unknown>(`/invitations/${invitationId}/accept`)
-    return response.data
   },
 
   /**

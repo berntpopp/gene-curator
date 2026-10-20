@@ -5,12 +5,47 @@
  * Handles CRUD operations, optimistic locking conflicts, and draft auto-save.
  */
 import { defineStore } from 'pinia'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import { curationsAPI } from '@/api/curations'
 import type { Schema } from '@/types/api'
 
-/** A curation as listed (summary) or opened (detail); both carry the fields the store filters on. */
-export type CurationRecord = Schema<'CurationSummary'> | Schema<'CurationDetail'>
+/** A curation row as listed by the API. */
+export type CurationRecord = Schema<'CurationSummary'>
+/** A curation opened for viewing/editing. */
+export type CurationDetail = Schema<'CurationDetail'>
+
+/** Row for a just-created curation; names are unknown until the list is refetched. */
+function toSummary(c: Schema<'Curation'>): CurationRecord {
+  return {
+    id: c.id,
+    gene_id: c.gene_id,
+    gene_symbol: '',
+    scope_id: c.scope_id,
+    scope_name: '',
+    status: c.status,
+    workflow_stage: c.workflow_stage,
+    computed_verdict: c.computed_verdict,
+    computed_scores: c.computed_scores,
+    is_draft: c.is_draft,
+    created_at: c.created_at,
+    updated_at: c.updated_at,
+    curator_name: null,
+    created_by: c.created_by
+  }
+}
+
+/** Copy the mutable server-side fields of a saved curation onto a list row. */
+function refreshRow(row: CurationRecord, c: Schema<'Curation'>): CurationRecord {
+  return {
+    ...row,
+    status: c.status,
+    workflow_stage: c.workflow_stage,
+    computed_verdict: c.computed_verdict,
+    computed_scores: c.computed_scores,
+    is_draft: c.is_draft,
+    updated_at: c.updated_at
+  }
+}
 
 /** Error state: plain message, or extra data for optimistic-lock conflicts (409). */
 export interface CurationError {
@@ -38,7 +73,7 @@ interface CurationsPagination {
 
 interface CurationsState {
   curations: CurationRecord[]
-  currentCuration: CurationRecord | null
+  currentCuration: CurationDetail | null
   loading: boolean
   error: CurationError | null
   pagination: CurationsPagination
@@ -99,17 +134,17 @@ export const useCurationsStore = defineStore('curations', {
       this.loading = true
       this.error = null
       try {
-        const response = apiData<{ curations?: CurationRecord[]; total?: number }>(
-          await curationsAPI.getCurations({
-            ...this.filters,
-            ...params,
-            skip: (this.pagination.page - 1) * this.pagination.per_page,
-            limit: this.pagination.per_page
-          })
-        )
+        // The API names the status filter `curation_status`; `status` would be ignored
+        const { status, ...filters } = { ...this.filters, ...params }
+        const response = await curationsAPI.getCurations({
+          ...filters,
+          curation_status: status,
+          skip: (this.pagination.page - 1) * this.pagination.per_page,
+          limit: this.pagination.per_page
+        })
 
-        this.curations = response.curations || []
-        this.pagination.total = response.total || 0
+        this.curations = response.curations
+        this.pagination.total = response.total
         this.pagination.pages = Math.ceil(this.pagination.total / this.pagination.per_page)
 
         return response
@@ -128,13 +163,14 @@ export const useCurationsStore = defineStore('curations', {
       this.loading = true
       this.error = null
       try {
-        const curation = apiData<CurationRecord>(await curationsAPI.getCuration(id))
+        const curation = await curationsAPI.getCuration(id)
         this.currentCuration = curation
 
         // Update in list if exists
         const index = this.curations.findIndex(c => c.id === id)
-        if (index !== -1) {
-          this.curations[index] = curation
+        const row = this.curations[index]
+        if (row) {
+          this.curations[index] = refreshRow(row, curation)
         }
 
         return curation
@@ -153,8 +189,8 @@ export const useCurationsStore = defineStore('curations', {
       this.loading = true
       this.error = null
       try {
-        const newCuration = apiData<CurationRecord>(await curationsAPI.createCuration(data))
-        this.curations.unshift(newCuration)
+        const newCuration = await curationsAPI.createCuration(data)
+        this.curations.unshift(toSummary(newCuration))
         this.pagination.total += 1
         return newCuration
       } catch (error) {
@@ -173,17 +209,18 @@ export const useCurationsStore = defineStore('curations', {
       this.loading = true
       this.error = null
       try {
-        const updated = apiData<CurationRecord>(await curationsAPI.updateCuration(id, data))
+        const updated = await curationsAPI.updateCuration(id, data)
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
-        if (index !== -1) {
-          this.curations[index] = updated
+        const row = this.curations[index]
+        if (row) {
+          this.curations[index] = refreshRow(row, updated)
         }
 
         // Update current if same
         if (this.currentCuration?.id === id) {
-          this.currentCuration = updated
+          this.currentCuration = { ...this.currentCuration, ...updated }
         }
 
         return updated
@@ -215,17 +252,18 @@ export const useCurationsStore = defineStore('curations', {
     async saveDraft(id: string, data: Schema<'CurationDraftSave'>) {
       this.error = null
       try {
-        const updated = apiData<CurationRecord>(await curationsAPI.saveDraft(id, data))
+        const updated = await curationsAPI.saveDraft(id, data)
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
-        if (index !== -1) {
-          this.curations[index] = updated
+        const row = this.curations[index]
+        if (row) {
+          this.curations[index] = refreshRow(row, updated)
         }
 
         // Update current if same
         if (this.currentCuration?.id === id) {
-          this.currentCuration = updated
+          this.currentCuration = { ...this.currentCuration, ...updated }
         }
 
         return updated
@@ -243,17 +281,18 @@ export const useCurationsStore = defineStore('curations', {
       this.loading = true
       this.error = null
       try {
-        const submitted = apiData<CurationRecord>(await curationsAPI.submitCuration(id, data))
+        const submitted = await curationsAPI.submitCuration(id, data)
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
-        if (index !== -1) {
-          this.curations[index] = submitted
+        const row = this.curations[index]
+        if (row) {
+          this.curations[index] = refreshRow(row, submitted)
         }
 
         // Update current if same
         if (this.currentCuration?.id === id) {
-          this.currentCuration = submitted
+          this.currentCuration = { ...this.currentCuration, ...submitted }
         }
 
         return submitted
@@ -335,7 +374,7 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Set current curation
      */
-    setCurrentCuration(curation: CurationRecord | null) {
+    setCurrentCuration(curation: CurationDetail | null) {
       this.currentCuration = curation
     },
 

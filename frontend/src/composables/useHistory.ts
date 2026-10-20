@@ -22,14 +22,10 @@
 
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
-import { useHistoryStore } from '@/stores/history'
+import { useHistoryStore, type HistoryStateSummary } from '@/stores/history'
 import { useLogger } from './useLogger'
 
-export interface HistoryStateSummary {
-  canUndo: boolean
-  canRedo: boolean
-  lastAction: string | null
-}
+export type { HistoryStateSummary }
 
 export interface UseHistoryReturn<T> {
   canUndo: ComputedRef<boolean>
@@ -39,27 +35,14 @@ export interface UseHistoryReturn<T> {
   undo: () => T | null
   redo: () => T | null
   clearHistory: () => void
-  getStateSummary: () => HistoryStateSummary | null
-}
-
-/** Subset of the JS history store used here (its getter typings are not precise). */
-interface HistoryStoreApi {
-  initContext: (context: string) => void
-  canUndo: (context: string) => boolean
-  canRedo: (context: string) => boolean
-  getHistorySize: (context: string) => number
-  pushState: (context: string, action: string, previous: unknown, next: unknown) => void
-  undo: (context: string) => unknown
-  redo: (context: string) => unknown
-  clearHistory: (context: string) => void
-  getStateSummary: (context: string) => HistoryStateSummary | null
+  getStateSummary: () => HistoryStateSummary
 }
 
 export function useHistory<T = unknown>(
   context = 'default',
   applyState: ((state: T) => void) | null = null
 ): UseHistoryReturn<T> {
-  const historyStore = useHistoryStore() as unknown as HistoryStoreApi
+  const historyStore = useHistoryStore()
   const logger = useLogger()
 
   // Initialize context
@@ -141,7 +124,7 @@ export function useHistory<T = unknown>(
   /**
    * Get state summary (for debugging)
    */
-  function getStateSummary(): HistoryStateSummary | null {
+  function getStateSummary(): HistoryStateSummary {
     return historyStore.getStateSummary(context)
   }
 

@@ -45,7 +45,7 @@ describe('useHistoryStore', () => {
     store.pushState('c', 'three', 3, 4)
 
     expect(store.getHistorySize('c')).toBe(2)
-    expect(store.getStateSummary('c').lastAction).toBe('three')
+    expect(store.getStateSummary('c')).toMatchObject({ lastAction: 'three' })
     expect(logService.debug).toHaveBeenCalledWith('History limit reached, removed oldest entry', {
       context: 'c'
     })

@@ -1,5 +1,6 @@
 """Result container for schema validation runs."""
 
+import re
 from typing import Any
 
 
@@ -33,6 +34,18 @@ class SchemaValidationResult:
         if field not in self.field_validations:
             self.field_validations[field] = {"errors": [], "warnings": []}
         self.field_validations[field]["errors"].append(error)
+
+    def check_pattern(self, field: str, pattern: str, value: str) -> None:
+        """Error if value does not match pattern; a bad pattern is a schema error."""
+        try:
+            matched = re.match(pattern, value)
+        except re.error:
+            self.add_error(
+                field, "Schema has an invalid regex pattern", "configuration"
+            )
+            return
+        if not matched:
+            self.add_error(field, "Text does not match required pattern", "pattern")
 
     def add_warning(
         self, field: str, message: str, warning_type: str = "quality"

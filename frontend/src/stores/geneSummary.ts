@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import { geneSummaryAPI } from '@/api/geneSummary'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
@@ -40,9 +40,8 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
       this.error = null
 
       try {
-        const summary = apiData<Schema<'GeneSummaryPublic'> | null>(
-          await geneSummaryAPI.getPublicSummary(geneId)
-        )
+        const summary = await geneSummaryAPI.getPublicSummary(geneId)
+
         if (summary) {
           this.publicSummaries.set(geneId, summary)
           logService.info('Public gene summary fetched', { geneId })
@@ -70,9 +69,8 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
       this.error = null
 
       try {
-        const summary = apiData<Schema<'GeneSummaryFull'>>(
-          await geneSummaryAPI.getFullSummary(geneId)
-        )
+        const summary = await geneSummaryAPI.getFullSummary(geneId)
+
         this.fullSummaries.set(geneId, summary)
         logService.info('Full gene summary fetched', { geneId })
         return summary

@@ -62,6 +62,8 @@ describe('useGeneCatalogueStore', () => {
       api.getCatalogue.mockResolvedValue({
         entries: [entry('g1')],
         total: 25,
+        skip: 20,
+        limit: 20,
         has_next: true,
         has_prev: true,
         summary: {
@@ -100,7 +102,7 @@ describe('useGeneCatalogueStore', () => {
     it('uses the page from params and keeps the summary when none is returned', async () => {
       const store = useGeneCatalogueStore()
       store.summary.totalCurations = 7
-      api.getCatalogue.mockResolvedValue({} as never)
+      api.getCatalogue.mockResolvedValue({} as Schema<'GeneCatalogueResponse'>)
 
       await store.fetchCatalogue({ page: 3 })
 
@@ -112,7 +114,7 @@ describe('useGeneCatalogueStore', () => {
 
     it('defaults missing summary fields to zero', async () => {
       const store = useGeneCatalogueStore()
-      api.getCatalogue.mockResolvedValue({ summary: {} })
+      api.getCatalogue.mockResolvedValue({ summary: {} } as Schema<'GeneCatalogueResponse'>)
 
       await store.fetchCatalogue()
 

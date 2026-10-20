@@ -7,11 +7,44 @@
 import { defineStore } from 'pinia'
 import { precurationsAPI } from '@/api/precurations'
 import { logService } from '@/services/logService'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
-/** A precuration as listed (summary) or opened (full record); both carry the fields the store filters on. */
-export type PrecurationRecord = Schema<'PrecurationSummary'> | Schema<'Precuration'>
+/** A precuration row as listed by the API. */
+export type PrecurationRecord = Schema<'PrecurationSummary'>
+/** A precuration opened for viewing/editing. */
+export type PrecurationDetail = Schema<'Precuration'>
+
+/** Row for a just-created precuration; names are unknown until the list is refetched. */
+function toSummary(p: PrecurationDetail): PrecurationRecord {
+  return {
+    id: p.id,
+    gene_id: p.gene_id,
+    gene_symbol: '',
+    scope_id: p.scope_id,
+    scope_name: '',
+    status: p.status,
+    workflow_stage: p.workflow_stage,
+    mondo_id: null,
+    disease_name: null,
+    mode_of_inheritance: null,
+    is_draft: p.is_draft,
+    created_at: p.created_at,
+    updated_at: p.updated_at,
+    curator_name: null
+  }
+}
+
+/** Copy the mutable server-side fields of a saved precuration onto a list row. */
+function refreshRow(row: PrecurationRecord, p: PrecurationDetail): PrecurationRecord {
+  return {
+    ...row,
+    status: p.status,
+    workflow_stage: p.workflow_stage,
+    is_draft: p.is_draft,
+    updated_at: p.updated_at
+  }
+}
 
 interface PrecurationsFilters {
   scope_id: string | null
@@ -28,7 +61,7 @@ interface PrecurationsPagination {
 
 interface PrecurationsState {
   precurations: PrecurationRecord[]
-  currentPrecuration: PrecurationRecord | null
+  currentPrecuration: PrecurationDetail | null
   loading: boolean
   error: { message?: string; isAutoSave?: boolean } | null
   pagination: PrecurationsPagination
@@ -90,17 +123,17 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const response = apiData<{ precurations?: PrecurationRecord[]; total?: number }>(
-          await precurationsAPI.getPrecurations({
-            ...this.filters,
-            ...params,
-            skip: (this.pagination.page - 1) * this.pagination.per_page,
-            limit: this.pagination.per_page
-          })
-        )
+        // The API names the status filter `precuration_status`; `status` would be ignored
+        const { status, ...filters } = { ...this.filters, ...params }
+        const response = await precurationsAPI.getPrecurations({
+          ...filters,
+          precuration_status: status,
+          skip: (this.pagination.page - 1) * this.pagination.per_page,
+          limit: this.pagination.per_page
+        })
 
-        this.precurations = response.precurations || []
-        this.pagination.total = response.total || 0
+        this.precurations = response.precurations
+        this.pagination.total = response.total
         this.pagination.pages = Math.ceil(this.pagination.total / this.pagination.per_page)
 
         return response
@@ -119,13 +152,14 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const precuration = apiData<PrecurationRecord>(await precurationsAPI.getPrecuration(id))
+        const precuration = await precurationsAPI.getPrecuration(id)
         this.currentPrecuration = precuration
 
         // Update in list if exists
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = precuration
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = refreshRow(row, precuration)
         }
 
         return precuration
@@ -144,10 +178,9 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const newPrecuration = apiData<PrecurationRecord>(
-          await precurationsAPI.createPrecuration(data)
-        )
-        this.precurations.unshift(newPrecuration)
+        const newPrecuration = await precurationsAPI.createPrecuration(data)
+
+        this.precurations.unshift(toSummary(newPrecuration))
         this.pagination.total += 1
         return newPrecuration
       } catch (error) {
@@ -168,14 +201,13 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const updated = apiData<PrecurationRecord>(
-          await precurationsAPI.updatePrecuration(id, data)
-        )
+        const updated = await precurationsAPI.updatePrecuration(id, data)
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = updated
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = refreshRow(row, updated)
         }
 
         // Update current if same
@@ -199,16 +231,15 @@ export const usePrecurationsStore = defineStore('precurations', {
     async saveDraft(id: string, evidenceData: Record<string, unknown>) {
       this.error = null
       try {
-        const updated = apiData<PrecurationRecord>(
-          await precurationsAPI.saveDraft(id, {
-            evidence_data: evidenceData
-          })
-        )
+        const updated = await precurationsAPI.saveDraft(id, {
+          evidence_data: evidenceData
+        })
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = updated
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = refreshRow(row, updated)
         }
 
         // Update current if same
@@ -235,14 +266,13 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const submitted = apiData<PrecurationRecord>(
-          await precurationsAPI.submitPrecuration(id, { notes })
-        )
+        const submitted = await precurationsAPI.submitPrecuration(id, { notes })
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = submitted
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = refreshRow(row, submitted)
         }
 
         // Update current if same
@@ -266,17 +296,13 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const result = apiData<{ curation_id?: string } & Record<string, unknown>>(
-          await precurationsAPI.approvePrecuration(id)
-        )
+        const result = await precurationsAPI.approvePrecuration(id)
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = {
-            ...this.precurations[index],
-            status: 'approved'
-          } as PrecurationRecord
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = { ...row, status: 'approved' }
         }
 
         return result // Contains curation_id if auto-created
@@ -295,14 +321,13 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const rejected = apiData<PrecurationRecord>(
-          await precurationsAPI.rejectPrecuration(id, { reason })
-        )
+        const rejected = await precurationsAPI.rejectPrecuration(id, { reason })
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
-        if (index !== -1) {
-          this.precurations[index] = rejected
+        const row = this.precurations[index]
+        if (row) {
+          this.precurations[index] = refreshRow(row, rejected)
         }
 
         return rejected
@@ -359,7 +384,7 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Set current precuration
      */
-    setCurrentPrecuration(precuration: PrecurationRecord | null) {
+    setCurrentPrecuration(precuration: PrecurationDetail | null) {
       this.currentPrecuration = precuration
     },
 

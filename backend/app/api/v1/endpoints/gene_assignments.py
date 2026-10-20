@@ -63,13 +63,7 @@ def get_gene_assignments(
     has_curator: bool | None = Query(None, description="Filter by curator assignment"),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> GeneScopeAssignmentListResponse:
-    """
-    Retrieve gene-scope assignments with filtering.
-    """
-    # All authenticated users can view assignments
-    # RLS policies + scope membership checks handle access control
-
-    # Regular users can only see assignments in their scopes
+    """Retrieve gene-scope assignments with filtering."""
     if scope_id and not ScopePermissionService.has_scope_access(
         db, current_user, scope_id
     ):
@@ -77,19 +71,25 @@ def get_gene_assignments(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
 
-    # Get assignments with related entity details using eager loading
-    if is_active:
-        assignments = gene_assignment_crud.get_active_assignments_with_details(
-            db,
-            skip=skip,
-            limit=limit,
-            scope_id=scope_id,
-            curator_id=curator_id,
-            gene_id=gene_id,
-        )
-    else:
-        # Implementation would need to be added to CRUD for inactive assignments
-        assignments = gene_assignment_crud.get_multi(db, skip=skip, limit=limit)
+    # Non-admins only see assignments in their own scopes
+    visible = (
+        None
+        if scope_id
+        else ScopePermissionService.get_user_scope_ids(db, current_user)
+    )
+
+    assignments = gene_assignment_crud.get_active_assignments_with_details(
+        db,
+        skip=skip,
+        limit=limit,
+        scope_id=scope_id,
+        scope_ids=visible,
+        curator_id=curator_id,
+        gene_id=gene_id,
+        priority="normal" if priority_level == "medium" else priority_level,
+        has_curator=has_curator,
+        is_active=is_active,
+    )
 
     # Convert to summary format with related data from eager loading
     assignment_summaries = []
@@ -245,9 +245,8 @@ def update_gene_assignment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # All authenticated users can update assignments in their scopes
-    # Check scope access
-    if not ScopePermissionService.has_scope_access(
+    # Updating requires at least curator role in the scope
+    if not ScopePermissionService.can_edit_gene_assignment(
         db, current_user, assignment.scope_id
     ):
         raise HTTPException(

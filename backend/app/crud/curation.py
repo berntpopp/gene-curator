@@ -550,7 +550,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
 
         # Update computed fields from ScoringResult
-        db_obj.computed_scores = result.evidence_breakdown
+        db_obj.computed_scores = {**result.scores, **result.evidence_breakdown}
         db_obj.computed_verdict = result.verdict
         db_obj.computed_summary = result.verdict_rationale
 
@@ -558,8 +558,8 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db.commit()
 
         # Extract genetic and experimental scores from the scores dict
-        genetic_score = result.scores.get("genetic_score", 0.0)
-        experimental_score = result.scores.get("experimental_score", 0.0)
+        genetic_score = result.scores.get("genetic_evidence_total", 0.0)
+        experimental_score = result.scores.get("experimental_evidence_total", 0.0)
 
         return CurationScoreResponse(
             curation_id=db_obj.id,

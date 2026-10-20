@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import type { Schema } from '@/types/api'
 import { setActivePinia, createPinia } from 'pinia'
 import { useExternalValidationStore } from '@/stores/externalValidation'
 import { externalValidationAPI } from '@/api/externalValidation'
@@ -20,6 +21,14 @@ vi.mock('@/services/logService', () => ({
 
 const api = vi.mocked(externalValidationAPI)
 
+const OK: Schema<'ValidationResult'> = { is_valid: true, status: 'valid' }
+const BAD: Schema<'ValidationResult'> = { is_valid: false, status: 'invalid' }
+const BRCA1_OK: Schema<'ValidationResult'> = {
+  is_valid: true,
+  status: 'valid',
+  data: { approved_symbol: 'BRCA1' }
+}
+
 describe('useExternalValidationStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -34,10 +43,10 @@ describe('useExternalValidationStore', () => {
 
     it('reads cached results and validation-in-progress state', () => {
       const store = useExternalValidationStore()
-      store.cache.set('hgnc:brca1', { is_valid: true })
+      store.cache.set('hgnc:brca1', OK)
       store.loading.set('pubmed:123', true)
 
-      expect(store.getCachedResult('hgnc', 'BRCA1')).toEqual({ is_valid: true })
+      expect(store.getCachedResult('hgnc', 'BRCA1')).toEqual(OK)
       expect(store.getCachedResult('hgnc', 'unknown')).toBeNull()
       expect(store.isValidating('pubmed', '123')).toBe(true)
       expect(store.isValidating('hpo', 'HP:1')).toBe(false)
@@ -47,22 +56,19 @@ describe('useExternalValidationStore', () => {
   describe('validateHGNC', () => {
     it('validates, caches and returns the result', async () => {
       const store = useExternalValidationStore()
-      api.validateHGNC.mockResolvedValue({ is_valid: true, approved_symbol: 'BRCA1' })
+      api.validateHGNC.mockResolvedValue(BRCA1_OK)
 
-      await expect(store.validateHGNC('BRCA1')).resolves.toEqual({
-        is_valid: true,
-        approved_symbol: 'BRCA1'
-      })
+      await expect(store.validateHGNC('BRCA1')).resolves.toEqual(BRCA1_OK)
       expect(api.validateHGNC).toHaveBeenCalledWith('BRCA1', false)
-      expect(store.cache.get('hgnc:brca1')).toEqual({ is_valid: true, approved_symbol: 'BRCA1' })
+      expect(store.cache.get('hgnc:brca1')).toEqual(BRCA1_OK)
       expect(store.loading.has('hgnc:brca1')).toBe(false)
     })
 
     it('serves the cached result without calling the API', async () => {
       const store = useExternalValidationStore()
-      store.cache.set('hgnc:brca1', { is_valid: true })
+      store.cache.set('hgnc:brca1', OK)
 
-      await expect(store.validateHGNC('BRCA1')).resolves.toEqual({ is_valid: true })
+      await expect(store.validateHGNC('BRCA1')).resolves.toEqual(OK)
       expect(api.validateHGNC).not.toHaveBeenCalled()
       expect(logService.info).toHaveBeenCalledWith(
         'Validation cache hit',
@@ -72,12 +78,12 @@ describe('useExternalValidationStore', () => {
 
     it('bypasses the cache when skipCache is set', async () => {
       const store = useExternalValidationStore()
-      store.cache.set('hgnc:brca1', { is_valid: true })
-      api.validateHGNC.mockResolvedValue({ is_valid: false })
+      store.cache.set('hgnc:brca1', OK)
+      api.validateHGNC.mockResolvedValue(BAD)
 
-      await expect(store.validateHGNC('BRCA1', true)).resolves.toEqual({ is_valid: false })
+      await expect(store.validateHGNC('BRCA1', true)).resolves.toEqual(BAD)
       expect(api.validateHGNC).toHaveBeenCalledWith('BRCA1', true)
-      expect(store.cache.get('hgnc:brca1')).toEqual({ is_valid: false })
+      expect(store.cache.get('hgnc:brca1')).toEqual(BAD)
     })
 
     it('records the error, clears loading and rethrows', async () => {
@@ -105,13 +111,13 @@ describe('useExternalValidationStore', () => {
   describe('validatePubMed', () => {
     it('validates, caches and serves from cache afterwards', async () => {
       const store = useExternalValidationStore()
-      api.validatePubMed.mockResolvedValue({ is_valid: true })
+      api.validatePubMed.mockResolvedValue(OK)
 
       await store.validatePubMed('123')
       await store.validatePubMed('123')
 
       expect(api.validatePubMed).toHaveBeenCalledTimes(1)
-      expect(store.cache.get('pubmed:123')).toEqual({ is_valid: true })
+      expect(store.cache.get('pubmed:123')).toEqual(OK)
     })
 
     it('records errors and rethrows', async () => {
@@ -128,7 +134,7 @@ describe('useExternalValidationStore', () => {
 
     it('uses a fallback message and honours skipCache', async () => {
       const store = useExternalValidationStore()
-      store.cache.set('pubmed:1', { is_valid: true })
+      store.cache.set('pubmed:1', OK)
       api.validatePubMed.mockRejectedValue({})
 
       await expect(store.validatePubMed('1', true)).rejects.toEqual({})
@@ -140,15 +146,15 @@ describe('useExternalValidationStore', () => {
   describe('validateHPO', () => {
     it('validates, caches and returns the result', async () => {
       const store = useExternalValidationStore()
-      api.validateHPO.mockResolvedValue({ is_valid: true })
+      api.validateHPO.mockResolvedValue(OK)
 
-      await expect(store.validateHPO('HP:0000001')).resolves.toEqual({ is_valid: true })
-      expect(store.cache.get('hpo:hp:0000001')).toEqual({ is_valid: true })
+      await expect(store.validateHPO('HP:0000001')).resolves.toEqual(OK)
+      expect(store.cache.get('hpo:hp:0000001')).toEqual(OK)
     })
 
     it('serves the cache on a second call and skips it when asked', async () => {
       const store = useExternalValidationStore()
-      api.validateHPO.mockResolvedValue({ is_valid: true })
+      api.validateHPO.mockResolvedValue(OK)
 
       await store.validateHPO('HP:1')
       await store.validateHPO('HP:1')
@@ -183,16 +189,16 @@ describe('useExternalValidationStore', () => {
     it('caches every returned result under its validator key', async () => {
       const store = useExternalValidationStore()
       api.validateBatch.mockResolvedValue({
-        BRCA1: { is_valid: true },
-        XYZ: { is_valid: false }
+        BRCA1: OK,
+        XYZ: BAD
       })
 
       const results = await store.validateBatch('hgnc', ['BRCA1', 'XYZ'])
 
       expect(api.validateBatch).toHaveBeenCalledWith('hgnc', ['BRCA1', 'XYZ'])
-      expect(results).toEqual({ BRCA1: { is_valid: true }, XYZ: { is_valid: false } })
-      expect(store.cache.get('hgnc:brca1')).toEqual({ is_valid: true })
-      expect(store.cache.get('hgnc:xyz')).toEqual({ is_valid: false })
+      expect(results).toEqual({ BRCA1: OK, XYZ: BAD })
+      expect(store.cache.get('hgnc:brca1')).toEqual(OK)
+      expect(store.cache.get('hgnc:xyz')).toEqual(BAD)
     })
 
     it('records errors and rethrows with a fallback message', async () => {
@@ -232,7 +238,7 @@ describe('useExternalValidationStore', () => {
   describe('clearing', () => {
     it('clearCache empties cache, loading and error', () => {
       const store = useExternalValidationStore()
-      store.cache.set('hgnc:x', { is_valid: true })
+      store.cache.set('hgnc:x', OK)
       store.loading.set('hgnc:y', true)
       store.error = 'boom'
 
@@ -245,7 +251,7 @@ describe('useExternalValidationStore', () => {
 
     it('clearError resets only the error', () => {
       const store = useExternalValidationStore()
-      store.cache.set('hgnc:x', { is_valid: true })
+      store.cache.set('hgnc:x', OK)
       store.error = 'boom'
 
       store.clearError()

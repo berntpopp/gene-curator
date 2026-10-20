@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
-import type { CurationRecord } from '@/stores/curations'
+import type { CurationRecord, CurationDetail } from '@/stores/curations'
+import type { Schema } from '@/types/api'
 import { useCurationsStore } from '@/stores/curations'
 import { curationsAPI } from '@/api/curations'
 
@@ -24,7 +25,7 @@ vi.mock('@/services/logService', () => ({
 const api = vi.mocked(curationsAPI)
 
 /** Minimal curation rows; the store only reads these fields. */
-const row = (id: string, extra: Record<string, unknown> = {}) =>
+const row = (id: string, extra: Partial<CurationRecord> = {}): CurationRecord =>
   ({
     id,
     gene_id: 'g1',
@@ -34,9 +35,24 @@ const row = (id: string, extra: Record<string, unknown> = {}) =>
     ...extra
   }) as CurationRecord
 
+const saved = (id: string, extra: Partial<Schema<'Curation'>> = {}): Schema<'Curation'> =>
+  ({ ...row(id), ...extra }) as Schema<'Curation'>
+
+const detail = (id: string, extra: Partial<CurationDetail> = {}): CurationDetail =>
+  ({ ...row(id), ...extra }) as CurationDetail
+
+const listOf = (curations: CurationRecord[], total = curations.length) =>
+  ({ curations, total, skip: 0, limit: 50 }) as Schema<'CurationListResponse'>
+
 /** Axios-style error with an HTTP status and body. */
 const httpError = (status: number, data: Record<string, unknown> = {}) =>
   Object.assign(new Error(`HTTP ${status}`), { response: { status, data } })
+
+const newCuration: Schema<'CurationCreate'> = {
+  gene_id: 'g1',
+  scope_id: 's1',
+  workflow_pair_id: 'w1'
+}
 
 describe('useCurationsStore', () => {
   beforeEach(() => {
@@ -76,32 +92,22 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       store.filters.scope_id = 's1'
       store.pagination.page = 2
-      api.getCurations.mockResolvedValue({ curations: [row('c1')], total: 120 } as never)
+      api.getCurations.mockResolvedValue(listOf([row('c1')], 120))
 
       const result = await store.fetchCurations({ status: 'draft' })
 
       expect(api.getCurations).toHaveBeenCalledWith({
         scope_id: 's1',
         gene_id: null,
-        status: 'draft',
         curator_id: null,
+        curation_status: 'draft',
         skip: 50,
         limit: 50
       })
-      expect(result).toEqual({ curations: [row('c1')], total: 120 })
+      expect(result).toEqual(listOf([row('c1')], 120))
       expect(store.curations).toHaveLength(1)
       expect(store.pagination.total).toBe(120)
       expect(store.pagination.pages).toBe(3)
-    })
-
-    it('defaults to empty results when the response is sparse', async () => {
-      const store = useCurationsStore()
-      api.getCurations.mockResolvedValue({} as never)
-
-      await store.fetchCurations()
-
-      expect(store.curations).toEqual([])
-      expect(store.pagination.total).toBe(0)
     })
 
     it('stores the error message and rethrows', async () => {
@@ -118,7 +124,7 @@ describe('useCurationsStore', () => {
     it('sets the current curation and refreshes the list entry', async () => {
       const store = useCurationsStore()
       store.curations = [row('c1', { status: 'draft' })]
-      api.getCuration.mockResolvedValue(row('c1', { status: 'submitted' }))
+      api.getCuration.mockResolvedValue(detail('c1', { status: 'submitted' }))
 
       const result = await store.fetchCurationById('c1')
 
@@ -129,7 +135,7 @@ describe('useCurationsStore', () => {
 
     it('leaves the list untouched when the curation is not listed', async () => {
       const store = useCurationsStore()
-      api.getCuration.mockResolvedValue(row('c9'))
+      api.getCuration.mockResolvedValue(detail('c9'))
 
       await store.fetchCurationById('c9')
 
@@ -151,9 +157,9 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       store.curations = [row('old')]
       store.pagination.total = 1
-      api.createCuration.mockResolvedValue(row('new'))
+      api.createCuration.mockResolvedValue(saved('new'))
 
-      const created = await store.createCuration({} as Parameters<typeof api.createCuration>[0])
+      const created = await store.createCuration(newCuration)
 
       expect(created.id).toBe('new')
       expect(store.curations.map(c => c.id)).toEqual(['new', 'old'])
@@ -164,9 +170,7 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.createCuration.mockRejectedValue(new Error('invalid'))
 
-      await expect(
-        store.createCuration({} as Parameters<typeof api.createCuration>[0])
-      ).rejects.toThrow('invalid')
+      await expect(store.createCuration(newCuration)).rejects.toThrow('invalid')
       expect(store.error).toEqual({ message: 'invalid' })
       expect(store.pagination.total).toBe(0)
     })
@@ -176,10 +180,10 @@ describe('useCurationsStore', () => {
     it('updates the list entry and the current curation', async () => {
       const store = useCurationsStore()
       store.curations = [row('c1')]
-      store.currentCuration = row('c1')
-      api.updateCuration.mockResolvedValue(row('c1', { status: 'submitted' }))
+      store.currentCuration = detail('c1')
+      api.updateCuration.mockResolvedValue(saved('c1', { status: 'submitted' }))
 
-      const updated = await store.updateCuration('c1', {} as never)
+      const updated = await store.updateCuration('c1', { lock_version: 1 })
 
       expect(updated.status).toBe('submitted')
       expect(store.curations[0]?.status).toBe('submitted')
@@ -188,10 +192,10 @@ describe('useCurationsStore', () => {
 
     it('does not touch unrelated current curation', async () => {
       const store = useCurationsStore()
-      store.currentCuration = row('other')
-      api.updateCuration.mockResolvedValue(row('c1'))
+      store.currentCuration = detail('other')
+      api.updateCuration.mockResolvedValue(saved('c1'))
 
-      await store.updateCuration('c1', {} as never)
+      await store.updateCuration('c1', { lock_version: 1 })
 
       expect(store.currentCuration?.id).toBe('other')
     })
@@ -206,7 +210,7 @@ describe('useCurationsStore', () => {
         })
       )
 
-      await expect(store.updateCuration('c1', {} as never)).rejects.toThrow('HTTP 409')
+      await expect(store.updateCuration('c1', { lock_version: 1 })).rejects.toThrow('HTTP 409')
 
       expect(store.isConflictError).toBe(true)
       expect(store.error).toEqual({
@@ -224,7 +228,7 @@ describe('useCurationsStore', () => {
         Object.assign(new Error('conflict'), { response: { status: 409 } })
       )
 
-      await expect(store.updateCuration('c1', {} as never)).rejects.toThrow('conflict')
+      await expect(store.updateCuration('c1', { lock_version: 1 })).rejects.toThrow('conflict')
       expect(store.error?.isConflict).toBe(true)
       expect(store.error?.currentVersion).toBeUndefined()
     })
@@ -233,7 +237,7 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.updateCuration.mockRejectedValue(httpError(500))
 
-      await expect(store.updateCuration('c1', {} as never)).rejects.toThrow('HTTP 500')
+      await expect(store.updateCuration('c1', { lock_version: 1 })).rejects.toThrow('HTTP 500')
       expect(store.error).toEqual({ message: 'HTTP 500' })
       expect(store.loading).toBe(false)
     })
@@ -243,14 +247,14 @@ describe('useCurationsStore', () => {
     it('updates list and current entries on success', async () => {
       const store = useCurationsStore()
       store.curations = [row('c1')]
-      store.currentCuration = row('c1')
-      api.saveDraft.mockResolvedValue(row('c1', { auto_saved: true }))
+      store.currentCuration = detail('c1')
+      api.saveDraft.mockResolvedValue(saved('c1', { is_draft: false }))
 
-      const saved = await store.saveDraft('c1', {} as never)
+      const result = await store.saveDraft('c1', { evidence_data: {} })
 
-      expect(saved).toMatchObject({ id: 'c1' })
-      expect(store.curations[0]).toMatchObject({ auto_saved: true })
-      expect(store.currentCuration).toMatchObject({ auto_saved: true })
+      expect(result).toMatchObject({ id: 'c1' })
+      expect(store.curations[0]).toMatchObject({ is_draft: false })
+      expect(store.currentCuration).toMatchObject({ is_draft: false })
       expect(store.loading).toBe(false)
     })
 
@@ -258,7 +262,7 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.saveDraft.mockRejectedValue(new Error('offline'))
 
-      await expect(store.saveDraft('c1', {} as never)).resolves.toBeNull()
+      await expect(store.saveDraft('c1', { evidence_data: {} })).resolves.toBeNull()
       expect(store.error).toEqual({ message: 'offline', isAutoSave: true })
     })
   })
@@ -267,8 +271,8 @@ describe('useCurationsStore', () => {
     it('updates list and current entries', async () => {
       const store = useCurationsStore()
       store.curations = [row('c1')]
-      store.currentCuration = row('c1')
-      api.submitCuration.mockResolvedValue(row('c1', { status: 'submitted' }))
+      store.currentCuration = detail('c1')
+      api.submitCuration.mockResolvedValue(saved('c1', { status: 'submitted' }))
 
       const submitted = await store.submitCuration('c1')
 
@@ -282,7 +286,7 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.submitCuration.mockRejectedValue(httpError(409))
 
-      await expect(store.submitCuration('c1', {} as never)).rejects.toThrow('HTTP 409')
+      await expect(store.submitCuration('c1')).rejects.toThrow('HTTP 409')
       expect(store.error).toEqual({
         message: 'Curation was modified. Please refresh and try again.',
         isConflict: true
@@ -293,7 +297,7 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.submitCuration.mockRejectedValue(new Error('bad'))
 
-      await expect(store.submitCuration('c1', {} as never)).rejects.toThrow('bad')
+      await expect(store.submitCuration('c1')).rejects.toThrow('bad')
       expect(store.error).toEqual({ message: 'bad' })
     })
   })
@@ -302,9 +306,9 @@ describe('useCurationsStore', () => {
     it('removes the curation, decrements the total and clears current', async () => {
       const store = useCurationsStore()
       store.curations = [row('c1'), row('c2')]
-      store.currentCuration = row('c1')
+      store.currentCuration = detail('c1')
       store.pagination.total = 2
-      api.deleteCuration.mockResolvedValue({} as never)
+      api.deleteCuration.mockResolvedValue(undefined)
 
       await expect(store.deleteCuration('c1')).resolves.toBe(true)
 
@@ -315,9 +319,9 @@ describe('useCurationsStore', () => {
 
     it('never lets the total go negative and keeps unrelated current curation', async () => {
       const store = useCurationsStore()
-      store.currentCuration = row('keep')
+      store.currentCuration = detail('keep')
       store.pagination.total = 0
-      api.deleteCuration.mockResolvedValue({} as never)
+      api.deleteCuration.mockResolvedValue(undefined)
 
       await store.deleteCuration('c1')
 
@@ -337,7 +341,7 @@ describe('useCurationsStore', () => {
   describe('calculateScore', () => {
     it('returns the score result', async () => {
       const store = useCurationsStore()
-      api.calculateScore.mockResolvedValue({ total_score: 12 })
+      api.calculateScore.mockResolvedValue({ total_score: 12 } as Schema<'CurationScoreResponse'>)
 
       await expect(store.calculateScore('c1')).resolves.toEqual({ total_score: 12 })
       expect(store.loading).toBe(false)
@@ -367,7 +371,7 @@ describe('useCurationsStore', () => {
       store.setPage(3)
       expect(store.pagination.page).toBe(3)
 
-      store.setCurrentCuration(row('c1'))
+      store.setCurrentCuration(detail('c1'))
       expect(store.currentCuration?.id).toBe('c1')
 
       store.clearCurrentCuration()
@@ -384,7 +388,7 @@ describe('useCurationsStore', () => {
     it('$reset restores the initial state', () => {
       const store = useCurationsStore()
       store.curations = [row('c1')]
-      store.currentCuration = row('c1')
+      store.currentCuration = detail('c1')
       store.loading = true
       store.error = { message: 'x' }
       store.pagination = { page: 5, per_page: 10, total: 9, pages: 1 }

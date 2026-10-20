@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { workflowAPI } from '@/api'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 /**
@@ -62,17 +62,25 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
   }
 ]
 
-/** Workflow statistics; `stages` is read per stage name but is not declared by the API schema. */
-type WorkflowStatisticsRecord = Schema<'WorkflowStatistics'> & {
-  stages?: Record<string, Record<string, unknown>>
+type Stage = Schema<'WorkflowStage'>
+export type WorkflowItemType = 'precuration' | 'curation'
+
+/** Payload of the generic stage actions (advance/reject). */
+export interface StageActionPayload {
+  entity_id: string
+  entity_type: WorkflowItemType
+  comment?: string
 }
+
+const stageOrder = (stage: Stage): number => WORKFLOW_STAGES.find(w => w.id === stage)?.order ?? 0
 
 interface WorkflowState {
   analytics: Schema<'WorkflowAnalytics'> | null
-  statistics: WorkflowStatisticsRecord | null
+  statistics: Schema<'WorkflowStatistics'> | null
   peerReviewers: Schema<'PeerReviewerResponse'>[]
-  curationTransitions: Record<string, Schema<'WorkflowTransition'>[]>
+  curationTransitions: Record<string, Stage[]>
   curationHistory: Record<string, Schema<'WorkflowAuditEntry'>[]>
+  itemStates: Record<string, Schema<'WorkflowStateInfo'>>
   loading: boolean
   error: string | null
   currentWorkflowStage: string | null
@@ -87,6 +95,7 @@ export const useWorkflowStore = defineStore('workflow', {
     peerReviewers: [],
     curationTransitions: {},
     curationHistory: {},
+    itemStates: {},
     loading: false,
     error: null,
     currentWorkflowStage: null,
@@ -118,8 +127,19 @@ export const useWorkflowStore = defineStore('workflow', {
         )
       },
 
+    /** Number of items currently in `stage` (from the last fetched statistics). */
     getWorkflowStageStats: state => (stage: string) => {
-      return state.statistics?.stages?.[stage] || {}
+      return state.statistics?.stage_counts[stage]
+    },
+
+    /** Workflow state (current stage, available transitions) fetched by `fetchCurrentStage`. */
+    getCurrentStage: state => (entityId: string) => {
+      return state.itemStates[entityId]
+    },
+
+    /** Stage-transition history fetched by `fetchStageHistory` / `fetchCurationWorkflowHistory`. */
+    getStageHistory: state => (entityId: string) => {
+      return state.curationHistory[entityId] || []
     }
   },
 
@@ -128,9 +148,8 @@ export const useWorkflowStore = defineStore('workflow', {
       this.loading = true
       this.error = null
       try {
-        const analytics = apiData<Schema<'WorkflowAnalytics'>>(
-          await workflowAPI.getWorkflowAnalytics(params)
-        )
+        const analytics = await workflowAPI.getWorkflowAnalytics(params)
+
         this.analytics = analytics
         return analytics
       } catch (error) {
@@ -164,9 +183,8 @@ export const useWorkflowStore = defineStore('workflow', {
 
     async fetchAvailableTransitions(curationId: string) {
       try {
-        const transitions = apiData<Schema<'WorkflowTransition'>[]>(
-          await workflowAPI.getAvailableTransitions(curationId)
-        )
+        const transitions = await workflowAPI.getAvailableTransitions(curationId)
+
         this.curationTransitions[curationId] = transitions
         return transitions
       } catch (error) {
@@ -177,9 +195,8 @@ export const useWorkflowStore = defineStore('workflow', {
 
     async fetchPeerReviewers(params: Record<string, unknown> = {}) {
       try {
-        const reviewers = apiData<Schema<'PeerReviewerResponse'>[]>(
-          await workflowAPI.getPeerReviewers(params)
-        )
+        const reviewers = await workflowAPI.getPeerReviewers(params)
+
         this.peerReviewers = reviewers
         return reviewers
       } catch (error) {
@@ -188,15 +205,73 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
-    async submitPeerReview(curationId: string, reviewData: Schema<'PeerReviewSubmission'>) {
+    async submitPeerReview(reviewId: string, reviewData: Schema<'PeerReviewSubmission'>) {
       this.loading = true
       this.error = null
       try {
-        const result = await workflowAPI.submitPeerReview(curationId, reviewData)
+        return await workflowAPI.submitPeerReview(reviewId, reviewData)
+      } catch (error) {
+        this.error = toApiError(error).message ?? null
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
 
-        // Refresh curation history after review submission
-        await this.fetchCurationWorkflowHistory(curationId)
+    /** Load the workflow state of a precuration/curation (GET /workflow/{type}/{id}/state). */
+    async fetchCurrentStage(entityId: string, entityType: WorkflowItemType = 'curation') {
+      try {
+        const state = await workflowAPI.getWorkflowState(entityType, entityId)
+        this.itemStates[entityId] = state
+        return state
+      } catch (error) {
+        this.error = toApiError(error).message ?? null
+        throw error
+      }
+    },
 
+    /** Load the stage-transition history of a precuration/curation (GET .../audit-trail). */
+    async fetchStageHistory(entityId: string, entityType: WorkflowItemType = 'curation') {
+      try {
+        const trail = await workflowAPI.getWorkflowAuditTrail(entityType, entityId)
+        this.curationHistory[entityId] = trail.entries
+        return trail.entries
+      } catch (error) {
+        this.error = toApiError(error).message ?? null
+        throw error
+      }
+    },
+
+    /** Move an item to the nearest later stage the backend currently allows. */
+    async advanceStage(payload: StageActionPayload) {
+      return this.moveStage(payload, 'forward')
+    },
+
+    /** Send an item back to the nearest earlier stage the backend currently allows. */
+    async rejectStage(payload: StageActionPayload) {
+      return this.moveStage(payload, 'backward')
+    },
+
+    async moveStage(payload: StageActionPayload, direction: 'forward' | 'backward') {
+      this.loading = true
+      this.error = null
+      try {
+        const state = await workflowAPI.getWorkflowState(payload.entity_type, payload.entity_id)
+        const current = stageOrder(state.current_stage)
+        const candidates = state.available_transitions
+          .filter(t =>
+            direction === 'forward' ? stageOrder(t) > current : stageOrder(t) < current
+          )
+          .sort((a, b) => stageOrder(a) - stageOrder(b))
+        const target = direction === 'forward' ? candidates[0] : candidates[candidates.length - 1]
+        if (!target) {
+          throw new Error(`No ${direction} transition available from ${state.current_stage}`)
+        }
+        const result = await workflowAPI.transitionItem(payload.entity_type, payload.entity_id, {
+          target_stage: target,
+          notes: payload.comment
+        })
+        await this.fetchCurrentStage(payload.entity_id, payload.entity_type)
         return result
       } catch (error) {
         this.error = toApiError(error).message ?? null
@@ -208,11 +283,10 @@ export const useWorkflowStore = defineStore('workflow', {
 
     async fetchCurationWorkflowHistory(curationId: string) {
       try {
-        const history = apiData<Schema<'WorkflowAuditEntry'>[]>(
-          await workflowAPI.getCurationWorkflowHistory(curationId)
-        )
-        this.curationHistory[curationId] = history
-        return history
+        const trail = await workflowAPI.getCurationWorkflowHistory(curationId)
+
+        this.curationHistory[curationId] = trail.entries
+        return trail.entries
       } catch (error) {
         this.error = toApiError(error).message ?? null
         throw error
@@ -221,9 +295,8 @@ export const useWorkflowStore = defineStore('workflow', {
 
     async fetchWorkflowStatistics(params: Record<string, unknown> = {}) {
       try {
-        const statistics = apiData<WorkflowStatisticsRecord>(
-          await workflowAPI.getWorkflowStatistics(params)
-        )
+        const statistics = await workflowAPI.getWorkflowStatistics(params)
+
         this.statistics = statistics
         return statistics
       } catch (error) {
@@ -239,12 +312,11 @@ export const useWorkflowStore = defineStore('workflow', {
         const { useAuthStore } = await import('@/stores/auth')
         const authStore = useAuthStore()
 
-        const response = apiData<{ curations?: { created_by?: string }[] }>(
-          await curationsAPI.getCurations({
-            curation_status: 'in_review',
-            limit: 200
-          })
-        )
+        const response = await curationsAPI.getCurations({
+          curation_status: 'in_review',
+          limit: 200
+        })
+
         const userId = authStore.user?.id
         const myReviews = (response.curations || []).filter(c => c.created_by !== userId)
         this.pendingReviewCount = myReviews.length

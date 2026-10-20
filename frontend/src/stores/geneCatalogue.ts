@@ -11,7 +11,7 @@
  */
 import { defineStore } from 'pinia'
 import { geneCatalogueAPI } from '@/api/geneCatalogue'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 interface CatalogueFilters {
@@ -40,9 +40,9 @@ interface CatalogueSummary {
 }
 
 interface CatalogueFilterOptions {
-  classifications: unknown[]
-  diseases: unknown[]
-  scopes: unknown[]
+  classifications: string[]
+  diseases: string[]
+  scopes: Schema<'ScopeFilterOption'>[]
   loaded: boolean
 }
 
@@ -162,33 +162,18 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
       try {
         const skip = ((params.page || this.pagination.page) - 1) * this.pagination.perPage
 
-        const response = apiData<{
-          entries?: Schema<'GeneCatalogueEntry'>[]
-          total?: number
-          has_next?: boolean
-          has_prev?: boolean
-          summary?: {
-            total_genes_curated?: number
-            total_curations?: number
-            total_scopes?: number
-            classification_summary?: Record<string, number>
-          }
-        }>(
-          // Empty filters are sent as undefined (omitted by axios); the API JSDoc marks them required
-          await geneCatalogueAPI.getCatalogue(
-            apiData<Parameters<typeof geneCatalogueAPI.getCatalogue>[0]>({
-              skip,
-              limit: this.pagination.perPage,
-              search: this.filters.search || undefined,
-              classification: this.filters.classification || undefined,
-              disease: this.filters.disease || undefined,
-              scope_id: this.filters.scopeId || undefined,
-              chromosome: this.filters.chromosome || undefined,
-              sort_by: this.filters.sortBy,
-              sort_order: this.filters.sortOrder
-            })
-          )
-        )
+        // Empty filters are sent as undefined (omitted by axios)
+        const response = await geneCatalogueAPI.getCatalogue({
+          skip,
+          limit: this.pagination.perPage,
+          search: this.filters.search || undefined,
+          classification: this.filters.classification || undefined,
+          disease: this.filters.disease || undefined,
+          scope_id: this.filters.scopeId || undefined,
+          chromosome: this.filters.chromosome || undefined,
+          sort_by: this.filters.sortBy,
+          sort_order: this.filters.sortOrder
+        })
 
         this.entries = response.entries || []
         this.pagination.total = response.total || 0
@@ -224,9 +209,9 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
       try {
         const [classifications, diseases, scopes] = await Promise.all([
-          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableClassifications()),
-          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableDiseases()),
-          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableScopes())
+          geneCatalogueAPI.getAvailableClassifications(),
+          geneCatalogueAPI.getAvailableDiseases(),
+          geneCatalogueAPI.getAvailableScopes()
         ])
 
         this.filterOptions = {

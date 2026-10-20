@@ -20,6 +20,8 @@ vi.mock('@/stores/evidence', () => ({
 
 import { useEvidence } from '../useEvidence'
 
+const newItem = { evidence_category: 'case_level', evidence_type: 'genetic', evidence_data: {} }
+
 describe('useEvidence', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -69,22 +71,22 @@ describe('useEvidence', () => {
   it('addEvidence passes data through and rethrows errors', async () => {
     const { addEvidence, error } = useEvidence('cur-1')
 
-    await addEvidence({ evidence_type: 'genetic' })
-    expect(store.createEvidence).toHaveBeenCalledWith('cur-1', { evidence_type: 'genetic' })
+    await addEvidence(newItem)
+    expect(store.createEvidence).toHaveBeenCalledWith('cur-1', newItem)
 
     store.createEvidence.mockRejectedValueOnce(new Error('invalid'))
-    await expect(addEvidence({})).rejects.toThrow('invalid')
+    await expect(addEvidence(newItem)).rejects.toThrow('invalid')
     expect(error.value).toBe('invalid')
   })
 
   it('updateEvidence passes id and data through and rethrows errors', async () => {
     const { updateEvidence, error } = useEvidence('cur-1')
 
-    await updateEvidence('e1', { computed_score: 4 })
-    expect(store.updateEvidence).toHaveBeenCalledWith('cur-1', 'e1', { computed_score: 4 })
+    await updateEvidence('e1', { evidence_data: { n: 4 } })
+    expect(store.updateEvidence).toHaveBeenCalledWith('cur-1', 'e1', { evidence_data: { n: 4 } })
 
     store.updateEvidence.mockRejectedValueOnce(new Error('conflict'))
-    await expect(updateEvidence('e1', {})).rejects.toThrow('conflict')
+    await expect(updateEvidence('e1', { evidence_data: {} })).rejects.toThrow('conflict')
     expect(error.value).toBe('conflict')
   })
 

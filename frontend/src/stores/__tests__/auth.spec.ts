@@ -21,6 +21,13 @@ vi.mock('@/services/logService', () => ({
 
 const api = vi.mocked(authAPI)
 
+const makeToken = (access = 'a', refresh = 'r'): Schema<'Token'> => ({
+  access_token: access,
+  refresh_token: refresh,
+  token_type: 'bearer',
+  expires_in: 1800
+})
+
 const makeUser = (role: string) =>
   ({ id: 'u1', email: 'a@b.c', name: 'Ada', role }) as Schema<'UserResponse'>
 
@@ -105,14 +112,14 @@ describe('useAuthStore', () => {
 
   describe('login', () => {
     it('stores tokens, fetches the user and returns the response', async () => {
-      api.login.mockResolvedValue({ access_token: 'a', refresh_token: 'r' })
+      api.login.mockResolvedValue(makeToken())
       api.me.mockResolvedValue(makeUser('user'))
       const store = useAuthStore()
 
       const result = await store.login({ email: 'a@b.c', password: 'pw' })
 
       expect(api.login).toHaveBeenCalledWith({ email: 'a@b.c', password: 'pw' })
-      expect(result).toEqual({ access_token: 'a', refresh_token: 'r' })
+      expect(result).toEqual(makeToken())
       expect(store.token).toBe('a')
       expect(store.refreshToken).toBe('r')
       expect(localStorage.getItem('access_token')).toBe('a')
@@ -122,7 +129,7 @@ describe('useAuthStore', () => {
       expect(store.error).toBeNull()
     })
 
-    it('clears auth and rethrows on failure (error text is reset by clearAuth, see report)', async () => {
+    it('keeps the failure message after clearing auth state', async () => {
       const failure = Object.assign(new Error('bad'), {
         response: { data: { detail: 'Invalid credentials' } }
       })
@@ -133,6 +140,7 @@ describe('useAuthStore', () => {
 
       expect(store.isAuthenticated).toBe(false)
       expect(store.token).toBeNull()
+      expect(store.error).toBe('Invalid credentials')
       expect(store.loading).toBe(false)
     })
 
@@ -147,8 +155,8 @@ describe('useAuthStore', () => {
 
   describe('register', () => {
     it('auto-logs in when the API returns a user', async () => {
-      api.register.mockResolvedValue({ user: makeUser('user') })
-      api.login.mockResolvedValue({ access_token: 'a', refresh_token: 'r' })
+      api.register.mockResolvedValue(makeUser('user'))
+      api.login.mockResolvedValue(makeToken())
       api.me.mockResolvedValue(makeUser('user'))
       const store = useAuthStore()
 
@@ -158,13 +166,13 @@ describe('useAuthStore', () => {
         name: 'New'
       } as Schema<'UserCreate'>)
 
-      expect(result).toEqual({ user: makeUser('user') })
+      expect(result).toEqual(makeUser('user'))
       expect(api.login).toHaveBeenCalledWith({ email: 'new@b.c', password: 'pw' })
       expect(store.isAuthenticated).toBe(true)
     })
 
-    it('skips auto-login when the response has no user', async () => {
-      api.register.mockResolvedValue({ message: 'check your email' })
+    it('skips auto-login when the response has no id', async () => {
+      api.register.mockResolvedValue({} as Schema<'UserResponse'>)
       const store = useAuthStore()
 
       await store.register({ email: 'x@y.z', password: 'pw' } as Schema<'UserCreate'>)
@@ -235,7 +243,7 @@ describe('useAuthStore', () => {
 
   describe('refreshAccessToken', () => {
     it('stores and returns the new access token', async () => {
-      api.refresh.mockResolvedValue({ access_token: 'new' })
+      api.refresh.mockResolvedValue(makeToken('new', 'r2'))
       const store = useAuthStore()
       store.refreshToken = 'r'
 

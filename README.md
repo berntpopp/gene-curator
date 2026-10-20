@@ -15,6 +15,10 @@ Teams capture evidence in structured, schema-driven forms, get scores computed a
 move every assertion through an independent peer review before it becomes the team's active call.
 ClinGen SOP v11 and GenCC ship built in; your own method is a schema away.
 
+> **Research use only.** Gene Curator supports systematic curation for research; it is not a
+> clinical diagnostic tool. Classifications and scores require independent expert review before any
+> clinical use (see the in-app disclaimer). Never commit patient data or real credentials.
+
 ## What it does
 
 - **Any methodology:** field definitions, validation rules, scoring and form layout live in

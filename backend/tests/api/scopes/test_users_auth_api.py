@@ -201,7 +201,7 @@ def test_admin_resets_password_then_user_can_login(
 ) -> None:
     response = client.put(
         f"{USERS}/{outsider.id}/password",
-        params={"new_password": "brand-new-pass"},
+        json={"new_password": "brand-new-pass"},
         headers=auth_headers(app_admin),
     )
 
