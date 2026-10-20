@@ -41,7 +41,7 @@ The Makefile is the command surface; `make help` lists every target.
 | Backend RLS/scope tests on a fresh Postgres | `make test-postgres` (Docker) |
 | Regenerate frontend API types after backend schema changes | `make api-types` |
 | Dependency vulnerability scan | `make audit` |
-| Apply one SQL migration to the dev DB | `make db-migrate FILE=database/sql/0NN_x.sql` |
+| Apply pending SQL migrations to the dev DB | `make db-migrate` (optional `FILE=database/sql/0NN_x.sql`) |
 
 ## Verification and CI
 
@@ -102,8 +102,9 @@ OpenAPI; never hand-write API response types. All code is TypeScript; components
 **Database.** `database/sql/NNN_*.sql` run in order when Postgres initialises an empty volume.
 New migrations are a new numbered file, idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), and must
 pass `make test-postgres`, which builds a fresh database from all files. Mirror schema changes in
-`backend/app/models/models.py`. There is no migration bookkeeping yet: apply new files to existing
-databases with `make db-migrate`.
+`backend/app/models/models.py`. `schema_migrations` records applied files; `make db-migrate` applies pending files atomically.
+Legacy databases must be upgraded through 027 before the initial baseline. New migrations must
+record their own filename for fresh Docker initialization.
 
 ## Testing
 

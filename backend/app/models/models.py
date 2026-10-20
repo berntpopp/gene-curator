@@ -37,9 +37,15 @@ from app.core.db_types import (
     compatible_uuid,
 )
 
-# ========================================
-# ENHANCED ENUM DEFINITIONS
-# ========================================
+
+class SchemaMigration(Base):
+    """Applied SQL migrations; written only by the migration owner."""
+
+    __tablename__ = "schema_migrations"
+    filename: Mapped[str] = mapped_column(Text, primary_key=True)
+    applied_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
 
 
 class UserRoleNew(str, enum.Enum):
@@ -88,9 +94,7 @@ class SchemaType(str, enum.Enum):
     COMBINED = "combined"
 
 
-# ========================================
-# CORE SCHEMA-AGNOSTIC MODELS
-# ========================================
+# Core schema-agnostic models
 
 
 class Scope(Base):
@@ -665,9 +669,7 @@ class GeneScopeAssignment(Base):
     )
 
 
-# ========================================
-# MULTI-STAGE WORKFLOW MODELS
-# ========================================
+# Multi-stage workflow models
 
 
 class PrecurationNew(Base):
@@ -1618,9 +1620,7 @@ class Publication(Base):
     )
 
 
-# ========================================
-# NOTIFICATION MODEL
-# ========================================
+# Notifications
 
 
 class NotificationNew(Base):
