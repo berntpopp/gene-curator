@@ -302,7 +302,7 @@ export const clinicalRows: Row[] = [
     name: 'invitations.acceptInvitation',
     run: () => invitationsApi.acceptInvitation('s1', 'i1'),
     method: 'post',
-    args: ['/scopes/s1/invitations/i1/accept', null]
+    args: ['/scopes/s1/invitations/i1/accept']
   },
   {
     name: 'invitations.declineInvitation',

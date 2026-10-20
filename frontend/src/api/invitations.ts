@@ -39,17 +39,14 @@ export const invitationsApi = {
    *
    * @param scopeId - Scope UUID the invitation belongs to
    * @param membershipId - Invitation (membership) UUID
-   * @param data - Optional acceptance notes
    * @returns Accepted membership
    */
   async acceptInvitation(
     scopeId: string,
-    membershipId: string,
-    data: Schema<'ScopeMembershipAccept'> | null = null
+    membershipId: string
   ): Promise<Schema<'ScopeMembershipResponse'>> {
     const response = await apiClient.post<Schema<'ScopeMembershipResponse'>>(
-      `/scopes/${scopeId}/invitations/${membershipId}/accept`,
-      data
+      `/scopes/${scopeId}/invitations/${membershipId}/accept`
     )
     return response.data
   },
