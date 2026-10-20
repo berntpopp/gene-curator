@@ -357,11 +357,18 @@
     emit('update:model-value', { ...evidenceData.value })
   }
 
+  // Cells commit on change: blur first so a focused cell's last edit is included
+  function commitFocusedCell() {
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+  }
+
   function handleSaveDraft() {
+    commitFocusedCell()
     emit('save-draft', evidenceData.value)
   }
 
   function requestSubmit() {
+    commitFocusedCell()
     showSubmitDialog.value = true
   }
 
@@ -376,6 +383,7 @@
 
   // Keyboard shortcuts
   function handleKeydown(event: KeyboardEvent) {
+    if (props.readonly) return
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {

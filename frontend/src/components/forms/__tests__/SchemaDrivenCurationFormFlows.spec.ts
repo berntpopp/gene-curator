@@ -213,6 +213,24 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     )
   })
 
+  it('hands the ClinGen form a new data reference after Restore', async () => {
+    schemaState.useDynamicForm = false
+    const wrapper = await mountForm()
+    const before = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    wrapper.findComponent({ name: 'FormRecoveryDialog' }).vm.$emit('restore')
+    await flushPromises()
+    const after = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    expect(after).not.toBe(before)
+  })
+
+  it('offers no actions and ignores shortcuts for a read-only generic form', async () => {
+    const wrapper = await mountForm({ readonly: true })
+    expect(wrapper.findComponent({ name: 'FormActions' }).exists()).toBe(false)
+    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    expect(curationsStore.saveDraft).not.toHaveBeenCalled()
+    expect(curationsStore.createCuration).not.toHaveBeenCalled()
+  })
+
   it('paints neither form until the schema has loaded', async () => {
     schemaState.loaded = false
     try {

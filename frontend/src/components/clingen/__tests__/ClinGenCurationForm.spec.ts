@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import ClinGenCurationForm from '../ClinGenCurationForm.vue'
 import ScoreSummary from '../ScoreSummary.vue'
@@ -113,6 +113,27 @@ describe('ClinGenCurationForm', () => {
     document.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
     expect(wrapper.emitted('save-draft')).toHaveLength(1)
+  })
+
+  it('blurs the focused cell before saving so its last edit is committed', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.focus()
+    const blur = vi.spyOn(input, 'blur')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    expect(blur).toHaveBeenCalled()
+    input.remove()
+  })
+
+  it('ignores Ctrl+S and Ctrl+Enter when read-only', () => {
+    wrapper = mount(ClinGenCurationForm, {
+      props: { gene, readonly: true, initialData: withCaseLevel }
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    expect(wrapper.emitted('save-draft')).toBeUndefined()
+    expect(wrapper.emitted('submit')).toBeUndefined()
   })
 
   it('disables saving and submitting in read-only mode', () => {

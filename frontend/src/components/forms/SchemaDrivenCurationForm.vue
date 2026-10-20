@@ -74,6 +74,7 @@
 
         <!-- Actions: Extracted for reuse with PrecurationForm -->
         <FormActions
+          v-if="!readonly"
           :can-undo="canUndo"
           :can-redo="canRedo"
           :can-submit="canSubmit"
@@ -95,7 +96,7 @@
     <FormRecoveryDialog
       v-model="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
-      @restore="restoreRecovery"
+      @restore="handleRestore"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -230,9 +231,20 @@
     saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
-  const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
-    formRecovery
+  const {
+    showRecoveryDialog,
+    lastSaved,
+    restoreRecovery: restoreInPlace,
+    discardRecovery,
+    clearRecovery
+  } = formRecovery
   const recoveryTimestamp = formRecovery.recoveryTimestamp
+
+  // restore mutates evidenceData in place; a new reference lets reference watchers (ClinGen form) see it
+  function handleRestore() {
+    restoreInPlace()
+    evidenceData.value = { ...evidenceData.value }
+  }
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -329,6 +341,7 @@
    * Keyboard shortcuts - migrated from CurationForm
    */
   function handleKeydown(event: KeyboardEvent) {
+    if (props.readonly && event.key !== 'Escape') return
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {
