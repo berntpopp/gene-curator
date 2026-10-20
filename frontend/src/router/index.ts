@@ -96,8 +96,7 @@ const routes: RouteRecordRaw[] = [
     component: ScopeSelection,
     meta: {
       title: 'Select Clinical Scope',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -141,7 +140,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Review Queue',
       requiresAuth: true,
-      requiredRoles: ['reviewer', 'curator', 'scope_admin', 'admin'],
       showInDropdown: 'curation',
       icon: 'mdi-clipboard-check-outline',
       label: 'Review Queue',
@@ -156,8 +154,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'New Curation',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -177,8 +174,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'Edit Curation',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -188,8 +184,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'New Gene Curation',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -199,8 +194,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'New Precuration',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -222,8 +216,7 @@ const routes: RouteRecordRaw[] = [
     component: GenesTable,
     meta: {
       title: 'Gene Database',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -253,7 +246,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'My Work',
       requiresAuth: true,
-      requiredRoles: ['curator', 'admin'],
       showInDropdown: 'curation',
       icon: 'mdi-clipboard-list',
       label: 'My Work',
@@ -266,8 +258,7 @@ const routes: RouteRecordRaw[] = [
     component: CreateAssignment,
     meta: {
       title: 'Create Assignment',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -277,8 +268,7 @@ const routes: RouteRecordRaw[] = [
     props: true,
     meta: {
       title: 'Assignment Details',
-      requiresAuth: true,
-      requiredRoles: ['curator', 'admin']
+      requiresAuth: true
     }
   },
   {
@@ -327,7 +317,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Validation Dashboard',
       requiresAuth: true,
-      requiredRoles: ['curator', 'admin'],
       showInDropdown: 'curation',
       icon: 'mdi-check-decagram',
       label: 'Validation',

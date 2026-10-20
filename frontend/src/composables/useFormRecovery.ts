@@ -26,6 +26,8 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import type { Ref } from 'vue'
 import { useLogger } from './useLogger'
+import { useAuthStore } from '@/stores/auth'
+import { FORM_RECOVERY_PREFIX } from '@/utils/formRecoveryStorage'
 
 export interface FormRecoveryOptions {
   maxAge?: number
@@ -73,7 +75,8 @@ export function useFormRecovery<T extends object>(
   options: FormRecoveryOptions = {}
 ): UseFormRecoveryReturn {
   const logger = useLogger()
-  const recoveryKey = `form_recovery_${formId}`
+  // Keyed by user so drafts never cross accounts on a shared browser
+  const recoveryKey = `${FORM_RECOVERY_PREFIX}${useAuthStore().user?.id ?? 'anon'}_${formId}`
   const maxAge = options.maxAge || 24 * 60 * 60 * 1000 // 24 hours
   const saveInterval = options.saveInterval || 5000 // 5 seconds
 

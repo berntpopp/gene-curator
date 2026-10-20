@@ -63,7 +63,6 @@ function makeRouter(): Router {
         meta: {
           showInDropdown: 'curation',
           requiresAuth: true,
-          requiredRoles: ['curator'],
           label: 'Review queue',
           order: 2
         }
@@ -125,15 +124,15 @@ describe('MainNavigation', () => {
     expect(vm.curationSetupItems).toEqual([])
   })
 
-  it('shows curation items to signed-in users and hides guest-only links', async () => {
-    const { vm } = await mountNav({ role: 'viewer' })
+  it('shows curation items to any signed-in user and hides guest-only links', async () => {
+    const { vm } = await mountNav({ role: 'user' })
 
     expect(vm.simpleItems.map(i => i.label)).toEqual(['Dashboard', 'Titled page'])
-    expect(vm.curationItems.map(i => i.label)).toEqual(['Curations'])
+    expect(vm.curationItems.map(i => i.label)).toEqual(['Curations', 'Review queue'])
   })
 
-  it('shows the review queue and its pending badge to curators', async () => {
-    const { wrapper, vm, fetchSpy } = await mountNav({ role: 'curator' })
+  it('shows the review queue and its pending badge to any signed-in user', async () => {
+    const { wrapper, vm, fetchSpy } = await mountNav({ role: 'user' })
 
     expect(vm.curationItems.map(i => i.name)).toEqual(['Curations', 'review-queue'])
     expect(fetchSpy).toHaveBeenCalled()
@@ -143,7 +142,7 @@ describe('MainNavigation', () => {
   })
 
   it('shows the setup dropdown only to admins', async () => {
-    const curator = await mountNav({ role: 'curator' })
+    const curator = await mountNav({ role: 'user' })
     expect(curator.vm.curationSetupItems).toEqual([])
 
     const admin = await mountNav({ role: 'admin' })
@@ -152,7 +151,7 @@ describe('MainNavigation', () => {
 
   it('refreshes the badge every minute and stops when unmounted', async () => {
     vi.useFakeTimers()
-    const { wrapper, fetchSpy } = await mountNav({ role: 'curator' })
+    const { wrapper, fetchSpy } = await mountNav({ role: 'user' })
     expect(fetchSpy).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(60000)
@@ -164,7 +163,7 @@ describe('MainNavigation', () => {
   })
 
   it('clears the badge on sign-out and restarts refreshing on sign-in', async () => {
-    const { auth, fetchSpy, vm } = await mountNav({ role: 'curator' })
+    const { auth, fetchSpy, vm } = await mountNav({ role: 'user' })
     expect(vm.pendingReviewCount).toBe(3)
 
     auth.isAuthenticated = false
@@ -179,7 +178,7 @@ describe('MainNavigation', () => {
   it('keeps navigation working when the badge refresh fails', async () => {
     const auth = useAuthStore()
     auth.isAuthenticated = true
-    auth.user = { role: 'curator' } as unknown as typeof auth.user
+    auth.user = { role: 'user' } as unknown as typeof auth.user
     const workflow = useWorkflowStore()
     vi.spyOn(workflow, 'fetchPendingReviewCount').mockRejectedValue(new Error('down'))
 
@@ -193,7 +192,7 @@ describe('MainNavigation', () => {
     stubVisualViewport()
     const auth = useAuthStore()
     auth.isAuthenticated = true
-    auth.user = { role: 'curator' } as unknown as typeof auth.user
+    auth.user = { role: 'user' } as unknown as typeof auth.user
     vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(0)
     const wrapper = mount(MainNavigation, {
       global: { plugins: [pinia, router] },

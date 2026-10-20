@@ -71,7 +71,8 @@
 
   import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
   import { useRouter, type RouteRecordNormalized } from 'vue-router'
-  import { usePermissions } from '@/composables/usePermissions'
+  import { storeToRefs } from 'pinia'
+  import { useAuthStore } from '@/stores/auth'
   import { useWorkflowStore } from '@/stores/workflow'
   import { TERMINOLOGY } from '@/config/terminology'
   import BaseNavigationItem from './BaseNavigationItem.vue'
@@ -92,7 +93,8 @@
   const metaOf = (route: RouteRecordNormalized): NavRouteMeta => route.meta as NavRouteMeta
 
   const router = useRouter()
-  const { can, isAuthenticated } = usePermissions()
+  const authStore = useAuthStore()
+  const { isAuthenticated } = storeToRefs(authStore)
   const workflowStore = useWorkflowStore()
   const pendingReviewCount = ref(0)
   let badgeRefreshInterval: ReturnType<typeof setInterval> | null = null
@@ -228,7 +230,7 @@
 
     // Check role requirements
     if (routeMeta.requiredRoles) {
-      return can.hasAnyRole(routeMeta.requiredRoles)
+      return authStore.hasAnyRole(routeMeta.requiredRoles)
     }
 
     return true

@@ -8,12 +8,14 @@ import {
   type UseFormRecoveryReturn
 } from '../useFormRecovery'
 import { logService } from '@/services/logService'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
 
-const KEY = 'form_recovery_test-form'
+const KEY = 'form_recovery_anon_test-form'
 
 /** Mount a host component so the composable's lifecycle hooks run. */
 function mountRecovery<T extends object>(
@@ -43,6 +45,7 @@ const saved = (data: unknown, ageMs = 0) =>
 
 describe('useFormRecovery', () => {
   beforeEach(() => {
+    setActivePinia(createPinia())
     localStorage.clear()
     vi.clearAllMocks()
     vi.useFakeTimers()
@@ -207,5 +210,21 @@ describe('useFormRecovery', () => {
 
     expect(clearSpy).toHaveBeenCalled()
     clearSpy.mockRestore()
+  })
+
+  it('keys drafts by user so another account never sees them, and sign-out wipes them', () => {
+    const auth = useAuthStore()
+    auth.user = { id: 'user-1' } as typeof auth.user
+    localStorage.setItem('form_recovery_user-1_test-form', saved({ gene: 'A' }))
+
+    const mine = mountRecovery(ref({ gene: '' }))
+    expect(mine.api.showRecoveryDialog.value).toBe(true)
+
+    auth.user = { id: 'user-2' } as typeof auth.user
+    const theirs = mountRecovery(ref({ gene: '' }))
+    expect(theirs.api.showRecoveryDialog.value).toBe(false)
+
+    auth.clearAuth()
+    expect(localStorage.getItem('form_recovery_user-1_test-form')).toBeNull()
   })
 })
