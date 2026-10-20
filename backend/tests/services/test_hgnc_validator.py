@@ -399,3 +399,31 @@ async def test_fetch_gene_by_id_swallows_transport_errors(
 
 def test_base_url_constant_is_https() -> None:
     assert HGNC_API_BASE.startswith("https://")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("limit", [1, 7])
+async def test_search_ranks_exact_symbols_before_limit(
+    validator: HGNCValidator, limit: int
+) -> None:
+    docs = [
+        {"symbol": "OTHER", "alias_symbol": None},
+        {"symbol": "PKD1-AS1"},
+        {"symbol": "OLD", "prev_symbol": ["pkd1"]},
+        {"symbol": "ALIAS", "alias_symbol": ["PKD1"]},
+        {"symbol": "PKD1L1-AS1"},
+        {"symbol": "PKD1"},
+        {"symbol": "LAST"},
+    ]
+    _use(validator, lambda request: _json({"response": {"docs": docs}}))
+    response = await validator.search(" pkd1 ", limit=limit)
+    assert [r.symbol for r in response.results] == [
+        "PKD1",
+        "OLD",
+        "ALIAS",
+        "PKD1-AS1",
+        "PKD1L1-AS1",
+        "OTHER",
+        "LAST",
+    ][:limit]
+    await validator.close()
