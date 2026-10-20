@@ -70,72 +70,6 @@
           </v-card-text>
         </v-card>
       </v-col>
-
-      <!-- Statistics -->
-      <v-col v-if="statistics" cols="12" md="6">
-        <v-card>
-          <v-card-title>Statistics</v-card-title>
-          <v-card-text>
-            <v-list density="compact">
-              <v-list-item>
-                <v-list-item-title>Total Genes</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.total_genes_assigned || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Genes with Curator</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.genes_with_curator || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Total Precurations</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.total_precurations || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Total Curations</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.total_curations || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Total Reviews</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.total_reviews || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Active Curations</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.active_curations || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Active Curators</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.active_curators || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <v-list-item-title>Active Reviewers</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ statistics.active_reviewers || 0 }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
-          </v-card-text>
-        </v-card>
-      </v-col>
     </v-row>
 
     <!-- Recent Activity -->
@@ -172,16 +106,8 @@
     is_active: boolean
   }
 
-  /** Counters shown in the statistics cards (all optional, missing counts show as 0) */
+  /** Activity counters (the dashboard tiles show the totals) */
   interface ScopeStatisticsView {
-    total_genes_assigned?: number
-    genes_with_curator?: number
-    total_precurations?: number
-    total_curations?: number
-    total_reviews?: number
-    active_curations?: number
-    active_curators?: number
-    active_reviewers?: number
     curations_last_30_days?: number
     activations_last_30_days?: number
   }

@@ -89,7 +89,7 @@
                 <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
                 <div class="text-overline">Completed</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.active_curations || 0 }}</div>
+              <div class="text-h4">{{ completedGenes }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -114,6 +114,9 @@
                 <div class="text-overline">Members</div>
               </div>
               <div class="text-h4">{{ scopeStats?.member_count || 0 }}</div>
+              <div class="text-caption text-medium-emphasis">
+                accepted; invitations are listed separately
+              </div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -134,8 +137,7 @@
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ scopeStats?.active_curations || 0 }} of
-                {{ scopeStats?.total_genes_assigned || 0 }} genes curated
+                {{ completedGenes }} of {{ scopeStats?.total_genes_assigned || 0 }} genes curated
               </div>
             </v-card-text>
           </v-card>
@@ -209,7 +211,7 @@
           <!-- Genes Tab -->
           <v-window-item value="genes">
             <v-card-text>
-              <GeneList v-if="scope" :scope-id="scopeId" />
+              <GeneList v-if="scope" :scope-id="scopeId" @changed="refreshStatistics" />
             </v-card-text>
           </v-window-item>
 
@@ -264,6 +266,9 @@
     total_curations?: number
     total_genes_assigned?: number
     active_curations?: number
+    completed_genes?: number
+    curations_last_30_days?: number
+    activations_last_30_days?: number
     draft_curations?: number
     submitted_curations?: number
     curations_in_review?: number
@@ -333,13 +338,19 @@
     )
   })
 
-  const curationProgress = computed<number>(() => {
-    if (!scopeStats.value) return 0
-    return calculateProgress(
-      scopeStats.value.active_curations,
-      scopeStats.value.total_genes_assigned
+  // Completed genes can never exceed the total
+  const completedGenes = computed<number>(() => {
+    const stats = scopeStats.value
+    if (!stats) return 0
+    return Math.min(
+      stats.completed_genes ?? stats.active_curations ?? 0,
+      stats.total_genes_assigned ?? 0
     )
   })
+
+  const curationProgress = computed<number>(() =>
+    Math.min(calculateProgress(completedGenes.value, scopeStats.value?.total_genes_assigned), 100)
+  )
 
   // ============================================
   // METHODS
@@ -351,6 +362,12 @@
   const handleScopeDeleted = () => {
     logger.info('Scope deleted, navigating to scopes list')
     router.push({ name: 'scopes' })
+  }
+
+  /** Re-read the tiles after genes were added, assigned or removed. */
+  const refreshStatistics = async () => {
+    scopeStats.value =
+      ((await scopeStore.fetchStatistics(scopeId.value)) as ScopeStats | null) ?? undefined
   }
 
   /**
@@ -365,8 +382,7 @@
       await scopeStore.fetchScope(scopeId.value)
 
       // Fetch scope statistics
-      scopeStats.value =
-        ((await scopeStore.fetchStatistics(scopeId.value)) as ScopeStats | null) ?? undefined
+      await refreshStatistics()
 
       logger.info('Scope dashboard loaded', {
         scope_id: scopeId.value,

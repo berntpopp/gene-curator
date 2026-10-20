@@ -49,25 +49,13 @@ describe('ScopeOverview', () => {
     expect(wrapper.text()).not.toContain('Recent Activity')
   })
 
-  it('shows the counters and treats missing ones as zero', () => {
+  it('shows only recent activity, not a second copy of the dashboard tiles', () => {
     const wrapper = mount(ScopeOverview, {
-      props: {
-        scope,
-        statistics: {
-          total_genes_assigned: 12,
-          genes_with_curator: 7,
-          total_curations: 4,
-          active_reviewers: 2,
-          curations_last_30_days: 3
-        }
-      }
+      props: { scope, statistics: { total_genes_assigned: 12, curations_last_30_days: 3 } }
     })
 
-    expect(wrapper.text()).toContain('Total Genes')
-    expect(wrapper.text()).toContain('12')
+    expect(wrapper.text()).not.toContain('Total Genes')
     expect(wrapper.text()).toContain('Curations Created')
-    expect(wrapper.text()).toContain('Total Precurations')
-    expect(wrapper.text()).toContain('Active Reviewers')
     expect(wrapper.text()).toContain('Curations Activated')
   })
 })

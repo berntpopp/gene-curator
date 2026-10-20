@@ -292,6 +292,28 @@ describe('ScopeDashboard', () => {
     })
   })
 
+  it('never shows more completed genes than total genes', async () => {
+    const { store, vm } = await mountView()
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
+      total_genes_assigned: 1,
+      active_curations: 3
+    } as never)
+    await call(vm, 'fetchScopeData')
+
+    expect(vm.completedGenes).toBe(1)
+    expect(vm.curationProgress).toBe(100)
+  })
+
+  it('refetches the statistics when the gene list reports a change', async () => {
+    const { wrapper, fetchStatistics } = await mountView('admin', 'genes')
+    fetchStatistics.mockClear()
+
+    wrapper.findComponent({ name: 'GeneList' }).vm.$emit('changed')
+    await flushPromises()
+
+    expect(fetchStatistics).toHaveBeenCalledWith('s1')
+  })
+
   it('keeps a deep-linked members tab while the role is still loading', async () => {
     routeState.params = { scopeId: 's1', tab: 'members' }
     const store = useScopesStore()
