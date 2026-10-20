@@ -10,7 +10,6 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useExternalValidationStore } from '@/stores/externalValidation'
 import HPOInput from '../HPOInput.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -34,10 +33,6 @@ const validResult = {
 const invalidResult = { is_valid: false, status: 'invalid', data: null }
 
 describe('HPOInput', () => {
-  beforeEach(() => {
-    stubVisualViewport()
-  })
-
   let pinia: ReturnType<typeof createPinia>
 
   beforeEach(() => {

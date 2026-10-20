@@ -46,6 +46,22 @@ Object.defineProperty(window, 'matchMedia', {
   }))
 })
 
+// Vuetify overlays (dialogs, menus, selects) read visualViewport, which happy-dom does not provide
+Object.defineProperty(window, 'visualViewport', {
+  configurable: true,
+  value: {
+    width: 1024,
+    height: 768,
+    scale: 1,
+    offsetLeft: 0,
+    offsetTop: 0,
+    pageLeft: 0,
+    pageTop: 0,
+    addEventListener: () => undefined,
+    removeEventListener: () => undefined
+  }
+})
+
 // Mock IntersectionObserver (for Vuetify components)
 vi.stubGlobal(
   'IntersectionObserver',

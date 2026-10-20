@@ -9,7 +9,6 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { publicationsAPI } from '@/api'
 import type { Schema } from '@/types/api'
 import PMIDInput from '../PMIDInput.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/api', () => ({
   publicationsAPI: { validatePMIDs: vi.fn() }
@@ -58,10 +57,6 @@ const validation = {
 }
 
 describe('PMIDInput', () => {
-  beforeEach(() => {
-    stubVisualViewport()
-  })
-
   beforeEach(() => {
     vi.mocked(publicationsAPI.validatePMIDs).mockReset()
     vi.mocked(publicationsAPI.validatePMIDs).mockResolvedValue(validation)

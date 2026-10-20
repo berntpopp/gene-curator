@@ -13,7 +13,6 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { logService } from '@/services/logService'
 import UserMenu from '../UserMenu.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -172,7 +171,6 @@ describe('UserMenu', () => {
   })
 
   it('opens the avatar menu, lists role-filtered items and logs out from it', async () => {
-    stubVisualViewport()
     const { wrapper, auth } = await mountMenu({ email: 'a@example.org', role: 'admin' })
     const logout = vi.spyOn(auth, 'logout').mockResolvedValue(undefined as never)
 

@@ -12,7 +12,6 @@ import { scopesAPI } from '@/api/scopes'
 import { schemasAPI } from '@/api/schemas'
 import { useAuthStore } from '@/stores/auth'
 import ScopeSettings from '../ScopeSettings.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/api/scopes', () => ({
   scopesAPI: { updateScope: vi.fn(), deleteScope: vi.fn() }
@@ -72,7 +71,6 @@ describe('ScopeSettings', () => {
   let pinia: ReturnType<typeof createPinia>
 
   beforeEach(() => {
-    stubVisualViewport()
     pinia = createPinia()
     setActivePinia(pinia)
     vi.mocked(schemasAPI.getWorkflowPairs).mockReset()
