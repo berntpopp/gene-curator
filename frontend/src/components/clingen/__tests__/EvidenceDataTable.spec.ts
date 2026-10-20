@@ -33,14 +33,18 @@ describe('EvidenceDataTable', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
-  it('emits update:items with the edited row merged into a copy of the list', async () => {
+  it('commits a text cell on change, not per keystroke', async () => {
     const items = [
       { label: 'P1', points: 1 },
       { label: 'P2', points: 2 }
     ]
     const wrapper = mount(EvidenceDataTable, { props: { items, columns } })
-    wrapper.findAllComponents({ name: 'VTextField' })[0]?.vm.$emit('update:modelValue', 'Renamed')
+    const input = wrapper.findAll('input')[0]!
+    input.element.value = 'Renamed'
+    await input.trigger('input')
+    expect(wrapper.emitted('update:items')).toBeUndefined()
 
+    await input.trigger('change')
     const emitted = wrapper.emitted('update:items')?.[0]?.[0] as typeof items
     expect(emitted[0]).toEqual({ label: 'Renamed', points: 1 })
     expect(emitted[1]).toEqual({ label: 'P2', points: 2 })
@@ -48,13 +52,12 @@ describe('EvidenceDataTable', () => {
     expect(items[0]).toEqual({ label: 'P1', points: 1 })
   })
 
-  it('coerces number-field input with parseFloat, falling back to zero', () => {
+  it('commits number-field input as a number on change', async () => {
     const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
-    const numberField = wrapper
-      .findAllComponents({ name: 'VTextField' })
-      .find(f => f.props('type') === 'number')
-    numberField?.vm.$emit('update:modelValue', 'abc')
-    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 0 }])
+    const input = wrapper.find('input[type="number"]')
+    input.element.value = '2.5'
+    await input.trigger('change')
+    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 2.5 }])
   })
 
   it('emits remove with the row index when the delete button is pressed', async () => {

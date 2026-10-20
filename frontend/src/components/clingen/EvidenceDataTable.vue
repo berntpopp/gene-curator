@@ -22,7 +22,7 @@
                   hide-details
                   :readonly="readonly"
                   placeholder="PMID"
-                  @update:model-value="updateField(index, col.key, $event)"
+                  @change="commitInput(index, col.key, $event)"
                 />
                 <PubmedLinkButton v-if="item[col.key]" :pmid="item[col.key]" />
               </div>
@@ -55,7 +55,7 @@
                 variant="plain"
                 hide-details
                 :readonly="readonly"
-                @update:model-value="updateField(index, col.key, parseFloat($event) || 0)"
+                @change="commitInput(index, col.key, $event, true)"
               />
             </template>
 
@@ -67,7 +67,7 @@
                 variant="plain"
                 hide-details
                 :readonly="readonly"
-                @update:model-value="updateField(index, col.key, $event)"
+                @change="commitInput(index, col.key, $event)"
               />
             </template>
           </td>
@@ -130,6 +130,12 @@
     const newItems = [...props.items]
     newItems[index] = { ...newItems[index], [key]: value }
     emit('update:items', newItems)
+  }
+
+  // Cells commit on change (blur/Enter), not per keystroke: typing must not re-render the form tree
+  function commitInput(index: number, key: string, event: Event, numeric = false) {
+    const raw = (event.target as HTMLInputElement).value
+    updateField(index, key, numeric ? parseFloat(raw) || 0 : raw)
   }
 </script>
 
