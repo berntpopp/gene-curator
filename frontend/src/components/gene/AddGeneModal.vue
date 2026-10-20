@@ -33,7 +33,9 @@
       <!-- Header -->
       <v-card-title class="d-flex align-center pa-4">
         <v-icon start color="primary" size="28">mdi-dna</v-icon>
-        <span class="text-h6">Add Genes to Catalog</span>
+        <span class="text-h6">{{
+          scopeId ? 'Add genes to this scope' : 'Add Genes to Catalog'
+        }}</span>
         <v-spacer />
         <v-btn
           aria-label="Close"

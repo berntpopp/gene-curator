@@ -9,11 +9,12 @@ const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/api', () => ({
-  genesAPI: { createGene: vi.fn(), bulkCreateGenes: vi.fn() },
+  genesAPI: { createGene: vi.fn(), bulkCreateGenes: vi.fn(), searchGenes: vi.fn() },
   assignmentsAPI: { createAssignment: vi.fn(), bulkAssignGenes: vi.fn() }
 }))
 
 const createGene = vi.mocked(genesAPI.createGene)
+const searchGenes = vi.mocked(genesAPI.searchGenes)
 const bulkCreateGenes = vi.mocked(genesAPI.bulkCreateGenes)
 const createAssignment = vi.mocked(assignmentsAPI.createAssignment)
 const bulkAssignGenes = vi.mocked(assignmentsAPI.bulkAssignGenes)
@@ -44,6 +45,7 @@ function setup(scopeId: string | null = 'scope-1') {
 describe('useAddGenes', () => {
   beforeEach(() => {
     vi.resetAllMocks()
+    searchGenes.mockResolvedValue([])
   })
 
   describe('addSingleGene', () => {
@@ -81,6 +83,38 @@ describe('useAddGenes', () => {
         priority_level: 'medium'
       })
       expect(addToast).toHaveBeenCalledWith('Gene BRCA1 added and assigned to scope', 'success')
+    })
+
+    it('assigns a gene that already exists in the catalogue without creating it', async () => {
+      searchGenes.mockResolvedValue([
+        { id: 'g-pkd1', hgnc_id: 'HGNC:9008', approved_symbol: 'PKD1' }
+      ] as never)
+      createAssignment.mockResolvedValue({} as never)
+      const { api, selectedGene } = setup('scope-1')
+      selectedGene.value = brca1
+
+      await api.addSingleGene()
+
+      expect(searchGenes).toHaveBeenCalledWith({ hgnc_id: 'HGNC:1100' })
+      expect(createGene).not.toHaveBeenCalled()
+      expect(createAssignment).toHaveBeenCalledWith(
+        expect.objectContaining({ gene_id: 'g-pkd1', scope_id: 'scope-1' })
+      )
+      expect(addToast).toHaveBeenCalledWith('Gene PKD1 added and assigned to scope', 'success')
+    })
+
+    it('says so when the gene is already in this scope', async () => {
+      searchGenes.mockResolvedValue([{ id: 'g-1', approved_symbol: 'PKD1' }] as never)
+      createAssignment.mockRejectedValue({
+        message: 'bad request',
+        response: { data: { detail: 'Gene is already assigned to this scope' } }
+      })
+      const { api, selectedGene } = setup('scope-1')
+      selectedGene.value = brca1
+
+      await api.addSingleGene()
+
+      expect(addToast).toHaveBeenCalledWith('Gene PKD1 is already in this scope', 'info')
     })
 
     it('reports success without assigning when there is no scope', async () => {
@@ -167,9 +201,14 @@ describe('useAddGenes', () => {
         total_created: 1,
         total_skipped: 0,
         total_errors: 0,
-        created_genes: [{ id: 'g-1' }]
+        created_genes: [{ id: 'g-1' }],
+        skipped_genes: []
       } as never)
-      bulkAssignGenes.mockResolvedValue({} as never)
+      bulkAssignGenes.mockResolvedValue({
+        total_created: 1,
+        total_skipped: 0,
+        total_errors: 0
+      } as never)
       const { api, bulkValidationResults, skipDuplicates } = setup('scope-1')
       bulkValidationResults.value = [validRow, { ...validRow, status: 'suggestion' }]
       skipDuplicates.value = false
@@ -196,7 +235,57 @@ describe('useAddGenes', () => {
         priority_level: 'medium'
       })
       expect(addToast).toHaveBeenCalledWith(
-        'Added and assigned 1 genes (0 skipped, 0 failed)',
+        'Added 1 genes to the scope (0 already in scope, 0 failed)',
+        'success'
+      )
+    })
+
+    it('assigns catalogue genes skipped as duplicates together with the created ones', async () => {
+      bulkCreateGenes.mockResolvedValue({
+        total_created: 1,
+        total_skipped: 1,
+        total_errors: 0,
+        created_genes: [{ id: 'g-1' }],
+        skipped_genes: [{ hgnc_id: 'HGNC:9008' }]
+      } as never)
+      searchGenes.mockResolvedValue([{ id: 'g-pkd1' }] as never)
+      bulkAssignGenes.mockResolvedValue({
+        total_created: 2,
+        total_skipped: 0,
+        total_errors: 0
+      } as never)
+      const { api, bulkValidationResults } = setup('scope-1')
+      bulkValidationResults.value = [validRow]
+
+      await api.addBulkGenes()
+
+      expect(searchGenes).toHaveBeenCalledWith({ hgnc_id: 'HGNC:9008' })
+      expect(bulkAssignGenes).toHaveBeenCalledWith(
+        expect.objectContaining({ gene_ids: ['g-1', 'g-pkd1'], scope_id: 'scope-1' })
+      )
+    })
+
+    it('reports genes that are already in the scope', async () => {
+      bulkCreateGenes.mockResolvedValue({
+        total_created: 0,
+        total_skipped: 1,
+        total_errors: 0,
+        created_genes: [],
+        skipped_genes: [{ hgnc_id: 'HGNC:9008' }]
+      } as never)
+      searchGenes.mockResolvedValue([{ id: 'g-pkd1' }] as never)
+      bulkAssignGenes.mockResolvedValue({
+        total_created: 0,
+        total_skipped: 1,
+        total_errors: 0
+      } as never)
+      const { api, bulkValidationResults } = setup('scope-1')
+      bulkValidationResults.value = [validRow]
+
+      await api.addBulkGenes()
+
+      expect(addToast).toHaveBeenCalledWith(
+        'Added 0 genes to the scope (1 already in scope, 0 failed)',
         'success'
       )
     })
@@ -217,9 +306,10 @@ describe('useAddGenes', () => {
       expect(addToast).toHaveBeenCalledWith('Added 1 genes (1 skipped, 2 failed)', 'warning')
     })
 
-    it('does not assign when no genes were created', async () => {
+    it('does not assign when there are no genes to assign', async () => {
       bulkCreateGenes.mockResolvedValue({
         created_genes: [],
+        skipped_genes: [],
         total_created: 0,
         total_skipped: 0,
         total_errors: 0
@@ -230,7 +320,10 @@ describe('useAddGenes', () => {
       await api.addBulkGenes()
 
       expect(bulkAssignGenes).not.toHaveBeenCalled()
-      expect(addToast).toHaveBeenCalledWith('Added 0 genes (0 skipped, 0 failed)', 'success')
+      expect(addToast).toHaveBeenCalledWith(
+        'Added 0 genes to the scope (0 already in scope, 0 failed)',
+        'success'
+      )
     })
 
     it('warns when the bulk assignment fails after creation', async () => {
@@ -238,7 +331,8 @@ describe('useAddGenes', () => {
         total_created: 1,
         total_skipped: 0,
         total_errors: 0,
-        created_genes: [{ id: 'g-1' }]
+        created_genes: [{ id: 'g-1' }],
+        skipped_genes: []
       } as never)
       bulkAssignGenes.mockRejectedValue({
         message: 'fail',

@@ -552,7 +552,7 @@
   function handleGenesAdded() {
     fetchGenes()
     notificationStore.addToast(
-      'Genes added to catalog. You can now assign them to curators.',
+      'Genes added to this scope. You can now assign them to curators.',
       'success'
     )
   }

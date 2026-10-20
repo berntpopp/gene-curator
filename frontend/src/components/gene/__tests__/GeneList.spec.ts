@@ -471,7 +471,7 @@ describe('GeneList', () => {
 
       vm.handleGenesAdded()
       expect(addToast).toHaveBeenCalledWith(
-        'Genes added to catalog. You can now assign them to curators.',
+        'Genes added to this scope. You can now assign them to curators.',
         'success'
       )
       vm.handleGenesAssigned()
