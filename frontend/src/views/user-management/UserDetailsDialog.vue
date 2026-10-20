@@ -46,16 +46,8 @@
             <h3 class="mb-3">Activity Summary</h3>
             <v-list>
               <v-list-item>
-                <v-list-item-title>{{ activity.genes_created || 0 }}</v-list-item-title>
-                <v-list-item-subtitle>Genes Created</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>{{ activity.curations_created || 0 }}</v-list-item-title>
-                <v-list-item-subtitle>Curations Created</v-list-item-subtitle>
-              </v-list-item>
-              <v-list-item>
-                <v-list-item-title>{{ activity.total_contributions || 0 }}</v-list-item-title>
-                <v-list-item-subtitle>Total Contributions</v-list-item-subtitle>
+                <v-list-item-title>{{ activity.scope_count ?? 0 }}</v-list-item-title>
+                <v-list-item-subtitle>Scopes</v-list-item-subtitle>
               </v-list-item>
             </v-list>
           </v-col>

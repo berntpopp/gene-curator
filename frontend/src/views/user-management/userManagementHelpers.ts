@@ -10,7 +10,7 @@ export interface UserRecord {
   last_login?: string | null
 }
 
-const roleColors: Record<string, string> = { admin: 'error', user: 'info' }
+const roleColors: Record<string, string> = { admin: 'primary', user: 'info' }
 const roleIcons: Record<string, string> = {
   admin: 'mdi-shield-crown',
   user: 'mdi-account'
@@ -33,4 +33,13 @@ export function formatDate(date: string | null | undefined): string {
     hour: '2-digit',
     minute: '2-digit'
   })
+}
+
+export function initials(name: string | null | undefined): string {
+  return (name ?? '')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map(w => w[0]!.toUpperCase())
+    .join('')
 }

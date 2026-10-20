@@ -15,7 +15,8 @@ import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
 import {
   formatDate,
   getRoleColor,
-  getRoleIcon
+  getRoleIcon,
+  initials
 } from '@/views/user-management/userManagementHelpers'
 import { useAuthStore } from '@/stores/auth'
 import { useGenesStore } from '@/stores/genes'
@@ -213,13 +214,15 @@ describe('UserManagement', () => {
       total_users: 3,
       active_users: 2,
       inactive_users: 1,
-      recent_registrations: 1
+      role_distribution: { admin: 2 }
     }
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
     expect(users.fetchUsers).toHaveBeenCalled()
     expect(users.fetchUserStatistics).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('3')
+    expect(wrapper.find('[data-test="user-summary"]').text()).toBe(
+      '3 users · 2 admins · 1 inactive'
+    )
     expect(wrapper.text()).toContain('Alice')
   })
 
@@ -248,17 +251,58 @@ describe('UserManagement', () => {
     expect(users.deleteUser).toHaveBeenCalledWith('u1')
   })
 
-  it('rejects a reset password shorter than eight characters', async () => {
-    vi.stubGlobal(
-      'prompt',
-      vi.fn(() => 'short')
-    )
+  it('opens a masked reset dialog and sends the password only when both fields match', async () => {
     const wrapper = mount(UserManagement, opts())
     await flushPromises()
-    await call(vmOf(wrapper), 'resetPassword', alice)
+    const vm = vmOf(wrapper)
+    call(vm, 'resetPassword', alice)
+    await flushPromises()
+    const inputs = document.querySelectorAll<HTMLInputElement>('input[type="password"]')
+    expect(inputs).toHaveLength(2)
+    expect(document.body.textContent).not.toContain('Password must be at least 8')
+
+    const type = async (i: number, v: string) => {
+      inputs[i].value = v
+      inputs[i].dispatchEvent(new Event('input'))
+      await flushPromises()
+    }
+    const reset = [...document.querySelectorAll('button')].find(b =>
+      b.textContent?.includes('Reset')
+    )!
+    await type(0, 'longpassword')
+    await type(1, 'different')
+    reset.click()
+    await flushPromises()
     expect(users.updateUserPassword).not.toHaveBeenCalled()
-    expect(document.body.textContent).toContain('Password must be at least 8 characters long')
-    vi.unstubAllGlobals()
+    expect(document.body.textContent).toContain('Passwords do not match')
+
+    await type(1, 'longpassword')
+    reset.click()
+    await flushPromises()
+    expect(users.updateUserPassword).toHaveBeenCalledWith('u1', 'longpassword')
+    wrapper.unmount()
+  })
+
+  it('reports a failed password reset', async () => {
+    users.updateUserPassword.mockRejectedValueOnce(new Error('x'))
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    const vm = vmOf(wrapper)
+    call(vm, 'resetPassword', alice)
+    await call(vm, 'performResetPassword', 'longpassword')
+    expect(document.body.textContent).toContain('Failed to update password')
+    wrapper.unmount()
+  })
+
+  it('recognises the signed-in admin own row', async () => {
+    const auth = useAuthStore()
+    auth.user = { id: 'u1' } as never
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    const vm = vmOf(wrapper)
+    expect(call(vm, 'isSelf', alice)).toBe(true)
+    expect(call(vm, 'isSelf', { ...alice, id: 'u2' })).toBe(false)
+    wrapper.unmount()
   })
 
   it('creates a new user from the dialog form values', async () => {
@@ -288,7 +332,7 @@ describe('UserManagement', () => {
     await flushPromises()
     expect(users.fetchUserActivity).toHaveBeenCalledWith('u1')
     expect(document.body.textContent).toContain('User Details: Alice')
-    expect(document.body.textContent).toContain('Genes Created')
+    expect(document.body.textContent).not.toContain('Genes Created')
   })
 })
 
@@ -307,7 +351,7 @@ describe('UserDetailsDialog', () => {
           is_active: true,
           last_login: null
         },
-        activity: { genes_created: 2, total_contributions: 5 }
+        activity: { scope_count: 3 }
       },
       global: { stubs: { RouterLink: RouterLinkStub } }
     })
@@ -316,14 +360,17 @@ describe('UserDetailsDialog', () => {
     expect(text).toContain('User Details: Carol')
     expect(text).toContain('carol@example.org')
     expect(text).toContain('Never')
-    expect(text).toContain('Total Contributions')
+    expect(text).toContain('Scopes')
+    expect(text).not.toContain('Total Contributions')
     wrapper.unmount()
   })
 })
 
 describe('user-management helpers', () => {
   it('maps known roles to colours and icons with safe fallbacks', () => {
-    expect(getRoleColor('admin')).toBe('error')
+    expect(getRoleColor('admin')).toBe('primary')
+    expect(initials('Alice Smith')).toBe('AS')
+    expect(initials(undefined)).toBe('')
     expect(getRoleColor('nobody')).toBe('primary')
     expect(getRoleColor(undefined)).toBe('primary')
     expect(getRoleIcon('admin')).toBe('mdi-shield-crown')
