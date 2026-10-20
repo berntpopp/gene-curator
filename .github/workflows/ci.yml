@@ -18,6 +18,7 @@ concurrency:
 
 env:
   BASE: origin/${{ github.base_ref || 'master' }} # diff-cover: changed lines vs the PR base
+  UV_FROZEN: '1' # a stale uv.lock fails instead of being re-locked silently
 
 jobs:
   changes:
@@ -25,9 +26,13 @@ jobs:
     if: ${{ !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read # paths-filter lists PR files via the API
     outputs:
-      backend: ${{ steps.filter.outputs.backend }}
-      frontend: ${{ steps.filter.outputs.frontend }}
+      # A manual run checks everything
+      backend: ${{ steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch' }}
+      frontend: ${{ steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -36,8 +41,8 @@ jobs:
         id: filter
         with:
           filters: |
-            backend: ['backend/**', 'database/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml']
-            frontend: ['frontend/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml']
+            backend: ['backend/**', 'database/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml', 'frontend/src/types/api.generated.ts']
+            frontend: ['frontend/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml', '.nvmrc']
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: make ci-repo
 

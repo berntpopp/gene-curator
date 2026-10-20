@@ -20,16 +20,16 @@ EXEMPT = {"frontend/src/types/api.generated.ts"}
 
 def tracked_sizes() -> dict[str, int]:
     files = subprocess.run(
-        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        ["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard"],
         cwd=ROOT,
         capture_output=True,
         text=True,
         check=True,
-    ).stdout.split()
+    ).stdout.split("\0")
     sizes = {}
     for f in files:
         path = ROOT / f
-        if path.suffix in SUFFIXES and f not in EXEMPT and path.is_file():
+        if f and path.suffix in SUFFIXES and f not in EXEMPT and path.is_file():
             sizes[f] = len(path.read_text(encoding="utf-8").splitlines())
     return sizes
 

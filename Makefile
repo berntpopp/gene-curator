@@ -15,8 +15,9 @@ BACKUP_DIR := backups
 BASE ?= origin/master
 # Changed lines must be covered (AGENTS.md). Global floors live in pyproject.toml / vite.config.js.
 DIFF_COVER_MIN ?= 90
+# Same as CI: a stale uv.lock is an error, not a silent re-lock
+export UV_FROZEN ?= 1
 
-.PHONY: help
 help: ## Show this help
 	@grep -hE '^[a-zA-Z0-9_-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
 
@@ -173,7 +174,7 @@ clean-all: ## DESTRUCTIVE: stop everything and delete Docker volumes
 	@read -p "Delete ALL Docker volumes for this project? [y/N] " r; [[ $$r =~ ^[Yy]$$ ]] || exit 1
 	$(DC_DEV) down -v --remove-orphans
 
-.PHONY: install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
+.PHONY: help install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
 	prod prod-build prod-down prod-logs db-reset db-migrate db-shell db-backup db-restore status health \
 	check format test test-postgres test-frontend test-e2e ci ci-backend ci-frontend ci-repo diff-cover \
 	api-types api-types-check workflows clean clean-all

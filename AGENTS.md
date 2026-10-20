@@ -12,7 +12,7 @@ configurable schemas, scope-based teams and a multi-stage, 4-eyes review workflo
 | Layer | Stack |
 | --- | --- |
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2, uv |
-| Frontend | Vue 3.5, TypeScript 6 (migration from JS in progress), Vite 7, Pinia, Vuetify 3, Node 24 |
+| Frontend | Vue 3.5, TypeScript 6 (strict, no JS left), Vite 7, Pinia, Vuetify 3, Node 24 (`.nvmrc`) |
 | Database | PostgreSQL 15 with row-level security; schema in `database/sql/*.sql` |
 | Quality | ruff, mypy (strict), bandit, pytest; ESLint 10 + typescript-eslint, Prettier, vue-tsc, Vitest, Playwright |
 
@@ -96,8 +96,8 @@ allowed, one active curation per gene and scope (`crud/workflow_engine.py`).
 one module per resource in `api/`, Pinia stores in `stores/` (components never call `api/` directly),
 composables in `composables/`, lazy-loaded routes in `router/` whose `meta` drives auth and menus.
 Backend contract types come from `src/types/api.ts` (`Schema<'GeneResponse'>`), generated from
-OpenAPI; never hand-write API response types. New and touched files are TypeScript
-(`<script setup lang="ts">`).
+OpenAPI; never hand-write API response types. All code is TypeScript; components use
+`<script setup lang="ts">` (ESLint `vue/block-lang` enforces it).
 
 **Database.** `database/sql/NNN_*.sql` run in order when Postgres initialises an empty volume.
 New migrations are a new numbered file, idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), and must
