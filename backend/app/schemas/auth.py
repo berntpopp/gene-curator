@@ -4,7 +4,7 @@ Authentication-related Pydantic schemas.
 
 import uuid
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=255)
-    role: str = "viewer"  # Use string directly, validated by enum constraint in DB
+    role: Literal["admin", "user"] = "user"  # Mirrors UserRoleNew
     is_active: bool = True
 
 
