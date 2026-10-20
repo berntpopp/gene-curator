@@ -25,7 +25,7 @@
  *   </v-list>
  * </template>
  *
- * <script setup>
+ * <script setup lang="ts">
  * import { useNavigation } from '@/composables/useNavigation'
  * const { mainMenuItems, userMenuItems } = useNavigation()
  * </script>
@@ -35,15 +35,87 @@
  */
 
 import { computed } from 'vue'
+import type { ComputedRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import type { RouteRecordName, RouteRecordNormalized } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { usePermissions } from '@/composables/usePermissions'
 
+/** Route meta fields read by the navigation system (router meta is untyped). */
+export interface NavRouteMeta {
+  requiresAuth?: boolean
+  requiresGuest?: boolean
+  requiredRoles?: string[]
+  title?: string
+  ariaLabel?: string
+  menuLabel?: string
+  icon?: string
+  badge?: string | number
+  badgeColor?: string
+  dividerBefore?: boolean
+  dividerAfter?: boolean
+  menuOrder?: number
+  menuChildren?: NavMenuChild[]
+  showInMainMenu?: boolean
+  showInUserMenu?: boolean
+  breadcrumb?: string
+  hideBreadcrumb?: boolean
+  isDefaultLandingPage?: boolean
+}
+
+export interface NavMenuChild {
+  name?: RouteRecordName | null
+}
+
+/** Static or route-derived menu entry. */
+export interface NavMenuItem {
+  name: RouteRecordName | null | undefined
+  title: string | RouteRecordName | null
+  to: { name: RouteRecordName | null | undefined }
+  icon?: string
+  badge?: string | number
+  badgeColor: string
+  dividerBefore: boolean
+  dividerAfter: boolean
+  order: number
+  ariaLabel: string | RouteRecordName | null
+  children: NavMenuChild[]
+}
+
+/** Static submenu entry (curation, help, admin). */
+export interface NavLinkItem {
+  name: string
+  title: string
+  to: { name: string }
+  icon: string
+  order: number
+  dividerBefore?: boolean
+}
+
+export interface NavBreadcrumb {
+  name: string | RouteRecordName | null | undefined
+  to: { name: RouteRecordName | null | undefined }
+  disabled: boolean
+}
+
+export interface UseNavigationReturn {
+  mainMenuItems: ComputedRef<NavMenuItem[]>
+  userMenuItems: ComputedRef<NavMenuItem[]>
+  curationMenuItems: ComputedRef<NavLinkItem[]>
+  helpMenuItems: ComputedRef<NavLinkItem[]>
+  adminMenuItems: ComputedRef<NavLinkItem[]>
+  hasAccess: (routeMeta: NavRouteMeta) => boolean
+  isActive: (routeName: RouteRecordName | null | undefined) => boolean
+  hasActiveChild: (children: NavMenuChild[] | null | undefined) => boolean
+  breadcrumbs: ComputedRef<NavBreadcrumb[]>
+  defaultLandingPage: ComputedRef<{ name: RouteRecordName | null | undefined }>
+  routeToMenuItem: (route: RouteRecordNormalized) => NavMenuItem
+}
+
 /**
  * Navigation menu generation composable
- * @returns {Object} Navigation utilities and menu items
  */
-export function useNavigation() {
+export function useNavigation(): UseNavigationReturn {
   const router = useRouter()
   const route = useRoute()
   const authStore = useAuthStore()
@@ -51,10 +123,10 @@ export function useNavigation() {
 
   /**
    * Check if user has access to a route
-   * @param {Object} routeMeta - Route meta object
-   * @returns {boolean} True if user has access
+   * @param routeMeta - Route meta object
+   * @returns True if user has access
    */
-  const hasAccess = routeMeta => {
+  const hasAccess = (routeMeta: NavRouteMeta): boolean => {
     // Check authentication requirement
     if (routeMeta.requiresAuth && !authStore.isAuthenticated) {
       return false
@@ -78,69 +150,80 @@ export function useNavigation() {
 
   /**
    * Convert route to menu item
-   * @param {Object} route - Vue Router route object
-   * @returns {Object} Menu item object
+   * @param menuRoute - Vue Router route record
+   * @returns Menu item object
    */
-  const routeToMenuItem = route => {
-    const meta = route.meta || {}
+  const routeToMenuItem = (menuRoute: RouteRecordNormalized): NavMenuItem => {
+    const meta = (menuRoute.meta || {}) as NavRouteMeta
 
     return {
-      name: route.name,
-      title: meta.menuLabel || meta.title || route.name,
-      to: { name: route.name },
+      name: menuRoute.name,
+      title: meta.menuLabel || meta.title || menuRoute.name,
+      to: { name: menuRoute.name },
       icon: meta.icon,
       badge: meta.badge,
       badgeColor: meta.badgeColor || 'error',
       dividerBefore: meta.dividerBefore || false,
       dividerAfter: meta.dividerAfter || false,
       order: meta.menuOrder || 999,
-      ariaLabel: meta.ariaLabel || meta.title || route.name,
+      ariaLabel: meta.ariaLabel || meta.title || menuRoute.name,
       children: meta.menuChildren || []
     }
   }
+
+  /** Route records whose meta flag is set, filtered by access and mapped to menu items */
+  const routeMenuItems = (flag: 'showInMainMenu' | 'showInUserMenu'): NavMenuItem[] =>
+    router
+      .getRoutes()
+      .filter(menuRoute => (menuRoute.meta as NavRouteMeta | undefined)?.[flag] === true)
+      .filter(menuRoute => hasAccess(menuRoute.meta as NavRouteMeta))
+      .map(menuRoute => routeToMenuItem(menuRoute))
+      .sort((a, b) => a.order - b.order)
 
   /**
    * Main navigation menu items (top navigation bar)
    * Only includes routes with showInMainMenu: true
    */
-  const mainMenuItems = computed(() => {
-    return router
-      .getRoutes()
-      .filter(route => route.meta?.showInMainMenu === true)
-      .filter(route => hasAccess(route.meta))
-      .map(route => routeToMenuItem(route))
-      .sort((a, b) => a.order - b.order)
-  })
+  const mainMenuItems = computed<NavMenuItem[]>(() => routeMenuItems('showInMainMenu'))
 
   /**
    * User menu items (avatar dropdown)
    * Only includes routes with showInUserMenu: true
    */
-  const userMenuItems = computed(() => {
+  const userMenuItems = computed<NavMenuItem[]>(() => {
     if (!authStore.isAuthenticated) {
       return []
     }
 
-    return router
-      .getRoutes()
-      .filter(route => route.meta?.showInUserMenu === true)
-      .filter(route => hasAccess(route.meta))
-      .map(route => routeToMenuItem(route))
-      .sort((a, b) => a.order - b.order)
+    return routeMenuItems('showInUserMenu')
   })
+
+  /** Keep static submenu entries whose target route exists and is accessible */
+  const accessibleLinks = (items: NavLinkItem[]): NavLinkItem[] =>
+    items
+      .filter(item => {
+        // Check if route exists
+        const routeExists = router.hasRoute(item.to.name)
+        if (!routeExists) return false
+
+        // Check permissions for route
+        const resolved = router.resolve(item.to)
+        return hasAccess(resolved.meta as NavRouteMeta)
+      })
+      .sort((a, b) => a.order - b.order)
 
   /**
    * Curation submenu items
    * Items shown in the Curation dropdown
    */
-  const curationMenuItems = computed(() => {
+  const curationMenuItems = computed<NavLinkItem[]>(() => {
     if (!can.viewCurations.value) {
       return []
     }
 
     // Define curation menu structure
     // This could also come from routes with showInCurationMenu: true
-    return [
+    return accessibleLinks([
       {
         name: 'assignments',
         title: 'Assignments',
@@ -177,25 +260,15 @@ export function useNavigation() {
         order: 5,
         dividerBefore: true
       }
-    ]
-      .filter(item => {
-        // Check if route exists
-        const routeExists = router.hasRoute(item.to.name)
-        if (!routeExists) return false
-
-        // Check permissions for route
-        const route = router.resolve(item.to)
-        return hasAccess(route.meta)
-      })
-      .sort((a, b) => a.order - b.order)
+    ])
   })
 
   /**
    * Help submenu items
    * Items shown in the Help dropdown
    */
-  const helpMenuItems = computed(() => {
-    return [
+  const helpMenuItems = computed<NavLinkItem[]>(() => {
+    return accessibleLinks([
       {
         name: 'documentation',
         title: 'Documentation',
@@ -217,27 +290,19 @@ export function useNavigation() {
         icon: 'mdi-information',
         order: 3
       }
-    ]
-      .filter(item => {
-        const routeExists = router.hasRoute(item.to.name)
-        if (!routeExists) return false
-
-        const route = router.resolve(item.to)
-        return hasAccess(route.meta)
-      })
-      .sort((a, b) => a.order - b.order)
+    ])
   })
 
   /**
    * Admin submenu items
    * Items shown in the admin section of user menu
    */
-  const adminMenuItems = computed(() => {
+  const adminMenuItems = computed<NavLinkItem[]>(() => {
     if (!can.viewAdminPages.value) {
       return []
     }
 
-    return [
+    return accessibleLinks([
       {
         name: 'user-management',
         title: 'User Management',
@@ -259,42 +324,33 @@ export function useNavigation() {
         icon: 'mdi-cog',
         order: 3
       }
-    ]
-      .filter(item => {
-        const routeExists = router.hasRoute(item.to.name)
-        if (!routeExists) return false
-
-        const route = router.resolve(item.to)
-        return hasAccess(route.meta)
-      })
-      .sort((a, b) => a.order - b.order)
+    ])
   })
 
   /**
    * Check if a route is currently active
-   * @param {string} routeName - Route name to check
-   * @returns {boolean} True if route is active
+   * @param routeName - Route name to check
+   * @returns True if route is active
    */
-  const isActive = routeName => {
+  const isActive = (routeName: RouteRecordName | null | undefined): boolean => {
     return route.name === routeName
   }
 
   /**
    * Check if any child route is active
-   * @param {Array} children - Array of child menu items
-   * @returns {boolean} True if any child is active
+   * @param children - Array of child menu items
+   * @returns True if any child is active
    */
-  const hasActiveChild = children => {
+  const hasActiveChild = (children: NavMenuChild[] | null | undefined): boolean => {
     if (!children || children.length === 0) return false
     return children.some(child => isActive(child.name))
   }
 
   /**
    * Get breadcrumb trail for current route
-   * @returns {Array} Array of breadcrumb items
    */
-  const breadcrumbs = computed(() => {
-    const crumbs = []
+  const breadcrumbs = computed<NavBreadcrumb[]>(() => {
+    const crumbs: NavBreadcrumb[] = []
 
     // Always start with home
     crumbs.push({
@@ -307,7 +363,7 @@ export function useNavigation() {
     const matched = route.matched
 
     matched.forEach((matchedRoute, index) => {
-      const meta = matchedRoute.meta
+      const meta = matchedRoute.meta as NavRouteMeta | undefined
 
       // Skip if explicitly hidden
       if (meta?.hideBreadcrumb) return
@@ -327,10 +383,13 @@ export function useNavigation() {
 
   /**
    * Get default landing page for authenticated users
-   * @returns {Object} Route object
    */
-  const defaultLandingPage = computed(() => {
-    const landingRoute = router.getRoutes().find(route => route.meta?.isDefaultLandingPage === true)
+  const defaultLandingPage = computed<{ name: RouteRecordName | null | undefined }>(() => {
+    const landingRoute = router
+      .getRoutes()
+      .find(
+        menuRoute => (menuRoute.meta as NavRouteMeta | undefined)?.isDefaultLandingPage === true
+      )
 
     return landingRoute ? { name: landingRoute.name } : { name: 'Dashboard' }
   })

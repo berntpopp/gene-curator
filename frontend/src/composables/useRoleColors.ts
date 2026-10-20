@@ -20,7 +20,7 @@
  *   </v-chip>
  * </template>
  *
- * <script setup>
+ * <script setup lang="ts">
  * import { useRoleColors } from '@/composables/useRoleColors'
  * const { getRoleColor, getRoleIcon } = useRoleColors()
  * </script>
@@ -29,16 +29,22 @@
  * @see docs/refactoring/FRONTEND_IMPLEMENTATION.md#step-11-create-role-colors-composable
  */
 
+export interface UseRoleColorsReturn {
+  roleColors: Readonly<Record<string, string>>
+  roleIcons: Readonly<Record<string, string>>
+  getRoleColor: (role: string) => string
+  getRoleIcon: (role: string) => string
+}
+
 /**
  * Get role colors and icons for scope roles
- * @returns {Object} Role colors and utility functions
  */
-export function useRoleColors() {
+export function useRoleColors(): UseRoleColorsReturn {
   /**
    * Role color mapping (Vuetify color names)
    * Frozen for immutability - these are constants
    */
-  const roleColors = Object.freeze({
+  const roleColors: Readonly<Record<string, string>> = Object.freeze({
     admin: 'red',
     curator: 'blue',
     reviewer: 'green',
@@ -49,7 +55,7 @@ export function useRoleColors() {
    * Role icon mapping (Material Design Icons)
    * Frozen for immutability - these are constants
    */
-  const roleIcons = Object.freeze({
+  const roleIcons: Readonly<Record<string, string>> = Object.freeze({
     admin: 'mdi-shield-crown',
     curator: 'mdi-pencil',
     reviewer: 'mdi-check-circle',
@@ -58,19 +64,19 @@ export function useRoleColors() {
 
   /**
    * Get color for a specific role
-   * @param {string} role - Role name (admin, curator, reviewer, viewer)
-   * @returns {string} Vuetify color name
+   * @param role - Role name (admin, curator, reviewer, viewer)
+   * @returns Vuetify color name
    */
-  const getRoleColor = role => {
+  const getRoleColor = (role: string): string => {
     return roleColors[role] || 'grey'
   }
 
   /**
    * Get icon for a specific role
-   * @param {string} role - Role name (admin, curator, reviewer, viewer)
-   * @returns {string} Material Design Icon name
+   * @param role - Role name (admin, curator, reviewer, viewer)
+   * @returns Material Design Icon name
    */
-  const getRoleIcon = role => {
+  const getRoleIcon = (role: string): string => {
     return roleIcons[role] || 'mdi-account'
   }
 

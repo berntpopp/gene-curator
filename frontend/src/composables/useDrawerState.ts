@@ -9,19 +9,35 @@
  */
 
 import { ref, computed, readonly } from 'vue'
+import type { ComputedRef, Ref, WritableComputedRef } from 'vue'
+
+export interface UseDrawerStateReturn {
+  isOpen: WritableComputedRef<boolean>
+  open: () => void
+  close: () => void
+  toggle: () => void
+  drawerId: Readonly<Ref<string>>
+}
+
+export interface UseGlobalDrawerStateReturn {
+  closeAll: () => void
+  getActiveDrawer: ComputedRef<string | null>
+  hasOpenDrawer: ComputedRef<boolean>
+  getRegisteredDrawers: ComputedRef<string[]>
+}
 
 /**
  * Shared state for drawer management across components
  * Using module-level state for singleton pattern
  */
-const activeDrawerId = ref(null)
-const drawerRegistry = ref(new Map())
+const activeDrawerId = ref<string | null>(null)
+const drawerRegistry = ref(new Map<string, { id: string }>())
 
 /**
  * Create a drawer state manager
  *
- * @param {string} drawerId - Unique identifier for this drawer instance
- * @returns {Object} Drawer state management object
+ * @param drawerId - Unique identifier for this drawer instance
+ * @returns Drawer state management object
  *
  * @example
  * // In a component
@@ -31,7 +47,7 @@ const drawerRegistry = ref(new Map())
  * <v-navigation-drawer v-model="isOpen">...</v-navigation-drawer>
  * <v-btn @click="toggle">Toggle Drawer</v-btn>
  */
-export function useDrawerState(drawerId) {
+export function useDrawerState(drawerId: string): UseDrawerStateReturn {
   if (!drawerId) {
     throw new Error('useDrawerState requires a unique drawerId')
   }
@@ -46,7 +62,7 @@ export function useDrawerState(drawerId) {
    */
   const isOpen = computed({
     get: () => activeDrawerId.value === drawerId,
-    set: value => {
+    set: (value: boolean) => {
       if (value) {
         activeDrawerId.value = drawerId
       } else if (activeDrawerId.value === drawerId) {
@@ -58,14 +74,14 @@ export function useDrawerState(drawerId) {
   /**
    * Open this drawer (closes any other open drawer)
    */
-  const open = () => {
+  const open = (): void => {
     activeDrawerId.value = drawerId
   }
 
   /**
    * Close this drawer
    */
-  const close = () => {
+  const close = (): void => {
     if (activeDrawerId.value === drawerId) {
       activeDrawerId.value = null
     }
@@ -74,7 +90,7 @@ export function useDrawerState(drawerId) {
   /**
    * Toggle this drawer open/closed
    */
-  const toggle = () => {
+  const toggle = (): void => {
     if (activeDrawerId.value === drawerId) {
       activeDrawerId.value = null
     } else {
@@ -94,17 +110,17 @@ export function useDrawerState(drawerId) {
 /**
  * Get global drawer state management utilities
  *
- * @returns {Object} Global drawer state utilities
+ * @returns Global drawer state utilities
  *
  * @example
  * const { closeAll, getActiveDrawer, hasOpenDrawer } = useGlobalDrawerState()
  * closeAll() // Close all drawers
  */
-export function useGlobalDrawerState() {
+export function useGlobalDrawerState(): UseGlobalDrawerStateReturn {
   /**
    * Close all drawers
    */
-  const closeAll = () => {
+  const closeAll = (): void => {
     activeDrawerId.value = null
   }
 

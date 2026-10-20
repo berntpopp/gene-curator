@@ -18,16 +18,38 @@
  */
 
 import { computed } from 'vue'
+import type { ComputedRef } from 'vue'
 
-export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
+/** Subset of a backend scoring engine configuration used for display. */
+export interface ScoringConfiguration {
+  classification_thresholds?: Record<string, number>
+  max_score?: number
+  max_scores?: Record<string, number>
+  scoring_rules?: Record<string, { max_score?: number }>
+}
+
+export interface UseSchemaScoringReturn {
+  totalScore: ComputedRef<number>
+  categoryScores: ComputedRef<Record<string, unknown>>
+  classification: ComputedRef<string | null>
+  classificationColor: ComputedRef<string>
+  nearThreshold: ComputedRef<boolean>
+  maxScore: ComputedRef<number>
+  progressPercentage: ComputedRef<number>
+}
+
+export function useSchemaScoring(
+  scoreCalculations: { readonly value: Record<string, unknown> | null | undefined },
+  scoringConfiguration: { readonly value: ScoringConfiguration | null | undefined }
+): UseSchemaScoringReturn {
   /**
    * Calculate total score by summing all score_calculations values
    */
-  const totalScore = computed(() => {
+  const totalScore = computed<number>(() => {
     if (!scoreCalculations.value) return 0
 
     // Sum all numeric values in score_calculations
-    return Object.values(scoreCalculations.value).reduce((sum, value) => {
+    return Object.values(scoreCalculations.value).reduce<number>((sum, value) => {
       const numValue = typeof value === 'number' ? value : 0
       return sum + numValue
     }, 0)
@@ -36,7 +58,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
   /**
    * Extract category scores (all score_calculations entries)
    */
-  const categoryScores = computed(() => {
+  const categoryScores = computed<Record<string, unknown>>(() => {
     if (!scoreCalculations.value) return {}
     return { ...scoreCalculations.value }
   })
@@ -44,7 +66,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
   /**
    * Get classification thresholds from scoring configuration
    */
-  const thresholds = computed(() => {
+  const thresholds = computed<Record<string, number>>(() => {
     return scoringConfiguration.value?.classification_thresholds || {}
   })
 
@@ -52,7 +74,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
    * Determine classification based on total score and thresholds
    * Returns the highest classification level that the score meets
    */
-  const classification = computed(() => {
+  const classification = computed<string | null>(() => {
     const score = totalScore.value
     const thresh = thresholds.value
 
@@ -71,14 +93,14 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
     }
 
     // If no threshold met, return lowest classification or null
-    return sortedLevels.length > 0 ? sortedLevels[sortedLevels.length - 1][0] : null
+    return sortedLevels.length > 0 ? (sortedLevels[sortedLevels.length - 1]?.[0] ?? null) : null
   })
 
   /**
    * Get Vuetify color for classification
    * Maps common classification levels to semantic colors
    */
-  const classificationColor = computed(() => {
+  const classificationColor = computed<string>(() => {
     const cls = classification.value
     if (!cls) return 'grey'
 
@@ -110,7 +132,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
   /**
    * Check if score is within 1 point of next classification threshold
    */
-  const nearThreshold = computed(() => {
+  const nearThreshold = computed<boolean>(() => {
     const score = totalScore.value
     const thresh = thresholds.value
 
@@ -136,7 +158,7 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
    * Get maximum possible score from scoring configuration
    * Falls back to dynamic calculation from max_scores if available
    */
-  const maxScore = computed(() => {
+  const maxScore = computed<number>(() => {
     const config = scoringConfiguration.value
 
     if (!config) return 0
@@ -148,9 +170,10 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
 
     // Check for max_scores by category and sum them
     if (config.max_scores && typeof config.max_scores === 'object') {
-      return Object.values(config.max_scores).reduce((sum, val) => {
-        return sum + (typeof val === 'number' ? val : 0)
-      }, 0)
+      return Object.values(config.max_scores).reduce<number>(
+        (sum, val) => sum + (typeof val === 'number' ? val : 0),
+        0
+      )
     }
 
     // Fallback: calculate from scoring_rules if available
@@ -165,14 +188,14 @@ export function useSchemaScoring(scoreCalculations, scoringConfiguration) {
     }
 
     // Last resort: use highest threshold value as approximation
-    const highestThreshold = Math.max(...Object.values(thresholds.value || {}))
+    const highestThreshold = Math.max(...Object.values(thresholds.value))
     return highestThreshold > 0 ? highestThreshold * 1.5 : 100
   })
 
   /**
    * Calculate progress percentage (0-100)
    */
-  const progressPercentage = computed(() => {
+  const progressPercentage = computed<number>(() => {
     const max = maxScore.value
     if (max === 0) return 0
 

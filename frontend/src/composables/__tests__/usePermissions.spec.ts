@@ -17,8 +17,19 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
+import { isRef } from 'vue'
 import { usePermissions } from '../usePermissions'
 import { useAuthStore } from '@/stores/auth'
+
+/** Writable view of the auth store for these tests (the JS store infers narrow state types). */
+interface TestAuthStore {
+  isAuthenticated: boolean
+  user: { role?: string; email: string } | null
+  hasRole: (role: string) => boolean
+  hasAnyRole: (roles: string[]) => boolean
+}
+
+const useTestAuthStore = (): TestAuthStore => useAuthStore() as unknown as TestAuthStore
 
 describe('usePermissions', () => {
   beforeEach(() => {
@@ -26,9 +37,49 @@ describe('usePermissions', () => {
     setActivePinia(createPinia())
   })
 
+  it('exposes user, role and authentication state from the store', () => {
+    const authStore = useTestAuthStore()
+    authStore.isAuthenticated = true
+    authStore.user = { role: 'reviewer', email: 'r@example.com' }
+
+    const { user, userRole, isAuthenticated } = usePermissions()
+
+    expect(user.value).toEqual({ role: 'reviewer', email: 'r@example.com' })
+    expect(userRole.value).toBe('reviewer')
+    expect(isAuthenticated.value).toBe(true)
+  })
+
+  it('every permission flag is a boolean computed', () => {
+    const authStore = useTestAuthStore()
+    authStore.isAuthenticated = true
+    authStore.user = { role: 'admin', email: 'a@example.com' }
+    authStore.hasRole = vi.fn((role: string) => role === 'admin')
+    authStore.hasAnyRole = vi.fn((roles: string[]) => roles.includes('admin'))
+
+    const { can } = usePermissions()
+    const flags = Object.values(can).filter(isRef)
+
+    expect(flags.length).toBeGreaterThan(20)
+    for (const flag of flags) {
+      expect(typeof flag.value).toBe('boolean')
+    }
+    expect(can.manageUsers.value).toBe(true)
+    expect(can.viewScopeStats.value).toBe(true)
+  })
+
+  it('hasAllRoles requires every listed role', () => {
+    const authStore = useTestAuthStore()
+    authStore.hasRole = vi.fn((role: string) => role === 'admin')
+
+    const { can } = usePermissions()
+
+    expect(can.hasAllRoles(['admin'])).toBe(true)
+    expect(can.hasAllRoles(['admin', 'curator'])).toBe(false)
+  })
+
   describe('View Permissions', () => {
     it('should allow authenticated users to view dashboard', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'viewer', email: 'test@example.com' }
 
@@ -38,7 +89,7 @@ describe('usePermissions', () => {
     })
 
     it('should not allow unauthenticated users to view dashboard', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = false
       authStore.user = null
 
@@ -48,7 +99,7 @@ describe('usePermissions', () => {
     })
 
     it('should allow curators to view curations', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
 
@@ -63,7 +114,7 @@ describe('usePermissions', () => {
     })
 
     it('should not allow viewers to view curations', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'viewer', email: 'viewer@example.com' }
 
@@ -80,7 +131,7 @@ describe('usePermissions', () => {
 
   describe('Action Permissions', () => {
     it('should allow curators to create assignments', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
 
@@ -94,7 +145,7 @@ describe('usePermissions', () => {
     })
 
     it('should allow reviewers to review curations', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'reviewer', email: 'reviewer@example.com' }
 
@@ -108,7 +159,7 @@ describe('usePermissions', () => {
     })
 
     it('should not allow viewers to create curations', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'viewer', email: 'viewer@example.com' }
 
@@ -122,7 +173,7 @@ describe('usePermissions', () => {
 
   describe('Admin Permissions', () => {
     it('should allow admins to manage users', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'admin', email: 'admin@example.com' }
 
@@ -134,7 +185,7 @@ describe('usePermissions', () => {
     })
 
     it('should allow admins to configure curation', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'admin', email: 'admin@example.com' }
 
@@ -146,7 +197,7 @@ describe('usePermissions', () => {
     })
 
     it('should not allow curators to manage users', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
 
@@ -160,7 +211,7 @@ describe('usePermissions', () => {
 
   describe('Scope Admin Permissions', () => {
     it('should allow scope admins to manage scope users', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = {
         role: 'scope_admin',
@@ -177,7 +228,7 @@ describe('usePermissions', () => {
     })
 
     it('should allow admins to manage scope users', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'admin', email: 'admin@example.com' }
 
@@ -193,7 +244,7 @@ describe('usePermissions', () => {
 
   describe('Helper Methods', () => {
     it('should provide hasRole helper', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'admin', email: 'admin@example.com' }
 
@@ -206,7 +257,7 @@ describe('usePermissions', () => {
     })
 
     it('should provide hasAnyRole helper', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
 
@@ -223,7 +274,7 @@ describe('usePermissions', () => {
 
   describe('User Information', () => {
     it('should expose user information', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { role: 'curator', email: 'curator@example.com' }
 
@@ -240,7 +291,7 @@ describe('usePermissions', () => {
 
   describe('Edge Cases', () => {
     it('should handle null user gracefully', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = false
       authStore.user = null
 
@@ -255,7 +306,7 @@ describe('usePermissions', () => {
     })
 
     it('should handle missing role gracefully', () => {
-      const authStore = useAuthStore()
+      const authStore = useTestAuthStore()
       authStore.isAuthenticated = true
       authStore.user = { email: 'test@example.com' } // No role
 

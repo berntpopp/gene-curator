@@ -21,24 +21,47 @@
  */
 
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import type { Ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLogger } from './useLogger'
 
-export function useSessionTimeout() {
-  const authStore = useAuthStore()
+export interface UseSessionTimeoutReturn {
+  showWarning: Ref<boolean>
+  timeRemaining: Ref<number>
+  extendSession: () => Promise<void>
+  dismissWarning: () => void
+  checkTokenExpiry: () => void
+}
+
+/**
+ * Auth store members used here, typed as this composable calls them.
+ * Known mismatches with the JS store, kept as-is (behaviour must not change):
+ * - `tokenExpiresAt` is never defined by the store, so expiry checks are inert.
+ * - `refreshToken` is a state string in the store; the refresh action is
+ *   `refreshAccessToken`, so extendSession() currently throws.
+ */
+interface SessionAuthStore {
+  token: string | null
+  tokenExpiresAt?: number
+  refreshToken: () => Promise<unknown>
+  logout: () => Promise<unknown>
+}
+
+export function useSessionTimeout(): UseSessionTimeoutReturn {
+  const authStore = useAuthStore() as unknown as SessionAuthStore
   const logger = useLogger()
 
   const showWarning = ref(false)
   const timeRemaining = ref(0) // seconds
   const warningThreshold = 5 * 60 * 1000 // 5 minutes in milliseconds
 
-  let checkInterval = null
+  let checkInterval: ReturnType<typeof setInterval> | null = null
 
   /**
    * Check token expiration and update state
    * Runs every minute to check token status
    */
-  function checkTokenExpiry() {
+  function checkTokenExpiry(): void {
     // Skip if not authenticated
     if (!authStore.token || !authStore.tokenExpiresAt) {
       return
@@ -89,7 +112,7 @@ export function useSessionTimeout() {
    * Extend session by refreshing JWT token
    * Called when user clicks "Extend Session" button
    */
-  async function extendSession() {
+  async function extendSession(): Promise<void> {
     try {
       logger.info('Attempting to extend session')
       await authStore.refreshToken()
@@ -104,7 +127,7 @@ export function useSessionTimeout() {
       })
     } catch (error) {
       logger.error('Failed to extend session', {
-        error: error.message
+        error: error instanceof Error ? error.message : undefined
       })
 
       // Show error to user (they'll need to re-login)
@@ -116,7 +139,7 @@ export function useSessionTimeout() {
    * Dismiss warning without extending session
    * User can continue working but will be logged out at expiration
    */
-  function dismissWarning() {
+  function dismissWarning(): void {
     showWarning.value = false
     logger.debug('Session timeout warning dismissed')
   }

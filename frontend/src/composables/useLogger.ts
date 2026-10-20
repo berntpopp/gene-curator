@@ -10,20 +10,24 @@
  * // In Composition API components
  * import { useLogger } from '@/composables/useLogger'
  *
- * export default {
- *   setup() {
- *     const logger = useLogger()
- *
- *     logger.info('Component mounted')
- *     logger.error('Something went wrong', { error: e })
- *
- *     return { ... }
- *   }
- * }
+ * const logger = useLogger()
+ * logger.info('Component mounted')
+ * logger.error('Something went wrong', { error: e })
  */
 
 import { getCurrentInstance } from 'vue'
 import { logService } from '@/services/logService'
+
+export type LogData = Record<string, unknown>
+
+export interface ScopedLogger {
+  debug: (message: string, data?: LogData) => void
+  info: (message: string, data?: LogData) => void
+  warn: (message: string, data?: LogData) => void
+  error: (message: string, data?: LogData) => void
+  critical: (message: string, data?: LogData) => void
+  logPerformance: (operation: string, startTime: number, data?: LogData) => void
+}
 
 /**
  * useLogger composable
@@ -38,18 +42,8 @@ import { logService } from '@/services/logService'
  * 3. No memory leaks from unmounted components
  * 4. Pure function behavior (no side effects)
  *
- * @param {string} componentName - Optional component name override
- * @returns {Object} Logger object with scoped methods
- *
- * @example
- * // Basic usage
- * const logger = useLogger()
- * logger.info('User clicked button')
- *
- * @example
- * // With custom component name
- * const logger = useLogger('MyCustomComponent')
- * logger.debug('Processing data', { rows: 100 })
+ * @param componentName - Optional component name override
+ * @returns Logger object with scoped methods
  *
  * @example
  * // With performance tracking
@@ -58,102 +52,65 @@ import { logService } from '@/services/logService'
  * // ... operation ...
  * logger.logPerformance('dataLoad', startTime, { rows: 100 })
  */
-export function useLogger(componentName = null) {
+export function useLogger(componentName: string | null = null): ScopedLogger {
   const instance = getCurrentInstance()
   const name = componentName || instance?.type?.name || 'Unknown'
 
   // FIX #4: Don't mutate global state - return scoped logger functions
   // Each component gets its own logger functions with built-in component context
   // This prevents memory leak where component metadata pollutes global logger
+  // No onUnmounted needed - pure function, no cleanup required.
 
   return {
-    /**
-     * Log debug message
-     *
-     * @param {string} message - Log message
-     * @param {Object} data - Optional data object
-     */
     debug: (message, data) =>
       logService.debug(message, {
         ...data,
         component: name
       }),
 
-    /**
-     * Log info message
-     *
-     * @param {string} message - Log message
-     * @param {Object} data - Optional data object
-     */
     info: (message, data) =>
       logService.info(message, {
         ...data,
         component: name
       }),
 
-    /**
-     * Log warning message
-     *
-     * @param {string} message - Log message
-     * @param {Object} data - Optional data object
-     */
     warn: (message, data) =>
       logService.warn(message, {
         ...data,
         component: name
       }),
 
-    /**
-     * Log error message
-     *
-     * @param {string} message - Log message
-     * @param {Object} data - Optional data object
-     */
     error: (message, data) =>
       logService.error(message, {
         ...data,
         component: name
       }),
 
-    /**
-     * Log critical message
-     *
-     * @param {string} message - Log message
-     * @param {Object} data - Optional data object
-     */
     critical: (message, data) =>
       logService.critical(message, {
         ...data,
         component: name
       }),
 
-    /**
-     * Log performance metrics
-     *
-     * @param {string} operation - Operation name
-     * @param {number} startTime - Start timestamp from performance.now()
-     * @param {Object} data - Additional data
-     */
     logPerformance: (operation, startTime, data) =>
       logService.logPerformance(operation, startTime, {
         ...data,
         component: name
       })
   }
-
-  // FIX #4: No onUnmounted needed - pure function, no global mutation!
-  // Unlike the buggy version that mutated global metadata and required cleanup,
-  // this version is pure and requires no cleanup on unmount.
 }
 
 /**
  * Helper to get logger for Options API components
  *
  * @deprecated Use useLogger() in Composition API or this.$logger in Options API
- * @param {Object} componentInstance - Component instance (this)
- * @returns {Object} Logger object
+ * @param componentInstance - Component instance (this)
+ * @returns Logger object
  */
-export function getLogger(componentInstance) {
+export function getLogger(componentInstance: {
+  $options?: { name?: string }
+  type?: { name?: string }
+}): ScopedLogger {
   const name = componentInstance?.$options?.name || componentInstance?.type?.name || 'Unknown'
   return useLogger(name)
 }

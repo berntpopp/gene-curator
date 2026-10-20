@@ -13,21 +13,9 @@
  * - reviewer: Can review curations within scope
  * - viewer: Read-only access to scope
  *
- * **Benefits**:
- * - DRY: Centralized scope permission logic
- * - Reactive: Automatically updates when user role changes
- * - Type-safe: Clear permission definitions
- * - Testable: Pure computed properties
- *
  * @example
  * ```vue
- * <template>
- *   <v-btn v-if="canManageScope" @click="editScope">Edit Scope</v-btn>
- *   <v-btn v-if="canInviteMembers" @click="inviteMember">Invite Member</v-btn>
- *   <v-btn v-if="canCurate" @click="createCuration">New Curation</v-btn>
- * </template>
- *
- * <script setup>
+ * <script setup lang="ts">
  * import { computed } from 'vue'
  * import { useScopeStore } from '@/stores/scopes'
  * import { useScopePermissions } from '@/composables/useScopePermissions'
@@ -42,19 +30,42 @@
  */
 
 import { computed, isRef, unref } from 'vue'
+import type { ComputedRef, MaybeRef } from 'vue'
+
+export interface UseScopePermissionsReturn {
+  // Permission checks
+  canManageScope: ComputedRef<boolean>
+  canInviteMembers: ComputedRef<boolean>
+  canCurate: ComputedRef<boolean>
+  canReview: ComputedRef<boolean>
+  canViewMembers: ComputedRef<boolean>
+  canEditMemberRoles: ComputedRef<boolean>
+  canRemoveMembers: ComputedRef<boolean>
+  canViewStatistics: ComputedRef<boolean>
+  canCreateAssignments: ComputedRef<boolean>
+  canManageWorkflows: ComputedRef<boolean>
+
+  // Role checks
+  isViewer: ComputedRef<boolean>
+  isAdmin: ComputedRef<boolean>
+  isCurator: ComputedRef<boolean>
+  isReviewer: ComputedRef<boolean>
+  hasAnyRole: ComputedRef<boolean>
+}
 
 /**
  * Get permission checks for a scope role
  *
- * @param {Ref<string>|string} userRole - User's role within the scope (reactive or static)
- * @returns {Object} Permission checking computed properties
+ * @param userRole - User's role within the scope (reactive or static)
+ * @returns Permission checking computed properties
  */
-export function useScopePermissions(userRole) {
+export function useScopePermissions(
+  userRole: MaybeRef<string | null | undefined>
+): UseScopePermissionsReturn {
   /**
    * Get the actual role value (handles both Ref and plain strings)
-   * @returns {string|null} Role value
    */
-  const getRole = () => {
+  const getRole = (): string | null => {
     const role = isRef(userRole) ? unref(userRole) : userRole
     return role || null
   }

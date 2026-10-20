@@ -17,7 +17,7 @@
  *   <MainNavigation v-else />
  * </template>
  *
- * <script setup>
+ * <script setup lang="ts">
  * import { useResponsive } from '@/composables/useResponsive'
  * const { isMobile, isTablet, isDesktop } = useResponsive()
  * </script>
@@ -27,13 +27,36 @@
  */
 
 import { ref, computed, onMounted, onUnmounted } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { NAVIGATION_CONFIG } from '@/config/navigation'
+
+export interface Breakpoints {
+  mobile: number
+  tablet: number
+}
+
+export type DeviceType = 'mobile' | 'tablet' | 'desktop'
+
+export interface UseResponsiveReturn {
+  windowWidth: Ref<number>
+  isMobile: ComputedRef<boolean>
+  isTablet: ComputedRef<boolean>
+  isDesktop: ComputedRef<boolean>
+  deviceType: ComputedRef<DeviceType>
+  isTouchDevice: ComputedRef<boolean>
+  isPortrait: ComputedRef<boolean>
+  isLandscape: ComputedRef<boolean>
+  matches: (breakpoint: string) => boolean
+  atLeast: (breakpoint: string) => boolean
+  atMost: (breakpoint: string) => boolean
+  breakpoints: ComputedRef<Breakpoints>
+}
 
 /**
  * Default breakpoint configuration (in pixels)
  * Matches Vuetify's default breakpoints for consistency
  */
-const DEFAULT_BREAKPOINTS = {
+const DEFAULT_BREAKPOINTS: Breakpoints = {
   mobile: NAVIGATION_CONFIG.MOBILE_BREAKPOINT, // 768px
   tablet: NAVIGATION_CONFIG.TABLET_BREAKPOINT // 1024px
   // desktop is anything above tablet
@@ -41,23 +64,23 @@ const DEFAULT_BREAKPOINTS = {
 
 /**
  * Responsive breakpoint detection composable
- * @param {Object} [customBreakpoints] - Optional custom breakpoints
- * @returns {Object} Reactive breakpoint state
+ * @param customBreakpoints - Optional custom breakpoints
+ * @returns Reactive breakpoint state
  */
-export function useResponsive(customBreakpoints = {}) {
-  const breakpoints = { ...DEFAULT_BREAKPOINTS, ...customBreakpoints }
+export function useResponsive(customBreakpoints: Partial<Breakpoints> = {}): UseResponsiveReturn {
+  const breakpoints: Breakpoints = { ...DEFAULT_BREAKPOINTS, ...customBreakpoints }
 
   // Window width state
   const windowWidth = ref(typeof window !== 'undefined' ? window.innerWidth : 1024)
 
   // Media query listeners for better performance
-  const mediaQueries = ref({})
-  const mediaQueryListeners = ref({})
+  const mediaQueries = ref<Record<string, MediaQueryList>>({})
+  const mediaQueryListeners = ref<Record<string, (e: MediaQueryListEvent) => void>>({})
 
   /**
    * Update window width
    */
-  const updateWidth = () => {
+  const updateWidth = (): void => {
     if (typeof window !== 'undefined') {
       windowWidth.value = window.innerWidth
     }
@@ -67,14 +90,14 @@ export function useResponsive(customBreakpoints = {}) {
    * Setup media query listeners
    * More performant than resize event listeners
    */
-  const setupMediaQueries = () => {
+  const setupMediaQueries = (): void => {
     if (typeof window === 'undefined' || !window.matchMedia) {
       return
     }
 
     // Mobile query
     const mobileQuery = window.matchMedia(`(max-width: ${breakpoints.mobile - 1}px)`)
-    const mobileListener = e => {
+    const mobileListener = (e: MediaQueryListEvent): void => {
       if (e.matches) {
         updateWidth()
       }
@@ -87,7 +110,7 @@ export function useResponsive(customBreakpoints = {}) {
     const tabletQuery = window.matchMedia(
       `(min-width: ${breakpoints.mobile}px) and (max-width: ${breakpoints.tablet - 1}px)`
     )
-    const tabletListener = e => {
+    const tabletListener = (e: MediaQueryListEvent): void => {
       if (e.matches) {
         updateWidth()
       }
@@ -98,7 +121,7 @@ export function useResponsive(customBreakpoints = {}) {
 
     // Desktop query
     const desktopQuery = window.matchMedia(`(min-width: ${breakpoints.tablet}px)`)
-    const desktopListener = e => {
+    const desktopListener = (e: MediaQueryListEvent): void => {
       if (e.matches) {
         updateWidth()
       }
@@ -111,7 +134,7 @@ export function useResponsive(customBreakpoints = {}) {
   /**
    * Cleanup media query listeners
    */
-  const cleanupMediaQueries = () => {
+  const cleanupMediaQueries = (): void => {
     if (typeof window === 'undefined' || !window.matchMedia) {
       return
     }
@@ -126,41 +149,44 @@ export function useResponsive(customBreakpoints = {}) {
   }
 
   // Computed breakpoint flags
-  const isMobile = computed(() => windowWidth.value < breakpoints.mobile)
-  const isTablet = computed(
+  const isMobile = computed<boolean>(() => windowWidth.value < breakpoints.mobile)
+  const isTablet = computed<boolean>(
     () => windowWidth.value >= breakpoints.mobile && windowWidth.value < breakpoints.tablet
   )
-  const isDesktop = computed(() => windowWidth.value >= breakpoints.tablet)
+  const isDesktop = computed<boolean>(() => windowWidth.value >= breakpoints.tablet)
 
   // Computed device type string
-  const deviceType = computed(() => {
+  const deviceType = computed<DeviceType>(() => {
     if (isMobile.value) return 'mobile'
     if (isTablet.value) return 'tablet'
     return 'desktop'
   })
 
   // Touch device detection
-  const isTouchDevice = computed(() => {
+  const isTouchDevice = computed<boolean>(() => {
     if (typeof window === 'undefined') return false
     return (
-      'ontouchstart' in window || navigator.maxTouchPoints > 0 || navigator.msMaxTouchPoints > 0
+      // msMaxTouchPoints: legacy IE/Edge, removed from lib.dom
+      'ontouchstart' in window ||
+      navigator.maxTouchPoints > 0 ||
+      ((navigator as Navigator & { msMaxTouchPoints?: number }).msMaxTouchPoints ?? 0) > 0
     )
   })
 
   // Orientation detection
-  const isPortrait = computed(() => {
+  const isPortrait = computed<boolean>(() => {
     if (typeof window === 'undefined') return true
     return window.innerHeight > window.innerWidth
   })
 
-  const isLandscape = computed(() => !isPortrait.value)
+  const isLandscape = computed<boolean>(() => !isPortrait.value)
 
   /**
    * Check if viewport matches a specific breakpoint
-   * @param {string} breakpoint - 'mobile', 'tablet', or 'desktop'
-   * @returns {boolean} True if matches
+   * @param breakpoint - 'mobile', 'tablet', or 'desktop'
+   * @returns True if matches
    */
-  const matches = breakpoint => {
+  const matches = (breakpoint: string): boolean => {
     switch (breakpoint.toLowerCase()) {
       case 'mobile':
         return isMobile.value
@@ -175,10 +201,10 @@ export function useResponsive(customBreakpoints = {}) {
 
   /**
    * Check if viewport is at least a specific breakpoint
-   * @param {string} breakpoint - 'mobile', 'tablet', or 'desktop'
-   * @returns {boolean} True if at least this breakpoint
+   * @param breakpoint - 'mobile', 'tablet', or 'desktop'
+   * @returns True if at least this breakpoint
    */
-  const atLeast = breakpoint => {
+  const atLeast = (breakpoint: string): boolean => {
     const value = windowWidth.value
     switch (breakpoint.toLowerCase()) {
       case 'mobile':
@@ -194,10 +220,10 @@ export function useResponsive(customBreakpoints = {}) {
 
   /**
    * Check if viewport is at most a specific breakpoint
-   * @param {string} breakpoint - 'mobile', 'tablet', or 'desktop'
-   * @returns {boolean} True if at most this breakpoint
+   * @param breakpoint - 'mobile', 'tablet', or 'desktop'
+   * @returns True if at most this breakpoint
    */
-  const atMost = breakpoint => {
+  const atMost = (breakpoint: string): boolean => {
     const value = windowWidth.value
     switch (breakpoint.toLowerCase()) {
       case 'mobile':

@@ -28,24 +28,72 @@
  */
 
 import { ref } from 'vue'
+import type { Ref } from 'vue'
 import { useLogger } from './useLogger'
 
-export function useOptimisticLocking() {
+/** Body of a 409 Conflict response from the backend. */
+export interface ConflictResponse {
+  current_state?: Record<string, unknown>
+  lock_version?: number
+  conflicted_fields?: string[]
+  updated_at?: string
+}
+
+export interface ConflictData {
+  yourChanges: unknown
+  theirChanges: Record<string, unknown>
+  theirVersion: number
+  conflictedFields: string[]
+  timestamp: string
+}
+
+export type ConflictResolution = 'discard-mine' | 'overwrite-theirs' | 'merge'
+
+export interface ResolvedConflict extends ConflictData {
+  resolution: ConflictResolution
+  resolvedAt: string
+  data: ConflictData
+}
+
+export type SaveWithLockCheck = <T extends object, R extends { lock_version?: number }>(
+  apiCall: (payload: T & { lock_version: number }) => Promise<R>,
+  data: T,
+  currentVersion: number
+) => Promise<R>
+
+export interface UseOptimisticLockingReturn {
+  conflictDetected: Ref<boolean>
+  conflictData: Ref<ConflictData | null>
+  saveWithLockCheck: SaveWithLockCheck
+  resolveConflict: (resolution: ConflictResolution) => ResolvedConflict | null
+  cancelConflictResolution: () => void
+  hasFieldConflict: (fieldName: string) => boolean
+}
+
+/** Pull the HTTP response off an axios-style error, if there is one. */
+function responseOf(error: unknown): { status?: number; data: ConflictResponse } | undefined {
+  if (typeof error === 'object' && error !== null && 'response' in error) {
+    return (error as { response?: { status?: number; data: ConflictResponse } }).response
+  }
+  return undefined
+}
+
+export function useOptimisticLocking(): UseOptimisticLockingReturn {
   const logger = useLogger()
 
   const conflictDetected = ref(false)
-  const conflictData = ref(null)
+  const conflictData = ref<ConflictData | null>(null)
 
   /**
    * Save data with optimistic lock check
    *
-   * @param {Function} apiCall - API function that accepts data (e.g., (data) => api.update(id, data))
-   * @param {Object} data - Data to save
-   * @param {number} currentVersion - Current lock_version from loaded data
-   * @returns {Promise<*>} API response
-   * @throws {Error} Throws on conflict (409) or other errors
+   * @param apiCall - API function that accepts data (e.g., (data) => api.update(id, data))
+   * @param data - Data to save
+   * @param currentVersion - Current lock_version from loaded data
+   * @returns API response
+   * @throws Throws on conflict (409) or other errors
    */
-  async function saveWithLockCheck(apiCall, data, currentVersion) {
+  const saveWithLockCheck: SaveWithLockCheck = async (apiCall, data, currentVersion) => {
     try {
       // Add lock_version to payload for backend validation
       const payload = {
@@ -68,9 +116,10 @@ export function useOptimisticLocking() {
       return response
     } catch (error) {
       // Check for 409 Conflict response
-      if (error.response?.status === 409) {
+      const httpResponse = responseOf(error)
+      if (httpResponse?.status === 409) {
         // Extract conflict information from backend response
-        const backendData = error.response.data
+        const backendData = httpResponse.data
 
         conflictDetected.value = true
         conflictData.value = {
@@ -96,32 +145,32 @@ export function useOptimisticLocking() {
   /**
    * Resolve conflict and clear state
    *
-   * @param {string} resolution - Resolution strategy:
+   * @param resolution - Resolution strategy:
    *   - 'discard-mine': Discard user's changes, use server's version
    *   - 'overwrite-theirs': Overwrite server's version with user's changes
    *   - 'merge': User will manually merge (returned for manual handling)
-   * @returns {Object} Conflict data with resolution
+   * @returns Conflict data with resolution, or null when there is no conflict
    */
-  function resolveConflict(resolution) {
+  function resolveConflict(resolution: ConflictResolution): ResolvedConflict | null {
     if (!conflictData.value) {
       logger.warn('Resolve conflict called but no conflict data')
       return null
     }
 
+    const data = conflictData.value
     const resolved = {
-      ...conflictData.value,
+      ...data,
       resolution,
       resolvedAt: new Date().toISOString()
     }
 
     logger.info('Conflict resolved', {
       resolution,
-      theirVersion: conflictData.value.theirVersion
+      theirVersion: data.theirVersion
     })
 
     // Clear conflict state
     conflictDetected.value = false
-    const data = conflictData.value
     conflictData.value = null
 
     return { ...resolved, data }
@@ -130,7 +179,7 @@ export function useOptimisticLocking() {
   /**
    * Cancel conflict resolution (close dialog without action)
    */
-  function cancelConflictResolution() {
+  function cancelConflictResolution(): void {
     logger.debug('Conflict resolution cancelled')
     conflictDetected.value = false
     conflictData.value = null
@@ -138,11 +187,8 @@ export function useOptimisticLocking() {
 
   /**
    * Check if a specific field has conflicts
-   *
-   * @param {string} fieldName - Field name to check
-   * @returns {boolean}
    */
-  function hasFieldConflict(fieldName) {
+  function hasFieldConflict(fieldName: string): boolean {
     return conflictData.value?.conflictedFields?.includes(fieldName) || false
   }
 

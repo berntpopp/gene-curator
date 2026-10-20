@@ -11,40 +11,88 @@
  */
 
 import { ref, watch } from 'vue'
+import type { Ref } from 'vue'
 import { externalValidationAPI } from '@/api'
 import { logService } from '@/services/logService'
+import type { Schema } from '@/types/api'
+
+export type HgncGene = Schema<'HGNCGeneSearchResult'>
+type HGNCSearchResponse = Schema<'HGNCSearchResponse'>
+
+export interface HgncSearchOptions {
+  debounceMs?: number
+  minQueryLength?: number
+  limit?: number
+}
+
+export type BulkValidationStatus = 'valid' | 'suggestion' | 'not_found'
+
+export interface BulkValidationEntry {
+  input: string
+  gene: HgncGene | null
+  status: BulkValidationStatus
+  message?: string
+  alternatives: HgncGene[]
+}
+
+export interface BulkValidationResult {
+  valid: string[]
+  invalid: string[]
+  results: BulkValidationEntry[]
+}
+
+export interface UseHgncSearchReturn {
+  query: Ref<string>
+  results: Ref<HgncGene[]>
+  isSearching: Ref<boolean>
+  error: Ref<string | null>
+  totalResults: Ref<number>
+  search: (searchQuery?: string) => Promise<HgncGene[]>
+  fetchGene: (hgncId: string) => Promise<HgncGene | null>
+  validateBulk: (identifiers: string[]) => Promise<BulkValidationResult>
+  reset: () => void
+}
+
+/** Typed wrapper: the JS API client's return type is not precise enough to infer. */
+const searchHgnc = (query: string, limit: number): Promise<HGNCSearchResponse> =>
+  externalValidationAPI.searchHGNC(query, limit) as Promise<HGNCSearchResponse>
+
+const fetchHgncGene = (hgncId: string): Promise<HGNCSearchResponse> =>
+  externalValidationAPI.fetchHGNCGene(hgncId) as Promise<HGNCSearchResponse>
 
 // Simple debounce implementation
-function debounce(fn, delay) {
-  let timeoutId
-  return function (...args) {
+function debounce<T extends unknown[]>(
+  fn: (...args: T) => void,
+  delay: number
+): (...args: T) => void {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined
+  return function (...args: T) {
     clearTimeout(timeoutId)
     timeoutId = setTimeout(() => fn(...args), delay)
   }
 }
 
+function errorMessageOf(e: unknown): string | undefined {
+  return e instanceof Error ? e.message : undefined
+}
+
 /**
  * HGNC gene search composable
- * @param {Object} options - Configuration options
- * @param {number} options.debounceMs - Debounce delay in milliseconds (default: 300)
- * @param {number} options.minQueryLength - Minimum query length to trigger search (default: 2)
- * @param {number} options.limit - Maximum results to return (default: 10)
- * @returns {Object} Search state and methods
  */
-export function useHgncSearch(options = {}) {
+export function useHgncSearch(options: HgncSearchOptions = {}): UseHgncSearchReturn {
   const { debounceMs = 300, minQueryLength = 2, limit = 10 } = options
 
   // Reactive state
   const query = ref('')
-  const results = ref([])
+  const results = ref<HgncGene[]>([])
   const isSearching = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const totalResults = ref(0)
 
   /**
    * Debounced search function
    */
-  const searchDebounced = debounce(async searchQuery => {
+  const searchDebounced = debounce(async (searchQuery: string) => {
     if (!searchQuery || searchQuery.length < minQueryLength) {
       results.value = []
       totalResults.value = 0
@@ -55,7 +103,7 @@ export function useHgncSearch(options = {}) {
     error.value = null
 
     try {
-      const response = await externalValidationAPI.searchHGNC(searchQuery, limit)
+      const response = await searchHgnc(searchQuery, limit)
 
       results.value = response.results || []
       totalResults.value = response.total_results || 0
@@ -65,10 +113,10 @@ export function useHgncSearch(options = {}) {
         resultsCount: results.value.length
       })
     } catch (e) {
-      error.value = e.message || 'Search failed'
+      error.value = errorMessageOf(e) || 'Search failed'
       results.value = []
       totalResults.value = 0
-      logService.error('HGNC search error', { query: searchQuery, error: e.message })
+      logService.error('HGNC search error', { query: searchQuery, error: errorMessageOf(e) })
     } finally {
       isSearching.value = false
     }
@@ -81,10 +129,10 @@ export function useHgncSearch(options = {}) {
 
   /**
    * Manually trigger search without debouncing
-   * @param {string} searchQuery - Optional query (uses current query if not provided)
-   * @returns {Promise<Array>} Search results
+   * @param searchQuery - Optional query (uses current query if not provided)
+   * @returns Search results
    */
-  async function search(searchQuery) {
+  async function search(searchQuery?: string): Promise<HgncGene[]> {
     const queryToSearch = searchQuery || query.value
 
     if (!queryToSearch || queryToSearch.length < minQueryLength) {
@@ -97,7 +145,7 @@ export function useHgncSearch(options = {}) {
     error.value = null
 
     try {
-      const response = await externalValidationAPI.searchHGNC(queryToSearch, limit)
+      const response = await searchHgnc(queryToSearch, limit)
 
       results.value = response.results || []
       totalResults.value = response.total_results || 0
@@ -109,10 +157,13 @@ export function useHgncSearch(options = {}) {
 
       return results.value
     } catch (e) {
-      error.value = e.message || 'Search failed'
+      error.value = errorMessageOf(e) || 'Search failed'
       results.value = []
       totalResults.value = 0
-      logService.error('HGNC manual search error', { query: queryToSearch, error: e.message })
+      logService.error('HGNC manual search error', {
+        query: queryToSearch,
+        error: errorMessageOf(e)
+      })
       return []
     } finally {
       isSearching.value = false
@@ -121,30 +172,31 @@ export function useHgncSearch(options = {}) {
 
   /**
    * Fetch a single gene by HGNC ID
-   * @param {string} hgncId - HGNC ID (e.g., "HGNC:1100" or "1100")
-   * @returns {Promise<Object|null>} Gene data or null if not found
+   * @param hgncId - HGNC ID (e.g., "HGNC:1100" or "1100")
+   * @returns Gene data or null if not found
    */
-  async function fetchGene(hgncId) {
+  async function fetchGene(hgncId: string): Promise<HgncGene | null> {
     if (!hgncId) return null
 
     isSearching.value = true
     error.value = null
 
     try {
-      const response = await externalValidationAPI.fetchHGNCGene(hgncId)
+      const response = await fetchHgncGene(hgncId)
 
-      if (response.results && response.results.length > 0) {
+      const first = response.results?.[0]
+      if (first) {
         logService.debug('HGNC gene fetched', {
           hgncId,
-          symbol: response.results[0].symbol
+          symbol: first.symbol
         })
-        return response.results[0]
+        return first
       }
 
       return null
     } catch (e) {
-      error.value = e.message || 'Failed to fetch gene'
-      logService.error('HGNC fetch error', { hgncId, error: e.message })
+      error.value = errorMessageOf(e) || 'Failed to fetch gene'
+      logService.error('HGNC fetch error', { hgncId, error: errorMessageOf(e) })
       return null
     } finally {
       isSearching.value = false
@@ -153,10 +205,10 @@ export function useHgncSearch(options = {}) {
 
   /**
    * Validate and fetch multiple genes by symbol or HGNC ID
-   * @param {Array<string>} identifiers - Array of gene symbols or HGNC IDs
-   * @returns {Promise<Object>} Object with valid, invalid, and results arrays
+   * @param identifiers - Array of gene symbols or HGNC IDs
+   * @returns Object with valid, invalid, and results arrays
    */
-  async function validateBulk(identifiers) {
+  async function validateBulk(identifiers: string[]): Promise<BulkValidationResult> {
     if (!identifiers || identifiers.length === 0) {
       return { valid: [], invalid: [], results: [] }
     }
@@ -164,9 +216,9 @@ export function useHgncSearch(options = {}) {
     isSearching.value = true
     error.value = null
 
-    const valid = []
-    const invalid = []
-    const validationResults = []
+    const valid: string[] = []
+    const invalid: string[] = []
+    const validationResults: BulkValidationEntry[] = []
 
     try {
       for (const identifier of identifiers) {
@@ -174,8 +226,8 @@ export function useHgncSearch(options = {}) {
         if (!trimmed) continue
 
         // Search for the gene - fetch multiple results to find exact match
-        const response = await externalValidationAPI.searchHGNC(trimmed, 10)
-        const allResults = response.results || []
+        const response = await searchHgnc(trimmed, 10)
+        const allResults: HgncGene[] = response.results || []
 
         if (allResults.length > 0) {
           // First, look for an exact symbol match (case-insensitive)
@@ -213,7 +265,7 @@ export function useHgncSearch(options = {}) {
               return a.symbol.length - b.symbol.length
             })
 
-            const bestMatch = sortedResults[0]
+            const bestMatch = sortedResults[0] as HgncGene // allResults.length > 0 here
             const alternatives = sortedResults.slice(1, 4)
 
             invalid.push(trimmed)
@@ -244,8 +296,8 @@ export function useHgncSearch(options = {}) {
 
       return { valid, invalid, results: validationResults }
     } catch (e) {
-      error.value = e.message || 'Bulk validation failed'
-      logService.error('HGNC bulk validation error', { error: e.message })
+      error.value = errorMessageOf(e) || 'Bulk validation failed'
+      logService.error('HGNC bulk validation error', { error: errorMessageOf(e) })
       return { valid: [], invalid: identifiers, results: [] }
     } finally {
       isSearching.value = false
@@ -255,7 +307,7 @@ export function useHgncSearch(options = {}) {
   /**
    * Reset search state
    */
-  function reset() {
+  function reset(): void {
     query.value = ''
     results.value = []
     totalResults.value = 0
