@@ -23,6 +23,8 @@ updates:
     ignore:
       - dependency-name: '@types/node' # must match the Node runtime (.nvmrc = 24)
         update-types: [version-update:semver-major]
+      - dependency-name: vuetify # major migration tracked in https://github.com/berntpopp/gene-curator/issues/164
+        update-types: [version-update:semver-major]
       - dependency-name: happy-dom # >=20.11 recurses forever on Vuetify CSS variables
         versions: ['>=20.11.0']
   - package-ecosystem: github-actions
