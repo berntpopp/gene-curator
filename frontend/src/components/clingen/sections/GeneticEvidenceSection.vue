@@ -226,7 +226,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * GeneticEvidenceSection
    *
@@ -238,310 +238,67 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import { sumPoints, sumProbandPoints } from '../scoring'
+  import { createEmptyGeneticEvidence } from '../evidenceDefaults'
+  import type { EvidenceItem, GeneticEvidence } from '../types'
+  import {
+    nullVariantColumns,
+    otherVariantColumns,
+    arNullVariantColumns,
+    arOtherVariantColumns,
+    segregationColumns,
+    caseControlColumns,
+    aggregateColumns
+  } from './evidenceTableColumns'
 
-  const props = defineProps({
-    modelValue: {
-      type: Object,
-      default: () => ({
-        case_level: {
-          autosomal_dominant_or_x_linked: {
-            predicted_or_proven_null: [],
-            other_variant_type: []
-          },
-          autosomal_recessive: {
-            predicted_or_proven_null: [],
-            other_variant_type: []
-          }
-        },
-        segregation: [],
-        case_control: {
-          single_variant_analysis: [],
-          aggregate_variant_analysis: []
-        }
-      })
-    },
-    readonly: {
-      type: Boolean,
-      default: false
-    },
-    moi: {
-      type: String,
-      default: 'Unknown'
+  const props = withDefaults(
+    defineProps<{ modelValue?: GeneticEvidence; readonly?: boolean; moi?: string }>(),
+    {
+      modelValue: createEmptyGeneticEvidence,
+      readonly: false,
+      moi: 'Unknown'
     }
-  })
+  )
 
-  const emit = defineEmits(['update:model-value'])
+  const emit = defineEmits<{ 'update:model-value': [value: GeneticEvidence] }>()
 
   const expandedPanels = ref(['ad_xl'])
 
-  // Column definitions for evidence tables
-  const nullVariantColumns = [
-    { key: 'proband_label', label: 'Proband', width: '100px' },
-    {
-      key: 'variant_type',
-      label: 'Type',
-      width: '140px',
-      type: 'select',
-      options: [
-        { value: 'nonsense', label: 'Nonsense' },
-        { value: 'frameshift', label: 'Frameshift' },
-        { value: 'canonical_splice', label: 'Splice (+/-1,2)' },
-        { value: 'initiation_codon', label: 'Init codon' },
-        { value: 'single_exon_deletion', label: 'Single exon del' },
-        { value: 'multi_exon_deletion', label: 'Multi-exon del' },
-        { value: 'whole_gene_deletion', label: 'Whole gene del' }
-      ]
-    },
-    { key: 'variant', label: 'Variant (HGVS)', width: '160px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' },
-        { value: 'contradicts', label: 'Contradicts' }
-      ]
-    },
-    {
-      key: 'proband_counted_points',
-      label: 'Points',
-      width: '80px',
-      type: 'number',
-      min: 0,
-      max: 3,
-      step: 0.1
-    },
-    { key: 'explanation', label: 'Explanation', width: '200px' }
-  ]
-
-  const otherVariantColumns = [
-    { key: 'proband_label', label: 'Proband', width: '100px' },
-    {
-      key: 'variant_type',
-      label: 'Type',
-      width: '140px',
-      type: 'select',
-      options: [
-        { value: 'missense', label: 'Missense' },
-        { value: 'in_frame_indel', label: 'In-frame indel' },
-        { value: 'cryptic_splice', label: 'Cryptic splice' },
-        { value: 'synonymous', label: 'Synonymous' },
-        { value: '5_utr', label: "5' UTR" },
-        { value: '3_utr', label: "3' UTR" },
-        { value: 'intronic', label: 'Intronic' },
-        { value: 'other', label: 'Other' }
-      ]
-    },
-    { key: 'variant', label: 'Variant (HGVS)', width: '160px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' },
-        { value: 'contradicts', label: 'Contradicts' }
-      ]
-    },
-    {
-      key: 'proband_counted_points',
-      label: 'Points',
-      width: '80px',
-      type: 'number',
-      min: 0,
-      max: 1.5,
-      step: 0.1
-    },
-    { key: 'explanation', label: 'Explanation', width: '200px' }
-  ]
-
-  const arNullVariantColumns = [
-    { key: 'proband_label', label: 'Proband', width: '100px' },
-    {
-      key: 'variant_type',
-      label: 'Type',
-      width: '140px',
-      type: 'select',
-      options: [
-        { value: 'two_null', label: 'Two null variants' },
-        { value: 'null_and_null', label: 'Homozygous null' }
-      ]
-    },
-    { key: 'variant_1', label: 'Variant 1', width: '140px' },
-    { key: 'variant_2', label: 'Variant 2', width: '140px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' },
-        { value: 'contradicts', label: 'Contradicts' }
-      ]
-    },
-    {
-      key: 'proband_counted_points',
-      label: 'Points',
-      width: '80px',
-      type: 'number',
-      min: 0,
-      max: 3,
-      step: 0.1
-    },
-    { key: 'explanation', label: 'Explanation', width: '180px' }
-  ]
-
-  const arOtherVariantColumns = [
-    { key: 'proband_label', label: 'Proband', width: '100px' },
-    {
-      key: 'variant_type',
-      label: 'Type',
-      width: '150px',
-      type: 'select',
-      options: [
-        { value: 'null_and_other', label: 'Null + Other' },
-        { value: 'two_other', label: 'Two other variants' },
-        { value: 'homozygous_other', label: 'Homozygous other' }
-      ]
-    },
-    { key: 'variant_1', label: 'Variant 1', width: '140px' },
-    { key: 'variant_2', label: 'Variant 2', width: '140px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' },
-        { value: 'contradicts', label: 'Contradicts' }
-      ]
-    },
-    {
-      key: 'proband_counted_points',
-      label: 'Points',
-      width: '80px',
-      type: 'number',
-      min: 0,
-      max: 1.5,
-      step: 0.1
-    },
-    { key: 'explanation', label: 'Explanation', width: '180px' }
-  ]
-
-  const segregationColumns = [
-    { key: 'family_label', label: 'Family', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'lod_score', label: 'LOD Score', width: '100px', type: 'number', min: 0, step: 0.1 },
-    { key: 'segregations_counted', label: 'Seg. Counted', width: '100px', type: 'number', min: 0 },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 3, step: 0.1 },
-    { key: 'explanation', label: 'Explanation', width: '200px' }
-  ]
-
-  const caseControlColumns = [
-    { key: 'study_label', label: 'Study', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'variant', label: 'Variant', width: '140px' },
-    { key: 'cases_with_variant', label: 'Cases+', width: '80px', type: 'number', min: 0 },
-    { key: 'cases_total', label: 'Cases', width: '80px', type: 'number', min: 1 },
-    { key: 'controls_with_variant', label: 'Ctrl+', width: '80px', type: 'number', min: 0 },
-    { key: 'controls_total', label: 'Ctrl', width: '80px', type: 'number', min: 1 },
-    { key: 'odds_ratio', label: 'OR', width: '80px', type: 'number', min: 0 },
-    { key: 'p_value', label: 'P-value', width: '100px', type: 'number', min: 0, max: 1 },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 6, step: 0.5 }
-  ]
-
-  const aggregateColumns = [
-    { key: 'study_label', label: 'Study', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'analysis_type',
-      label: 'Analysis',
-      width: '120px',
-      type: 'select',
-      options: [
-        { value: 'burden', label: 'Burden test' },
-        { value: 'collapsing', label: 'Collapsing' },
-        { value: 'skat', label: 'SKAT' },
-        { value: 'skat_o', label: 'SKAT-O' },
-        { value: 'other', label: 'Other' }
-      ]
-    },
-    { key: 'cases_with_variants', label: 'Cases+', width: '80px', type: 'number', min: 0 },
-    { key: 'cases_total', label: 'Cases', width: '80px', type: 'number', min: 1 },
-    { key: 'controls_with_variants', label: 'Ctrl+', width: '80px', type: 'number', min: 0 },
-    { key: 'controls_total', label: 'Ctrl', width: '80px', type: 'number', min: 1 },
-    { key: 'p_value', label: 'P-value', width: '100px', type: 'number', min: 0, max: 1 },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 6, step: 0.5 }
-  ]
-
   // Score calculations
   const adXlScore = computed(() => {
-    const nullItems =
-      props.modelValue.case_level?.autosomal_dominant_or_x_linked?.predicted_or_proven_null || []
-    const otherItems =
-      props.modelValue.case_level?.autosomal_dominant_or_x_linked?.other_variant_type || []
-    const nullScore = nullItems.reduce(
-      (sum, item) => sum + (parseFloat(item.proband_counted_points) || 0),
-      0
+    const adXl = props.modelValue.case_level?.autosomal_dominant_or_x_linked
+    return (
+      sumProbandPoints(adXl?.predicted_or_proven_null) + sumProbandPoints(adXl?.other_variant_type)
     )
-    const otherScore = otherItems.reduce(
-      (sum, item) => sum + (parseFloat(item.proband_counted_points) || 0),
-      0
-    )
-    return nullScore + otherScore
   })
 
   const arScore = computed(() => {
-    const nullItems =
-      props.modelValue.case_level?.autosomal_recessive?.predicted_or_proven_null || []
-    const otherItems = props.modelValue.case_level?.autosomal_recessive?.other_variant_type || []
-    const nullScore = nullItems.reduce(
-      (sum, item) => sum + (parseFloat(item.proband_counted_points) || 0),
-      0
-    )
-    const otherScore = otherItems.reduce(
-      (sum, item) => sum + (parseFloat(item.proband_counted_points) || 0),
-      0
-    )
-    return nullScore + otherScore
+    const ar = props.modelValue.case_level?.autosomal_recessive
+    return sumProbandPoints(ar?.predicted_or_proven_null) + sumProbandPoints(ar?.other_variant_type)
   })
 
-  const segregationScore = computed(() => {
-    const items = props.modelValue.segregation || []
-    return Math.min(
-      items.reduce((sum, item) => sum + (parseFloat(item.points) || 0), 0),
-      3
-    )
-  })
+  const segregationScore = computed(() => Math.min(sumPoints(props.modelValue.segregation), 3))
 
   const caseControlScore = computed(() => {
-    const singleItems = props.modelValue.case_control?.single_variant_analysis || []
-    const aggItems = props.modelValue.case_control?.aggregate_variant_analysis || []
-    const singleScore = singleItems.reduce((sum, item) => sum + (parseFloat(item.points) || 0), 0)
-    const aggScore = aggItems.reduce((sum, item) => sum + (parseFloat(item.points) || 0), 0)
-    return Math.min(Math.max(singleScore, aggScore), 6)
+    const cc = props.modelValue.case_control
+    return Math.min(
+      Math.max(sumPoints(cc?.single_variant_analysis), sumPoints(cc?.aggregate_variant_analysis)),
+      6
+    )
   })
 
   // Helper to emit updated model
-  function emitUpdate(path, value) {
-    const newValue = JSON.parse(JSON.stringify(props.modelValue))
+  function emitUpdate(path: string, value: EvidenceItem[]) {
+    const newValue: Record<string, unknown> = JSON.parse(JSON.stringify(props.modelValue))
     const keys = path.split('.')
-    let obj = newValue
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!obj[keys[i]]) obj[keys[i]] = {}
-      obj = obj[keys[i]]
+    const last = keys.pop() as string
+    let obj: Record<string, unknown> = newValue
+    for (const key of keys) {
+      if (!obj[key]) obj[key] = {}
+      obj = obj[key] as Record<string, unknown>
     }
-    obj[keys[keys.length - 1]] = value
-    emit('update:model-value', newValue)
+    obj[last] = value
+    emit('update:model-value', newValue as GeneticEvidence)
   }
 
   // AD/XL handlers
@@ -562,11 +319,11 @@
     emitUpdate('case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null', items)
   }
 
-  function updateAdXlNull(items) {
+  function updateAdXlNull(items: EvidenceItem[]) {
     emitUpdate('case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null', items)
   }
 
-  function removeAdXlNull(index) {
+  function removeAdXlNull(index: number) {
     const items = [
       ...(props.modelValue.case_level?.autosomal_dominant_or_x_linked?.predicted_or_proven_null ||
         [])
@@ -591,11 +348,11 @@
     emitUpdate('case_level.autosomal_dominant_or_x_linked.other_variant_type', items)
   }
 
-  function updateAdXlOther(items) {
+  function updateAdXlOther(items: EvidenceItem[]) {
     emitUpdate('case_level.autosomal_dominant_or_x_linked.other_variant_type', items)
   }
 
-  function removeAdXlOther(index) {
+  function removeAdXlOther(index: number) {
     const items = [
       ...(props.modelValue.case_level?.autosomal_dominant_or_x_linked?.other_variant_type || [])
     ]
@@ -621,11 +378,11 @@
     emitUpdate('case_level.autosomal_recessive.predicted_or_proven_null', items)
   }
 
-  function updateArNull(items) {
+  function updateArNull(items: EvidenceItem[]) {
     emitUpdate('case_level.autosomal_recessive.predicted_or_proven_null', items)
   }
 
-  function removeArNull(index) {
+  function removeArNull(index: number) {
     const items = [
       ...(props.modelValue.case_level?.autosomal_recessive?.predicted_or_proven_null || [])
     ]
@@ -648,11 +405,11 @@
     emitUpdate('case_level.autosomal_recessive.other_variant_type', items)
   }
 
-  function updateArOther(items) {
+  function updateArOther(items: EvidenceItem[]) {
     emitUpdate('case_level.autosomal_recessive.other_variant_type', items)
   }
 
-  function removeArOther(index) {
+  function removeArOther(index: number) {
     const items = [...(props.modelValue.case_level?.autosomal_recessive?.other_variant_type || [])]
     items.splice(index, 1)
     emitUpdate('case_level.autosomal_recessive.other_variant_type', items)
@@ -672,11 +429,11 @@
     emitUpdate('segregation', items)
   }
 
-  function updateSegregation(items) {
+  function updateSegregation(items: EvidenceItem[]) {
     emitUpdate('segregation', items)
   }
 
-  function removeSegregation(index) {
+  function removeSegregation(index: number) {
     const items = [...(props.modelValue.segregation || [])]
     items.splice(index, 1)
     emitUpdate('segregation', items)
@@ -700,11 +457,11 @@
     emitUpdate('case_control.single_variant_analysis', items)
   }
 
-  function updateSingleVariant(items) {
+  function updateSingleVariant(items: EvidenceItem[]) {
     emitUpdate('case_control.single_variant_analysis', items)
   }
 
-  function removeSingleVariant(index) {
+  function removeSingleVariant(index: number) {
     const items = [...(props.modelValue.case_control?.single_variant_analysis || [])]
     items.splice(index, 1)
     emitUpdate('case_control.single_variant_analysis', items)
@@ -726,11 +483,11 @@
     emitUpdate('case_control.aggregate_variant_analysis', items)
   }
 
-  function updateAggregateVariant(items) {
+  function updateAggregateVariant(items: EvidenceItem[]) {
     emitUpdate('case_control.aggregate_variant_analysis', items)
   }
 
-  function removeAggregateVariant(index) {
+  function removeAggregateVariant(index: number) {
     const items = [...(props.modelValue.case_control?.aggregate_variant_analysis || [])]
     items.splice(index, 1)
     emitUpdate('case_control.aggregate_variant_analysis', items)

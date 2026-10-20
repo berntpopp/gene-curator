@@ -246,7 +246,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ClinGenScoreCard Component
    *
@@ -264,13 +264,28 @@
    * <ClinGenScoreCard :breakdown="scoreBreakdown" />
    */
 
-  import { computed } from 'vue'
+  import { computed, type PropType } from 'vue'
+
+  /** Backend score payload (snake_case, as returned by the scoring endpoint). */
+  interface ClinGenBreakdown {
+    total_score: number
+    classification: string
+    genetic_total?: number
+    experimental_total?: number
+    case_level_score?: number
+    segregation_score?: number
+    case_control_score?: number
+    expression_score?: number
+    function_score?: number
+    models_score?: number
+    rescue_score?: number
+  }
 
   const props = defineProps({
     breakdown: {
-      type: Object,
+      type: Object as PropType<ClinGenBreakdown>,
       required: true,
-      validator: obj => {
+      validator: (obj: ClinGenBreakdown) => {
         return (
           typeof obj === 'object' &&
           typeof obj.total_score === 'number' &&

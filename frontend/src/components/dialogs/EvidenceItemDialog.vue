@@ -125,7 +125,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * EvidenceItemDialog Component
    *
@@ -142,39 +142,55 @@
    */
 
   import { ref, computed, watch } from 'vue'
+  import type { VForm } from 'vuetify/components'
   import PMIDInput from '@/components/evidence/PMIDInput.vue'
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      required: true
-    },
-    evidence: {
-      type: Object,
-      default: null
-    },
-    evidenceType: {
-      type: String,
-      required: true,
-      validator: value => ['genetic', 'experimental', 'contradictory'].includes(value)
-    }
-  })
+  type EvidenceKind = 'genetic' | 'experimental' | 'contradictory'
 
-  const emit = defineEmits(['update:modelValue', 'save'])
-
-  const formRef = ref(null)
-  const localEvidence = ref({
-    evidence_type: props.evidenceType,
-    evidence_category: '',
-    description: '',
-    pmids: [],
-    computed_score: 0,
+  interface DialogEvidence {
+    evidence_type: string
+    evidence_category: string
+    description: string
+    pmids: string[]
+    computed_score: number | null
     metadata: {
-      variant_count: null,
-      family_count: null,
-      proband_count: null
+      variant_count: number | string | null
+      family_count: number | string | null
+      proband_count: number | string | null
     }
-  })
+  }
+
+  const props = defineProps<{
+    modelValue: boolean
+    evidence?: DialogEvidence | null
+    evidenceType: EvidenceKind
+  }>()
+
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    save: [
+      evidence: Omit<DialogEvidence, 'metadata'> & { metadata: Record<string, unknown> | null }
+    ]
+  }>()
+
+  const formRef = ref<InstanceType<typeof VForm> | null>(null)
+
+  function emptyEvidence(): DialogEvidence {
+    return {
+      evidence_type: props.evidenceType,
+      evidence_category: '',
+      description: '',
+      pmids: [],
+      computed_score: 0,
+      metadata: {
+        variant_count: null,
+        family_count: null,
+        proband_count: null
+      }
+    }
+  }
+
+  const localEvidence = ref<DialogEvidence>(emptyEvidence())
 
   const isEditing = computed(() => !!props.evidence)
 
@@ -224,8 +240,8 @@
   /**
    * Get icon for evidence type
    */
-  function getTypeIcon(type) {
-    const icons = {
+  function getTypeIcon(type: string): string {
+    const icons: Record<string, string> = {
       genetic: 'mdi-dna',
       experimental: 'mdi-flask',
       contradictory: 'mdi-alert'
@@ -236,14 +252,14 @@
   /**
    * Format evidence type for display
    */
-  function formatType(type) {
+  function formatType(type: string): string {
     return type.charAt(0).toUpperCase() + type.slice(1)
   }
 
   /**
    * Get maximum score for evidence type
    */
-  function getMaxScore(type) {
+  function getMaxScore(type: string): number {
     return type === 'genetic' ? 12 : 6
   }
 
@@ -251,18 +267,7 @@
    * Reset form to initial state
    */
   function resetForm() {
-    localEvidence.value = {
-      evidence_type: props.evidenceType,
-      evidence_category: '',
-      description: '',
-      pmids: [],
-      computed_score: 0,
-      metadata: {
-        variant_count: null,
-        family_count: null,
-        proband_count: null
-      }
-    }
+    localEvidence.value = emptyEvidence()
     if (formRef.value) {
       formRef.value.resetValidation()
     }
@@ -272,11 +277,11 @@
    * Handle save
    */
   async function handleSave() {
-    const { valid } = await formRef.value.validate()
+    const valid = (await formRef.value?.validate())?.valid
     if (!valid) return
 
     // Clean up metadata (remove null values)
-    const cleanedMetadata = {}
+    const cleanedMetadata: Record<string, unknown> = {}
     if (localEvidence.value.metadata) {
       Object.entries(localEvidence.value.metadata).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== '') {

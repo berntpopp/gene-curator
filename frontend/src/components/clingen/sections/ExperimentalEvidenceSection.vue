@@ -300,7 +300,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ExperimentalEvidenceSection
    *
@@ -313,350 +313,80 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import { sumPoints } from '../scoring'
+  import { createEmptyExperimentalEvidence } from '../evidenceDefaults'
+  import type { EvidenceItem, ExperimentalEvidence } from '../types'
+  import {
+    functionColumns,
+    proteinColumns,
+    expressionColumns,
+    patientCellsColumns,
+    nonPatientCellsColumns,
+    organismColumns,
+    cellCultureColumns,
+    rescueColumns,
+    organismRescueColumns,
+    cellRescueColumns,
+    patientRescueColumns
+  } from './evidenceTableColumns'
 
-  const props = defineProps({
-    modelValue: {
-      type: Object,
-      default: () => ({
-        function: {
-          biochemical_function: [],
-          protein_interaction: [],
-          expression: []
-        },
-        functional_alteration: {
-          patient_cells: [],
-          non_patient_cells: []
-        },
-        models: {
-          non_human_model_organism: [],
-          cell_culture_model: []
-        },
-        rescue: {
-          human: [],
-          non_human_model_organism: [],
-          cell_culture: [],
-          patient_cells: []
-        }
-      })
-    },
-    readonly: {
-      type: Boolean,
-      default: false
+  const props = withDefaults(
+    defineProps<{ modelValue?: ExperimentalEvidence; readonly?: boolean }>(),
+    {
+      modelValue: createEmptyExperimentalEvidence,
+      readonly: false
     }
-  })
+  )
 
-  const emit = defineEmits(['update:model-value'])
+  const emit = defineEmits<{ 'update:model-value': [value: ExperimentalEvidence] }>()
 
   const expandedPanels = ref(['function'])
 
-  // Column definitions
-  const functionColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'gene_function_description', label: 'Function Description', width: '200px' },
-    { key: 'disease_mechanism_relevance', label: 'Disease Relevance', width: '200px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 },
-    { key: 'explanation', label: 'Explanation', width: '180px' }
-  ]
-
-  const proteinColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'interacting_protein', label: 'Interacting Protein', width: '150px' },
-    { key: 'interaction_method', label: 'Method', width: '150px' },
-    { key: 'disease_relevance', label: 'Disease Relevance', width: '180px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 }
-  ]
-
-  const expressionColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'tissue_organ', label: 'Tissue/Organ', width: '140px' },
-    { key: 'expression_method', label: 'Method', width: '140px' },
-    { key: 'disease_tissue_relevance', label: 'Relevance', width: '180px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 }
-  ]
-
-  const patientCellsColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'cell_type', label: 'Cell Type', width: '120px' },
-    { key: 'variant_tested', label: 'Variant', width: '140px' },
-    { key: 'functional_effect', label: 'Effect', width: '160px' },
-    { key: 'assay_method', label: 'Assay', width: '140px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 }
-  ]
-
-  const nonPatientCellsColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'cell_line', label: 'Cell Line', width: '120px' },
-    { key: 'variant_engineered', label: 'Variant', width: '140px' },
-    { key: 'functional_effect', label: 'Effect', width: '160px' },
-    { key: 'assay_method', label: 'Assay', width: '140px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 1, step: 0.5 }
-  ]
-
-  const organismColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'organism',
-      label: 'Organism',
-      width: '120px',
-      type: 'select',
-      options: [
-        { value: 'mouse', label: 'Mouse' },
-        { value: 'rat', label: 'Rat' },
-        { value: 'zebrafish', label: 'Zebrafish' },
-        { value: 'drosophila', label: 'Drosophila' },
-        { value: 'c_elegans', label: 'C. elegans' },
-        { value: 'xenopus', label: 'Xenopus' },
-        { value: 'yeast', label: 'Yeast' },
-        { value: 'other', label: 'Other' }
-      ]
-    },
-    {
-      key: 'model_type',
-      label: 'Type',
-      width: '120px',
-      type: 'select',
-      options: [
-        { value: 'knockout', label: 'Knockout' },
-        { value: 'knockin', label: 'Knockin' },
-        { value: 'transgenic', label: 'Transgenic' },
-        { value: 'morpholino', label: 'Morpholino' },
-        { value: 'crispr', label: 'CRISPR' },
-        { value: 'other', label: 'Other' }
-      ]
-    },
-    { key: 'phenotype_observed', label: 'Phenotype', width: '180px' },
-    { key: 'human_phenotype_match', label: 'Human Match', width: '160px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 4, step: 0.5 }
-  ]
-
-  const cellCultureColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    {
-      key: 'cell_type',
-      label: 'Cell Type',
-      width: '120px',
-      type: 'select',
-      options: [
-        { value: 'ipsc', label: 'iPSC-derived' },
-        { value: 'organoid', label: 'Organoid' },
-        { value: 'primary', label: 'Primary cells' },
-        { value: 'cell_line', label: 'Cell line' },
-        { value: 'other', label: 'Other' }
-      ]
-    },
-    { key: 'modification', label: 'Modification', width: '140px' },
-    { key: 'phenotype_observed', label: 'Phenotype', width: '180px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 }
-  ]
-
-  const rescueColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'rescue_method', label: 'Method', width: '150px' },
-    { key: 'phenotype_rescued', label: 'Phenotype Rescued', width: '180px' },
-    { key: 'rescue_extent', label: 'Rescue Extent', width: '140px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 4, step: 0.5 }
-  ]
-
-  const organismRescueColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'organism', label: 'Organism', width: '120px' },
-    { key: 'rescue_method', label: 'Method', width: '150px' },
-    { key: 'phenotype_rescued', label: 'Phenotype Rescued', width: '180px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 4, step: 0.5 }
-  ]
-
-  const cellRescueColumns = [
-    { key: 'label', label: 'Label', width: '100px' },
-    { key: 'pmid', label: 'PMID', width: '100px', type: 'pmid' },
-    { key: 'cell_type', label: 'Cell Type', width: '120px' },
-    { key: 'rescue_method', label: 'Method', width: '150px' },
-    { key: 'phenotype_rescued', label: 'Phenotype Rescued', width: '180px' },
-    {
-      key: 'score_status',
-      label: 'Status',
-      width: '100px',
-      type: 'select',
-      options: [
-        { value: 'score', label: 'Score' },
-        { value: 'review', label: 'Review' }
-      ]
-    },
-    { key: 'points', label: 'Points', width: '80px', type: 'number', min: 0, max: 2, step: 0.5 }
-  ]
-
-  const patientRescueColumns = cellRescueColumns
-
   // Score calculations
   const functionScore = computed(() => {
-    const biochem = (props.modelValue.function?.biochemical_function || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const protein = (props.modelValue.function?.protein_interaction || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const expression = (props.modelValue.function?.expression || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    return Math.min(biochem + protein + expression, 2)
+    const fn = props.modelValue.function
+    const total =
+      sumPoints(fn?.biochemical_function) +
+      sumPoints(fn?.protein_interaction) +
+      sumPoints(fn?.expression)
+    return Math.min(total, 2)
   })
 
   const functionalAlterationScore = computed(() => {
-    const patient = (props.modelValue.functional_alteration?.patient_cells || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const nonPatient = (props.modelValue.functional_alteration?.non_patient_cells || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    return Math.min(patient + nonPatient, 2)
+    const fa = props.modelValue.functional_alteration
+    return Math.min(sumPoints(fa?.patient_cells) + sumPoints(fa?.non_patient_cells), 2)
   })
 
   const modelsScore = computed(() => {
-    const organism = (props.modelValue.models?.non_human_model_organism || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
+    const models = props.modelValue.models
+    return Math.min(
+      sumPoints(models?.non_human_model_organism) + sumPoints(models?.cell_culture_model),
+      4
     )
-    const cellCulture = (props.modelValue.models?.cell_culture_model || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    return Math.min(organism + cellCulture, 4)
   })
 
   const rescueScore = computed(() => {
-    const human = (props.modelValue.rescue?.human || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const organism = (props.modelValue.rescue?.non_human_model_organism || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const cellCulture = (props.modelValue.rescue?.cell_culture || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    const patientCells = (props.modelValue.rescue?.patient_cells || []).reduce(
-      (sum, item) => sum + (parseFloat(item.points) || 0),
-      0
-    )
-    return Math.min(human + organism + cellCulture + patientCells, 4)
+    const rescue = props.modelValue.rescue
+    const total =
+      sumPoints(rescue?.human) +
+      sumPoints(rescue?.non_human_model_organism) +
+      sumPoints(rescue?.cell_culture) +
+      sumPoints(rescue?.patient_cells)
+    return Math.min(total, 4)
   })
 
   // Helper to emit updated model
-  function emitUpdate(path, value) {
-    const newValue = JSON.parse(JSON.stringify(props.modelValue))
+  function emitUpdate(path: string, value: EvidenceItem[]) {
+    const newValue: Record<string, unknown> = JSON.parse(JSON.stringify(props.modelValue))
     const keys = path.split('.')
-    let obj = newValue
-    for (let i = 0; i < keys.length - 1; i++) {
-      if (!obj[keys[i]]) obj[keys[i]] = {}
-      obj = obj[keys[i]]
+    const last = keys.pop() as string
+    let obj: Record<string, unknown> = newValue
+    for (const key of keys) {
+      if (!obj[key]) obj[key] = {}
+      obj = obj[key] as Record<string, unknown>
     }
-    obj[keys[keys.length - 1]] = value
-    emit('update:model-value', newValue)
+    obj[last] = value
+    emit('update:model-value', newValue as ExperimentalEvidence)
   }
 
   // Function handlers
@@ -673,10 +403,10 @@
     })
     emitUpdate('function.biochemical_function', items)
   }
-  function updateBiochemical(items) {
+  function updateBiochemical(items: EvidenceItem[]) {
     emitUpdate('function.biochemical_function', items)
   }
-  function removeBiochemical(index) {
+  function removeBiochemical(index: number) {
     const items = [...(props.modelValue.function?.biochemical_function || [])]
     items.splice(index, 1)
     emitUpdate('function.biochemical_function', items)
@@ -695,10 +425,10 @@
     })
     emitUpdate('function.protein_interaction', items)
   }
-  function updateProteinInteraction(items) {
+  function updateProteinInteraction(items: EvidenceItem[]) {
     emitUpdate('function.protein_interaction', items)
   }
-  function removeProteinInteraction(index) {
+  function removeProteinInteraction(index: number) {
     const items = [...(props.modelValue.function?.protein_interaction || [])]
     items.splice(index, 1)
     emitUpdate('function.protein_interaction', items)
@@ -717,10 +447,10 @@
     })
     emitUpdate('function.expression', items)
   }
-  function updateExpression(items) {
+  function updateExpression(items: EvidenceItem[]) {
     emitUpdate('function.expression', items)
   }
-  function removeExpression(index) {
+  function removeExpression(index: number) {
     const items = [...(props.modelValue.function?.expression || [])]
     items.splice(index, 1)
     emitUpdate('function.expression', items)
@@ -741,10 +471,10 @@
     })
     emitUpdate('functional_alteration.patient_cells', items)
   }
-  function updatePatientCells(items) {
+  function updatePatientCells(items: EvidenceItem[]) {
     emitUpdate('functional_alteration.patient_cells', items)
   }
-  function removePatientCells(index) {
+  function removePatientCells(index: number) {
     const items = [...(props.modelValue.functional_alteration?.patient_cells || [])]
     items.splice(index, 1)
     emitUpdate('functional_alteration.patient_cells', items)
@@ -764,10 +494,10 @@
     })
     emitUpdate('functional_alteration.non_patient_cells', items)
   }
-  function updateNonPatientCells(items) {
+  function updateNonPatientCells(items: EvidenceItem[]) {
     emitUpdate('functional_alteration.non_patient_cells', items)
   }
-  function removeNonPatientCells(index) {
+  function removeNonPatientCells(index: number) {
     const items = [...(props.modelValue.functional_alteration?.non_patient_cells || [])]
     items.splice(index, 1)
     emitUpdate('functional_alteration.non_patient_cells', items)
@@ -788,10 +518,10 @@
     })
     emitUpdate('models.non_human_model_organism', items)
   }
-  function updateOrganism(items) {
+  function updateOrganism(items: EvidenceItem[]) {
     emitUpdate('models.non_human_model_organism', items)
   }
-  function removeOrganism(index) {
+  function removeOrganism(index: number) {
     const items = [...(props.modelValue.models?.non_human_model_organism || [])]
     items.splice(index, 1)
     emitUpdate('models.non_human_model_organism', items)
@@ -810,10 +540,10 @@
     })
     emitUpdate('models.cell_culture_model', items)
   }
-  function updateCellCulture(items) {
+  function updateCellCulture(items: EvidenceItem[]) {
     emitUpdate('models.cell_culture_model', items)
   }
-  function removeCellCulture(index) {
+  function removeCellCulture(index: number) {
     const items = [...(props.modelValue.models?.cell_culture_model || [])]
     items.splice(index, 1)
     emitUpdate('models.cell_culture_model', items)
@@ -833,10 +563,10 @@
     })
     emitUpdate('rescue.human', items)
   }
-  function updateHumanRescue(items) {
+  function updateHumanRescue(items: EvidenceItem[]) {
     emitUpdate('rescue.human', items)
   }
-  function removeHumanRescue(index) {
+  function removeHumanRescue(index: number) {
     const items = [...(props.modelValue.rescue?.human || [])]
     items.splice(index, 1)
     emitUpdate('rescue.human', items)
@@ -855,10 +585,10 @@
     })
     emitUpdate('rescue.non_human_model_organism', items)
   }
-  function updateOrganismRescue(items) {
+  function updateOrganismRescue(items: EvidenceItem[]) {
     emitUpdate('rescue.non_human_model_organism', items)
   }
-  function removeOrganismRescue(index) {
+  function removeOrganismRescue(index: number) {
     const items = [...(props.modelValue.rescue?.non_human_model_organism || [])]
     items.splice(index, 1)
     emitUpdate('rescue.non_human_model_organism', items)
@@ -877,10 +607,10 @@
     })
     emitUpdate('rescue.cell_culture', items)
   }
-  function updateCellCultureRescue(items) {
+  function updateCellCultureRescue(items: EvidenceItem[]) {
     emitUpdate('rescue.cell_culture', items)
   }
-  function removeCellCultureRescue(index) {
+  function removeCellCultureRescue(index: number) {
     const items = [...(props.modelValue.rescue?.cell_culture || [])]
     items.splice(index, 1)
     emitUpdate('rescue.cell_culture', items)
@@ -899,10 +629,10 @@
     })
     emitUpdate('rescue.patient_cells', items)
   }
-  function updatePatientCellsRescue(items) {
+  function updatePatientCellsRescue(items: EvidenceItem[]) {
     emitUpdate('rescue.patient_cells', items)
   }
-  function removePatientCellsRescue(index) {
+  function removePatientCellsRescue(index: number) {
     const items = [...(props.modelValue.rescue?.patient_cells || [])]
     items.splice(index, 1)
     emitUpdate('rescue.patient_cells', items)

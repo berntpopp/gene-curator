@@ -1,0 +1,141 @@
+import { describe, expect, it } from 'vitest'
+import {
+  calculateExperimentalScore,
+  calculateGeneticScore,
+  classifyScore,
+  sumPoints,
+  sumProbandPoints
+} from '../scoring'
+import { createEmptyExperimentalEvidence, createEmptyGeneticEvidence } from '../evidenceDefaults'
+import type { EvidenceItem, ExperimentalEvidence, GeneticEvidence } from '../types'
+
+describe('sumPoints / sumProbandPoints', () => {
+  it('adds numeric and numeric-string points and treats invalid values as zero', () => {
+    const items: EvidenceItem[] = [{ points: 1.5 }, { points: '0.5' }, { points: 'n/a' }, {}]
+    expect(sumPoints(items)).toBe(2)
+  })
+
+  it('reads proband_counted_points for case-level sums', () => {
+    const items: EvidenceItem[] = [
+      { proband_counted_points: 1.5, points: 9 },
+      { proband_counted_points: '0.1' }
+    ]
+    expect(sumProbandPoints(items)).toBeCloseTo(1.6)
+  })
+
+  it('returns zero for missing or non-array input', () => {
+    expect(sumPoints(undefined)).toBe(0)
+    expect(sumProbandPoints(undefined)).toBe(0)
+  })
+})
+
+describe('calculateGeneticScore', () => {
+  it('is zero for an empty evidence structure', () => {
+    expect(calculateGeneticScore(createEmptyGeneticEvidence())).toEqual({
+      caseLevel: 0,
+      segregation: 0,
+      caseControl: 0,
+      total: 0
+    })
+  })
+
+  it('sums case-level proband points across AD/XL and AR groups', () => {
+    const ge: GeneticEvidence = {
+      ...createEmptyGeneticEvidence(),
+      case_level: {
+        autosomal_dominant_or_x_linked: {
+          predicted_or_proven_null: [{ proband_counted_points: 1.5 }],
+          other_variant_type: [{ proband_counted_points: 0.1 }]
+        },
+        autosomal_recessive: {
+          predicted_or_proven_null: [{ proband_counted_points: 1.5 }],
+          other_variant_type: []
+        }
+      }
+    }
+    const result = calculateGeneticScore(ge)
+    expect(result.caseLevel).toBeCloseTo(3.1)
+    expect(result.total).toBeCloseTo(3.1)
+  })
+
+  it('caps each category at its SOP maximum (case-level 12, segregation 3, case-control 6)', () => {
+    const many = Array.from({ length: 10 }, () => ({ proband_counted_points: 2, points: 2 }))
+    const ge: GeneticEvidence = {
+      case_level: { autosomal_dominant_or_x_linked: { predicted_or_proven_null: many } },
+      segregation: many,
+      case_control: { single_variant_analysis: many, aggregate_variant_analysis: many }
+    }
+    expect(calculateGeneticScore(ge)).toEqual({
+      caseLevel: 12,
+      segregation: 3,
+      caseControl: 6,
+      total: 12
+    })
+  })
+
+  it('adds single-variant and aggregate case-control points before capping', () => {
+    const ge: GeneticEvidence = {
+      case_control: {
+        single_variant_analysis: [{ points: 2 }],
+        aggregate_variant_analysis: [{ points: 1.5 }]
+      }
+    }
+    expect(calculateGeneticScore(ge).caseControl).toBeCloseTo(3.5)
+  })
+})
+
+describe('calculateExperimentalScore', () => {
+  it('is zero for an empty evidence structure', () => {
+    expect(calculateExperimentalScore(createEmptyExperimentalEvidence()).total).toBe(0)
+  })
+
+  it('caps each experimental category at its SOP maximum and the total at 6', () => {
+    const many = Array.from({ length: 10 }, () => ({ points: 2 }))
+    const exp: ExperimentalEvidence = {
+      function: { biochemical_function: many, protein_interaction: many, expression: many },
+      functional_alteration: { patient_cells: many, non_patient_cells: many },
+      models: { non_human_model_organism: many, cell_culture_model: many },
+      rescue: {
+        human: many,
+        non_human_model_organism: many,
+        cell_culture: many,
+        patient_cells: many
+      }
+    }
+    expect(calculateExperimentalScore(exp)).toEqual({
+      function: 2,
+      functionalAlteration: 2,
+      models: 4,
+      rescue: 4,
+      total: 6
+    })
+  })
+
+  it('sums rescue points from all four rescue sources', () => {
+    const exp: ExperimentalEvidence = {
+      rescue: { human: [{ points: 1 }], cell_culture: [{ points: '0.5' }] }
+    }
+    expect(calculateExperimentalScore(exp).rescue).toBeCloseTo(1.5)
+  })
+})
+
+describe('classifyScore', () => {
+  it.each([
+    [12, 'Definitive'],
+    [11.99, 'Strong'],
+    [7, 'Strong'],
+    [6.99, 'Moderate'],
+    [2, 'Moderate'],
+    [1.99, 'Limited'],
+    [0.1, 'Limited'],
+    [0.09, 'No Known Disease Relationship'],
+    [0, 'No Known Disease Relationship']
+  ])('classifies total %s as %s', (total, expected) => {
+    expect(classifyScore(total, false)).toBe(expected)
+  })
+
+  it('returns Disputed whenever contradictory evidence is present', () => {
+    expect(classifyScore(18, true)).toBe('Disputed')
+    expect(classifyScore(0, true)).toBe('Disputed')
+  })
+})

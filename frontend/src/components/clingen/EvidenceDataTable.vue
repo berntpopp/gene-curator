@@ -24,17 +24,7 @@
                   placeholder="PMID"
                   @update:model-value="updateField(index, col.key, $event)"
                 />
-                <v-btn
-                  v-if="item[col.key]"
-                  icon
-                  size="x-small"
-                  variant="text"
-                  :href="`https://pubmed.ncbi.nlm.nih.gov/${item[col.key]}`"
-                  target="_blank"
-                  title="Open in PubMed"
-                >
-                  <v-icon size="small">mdi-open-in-new</v-icon>
-                </v-btn>
+                <PubmedLinkButton v-if="item[col.key]" :pmid="item[col.key]" />
               </div>
             </template>
 
@@ -99,7 +89,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * EvidenceDataTable
    *
@@ -107,28 +97,29 @@
    * Supports various field types: text, number, select, pmid.
    */
 
-  const props = defineProps({
-    items: {
-      type: Array,
-      default: () => []
-    },
-    columns: {
-      type: Array,
-      required: true
-    },
-    readonly: {
-      type: Boolean,
-      default: false
-    },
-    evidenceType: {
-      type: String,
-      default: ''
+  import PubmedLinkButton from './PubmedLinkButton.vue'
+  import type { EvidenceColumn, EvidenceItem } from './types'
+
+  const props = withDefaults(
+    defineProps<{
+      items?: EvidenceItem[]
+      columns: EvidenceColumn[]
+      readonly?: boolean
+      evidenceType?: string
+    }>(),
+    {
+      items: () => [],
+      readonly: false,
+      evidenceType: ''
     }
-  })
+  )
 
-  const emit = defineEmits(['update:items', 'remove'])
+  const emit = defineEmits<{
+    'update:items': [items: EvidenceItem[]]
+    remove: [index: number]
+  }>()
 
-  function updateField(index, key, value) {
+  function updateField(index: number, key: string, value: unknown) {
     const newItems = [...props.items]
     newItems[index] = { ...newItems[index], [key]: value }
     emit('update:items', newItems)

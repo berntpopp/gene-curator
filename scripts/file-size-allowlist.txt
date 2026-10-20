@@ -11,8 +11,6 @@
 819 backend/tests/api/test_precurations.py
 714 backend/tests/services/test_scope_permissions.py
 704 backend/tests/unit/test_schema_validators.py
-916 frontend/src/components/clingen/sections/ExperimentalEvidenceSection.vue
-744 frontend/src/components/clingen/sections/GeneticEvidenceSection.vue
 788 frontend/src/components/dynamic/DynamicField.vue
 693 frontend/src/components/dynamic/DynamicForm.vue
 768 frontend/src/components/dynamic/GeneAssignmentManager.vue

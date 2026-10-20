@@ -56,17 +56,7 @@
                   placeholder="PMID"
                   @update:model-value="updateField(index, 'pmid', $event)"
                 />
-                <v-btn
-                  v-if="item.pmid"
-                  icon
-                  size="x-small"
-                  variant="text"
-                  :href="`https://pubmed.ncbi.nlm.nih.gov/${item.pmid}`"
-                  target="_blank"
-                  title="Open in PubMed"
-                >
-                  <v-icon size="small">mdi-open-in-new</v-icon>
-                </v-btn>
+                <PubmedLinkButton v-if="item.pmid" :pmid="item.pmid" />
               </div>
             </td>
             <td>
@@ -129,25 +119,28 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ContradictoryEvidenceSection
    *
    * Handles contradictory evidence that may lead to "Disputed" classification.
    */
 
-  const props = defineProps({
-    modelValue: {
-      type: Array,
-      default: () => []
-    },
-    readonly: {
-      type: Boolean,
-      default: false
-    }
-  })
+  import PubmedLinkButton from '../PubmedLinkButton.vue'
+  import type { EvidenceItem } from '../types'
 
-  const emit = defineEmits(['update:model-value'])
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: EvidenceItem[]
+      readonly?: boolean
+    }>(),
+    {
+      modelValue: () => [],
+      readonly: false
+    }
+  )
+
+  const emit = defineEmits<{ 'update:model-value': [items: EvidenceItem[]] }>()
 
   const evidenceTypes = [
     { value: 'population', label: 'Population/control data' },
@@ -176,13 +169,13 @@
     emit('update:model-value', items)
   }
 
-  function updateField(index, key, value) {
+  function updateField(index: number, key: string, value: unknown) {
     const items = [...props.modelValue]
     items[index] = { ...items[index], [key]: value }
     emit('update:model-value', items)
   }
 
-  function removeEvidence(index) {
+  function removeEvidence(index: number) {
     const items = [...props.modelValue]
     items.splice(index, 1)
     emit('update:model-value', items)

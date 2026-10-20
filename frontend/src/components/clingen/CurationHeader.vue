@@ -92,7 +92,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * CurationHeader
    *
@@ -101,41 +101,65 @@
    */
 
   import { computed } from 'vue'
+  import type { DiseaseInfo, GeneInfo } from './types'
 
-  const props = defineProps({
-    gene: {
-      type: Object,
-      default: () => ({})
-    },
-    disease: {
-      type: Object,
-      default: () => ({})
-    },
-    classification: {
-      type: String,
-      default: null
-    },
-    moi: {
-      type: String,
-      default: 'Unknown'
-    },
-    sopVersion: {
-      type: String,
-      default: 'SOP v11'
-    },
-    expertPanel: {
-      type: String,
-      default: null
-    },
-    curationId: {
-      type: String,
-      default: null
-    },
-    status: {
-      type: String,
-      default: 'draft'
+  const props = withDefaults(
+    defineProps<{
+      gene?: GeneInfo
+      disease?: DiseaseInfo
+      classification?: string | null
+      moi?: string
+      sopVersion?: string
+      expertPanel?: string | null
+      curationId?: string | null
+      status?: string
+    }>(),
+    {
+      gene: () => ({}),
+      disease: () => ({}),
+      classification: null,
+      moi: 'Unknown',
+      sopVersion: 'SOP v11',
+      expertPanel: null,
+      curationId: null,
+      status: 'draft'
     }
-  })
+  )
+
+  const moiColorMap: Record<string, string> = {
+    AD: 'purple',
+    AR: 'blue',
+    'X-linked': 'pink',
+    MT: 'orange'
+  }
+
+  const classificationColorMap: Record<string, string> = {
+    definitive: 'success',
+    strong: 'info',
+    moderate: 'warning',
+    limited: 'grey',
+    disputed: 'error',
+    refuted: 'error',
+    'no known disease relationship': 'grey'
+  }
+
+  const statusColorMap: Record<string, string> = {
+    draft: 'grey',
+    submitted: 'info',
+    in_review: 'warning',
+    approved: 'success',
+    active: 'primary',
+    archived: 'grey'
+  }
+
+  const statusDisplayMap: Record<string, string> = {
+    draft: 'Draft',
+    submitted: 'Submitted',
+    in_review: 'In Review',
+    approved: 'Approved',
+    active: 'Active',
+    archived: 'Archived'
+  }
 
   const moiDisplay = computed(() => {
     const moi = props.moi?.toLowerCase() || ''
@@ -146,54 +170,16 @@
     return props.moi || 'Unknown'
   })
 
-  const moiColor = computed(() => {
-    const moi = moiDisplay.value
-    const colorMap = {
-      AD: 'purple',
-      AR: 'blue',
-      'X-linked': 'pink',
-      MT: 'orange'
-    }
-    return colorMap[moi] || 'grey'
-  })
+  const moiColor = computed(() => moiColorMap[moiDisplay.value] || 'grey')
 
   const classificationColor = computed(() => {
     const classification = props.classification?.toLowerCase() || ''
-    const colorMap = {
-      definitive: 'success',
-      strong: 'info',
-      moderate: 'warning',
-      limited: 'grey',
-      disputed: 'error',
-      refuted: 'error',
-      'no known disease relationship': 'grey'
-    }
-    return colorMap[classification] || 'grey'
+    return classificationColorMap[classification] || 'grey'
   })
 
-  const statusColor = computed(() => {
-    const statusMap = {
-      draft: 'grey',
-      submitted: 'info',
-      in_review: 'warning',
-      approved: 'success',
-      active: 'primary',
-      archived: 'grey'
-    }
-    return statusMap[props.status] || 'grey'
-  })
+  const statusColor = computed(() => statusColorMap[props.status] || 'grey')
 
-  const statusDisplay = computed(() => {
-    const displayMap = {
-      draft: 'Draft',
-      submitted: 'Submitted',
-      in_review: 'In Review',
-      approved: 'Approved',
-      active: 'Active',
-      archived: 'Archived'
-    }
-    return displayMap[props.status] || props.status
-  })
+  const statusDisplay = computed(() => statusDisplayMap[props.status] || props.status)
 </script>
 
 <style scoped>
