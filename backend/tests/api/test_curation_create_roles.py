@@ -85,3 +85,13 @@ def test_submit_for_review_commits_once(
         )
     assert submitted is not None and submitted.submitted_at is not None
     assert commit.call_count == 1
+
+
+def test_pending_invitation_sees_no_curations(
+    client: TestClient, db_session: Session, test_scope: Scope, test_curation
+):
+    user = make_user(db_session)
+    make_member(db_session, test_scope, user, "curator", accepted=False)
+    response = client.get("/api/v1/curations/", headers=auth_headers(user))
+    assert response.status_code == 200
+    assert response.json()["total"] == 0

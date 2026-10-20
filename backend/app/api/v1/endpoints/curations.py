@@ -194,6 +194,7 @@ def list_curations(
             .filter(
                 ScopeMembership.user_id == current_user.id,
                 ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
             )
             .all()
         )
