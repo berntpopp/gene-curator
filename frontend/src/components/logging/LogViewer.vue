@@ -248,7 +248,8 @@
       } else if (!newValue && drawerIsOpen.value) {
         drawerIsOpen.value = false
       }
-    }
+    },
+    { immediate: true } // App.vue mounts this lazily, after the flag was already set
   )
 
   // Watch drawerIsOpen to sync back to logStore

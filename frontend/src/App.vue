@@ -16,7 +16,7 @@
     />
 
     <!-- Log Viewer Component -->
-    <LogViewer />
+    <LogViewer v-if="logStore.isViewerVisible" />
 
     <!-- Disclaimer Dialog -->
     <DisclaimerDialog

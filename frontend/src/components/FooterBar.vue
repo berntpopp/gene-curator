@@ -1,5 +1,5 @@
 <template>
-  <v-footer class="bg-grey-darken-3" app>
+  <v-footer color="surface" class="footer-bar">
     <v-container>
       <v-row align="center" justify="center">
         <v-col cols="12" md="6" class="text-center text-md-left">
@@ -50,6 +50,7 @@
 
           <!-- Log Viewer Button with Error Count Badge -->
           <v-btn
+            v-if="showLogs"
             variant="text"
             size="small"
             class="text-caption"
@@ -74,12 +75,15 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
+  const authStore = useAuthStore()
   const logStore = useLogStore()
+  const showLogs = computed(() => import.meta.env.DEV || authStore.isAdmin)
   const disclaimerStore = useDisclaimerStore()
   const currentYear = computed(() => new Date().getFullYear())
 
@@ -106,6 +110,6 @@
 
 <style scoped>
   .v-footer {
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 </style>

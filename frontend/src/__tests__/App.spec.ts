@@ -115,6 +115,19 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('mounts the log viewer only while it is visible', async () => {
+    const logStore = reactive({ toggleViewer, isViewerVisible: false })
+    vi.mocked(useLogStore).mockReturnValue(logStore as never)
+    const wrapper = mount(App, { global: { stubs } })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'LogViewer' }).exists()).toBe(false)
+
+    logStore.isViewerVisible = true
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'LogViewer' }).exists()).toBe(true)
+    wrapper.unmount()
+  })
+
   it('toggles the log viewer on Ctrl+Shift+L and ignores other keys', async () => {
     const wrapper = mount(App, { global: { stubs } })
     await flushPromises()
