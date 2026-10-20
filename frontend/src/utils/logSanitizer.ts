@@ -93,9 +93,10 @@ const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string 
     replacement: '[REDACTED_KEY]'
   },
 
-  // Phone patterns: a standalone run of 10+ digits/separators (not inside UUIDs or ids)
+  // Phone patterns: a standalone run of 10+ digits/separators (not inside UUIDs or ids,
+  // and not ISO dates like 2026-10-20)
   {
-    pattern: /(?<![\w-])\+?\d[\d\s().-]{8,}\d(?![\w-])/g,
+    pattern: /(?<![\w-])(?!\d{4}-\d{2}-\d{2}(?!\d))\+?\d[\d\s().-]{8,}\d(?![\w-])/g,
     replacement: '[REDACTED_PHONE]'
   }
 ]

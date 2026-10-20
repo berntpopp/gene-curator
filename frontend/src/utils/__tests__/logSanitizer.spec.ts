@@ -151,6 +151,7 @@ describe('logSanitizer', () => {
       expect(sanitizeForLogging('HGNC:1100')).toBe('HGNC:1100')
       expect(sanitizeForLogging('failed: status 500')).toBe('failed: status 500')
       expect(sanitizeForLogging('call +49 30 1234567 now')).toBe('call [REDACTED_PHONE] now')
+      expect(sanitizeForLogging('due 2026-10-20 or 2026-11-01')).toBe('due 2026-10-20 or 2026-11-01')
     })
 
     it('reduces Error objects to name and message', () => {
