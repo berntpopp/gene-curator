@@ -83,6 +83,7 @@ describe('PendingInvitations', () => {
     wrapper = undefined
     document.body.innerHTML = ''
     vi.clearAllMocks()
+    vi.useRealTimers()
   })
 
   it('loads pending invitations on mount', async () => {
@@ -204,6 +205,9 @@ describe('PendingInvitations', () => {
     [36 * 60 * 60 * 1000, 'in 1 day'],
     [5.5 * 24 * 60 * 60 * 1000, 'in 5 days']
   ])('formats %i ms from now as "%s"', (offset, expected) => {
+    // Freeze the clock: a real clock drifts by a few ms and floors "5 hours" to "4 hours".
+    vi.useFakeTimers({ toFake: ['Date'] })
+    vi.setSystemTime(new Date('2026-10-21T12:00:00Z'))
     const w = mountPending()
     const expiresAt = new Date(Date.now() + offset).toISOString()
 
