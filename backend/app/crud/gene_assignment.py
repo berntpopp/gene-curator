@@ -184,32 +184,6 @@ class CRUDGeneScopeAssignment(
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
 
-    def get_active_assignments(
-        self,
-        db: Session,
-        *,
-        skip: int = 0,
-        limit: int = 100,
-        scope_id: UUID | None = None,
-        curator_id: UUID | None = None,
-        gene_id: UUID | None = None,
-    ) -> Sequence[GeneScopeAssignment]:
-        """Get active gene-scope assignments with filtering."""
-        stmt = select(GeneScopeAssignment).where(
-            GeneScopeAssignment.is_active  # Fixed: use == instead of is
-        )
-
-        if scope_id:
-            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
-
-        if curator_id:
-            stmt = stmt.where(GeneScopeAssignment.assigned_curator_id == curator_id)
-
-        if gene_id:
-            stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
-
-        return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
-
     def get_scope_assignments(
         self,
         db: Session,
@@ -228,36 +202,6 @@ class CRUDGeneScopeAssignment(
             stmt = stmt.where(
                 GeneScopeAssignment.is_active
             )  # Fixed: use == instead of is
-
-        return (
-            db.execute(
-                stmt.order_by(GeneScopeAssignment.assigned_at.desc())
-                .offset(skip)
-                .limit(limit)
-            )
-            .scalars()
-            .all()
-        )
-
-    def get_curator_assignments(
-        self,
-        db: Session,
-        *,
-        curator_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        scope_id: UUID | None = None,
-    ) -> Sequence[GeneScopeAssignment]:
-        """Get all assignments for a specific curator."""
-        stmt = select(GeneScopeAssignment).where(
-            and_(
-                GeneScopeAssignment.assigned_curator_id == curator_id,
-                GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
-            )
-        )
-
-        if scope_id:
-            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
 
         return (
             db.execute(

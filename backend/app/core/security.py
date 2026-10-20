@@ -104,17 +104,3 @@ inactive_user_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Inactive user",
 )
-
-
-def verify_scopes(required_scopes: list[str], user_scopes: list[str]) -> bool:
-    """
-    Verify that user has required scopes/permissions.
-
-    Args:
-        required_scopes: List of required permission scopes
-        user_scopes: List of user's permission scopes
-
-    Returns:
-        True if user has all required scopes
-    """
-    return all(scope in user_scopes for scope in required_scopes)

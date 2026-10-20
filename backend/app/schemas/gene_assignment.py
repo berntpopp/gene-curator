@@ -238,29 +238,6 @@ class CuratorAssignmentRequest(BaseModel):
 
 
 # Assignment Filter Parameters
-class AssignmentFilters(BaseModel):
-    """Filtering parameters for assignments."""
-
-    scope_id: UUID | None = Field(None, description="Filter by scope")
-    curator_id: UUID | None = Field(None, description="Filter by curator")
-    gene_id: UUID | None = Field(None, description="Filter by gene")
-    priority_level: str | None = Field(None, description="Filter by priority level")
-    is_active: bool | None = Field(True, description="Filter by active status")
-    has_curator: bool | None = Field(None, description="Filter by curator assignment")
-    has_active_work: bool | None = Field(
-        None, description="Filter by active work status"
-    )
-    skip: int = Field(0, ge=0, description="Number of records to skip")
-    limit: int = Field(100, ge=1, le=500, description="Maximum number of records")
-
-    @field_validator("priority_level")
-    @classmethod
-    def validate_priority_level(cls, v: str | None) -> str | None:
-        if v is not None:
-            valid_priorities = ["high", "medium", "low"]
-            if v not in valid_priorities:
-                raise ValueError(f"Priority level must be one of: {valid_priorities}")
-        return v
 
 
 # Assignment List Response
@@ -285,24 +262,6 @@ class DeactivateAssignmentRequest(BaseModel):
 
 
 # Assignment Activity Summary
-class AssignmentActivity(BaseModel):
-    """Recent activity summary for assignments."""
-
-    scope_id: UUID
-    scope_name: str
-    recent_assignments: int = Field(..., description="New assignments in last 7 days")
-    recent_curator_assignments: int = Field(
-        ..., description="Curator assignments in last 7 days"
-    )
-    pending_curator_assignments: int = Field(
-        ..., description="Assignments without curator"
-    )
-    overdue_assignments: int = Field(
-        ..., description="High priority assignments over 30 days old"
-    )
-    last_activity: datetime | None = Field(None, description="Last assignment activity")
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 # Scope Assignment Overview

@@ -66,14 +66,3 @@ class GeneSummaryFull(GeneSummaryPublic):
     is_stale: bool = Field(..., description="Whether summary needs recomputation")
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class GeneSummaryResponse(BaseModel):
-    """API response wrapper for gene summaries"""
-
-    gene_id: UUID
-    gene_symbol: str | None = None
-    hgnc_id: str | None = None
-    summary: GeneSummaryPublic
-
-    model_config = ConfigDict(from_attributes=True)

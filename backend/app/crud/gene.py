@@ -45,14 +45,6 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         """Get gene by HGNC ID."""
         return db.execute(select(Gene).where(Gene.hgnc_id == hgnc_id)).scalars().first()
 
-    def get_by_symbol(self, db: Session, *, symbol: str) -> Gene | None:
-        """Get gene by approved symbol."""
-        return (
-            db.execute(select(Gene).where(Gene.approved_symbol.ilike(f"%{symbol}%")))
-            .scalars()
-            .first()
-        )
-
     @database_query(query_type="SELECT")
     def get_multi(
         self,

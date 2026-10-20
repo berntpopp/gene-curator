@@ -84,18 +84,6 @@ class CurationSchema(CurationSchemaInDBBase):
     pass
 
 
-class CurationSchemaWithUsage(CurationSchema):
-    """Schema with usage statistics."""
-
-    workflow_pairs_count: int = Field(
-        default=0, description="Number of workflow pairs using this schema"
-    )
-    active_curations_count: int = Field(
-        default=0, description="Number of active curations using this schema"
-    )
-    last_used: datetime | None = Field(None, description="Last time schema was used")
-
-
 # Workflow Pair Schemas
 class WorkflowPairBase(BaseModel):
     """Base schema for workflow pairs."""
@@ -175,89 +163,12 @@ class SchemaValidationResult(BaseModel):
 
 
 # Schema Statistics
-class SchemaRepositoryStatistics(BaseModel):
-    """Statistics for the schema repository."""
-
-    total_schemas: int = Field(..., description="Total number of schemas")
-    active_schemas: int = Field(..., description="Number of active schemas")
-    total_workflow_pairs: int = Field(..., description="Total workflow pairs")
-    active_workflow_pairs: int = Field(..., description="Active workflow pairs")
-    schema_types: dict[str, int] = Field(
-        default_factory=dict, description="Count by schema type"
-    )
-    institutions: list[str] = Field(
-        default_factory=list, description="List of institutions"
-    )
-    recent_activity: list[dict[str, Any]] = Field(
-        default_factory=list, description="Recent schema activity"
-    )
 
 
 # Schema Search and Filtering
-class SchemaSearchQuery(BaseModel):
-    """Schema search parameters."""
-
-    query: str | None = Field(None, description="Search term")
-    schema_type: str | None = Field(None, description="Filter by schema type")
-    institution: str | None = Field(None, description="Filter by institution")
-    is_active: bool | None = Field(None, description="Filter by active status")
-    skip: int = Field(0, ge=0, description="Number of records to skip")
-    limit: int = Field(50, ge=1, le=200, description="Maximum number of records")
-    sort_by: str = Field("created_at", description="Field to sort by")
-    sort_order: str = Field("desc", pattern="^(asc|desc)$", description="Sort order")
-
-
-class SchemaListResponse(BaseModel):
-    """Response for paginated schema lists."""
-
-    schemas: list[CurationSchema]
-    total: int
-    skip: int
-    limit: int
-    has_next: bool
-    has_prev: bool
-
-
-class WorkflowPairListResponse(BaseModel):
-    """Response for paginated workflow pair lists."""
-
-    workflow_pairs: list[WorkflowPairWithSchemas]
-    total: int
-    skip: int
-    limit: int
-    has_next: bool
-    has_prev: bool
 
 
 # Schema Import/Export
-class SchemaImportRequest(BaseModel):
-    """Request for schema import."""
-
-    schemas: list[CurationSchemaCreate] = Field(..., min_length=1, max_length=20)
-    overwrite_existing: bool = Field(
-        False, description="Whether to overwrite existing schemas"
-    )
-
-
-class SchemaImportResponse(BaseModel):
-    """Response for schema import."""
-
-    imported_schemas: list[CurationSchema]
-    skipped_schemas: list[dict[str, Any]]
-    errors: list[dict[str, Any]]
-    total_processed: int
-    total_imported: int
-    total_skipped: int
-    total_errors: int
-
-
-class SchemaExportResponse(BaseModel):
-    """Response for schema export."""
-
-    schemas: list[CurationSchema]
-    workflow_pairs: list[WorkflowPair]
-    export_metadata: dict[str, Any]
-    exported_at: datetime
 
 
 # Schema Templates
@@ -272,11 +183,3 @@ class SchemaTemplate(BaseModel):
     example_data: dict[str, Any] | None = Field(
         None, description="Example evidence data"
     )
-
-
-class SchemaTemplateListResponse(BaseModel):
-    """Response for available schema templates."""
-
-    templates: list[SchemaTemplate]
-    categories: list[str]
-    total_templates: int

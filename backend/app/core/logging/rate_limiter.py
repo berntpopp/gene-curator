@@ -46,13 +46,3 @@ class RateLimiter:
 
         self.log_times.append(now)
         return True
-
-    def get_dropped_count(self) -> int:
-        """Get number of dropped logs."""
-        return self.dropped_count
-
-    def reset_dropped_count(self) -> int:
-        """Reset and return dropped count."""
-        count = self.dropped_count
-        self.dropped_count = 0
-        return count
