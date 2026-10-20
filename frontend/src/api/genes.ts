@@ -23,7 +23,7 @@ export const genesAPI = {
    * Create new gene
    */
   async createGene(geneData: Schema<'GeneCreate'>): Promise<Schema<'Gene'>> {
-    const response = await apiClient.post<Schema<'Gene'>>('/genes', geneData)
+    const response = await apiClient.post<Schema<'Gene'>>('/genes/', geneData)
     return response.data
   },
 
@@ -95,24 +95,6 @@ export const genesAPI = {
     const response = await apiClient.post<Schema<'GeneValidationResult'>>(
       `/genes/${geneId}/validate`
     )
-    return response.data
-  },
-
-  /**
-   * Get gene by HGNC ID
-   * @param hgncId - HGNC ID (e.g., "HGNC:1100")
-   */
-  async getGeneByHGNC(hgncId: string): Promise<Schema<'Gene'>> {
-    const response = await apiClient.get<Schema<'Gene'>>(`/genes/hgnc/${hgncId}`)
-    return response.data
-  },
-
-  /**
-   * Get gene by symbol
-   * @param symbol - Gene symbol (e.g., "BRCA1")
-   */
-  async getGeneBySymbol(symbol: string): Promise<Schema<'Gene'>[]> {
-    const response = await apiClient.get<Schema<'Gene'>[]>(`/genes/symbol/${symbol}`)
     return response.data
   }
 }

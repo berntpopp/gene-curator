@@ -16,6 +16,7 @@ from app.core.deps import get_current_active_user
 from app.crud.notification import notification_crud
 from app.models import UserNew
 from app.schemas.notification import (
+    NotificationMarkAllReadResponse,
     NotificationListResponse,
     NotificationResponse,
 )
@@ -62,7 +63,7 @@ def mark_notification_read(
     return NotificationResponse.model_validate(notification)
 
 
-@router.patch("/read-all")
+@router.patch("/read-all", response_model=NotificationMarkAllReadResponse)
 def mark_all_notifications_read(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),

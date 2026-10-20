@@ -150,27 +150,6 @@ export const useAssignmentsStore = defineStore('assignments', {
       }
     },
 
-    async updateAssignmentPriority(assignmentId: string, priority: string) {
-      this.loading = true
-      this.error = null
-      try {
-        const result = await assignmentsAPI.updateAssignmentPriority(assignmentId, priority)
-
-        // Update the assignment in the local state
-        const assignment = this.assignments.find(a => a.id === assignmentId)
-        if (assignment) {
-          assignment.priority = priority
-        }
-
-        return result
-      } catch (error) {
-        this.error = errorMessage(error, 'Request failed')
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
     async fetchAssignmentsByScope(scopeId: string, params: Record<string, unknown> = {}) {
       try {
         const assignments = await assignmentsAPI.getAssignmentsByScope(scopeId, params)

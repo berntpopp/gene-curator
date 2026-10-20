@@ -15,7 +15,7 @@ export const clinicalRows: Row[] = [
     name: 'curations.getCurations',
     run: () => curationsAPI.getCurations({ status: 'draft' }),
     method: 'get',
-    args: ['/curations', { params: { status: 'draft' } }]
+    args: ['/curations/', { params: { status: 'draft' } }]
   },
   {
     name: 'curations.getCuration',
@@ -27,7 +27,7 @@ export const clinicalRows: Row[] = [
     name: 'curations.createCuration',
     run: () => curationsAPI.createCuration({ gene_id: 'g' } as never),
     method: 'post',
-    args: ['/curations', { gene_id: 'g' }]
+    args: ['/curations/', { gene_id: 'g' }]
   },
   {
     name: 'curations.updateCuration',
@@ -53,12 +53,6 @@ export const clinicalRows: Row[] = [
     method: 'delete',
     args: ['/curations/c'],
     result: undefined
-  },
-  {
-    name: 'curations.getCurationsByGeneAndScope',
-    run: () => curationsAPI.getCurationsByGeneAndScope('g', 's'),
-    method: 'get',
-    args: ['/curations', { params: { gene_id: 'g', scope_id: 's' } }]
   },
   {
     name: 'curations.addEvidenceItem',
@@ -245,12 +239,6 @@ export const clinicalRows: Row[] = [
     args: ['/genes/g/summary/full']
   },
   {
-    name: 'geneSummary.getGeneScopes',
-    run: () => geneSummaryAPI.getGeneScopes('g'),
-    method: 'get',
-    args: ['/genes/g/scopes']
-  },
-  {
     name: 'geneSummary.recomputeSummary',
     run: () => geneSummaryAPI.recomputeSummary('g'),
     method: 'post',
@@ -289,7 +277,7 @@ export const clinicalRows: Row[] = [
     name: 'notifications.getNotifications',
     run: () => notificationsAPI.getNotifications({ is_read: false }),
     method: 'get',
-    args: ['/notifications', { params: { is_read: false } }]
+    args: ['/notifications/', { params: { is_read: false } }]
   },
   {
     name: 'notifications.markAsRead',

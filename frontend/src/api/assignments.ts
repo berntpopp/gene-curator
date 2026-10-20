@@ -10,7 +10,7 @@ export const assignmentsAPI = {
     params: Record<string, unknown> = {}
   ): Promise<Schema<'GeneScopeAssignmentListResponse'>> {
     const response = await apiClient.get<Schema<'GeneScopeAssignmentListResponse'>>(
-      '/gene-assignments',
+      '/gene-assignments/',
       { params }
     )
     return response.data
@@ -33,7 +33,7 @@ export const assignmentsAPI = {
     assignmentData: Schema<'GeneScopeAssignmentCreate'>
   ): Promise<Schema<'GeneScopeAssignment'>> {
     const response = await apiClient.post<Schema<'GeneScopeAssignment'>>(
-      '/gene-assignments',
+      '/gene-assignments/',
       assignmentData
     )
     return response.data
@@ -72,20 +72,6 @@ export const assignmentsAPI = {
     const response = await apiClient.get<Schema<'GeneScopeAssignmentSummary'>[]>(
       `/gene-assignments/curator/${curatorId}/assignments`,
       { params }
-    )
-    return response.data
-  },
-
-  /**
-   * Update assignment priority
-   */
-  async updateAssignmentPriority(
-    assignmentId: string,
-    priority: string
-  ): Promise<Schema<'GeneScopeAssignment'>> {
-    const response = await apiClient.put<Schema<'GeneScopeAssignment'>>(
-      `/gene-assignments/${assignmentId}`,
-      { priority_level: priority }
     )
     return response.data
   },

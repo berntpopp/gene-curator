@@ -141,8 +141,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         count: notifications.value.length
       })
     } catch (err) {
-      error.value =
-        errorMessage(err, 'Failed to mark all notifications as read')
+      error.value = errorMessage(err, 'Failed to mark all notifications as read')
       logService.error('Failed to mark all notifications as read', {
         error: toApiError(err).message
       })

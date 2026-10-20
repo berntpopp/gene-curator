@@ -41,7 +41,9 @@ function clearCorrelationIdFor(requestId: unknown): void {
 function errorDetail(data: unknown): string | undefined {
   const detail = (data as { detail?: unknown } | null | undefined)?.detail
   if (typeof detail === 'string') return detail
-  const first = Array.isArray(detail) ? (detail[0] as { msg?: unknown } | undefined)?.msg : undefined
+  const first = Array.isArray(detail)
+    ? (detail[0] as { msg?: unknown } | undefined)?.msg
+    : undefined
   return typeof first === 'string' ? first : undefined
 }
 

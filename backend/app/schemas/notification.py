@@ -57,3 +57,10 @@ class NotificationMarkRead(BaseModel):
     """Schema for marking a notification as read."""
 
     is_read: bool = Field(True, description="Read status")
+
+
+class NotificationMarkAllReadResponse(BaseModel):
+    """Result of marking every notification of the current user as read."""
+
+    message: str = Field(..., description="Confirmation message")
+    count: int = Field(..., ge=0, description="Number of notifications updated")

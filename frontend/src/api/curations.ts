@@ -17,7 +17,7 @@ export const curationsAPI = {
   async getCurations(
     params: Record<string, unknown> = {}
   ): Promise<Schema<'CurationListResponse'>> {
-    const response = await apiClient.get<Schema<'CurationListResponse'>>('/curations', { params })
+    const response = await apiClient.get<Schema<'CurationListResponse'>>('/curations/', { params })
     return response.data
   },
 
@@ -35,7 +35,7 @@ export const curationsAPI = {
    * @param data - Curation data (gene_id, scope_id, curation_schema_id, optional precuration_id, evidence_data)
    */
   async createCuration(data: Schema<'CurationCreate'>): Promise<Schema<'Curation'>> {
-    const response = await apiClient.post<Schema<'Curation'>>('/curations', data)
+    const response = await apiClient.post<Schema<'Curation'>>('/curations/', data)
     return response.data
   },
 
@@ -79,21 +79,6 @@ export const curationsAPI = {
    */
   async deleteCuration(id: string): Promise<void> {
     await apiClient.delete(`/curations/${id}`)
-  },
-
-  /**
-   * Get curations for a specific gene in a scope
-   * @param geneId - Gene UUID
-   * @param scopeId - Scope UUID
-   */
-  async getCurationsByGeneAndScope(
-    geneId: string,
-    scopeId: string
-  ): Promise<Schema<'CurationListResponse'>> {
-    const response = await apiClient.get<Schema<'CurationListResponse'>>('/curations', {
-      params: { gene_id: geneId, scope_id: scopeId }
-    })
-    return response.data
   },
 
   /**

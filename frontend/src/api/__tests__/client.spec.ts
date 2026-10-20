@@ -95,9 +95,9 @@ describe('api client', () => {
   it('refreshes an expired token and retries the original request once', async () => {
     localStorage.setItem('access_token', 'expired')
     localStorage.setItem('refresh_token', 'refresh-1')
-    const refreshSpy = vi
-      .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { access_token: 'fresh', refresh_token: 'refresh-2' } } as AxiosResponse)
+    const refreshSpy = vi.spyOn(axios, 'post').mockResolvedValue({
+      data: { access_token: 'fresh', refresh_token: 'refresh-2' }
+    } as AxiosResponse)
     const seen: string[] = []
     handler = config => {
       const auth = String(config.headers.Authorization)
@@ -121,9 +121,9 @@ describe('api client', () => {
   it('does not refresh again when the retried request is also unauthorized', async () => {
     localStorage.setItem('access_token', 'expired')
     localStorage.setItem('refresh_token', 'refresh-1')
-    const refreshSpy = vi
-      .spyOn(axios, 'post')
-      .mockResolvedValue({ data: { access_token: 'fresh', refresh_token: 'refresh-2' } } as AxiosResponse)
+    const refreshSpy = vi.spyOn(axios, 'post').mockResolvedValue({
+      data: { access_token: 'fresh', refresh_token: 'refresh-2' }
+    } as AxiosResponse)
     handler = config => fail(config, 401)
 
     await expect(apiClient.get('/curations/')).rejects.toMatchObject({
@@ -235,7 +235,9 @@ describe('api client', () => {
     const pending: Array<() => void> = []
     handler = config =>
       new Promise(resolve => {
-        pending.push(() => resolve({ data: {}, status: 200, statusText: 'OK', headers: {}, config }))
+        pending.push(() =>
+          resolve({ data: {}, status: 200, statusText: 'OK', headers: {}, config })
+        )
       })
 
     const first = apiClient.get('/genes/')

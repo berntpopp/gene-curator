@@ -54,7 +54,6 @@ export const useUsersStore = defineStore('users', () => {
     return currentPage.value > 1
   })
 
-
   // Actions
   async function fetchUsers(page = 1, limit = 10): Promise<User[]> {
     loading.value = true

@@ -110,7 +110,13 @@ describe('logSanitizer', () => {
   describe('false positives and extra secrets', () => {
     it('redacts input, cookie, session, csrf and otp keys', () => {
       expect(
-        sanitizeForLogging({ input: 'x', cookie: 'x', sessionId: 'x', csrfToken: 'x', otp: '123456' })
+        sanitizeForLogging({
+          input: 'x',
+          cookie: 'x',
+          sessionId: 'x',
+          csrfToken: 'x',
+          otp: '123456'
+        })
       ).toEqual({
         input: '[REDACTED_SENSITIVE]',
         cookie: '[REDACTED_SENSITIVE]',
