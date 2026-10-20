@@ -7,9 +7,36 @@
 import { defineStore } from 'pinia'
 import { precurationsAPI } from '@/api/precurations'
 import { logService } from '@/services/logService'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+/** A precuration as listed (summary) or opened (full record); both carry the fields the store filters on. */
+export type PrecurationRecord = Schema<'PrecurationSummary'> | Schema<'Precuration'>
+
+interface PrecurationsFilters {
+  scope_id: string | null
+  gene_id: string | null
+  status: string | null
+}
+
+interface PrecurationsPagination {
+  page: number
+  per_page: number
+  total: number
+  pages: number
+}
+
+interface PrecurationsState {
+  precurations: PrecurationRecord[]
+  currentPrecuration: PrecurationRecord | null
+  loading: boolean
+  error: { message?: string; isAutoSave?: boolean } | null
+  pagination: PrecurationsPagination
+  filters: PrecurationsFilters
+}
 
 export const usePrecurationsStore = defineStore('precurations', {
-  state: () => ({
+  state: (): PrecurationsState => ({
     precurations: [],
     currentPrecuration: null,
     loading: false,
@@ -28,15 +55,15 @@ export const usePrecurationsStore = defineStore('precurations', {
   }),
 
   getters: {
-    getPrecurationById: state => id => {
+    getPrecurationById: state => (id: string) => {
       return state.precurations.find(precuration => precuration.id === id)
     },
 
-    getPrecurationsByScope: state => scopeId => {
+    getPrecurationsByScope: state => (scopeId: string) => {
       return state.precurations.filter(precuration => precuration.scope_id === scopeId)
     },
 
-    getPrecurationsByGene: state => geneId => {
+    getPrecurationsByGene: state => (geneId: string) => {
       return state.precurations.filter(precuration => precuration.gene_id === geneId)
     },
 
@@ -59,16 +86,18 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Fetch precurations with optional filters
      */
-    async fetchPrecurations(params = {}) {
+    async fetchPrecurations(params: Record<string, unknown> = {}) {
       this.loading = true
       this.error = null
       try {
-        const response = await precurationsAPI.getPrecurations({
-          ...this.filters,
-          ...params,
-          skip: (this.pagination.page - 1) * this.pagination.per_page,
-          limit: this.pagination.per_page
-        })
+        const response = apiData<{ precurations?: PrecurationRecord[]; total?: number }>(
+          await precurationsAPI.getPrecurations({
+            ...this.filters,
+            ...params,
+            skip: (this.pagination.page - 1) * this.pagination.per_page,
+            limit: this.pagination.per_page
+          })
+        )
 
         this.precurations = response.precurations || []
         this.pagination.total = response.total || 0
@@ -76,7 +105,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return response
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -86,11 +115,11 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Fetch single precuration by ID
      */
-    async fetchPrecurationById(id) {
+    async fetchPrecurationById(id: string) {
       this.loading = true
       this.error = null
       try {
-        const precuration = await precurationsAPI.getPrecuration(id)
+        const precuration = apiData<PrecurationRecord>(await precurationsAPI.getPrecuration(id))
         this.currentPrecuration = precuration
 
         // Update in list if exists
@@ -101,7 +130,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return precuration
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -111,16 +140,18 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Create new precuration
      */
-    async createPrecuration(data) {
+    async createPrecuration(data: Parameters<typeof precurationsAPI.createPrecuration>[0]) {
       this.loading = true
       this.error = null
       try {
-        const newPrecuration = await precurationsAPI.createPrecuration(data)
+        const newPrecuration = apiData<PrecurationRecord>(
+          await precurationsAPI.createPrecuration(data)
+        )
         this.precurations.unshift(newPrecuration)
         this.pagination.total += 1
         return newPrecuration
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -130,11 +161,16 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Update precuration
      */
-    async updatePrecuration(id, data) {
+    async updatePrecuration(
+      id: string,
+      data: Parameters<typeof precurationsAPI.updatePrecuration>[1]
+    ) {
       this.loading = true
       this.error = null
       try {
-        const updated = await precurationsAPI.updatePrecuration(id, data)
+        const updated = apiData<PrecurationRecord>(
+          await precurationsAPI.updatePrecuration(id, data)
+        )
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -149,7 +185,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return updated
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -160,12 +196,14 @@ export const usePrecurationsStore = defineStore('precurations', {
      * Save precuration as draft (auto-save)
      * Does NOT set loading state for background operation
      */
-    async saveDraft(id, evidenceData) {
+    async saveDraft(id: string, evidenceData: Record<string, unknown>) {
       this.error = null
       try {
-        const updated = await precurationsAPI.saveDraft(id, {
-          evidence_data: evidenceData
-        })
+        const updated = apiData<PrecurationRecord>(
+          await precurationsAPI.saveDraft(id, {
+            evidence_data: evidenceData
+          })
+        )
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -183,9 +221,9 @@ export const usePrecurationsStore = defineStore('precurations', {
         // Use logService instead of console.error (per CLAUDE.md)
         logService.error('Auto-save failed', {
           precuration_id: id,
-          error: error.message
+          error: toApiError(error).message
         })
-        this.error = { message: error.message, isAutoSave: true }
+        this.error = { message: toApiError(error).message, isAutoSave: true }
         return null
       }
     },
@@ -193,11 +231,13 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Submit precuration for review
      */
-    async submitForReview(id, notes = null) {
+    async submitForReview(id: string, notes: string | null = null) {
       this.loading = true
       this.error = null
       try {
-        const submitted = await precurationsAPI.submitPrecuration(id, { notes })
+        const submitted = apiData<PrecurationRecord>(
+          await precurationsAPI.submitPrecuration(id, { notes })
+        )
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -212,7 +252,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return submitted
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -222,11 +262,13 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Approve precuration (may auto-create curation)
      */
-    async approvePrecuration(id) {
+    async approvePrecuration(id: string) {
       this.loading = true
       this.error = null
       try {
-        const result = await precurationsAPI.approvePrecuration(id)
+        const result = apiData<{ curation_id?: string } & Record<string, unknown>>(
+          await precurationsAPI.approvePrecuration(id)
+        )
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -234,12 +276,12 @@ export const usePrecurationsStore = defineStore('precurations', {
           this.precurations[index] = {
             ...this.precurations[index],
             status: 'approved'
-          }
+          } as PrecurationRecord
         }
 
         return result // Contains curation_id if auto-created
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -249,11 +291,13 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Reject precuration
      */
-    async rejectPrecuration(id, reason) {
+    async rejectPrecuration(id: string, reason: string) {
       this.loading = true
       this.error = null
       try {
-        const rejected = await precurationsAPI.rejectPrecuration(id, { reason })
+        const rejected = apiData<PrecurationRecord>(
+          await precurationsAPI.rejectPrecuration(id, { reason })
+        )
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -263,7 +307,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return rejected
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -273,7 +317,7 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Delete (archive) precuration
      */
-    async deletePrecuration(id) {
+    async deletePrecuration(id: string) {
       this.loading = true
       this.error = null
       try {
@@ -290,7 +334,7 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return true
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -300,7 +344,7 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Update filters and reset to first page
      */
-    updateFilters(newFilters) {
+    updateFilters(newFilters: Partial<PrecurationsFilters>) {
       this.filters = { ...this.filters, ...newFilters }
       this.pagination.page = 1
     },
@@ -308,14 +352,14 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Set current page
      */
-    setPage(page) {
+    setPage(page: number) {
       this.pagination.page = page
     },
 
     /**
      * Set current precuration
      */
-    setCurrentPrecuration(precuration) {
+    setCurrentPrecuration(precuration: PrecurationRecord | null) {
       this.currentPrecuration = precuration
     },
 

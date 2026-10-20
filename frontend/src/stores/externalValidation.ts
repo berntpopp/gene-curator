@@ -1,12 +1,27 @@
 import { defineStore } from 'pinia'
 import { externalValidationAPI } from '@/api/externalValidation'
 import { logService } from '@/services/logService'
+import { toApiError, apiData } from './apiError'
+
+/** Result of an HGNC / PubMed / HPO validation; only `is_valid` is read by the store. */
+export interface ExternalValidationResult {
+  is_valid: boolean
+  [key: string]: unknown
+}
+
+export type ExternalValidator = 'hgnc' | 'pubmed' | 'hpo'
+
+interface ExternalValidationState {
+  cache: Map<string, ExternalValidationResult>
+  loading: Map<string, boolean>
+  error: string | null
+}
 
 /**
  * External Validation store for HGNC, PubMed, HPO validation with caching
  */
 export const useExternalValidationStore = defineStore('externalValidation', {
-  state: () => ({
+  state: (): ExternalValidationState => ({
     cache: new Map(),
     loading: new Map(),
     error: null
@@ -16,7 +31,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Check if a value is currently being validated
      */
-    isValidating: state => (validator, value) => {
+    isValidating: state => (validator: ExternalValidator, value: string) => {
       const cacheKey = `${validator}:${value.toLowerCase().trim()}`
       return state.loading.get(cacheKey) || false
     },
@@ -24,7 +39,7 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Get cached validation result
      */
-    getCachedResult: state => (validator, value) => {
+    getCachedResult: state => (validator: ExternalValidator, value: string) => {
       const cacheKey = `${validator}:${value.toLowerCase().trim()}`
       return state.cache.get(cacheKey) || null
     }
@@ -34,27 +49,30 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Get cache key for validator and value
      */
-    _getCacheKey(validator, value) {
+    _getCacheKey(validator: ExternalValidator, value: string) {
       return `${validator}:${value.toLowerCase().trim()}`
     },
 
     /**
      * Validate HGNC gene symbol
      */
-    async validateHGNC(geneSymbol, skipCache = false) {
+    async validateHGNC(geneSymbol: string, skipCache = false) {
       const cacheKey = this._getCacheKey('hgnc', geneSymbol)
 
       // Check cache first
-      if (!skipCache && this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey)
+      if (!skipCache && cached) {
         logService.info('Validation cache hit', { validator: 'hgnc', value: geneSymbol })
-        return this.cache.get(cacheKey)
+        return cached
       }
 
       this.loading.set(cacheKey, true)
       this.error = null
 
       try {
-        const result = await externalValidationAPI.validateHGNC(geneSymbol, skipCache)
+        const result = apiData<ExternalValidationResult>(
+          await externalValidationAPI.validateHGNC(geneSymbol, skipCache)
+        )
         this.cache.set(cacheKey, result)
         logService.info('HGNC validation complete', {
           geneSymbol,
@@ -62,8 +80,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = error.message || 'Validation failed'
-        logService.error('HGNC validation failed', { geneSymbol, error: error.message })
+        this.error = toApiError(error).message || 'Validation failed'
+        logService.error('HGNC validation failed', { geneSymbol, error: toApiError(error).message })
         throw error
       } finally {
         this.loading.delete(cacheKey)
@@ -73,19 +91,22 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Validate PubMed ID
      */
-    async validatePubMed(pmid, skipCache = false) {
+    async validatePubMed(pmid: string, skipCache = false) {
       const cacheKey = this._getCacheKey('pubmed', pmid)
 
-      if (!skipCache && this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey)
+      if (!skipCache && cached) {
         logService.info('Validation cache hit', { validator: 'pubmed', value: pmid })
-        return this.cache.get(cacheKey)
+        return cached
       }
 
       this.loading.set(cacheKey, true)
       this.error = null
 
       try {
-        const result = await externalValidationAPI.validatePubMed(pmid, skipCache)
+        const result = apiData<ExternalValidationResult>(
+          await externalValidationAPI.validatePubMed(pmid, skipCache)
+        )
         this.cache.set(cacheKey, result)
         logService.info('PubMed validation complete', {
           pmid,
@@ -93,8 +114,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = error.message || 'Validation failed'
-        logService.error('PubMed validation failed', { pmid, error: error.message })
+        this.error = toApiError(error).message || 'Validation failed'
+        logService.error('PubMed validation failed', { pmid, error: toApiError(error).message })
         throw error
       } finally {
         this.loading.delete(cacheKey)
@@ -104,19 +125,22 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Validate HPO term
      */
-    async validateHPO(hpoTerm, skipCache = false) {
+    async validateHPO(hpoTerm: string, skipCache = false) {
       const cacheKey = this._getCacheKey('hpo', hpoTerm)
 
-      if (!skipCache && this.cache.has(cacheKey)) {
+      const cached = this.cache.get(cacheKey)
+      if (!skipCache && cached) {
         logService.info('Validation cache hit', { validator: 'hpo', value: hpoTerm })
-        return this.cache.get(cacheKey)
+        return cached
       }
 
       this.loading.set(cacheKey, true)
       this.error = null
 
       try {
-        const result = await externalValidationAPI.validateHPO(hpoTerm, skipCache)
+        const result = apiData<ExternalValidationResult>(
+          await externalValidationAPI.validateHPO(hpoTerm, skipCache)
+        )
         this.cache.set(cacheKey, result)
         logService.info('HPO validation complete', {
           hpoTerm,
@@ -124,8 +148,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         })
         return result
       } catch (error) {
-        this.error = error.message || 'Validation failed'
-        logService.error('HPO validation failed', { hpoTerm, error: error.message })
+        this.error = toApiError(error).message || 'Validation failed'
+        logService.error('HPO validation failed', { hpoTerm, error: toApiError(error).message })
         throw error
       } finally {
         this.loading.delete(cacheKey)
@@ -135,11 +159,13 @@ export const useExternalValidationStore = defineStore('externalValidation', {
     /**
      * Batch validate multiple values
      */
-    async validateBatch(validator, values) {
+    async validateBatch(validator: ExternalValidator, values: string[]) {
       this.error = null
 
       try {
-        const results = await externalValidationAPI.validateBatch(validator, values)
+        const results = apiData<Record<string, ExternalValidationResult>>(
+          await externalValidationAPI.validateBatch(validator, values)
+        )
         // Cache all results
         Object.entries(results).forEach(([value, result]) => {
           const cacheKey = this._getCacheKey(validator, value)
@@ -148,8 +174,11 @@ export const useExternalValidationStore = defineStore('externalValidation', {
         logService.info('Batch validation complete', { validator, count: values.length })
         return results
       } catch (error) {
-        this.error = error.message || 'Batch validation failed'
-        logService.error('Batch validation failed', { validator, error: error.message })
+        this.error = toApiError(error).message || 'Batch validation failed'
+        logService.error('Batch validation failed', {
+          validator,
+          error: toApiError(error).message
+        })
         throw error
       }
     },
@@ -159,12 +188,16 @@ export const useExternalValidationStore = defineStore('externalValidation', {
      */
     async fetchCacheStatistics() {
       try {
-        const stats = await externalValidationAPI.getCacheStatistics()
+        const stats = apiData<Record<string, unknown>>(
+          await externalValidationAPI.getCacheStatistics()
+        )
         logService.info('Cache statistics fetched', { stats })
         return stats
       } catch (error) {
-        this.error = error.message || 'Failed to fetch cache statistics'
-        logService.error('Failed to fetch cache statistics', { error: error.message })
+        this.error = toApiError(error).message || 'Failed to fetch cache statistics'
+        logService.error('Failed to fetch cache statistics', {
+          error: toApiError(error).message
+        })
         throw error
       }
     },

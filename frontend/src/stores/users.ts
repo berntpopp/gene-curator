@@ -5,14 +5,25 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { usersApi } from '@/api/users'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+export type User = Schema<'UserResponse'>
+
+/** Aggregate counts from the user statistics endpoint (only the counters the store adjusts). */
+export interface UserStatistics {
+  total_users?: number
+  active_users?: number
+  [key: string]: unknown
+}
 
 export const useUsersStore = defineStore('users', () => {
   // State
-  const users = ref([])
-  const selectedUser = ref(null)
-  const statistics = ref({})
+  const users = ref<User[]>([])
+  const selectedUser = ref<User | null>(null)
+  const statistics = ref<UserStatistics>({})
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // Pagination state
   const currentPage = ref(1)
@@ -21,7 +32,7 @@ export const useUsersStore = defineStore('users', () => {
 
   // Search state
   const searchQuery = ref('')
-  const searchResults = ref([])
+  const searchResults = ref<User[]>([])
 
   // Computed
   const paginatedUsers = computed(() => {
@@ -43,14 +54,18 @@ export const useUsersStore = defineStore('users', () => {
     return currentPage.value > 1
   })
 
+  /** Message for a failed request: the API's `detail`, else the fallback. */
+  const detailOr = (err: unknown, fallback: string): string =>
+    toApiError(err).response?.data?.detail || fallback
+
   // Actions
-  async function fetchUsers(page = 1, limit = 10) {
+  async function fetchUsers(page = 1, limit = 10): Promise<User[]> {
     loading.value = true
     error.value = null
 
     try {
       const skip = (page - 1) * limit
-      const response = await usersApi.getUsers({ skip, limit })
+      const response = apiData<User[]>(await usersApi.getUsers({ skip, limit }))
 
       users.value = response
       currentPage.value = page
@@ -62,14 +77,14 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch users'
+      error.value = detailOr(err, 'Failed to fetch users')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function searchUsers(query, page = 1, limit = 10) {
+  async function searchUsers(query: string, page = 1, limit = 10): Promise<User[] | undefined> {
     if (!query.trim()) {
       searchQuery.value = ''
       searchResults.value = []
@@ -81,58 +96,58 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const skip = (page - 1) * limit
-      const response = await usersApi.searchUsers(query, { skip, limit })
+      const response = apiData<User[]>(await usersApi.searchUsers(query, { skip, limit }))
 
       searchQuery.value = query
       searchResults.value = response
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to search users'
+      error.value = detailOr(err, 'Failed to search users')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchUserStatistics() {
+  async function fetchUserStatistics(): Promise<UserStatistics> {
     loading.value = true
     error.value = null
 
     try {
-      const response = await usersApi.getUserStatistics()
+      const response = apiData<UserStatistics>(await usersApi.getUserStatistics())
       statistics.value = response
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch user statistics'
+      error.value = detailOr(err, 'Failed to fetch user statistics')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchUser(userId) {
+  async function fetchUser(userId: string): Promise<User> {
     loading.value = true
     error.value = null
 
     try {
-      const response = await usersApi.getUser(userId)
+      const response = apiData<User>(await usersApi.getUser(userId))
       selectedUser.value = response
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch user'
+      error.value = detailOr(err, 'Failed to fetch user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function createUser(userData) {
+  async function createUser(userData: Schema<'UserCreate'>): Promise<User> {
     loading.value = true
     error.value = null
 
     try {
-      const response = await usersApi.createUser(userData)
+      const response = apiData<User>(await usersApi.createUser(userData))
 
       // Add to users list if we're on the first page
       if (currentPage.value === 1) {
@@ -149,19 +164,19 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to create user'
+      error.value = detailOr(err, 'Failed to create user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function updateUser(userId, userData) {
+  async function updateUser(userId: string, userData: Schema<'UserUpdate'>): Promise<User> {
     loading.value = true
     error.value = null
 
     try {
-      const response = await usersApi.updateUser(userId, userData)
+      const response = apiData<User>(await usersApi.updateUser(userId, userData))
 
       // Update in users list
       const index = users.value.findIndex(user => user.id === userId)
@@ -176,14 +191,14 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to update user'
+      error.value = detailOr(err, 'Failed to update user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function updateUserPassword(userId, newPassword) {
+  async function updateUserPassword(userId: string, newPassword: string) {
     loading.value = true
     error.value = null
 
@@ -191,14 +206,14 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.updateUserPassword(userId, newPassword)
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to update password'
+      error.value = detailOr(err, 'Failed to update password')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function activateUser(userId) {
+  async function activateUser(userId: string) {
     loading.value = true
     error.value = null
 
@@ -206,9 +221,9 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.activateUser(userId)
 
       // Update user in list
-      const index = users.value.findIndex(user => user.id === userId)
-      if (index !== -1) {
-        users.value[index].is_active = true
+      const user = users.value.find(u => u.id === userId)
+      if (user) {
+        user.is_active = true
       }
 
       // Update selected user
@@ -218,14 +233,14 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to activate user'
+      error.value = detailOr(err, 'Failed to activate user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function deactivateUser(userId) {
+  async function deactivateUser(userId: string) {
     loading.value = true
     error.value = null
 
@@ -233,9 +248,9 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.deactivateUser(userId)
 
       // Update user in list
-      const index = users.value.findIndex(user => user.id === userId)
-      if (index !== -1) {
-        users.value[index].is_active = false
+      const user = users.value.find(u => u.id === userId)
+      if (user) {
+        user.is_active = false
       }
 
       // Update selected user
@@ -245,14 +260,14 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to deactivate user'
+      error.value = detailOr(err, 'Failed to deactivate user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function deleteUser(userId) {
+  async function deleteUser(userId: string) {
     loading.value = true
     error.value = null
 
@@ -277,14 +292,14 @@ export const useUsersStore = defineStore('users', () => {
 
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to delete user'
+      error.value = detailOr(err, 'Failed to delete user')
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchUserActivity(userId) {
+  async function fetchUserActivity(userId: string) {
     loading.value = true
     error.value = null
 
@@ -292,7 +307,7 @@ export const useUsersStore = defineStore('users', () => {
       const response = await usersApi.getUserActivity(userId)
       return response
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch user activity'
+      error.value = detailOr(err, 'Failed to fetch user activity')
       throw err
     } finally {
       loading.value = false

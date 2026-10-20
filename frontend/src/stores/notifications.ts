@@ -16,21 +16,35 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
 
 const POLL_INTERVAL_MS = 60000
+
+export type Notification = Schema<'NotificationResponse'>
+
+export type ToastType = 'success' | 'error' | 'warning' | 'info'
+
+export interface Toast {
+  id: number
+  message: string
+  type: ToastType
+  timeout: number
+  visible: boolean
+}
 
 export const useNotificationsStore = defineStore('notifications', () => {
   // ========================================
   // State
   // ========================================
 
-  const notifications = ref([])
+  const notifications = ref<Notification[]>([])
   const loading = ref(false)
-  const error = ref(null)
-  let pollTimer = null
+  const error = ref<string | null>(null)
+  let pollTimer: ReturnType<typeof setInterval> | null = null
 
   // Toast notification state
-  const toasts = ref([])
+  const toasts = ref<Toast[]>([])
   let toastIdCounter = 0
 
   // ========================================
@@ -62,12 +76,14 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * Fetch notifications from API
    * @returns {Promise<void>}
    */
-  const fetchNotifications = async () => {
+  const fetchNotifications = async (): Promise<void> => {
     loading.value = true
     error.value = null
 
     try {
-      const response = await notificationsAPI.getNotifications({ limit: 50 })
+      const response = apiData<{ notifications?: Notification[] }>(
+        await notificationsAPI.getNotifications({ limit: 50 })
+      )
       notifications.value = response.notifications || []
 
       logService.debug('Fetched notifications', {
@@ -75,9 +91,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
         unread: totalUnread.value
       })
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch notifications'
+      error.value = toApiError(err).response?.data?.detail || 'Failed to fetch notifications'
       logService.error('Failed to fetch notifications', {
-        error: err.message
+        error: toApiError(err).message
       })
     } finally {
       loading.value = false
@@ -89,7 +105,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * @param {string} notificationId - Notification UUID
    * @returns {Promise<void>}
    */
-  const markAsRead = async notificationId => {
+  const markAsRead = async (notificationId: string): Promise<void> => {
     try {
       await notificationsAPI.markAsRead(notificationId)
 
@@ -100,10 +116,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
         logService.debug('Marked notification as read', { notificationId })
       }
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to mark notification as read'
+      error.value = toApiError(err).response?.data?.detail || 'Failed to mark notification as read'
       logService.error('Failed to mark notification as read', {
         notificationId,
-        error: err.message
+        error: toApiError(err).message
       })
       throw err
     }
@@ -113,7 +129,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * Mark all notifications as read
    * @returns {Promise<void>}
    */
-  const markAllAsRead = async () => {
+  const markAllAsRead = async (): Promise<void> => {
     try {
       await notificationsAPI.markAllAsRead()
 
@@ -126,9 +142,10 @@ export const useNotificationsStore = defineStore('notifications', () => {
         count: notifications.value.length
       })
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to mark all notifications as read'
+      error.value =
+        toApiError(err).response?.data?.detail || 'Failed to mark all notifications as read'
       logService.error('Failed to mark all notifications as read', {
-        error: err.message
+        error: toApiError(err).message
       })
       throw err
     }
@@ -138,7 +155,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * Add a notification (for real-time updates)
    * @param {Object} notification - Notification object
    */
-  const addNotification = notification => {
+  const addNotification = (notification: Notification): void => {
     notifications.value.unshift(notification)
     logService.debug('Added notification', { notification })
   }
@@ -147,7 +164,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * Remove a notification
    * @param {string} notificationId - Notification UUID
    */
-  const removeNotification = notificationId => {
+  const removeNotification = (notificationId: string): void => {
     const index = notifications.value.findIndex(n => n.id === notificationId)
     if (index !== -1) {
       notifications.value.splice(index, 1)
@@ -158,7 +175,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Clear all notifications
    */
-  const clearAll = () => {
+  const clearAll = (): void => {
     notifications.value = []
     error.value = null
     logService.info('Cleared all notifications')
@@ -167,7 +184,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Clear error state
    */
-  const clearError = () => {
+  const clearError = (): void => {
     error.value = null
   }
 
@@ -178,7 +195,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Start polling for new notifications every 60 seconds
    */
-  const startPolling = () => {
+  const startPolling = (): void => {
     stopPolling()
     fetchNotifications()
     pollTimer = setInterval(fetchNotifications, POLL_INTERVAL_MS)
@@ -188,7 +205,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Stop polling for notifications
    */
-  const stopPolling = () => {
+  const stopPolling = (): void => {
     if (pollTimer) {
       clearInterval(pollTimer)
       pollTimer = null
@@ -207,9 +224,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * @param {number} timeout - Auto-dismiss timeout in ms (default: 5000)
    * @returns {number} Toast ID
    */
-  const addToast = (message, type = 'info', timeout = 5000) => {
+  const addToast = (message: string, type: ToastType = 'info', timeout = 5000): number => {
     const id = ++toastIdCounter
-    const toast = {
+    const toast: Toast = {
       id,
       message,
       type,
@@ -235,7 +252,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
    * Remove a toast notification
    * @param {number} toastId - Toast ID to remove
    */
-  const removeToast = toastId => {
+  const removeToast = (toastId: number): void => {
     const index = toasts.value.findIndex(t => t.id === toastId)
     if (index !== -1) {
       toasts.value.splice(index, 1)
@@ -246,7 +263,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
   /**
    * Clear all toast notifications
    */
-  const clearToasts = () => {
+  const clearToasts = (): void => {
     toasts.value = []
     logService.debug('All toasts cleared')
   }

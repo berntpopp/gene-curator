@@ -1,8 +1,36 @@
 import { defineStore } from 'pinia'
+import { toApiError } from './apiError'
 import { assignmentsAPI } from '@/api'
+import type { Schema } from '@/types/api'
+
+/** Assignment row as rendered by the assignment views (superset of the API schema). */
+export interface AssignmentRecord {
+  id: string
+  priority_level?: string
+  notes?: string
+  [key: string]: unknown
+}
+
+interface AssignmentsPagination {
+  page: number
+  per_page: number
+  total: number
+  pages: number
+}
+
+interface AssignmentsState {
+  assignments: AssignmentRecord[]
+  curatorWorkloads: Record<string, Schema<'CuratorWorkload'>>
+  scopeAssignments: Record<string, AssignmentRecord[]>
+  availableGenes: Record<string, Schema<'AvailableGene'>[]>
+  scopeOverviews: Record<string, Schema<'ScopeAssignmentOverview'>>
+  loading: boolean
+  error: string | null
+  pagination: AssignmentsPagination
+}
 
 export const useAssignmentsStore = defineStore('assignments', {
-  state: () => ({
+  state: (): AssignmentsState => ({
     assignments: [],
     curatorWorkloads: {},
     scopeAssignments: {},
@@ -19,23 +47,23 @@ export const useAssignmentsStore = defineStore('assignments', {
   }),
 
   getters: {
-    getAssignmentsByScope: state => scopeId => {
+    getAssignmentsByScope: state => (scopeId: string) => {
       return state.scopeAssignments[scopeId] || []
     },
 
-    getCuratorWorkload: state => curatorId => {
+    getCuratorWorkload: state => (curatorId: string) => {
       return state.curatorWorkloads[curatorId] || {}
     },
 
-    getAvailableGenesForScope: state => scopeId => {
+    getAvailableGenesForScope: state => (scopeId: string) => {
       return state.availableGenes[scopeId] || []
     },
 
-    getScopeOverview: state => scopeId => {
+    getScopeOverview: state => (scopeId: string) => {
       return state.scopeOverviews[scopeId] || {}
     },
 
-    getAssignmentsByPriority: state => priority => {
+    getAssignmentsByPriority: state => (priority: string) => {
       return state.assignments.filter(assignment => assignment.priority_level === priority)
     },
 
@@ -45,7 +73,7 @@ export const useAssignmentsStore = defineStore('assignments', {
   },
 
   actions: {
-    async fetchAssignments(params = {}) {
+    async fetchAssignments(params: Record<string, unknown> = {}) {
       this.loading = true
       this.error = null
       try {
@@ -59,14 +87,14 @@ export const useAssignmentsStore = defineStore('assignments', {
 
         return response
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async bulkAssignGenes(assignmentData) {
+    async bulkAssignGenes(assignmentData: Schema<'BulkGeneScopeAssignmentCreate'>) {
       this.loading = true
       this.error = null
       try {
@@ -82,89 +110,89 @@ export const useAssignmentsStore = defineStore('assignments', {
 
         return result
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async fetchCuratorWorkload(curatorId) {
+    async fetchCuratorWorkload(curatorId: string) {
       try {
         const workload = await assignmentsAPI.getCuratorWorkload(curatorId)
         this.curatorWorkloads[curatorId] = workload
         return workload
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async fetchCuratorAssignments(curatorId, params = {}) {
+    async fetchCuratorAssignments(curatorId: string, params: Record<string, unknown> = {}) {
       try {
         const assignments = await assignmentsAPI.getCuratorAssignments(curatorId, params)
         return assignments
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async updateAssignmentPriority(assignmentId, priority) {
+    async updateAssignmentPriority(assignmentId: string, priority: string) {
       this.loading = true
       this.error = null
       try {
         const result = await assignmentsAPI.updateAssignmentPriority(assignmentId, priority)
 
         // Update the assignment in the local state
-        const index = this.assignments.findIndex(a => a.id === assignmentId)
-        if (index !== -1) {
-          this.assignments[index].priority_level = priority
+        const assignment = this.assignments.find(a => a.id === assignmentId)
+        if (assignment) {
+          assignment.priority_level = priority
         }
 
         return result
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async fetchAssignmentsByScope(scopeId, params = {}) {
+    async fetchAssignmentsByScope(scopeId: string, params: Record<string, unknown> = {}) {
       try {
         const assignments = await assignmentsAPI.getAssignmentsByScope(scopeId, params)
         this.scopeAssignments[scopeId] = assignments.assignments || assignments
         return assignments
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async fetchAvailableGenesForScope(scopeId) {
+    async fetchAvailableGenesForScope(scopeId: string) {
       try {
         const genes = await assignmentsAPI.getAvailableGenesForScope(scopeId)
         this.availableGenes[scopeId] = genes
         return genes
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async fetchScopeAssignmentOverview(scopeId) {
+    async fetchScopeAssignmentOverview(scopeId: string) {
       try {
         const overview = await assignmentsAPI.getScopeAssignmentOverview(scopeId)
         this.scopeOverviews[scopeId] = overview
         return overview
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async updateAssignment(assignmentId, updateData) {
+    async updateAssignment(assignmentId: string, updateData: Record<string, unknown>) {
       this.loading = true
       this.error = null
       try {
@@ -175,7 +203,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         }
         return result
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false

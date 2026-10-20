@@ -1,9 +1,20 @@
 import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
 import { logService } from '@/services/logService'
+import type { Schema } from '@/types/api'
+import { toApiError } from './apiError'
+
+interface AuthState {
+  user: Schema<'UserResponse'> | null
+  token: string | null
+  refreshToken: string | null
+  isAuthenticated: boolean
+  loading: boolean
+  error: string | null
+}
 
 export const useAuthStore = defineStore('auth', {
-  state: () => ({
+  state: (): AuthState => ({
     user: null,
     token: localStorage.getItem('access_token'),
     refreshToken: localStorage.getItem('refresh_token'),
@@ -14,8 +25,8 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAdmin: state => state.user?.role === 'admin',
-    isCurator: state => ['admin', 'curator'].includes(state.user?.role),
-    isViewer: state => ['admin', 'curator', 'viewer'].includes(state.user?.role),
+    isCurator: state => ['admin', 'curator'].includes(state.user?.role ?? ''),
+    isViewer: state => ['admin', 'curator', 'viewer'].includes(state.user?.role ?? ''),
     userRole: state => state.user?.role || 'guest'
   },
 
@@ -37,7 +48,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async login(credentials) {
+    async login(credentials: Schema<'UserLogin'>) {
       try {
         this.loading = true
         this.error = null
@@ -58,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
 
         return response
       } catch (error) {
-        this.error = error.response?.data?.detail || 'Login failed'
+        this.error = toApiError(error).response?.data?.detail || 'Login failed'
         this.clearAuth() // Clear any partial state on error
         throw error
       } finally {
@@ -66,7 +77,7 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async register(userData) {
+    async register(userData: Schema<'UserCreate'>) {
       try {
         this.loading = true
         this.error = null
@@ -83,7 +94,7 @@ export const useAuthStore = defineStore('auth', {
 
         return response
       } catch (error) {
-        this.error = error.response?.data?.detail || 'Registration failed'
+        this.error = toApiError(error).response?.data?.detail || 'Registration failed'
         throw error
       } finally {
         this.loading = false
@@ -97,15 +108,15 @@ export const useAuthStore = defineStore('auth', {
         }
       } catch (error) {
         logService.warn('Logout API call failed', {
-          error: error.message,
-          stack: error.stack
+          error: toApiError(error).message,
+          stack: toApiError(error).stack
         })
       } finally {
         this.clearAuth()
       }
     },
 
-    async refreshAccessToken() {
+    async refreshAccessToken(): Promise<string> {
       try {
         if (!this.refreshToken) {
           throw new Error('No refresh token available')
@@ -138,10 +149,10 @@ export const useAuthStore = defineStore('auth', {
       this.error = null
     },
 
-    hasRole(requiredRole) {
+    hasRole(requiredRole: string) {
       if (!this.user) return false
 
-      const roleHierarchy = {
+      const roleHierarchy: Record<string, string[]> = {
         viewer: ['viewer'],
         curator: ['viewer', 'curator'],
         admin: ['viewer', 'curator', 'admin']
@@ -151,7 +162,7 @@ export const useAuthStore = defineStore('auth', {
       return userRoles.includes(requiredRole)
     },
 
-    hasAnyRole(requiredRoles) {
+    hasAnyRole(requiredRoles: string[]) {
       return requiredRoles.some(role => this.hasRole(role))
     },
 
@@ -164,8 +175,8 @@ export const useAuthStore = defineStore('auth', {
         return []
       } catch (error) {
         logService.warn('Failed to fetch user scopes', {
-          error: error.message,
-          stack: error.stack
+          error: toApiError(error).message,
+          stack: toApiError(error).stack
         })
         return []
       }

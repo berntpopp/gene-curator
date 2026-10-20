@@ -11,16 +11,20 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invitationsApi } from '@/api/invitations'
 import { logService } from '@/services/logService'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+export type Invitation = Schema<'PendingInvitationResponse'>
 
 export const useInvitationsStore = defineStore('invitations', () => {
   // ============================================
   // STATE
   // ============================================
 
-  const invitations = ref([])
+  const invitations = ref<Invitation[]>([])
   const loading = ref(false)
-  const error = ref(null)
-  const lastFetched = ref(null)
+  const error = ref<string | null>(null)
+  const lastFetched = ref<number | null>(null)
 
   // ============================================
   // GETTERS
@@ -66,7 +70,9 @@ export const useInvitationsStore = defineStore('invitations', () => {
    * @param {boolean} [options.force=false] - Force refresh even if recently fetched
    * @returns {Promise<Array>} Array of invitations
    */
-  async function fetchPendingInvitations(options = {}) {
+  async function fetchPendingInvitations(
+    options: { includeExpired?: boolean; force?: boolean } = {}
+  ): Promise<Invitation[]> {
     // Skip if recently fetched (within 30 seconds) unless forced
     const now = Date.now()
     if (!options.force && lastFetched.value && now - lastFetched.value < 30000) {
@@ -80,9 +86,11 @@ export const useInvitationsStore = defineStore('invitations', () => {
     error.value = null
 
     try {
-      const response = await invitationsApi.getPendingInvitations({
-        includeExpired: options.includeExpired || false
-      })
+      const response = apiData<{ invitations?: Invitation[] }>(
+        await invitationsApi.getPendingInvitations({
+          includeExpired: options.includeExpired || false
+        })
+      )
 
       invitations.value = response.invitations || []
       lastFetched.value = now
@@ -94,10 +102,10 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
       return invitations.value
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to fetch invitations'
+      error.value = toApiError(err).response?.data?.detail || 'Failed to fetch invitations'
       logService.error('Failed to fetch invitations', {
-        error: err.message,
-        stack: err.stack
+        error: toApiError(err).message,
+        stack: toApiError(err).stack
       })
       throw err
     } finally {
@@ -112,7 +120,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
    * @param {string} scopeId - Scope UUID (needed for API path)
    * @returns {Promise<Object>} Accepted membership
    */
-  async function acceptInvitation(invitationId, scopeId) {
+  async function acceptInvitation(invitationId: string, scopeId: string) {
     loading.value = true
     error.value = null
 
@@ -129,13 +137,13 @@ export const useInvitationsStore = defineStore('invitations', () => {
         scopeId
       })
 
-      return response.data
+      return apiData<Schema<'ScopeMembershipResponse'>>(response.data)
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to accept invitation'
+      error.value = toApiError(err).response?.data?.detail || 'Failed to accept invitation'
       logService.error('Failed to accept invitation', {
         invitationId,
         scopeId,
-        error: err.message
+        error: toApiError(err).message
       })
       throw err
     } finally {
@@ -149,7 +157,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
    * @param {string} invitationId - Invitation UUID
    * @returns {Promise<void>}
    */
-  async function declineInvitation(invitationId) {
+  async function declineInvitation(invitationId: string): Promise<void> {
     loading.value = true
     error.value = null
 
@@ -161,10 +169,10 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
       logService.info('Declined scope invitation', { invitationId })
     } catch (err) {
-      error.value = err.response?.data?.detail || 'Failed to decline invitation'
+      error.value = toApiError(err).response?.data?.detail || 'Failed to decline invitation'
       logService.error('Failed to decline invitation', {
         invitationId,
-        error: err.message
+        error: toApiError(err).message
       })
       throw err
     } finally {
