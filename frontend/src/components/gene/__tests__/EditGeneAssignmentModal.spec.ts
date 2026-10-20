@@ -94,13 +94,25 @@ describe('EditGeneAssignmentModal', () => {
     await flushPromises()
     await internals(wrapper).handleSubmit()
 
+    // due date untouched -> not sent
     expect(updateAssignment).toHaveBeenCalledWith('a-1', {
       priority_level: 'high',
-      assignment_notes: null,
-      due_date: new Date('2025-06-01').toISOString()
+      assignment_notes: null
     })
     expect(addToast).toHaveBeenCalledWith('BRCA1 assignment updated', 'success')
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  it('never sends fields the user did not edit (row lacks notes and due date)', async () => {
+    updateAssignment.mockResolvedValue({} as never)
+    const sparse = { ...gene, assignment_notes: undefined, due_date: undefined }
+    const wrapper = await mountModal({ gene: sparse })
+
+    internals(wrapper).formData.priority = 'low'
+    await flushPromises()
+    await internals(wrapper).handleSubmit()
+
+    expect(updateAssignment).toHaveBeenCalledWith('a-1', { priority_level: 'low' })
   })
 
   it('clears the due date when it is removed', async () => {

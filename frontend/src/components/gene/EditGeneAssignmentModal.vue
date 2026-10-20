@@ -430,20 +430,23 @@
     isSaving.value = true
 
     try {
+      // Send only edited fields: list rows may lack due_date/notes, and resending the
+      // blank form values would erase what the server has stored
+      const form = formData.value
+      const original = originalData.value
       const updateData: {
-        priority_level: Priority
-        assignment_notes: string | null
+        priority_level?: Priority
+        assignment_notes?: string | null
         due_date?: string | null
-      } = {
-        priority_level: mapPriorityToAPI(formData.value.priority),
-        assignment_notes: formData.value.assignment_notes || null
+      } = {}
+      if (form.priority !== original.priority) {
+        updateData.priority_level = mapPriorityToAPI(form.priority)
       }
-
-      // Add due_date if set (convert to ISO format)
-      if (formData.value.due_date) {
-        updateData.due_date = new Date(formData.value.due_date).toISOString()
-      } else {
-        updateData.due_date = null
+      if (form.assignment_notes !== original.assignment_notes) {
+        updateData.assignment_notes = form.assignment_notes || null
+      }
+      if (form.due_date !== original.due_date) {
+        updateData.due_date = form.due_date ? new Date(form.due_date).toISOString() : null
       }
 
       await assignmentsAPI.updateAssignment(props.gene.assignment_id, updateData)
