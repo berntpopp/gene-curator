@@ -9,7 +9,7 @@
         </v-col>
         <v-col cols="12" md="6" class="text-md-right">
           <v-btn
-            v-if="authStore.isCurator"
+            v-if="authStore.isAuthenticated"
             :to="{ name: 'GeneAdmin' }"
             color="primary"
             prepend-icon="mdi-plus"
@@ -135,7 +135,7 @@
                 title="View Details"
               />
               <v-btn
-                v-if="authStore.isCurator"
+                v-if="authStore.isAuthenticated"
                 icon="mdi-pencil"
                 variant="text"
                 size="small"

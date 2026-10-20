@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
 import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -37,10 +38,15 @@ const rows = [
   }
 ]
 
-function setup(user: { role: string; id: string } | null, curations = rows) {
+function setup(
+  user: { role: string; id: string } | null,
+  curations = rows,
+  scopeRole: 'admin' | 'curator' | 'reviewer' | 'viewer' | null = 'curator'
+) {
   setActivePinia(createPinia())
   const auth = useAuthStore()
   auth.user = user as typeof auth.user
+  useScopesStore().currentUserRole = scopeRole
   const store = useCurationsStore()
   store.curations = curations as unknown as typeof store.curations
   store.loading = false
@@ -100,10 +106,20 @@ describe('CurationList', () => {
   })
 
   it('shows the empty state for a scope without curations', async () => {
-    const { wrapper } = setup({ role: 'viewer', id: 'u9' }, [])
+    const { wrapper } = setup({ role: 'user', id: 'u9' }, [], 'viewer')
     await flushPromises()
     expect(wrapper.text()).toContain('No curations yet')
     expect(wrapper.text()).not.toContain('Start Curation')
+  })
+
+  it('offers Start Curation by scope role, not application role', async () => {
+    const curator = setup({ role: 'user', id: 'u1' }, rows, 'curator')
+    await flushPromises()
+    expect(curator.wrapper.text()).toContain('Start Curation')
+
+    const viewer = setup({ role: 'user', id: 'u1' }, rows, 'viewer')
+    await flushPromises()
+    expect(viewer.wrapper.text()).not.toContain('Start Curation')
   })
 
   it('switches to card view and shows the score per card', async () => {

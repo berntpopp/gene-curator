@@ -5,6 +5,10 @@ import { useAuthStore } from '@/stores/auth'
 import { useScopesStore } from '@/stores/scopes'
 import Dashboard from '@/views/Dashboard.vue'
 
+vi.mock('@/services/logService', () => ({
+  logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}))
+
 const mountView = () =>
   mount(Dashboard, {
     global: { stubs: { RouterLink: true, PendingInvitations: true } }
@@ -16,60 +20,53 @@ describe('Dashboard view', () => {
     vi.spyOn(useScopesStore(), 'fetchUserScopes').mockResolvedValue(undefined as never)
   })
 
-  it('counts active scopes from the scopes store', async () => {
+  it('lists the real scopes from the scopes store', async () => {
     useScopesStore().scopes = [
-      { id: 'a', is_active: true },
-      { id: 'b', is_active: false }
+      { id: 'a', name: 'kidney', display_name: 'Kidney', is_active: true },
+      { id: 'b', name: 'heart', display_name: 'Heart', is_active: false }
     ] as never
     const wrapper = mountView()
     await flushPromises()
     expect(useScopesStore().fetchUserScopes).toHaveBeenCalled()
-    expect(
-      (wrapper.vm as unknown as { stats: { active_scopes: number } }).stats.active_scopes
-    ).toBe(1)
+    expect(wrapper.text()).toContain('Kidney')
+    expect(wrapper.text()).toContain('Heart')
   })
 
-  it('greets the signed-in user', () => {
-    const auth = useAuthStore()
-    auth.user = { full_name: 'Ada Lovelace', role: 'user' } as never
-    const wrapper = mountView()
-    expect(wrapper.text()).toContain('Welcome back, Ada Lovelace')
+  it('greets the signed-in user by name', () => {
+    useAuthStore().user = { name: 'Ada Lovelace', role: 'user' } as never
+    expect(mountView().text()).toContain('Welcome back, Ada Lovelace')
   })
 
   it('falls back to User when there is no user', () => {
-    const wrapper = mountView()
-    expect(wrapper.text()).toContain('Welcome back, User')
+    expect(mountView().text()).toContain('Welcome back, User')
   })
 
-  it('shows a spinner while dashboard data loads', async () => {
-    const auth = useAuthStore()
-    auth.fetchDashboardStats = vi.fn(() => new Promise(() => {})) as never
+  it('shows a spinner while scopes load', async () => {
+    vi.mocked(useScopesStore().fetchUserScopes).mockReturnValue(new Promise(() => {}) as never)
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.find('.v-progress-circular').exists()).toBe(true)
   })
 
-  it('shows the empty activity state and no admin link for a normal user', async () => {
+  it('shows the empty state and no admin link for a normal user', async () => {
     const wrapper = mountView()
     await flushPromises()
-    expect(wrapper.text()).toContain('No recent activity')
+    expect(wrapper.text()).toContain('No scopes assigned')
     expect(wrapper.text()).not.toContain('Schema Management')
   })
 
   it('shows the admin-only schema link for admins', async () => {
-    const auth = useAuthStore()
-    auth.user = { full_name: 'Root', role: 'admin' } as never
+    useAuthStore().user = { name: 'Root', role: 'admin' } as never
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('Schema Management')
   })
 
-  it('still renders with zeroed stats when loading fails', async () => {
-    const auth = useAuthStore()
-    auth.fetchDashboardStats = vi.fn().mockRejectedValue(new Error('boom')) as never
+  it('still renders when loading scopes fails', async () => {
+    vi.mocked(useScopesStore().fetchUserScopes).mockRejectedValue(new Error('boom'))
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.find('.v-progress-circular').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No recent activity')
+    expect(wrapper.text()).toContain('No scopes assigned')
   })
 })
