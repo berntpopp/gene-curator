@@ -68,7 +68,7 @@ function makeRouter(): Router {
         name: 'review-queue',
         component,
         meta: {
-          showInDropdown: 'curation',
+          showInMainMenu: true,
           requiresAuth: true,
           label: 'Review queue',
           order: 2
@@ -134,17 +134,18 @@ describe('MainNavigation', () => {
   it('shows curation items to any signed-in user and hides guest-only links', async () => {
     const { vm } = await mountNav({ role: 'user' })
 
-    expect(vm.simpleItems.map(i => i.label)).toEqual(['Dashboard', 'Titled page'])
-    expect(vm.curationItems.map(i => i.label)).toEqual(['Curations', 'Review queue'])
+    expect(vm.simpleItems.map(i => i.label)).toEqual(['Dashboard', 'Review queue', 'Titled page'])
+    expect(vm.curationItems.map(i => i.label)).toEqual(['Curations'])
   })
 
   it('shows the review queue and its pending badge to any signed-in user', async () => {
     const { wrapper, vm, fetchSpy } = await mountNav({ role: 'user' })
 
-    expect(vm.curationItems.map(i => i.name)).toEqual(['Curations', 'review-queue'])
+    expect(vm.simpleItems.find(i => i.name === 'review-queue')?.badge).toBe(3)
     expect(fetchSpy).toHaveBeenCalled()
     expect(vm.pendingReviewCount).toBe(3)
-    expect(vm.curationItems.find(i => i.name === 'review-queue')?.badge).toBe(3)
+    await flushPromises()
+    expect(wrapper.find('.main-navigation .v-badge').text()).toContain('3')
     expect(wrapper.text()).toContain('Curation')
   })
 
@@ -210,10 +211,10 @@ describe('MainNavigation', () => {
     await trigger?.trigger('click')
     await flushPromises()
     const option = Array.from(document.querySelectorAll('.v-list-item'))
-      .filter(el => el.textContent?.includes('Review queue'))
+      .filter(el => el.textContent?.includes('Curations'))
       .pop() as HTMLElement | undefined
-    // The item is a router link to the review queue; navigation itself is covered by the router
-    expect(option?.getAttribute('href')).toBe('/review')
+    // The item is a router link; navigation itself is covered by the router
+    expect(option?.getAttribute('href')).toBe('/curations')
     wrapper.unmount()
   })
 

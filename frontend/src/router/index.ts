@@ -54,9 +54,10 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'Home',
     component: Home,
+    // Signed-in users land on their dashboard; Home is the public landing page
+    beforeEnter: () => (useAuthStore().isAuthenticated ? { name: 'Dashboard' } : true),
     meta: {
       title: 'Gene Curator'
-      // No showInMainMenu - logo already navigates to home
     }
   },
   {
@@ -140,7 +141,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Review Queue',
       requiresAuth: true,
-      showInDropdown: 'curation',
+      showInMainMenu: true,
       icon: 'mdi-clipboard-check-outline',
       label: 'Review Queue',
       order: 2
@@ -246,7 +247,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'My Work',
       requiresAuth: true,
-      showInDropdown: 'curation',
+      showInMainMenu: true,
       icon: 'mdi-clipboard-list',
       label: 'My Work',
       order: 1

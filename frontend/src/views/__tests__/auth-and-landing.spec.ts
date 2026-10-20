@@ -285,15 +285,13 @@ describe('Home', () => {
     )
   })
 
-  it('greets an authenticated user with their email and role', async () => {
-    const auth = useAuthStore()
-    auth.isAuthenticated = true
-    auth.user = { email: 'curator@example.org', role: 'curator' } as never
+  it('shows Login to guests and no admin link to anyone', async () => {
     vi.spyOn(useGenesStore(), 'fetchStatistics').mockResolvedValue({} as never)
     const wrapper = mount(Home, mountOpts(pinia))
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Welcome back, curator@example.org!')
-    expect(wrapper.text()).toContain('curator')
+    expect(wrapper.text()).toContain('Login')
+    expect(wrapper.text()).not.toContain('Manage Genes')
+    expect(wrapper.text()).not.toContain('Recent Activity')
   })
 })

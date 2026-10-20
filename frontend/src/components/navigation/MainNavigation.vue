@@ -11,6 +11,8 @@
             :to="item.to"
             :icon="item.icon"
             :label="item.label"
+            :badge="item.badge"
+            badge-color="warning"
           />
           <template v-if="curationItems.length > 0">
             <v-list-subheader>{{ curationLabel }}</v-list-subheader>
@@ -54,6 +56,7 @@
         <v-btn :to="item.to" text>
           <v-icon v-if="item.icon" start>{{ item.icon }}</v-icon>
           {{ item.label }}
+          <v-badge v-if="item.badge" :content="item.badge" color="warning" inline />
         </v-btn>
       </template>
 
@@ -204,7 +207,11 @@
         to: { name: route.name },
         icon: metaOf(route).icon,
         label: metaOf(route).label || metaOf(route).title || '',
-        order: metaOf(route).order || 999
+        order: metaOf(route).order || 999,
+        badge:
+          route.name === 'review-queue' && pendingReviewCount.value > 0
+            ? pendingReviewCount.value
+            : null
       }))
       .sort((a, b) => a.order - b.order)
   })
