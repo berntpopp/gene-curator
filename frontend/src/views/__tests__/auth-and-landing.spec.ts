@@ -107,24 +107,51 @@ describe('Login', () => {
     expect(routerPush).toHaveBeenCalledWith('/genes')
   })
 
-  it('shows a field error and a notification when the server rejects the login', async () => {
+  it('shows exactly one error and lets the user retry with the right password', async () => {
     const auth = useAuthStore()
-    vi.spyOn(auth, 'login').mockRejectedValue({
-      message: 'Request failed',
-      response: { data: { detail: 'Invalid email address' } }
+    const login = vi.spyOn(auth, 'login').mockImplementationOnce(async () => {
+      auth.error = 'Incorrect email or password' as never
+      throw {
+        message: 'Request failed',
+        response: { data: { detail: 'Incorrect email or password' } }
+      }
     })
     const wrapper = mount(Login, mountOpts(pinia))
 
     await wrapper.find('input[type="email"]').setValue('user@example.org')
     await wrapper.find('input[type="password"]').setValue('wrong-pass')
-    await flushPromises()
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(showError).toHaveBeenCalledWith('Login failed. Please check your credentials.')
+    expect(showError).not.toHaveBeenCalled()
     expect(logger.error).toHaveBeenCalled()
-    expect(wrapper.text()).toContain('Invalid email address')
+    expect(wrapper.text().match(/Incorrect email or password/g)).toHaveLength(1)
     expect(routerPush).not.toHaveBeenCalled()
+
+    login.mockResolvedValueOnce(undefined as never)
+    await wrapper.find('input[type="password"]').setValue('right-pass')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(login).toHaveBeenLastCalledWith({ email: 'user@example.org', password: 'right-pass' })
+    expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
+  })
+
+  it('shows the required-field messages on an empty submit', async () => {
+    const auth = useAuthStore()
+    const login = vi.spyOn(auth, 'login')
+    const wrapper = mount(Login, mountOpts(pinia))
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Email is required')
+    expect(wrapper.text()).toContain('Password is required')
+    expect(login).not.toHaveBeenCalled()
+  })
+
+  it('explains an expired session', async () => {
+    routeState.query = { reason: 'expired' }
+    const wrapper = mount(Login, mountOpts(pinia))
+    expect(wrapper.text()).toContain('Your session expired. Sign in to continue.')
   })
 
   it('renders the auth store error as an alert', async () => {
@@ -140,7 +167,7 @@ describe('Login', () => {
     const login = vi.spyOn(auth, 'login').mockResolvedValue(undefined as never)
     const wrapper = mount(Login, mountOpts(pinia))
 
-    const adminButton = wrapper.findAll('button').find(b => b.text().includes('Login as Admin'))
+    const adminButton = wrapper.findAll('button').find(b => b.text().includes('Admin'))
     expect(adminButton).toBeDefined()
     await adminButton!.trigger('click')
     await flushPromises()
@@ -201,6 +228,23 @@ describe('Register', () => {
 
     expect(showError).toHaveBeenCalledWith('Registration failed. Please try again.')
     expect(routerPush).not.toHaveBeenCalled()
+  })
+})
+
+describe('Register password rule', () => {
+  it('rejects a 7 character password and never calls the API', async () => {
+    setActivePinia(createPinia())
+    const register = vi.spyOn(useAuthStore(), 'register')
+    const wrapper = mount(Register, mountOpts(createPinia()))
+    const inputs = wrapper.findAll('input')
+    await inputs[0]!.setValue('Ada')
+    await inputs[1]!.setValue('a@example.org')
+    await inputs[2]!.setValue('abcdefg')
+    await inputs[3]!.setValue('abcdefg')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Password must be at least 8 characters')
+    expect(register).not.toHaveBeenCalled()
   })
 })
 
