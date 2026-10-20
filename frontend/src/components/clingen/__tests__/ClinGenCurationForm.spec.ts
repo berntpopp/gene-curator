@@ -69,15 +69,42 @@ describe('ClinGenCurationForm', () => {
     ).toEqual([{ proband_counted_points: 1.5 }])
   })
 
-  it('emits submit only from a submittable form, via Ctrl+Enter', async () => {
-    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+  it('asks for confirmation before emitting submit, also via Ctrl+Enter', async () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene }, attachTo: document.body })
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
-    expect(wrapper.emitted('submit')).toBeUndefined()
+    await flushPromises()
+    expect(document.body.textContent).not.toContain('Submit this curation')
 
     await wrapper.setProps({ initialData: withCaseLevel })
     await flushPromises()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    await flushPromises()
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(document.body.textContent).toContain('Submit this curation')
+
+    const confirm = [...document.body.querySelectorAll('button')].find(
+      b => b.textContent?.trim() === 'Submit'
+    )
+    confirm?.click()
+    await flushPromises()
     expect(wrapper.emitted('submit')).toHaveLength(1)
+  })
+
+  it('explains why Submit for Review is disabled', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    expect(wrapper.text()).toContain('Add at least one scored evidence item')
+  })
+
+  it('shows parent-driven saving state and the saved time instead of local flags', async () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene, saving: true, lastSaved: Date.now() } })
+    expect(findButton(wrapper, 'Save Draft').classes()).toContain('v-btn--loading')
+    expect(wrapper.text()).toContain('Saved ')
+  })
+
+  it('does not advertise undo or quick actions', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    expect(wrapper.text()).not.toContain('Undo')
+    expect(wrapper.text()).not.toContain('Quick Actions')
   })
 
   it('saves a draft on Ctrl+S and prevents the browser default', async () => {

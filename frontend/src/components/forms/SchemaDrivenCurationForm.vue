@@ -9,6 +9,9 @@
       :initial-data="evidenceData"
       :readonly="readonly"
       :status="curationStatus"
+      :saving="savingDraft"
+      :submitting="submitting"
+      :last-saved="savedAt"
       @submit="handleClinGenSubmit"
       @save-draft="handleClinGenSaveDraft"
       @cancel="handleCancel"
@@ -181,6 +184,7 @@
   const loadingSchema = ref(false)
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
+  const savedAt = ref<number | null>(null) // set by a successful server save
 
   // ClinGen-specific state
   const precurationData = ref<EvidenceData>({})
@@ -282,7 +286,10 @@
     canSubmit: () => canSubmit.value,
     clearRecovery,
     clearHistory,
-    onSaved: () => emit('saved'),
+    onSaved: () => {
+      savedAt.value = Date.now()
+      emit('saved')
+    },
     onSubmit: () => emit('submit')
   })
 

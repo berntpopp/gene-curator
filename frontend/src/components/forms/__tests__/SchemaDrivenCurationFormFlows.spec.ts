@@ -206,6 +206,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   it('renders the ClinGen form for schemas that opt out of the dynamic form', async () => {
     schemaState.useDynamicForm = false
     curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, status: 'draft' })
+    curationsStore.updateCuration.mockResolvedValue({ lock_version: 1 })
 
     const wrapper = await mountForm({ curationId: 'cur-1' })
     const clingen = wrapper.findComponent({ name: 'ClinGenCurationForm' })
