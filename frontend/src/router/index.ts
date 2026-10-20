@@ -36,7 +36,6 @@ const CreateAssignment = () => import('@/views/CreateAssignment.vue')
 const SchemaManagement = () => import('@/views/SchemaManagement.vue')
 const SchemaEditor = () => import('@/views/SchemaEditor.vue')
 const WorkflowManagement = () => import('@/views/WorkflowManagement.vue')
-const ValidationDashboard = () => import('@/views/ValidationDashboard.vue')
 const UserProfile = () => import('@/views/UserProfile.vue')
 const UserManagement = () => import('@/views/UserManagement.vue')
 const About = () => import('@/views/About.vue')
@@ -310,19 +309,6 @@ const routes: RouteRecordRaw[] = [
       icon: 'mdi-sitemap-outline',
       label: 'Workflows',
       order: 2
-    }
-  },
-  {
-    path: '/validation',
-    name: 'ValidationDashboard',
-    component: ValidationDashboard,
-    meta: {
-      title: 'Validation Dashboard',
-      requiresAuth: true,
-      showInDropdown: 'curation',
-      icon: 'mdi-check-decagram',
-      label: 'Validation',
-      order: 3
     }
   },
   {

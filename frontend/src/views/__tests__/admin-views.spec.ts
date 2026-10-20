@@ -1,6 +1,6 @@
 /**
  * Behaviour tests for the admin views: ScopeSelection, UserManagement (with its details dialog),
- * UserProfile, ValidationDashboard and WorkflowManagement.
+ * UserProfile and WorkflowManagement.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'

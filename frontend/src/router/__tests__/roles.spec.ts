@@ -11,6 +11,7 @@ const stub = { default: { render: () => null } }
 vi.mock('@/views/Home.vue', () => stub)
 vi.mock('@/views/Login.vue', () => stub)
 vi.mock('@/views/About.vue', () => stub)
+vi.mock('@/views/NotFound.vue', () => stub)
 vi.mock('@/views/NotAuthorized.vue', () => stub)
 vi.mock('@/views/UserManagement.vue', () => stub)
 vi.mock('@/views/GeneAssignments.vue', () => stub)
@@ -70,5 +71,11 @@ describe('router with the real auth store', () => {
       showInDropdown: 'curationSetup',
       label: 'Users'
     })
+  })
+
+  it('no longer has a validation dashboard route', async () => {
+    signIn('admin')
+    await router.push('/validation')
+    expect(router.currentRoute.value.name).toBe('NotFound')
   })
 })
