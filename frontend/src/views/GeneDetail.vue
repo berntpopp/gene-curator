@@ -29,7 +29,7 @@
       <v-alert-title>Failed to load gene information</v-alert-title>
       {{ error }}
       <template #append>
-        <v-btn :to="{ name: 'Genes' }" variant="text" color="error"> Back to Genes </v-btn>
+        <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="error"> Back to Genes </v-btn>
       </template>
     </v-alert>
 
@@ -39,7 +39,7 @@
       <div class="d-flex align-center mb-6">
         <v-btn
           aria-label="Back to genes"
-          :to="{ name: 'Genes' }"
+          :to="{ name: 'GeneCatalogue' }"
           icon="mdi-arrow-left"
           variant="text"
           class="mr-3"

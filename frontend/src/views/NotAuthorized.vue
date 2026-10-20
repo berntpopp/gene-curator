@@ -9,7 +9,7 @@
         </p>
         <div class="d-flex justify-center gap-3">
           <v-btn :to="{ name: 'Home' }" color="primary"> Go Home </v-btn>
-          <v-btn :to="{ name: 'Genes' }" color="secondary"> Browse Genes </v-btn>
+          <v-btn :to="{ name: 'GeneCatalogue' }" color="secondary"> Browse Genes </v-btn>
         </div>
       </v-col>
     </v-row>

@@ -7,6 +7,7 @@ import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import NotFound from '@/views/NotFound.vue'
 import NotAuthorized from '@/views/NotAuthorized.vue'
+import router from '@/router'
 import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Home from '@/views/Home.vue'
@@ -49,6 +50,19 @@ describe('static pages', () => {
   it('NotAuthorized renders the access denied message', () => {
     const wrapper = mount(NotAuthorized, mountOpts(createPinia()))
     expect(wrapper.text()).toContain('Access Denied')
+  })
+
+  it.each([
+    ['NotFound', NotFound],
+    ['NotAuthorized', NotAuthorized]
+  ])('%s only links to routes that exist', (_name, page) => {
+    const wrapper = mount(page, mountOpts(createPinia()))
+    const named = wrapper
+      .findAllComponents({ name: 'VBtn' })
+      .map(btn => btn.props('to') as { name?: string } | string | undefined)
+      .filter((to): to is { name: string } => typeof to === 'object' && !!to?.name)
+    expect(named.length).toBeGreaterThan(0)
+    for (const to of named) expect(router.hasRoute(to.name)).toBe(true)
   })
 })
 

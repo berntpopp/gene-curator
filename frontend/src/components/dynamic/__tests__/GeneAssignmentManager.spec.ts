@@ -17,7 +17,7 @@ const stores = vi.hoisted(() => ({
   },
   scopes: { scopes: [] as Array<Record<string, unknown>>, fetchUserScopes: vi.fn() },
   users: { users: [] as Array<Record<string, unknown>>, fetchUsers: vi.fn() },
-  auth: { user: { id: 'curator-1' } as { id: string } | null }
+  auth: { user: { id: 'curator-1' } as { id: string } | null, isAdmin: true }
 }))
 
 const api = vi.hoisted(() => ({
@@ -185,6 +185,16 @@ describe('GeneAssignmentManager', () => {
       expect(stores.scopes.fetchUserScopes).toHaveBeenCalledTimes(1)
       expect(stores.users.fetchUsers).toHaveBeenCalledTimes(1)
       expect(stores.assignments.fetchCuratorWorkload).toHaveBeenCalledWith('curator-1')
+    })
+
+    it('does not request the admin-only user list for non-admins', async () => {
+      stores.auth.isAdmin = false
+      mountManager()
+      await flushPromises()
+
+      expect(stores.users.fetchUsers).not.toHaveBeenCalled()
+      expect(stores.assignments.fetchAssignments).toHaveBeenCalledTimes(1)
+      stores.auth.isAdmin = true
     })
 
     it('skips the workload fetch when no user is logged in', async () => {

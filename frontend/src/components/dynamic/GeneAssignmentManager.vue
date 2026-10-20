@@ -552,9 +552,10 @@
       // Call existing methods with proper parameters
       const promises: Promise<unknown>[] = [
         assignmentsStore.fetchAssignments(),
-        scopesStore.fetchUserScopes(),
-        usersStore.fetchUsers()
+        scopesStore.fetchUserScopes()
       ]
+      // GET /users is admin-only; curators would only get a 403
+      if (authStore.isAdmin) promises.push(usersStore.fetchUsers())
 
       // Only fetch curator workload if user is logged in
       if (curatorId) {
