@@ -381,10 +381,16 @@
   })
 
   // Form data
-  const userFormData = ref({
+  const userFormData = ref<{
+    name: string
+    email: string
+    role: 'admin' | 'user'
+    password: string
+    is_active: boolean
+  }>({
     name: '',
     email: '',
-    role: 'viewer',
+    role: 'user',
     password: '',
     is_active: true
   })
@@ -402,10 +408,9 @@
     { title: 'Actions', key: 'actions', sortable: false, width: '100' }
   ]
 
-  // Role options
+  // Application roles only; curator/reviewer/viewer are per-scope membership roles
   const roleOptions = [
-    { title: 'Viewer', value: 'viewer' },
-    { title: 'Curator', value: 'curator' },
+    { title: 'User', value: 'user' },
     { title: 'Admin', value: 'admin' }
   ]
 
@@ -450,7 +455,7 @@
     userFormData.value = {
       name: '',
       email: '',
-      role: 'viewer',
+      role: 'user',
       password: '',
       is_active: true
     }
@@ -462,7 +467,7 @@
     userFormData.value = {
       name: user.name,
       email: user.email,
-      role: user.role,
+      role: user.role === 'admin' ? 'admin' : 'user',
       password: '',
       is_active: user.is_active
     }

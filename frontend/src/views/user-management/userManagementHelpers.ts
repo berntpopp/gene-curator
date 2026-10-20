@@ -10,11 +10,10 @@ export interface UserRecord {
   last_login?: string | null
 }
 
-const roleColors: Record<string, string> = { admin: 'error', curator: 'warning', viewer: 'info' }
+const roleColors: Record<string, string> = { admin: 'error', user: 'info' }
 const roleIcons: Record<string, string> = {
   admin: 'mdi-shield-crown',
-  curator: 'mdi-pencil',
-  viewer: 'mdi-eye'
+  user: 'mdi-account'
 }
 
 export function getRoleColor(role: string | null | undefined): string {

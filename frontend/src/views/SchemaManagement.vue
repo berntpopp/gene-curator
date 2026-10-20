@@ -178,6 +178,7 @@
   import { showError, showSuccess } from '@/composables/useNotifications'
   import {
     transformSchemas,
+    type TransformedSchema,
     formatType,
     formatStatus,
     getTypeColor,
@@ -191,24 +192,11 @@
     response?: { status?: number }
   }
 
-  interface SchemaRow {
-    id: string
-    name: string
-    type?: string
-    status?: string
-  }
+  type SchemaRow = TransformedSchema & { id: string; created_at?: string | null }
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)
@@ -269,7 +257,7 @@
 
   // Transform raw schemas from store using schemaTransformer utility (DRY principle)
   // This handles backend field mapping (schema_type -> type, is_active -> status)
-  const schemas = computed(() => transformSchemas(schemasStore.schemas))
+  const schemas = computed(() => transformSchemas(schemasStore.schemas) as SchemaRow[])
 
   const filteredSchemas = computed(() => {
     // Defensive: ensure schemas is always an array
@@ -289,8 +277,8 @@
   // Note: getTypeColor, getStatusColor, formatType, formatStatus
   // are now imported from @/utils/schemaTransformer (DRY principle)
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return dateString ? new Date(dateString).toLocaleDateString() : ''
   }
 
   const viewSchema = (schema: SchemaRow) => {
@@ -313,7 +301,6 @@
 
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
-      // @ts-expect-error schemasStore has no duplicateSchema: the call throws and is caught below (pre-existing behaviour)
       const duplicated = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema duplicated', {
         originalId: schema.id,
@@ -359,7 +346,17 @@
 
     creating.value = true
     try {
-      await schemasStore.createSchema(newSchema.value)
+      const { type, ...basics } = newSchema.value
+      // Created as an inactive skeleton; the fields are defined in the schema editor
+      await schemasStore.createSchema({
+        ...basics,
+        schema_type: type as string,
+        field_definitions: {},
+        workflow_states: {},
+        ui_configuration: {},
+        is_active: false,
+        use_dynamic_form: true
+      })
       logger.info('Schema created', { schemaName: newSchema.value.name })
       showSuccess(`Schema "${newSchema.value.name}" created successfully`)
 

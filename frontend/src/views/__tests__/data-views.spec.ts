@@ -55,6 +55,7 @@ describe('GeneSummaryView', () => {
     const summaries = useGeneSummaryStore()
     vi.spyOn(summaries, 'fetchPublicSummary').mockResolvedValue(undefined as never)
     summaries.publicSummaries.set('gene-1', {
+      gene_id: 'gene-1',
       public_scopes_count: 2,
       consensus_classification: 'Definitive',
       has_conflicts: true,
@@ -107,6 +108,7 @@ describe('GenesTable', () => {
     const genes = useGenesStore()
     const fetchGenes = vi.spyOn(genes, 'fetchGenes').mockImplementation(async () => {
       genes.genes = [{ id: 'g1', approved_symbol: 'PKD1', hgnc_id: 'HGNC:1' }] as never
+      return undefined as never
     })
     const wrapper = mount(GenesTable, opts())
     await flushPromises()
@@ -156,6 +158,7 @@ describe('SchemaManagement', () => {
   it('lists schemas returned by the store', async () => {
     vi.spyOn(useSchemasStore(), 'fetchSchemas').mockImplementation(async () => {
       useSchemasStore().schemas = [schemaRow] as never
+      return undefined as never
     })
     const wrapper = mount(SchemaManagement, opts())
     await flushPromises()

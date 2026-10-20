@@ -38,26 +38,19 @@
         <template #item.schemas="{ item }">
           <div>
             <v-chip size="small" color="blue" variant="outlined" class="mb-1">
-              Pre: {{ item.precuration_schema_name }}
+              Pre: {{ getSchemaName(item.precuration_schema_id, 'precuration') }}
             </v-chip>
             <br />
             <v-chip size="small" color="green" variant="outlined">
-              Cur: {{ item.curation_schema_name }}
+              Cur: {{ getSchemaName(item.curation_schema_id, 'curation') }}
             </v-chip>
           </div>
         </template>
 
-        <template #item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
-            {{ formatStatus(item.status) }}
+        <template #item.is_active="{ item }">
+          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="flat">
+            {{ item.is_active ? 'Active' : 'Inactive' }}
           </v-chip>
-        </template>
-
-        <template #item.usage_count="{ item }">
-          <div class="text-center">
-            <div class="text-h6 font-weight-bold">{{ item.usage_count || 0 }}</div>
-            <div class="text-caption">Active</div>
-          </div>
         </template>
 
         <template #item.created_at="{ item }">
@@ -73,7 +66,6 @@
               size="small"
               variant="text"
               color="error"
-              :disabled="item.usage_count > 0"
               @click="deleteWorkflow(item)"
             />
           </div>
@@ -156,20 +148,6 @@
               <v-list-item-subtitle>{{
                 getSchemaName(selectedWorkflow.curation_schema_id, 'curation')
               }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item v-if="selectedWorkflow.data_mapping">
-              <v-list-item-title>Data Mapping</v-list-item-title>
-              <v-list-item-subtitle>
-                <pre class="text-caption mt-1">{{
-                  JSON.stringify(selectedWorkflow.data_mapping, null, 2)
-                }}</pre>
-              </v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Usage Count</v-list-item-title>
-              <v-list-item-subtitle
-                >{{ selectedWorkflow.usage_count || 0 }} scopes</v-list-item-subtitle
-              >
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Created</v-list-item-title>
@@ -310,6 +288,7 @@
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess, showInfo } from '@/composables/useNotifications'
+  import type { Schema } from '@/types/api'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -317,21 +296,7 @@
     stack?: string
   }
 
-  // Minimal shape of a workflow pair; the store returns untyped data
-  interface WorkflowRow {
-    id: string
-    name?: string
-    description?: string
-    is_active?: boolean
-    status?: string
-    usage_count: number
-    created_at?: string | null
-    precuration_schema_id?: string | null
-    curation_schema_id?: string | null
-    precuration_schema_name?: string
-    curation_schema_name?: string
-    data_mapping?: unknown
-  }
+  type WorkflowRow = Schema<'WorkflowPair'>
 
   interface SchemaOption {
     id: string
@@ -340,15 +305,7 @@
 
   const schemasStore = useSchemasStore()
   const workflowStore = useWorkflowStore()
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
 
   const loading = ref(false)
   const creating = ref(false)
@@ -377,8 +334,7 @@
   const workflowHeaders = [
     { title: 'Name', key: 'name', sortable: true },
     { title: 'Schemas', key: 'schemas', sortable: false },
-    { title: 'Status', key: 'status', sortable: true },
-    { title: 'Usage', key: 'usage_count', sortable: true },
+    { title: 'Status', key: 'is_active', sortable: true },
     { title: 'Created', key: 'created_at', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
   ]
@@ -409,15 +365,6 @@
     return false
   })
 
-  const getStatusColor = (status: string | undefined) => {
-    const colorMap: Record<string, string> = {
-      active: 'success',
-      draft: 'warning',
-      deprecated: 'error'
-    }
-    return colorMap[status ?? ''] || 'grey'
-  }
-
   const getStageColor = (stageType: string) => {
     const colorMap: Record<string, string> = {
       entry: 'blue',
@@ -438,11 +385,6 @@
       active: 'mdi-check-circle'
     }
     return iconMap[stageType] || 'mdi-circle'
-  }
-
-  const formatStatus = (status: unknown) => {
-    if (!status || typeof status !== 'string') return 'Draft'
-    return status.charAt(0).toUpperCase() + status.slice(1)
   }
 
   const formatDate = (dateString: string | null | undefined) => {
@@ -475,7 +417,7 @@
   const saveWorkflow = async () => {
     if (!editWorkflowForm.value) return
     const { valid } = await editWorkflowForm.value.validate()
-    if (!valid) return
+    if (!valid || !editingWorkflowId) return
     savingWorkflow.value = true
     try {
       await schemasStore.updateWorkflowPair(editingWorkflowId, editWorkflowData.value)
@@ -517,12 +459,19 @@
   const createWorkflow = async () => {
     if (!createForm.value) return
     const { valid } = await createForm.value.validate()
-    if (!valid) return
+    const { precuration_schema_id, curation_schema_id } = newWorkflow.value
+    if (!valid || !precuration_schema_id || !curation_schema_id) return
 
     creating.value = true
     try {
       // workflowPairs CRUD is in schemasStore (schema-related data)
-      await schemasStore.createWorkflowPair(newWorkflow.value)
+      await schemasStore.createWorkflowPair({
+        ...newWorkflow.value,
+        precuration_schema_id,
+        curation_schema_id,
+        version: '1.0.0',
+        is_active: true
+      })
       logger.info('Workflow created', { workflowName: newWorkflow.value.name })
       showSuccess('Workflow created successfully')
 

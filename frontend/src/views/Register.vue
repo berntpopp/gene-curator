@@ -16,6 +16,16 @@
           <v-card-text>
             <v-form ref="registerForm" v-model="formValid" @submit.prevent="handleRegister">
               <v-text-field
+                v-model="userData.name"
+                label="Full name"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :rules="nameRules"
+                required
+                class="mb-3"
+              />
+
+              <v-text-field
                 v-model="userData.email"
                 label="Email"
                 type="email"
@@ -90,15 +100,7 @@
 <script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
-  // useLogger's JSDoc types its return as a bare Object; narrow it to the methods used here
-  interface Logger {
-    debug: (message: string, data?: object) => void
-    info: (message: string, data?: object) => void
-    warn: (message: string, data?: object) => void
-    error: (message: string, data?: object) => void
-  }
-
-  const logger = useLogger() as Logger
+  const logger = useLogger()
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
@@ -113,10 +115,16 @@
   const showConfirmPassword = ref(false)
   const confirmPassword = ref('')
 
+  // The API requires a name; public sign-up always creates a plain "user" (the server enforces it)
   const userData = reactive({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'user' as const,
+    is_active: true
   })
+
+  const nameRules = [(v: string) => !!v?.trim() || 'Name is required']
 
   // Validation rules
   const emailRules = [

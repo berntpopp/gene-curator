@@ -9,7 +9,6 @@ import { reactive } from 'vue'
 import ScopeSelection from '@/views/ScopeSelection.vue'
 import UserManagement from '@/views/UserManagement.vue'
 import UserProfile from '@/views/UserProfile.vue'
-import ValidationDashboard from '@/views/ValidationDashboard.vue'
 import WorkflowManagement from '@/views/WorkflowManagement.vue'
 import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
 import {
@@ -22,7 +21,6 @@ import { useGenesStore } from '@/stores/genes'
 import { useAssignmentsStore } from '@/stores/assignments'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
-import { useValidationStore } from '@/stores/validation'
 import { useUsersStore } from '@/stores/users'
 import { authApi } from '@/api/auth'
 
@@ -115,7 +113,7 @@ describe('ScopeSelection', () => {
     const genes = useGenesStore()
     const search = vi
       .spyOn(genes, 'searchGenes')
-      .mockResolvedValue([{ id: 'g1', symbol: 'BRCA1' }] as never)
+      .mockResolvedValue([{ id: 'g1', approved_symbol: 'BRCA1' }] as never)
     const wrapper = mountView()
     const vm = wrapper.vm as unknown as {
       searchGenes: (q: string) => Promise<void>
@@ -127,7 +125,7 @@ describe('ScopeSelection', () => {
 
     await vm.searchGenes('BR')
     expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'BR', limit: 20 }))
-    expect(vm.availableGenes).toEqual([{ id: 'g1', symbol: 'BRCA1' }])
+    expect(vm.availableGenes).toEqual([{ id: 'g1', approved_symbol: 'BRCA1' }])
   })
 
   it('clears gene results and logs when the gene search fails', async () => {
@@ -145,28 +143,6 @@ describe('ScopeSelection', () => {
     )
   })
 
-  it('filters the mock disease list by name or OMIM id', async () => {
-    const wrapper = mountView()
-    const vm = wrapper.vm as unknown as {
-      searchDiseases: (q: string) => Promise<void>
-      availableDiseases: { name: string }[]
-    }
-    await vm.searchDiseases('qt')
-    expect(vm.availableDiseases.map(d => d.name)).toEqual(['Long QT Syndrome'])
-    await vm.searchDiseases('601144')
-    expect(vm.availableDiseases.map(d => d.name)).toEqual(['Brugada Syndrome'])
-  })
-
-  it('formats assignment status labels and colours', () => {
-    const vm = mountView().vm as unknown as {
-      formatAssignmentStatus: (s: string) => string
-      getAssignmentStatusColor: (s: string) => string
-    }
-    expect(vm.formatAssignmentStatus('in_progress')).toBe('In Progress')
-    expect(vm.getAssignmentStatusColor('available')).toBe('success')
-    expect(vm.getAssignmentStatusColor('unknown')).toBe('grey')
-  })
-
   it('creates an assignment from the selections and opens it', async () => {
     const assignments = useAssignmentsStore()
     const createAssignment = vi.fn(async () => ({ id: 'a-9' }))
@@ -181,19 +157,48 @@ describe('ScopeSelection', () => {
       precurationSchema: { id: 'pre' },
       curationSchema: { id: 'cur' }
     }
-    vm.selectedGene = { id: 'g1', symbol: 'PKD1' }
-    vm.selectedDisease = { id: 'd1', name: 'PKD', omim_id: '1', category: 'Renal' }
+    vm.selectedGene = { id: 'g1', approved_symbol: 'PKD1' }
+    vm.assignmentPriority = 'high'
+    vm.assignmentNotes = 'urgent'
 
     await vm.createAssignment()
-    expect(createAssignment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        gene_id: 'g1',
-        disease_id: 'd1',
-        scope_id: 'scope-1',
-        workflow_pair_id: 'wp'
-      })
-    )
+    expect(createAssignment).toHaveBeenCalledWith({
+      gene_id: 'g1',
+      scope_id: 'scope-1',
+      priority_level: 'high',
+      assignment_notes: 'urgent'
+    })
     expect(routerPush).toHaveBeenCalledWith({ name: 'AssignmentDetail', params: { id: 'a-9' } })
+  })
+
+  it('logs and stays put when creating the assignment fails', async () => {
+    const assignments = useAssignmentsStore()
+    Object.assign(assignments, { createAssignment: vi.fn().mockRejectedValue(new Error('no')) })
+    const vm = mountView().vm as unknown as Record<string, unknown> & {
+      createAssignment: () => Promise<void>
+    }
+    vm.selectedScope = { id: 'scope-1' }
+    vm.selectedSchemas = { workflowPair: null, precurationSchema: null, curationSchema: null }
+    vm.selectedGene = { id: 'g1' }
+    await vm.createAssignment()
+    expect(logger.error).toHaveBeenCalledWith(
+      'Failed to create assignment:',
+      expect.objectContaining({ error: 'no' })
+    )
+    expect(routerPush).not.toHaveBeenCalled()
+  })
+
+  it('advances through the steps when a scope and schemas are chosen', async () => {
+    const wrapper = mountView()
+    const vm = wrapper.vm as unknown as {
+      handleScopeSelected: (s: unknown) => void
+      handleSchemasSelected: (s: unknown) => void
+      currentStep: number
+    }
+    vm.handleScopeSelected({ id: 'scope-1' })
+    expect(vm.currentStep).toBe(2)
+    vm.handleSchemasSelected({ workflowPair: null, precurationSchema: null, curationSchema: null })
+    expect(vm.currentStep).toBe(3)
   })
 
   it('does nothing when the selections are incomplete', async () => {
@@ -358,7 +363,7 @@ describe('user-management helpers', () => {
     expect(getRoleColor('admin')).toBe('error')
     expect(getRoleColor('nobody')).toBe('primary')
     expect(getRoleColor(undefined)).toBe('primary')
-    expect(getRoleIcon('curator')).toBe('mdi-pencil')
+    expect(getRoleIcon('admin')).toBe('mdi-shield-crown')
     expect(getRoleIcon(undefined)).toBe('mdi-account')
   })
 
@@ -421,32 +426,6 @@ describe('UserProfile', () => {
   })
 })
 
-describe('ValidationDashboard', () => {
-  it('renders stored validation results in the table', async () => {
-    const validation = useValidationStore()
-    validation.validationResults = {
-      r1: {
-        id: 'r1',
-        entity_id: 'e1',
-        validation_status: 'valid',
-        issues: [],
-        gene_symbol: 'MYH7',
-        schema_name: 'Precuration v1'
-      }
-    } as never
-    const wrapper = mount(ValidationDashboard, opts())
-    await flushPromises()
-    expect(wrapper.text()).toContain('Valid')
-  })
-
-  it('reports a failure when the dashboard data cannot be loaded', async () => {
-    mount(ValidationDashboard, opts())
-    await flushPromises()
-    expect(showError).toHaveBeenCalledWith('Failed to load dashboard data. Please refresh.')
-    expect(logger.error).toHaveBeenCalled()
-  })
-})
-
 describe('WorkflowManagement', () => {
   it('shows the workflow pairs from the schemas store', async () => {
     const schemas = useSchemasStore()
@@ -455,6 +434,7 @@ describe('WorkflowManagement', () => {
       schemas.workflowPairs = [
         { id: 'wp1', name: 'ClinGen flow', status: 'active', usage_count: 0 }
       ] as never
+      return undefined as never
     })
     const workflow = useWorkflowStore()
     vi.spyOn(workflow, 'fetchWorkflowAnalytics').mockResolvedValue(null as never)

@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import { useScopesStore } from '@/stores/scopes'
 import Dashboard from '@/views/Dashboard.vue'
 
 const mountView = () =>
@@ -12,6 +13,20 @@ const mountView = () =>
 describe('Dashboard view', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
+    vi.spyOn(useScopesStore(), 'fetchUserScopes').mockResolvedValue(undefined as never)
+  })
+
+  it('counts active scopes from the scopes store', async () => {
+    useScopesStore().scopes = [
+      { id: 'a', is_active: true },
+      { id: 'b', is_active: false }
+    ] as never
+    const wrapper = mountView()
+    await flushPromises()
+    expect(useScopesStore().fetchUserScopes).toHaveBeenCalled()
+    expect(
+      (wrapper.vm as unknown as { stats: { active_scopes: number } }).stats.active_scopes
+    ).toBe(1)
   })
 
   it('greets the signed-in user', () => {

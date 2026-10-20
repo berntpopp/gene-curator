@@ -152,14 +152,21 @@ describe('Register', () => {
     const wrapper = mount(Register, mountOpts(pinia))
 
     const inputs = wrapper.findAll('input')
-    await inputs[0]!.setValue('new@example.org')
-    await inputs[1]!.setValue('Passw0rd')
+    await inputs[0]!.setValue('Ada Lovelace')
+    await inputs[1]!.setValue('new@example.org')
     await inputs[2]!.setValue('Passw0rd')
+    await inputs[3]!.setValue('Passw0rd')
     await flushPromises()
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(register).toHaveBeenCalledWith({ email: 'new@example.org', password: 'Passw0rd' })
+    expect(register).toHaveBeenCalledWith({
+      name: 'Ada Lovelace',
+      email: 'new@example.org',
+      password: 'Passw0rd',
+      role: 'user',
+      is_active: true
+    })
     expect(showSuccess).toHaveBeenCalled()
     expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
   })
@@ -170,9 +177,10 @@ describe('Register', () => {
     const wrapper = mount(Register, mountOpts(pinia))
 
     const inputs = wrapper.findAll('input')
-    await inputs[0]!.setValue('dup@example.org')
-    await inputs[1]!.setValue('Passw0rd')
+    await inputs[0]!.setValue('Dup User')
+    await inputs[1]!.setValue('dup@example.org')
     await inputs[2]!.setValue('Passw0rd')
+    await inputs[3]!.setValue('Passw0rd')
     await flushPromises()
     await wrapper.find('form').trigger('submit')
     await flushPromises()

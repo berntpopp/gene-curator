@@ -195,11 +195,6 @@
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore, useScopesStore } from '@/stores'
 
-  interface LoggerApi {
-    warn: (message: string, data?: Record<string, unknown>) => void
-    error: (message: string, data?: Record<string, unknown>) => void
-  }
-
   interface DashboardStats {
     active_assignments: number
     completed_curations: number
@@ -223,7 +218,7 @@
   }
 
   // useLogger() is typed as Object (JSDoc @returns {Object} in useLogger.js); narrow locally
-  const logger = useLogger() as LoggerApi
+  const logger = useLogger()
   const authStore = useAuthStore()
   const scopesStore = useScopesStore()
 
@@ -317,15 +312,8 @@
 
       // Load scopes to get active scopes count
       try {
-        // BUG (kept for no behaviour change): the scopes store has no fetchScopes or
-        // getActiveScopesCount (it has fetchUserScopes / activeScopesCount), so this
-        // always throws and active_scopes stays 0. Fix in a separate change.
-        const legacyScopes = scopesStore as unknown as {
-          fetchScopes: () => Promise<void>
-          getActiveScopesCount?: number
-        }
-        await legacyScopes.fetchScopes()
-        stats.value.active_scopes = legacyScopes.getActiveScopesCount || 0
+        await scopesStore.fetchUserScopes()
+        stats.value.active_scopes = scopesStore.activeScopesCount
       } catch (scopeError) {
         const err = scopeError as Error
         logger.warn('Failed to load scopes:', {
