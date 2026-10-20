@@ -143,8 +143,10 @@ ci-repo: workflows ## Repo rules: file size limit, workflow lint
 
 diff-cover: ## Changed lines must be >= $(DIFF_COVER_MIN)% covered (uses whichever coverage reports exist)
 	@if [ -f frontend/coverage/lcov.info ]; then sed 's#^SF:#SF:frontend/#' frontend/coverage/lcov.info > frontend/coverage/lcov.repo.info; fi
-	uvx diff-cover@9.7.1 $$(ls backend/coverage.xml frontend/coverage/lcov.repo.info 2>/dev/null) \
-		--compare-branch=$(BASE) --fail-under=$(DIFF_COVER_MIN)
+	@# one run per report: diff-cover cannot mix XML and LCOV
+	for r in $$(ls backend/coverage.xml frontend/coverage/lcov.repo.info 2>/dev/null); do \
+		uvx diff-cover@9.7.1 $$r --compare-branch=$(BASE) --fail-under=$(DIFF_COVER_MIN) || exit 1; \
+	done
 
 api-types: ## Regenerate frontend/src/types/api.generated.ts from the backend OpenAPI schema
 	cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" 2>/dev/null > ../frontend/openapi.json
