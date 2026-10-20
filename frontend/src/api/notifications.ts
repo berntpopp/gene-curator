@@ -9,7 +9,7 @@ export const notificationsAPI = {
   async getNotifications(
     params: Record<string, unknown> = {}
   ): Promise<Schema<'NotificationListResponse'>> {
-    const response = await apiClient.get<Schema<'NotificationListResponse'>>('/notifications', {
+    const response = await apiClient.get<Schema<'NotificationListResponse'>>('/notifications/', {
       params
     })
     return response.data
@@ -29,10 +29,9 @@ export const notificationsAPI = {
   /**
    * Mark all notifications as read
    */
-  async markAllAsRead(): Promise<{ message: string; count: number }> {
-    const response = await apiClient.patch<{ message: string; count: number }>(
-      '/notifications/read-all'
-    )
+  async markAllAsRead(): Promise<Schema<'NotificationMarkAllReadResponse'>> {
+    const response =
+      await apiClient.patch<Schema<'NotificationMarkAllReadResponse'>>('/notifications/read-all')
     return response.data
   }
 }

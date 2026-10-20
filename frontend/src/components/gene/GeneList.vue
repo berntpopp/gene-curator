@@ -302,6 +302,8 @@
   import { useRouter } from 'vue-router'
   import { assignmentsAPI, precurationsAPI } from '@/api'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
@@ -332,6 +334,7 @@
 
   const router = useRouter()
   const authStore = useAuthStore()
+  const scopeStore = useScopesStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
@@ -401,17 +404,12 @@
     { title: 'Completed', value: 'completed' }
   ]
 
-  // Permissions
-  const userRole = computed(() => (authStore.user as { role?: string } | null)?.role)
-
-  const canAssignGenes = computed(() => {
-    return ['admin', 'scope_admin', 'curator'].includes(userRole.value ?? '')
-  })
-
-  // Permission to remove genes from scope (admins, scope_admins, reviewers)
-  const canRemoveGenes = computed(() => {
-    return ['admin', 'scope_admin', 'reviewer'].includes(userRole.value ?? '')
-  })
+  // Permissions: curate rights come from the scope membership; only the application admin may
+  // deactivate assignments (backend rule in gene_assignments.py)
+  const { canCurate: canAssignGenes } = useScopePermissions(
+    computed(() => scopeStore.currentUserRole)
+  )
+  const canRemoveGenes = computed(() => authStore.isAdmin)
 
   /** TableSkeleton passes its rows through an untyped item slot. */
   function toGene(value: unknown): GeneRow {

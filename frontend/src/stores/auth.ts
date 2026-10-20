@@ -2,7 +2,8 @@ import { defineStore } from 'pinia'
 import { authAPI } from '@/api'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
+import { clearFormRecoveryDrafts } from '@/utils/formRecoveryStorage'
 
 interface AuthState {
   user: Schema<'UserResponse'> | null
@@ -25,8 +26,6 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAdmin: state => state.user?.role === 'admin',
-    isCurator: state => ['admin', 'curator'].includes(state.user?.role ?? ''),
-    isViewer: state => ['admin', 'curator', 'viewer'].includes(state.user?.role ?? ''),
     userRole: state => state.user?.role || 'guest'
   },
 
@@ -70,7 +69,7 @@ export const useAuthStore = defineStore('auth', {
         return response
       } catch (error) {
         this.clearAuth() // Clear any partial state on error (also resets error)
-        this.error = toApiError(error).response?.data?.detail || 'Login failed'
+        this.error = errorMessage(error, 'Login failed')
         throw error
       } finally {
         this.loading = false
@@ -94,7 +93,7 @@ export const useAuthStore = defineStore('auth', {
 
         return response
       } catch (error) {
-        this.error = toApiError(error).response?.data?.detail || 'Registration failed'
+        this.error = errorMessage(error, 'Registration failed')
         throw error
       } finally {
         this.loading = false
@@ -116,26 +115,6 @@ export const useAuthStore = defineStore('auth', {
       }
     },
 
-    async refreshAccessToken(): Promise<string> {
-      try {
-        if (!this.refreshToken) {
-          throw new Error('No refresh token available')
-        }
-
-        const response = await authAPI.refresh(this.refreshToken)
-
-        this.token = response.access_token
-        this.refreshToken = response.refresh_token
-        localStorage.setItem('access_token', response.access_token)
-        localStorage.setItem('refresh_token', response.refresh_token)
-
-        return response.access_token
-      } catch (error) {
-        this.clearAuth()
-        throw error
-      }
-    },
-
     clearAuth() {
       this.user = null
       this.token = null
@@ -145,6 +124,7 @@ export const useAuthStore = defineStore('auth', {
 
       localStorage.removeItem('access_token')
       localStorage.removeItem('refresh_token')
+      clearFormRecoveryDrafts()
     },
 
     clearError() {
@@ -155,9 +135,8 @@ export const useAuthStore = defineStore('auth', {
       if (!this.user) return false
 
       const roleHierarchy: Record<string, string[]> = {
-        viewer: ['viewer'],
-        curator: ['viewer', 'curator'],
-        admin: ['viewer', 'curator', 'admin']
+        user: ['user'],
+        admin: ['user', 'admin']
       }
 
       const userRoles = roleHierarchy[this.user.role] || []
@@ -166,33 +145,6 @@ export const useAuthStore = defineStore('auth', {
 
     hasAnyRole(requiredRoles: string[]) {
       return requiredRoles.some(role => this.hasRole(role))
-    },
-
-    async getUserScopes() {
-      try {
-        if (!this.user) return []
-
-        // For now, return empty array until user scopes are properly implemented
-        // This method can be extended when user-scope relationships are added
-        return []
-      } catch (error) {
-        logService.warn('Failed to fetch user scopes', {
-          error: toApiError(error).message,
-          stack: toApiError(error).stack
-        })
-        return []
-      }
-    },
-
-    async fetchDashboardStats() {
-      // Mock dashboard stats for now
-      // This can be replaced with real API calls when backend supports it
-      return {
-        active_assignments: 0,
-        completed_curations: 0,
-        pending_reviews: 0,
-        active_scopes: 0
-      }
     }
   }
 })

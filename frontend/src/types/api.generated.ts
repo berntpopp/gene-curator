@@ -6315,6 +6315,22 @@ export interface components {
             total: number;
         };
         /**
+         * NotificationMarkAllReadResponse
+         * @description Result of marking every notification of the current user as read.
+         */
+        NotificationMarkAllReadResponse: {
+            /**
+             * Message
+             * @description Confirmation message
+             */
+            message: string;
+            /**
+             * Count
+             * @description Number of notifications updated
+             */
+            count: number;
+        };
+        /**
          * NotificationResponse
          * @description Schema for notification API responses.
          */
@@ -13860,7 +13876,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": unknown;
+                    "application/json": components["schemas"]["NotificationMarkAllReadResponse"];
                 };
             };
         };

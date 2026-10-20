@@ -104,7 +104,7 @@ describe('useUsersStore', () => {
       api.getUsers.mockRejectedValue(new Error('net'))
 
       await expect(store.fetchUsers()).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to fetch users')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -142,7 +142,7 @@ describe('useUsersStore', () => {
 
       api.searchUsers.mockRejectedValue(new Error('net'))
       await expect(store.searchUsers('x')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to search users')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -163,7 +163,7 @@ describe('useUsersStore', () => {
       api.getUserStatistics.mockRejectedValue(new Error('x'))
 
       await expect(store.fetchUserStatistics()).rejects.toThrow('x')
-      expect(store.error).toBe('Failed to fetch user statistics')
+      expect(store.error).toBe('x')
     })
 
     it('fetchUser sets the selected user', async () => {
@@ -225,7 +225,7 @@ describe('useUsersStore', () => {
 
       api.createUser.mockRejectedValue(new Error('net'))
       await expect(store.createUser({} as never)).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to create user')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -261,7 +261,7 @@ describe('useUsersStore', () => {
 
       api.updateUser.mockRejectedValue(new Error('net'))
       await expect(store.updateUser('u1', {} as never)).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to update user')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -283,7 +283,7 @@ describe('useUsersStore', () => {
 
       api.updateUserPassword.mockRejectedValue(new Error('net'))
       await expect(store.updateUserPassword('u1', 'x')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to update password')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -327,7 +327,7 @@ describe('useUsersStore', () => {
 
       api.deactivateUser.mockRejectedValue(new Error('net'))
       await expect(store.deactivateUser('u1')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to deactivate user')
+      expect(store.error).toBe('net')
     })
 
     it('activateUser records a generic message without detail', async () => {
@@ -335,7 +335,7 @@ describe('useUsersStore', () => {
       api.activateUser.mockRejectedValue(new Error('net'))
 
       await expect(store.activateUser('u1')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to activate user')
+      expect(store.error).toBe('net')
     })
 
     it('deleteUser removes the user, clears selection and decrements the total', async () => {
@@ -365,7 +365,7 @@ describe('useUsersStore', () => {
 
       api.deleteUser.mockRejectedValueOnce(new Error('net'))
       await expect(store.deleteUser('u1')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to delete user')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -382,7 +382,7 @@ describe('useUsersStore', () => {
 
       api.getUserActivity.mockRejectedValue(new Error('net'))
       await expect(store.fetchUserActivity('u1')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to fetch user activity')
+      expect(store.error).toBe('net')
     })
   })
 

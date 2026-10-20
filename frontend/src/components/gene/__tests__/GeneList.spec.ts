@@ -8,11 +8,13 @@ import { assignmentsAPI, precurationsAPI, curationsAPI } from '@/api'
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const addToast = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
-const authState = vi.hoisted(() => ({ user: { role: 'admin' } as { role: string } | null }))
+const authState = vi.hoisted(() => ({ isAdmin: false }))
+const scopeState = vi.hoisted(() => ({ currentUserRole: 'admin' as string | null }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+vi.mock('@/stores/scopes', () => ({ useScopesStore: () => scopeState }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
 vi.mock('@/api', () => ({
   assignmentsAPI: { getAssignmentsByScope: vi.fn(), removeAssignment: vi.fn() },
@@ -117,7 +119,8 @@ describe('GeneList', () => {
     ;[addToast, push, logger.debug, logger.info, logger.warn, logger.error].forEach(m =>
       m.mockReset()
     )
-    authState.user = { role: 'admin' }
+    authState.isAdmin = false
+    scopeState.currentUserRole = 'admin'
     getAssignments.mockResolvedValue(assignments as never)
     getPrecurations.mockResolvedValue({ precurations: [] } as never)
     getCurations.mockResolvedValue({ curations: [] } as never)
@@ -175,32 +178,39 @@ describe('GeneList', () => {
   })
 
   describe('permissions', () => {
-    it('shows the add and assign buttons to admins', async () => {
+    it('shows the add and assign buttons to scope curators', async () => {
+      scopeState.currentUserRole = 'curator'
       const wrapper = await mountList()
 
       expect(wrapper.text()).toContain('Add Genes')
       expect(wrapper.text()).toContain('Assign to Curator')
     })
 
-    it('hides the add and assign buttons for viewers', async () => {
-      authState.user = { role: 'viewer' }
-      const wrapper = await mountList()
+    it('hides the add and assign buttons for scope viewers and reviewers', async () => {
+      for (const role of ['viewer', 'reviewer']) {
+        scopeState.currentUserRole = role
+        const wrapper = await mountList()
 
-      expect(wrapper.text()).not.toContain('Add Genes')
-      expect(wrapper.text()).not.toContain('Assign to Curator')
+        expect(wrapper.text()).not.toContain('Add Genes')
+        expect(wrapper.text()).not.toContain('Assign to Curator')
+      }
     })
 
-    it('passes removal permission only to reviewers and scope admins', async () => {
-      authState.user = { role: 'reviewer' }
-      const wrapper = await mountList()
+    it('lets only the application admin remove genes, whatever the scope role', async () => {
+      scopeState.currentUserRole = 'admin'
+      let row = (await mountList()).findComponent(GeneRowActions)
+      expect(row.props('canRemoveGenes')).toBe(false)
+      expect(row.props('canAssignGenes')).toBe(true)
 
-      const row = wrapper.findComponent(GeneRowActions)
+      authState.isAdmin = true
+      scopeState.currentUserRole = 'viewer'
+      row = (await mountList()).findComponent(GeneRowActions)
       expect(row.props('canRemoveGenes')).toBe(true)
       expect(row.props('canAssignGenes')).toBe(false)
     })
 
-    it('treats a user without a role as having no permissions', async () => {
-      authState.user = null
+    it('grants nothing without a scope role', async () => {
+      scopeState.currentUserRole = null
       const wrapper = await mountList()
 
       expect(wrapper.findComponent(GeneRowActions).props('canAssignGenes')).toBe(false)

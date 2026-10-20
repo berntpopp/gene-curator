@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import { geneSummaryAPI } from '@/api/geneSummary'
 import { logService } from '@/services/logService'
 import type { Schema } from '@/types/api'
@@ -50,7 +50,7 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
         }
         return summary
       } catch (error) {
-        this.error = toApiError(error).message || 'Failed to fetch gene summary'
+        this.error = errorMessage(error, 'Failed to fetch gene summary')
         logService.error('Failed to fetch public summary', {
           geneId,
           error: toApiError(error).message
@@ -75,7 +75,7 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
         logService.info('Full gene summary fetched', { geneId })
         return summary
       } catch (error) {
-        this.error = toApiError(error).message || 'Failed to fetch full summary'
+        this.error = errorMessage(error, 'Failed to fetch full summary')
         logService.error('Failed to fetch full summary', {
           geneId,
           error: toApiError(error).message
@@ -100,7 +100,7 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
         this.fullSummaries.delete(geneId)
         logService.info('Gene summary recomputed', { geneId })
       } catch (error) {
-        this.error = toApiError(error).message || 'Failed to recompute summary'
+        this.error = errorMessage(error, 'Failed to recompute summary')
         logService.error('Failed to recompute summary', {
           geneId,
           error: toApiError(error).message

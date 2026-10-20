@@ -20,7 +20,7 @@
               Browse Genes
             </v-btn>
             <v-btn
-              v-if="authStore.isAuthenticated && authStore.isCurator"
+              v-if="authStore.isAuthenticated"
               :to="{ name: 'GeneAdmin' }"
               color="secondary"
               size="large"

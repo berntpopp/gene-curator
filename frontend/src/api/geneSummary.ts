@@ -33,15 +33,6 @@ export const geneSummaryAPI = {
   },
 
   /**
-   * Get list of scopes curating this gene
-   * @param geneId - Gene UUID
-   */
-  async getGeneScopes(geneId: string): Promise<Record<string, unknown>[]> {
-    const response = await apiClient.get<Record<string, unknown>[]>(`/genes/${geneId}/scopes`)
-    return response.data
-  },
-
-  /**
    * Manually recompute gene summary (admin only)
    * @param geneId - Gene UUID
    */

@@ -10,7 +10,6 @@ vi.mock('@/api', () => ({
     bulkAssignGenes: vi.fn(),
     getCuratorWorkload: vi.fn(),
     getCuratorAssignments: vi.fn(),
-    updateAssignmentPriority: vi.fn(),
     getAssignmentsByScope: vi.fn(),
     getAvailableGenesForScope: vi.fn(),
     getScopeAssignmentOverview: vi.fn(),
@@ -221,39 +220,6 @@ describe('useAssignmentsStore', () => {
       await expect(store.fetchCuratorWorkload('c1')).rejects.toThrow('w')
       await expect(store.fetchCuratorAssignments('c1')).rejects.toThrow('a')
       expect(store.error).toBe('a')
-    })
-  })
-
-  describe('updateAssignmentPriority', () => {
-    it('updates the priority of the local assignment', async () => {
-      const store = useAssignmentsStore()
-      store.assignments = [summary('a1', { priority: 'low' })]
-      const updated = { id: 'a1', priority: 'high' } as Schema<'GeneScopeAssignment'>
-      api.updateAssignmentPriority.mockResolvedValue(updated)
-
-      await expect(store.updateAssignmentPriority('a1', 'high')).resolves.toBe(updated)
-
-      expect(api.updateAssignmentPriority).toHaveBeenCalledWith('a1', 'high')
-      expect(store.assignments[0]?.priority).toBe('high')
-      expect(store.loading).toBe(false)
-    })
-
-    it('leaves local state untouched when the assignment is not loaded', async () => {
-      const store = useAssignmentsStore()
-      api.updateAssignmentPriority.mockResolvedValue({} as Schema<'GeneScopeAssignment'>)
-
-      await store.updateAssignmentPriority('missing', 'high')
-
-      expect(store.assignments).toEqual([])
-    })
-
-    it('sets the error and rethrows on failure', async () => {
-      const store = useAssignmentsStore()
-      api.updateAssignmentPriority.mockRejectedValue(new Error('denied'))
-
-      await expect(store.updateAssignmentPriority('a1', 'high')).rejects.toThrow('denied')
-      expect(store.error).toBe('denied')
-      expect(store.loading).toBe(false)
     })
   })
 

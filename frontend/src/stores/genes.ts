@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { genesAPI } from '@/api'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import { pageStateFrom, type PageState } from './pagination'
 import type { Schema } from '@/types/api'
 
@@ -126,7 +126,7 @@ export const useGenesStore = defineStore('genes', {
 
         return response
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -150,7 +150,7 @@ export const useGenesStore = defineStore('genes', {
 
         return gene
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -165,7 +165,7 @@ export const useGenesStore = defineStore('genes', {
         this.genes.push(toRecord(newGene))
         return newGene
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -186,7 +186,7 @@ export const useGenesStore = defineStore('genes', {
         }
         return updatedGene
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -204,7 +204,7 @@ export const useGenesStore = defineStore('genes', {
         }
         return true
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -218,7 +218,7 @@ export const useGenesStore = defineStore('genes', {
         this.geneAssignments[id] = assignments
         return assignments
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -230,7 +230,7 @@ export const useGenesStore = defineStore('genes', {
         this.geneCurationProgress[id] = progress
         return progress
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -243,7 +243,7 @@ export const useGenesStore = defineStore('genes', {
         this.searchResults = response
         return response
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -271,7 +271,7 @@ export const useGenesStore = defineStore('genes', {
         const stats = await genesAPI.getStatistics()
         return stats
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },

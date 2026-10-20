@@ -294,6 +294,8 @@
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useCurationsStore } from '@/stores/curations'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -326,6 +328,7 @@
 
   const router = useRouter()
   const authStore = useAuthStore()
+  const scopeStore = useScopesStore()
   const curationsStore = useCurationsStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
@@ -362,19 +365,15 @@
   ]
 
   // Permissions
-  const currentUser = () => authStore.user
-
-  const canCreateCuration = computed(() => {
-    const userRole = currentUser()?.role
-    return ['admin', 'scope_admin', 'curator'].includes(userRole ?? '')
-  })
+  const { canCurate, canManageScope } = useScopePermissions(
+    computed(() => scopeStore.currentUserRole)
+  )
+  const canCreateCuration = canCurate
 
   function canDeleteCuration(curation: CurationRow) {
-    const userRole = currentUser()?.role
-    const userId = currentUser()?.id
     return (
-      ['admin', 'scope_admin'].includes(userRole ?? '') ||
-      (curation.curator_id === userId && curation.status === 'draft')
+      canManageScope.value ||
+      (curation.curator_id === authStore.user?.id && curation.status === 'draft')
     )
   }
 

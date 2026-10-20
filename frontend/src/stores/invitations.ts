@@ -11,7 +11,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invitationsApi } from '@/api/invitations'
 import { logService } from '@/services/logService'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type Invitation = Schema<'PendingInvitationResponse'>
@@ -100,7 +100,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
       return invitations.value
     } catch (err) {
-      error.value = toApiError(err).response?.data?.detail || 'Failed to fetch invitations'
+      error.value = errorMessage(err, 'Failed to fetch invitations')
       logService.error('Failed to fetch invitations', {
         error: toApiError(err).message,
         stack: toApiError(err).stack
@@ -135,7 +135,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
       return membership
     } catch (err) {
-      error.value = toApiError(err).response?.data?.detail || 'Failed to accept invitation'
+      error.value = errorMessage(err, 'Failed to accept invitation')
       logService.error('Failed to accept invitation', {
         invitationId,
         scopeId,
@@ -165,7 +165,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
 
       logService.info('Declined scope invitation', { invitationId })
     } catch (err) {
-      error.value = toApiError(err).response?.data?.detail || 'Failed to decline invitation'
+      error.value = errorMessage(err, 'Failed to decline invitation')
       logService.error('Failed to decline invitation', {
         invitationId,
         error: toApiError(err).message

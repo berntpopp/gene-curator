@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { workflowAPI } from '@/api'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import type { Schema } from '@/types/api'
 
 /**
@@ -153,7 +153,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.analytics = analytics
         return analytics
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -174,7 +174,7 @@ export const useWorkflowStore = defineStore('workflow', {
 
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -188,7 +188,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.curationTransitions[curationId] = transitions
         return transitions
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -200,7 +200,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.peerReviewers = reviewers
         return reviewers
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -211,7 +211,7 @@ export const useWorkflowStore = defineStore('workflow', {
       try {
         return await workflowAPI.submitPeerReview(reviewId, reviewData)
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -225,7 +225,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.itemStates[entityId] = state
         return state
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -237,7 +237,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.curationHistory[entityId] = trail.entries
         return trail.entries
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -274,7 +274,7 @@ export const useWorkflowStore = defineStore('workflow', {
         await this.fetchCurrentStage(payload.entity_id, payload.entity_type)
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -288,7 +288,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.curationHistory[curationId] = trail.entries
         return trail.entries
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -300,7 +300,7 @@ export const useWorkflowStore = defineStore('workflow', {
         this.statistics = statistics
         return statistics
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },

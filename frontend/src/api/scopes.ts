@@ -6,7 +6,7 @@ export const scopesAPI = {
    * Get all scopes
    */
   async getScopes(params: Record<string, unknown> = {}): Promise<Schema<'ScopeListItem'>[]> {
-    const response = await apiClient.get<Schema<'ScopeListItem'>[]>('/scopes', { params })
+    const response = await apiClient.get<Schema<'ScopeListItem'>[]>('/scopes/', { params })
     return response.data
   },
 
@@ -22,7 +22,7 @@ export const scopesAPI = {
    * Create new scope
    */
   async createScope(scopeData: Schema<'ScopeCreate'>): Promise<Schema<'Scope'>> {
-    const response = await apiClient.post<Schema<'Scope'>>('/scopes', scopeData)
+    const response = await apiClient.post<Schema<'Scope'>>('/scopes/', scopeData)
     return response.data
   },
 

@@ -10,6 +10,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { scopesAPI } from '@/api/scopes'
 import { schemasAPI } from '@/api/schemas'
+import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
 import ScopeSettings from '../ScopeSettings.vue'
 import { stubVisualViewport } from './overlayStubs'
@@ -89,7 +90,7 @@ describe('ScopeSettings', () => {
     opts: {
       scope?: Partial<typeof baseScope>
       statistics?: { total_genes_assigned?: number } | null
-      role?: 'admin' | 'curator' | null
+      role?: 'admin' | 'curator' | 'user' | null
       userId?: string
     } = {}
   ) {
@@ -145,6 +146,20 @@ describe('ScopeSettings', () => {
     expect(vm.canEditSettings).toBe(false)
     expect(wrapper.text()).toContain('Only scope administrators can modify these settings.')
     expect(wrapper.findAll('button').some(b => b.text().includes('Save Settings'))).toBe(false)
+  })
+
+  it('lets a scope admin edit settings even though the application role is user', async () => {
+    useScopesStore().currentUserRole = 'admin'
+    const { vm } = await mountSettings({ role: 'user' })
+
+    expect(vm.canEditSettings).toBe(true)
+  })
+
+  it('keeps settings read-only for a scope curator with application role user', async () => {
+    useScopesStore().currentUserRole = 'curator'
+    const { vm } = await mountSettings({ role: 'user' })
+
+    expect(vm.canEditSettings).toBe(false)
   })
 
   it('saves edited fields and the chosen workflow pair', async () => {

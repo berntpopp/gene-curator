@@ -254,6 +254,8 @@
   import { scopesAPI } from '@/api/scopes'
   import { schemasAPI } from '@/api/schemas'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useScopePermissions } from '@/composables/useScopePermissions'
   import { logService } from '@/services/logService'
 
   /** Scope fields this panel reads and edits */
@@ -301,6 +303,8 @@
 
   const authStore = useAuthStore()
   const currentUser = computed(() => authStore.user)
+  const scopeStore = useScopesStore()
+  const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
 
   // State
   const loadingWorkflowPairs = ref(false)
@@ -324,10 +328,7 @@
   const snackbarColor = ref('success')
 
   // Computed
-  const canEditSettings = computed(() => {
-    // Admin users or scope admins can edit
-    return authStore.isAdmin || currentUser.value?.role === 'admin'
-  })
+  const canEditSettings = computed(() => authStore.isAdmin || canManageScope.value)
 
   const canDeleteScope = computed(() => {
     // Application admins or scope owners can delete scopes

@@ -51,7 +51,7 @@ export const identityRows: Row[] = [
     name: 'scopes.getScopes forwards params',
     run: () => scopesAPI.getScopes({ limit: 5 }),
     method: 'get',
-    args: ['/scopes', { params: { limit: 5 } }]
+    args: ['/scopes/', { params: { limit: 5 } }]
   },
   {
     name: 'scopes.getScopeById',
@@ -63,7 +63,7 @@ export const identityRows: Row[] = [
     name: 'scopes.createScope',
     run: () => scopesAPI.createScope({ name: 'n' } as never),
     method: 'post',
-    args: ['/scopes', { name: 'n' }]
+    args: ['/scopes/', { name: 'n' }]
   },
   {
     name: 'scopes.updateScope',
@@ -265,7 +265,7 @@ export const identityRows: Row[] = [
     name: 'genes.createGene',
     run: () => genesAPI.createGene({ symbol: 'X' } as never),
     method: 'post',
-    args: ['/genes', { symbol: 'X' }]
+    args: ['/genes/', { symbol: 'X' }]
   },
   {
     name: 'genes.updateGene',
@@ -315,25 +315,13 @@ export const identityRows: Row[] = [
     method: 'post',
     args: ['/genes/g/validate']
   },
-  {
-    name: 'genes.getGeneByHGNC',
-    run: () => genesAPI.getGeneByHGNC('HGNC:1100'),
-    method: 'get',
-    args: ['/genes/hgnc/HGNC:1100']
-  },
-  {
-    name: 'genes.getGeneBySymbol',
-    run: () => genesAPI.getGeneBySymbol('BRCA1'),
-    method: 'get',
-    args: ['/genes/symbol/BRCA1']
-  },
 
   // assignments
   {
     name: 'assignments.getAssignments',
     run: () => assignmentsAPI.getAssignments({ scope: 's' }),
     method: 'get',
-    args: ['/gene-assignments', { params: { scope: 's' } }]
+    args: ['/gene-assignments/', { params: { scope: 's' } }]
   },
   {
     name: 'assignments.getAssignment',
@@ -345,7 +333,7 @@ export const identityRows: Row[] = [
     name: 'assignments.createAssignment',
     run: () => assignmentsAPI.createAssignment({ gene_id: 'g' } as never),
     method: 'post',
-    args: ['/gene-assignments', { gene_id: 'g' }]
+    args: ['/gene-assignments/', { gene_id: 'g' }]
   },
   {
     name: 'assignments.bulkAssignGenes',
@@ -364,12 +352,6 @@ export const identityRows: Row[] = [
     run: () => assignmentsAPI.getCuratorAssignments('c', { status: 'open' }),
     method: 'get',
     args: ['/gene-assignments/curator/c/assignments', { params: { status: 'open' } }]
-  },
-  {
-    name: 'assignments.updateAssignmentPriority maps to priority_level',
-    run: () => assignmentsAPI.updateAssignmentPriority('a', 'high'),
-    method: 'put',
-    args: ['/gene-assignments/a', { priority_level: 'high' }]
   },
   {
     name: 'assignments.updateAssignment',

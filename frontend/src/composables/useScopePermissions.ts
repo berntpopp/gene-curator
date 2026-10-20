@@ -4,7 +4,7 @@
  * Scope-level permission checking utilities.
  *
  * **Scope vs Application Permissions**:
- * - Application permissions (usePermissions): Based on global user role (admin, curator, reviewer, viewer)
+ * - Application role (authStore.isAdmin): only 'admin' or 'user'; platform access, not curation rights
  * - Scope permissions (this composable): Based on role within a specific scope
  *
  * **Scope Roles**:

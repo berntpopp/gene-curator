@@ -5,7 +5,7 @@
       <div>
         <h1 class="text-h4 font-weight-bold">Dashboard</h1>
         <p class="text-body-1 text-medium-emphasis mt-1">
-          Welcome back, {{ currentUser?.full_name || 'User' }}
+          Welcome back, {{ authStore.user?.name || 'User' }}
         </p>
       </div>
       <v-spacer />
@@ -15,100 +15,34 @@
       </v-btn>
     </div>
 
-    <!-- Quick Stats Cards -->
-    <v-row class="mb-6">
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="primary" class="mb-2">mdi-account-group</v-icon>
-            <div class="text-h4 font-weight-bold text-primary">
-              {{ stats?.active_assignments || 0 }}
-            </div>
-            <div class="text-body-2 text-medium-emphasis">Active Assignments</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="success" class="mb-2">mdi-check-circle</v-icon>
-            <div class="text-h4 font-weight-bold text-success">
-              {{ stats?.completed_curations || 0 }}
-            </div>
-            <div class="text-body-2 text-medium-emphasis">Completed This Month</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="warning" class="mb-2">mdi-clock-outline</v-icon>
-            <div class="text-h4 font-weight-bold text-warning">
-              {{ stats?.pending_reviews || 0 }}
-            </div>
-            <div class="text-body-2 text-medium-emphasis">Pending Review</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" sm="6" md="3">
-        <v-card>
-          <v-card-text class="text-center">
-            <v-icon size="48" color="info" class="mb-2">mdi-domain</v-icon>
-            <div class="text-h4 font-weight-bold text-info">{{ stats?.active_scopes || 0 }}</div>
-            <div class="text-body-2 text-medium-emphasis">Active Scopes</div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Recent Activity & My Assignments -->
     <v-row>
       <v-col cols="12" lg="8">
         <v-card>
           <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-history</v-icon>
-            Recent Activity
+            <v-icon start>mdi-domain</v-icon>
+            My Clinical Scopes
             <v-spacer />
-            <v-btn variant="text" size="small" to="/assignments"> View All </v-btn>
+            <v-btn variant="text" size="small" to="/scopes"> View All </v-btn>
           </v-card-title>
-
           <v-card-text>
             <div v-if="loading" class="text-center py-8">
               <v-progress-circular indeterminate color="primary" />
             </div>
-
-            <v-list v-else-if="recentActivity.length" density="compact">
-              <v-list-item
-                v-for="(activity, index) in recentActivity"
-                :key="index"
-                :to="getActivityLink(activity)"
+            <div v-else-if="userScopes.length">
+              <v-chip
+                v-for="scope in userScopes"
+                :key="scope.id"
+                :color="scope.is_active ? 'success' : 'grey'"
+                :to="`/scopes/${scope.id}`"
+                class="ma-1"
+                variant="outlined"
               >
-                <template #prepend>
-                  <v-avatar :color="getActivityColor(activity.type)" size="32">
-                    <v-icon size="18" color="white">{{ getActivityIcon(activity.type) }}</v-icon>
-                  </v-avatar>
-                </template>
-
-                <v-list-item-title>{{ activity.title }}</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ activity.description }} • {{ formatDate(activity.created_at) }}
-                </v-list-item-subtitle>
-
-                <template #append>
-                  <v-chip :color="getStatusColor(activity.status)" size="small" variant="outlined">
-                    {{ formatStatus(activity.status) }}
-                  </v-chip>
-                </template>
-              </v-list-item>
-            </v-list>
-
+                {{ scope.display_name || scope.name }}
+              </v-chip>
+            </div>
             <div v-else class="text-center py-8 text-medium-emphasis">
-              <v-icon size="64" class="mb-4">mdi-history</v-icon>
-              <div class="text-body-1">No recent activity</div>
-              <div class="text-body-2">Start a new curation to see activity here</div>
+              <v-icon size="64" class="mb-4">mdi-domain</v-icon>
+              <div class="text-body-1">No scopes assigned</div>
             </div>
           </v-card-text>
         </v-card>
@@ -148,42 +82,6 @@
             </div>
           </v-card-text>
         </v-card>
-
-        <!-- My Scopes -->
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-domain</v-icon>
-            My Clinical Scopes
-          </v-card-title>
-          <v-card-text>
-            <div v-if="userScopes.length">
-              <v-chip
-                v-for="scope in userScopes"
-                :key="scope.id"
-                :color="scope.is_active ? 'success' : 'grey'"
-                class="ma-1"
-                size="small"
-                variant="outlined"
-              >
-                {{ scope.display_name }}
-              </v-chip>
-            </div>
-            <div v-else class="text-center py-4 text-medium-emphasis">
-              <v-icon size="48" class="mb-2">mdi-domain</v-icon>
-              <div class="text-body-2">No scopes assigned</div>
-              <v-btn
-                v-if="isAdmin"
-                color="primary"
-                variant="text"
-                size="small"
-                to="/admin/users"
-                class="mt-2"
-              >
-                Manage Scopes
-              </v-btn>
-            </div>
-          </v-card-text>
-        </v-card>
       </v-col>
     </v-row>
   </v-container>
@@ -195,154 +93,24 @@
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore, useScopesStore } from '@/stores'
 
-  interface DashboardStats {
-    active_assignments: number
-    completed_curations: number
-    pending_reviews: number
-    active_scopes: number
-  }
-
-  interface ActivityItem {
-    type: string
-    title: string
-    description: string
-    status: string
-    created_at: string
-    assignment_id?: string | number
-  }
-
-  interface DashboardScope {
-    id: string | number
-    display_name: string
-    is_active: boolean
-  }
-
-  // useLogger() is typed as Object (JSDoc @returns {Object} in useLogger.js); narrow locally
   const logger = useLogger()
   const authStore = useAuthStore()
   const scopesStore = useScopesStore()
 
   const loading = ref(false)
-  const stats = ref<DashboardStats>({
-    active_assignments: 0,
-    completed_curations: 0,
-    pending_reviews: 0,
-    active_scopes: 0
-  })
-  const recentActivity = ref<ActivityItem[]>([])
-  const userScopes = ref<DashboardScope[]>([])
+  const userScopes = computed(() => scopesStore.userScopes)
+  const isAdmin = computed(() => authStore.isAdmin)
 
-  const currentUser = computed(() => authStore.user as { full_name?: string } | null)
-  const isAdmin = computed(() => authStore.hasRole('admin'))
-
-  const getActivityColor = (type: string): string => {
-    const colorMap: Record<string, string> = {
-      assignment_created: 'primary',
-      curation_submitted: 'success',
-      review_requested: 'warning',
-      workflow_advanced: 'info',
-      assignment_completed: 'success'
-    }
-    return colorMap[type] || 'grey'
-  }
-
-  const getActivityIcon = (type: string): string => {
-    const iconMap: Record<string, string> = {
-      assignment_created: 'mdi-plus',
-      curation_submitted: 'mdi-check',
-      review_requested: 'mdi-eye',
-      workflow_advanced: 'mdi-arrow-right',
-      assignment_completed: 'mdi-star'
-    }
-    return iconMap[type] || 'mdi-circle'
-  }
-
-  const getStatusColor = (status: string): string => {
-    const colorMap: Record<string, string> = {
-      draft: 'grey',
-      in_progress: 'primary',
-      pending_review: 'warning',
-      under_review: 'info',
-      completed: 'success',
-      rejected: 'error'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const formatStatus = (status: string): string => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffHours < 1) return 'Just now'
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return date.toLocaleDateString()
-  }
-
-  const getActivityLink = (activity: ActivityItem): string => {
-    switch (activity.type) {
-      case 'assignment_created':
-      case 'curation_submitted':
-      case 'assignment_completed':
-        return `/assignments/${activity.assignment_id}`
-      default:
-        return '/assignments'
-    }
-  }
-
-  const loadDashboardData = async () => {
+  onMounted(async () => {
     loading.value = true
     try {
-      // Load dashboard stats from auth store
-      const dashboardStats: Partial<DashboardStats> | null = await authStore.fetchDashboardStats()
-      if (dashboardStats) {
-        stats.value = { ...stats.value, ...dashboardStats }
-      }
-
-      // Load user scopes
-      const scopes: DashboardScope[] | null = await authStore.getUserScopes()
-      userScopes.value = scopes || []
-
-      // Load scopes to get active scopes count
-      try {
-        await scopesStore.fetchUserScopes()
-        stats.value.active_scopes = scopesStore.activeScopesCount
-      } catch (scopeError) {
-        const err = scopeError as Error
-        logger.warn('Failed to load scopes:', {
-          error: err.message,
-          stack: err.stack
-        })
-        stats.value.active_scopes = 0
-      }
-
-      // Clear recent activity for now (can be implemented later)
-      recentActivity.value = []
+      await scopesStore.fetchUserScopes()
     } catch (error) {
       const err = error as Error
       logger.error('Failed to load dashboard data:', { error: err.message, stack: err.stack })
-      // Set default values on error
-      stats.value = {
-        active_assignments: 0,
-        completed_curations: 0,
-        pending_reviews: 0,
-        active_scopes: 0
-      }
-      userScopes.value = []
     } finally {
       loading.value = false
     }
-  }
-
-  onMounted(() => {
-    loadDashboardData()
   })
 </script>
 

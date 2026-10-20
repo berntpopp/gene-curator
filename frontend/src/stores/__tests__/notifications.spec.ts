@@ -96,7 +96,7 @@ describe('useNotificationsStore', () => {
 
       await store.fetchNotifications()
 
-      expect(store.error).toBe('Failed to fetch notifications')
+      expect(store.error).toBe('offline')
     })
   })
 
@@ -126,7 +126,7 @@ describe('useNotificationsStore', () => {
       api.markAsRead.mockRejectedValue(new Error('nope'))
 
       await expect(store.markAsRead('n1')).rejects.toThrow('nope')
-      expect(store.error).toBe('Failed to mark notification as read')
+      expect(store.error).toBe('nope')
     })
 
     it('prefers the API detail when present', async () => {
@@ -157,7 +157,7 @@ describe('useNotificationsStore', () => {
       api.markAllAsRead.mockRejectedValue(new Error('down'))
 
       await expect(store.markAllAsRead()).rejects.toThrow('down')
-      expect(store.error).toBe('Failed to mark all notifications as read')
+      expect(store.error).toBe('down')
     })
 
     it('prefers the API detail when present', async () => {

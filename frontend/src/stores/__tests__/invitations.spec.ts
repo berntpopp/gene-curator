@@ -120,7 +120,7 @@ describe('useInvitationsStore', () => {
       api.getPendingInvitations.mockRejectedValue(new Error('net'))
 
       await expect(store.fetchPendingInvitations()).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to fetch invitations')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -158,7 +158,7 @@ describe('useInvitationsStore', () => {
       api.acceptInvitation.mockRejectedValue(new Error('net'))
 
       await expect(store.acceptInvitation('a', 's1')).rejects.toThrow('net')
-      expect(store.error).toBe('Failed to accept invitation')
+      expect(store.error).toBe('net')
     })
   })
 
@@ -179,7 +179,7 @@ describe('useInvitationsStore', () => {
       api.declineInvitation.mockRejectedValue(new Error('gone'))
 
       await expect(store.declineInvitation('a')).rejects.toThrow('gone')
-      expect(store.error).toBe('Failed to decline invitation')
+      expect(store.error).toBe('gone')
     })
 
     it('prefers the API detail when present', async () => {

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import { validationAPI } from '@/api'
 import type { Schema } from '@/types/api'
 
@@ -65,7 +65,7 @@ export const useValidationStore = defineStore('validation', {
         this.validationResults[key] = result
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -82,7 +82,7 @@ export const useValidationStore = defineStore('validation', {
 
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -98,7 +98,7 @@ export const useValidationStore = defineStore('validation', {
         this.jsonSchemas[schemaId] = jsonSchema
         return jsonSchema
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
         this.loading = false
@@ -115,7 +115,7 @@ export const useValidationStore = defineStore('validation', {
         this.supportedFieldTypes = fieldTypes
         return fieldTypes
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -130,7 +130,7 @@ export const useValidationStore = defineStore('validation', {
         this.businessRules = rules
         return rules
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },
@@ -141,7 +141,7 @@ export const useValidationStore = defineStore('validation', {
 
         return result
       } catch (error) {
-        this.error = toApiError(error).message ?? null
+        this.error = errorMessage(error, 'Request failed')
         throw error
       }
     },

@@ -16,7 +16,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
-import { toApiError } from './apiError'
+import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 const POLL_INTERVAL_MS = 60000
@@ -90,7 +90,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         unread: totalUnread.value
       })
     } catch (err) {
-      error.value = toApiError(err).response?.data?.detail || 'Failed to fetch notifications'
+      error.value = errorMessage(err, 'Failed to fetch notifications')
       logService.error('Failed to fetch notifications', {
         error: toApiError(err).message
       })
@@ -115,7 +115,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         logService.debug('Marked notification as read', { notificationId })
       }
     } catch (err) {
-      error.value = toApiError(err).response?.data?.detail || 'Failed to mark notification as read'
+      error.value = errorMessage(err, 'Failed to mark notification as read')
       logService.error('Failed to mark notification as read', {
         notificationId,
         error: toApiError(err).message
@@ -141,8 +141,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
         count: notifications.value.length
       })
     } catch (err) {
-      error.value =
-        toApiError(err).response?.data?.detail || 'Failed to mark all notifications as read'
+      error.value = errorMessage(err, 'Failed to mark all notifications as read')
       logService.error('Failed to mark all notifications as read', {
         error: toApiError(err).message
       })

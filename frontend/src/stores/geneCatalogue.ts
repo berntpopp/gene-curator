@@ -11,7 +11,7 @@
  */
 import { defineStore } from 'pinia'
 import { geneCatalogueAPI } from '@/api/geneCatalogue'
-import { toApiError } from './apiError'
+import { errorMessage } from './apiError'
 import type { Schema } from '@/types/api'
 
 interface CatalogueFilters {
@@ -192,7 +192,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
         return response
       } catch (error) {
-        this.error = { message: toApiError(error).message || 'Failed to fetch catalogue' }
+        this.error = { message: errorMessage(error, 'Failed to fetch catalogue') }
         throw error
       } finally {
         this.loading = false
@@ -223,7 +223,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
         return this.filterOptions
       } catch (error) {
-        this.error = { message: toApiError(error).message || 'Failed to load filter options' }
+        this.error = { message: errorMessage(error, 'Failed to load filter options') }
         throw error
       }
     },

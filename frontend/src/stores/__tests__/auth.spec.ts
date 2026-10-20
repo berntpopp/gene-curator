@@ -39,38 +39,33 @@ describe('useAuthStore', () => {
   })
 
   describe('getters and role checks', () => {
-    it('derives role getters from the user role', () => {
+    it('derives admin from the application role only', () => {
       const store = useAuthStore()
       expect(store.userRole).toBe('guest')
       expect(store.isAdmin).toBe(false)
 
       store.user = makeUser('admin')
       expect(store.isAdmin).toBe(true)
-      expect(store.isCurator).toBe(true)
-      expect(store.isViewer).toBe(true)
       expect(store.userRole).toBe('admin')
     })
 
-    it('restricts curators and viewers', () => {
+    it('checks the two application roles in hasRole / hasAnyRole', () => {
       const store = useAuthStore()
-      store.user = makeUser('viewer')
-      expect(store.isCurator).toBe(false)
-      expect(store.isViewer).toBe(true)
-    })
+      expect(store.hasRole('user')).toBe(false)
 
-    it('checks role hierarchy in hasRole / hasAnyRole', () => {
-      const store = useAuthStore()
-      expect(store.hasRole('viewer')).toBe(false)
-
-      store.user = makeUser('curator')
-      expect(store.hasRole('viewer')).toBe(true)
-      expect(store.hasRole('curator')).toBe(true)
+      store.user = makeUser('user')
+      expect(store.hasRole('user')).toBe(true)
       expect(store.hasRole('admin')).toBe(false)
-      expect(store.hasAnyRole(['admin', 'curator'])).toBe(true)
+      expect(store.hasAnyRole(['admin', 'user'])).toBe(true)
       expect(store.hasAnyRole(['admin'])).toBe(false)
 
-      store.user = makeUser('unknown-role')
-      expect(store.hasRole('viewer')).toBe(false)
+      store.user = makeUser('admin')
+      expect(store.hasRole('user')).toBe(true)
+      expect(store.hasRole('admin')).toBe(true)
+
+      // scope roles are not application roles
+      store.user = makeUser('curator')
+      expect(store.hasRole('curator')).toBe(false)
     })
   })
 
@@ -84,13 +79,13 @@ describe('useAuthStore', () => {
 
     it('loads the current user when a token is stored', async () => {
       localStorage.setItem('access_token', 'tok')
-      api.me.mockResolvedValue(makeUser('curator'))
+      api.me.mockResolvedValue(makeUser('user'))
       setActivePinia(createPinia())
       const store = useAuthStore()
 
       await store.initialize()
 
-      expect(store.user?.role).toBe('curator')
+      expect(store.user?.role).toBe('user')
       expect(store.isAuthenticated).toBe(true)
       expect(store.token).toBe('tok')
       expect(store.loading).toBe(false)
@@ -198,7 +193,7 @@ describe('useAuthStore', () => {
       const store = useAuthStore()
 
       await expect(store.register({} as Schema<'UserCreate'>)).rejects.toThrow('boom')
-      expect(store.error).toBe('Registration failed')
+      expect(store.error).toBe('boom')
     })
   })
 
@@ -241,38 +236,6 @@ describe('useAuthStore', () => {
     })
   })
 
-  describe('refreshAccessToken', () => {
-    it('stores and returns the new access token', async () => {
-      api.refresh.mockResolvedValue(makeToken('new', 'r2'))
-      const store = useAuthStore()
-      store.refreshToken = 'r'
-
-      await expect(store.refreshAccessToken()).resolves.toBe('new')
-
-      expect(api.refresh).toHaveBeenCalledWith('r')
-      expect(store.token).toBe('new')
-      expect(localStorage.getItem('access_token')).toBe('new')
-    })
-
-    it('clears auth and throws when no refresh token is available', async () => {
-      const store = useAuthStore()
-      store.refreshToken = null
-      store.user = makeUser('user')
-
-      await expect(store.refreshAccessToken()).rejects.toThrow('No refresh token available')
-      expect(store.user).toBeNull()
-    })
-
-    it('clears auth and rethrows when the refresh request fails', async () => {
-      api.refresh.mockRejectedValue(new Error('expired'))
-      const store = useAuthStore()
-      store.refreshToken = 'r'
-
-      await expect(store.refreshAccessToken()).rejects.toThrow('expired')
-      expect(store.refreshToken).toBeNull()
-    })
-  })
-
   describe('misc actions', () => {
     it('clearAuth resets state and storage', () => {
       localStorage.setItem('access_token', 'a')
@@ -293,22 +256,6 @@ describe('useAuthStore', () => {
       store.error = 'boom'
       store.clearError()
       expect(store.error).toBeNull()
-    })
-
-    it('getUserScopes returns an empty list', async () => {
-      const store = useAuthStore()
-      store.user = makeUser('user')
-      await expect(store.getUserScopes()).resolves.toEqual([])
-    })
-
-    it('fetchDashboardStats returns zeroed placeholder stats', async () => {
-      const store = useAuthStore()
-      await expect(store.fetchDashboardStats()).resolves.toEqual({
-        active_assignments: 0,
-        completed_curations: 0,
-        pending_reviews: 0,
-        active_scopes: 0
-      })
     })
   })
 })
