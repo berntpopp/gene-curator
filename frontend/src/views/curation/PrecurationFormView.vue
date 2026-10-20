@@ -66,7 +66,7 @@
                     <span class="mx-2">Precuration</span>
                     <v-chip size="small" color="white" variant="flat" class="text-primary">
                       <v-icon start size="small">mdi-clipboard-text</v-icon>
-                      {{ precurationId ? 'Edit' : 'New' }}
+                      New
                     </v-chip>
                   </div>
                 </div>
@@ -107,7 +107,6 @@
           <SchemaDrivenPrecurationForm
             v-if="precurationSchemaId"
             :schema-id="precurationSchemaId"
-            :precuration-id="precurationId"
             :scope-id="scopeId"
             :gene-id="geneId"
             :gene="gene"
@@ -132,11 +131,10 @@
   /**
    * PrecurationFormView
    *
-   * Scope-aware view for creating and editing precurations.
+   * Scope-aware view for creating precurations.
    * Precurations are preliminary assessments before full curation.
    *
    * Route: /scopes/:scopeId/genes/:geneId/precuration/new
-   *        /scopes/:scopeId/precurations/:precurationId/edit
    *
    * Responsibilities:
    * - Extract route params
@@ -188,7 +186,6 @@
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
   const geneId = computed(() => route.params.geneId as string | undefined)
-  const precurationId = computed(() => (route.params.precurationId as string) || undefined)
 
   // State
   const scope = ref<ScopeRecord | null>(null)
@@ -277,7 +274,6 @@
    */
   function handleSaved() {
     logger.debug('Precuration draft saved', {
-      precuration_id: precurationId.value,
       scope_id: scopeId.value
     })
   }
@@ -294,7 +290,7 @@
       // Then load gene info (if creating new precuration)
       if (geneId.value) {
         await loadGene()
-      } else if (!precurationId.value) {
+      } else {
         loadError.value = 'No gene specified. Please select a gene from the scope dashboard.'
       }
     } catch (err) {

@@ -295,12 +295,9 @@
         if (updated) emit('saved')
       } else {
         // Create new precuration as draft
-        const created = await precurationsStore.createPrecuration(createPayload())
-        // Navigate to edit the created precuration
-        router.replace({
-          name: 'precuration-edit',
-          params: { scopeId: props.scopeId, precurationId: created.id }
-        })
+        await precurationsStore.createPrecuration(createPayload())
+        // No precuration edit route exists; the draft is listed on the scope dashboard
+        router.replace({ name: 'scope-dashboard', params: { scopeId: props.scopeId } })
       }
 
       notificationsStore.addToast('Draft saved', 'success')

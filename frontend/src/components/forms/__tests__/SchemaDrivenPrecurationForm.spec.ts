@@ -105,8 +105,8 @@ describe('SchemaDrivenPrecurationForm', () => {
       evidence_data: {}
     })
     expect(replace).toHaveBeenCalledWith({
-      name: 'precuration-edit',
-      params: { scopeId: 'scope-1', precurationId: 'new-p' }
+      name: 'scope-dashboard',
+      params: { scopeId: 'scope-1' }
     })
     expect(addToast).toHaveBeenCalledWith('Draft saved', 'success')
   })

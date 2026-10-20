@@ -226,20 +226,6 @@
         </v-row>
       </v-card-text>
     </v-card>
-
-    <!-- Link to Precuration -->
-    <v-card v-if="precurationId" variant="text" class="mt-4">
-      <v-card-text class="text-center">
-        <v-btn
-          variant="outlined"
-          color="primary"
-          :to="{ name: 'precuration-detail', params: { precurationId } }"
-        >
-          <v-icon start>mdi-file-document</v-icon>
-          View Source Precuration
-        </v-btn>
-      </v-card-text>
-    </v-card>
   </div>
 </template>
 
@@ -388,10 +374,6 @@
       props.precurationData?.lumping_splitting?.notes ||
       props.precurationData?.notes ||
       null
-  )
-
-  const precurationId = computed(
-    () => props.precurationData?.id || props.precurationData?.precuration_id || null
   )
 
   // Helper functions
