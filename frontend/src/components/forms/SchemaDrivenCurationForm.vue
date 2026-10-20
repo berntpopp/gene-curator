@@ -2,7 +2,7 @@
   <ErrorBoundary @error="handleFormError">
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
-      v-if="!useDynamicForm && !loadingSchema"
+      v-if="useDynamicForm === false && !loadingSchema"
       :curation-id="curationId ?? undefined"
       :gene="gene as Record<string, unknown>"
       :precuration-data="precurationData"
@@ -19,7 +19,7 @@
     />
 
     <!-- Generic schema-driven form for non-ClinGen schemas -->
-    <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <v-form v-else-if="useDynamicForm" @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
         <!-- Header: Kept inline per KISS principle -->
         <v-card-title class="d-flex align-center">
@@ -46,6 +46,7 @@
                 :initial-data="evidenceData"
                 :title="schema?.name || 'Curation Form'"
                 :readonly="readonly"
+                hide-actions
                 @update:model-value="handleEvidenceChange"
                 @validation-change="handleValidationChange"
                 @submit="handleSubmit"
@@ -86,6 +87,9 @@
         />
       </v-card>
     </v-form>
+
+    <!-- Schema not resolved yet: do not paint the generic layout first -->
+    <v-skeleton-loader v-else type="article" />
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
@@ -197,12 +201,13 @@
 
   // Determine form component based on feature flag
   const useDynamicForm = computed(() => {
+    if (!schema.value) return undefined
     // Feature flag takes precedence
     if (schema.value?.use_dynamic_form !== undefined) {
       return schema.value.use_dynamic_form
     }
     // Fallback: non-ClinGen schemas always use DynamicForm
-    const schemaName = schema.value?.name?.toLowerCase() || ''
+    const schemaName = schema.value.name?.toLowerCase() || ''
     return !schemaName.includes('clingen') && !schemaName.includes('sop')
   })
 

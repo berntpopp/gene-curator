@@ -11,7 +11,10 @@ const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
   lastSaved: null as null | { value: string | null }
 }))
-const schemaState = vi.hoisted(() => ({ useDynamicForm: true as boolean | undefined }))
+const schemaState = vi.hoisted(() => ({
+  useDynamicForm: true as boolean | undefined,
+  loaded: true
+}))
 const curationsStore = vi.hoisted(() => ({
   currentCuration: null as unknown,
   fetchCurationById: vi.fn(),
@@ -38,11 +41,10 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) => ({
-      id,
-      name: 'Panel schema',
-      use_dynamic_form: schemaState.useDynamicForm
-    }),
+    getSchemaById: (id: string) =>
+      schemaState.loaded
+        ? { id, name: 'Panel schema', use_dynamic_form: schemaState.useDynamicForm }
+        : undefined,
     getWorkflowPairById: schemasStore.getWorkflowPairById,
     fetchSchemaById: schemasStore.fetchSchemaById
   })
@@ -201,6 +203,18 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     await mountForm({ geneId: 'g-1' })
 
     expect(logger.warn).toHaveBeenCalledWith('Failed to load precuration data', { error: 'down' })
+  })
+
+  it('paints neither form until the schema has loaded', async () => {
+    schemaState.loaded = false
+    try {
+      const wrapper = await mountForm()
+      expect(wrapper.findComponent({ name: 'ClinGenCurationForm' }).exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
+      expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
+    } finally {
+      schemaState.loaded = true
+    }
   })
 
   it('renders the ClinGen form for schemas that opt out of the dynamic form', async () => {
