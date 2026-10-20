@@ -305,7 +305,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiredRoles: ['admin'],
       showInDropdown: 'curationSetup',
-      icon: 'mdi-workflow',
+      icon: 'mdi-sitemap-outline',
       label: 'Workflows',
       order: 2
     }

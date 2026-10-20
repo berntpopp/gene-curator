@@ -185,7 +185,7 @@
       title: 'Modern Architecture',
       description:
         'Three-tier architecture with PostgreSQL, FastAPI, and Vue 3 for performance and scalability',
-      icon: 'mdi-architecture',
+      icon: 'mdi-layers-outline',
       color: 'purple'
     }
   ]

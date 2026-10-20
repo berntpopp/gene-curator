@@ -18,7 +18,7 @@
     <!-- Workflow Pairs Table -->
     <v-card class="mb-6">
       <v-card-title class="d-flex align-center">
-        <v-icon start>mdi-workflow</v-icon>
+        <v-icon start>mdi-sitemap-outline</v-icon>
         Workflow Pairs ({{ workflowPairs.length }})
       </v-card-title>
 
