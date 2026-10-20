@@ -16,8 +16,8 @@ from app.core.deps import get_current_active_user
 from app.crud.notification import notification_crud
 from app.models import UserNew
 from app.schemas.notification import (
-    NotificationMarkAllReadResponse,
     NotificationListResponse,
+    NotificationMarkAllReadResponse,
     NotificationResponse,
 )
 
