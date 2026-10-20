@@ -70,6 +70,7 @@
 
       <!-- Workflow Progress -->
       <div class="mb-6">
+        <!-- TODO(stage2): WorkflowStages entity-type only accepts 'precuration' | 'curation' -->
         <WorkflowStages
           :workflow-pair-id="assignment.workflow_pair_id"
           :entity-id="assignment.id"
@@ -260,9 +261,9 @@
 
   const logger = useLogger() as LoggerApi
   const route = useRoute()
-  // BUG (kept for no behaviour change): the assignments store has none of the methods
-  // this view calls (fetchAssignmentById, fetchAssignmentHistory, submitPrecuration, ...),
-  // so loadAssignmentData always fails into the error state. Fix in a separate change.
+  // TODO(stage2): missing store API fetchAssignmentById, fetchAssignmentHistory,
+  // submitPrecuration, savePrecurationDraft, submitCuration, saveCurationDraft -- the store has
+  // none of them, so loadAssignmentData always fails into the error state.
   const assignmentsStore = useAssignmentsStore() as unknown as LegacyAssignmentsStore
 
   const loading = ref(false)

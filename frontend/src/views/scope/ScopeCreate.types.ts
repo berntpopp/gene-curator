@@ -10,8 +10,6 @@ export interface ScopeFormData {
   description: string
   institution: string
   is_public: boolean
-  is_active: boolean
-  due_date: string | null
 }
 
 export interface UserRecord {

@@ -17,7 +17,6 @@
   - Create new clinical scope
   - Validate scope name format (lowercase-with-dashes)
   - Set public/private visibility
-  - Optional due date
   - Auto-navigate to new scope dashboard
 
   @see docs/refactoring/FRONTEND_IMPLEMENTATION.md#step-42-create-scope-view
@@ -113,31 +112,6 @@
               >
                 <template #prepend>
                   <v-icon :icon="getScopeVisibilityIcon(scopeData.is_public)"></v-icon>
-                </template>
-              </v-switch>
-
-              <!-- Due Date (optional) -->
-              <v-text-field
-                v-model="scopeData.due_date"
-                label="Due Date (optional)"
-                type="date"
-                prepend-icon="mdi-calendar"
-                hint="Optional deadline for this scope"
-                persistent-hint
-              ></v-text-field>
-
-              <!-- Active Status -->
-              <v-switch
-                v-model="scopeData.is_active"
-                label="Active Scope"
-                color="success"
-                hint="Active scopes are visible to curators"
-                persistent-hint
-              >
-                <template #prepend>
-                  <v-icon
-                    :icon="scopeData.is_active ? 'mdi-check-circle' : 'mdi-pause-circle'"
-                  ></v-icon>
                 </template>
               </v-switch>
             </v-form>
@@ -405,9 +379,7 @@
     display_name: '',
     description: '',
     institution: '',
-    is_public: false,
-    is_active: true,
-    due_date: null
+    is_public: false
   })
 
   // Snackbar

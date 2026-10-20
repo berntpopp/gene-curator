@@ -79,7 +79,6 @@
               density="compact"
               hide-details
               clearable
-              @update:model-value="applyFilters"
             />
           </v-col>
           <v-col cols="12" sm="6" md="3">
@@ -93,7 +92,6 @@
               density="compact"
               hide-details
               clearable
-              @update:model-value="applyFilters"
             />
           </v-col>
           <v-col cols="12" sm="6" md="3">
@@ -105,7 +103,6 @@
               density="compact"
               hide-details
               clearable
-              @update:model-value="applyFilters"
             />
           </v-col>
           <v-col cols="12" sm="6" md="3">
@@ -117,7 +114,6 @@
               density="compact"
               hide-details
               clearable
-              @update:model-value="applyFilters"
             />
           </v-col>
         </v-row>
@@ -212,25 +208,9 @@
       </v-data-table>
     </v-card>
 
-    <!-- Schema Compliance Chart -->
+    <!-- Common Issues -->
     <v-row>
-      <v-col cols="12" lg="8">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-chart-bar</v-icon>
-            Schema Compliance Overview
-          </v-card-title>
-          <v-card-text>
-            <div class="text-center py-8 text-medium-emphasis">
-              <v-icon size="64" class="mb-4">mdi-chart-bar</v-icon>
-              <div class="text-body-1">Compliance chart would be implemented here</div>
-              <div class="text-body-2">Showing validation trends over time</div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-
-      <v-col cols="12" lg="4">
+      <v-col cols="12">
         <v-card>
           <v-card-title class="d-flex align-center">
             <v-icon start>mdi-alert-octagon</v-icon>
@@ -331,6 +311,14 @@
   import { useValidationStore, useScopesStore, useSchemasStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
+  import {
+    getValidationStatusColor,
+    getValidationStatusIcon,
+    getSeverityColor,
+    formatValidationStatus,
+    formatDate,
+    getTimeAgo
+  } from './validationDashboardHelpers'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -413,33 +401,46 @@
     { title: 'Info', value: 'info' }
   ]
 
-  // Computed properties with defensive defaults
-  const stats = computed(
-    () =>
-      // @ts-expect-error validationStats is not defined on this store (pre-existing bug, see conversion report)
-      validationStore.validationStats || {
-        valid_curations: 0,
-        invalid_curations: 0,
-        warnings_count: 0,
-        schema_compliance_rate: 0
-      }
+  // The API has no statistics endpoint: summaries are derived from the stored validation results.
+  const validationResults = computed((): ValidationRow[] =>
+    Object.entries(validationStore.validationResults ?? {}).map(([id, r]) => ({
+      id,
+      validation_status: r.is_valid ? 'valid' : r.status,
+      issues: r.error_message
+        ? [{ id: `${id}-error`, message: r.error_message, severity: 'error' }]
+        : [],
+      ...(r as Partial<ValidationRow>)
+    }))
   )
 
-  const validationResults = computed((): ValidationRow[] => {
-    // validationStore.validationResults is an object, not array
-    // Convert to array for data table
-    const results = validationStore.validationResults
-    if (!results || typeof results !== 'object') return []
-
-    // If it's already an array, return it
-    if (Array.isArray(results)) return results
-
-    // If it's an object with values, convert to array
-    return Object.values(results).filter(v => v && typeof v === 'object')
+  const stats = computed(() => {
+    const rows = validationResults.value
+    const valid = rows.filter(r => r.validation_status === 'valid').length
+    return {
+      valid_curations: valid,
+      invalid_curations: rows.filter(r => r.validation_status === 'invalid').length,
+      warnings_count: rows.filter(r => r.issues.some(i => i.severity === 'warning')).length,
+      schema_compliance_rate: rows.length ? Math.round((valid / rows.length) * 100) : 0
+    }
   })
 
-  // @ts-expect-error commonIssues is not defined on this store (pre-existing bug, see conversion report)
-  const commonIssues = computed(() => validationStore.commonIssues || [])
+  const commonIssues = computed(() => {
+    const counts = new Map<string, { message: string; severity: string; count: number }>()
+    for (const issue of validationResults.value.flatMap(r => r.issues)) {
+      const key = `${issue.severity}:${issue.message}`
+      const entry = counts.get(key) ?? {
+        message: issue.message ?? '',
+        severity: issue.severity,
+        count: 0
+      }
+      entry.count++
+      counts.set(key, entry)
+    }
+    return [...counts.entries()]
+      .map(([type, e]) => ({ type, ...e }))
+      .sort((x, y) => y.count - x.count)
+      .slice(0, 5)
+  })
   const availableScopes = computed((): { id: string; name?: string }[] => scopesStore.scopes || [])
   const availableSchemas = computed(
     (): { id: string; name?: string }[] => schemasStore.schemas || []
@@ -489,68 +490,11 @@
     return false
   })
 
-  // Helper functions
-  const getValidationStatusColor = (status: string) => {
-    const colorMap: Record<string, string> = {
-      valid: 'success',
-      invalid: 'error',
-      warning: 'warning',
-      pending: 'info'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const getValidationStatusIcon = (status: string) => {
-    const iconMap: Record<string, string> = {
-      valid: 'mdi-check',
-      invalid: 'mdi-close',
-      warning: 'mdi-alert',
-      pending: 'mdi-clock'
-    }
-    return iconMap[status] || 'mdi-help'
-  }
-
-  const getSeverityColor = (severity: string) => {
-    const colorMap: Record<string, string> = {
-      error: 'error',
-      warning: 'warning',
-      info: 'info'
-    }
-    return colorMap[severity] || 'grey'
-  }
-
-  const formatValidationStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1)
-  }
-
-  const formatDate = (dateString: string | null | undefined) => {
-    return new Date(dateString as string).toLocaleDateString()
-  }
-
-  const getTimeAgo = (dateString: string | null | undefined) => {
-    const date = new Date(dateString as string)
-    const now = new Date()
-    const diffMs = now.getTime() - date.getTime()
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-    if (diffHours < 1) return 'Just now'
-    if (diffHours < 24) return `${diffHours}h ago`
-    if (diffDays < 7) return `${diffDays}d ago`
-    return 'Over a week ago'
-  }
-
   // Actions
-  const applyFilters = () => {
-    // Filters are applied reactively through computed property
-  }
-
   const refreshAll = async () => {
     refreshing.value = true
     try {
-      // Call existing methods that actually exist
-      // @ts-expect-error fetchScopes is not defined on this store (pre-existing bug, see conversion report)
-      await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
+      await Promise.all([scopesStore.fetchUserScopes(), schemasStore.fetchSchemas()])
 
       logger.info('Validation dashboard refreshed', {
         scopeCount: scopesStore.scopes?.length || 0,
@@ -575,6 +519,10 @@
   }
 
   const revalidateEntity = async (validation: ValidationRow) => {
+    if (!validation.evidence_data || !validation.schema_id) {
+      showError('Nothing to re-validate: evidence data or schema is missing')
+      return
+    }
     revalidating.value[validation.id] = true
     try {
       // Use existing validation API method
@@ -617,9 +565,7 @@
   onMounted(async () => {
     loading.value = true
     try {
-      // Only call methods that exist in stores
-      // @ts-expect-error fetchScopes is not defined on this store (pre-existing bug, see conversion report)
-      await Promise.all([scopesStore.fetchScopes(), schemasStore.fetchSchemas()])
+      await Promise.all([scopesStore.fetchUserScopes(), schemasStore.fetchSchemas()])
 
       logger.info('ValidationDashboard mounted', {
         scopeCount: scopesStore.scopes?.length || 0,

@@ -110,7 +110,7 @@
           :headers="headers"
           :items="genes"
           :loading="genesStore.loading"
-          :items-per-page="genesStore.pagination.per_page"
+          :items-per-page="PAGE_SIZE"
           class="gene-table"
           @click:row="handleRowClick"
         >
@@ -233,7 +233,7 @@
         <div class="d-flex justify-center pa-4">
           <v-pagination
             v-model="currentPage"
-            :length="genesStore.pagination.pages"
+            :length="pageCount"
             :disabled="genesStore.loading"
             @update:model-value="handlePageChange"
           />
@@ -274,6 +274,11 @@
   const selectedChromosome = ref<string | null>(null)
   const sortBy = ref('approved_symbol_asc')
   const currentPage = ref(1)
+  // The API paginates with skip/limit and reports `total`; the store's `pagination` is never filled
+  const PAGE_SIZE = 20
+  const total = ref(0)
+  const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
+  const pageParams = () => ({ skip: (currentPage.value - 1) * PAGE_SIZE, limit: PAGE_SIZE })
 
   // Table configuration
   const headers = [
@@ -370,16 +375,18 @@
   }
 
   const handleSortChange = async () => {
-    const [field, order] = sortBy.value.split('_')
-    // Update search params instead of calling non-existent method
-    genesStore.updateSearchParams({ sort_by: field, sort_order: order })
+    // Option values look like "approved_symbol_asc": the last segment is the order
+    const cut = sortBy.value.lastIndexOf('_')
+    genesStore.updateSearchParams({
+      sort_by: sortBy.value.slice(0, cut),
+      sort_order: sortBy.value.slice(cut + 1) as 'asc' | 'desc'
+    })
     await performSearch()
   }
 
   const handlePageChange = async (page: number) => {
     currentPage.value = page
-    // Update pagination and fetch new page
-    await genesStore.fetchGenes({ page })
+    await loadGenes()
   }
 
   const handleRowClick = (_event: Event, { item }: { item: { id: string } }) => {
@@ -406,7 +413,7 @@
           query: searchQuery.value,
           gene_family: selectedFamily.value,
           chromosome: selectedChromosome.value,
-          page: currentPage.value
+          ...pageParams()
         })
       } catch (error) {
         showError('Search failed. Please try again.')
@@ -418,9 +425,9 @@
 
   const loadGenes = async () => {
     try {
-      await genesStore.fetchGenes({
-        page: currentPage.value
-      })
+      // TODO(stage2): missing store API genesStore.fetchGenes skip/limit params (GeneSearchParams)
+      const response = await genesStore.fetchGenes(pageParams())
+      total.value = Number(response?.total ?? genesStore.genes.length)
     } catch (error) {
       showError('Failed to load genes. Please try again.')
     }
@@ -432,11 +439,6 @@
     if (score >= 2) return 'info'
     return 'error'
   }
-
-  // Watchers
-  watch(currentPage, (newPage: number) => {
-    genesStore.pagination.page = newPage
-  })
 
   // Lifecycle
   onMounted(async () => {

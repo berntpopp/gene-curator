@@ -258,14 +258,9 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import MemberManagement from '@/components/scope/MemberManagement.vue'
+  import type { Schema } from '@/types/api'
 
-  interface ScopeRecord {
-    id: string
-    name: string
-    display_name?: string | null
-    description?: string | null
-    is_public?: boolean
-  }
+  type ScopeRecord = Schema<'Scope'>
 
   interface ScopeStats {
     member_count?: number

@@ -16,6 +16,16 @@
           <v-card-text>
             <v-form ref="registerForm" v-model="formValid" @submit.prevent="handleRegister">
               <v-text-field
+                v-model="userData.name"
+                label="Full name"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :rules="nameRules"
+                required
+                class="mb-3"
+              />
+
+              <v-text-field
                 v-model="userData.email"
                 label="Email"
                 type="email"
@@ -113,10 +123,16 @@
   const showConfirmPassword = ref(false)
   const confirmPassword = ref('')
 
+  // The API requires a name; public sign-up always creates a plain "user" (the server enforces it)
   const userData = reactive({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'user',
+    is_active: true
   })
+
+  const nameRules = [(v: string) => !!v?.trim() || 'Name is required']
 
   // Validation rules
   const emailRules = [

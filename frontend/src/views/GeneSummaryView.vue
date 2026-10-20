@@ -92,8 +92,8 @@
                 <h3 class="text-h6 mb-3">Scope-Specific Curations</h3>
                 <v-row>
                   <v-col
-                    v-for="scope in summary.scope_summaries"
-                    :key="scope.scope_id"
+                    v-for="(scope, index) in scopeSummaries"
+                    :key="String(scope.scope_id ?? index)"
                     cols="12"
                     md="6"
                     lg="4"
@@ -147,6 +147,15 @@
   const summary = computed(() => {
     return geneSummaryStore.getPublicSummary(geneId)
   })
+
+  // The API types scope summaries as free-form dicts; the card documents the expected shape
+  type ScopeSummaryProps = InstanceType<typeof ScopeSummaryCard>['scopeSummary']
+  const scopeSummaries = computed(
+    () =>
+      (summary.value?.scope_summaries ?? []) as unknown as (ScopeSummaryProps & {
+        scope_id?: string
+      })[]
+  )
 
   // Consensus color
   const consensusColor = computed(() => {

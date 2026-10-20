@@ -39,7 +39,7 @@
           :curation-id="curationId"
           :scope-id="scopeId"
           :gene-id="geneId"
-          :gene="gene"
+          :gene="formGene"
           @submit="handleSubmit"
           @cancel="handleCancel"
           @saved="handleSaved"
@@ -93,8 +93,6 @@
   import CurationSchemaSelect from '@/components/forms/CurationSchemaSelect.vue'
 
   interface CurationFormRecord {
-    id?: string
-    curation_id?: string
     curation_schema_id?: string | null
     workflow_pair_id?: string | null
     lock_version?: number | null
@@ -148,7 +146,9 @@
   const loading = ref(true)
   const selectedSchemaId = ref<string | undefined>(undefined)
   const curation = ref<CurationFormRecord | null>(null)
-  const gene = ref<{ id?: string } | undefined>(undefined)
+  const gene = ref<{ approved_symbol?: string } | undefined>(undefined)
+  // The form shows `gene.symbol`; the API field is `approved_symbol`
+  const formGene = computed(() => (gene.value ? { symbol: gene.value.approved_symbol } : undefined))
   const scope = ref<ScopeRecord | null>(null)
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
 
@@ -223,15 +223,15 @@
     logger.debug('Schema selected', { schemaId })
   }
 
-  function handleSubmit(curationData: CurationFormRecord | null) {
+  // The form emits `submit` without a payload; the saved curation is in the store
+  function handleSubmit() {
     notificationsStore.addToast('Curation submitted successfully', 'success')
-    router.push({
-      name: 'curation-detail',
-      params: {
-        scopeId: scopeId.value,
-        curationId: curationData?.id || curationData?.curation_id || curationId.value
-      }
-    })
+    const id = curationsStore.currentCuration?.id || curationId.value
+    if (!id) {
+      router.push({ name: 'scope-dashboard', params: { scopeId: scopeId.value } })
+      return
+    }
+    router.push({ name: 'curation-detail', params: { scopeId: scopeId.value, curationId: id } })
   }
 
   function handleCancel() {
@@ -270,7 +270,8 @@
       // Load gene info if available
       if (geneId.value) {
         gene.value =
-          ((await genesStore.fetchGeneById(geneId.value)) as { id?: string } | null) ?? undefined
+          ((await genesStore.fetchGeneById(geneId.value)) as { approved_symbol?: string } | null) ??
+          undefined
       }
 
       // Check precuration status for new curations (not edits)
