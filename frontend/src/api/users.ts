@@ -1,75 +1,13 @@
-/**
- * User management API client for admin operations
- */
-import axios, { type InternalAxiosRequestConfig } from 'axios'
+import apiClient from './client'
 import type { Schema } from '@/types/api'
 import type { MessageResponse } from './responses'
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001'
-
-// Create axios instance with base configuration
-const apiClient = axios.create({
-  baseURL: `${API_BASE_URL}/api/v1/users`,
-  headers: {
-    'Content-Type': 'application/json'
-  }
-})
-
-// Add auth token to requests
-apiClient.interceptors.request.use(
-  config => {
-    const token = localStorage.getItem('access_token')
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`
-    }
-    return config
-  },
-  error => {
-    return Promise.reject(error)
-  }
-)
-
-// Handle token refresh on 401 responses
-apiClient.interceptors.response.use(
-  response => response,
-  async error => {
-    if (error.response?.status === 401) {
-      // Try to refresh token
-      const refreshToken = localStorage.getItem('refresh_token')
-      if (refreshToken) {
-        try {
-          const response = await axios.post<Schema<'Token'>>(
-            `${API_BASE_URL}/api/v1/auth/refresh`,
-            {
-              refresh_token: refreshToken
-            }
-          )
-
-          const { access_token } = response.data
-          localStorage.setItem('access_token', access_token)
-
-          // Retry the original request
-          const originalRequest = error.config as InternalAxiosRequestConfig
-          originalRequest.headers.Authorization = `Bearer ${access_token}`
-          return apiClient.request(originalRequest)
-        } catch {
-          // Refresh failed, redirect to login
-          localStorage.removeItem('access_token')
-          localStorage.removeItem('refresh_token')
-          window.location.href = '/login'
-        }
-      }
-    }
-    return Promise.reject(error)
-  }
-)
 
 export const usersApi = {
   /**
    * Get all users with pagination
    */
   async getUsers(params: Record<string, unknown> = {}): Promise<Schema<'UserResponse'>[]> {
-    const response = await apiClient.get<Schema<'UserResponse'>[]>('/', { params })
+    const response = await apiClient.get<Schema<'UserResponse'>[]>('/users/', { params })
     return response.data
   },
 
@@ -80,7 +18,7 @@ export const usersApi = {
     query: string,
     params: Record<string, unknown> = {}
   ): Promise<Schema<'UserResponse'>[]> {
-    const response = await apiClient.get<Schema<'UserResponse'>[]>('/search', {
+    const response = await apiClient.get<Schema<'UserResponse'>[]>('/users/search', {
       params: { q: query, ...params }
     })
     return response.data
@@ -90,7 +28,7 @@ export const usersApi = {
    * Get user statistics
    */
   async getUserStatistics(): Promise<Record<string, unknown>> {
-    const response = await apiClient.get<Record<string, unknown>>('/statistics')
+    const response = await apiClient.get<Record<string, unknown>>('/users/statistics')
     return response.data
   },
 
@@ -98,7 +36,7 @@ export const usersApi = {
    * Get a specific user by ID
    */
   async getUser(userId: string): Promise<Schema<'UserResponse'>> {
-    const response = await apiClient.get<Schema<'UserResponse'>>(`/${userId}`)
+    const response = await apiClient.get<Schema<'UserResponse'>>(`/users/${userId}`)
     return response.data
   },
 
@@ -106,7 +44,7 @@ export const usersApi = {
    * Create a new user
    */
   async createUser(userData: Schema<'UserCreate'>): Promise<Schema<'UserResponse'>> {
-    const response = await apiClient.post<Schema<'UserResponse'>>('/', userData)
+    const response = await apiClient.post<Schema<'UserResponse'>>('/users/', userData)
     return response.data
   },
 
@@ -117,7 +55,7 @@ export const usersApi = {
     userId: string,
     userData: Schema<'UserUpdate'>
   ): Promise<Schema<'UserResponse'>> {
-    const response = await apiClient.put<Schema<'UserResponse'>>(`/${userId}`, userData)
+    const response = await apiClient.put<Schema<'UserResponse'>>(`/users/${userId}`, userData)
     return response.data
   },
 
@@ -125,7 +63,7 @@ export const usersApi = {
    * Update user password (admin only)
    */
   async updateUserPassword(userId: string, newPassword: string): Promise<MessageResponse> {
-    const response = await apiClient.put<MessageResponse>(`/${userId}/password`, {
+    const response = await apiClient.put<MessageResponse>(`/users/${userId}/password`, {
       new_password: newPassword
     })
     return response.data
@@ -135,7 +73,7 @@ export const usersApi = {
    * Activate user account
    */
   async activateUser(userId: string): Promise<MessageResponse> {
-    const response = await apiClient.put<MessageResponse>(`/${userId}/activate`)
+    const response = await apiClient.put<MessageResponse>(`/users/${userId}/activate`)
     return response.data
   },
 
@@ -143,7 +81,7 @@ export const usersApi = {
    * Deactivate user account
    */
   async deactivateUser(userId: string): Promise<MessageResponse> {
-    const response = await apiClient.put<MessageResponse>(`/${userId}/deactivate`)
+    const response = await apiClient.put<MessageResponse>(`/users/${userId}/deactivate`)
     return response.data
   },
 
@@ -151,7 +89,7 @@ export const usersApi = {
    * Delete a user
    */
   async deleteUser(userId: string): Promise<MessageResponse> {
-    const response = await apiClient.delete<MessageResponse>(`/${userId}`)
+    const response = await apiClient.delete<MessageResponse>(`/users/${userId}`)
     return response.data
   },
 
@@ -159,7 +97,7 @@ export const usersApi = {
    * Get user activity summary
    */
   async getUserActivity(userId: string): Promise<Record<string, unknown>> {
-    const response = await apiClient.get<Record<string, unknown>>(`/${userId}/activity`)
+    const response = await apiClient.get<Record<string, unknown>>(`/users/${userId}/activity`)
     return response.data
   }
 }
