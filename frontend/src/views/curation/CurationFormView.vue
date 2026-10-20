@@ -60,7 +60,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * CurationFormView
    *
@@ -92,9 +92,44 @@
   import SchemaDrivenCurationForm from '@/components/forms/SchemaDrivenCurationForm.vue'
   import CurationSchemaSelect from '@/components/forms/CurationSchemaSelect.vue'
 
+  interface CurationFormRecord {
+    id?: string
+    curation_id?: string
+    curation_schema_id?: string | null
+    workflow_pair_id?: string | null
+    lock_version?: number | null
+  }
+
+  interface ScopeRecord {
+    default_workflow_pair_id?: string | null
+  }
+
+  interface WorkflowPairRecord {
+    id: string
+    curation_schema_id?: string | null
+  }
+
+  interface SchemaRecord {
+    id: string
+  }
+
+  interface PrecurationRecord {
+    status: string
+  }
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
+  type ErrorLike = { message?: string }
+  // undefined (not null) so values pass to child props, whose defaults are null
+  type RouteId = string | undefined
+
   const router = useRouter()
   const route = useRoute()
-  const logger = useLogger()
+  const logger = useLogger() as LoggerApi
   const schemasStore = useSchemasStore()
   const scopesStore = useScopesStore()
   const curationsStore = useCurationsStore()
@@ -103,26 +138,28 @@
   const notificationsStore = useNotificationsStore()
 
   // Route params
-  const scopeId = computed(() => route.params.scopeId)
-  const curationId = computed(() => route.params.curationId || null)
-  const geneId = computed(() => route.params.geneId || route.query.gene_id || null)
+  const scopeId = computed(() => route.params.scopeId as string)
+  const curationId = computed<RouteId>(() => (route.params.curationId as string) || undefined)
+  const geneId = computed<RouteId>(
+    () => (route.params.geneId as string) || (route.query.gene_id as string) || undefined
+  )
 
   // State
   const loading = ref(true)
-  const selectedSchemaId = ref(null)
-  const curation = ref(null)
-  const gene = ref(null)
-  const scope = ref(null)
-  const precurationStatus = ref(null) // 'approved', 'pending', 'none'
+  const selectedSchemaId = ref<string | undefined>(undefined)
+  const curation = ref<CurationFormRecord | null>(null)
+  const gene = ref<{ id?: string } | undefined>(undefined)
+  const scope = ref<ScopeRecord | null>(null)
+  const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
 
   // Determine if edit mode
   const isEdit = computed(() => !!curationId.value)
 
   // Available curation schemas for this scope (curation or combined types)
-  const availableSchemas = computed(() => schemasStore.getCurationSchemas)
+  const availableSchemas = computed<SchemaRecord[]>(() => schemasStore.getCurationSchemas)
 
   // Schema resolution with clear 5-level priority chain
-  const resolvedSchemaId = computed(() => {
+  const resolvedSchemaId = computed<string | undefined>(() => {
     // Priority 1: Existing curation has schema
     if (curation.value?.curation_schema_id) {
       return curation.value.curation_schema_id
@@ -135,13 +172,13 @@
 
     // Priority 3: Route query param (admin override)
     if (route.query.schema_id) {
-      return route.query.schema_id
+      return route.query.schema_id as string
     }
 
     // Priority 4: Workflow pair default for scope (FIXED: use scope.default_workflow_pair_id)
     if (scope.value?.default_workflow_pair_id) {
-      const workflowPair = schemasStore.workflowPairs.find(
-        wp => wp.id === scope.value.default_workflow_pair_id
+      const workflowPair = (schemasStore.workflowPairs as WorkflowPairRecord[]).find(
+        wp => wp.id === scope.value?.default_workflow_pair_id
       )
       if (workflowPair?.curation_schema_id) {
         return workflowPair.curation_schema_id
@@ -150,14 +187,14 @@
 
     // Priority 5: Only one schema available - auto-select it
     if (availableSchemas.value.length === 1) {
-      return availableSchemas.value[0].id
+      return availableSchemas.value[0]?.id
     }
 
-    return null
+    return undefined
   })
 
   // Resolve workflow pair ID from schema or scope default
-  const resolvedWorkflowPairId = computed(() => {
+  const resolvedWorkflowPairId = computed<string | undefined>(() => {
     // Priority 1: Existing curation has workflow pair
     if (curation.value?.workflow_pair_id) {
       return curation.value.workflow_pair_id
@@ -170,7 +207,7 @@
 
     // Priority 3: Find workflow pair that uses the resolved schema
     if (resolvedSchemaId.value) {
-      const workflowPair = schemasStore.workflowPairs.find(
+      const workflowPair = (schemasStore.workflowPairs as WorkflowPairRecord[]).find(
         wp => wp.curation_schema_id === resolvedSchemaId.value
       )
       if (workflowPair) {
@@ -178,15 +215,15 @@
       }
     }
 
-    return null
+    return undefined
   })
 
-  function handleSchemaSelected(schemaId) {
+  function handleSchemaSelected(schemaId: string) {
     selectedSchemaId.value = schemaId
     logger.debug('Schema selected', { schemaId })
   }
 
-  function handleSubmit(curationData) {
+  function handleSubmit(curationData: CurationFormRecord | null) {
     notificationsStore.addToast('Curation submitted successfully', 'success')
     router.push({
       name: 'curation-detail',
@@ -225,12 +262,15 @@
 
       // Load existing curation if editing
       if (curationId.value) {
-        curation.value = await curationsStore.fetchCurationById(curationId.value)
+        curation.value = (await curationsStore.fetchCurationById(
+          curationId.value
+        )) as CurationFormRecord
       }
 
       // Load gene info if available
       if (geneId.value) {
-        gene.value = await genesStore.fetchGeneById(geneId.value)
+        gene.value =
+          ((await genesStore.fetchGeneById(geneId.value)) as { id?: string } | null) ?? undefined
       }
 
       // Check precuration status for new curations (not edits)
@@ -259,7 +299,7 @@
         precurationStatus: precurationStatus.value
       })
     } catch (error) {
-      logger.error('Failed to load curation data', { error: error.message })
+      logger.error('Failed to load curation data', { error: (error as ErrorLike).message })
       notificationsStore.addToast('Failed to load data', 'error')
     } finally {
       loading.value = false
@@ -268,9 +308,9 @@
 
   async function loadScope() {
     try {
-      scope.value = await scopesStore.fetchScope(scopeId.value)
+      scope.value = (await scopesStore.fetchScope(scopeId.value)) as ScopeRecord
     } catch (error) {
-      logger.error('Failed to load scope', { error: error.message })
+      logger.error('Failed to load scope', { error: (error as ErrorLike).message })
     }
   }
 
@@ -283,7 +323,7 @@
       })
 
       // Check for approved precuration
-      const precurations = precurationsStore.precurations || []
+      const precurations = (precurationsStore.precurations || []) as PrecurationRecord[]
       const approvedPrecuration = precurations.find(p => p.status === 'approved')
 
       if (approvedPrecuration) {
@@ -299,7 +339,7 @@
         precurationCount: precurations.length
       })
     } catch (error) {
-      logger.error('Failed to check precuration status', { error: error.message })
+      logger.error('Failed to check precuration status', { error: (error as ErrorLike).message })
       precurationStatus.value = 'none'
     }
   }

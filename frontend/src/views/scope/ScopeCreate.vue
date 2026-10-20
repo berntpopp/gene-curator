@@ -336,7 +336,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
@@ -344,16 +344,32 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { usersApi } from '@/api/users'
+  import { getInitials, displayNameRules } from './ScopeCreate.utils'
+  import type {
+    ErrorLike,
+    LoggerApi,
+    PendingMember,
+    ScopeFormData,
+    ScopesStoreView,
+    SearchUser,
+    UserRecord
+  } from './ScopeCreate.types'
 
   // ============================================
   // COMPOSABLES & STORE
   // ============================================
 
   const router = useRouter()
-  const scopeStore = useScopesStore()
-  const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
-  const logger = useLogger()
+  const scopeStore = useScopesStore() as unknown as ScopesStoreView
+  const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils() as unknown as {
+    isValidScopeName: (name: string) => boolean
+    getScopeVisibilityIcon: (isPublic: boolean) => string
+  }
+  const { getRoleColor, getRoleIcon } = useRoleColors() as unknown as {
+    getRoleColor: (role: string | null | undefined) => string
+    getRoleIcon: (role: string | null | undefined) => string
+  }
+  const logger = useLogger() as LoggerApi
 
   // ============================================
   // LIFECYCLE
@@ -369,7 +385,7 @@
         await scopeStore.fetchUserScopes()
       }
     } catch (error) {
-      logger.error('Failed to load existing scopes', { error: error.message })
+      logger.error('Failed to load existing scopes', { error: (error as ErrorLike).message })
       // Don't block the user from creating a scope if we can't load existing ones
     }
   })
@@ -378,13 +394,13 @@
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  const formRef = ref<{ validate: () => unknown } | null>(null)
   const valid = ref(false)
   const loading = ref(false)
   const checkingName = ref(false)
   const nameExists = ref(false)
 
-  const scopeData = ref({
+  const scopeData = ref<ScopeFormData>({
     name: '',
     display_name: '',
     description: '',
@@ -401,12 +417,12 @@
 
   // Initial members
   const showAddMemberDialog = ref(false)
-  const pendingMembers = ref([])
-  const selectedMember = ref(null)
+  const pendingMembers = ref<PendingMember[]>([])
+  const selectedMember = ref<SearchUser | null>(null)
   const memberRole = ref('curator')
-  const userSearchResults = ref([])
+  const userSearchResults = ref<SearchUser[]>([])
   const searchingUsers = ref(false)
-  const searchDebounce = ref(null)
+  const searchDebounce = ref<ReturnType<typeof setTimeout> | null>(null)
 
   const roleOptions = ['admin', 'curator', 'reviewer', 'viewer']
 
@@ -455,19 +471,13 @@
   // ============================================
 
   const nameRules = [
-    v => !!v || 'Scope name is required',
-    v => isValidScopeName(v) || 'Must be 4-64 chars, lowercase letters and dashes only',
-    v => !v.includes('--') || 'No consecutive dashes allowed',
-    v => /^[a-z]/.test(v) || 'Must start with a lowercase letter',
-    v => /[a-z0-9]$/.test(v) || 'Must end with a letter or number',
+    (v: string) => !!v || 'Scope name is required',
+    (v: string) => isValidScopeName(v) || 'Must be 4-64 chars, lowercase letters and dashes only',
+    (v: string) => !v.includes('--') || 'No consecutive dashes allowed',
+    (v: string) => /^[a-z]/.test(v) || 'Must start with a lowercase letter',
+    (v: string) => /[a-z0-9]$/.test(v) || 'Must end with a letter or number',
     () =>
       !scopeNameExists.value || 'This scope name already exists. Please choose a different name.'
-  ]
-
-  const displayNameRules = [
-    v => !!v || 'Display name is required',
-    v => (v && v.length >= 4) || 'Minimum 4 characters required',
-    v => (v && v.length <= 100) || 'Maximum 100 characters allowed'
   ]
 
   // ============================================
@@ -527,7 +537,7 @@
             logger.warn('Failed to invite member', {
               scope_id: newScope.id,
               user_id: member.user.id,
-              error: inviteError.message
+              error: (inviteError as ErrorLike).message
             })
             // Continue with other invitations even if one fails
           }
@@ -545,12 +555,12 @@
       }, 1000)
     } catch (error) {
       // Extract detailed error message from API response
-      const errorMessage =
-        error.response?.data?.detail || error.response?.data?.message || error.message
+      const err = error as ErrorLike
+      const errorMessage = err.response?.data?.detail || err.response?.data?.message || err.message
 
       logger.error('Failed to create scope', {
-        error: error.message,
-        stack: error.stack,
+        error: err.message,
+        stack: err.stack,
         scope_data: scopeData.value,
         api_error: errorMessage
       })
@@ -572,7 +582,7 @@
   /**
    * Show notification snackbar
    */
-  const showNotification = (message, color = 'success') => {
+  const showNotification = (message: string, color = 'success') => {
     snackbarMessage.value = message
     snackbarColor.value = color
     showSnackbar.value = true
@@ -583,19 +593,9 @@
   // ============================================
 
   /**
-   * Get initials from name
-   */
-  const getInitials = name => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
-  /**
    * Handle user search with debounce
    */
-  const onUserSearch = query => {
+  const onUserSearch = (query: string) => {
     if (searchDebounce.value) {
       clearTimeout(searchDebounce.value)
     }
@@ -608,14 +608,14 @@
     searchDebounce.value = setTimeout(async () => {
       searchingUsers.value = true
       try {
-        const results = await usersApi.searchUsers(query, { limit: 10 })
+        const results = (await usersApi.searchUsers(query, { limit: 10 })) as UserRecord[]
         // Filter out already added members
         const existingIds = pendingMembers.value.map(m => m.user.id)
         userSearchResults.value = results
           .filter(u => !existingIds.includes(u.id))
           .map(u => ({ ...u, displayName: u.name || u.email }))
       } catch (error) {
-        logger.error('User search failed', { error: error.message })
+        logger.error('User search failed', { error: (error as ErrorLike).message })
         userSearchResults.value = []
       } finally {
         searchingUsers.value = false
@@ -645,7 +645,7 @@
   /**
    * Remove member from pending list
    */
-  const removePendingMember = userId => {
+  const removePendingMember = (userId: string) => {
     pendingMembers.value = pendingMembers.value.filter(m => m.user.id !== userId)
   }
 

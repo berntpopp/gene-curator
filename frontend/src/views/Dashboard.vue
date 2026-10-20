@@ -189,32 +189,59 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
-
-  const logger = useLogger()
   import { ref, computed, onMounted } from 'vue'
   import { useAuthStore, useScopesStore } from '@/stores'
 
+  interface LoggerApi {
+    warn: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
+  interface DashboardStats {
+    active_assignments: number
+    completed_curations: number
+    pending_reviews: number
+    active_scopes: number
+  }
+
+  interface ActivityItem {
+    type: string
+    title: string
+    description: string
+    status: string
+    created_at: string
+    assignment_id?: string | number
+  }
+
+  interface DashboardScope {
+    id: string | number
+    display_name: string
+    is_active: boolean
+  }
+
+  // useLogger() is typed as Object (JSDoc @returns {Object} in useLogger.js); narrow locally
+  const logger = useLogger() as LoggerApi
   const authStore = useAuthStore()
   const scopesStore = useScopesStore()
 
   const loading = ref(false)
-  const stats = ref({
+  const stats = ref<DashboardStats>({
     active_assignments: 0,
     completed_curations: 0,
     pending_reviews: 0,
     active_scopes: 0
   })
-  const recentActivity = ref([])
-  const userScopes = ref([])
+  const recentActivity = ref<ActivityItem[]>([])
+  const userScopes = ref<DashboardScope[]>([])
 
-  const currentUser = computed(() => authStore.user)
+  const currentUser = computed(() => authStore.user as { full_name?: string } | null)
   const isAdmin = computed(() => authStore.hasRole('admin'))
 
-  const getActivityColor = type => {
-    const colorMap = {
+  const getActivityColor = (type: string): string => {
+    const colorMap: Record<string, string> = {
       assignment_created: 'primary',
       curation_submitted: 'success',
       review_requested: 'warning',
@@ -224,8 +251,8 @@
     return colorMap[type] || 'grey'
   }
 
-  const getActivityIcon = type => {
-    const iconMap = {
+  const getActivityIcon = (type: string): string => {
+    const iconMap: Record<string, string> = {
       assignment_created: 'mdi-plus',
       curation_submitted: 'mdi-check',
       review_requested: 'mdi-eye',
@@ -235,8 +262,8 @@
     return iconMap[type] || 'mdi-circle'
   }
 
-  const getStatusColor = status => {
-    const colorMap = {
+  const getStatusColor = (status: string): string => {
+    const colorMap: Record<string, string> = {
       draft: 'grey',
       in_progress: 'primary',
       pending_review: 'warning',
@@ -247,14 +274,14 @@
     return colorMap[status] || 'grey'
   }
 
-  const formatStatus = status => {
+  const formatStatus = (status: string): string => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
     const now = new Date()
-    const diffMs = now - date
+    const diffMs = now.getTime() - date.getTime()
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
@@ -264,7 +291,7 @@
     return date.toLocaleDateString()
   }
 
-  const getActivityLink = activity => {
+  const getActivityLink = (activity: ActivityItem): string => {
     switch (activity.type) {
       case 'assignment_created':
       case 'curation_submitted':
@@ -279,23 +306,31 @@
     loading.value = true
     try {
       // Load dashboard stats from auth store
-      const dashboardStats = await authStore.fetchDashboardStats()
+      const dashboardStats: Partial<DashboardStats> | null = await authStore.fetchDashboardStats()
       if (dashboardStats) {
         stats.value = { ...stats.value, ...dashboardStats }
       }
 
       // Load user scopes
-      const scopes = await authStore.getUserScopes()
+      const scopes: DashboardScope[] | null = await authStore.getUserScopes()
       userScopes.value = scopes || []
 
       // Load scopes to get active scopes count
       try {
-        await scopesStore.fetchScopes()
-        stats.value.active_scopes = scopesStore.getActiveScopesCount || 0
+        // BUG (kept for no behaviour change): the scopes store has no fetchScopes or
+        // getActiveScopesCount (it has fetchUserScopes / activeScopesCount), so this
+        // always throws and active_scopes stays 0. Fix in a separate change.
+        const legacyScopes = scopesStore as unknown as {
+          fetchScopes: () => Promise<void>
+          getActiveScopesCount?: number
+        }
+        await legacyScopes.fetchScopes()
+        stats.value.active_scopes = legacyScopes.getActiveScopesCount || 0
       } catch (scopeError) {
+        const err = scopeError as Error
         logger.warn('Failed to load scopes:', {
-          error: scopeError.message,
-          stack: scopeError.stack
+          error: err.message,
+          stack: err.stack
         })
         stats.value.active_scopes = 0
       }
@@ -303,7 +338,8 @@
       // Clear recent activity for now (can be implemented later)
       recentActivity.value = []
     } catch (error) {
-      logger.error('Failed to load dashboard data:', { error: error.message, stack: error.stack })
+      const err = error as Error
+      logger.error('Failed to load dashboard data:', { error: err.message, stack: err.stack })
       // Set default values on error
       stats.value = {
         active_assignments: 0,

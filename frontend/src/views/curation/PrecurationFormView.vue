@@ -128,7 +128,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * PrecurationFormView
    *
@@ -156,22 +156,53 @@
   import { useLogger } from '@/composables/useLogger'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
 
+  interface ScopeRecord {
+    default_workflow_pair_id?: string | null
+    display_name?: string | null
+  }
+
+  interface GeneRecord {
+    gene_name?: string | null
+    name?: string | null
+    hgnc_id?: string | null
+    ncbi_gene_id?: string | number | null
+    entrez_id?: string | number | null
+    gene_symbol?: string | null
+    symbol?: string | null
+  }
+
+  interface WorkflowPairRecord {
+    id: string
+    precuration_schema_id?: string | null
+  }
+
+  interface ErrorLike {
+    message?: string
+  }
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    debug: (message: string, data?: Record<string, unknown>) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
   const router = useRouter()
   const route = useRoute()
   const notificationsStore = useNotificationsStore()
-  const logger = useLogger()
+  const logger = useLogger() as LoggerApi
 
   // Route params
-  const scopeId = computed(() => route.params.scopeId)
-  const geneId = computed(() => route.params.geneId)
-  const precurationId = computed(() => route.params.precurationId || null)
+  const scopeId = computed(() => route.params.scopeId as string)
+  const geneId = computed(() => route.params.geneId as string | undefined)
+  const precurationId = computed(() => (route.params.precurationId as string) || undefined)
 
   // State
-  const scope = ref(null)
-  const gene = ref(null)
-  const precurationSchemaId = ref(null)
+  const scope = ref<ScopeRecord | null>(null)
+  // Undefined until loaded. Typed non-null because vue-tsc drops v-if narrowing inside slot closures.
+  const gene = ref(undefined as unknown as GeneRecord)
+  const precurationSchemaId = ref<string | undefined>(undefined)
   const loading = ref(true)
-  const loadError = ref(null)
+  const loadError = ref<string | null>(null)
   const readonly = ref(false)
 
   /**
@@ -182,9 +213,9 @@
       scope.value = await scopesAPI.getScopeById(scopeId.value)
 
       if (scope.value?.default_workflow_pair_id) {
-        const workflowPairs = await schemasAPI.getWorkflowPairs()
+        const workflowPairs = (await schemasAPI.getWorkflowPairs()) as WorkflowPairRecord[]
         const workflowPair = workflowPairs.find(
-          wp => wp.id === scope.value.default_workflow_pair_id
+          wp => wp.id === scope.value?.default_workflow_pair_id
         )
         if (workflowPair?.precuration_schema_id) {
           precurationSchemaId.value = workflowPair.precuration_schema_id
@@ -196,8 +227,9 @@
         precuration_schema_id: precurationSchemaId.value
       })
     } catch (err) {
-      logger.error('Failed to load scope', { error: err.message })
-      loadError.value = `Could not load scope information: ${err.message}`
+      const e = err as ErrorLike
+      logger.error('Failed to load scope', { error: e.message })
+      loadError.value = `Could not load scope information: ${e.message}`
       throw err
     }
   }
@@ -209,15 +241,15 @@
     if (!geneId.value) return
 
     try {
-      gene.value = await genesAPI.getGeneById(geneId.value)
-
+      gene.value = (await genesAPI.getGeneById(geneId.value)) as GeneRecord
       logger.debug('Gene loaded for precuration', {
         gene_id: geneId.value,
         gene_symbol: gene.value?.gene_symbol || gene.value?.symbol
       })
     } catch (err) {
-      logger.error('Failed to load gene', { error: err.message })
-      loadError.value = `Could not load gene information: ${err.message}`
+      const e = err as ErrorLike
+      logger.error('Failed to load gene', { error: e.message })
+      loadError.value = `Could not load gene information: ${e.message}`
       throw err
     }
   }
@@ -273,7 +305,7 @@
       }
     } catch (err) {
       // Error already set by load functions
-      logger.error('Failed to initialize precuration form', { error: err.message })
+      logger.error('Failed to initialize precuration form', { error: (err as ErrorLike).message })
     } finally {
       loading.value = false
     }

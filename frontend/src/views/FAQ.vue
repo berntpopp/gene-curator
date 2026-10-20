@@ -19,8 +19,13 @@
   </v-container>
 </template>
 
-<script setup>
-  const faqs = [
+<script setup lang="ts">
+  interface Faq {
+    question: string
+    answer: string
+  }
+
+  const faqs: Faq[] = [
     {
       question: 'What is Gene Curator?',
       answer:

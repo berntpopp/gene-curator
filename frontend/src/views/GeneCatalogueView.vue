@@ -574,30 +574,80 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
+  import type { Schema } from '@/types/api'
+  import type { DataTableHeader } from 'vuetify'
+  import {
+    formatClassification,
+    formatScore,
+    formatDate,
+    getBestScore,
+    getBestClassification,
+    getScoreColorClass,
+    getClassificationColor,
+    getClassificationIcon
+  } from './GeneCatalogueView.utils'
 
-  const catalogueStore = useGeneCatalogueStore()
+  type CatalogueEntry = Schema<'GeneCatalogueEntry'>
+  type ScopeCuration = Schema<'ScopeCurationSummary'>
+  // Catalogue entries always carry diseases and classifications (empty when none)
+  type CatalogueRow = CatalogueEntry & {
+    diseases: string[]
+    classifications: Record<string, number>
+  }
+
+  // The store is JS, so its state and getters are typed as never; narrow them here
+  interface CatalogueStore {
+    entries: CatalogueRow[]
+    loading: boolean
+    pagination: { page: number; perPage: number; total: number; hasNext: boolean; hasPrev: boolean }
+    filterOptions: {
+      classifications: string[]
+      diseases: string[]
+      scopes: Array<{ scope_id: string; scope_display_name: string }>
+    }
+    summary: {
+      totalGenesCurated: number
+      totalCurations: number
+      totalScopes: number
+      classificationSummary: Record<string, number>
+    }
+    hasActiveFilters: boolean
+    totalPages: number
+    fetchCatalogue: (params?: { page: number }) => Promise<unknown>
+    loadFilterOptions: () => Promise<unknown>
+    updateFilters: (filters: {
+      search: string | null
+      classification: string | null
+      disease: string | null
+      scopeId: string | null
+    }) => void
+    setPage: (page: number) => void
+    clearFilters: () => void
+  }
+
+  const catalogueStore = useGeneCatalogueStore() as unknown as CatalogueStore
   const router = useRouter()
 
   // Local state for filters
   const searchQuery = ref('')
-  const selectedClassification = ref(null)
-  const selectedDisease = ref(null)
-  const selectedScope = ref(null)
+  const selectedClassification = ref<string | null>(null)
+  const selectedDisease = ref<string | null>(null)
+  const selectedScope = ref<string | null>(null)
   const currentPage = ref(1)
 
   // Expanded rows tracking
-  const expandedItems = ref([])
+  const expandedItems = ref<string[]>([])
 
   // Quick info dialog
   const quickInfoDialog = ref(false)
-  const selectedGene = ref(null)
+  const selectedGene = ref<CatalogueRow | null>(null)
 
   // Table headers
-  const headers = [
+  const headers: DataTableHeader[] = [
     { title: '', key: 'data-table-expand', width: '40px' },
     { title: 'Gene', key: 'approved_symbol', sortable: true, width: '160px' },
     { title: 'Location', key: 'location', sortable: true, width: '100px' },
@@ -625,7 +675,7 @@
   })
 
   // Debounced search
-  let searchTimeout = null
+  let searchTimeout: ReturnType<typeof setTimeout> | undefined
   const debounceSearch = () => {
     clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => {
@@ -646,13 +696,13 @@
   }
 
   // Handle page change
-  const handlePageChange = async page => {
+  const handlePageChange = async (page: number) => {
     catalogueStore.setPage(page)
     await catalogueStore.fetchCatalogue({ page })
   }
 
   // Handle row expansion
-  const handleExpand = expanded => {
+  const handleExpand = (expanded: string[]) => {
     expandedItems.value = expanded
   }
 
@@ -667,110 +717,18 @@
     await catalogueStore.fetchCatalogue({ page: 1 })
   }
 
-  // Format helpers
-  const formatClassification = classification => {
-    if (!classification) return 'Unknown'
-    // Capitalize first letter
-    return classification.charAt(0).toUpperCase() + classification.slice(1).replace(/_/g, ' ')
-  }
-
-  const formatScore = score => {
-    if (score === null || score === undefined) return '-'
-    return typeof score === 'number' ? score.toFixed(1) : score
-  }
-
-  const formatDate = dateString => {
-    if (!dateString) return '-'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
-
-  // Get best (highest) score from all scope curations
-  const getBestScore = item => {
-    if (!item.scope_curations || item.scope_curations.length === 0) return null
-    const scores = item.scope_curations
-      .map(c => c.total_score)
-      .filter(s => s !== null && s !== undefined)
-    if (scores.length === 0) return null
-    return Math.max(...scores)
-  }
-
-  // Get best (highest priority) classification
-  const getBestClassification = item => {
-    const priorityOrder = [
-      'definitive',
-      'strong',
-      'moderate',
-      'limited',
-      'no_known',
-      'disputed',
-      'refuted'
-    ]
-    const classifications = Object.keys(item.classifications || {})
-    if (classifications.length === 0) return null
-
-    // Sort by priority and return the best one
-    classifications.sort((a, b) => {
-      const aIndex = priorityOrder.indexOf(a.toLowerCase())
-      const bIndex = priorityOrder.indexOf(b.toLowerCase())
-      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex)
-    })
-    return classifications[0]
-  }
-
-  // Get score color class based on value
-  const getScoreColorClass = score => {
-    if (score === null || score === undefined) return 'text-medium-emphasis'
-    if (score >= 12) return 'text-success'
-    if (score >= 9) return 'text-primary'
-    if (score >= 6) return 'text-warning'
-    return 'text-secondary'
-  }
-
-  // Classification color mapping
-  const getClassificationColor = classification => {
-    const colorMap = {
-      definitive: 'success',
-      strong: 'primary',
-      moderate: 'warning',
-      limited: 'secondary',
-      no_known: 'default',
-      disputed: 'error',
-      refuted: 'error'
-    }
-    return colorMap[classification?.toLowerCase()] || 'default'
-  }
-
-  // Classification icon mapping
-  const getClassificationIcon = classification => {
-    const iconMap = {
-      definitive: 'mdi-check-circle',
-      strong: 'mdi-check-circle-outline',
-      moderate: 'mdi-alert-circle',
-      limited: 'mdi-help-circle',
-      no_known: 'mdi-minus-circle',
-      disputed: 'mdi-alert-triangle',
-      refuted: 'mdi-close-circle'
-    }
-    return iconMap[classification?.toLowerCase()] || 'mdi-help-circle-outline'
-  }
-
   // Show quick info dialog
-  const showQuickInfo = item => {
+  const showQuickInfo = (item: CatalogueRow) => {
     selectedGene.value = item
     quickInfoDialog.value = true
   }
 
   // Navigation helpers
-  const navigateToGene = item => {
+  const navigateToGene = (item: CatalogueRow) => {
     router.push({ name: 'GeneDetail', params: { id: item.gene_id } })
   }
 
-  const navigateToScope = curation => {
+  const navigateToScope = (curation: ScopeCuration) => {
     router.push({ name: 'ScopeDashboard', params: { scopeId: curation.scope_id } })
   }
 
@@ -783,7 +741,7 @@
   // Watch for page changes from store
   watch(
     () => catalogueStore.pagination.page,
-    newPage => {
+    (newPage: number) => {
       currentPage.value = newPage
     }
   )

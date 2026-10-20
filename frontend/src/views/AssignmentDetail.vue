@@ -198,10 +198,8 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
-
-  const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useAssignmentsStore } from '@/stores'
@@ -209,18 +207,73 @@
   import WorkflowStages from '@/components/dynamic/WorkflowStages.vue'
   import ScoreDisplay from '@/components/dynamic/ScoreDisplay.vue'
 
+  // Assignment payload shape used by this view (stores are JS, so typed locally)
+  interface AssignmentDetailRecord {
+    id: string
+    workflow_pair_id: string
+    precuration_status?: string | null
+    current_stage?: string | null
+    status: string
+    gene_symbol?: string | null
+    gene_name?: string | null
+    disease_name?: string | null
+    omim_id?: string | null
+    scope_display_name?: string | null
+    workflow_pair_name?: string | null
+    assigned_to?: string | null
+    assignee_name?: string | null
+    due_date?: string | null
+    notes?: string | null
+    precuration_schema_id?: string | null
+    curation_schema_id?: string | null
+    precuration_data?: Record<string, unknown> | null
+    curation_data?: Record<string, unknown> | null
+  }
+
+  interface AssignmentHistoryEvent {
+    id: string
+    event_type: string
+    description?: string | null
+    created_at: string
+    user_name?: string | null
+    user_role?: string | null
+    details?: string | null
+  }
+
+  type FormData = Record<string, unknown>
+
+  interface LegacyAssignmentsStore {
+    fetchAssignmentById: (id: string) => Promise<AssignmentDetailRecord>
+    fetchAssignmentHistory: (id: string) => Promise<AssignmentHistoryEvent[]>
+    submitPrecuration: (id: string, data: FormData) => Promise<unknown>
+    savePrecurationDraft: (id: string, data: FormData) => Promise<unknown>
+    submitCuration: (id: string, data: FormData) => Promise<unknown>
+    saveCurationDraft: (id: string, data: FormData) => Promise<unknown>
+  }
+  type ErrorLike = { message?: string; stack?: string }
+
+  // useLogger() is typed as Object (JSDoc in useLogger.js); narrow locally
+  interface LoggerApi {
+    info: (message: string, data?: unknown) => void
+    error: (message: string, data?: Record<string, unknown>) => void
+  }
+
+  const logger = useLogger() as LoggerApi
   const route = useRoute()
-  const assignmentsStore = useAssignmentsStore()
+  // BUG (kept for no behaviour change): the assignments store has none of the methods
+  // this view calls (fetchAssignmentById, fetchAssignmentHistory, submitPrecuration, ...),
+  // so loadAssignmentData always fails into the error state. Fix in a separate change.
+  const assignmentsStore = useAssignmentsStore() as unknown as LegacyAssignmentsStore
 
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const activeTab = ref('precuration')
-  const assignment = ref(null)
-  const precurationData = ref({})
-  const curationData = ref({})
-  const assignmentHistory = ref([])
+  const assignment = ref<AssignmentDetailRecord | null>(null)
+  const precurationData = ref<FormData>({})
+  const curationData = ref<FormData>({})
+  const assignmentHistory = ref<AssignmentHistoryEvent[]>([])
 
-  const assignmentId = computed(() => route.params.id)
+  const assignmentId = computed(() => route.params.id as string)
 
   const canAccessCuration = computed(() => {
     return (
@@ -245,8 +298,8 @@
   })
 
   // Helper functions
-  const getStatusColor = status => {
-    const colorMap = {
+  const getStatusColor = (status: string): string => {
+    const colorMap: Record<string, string> = {
       draft: 'grey',
       assigned: 'info',
       in_progress: 'primary',
@@ -259,30 +312,30 @@
     return colorMap[status] || 'grey'
   }
 
-  const formatStatus = status => {
+  const formatStatus = (status: string): string => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleDateString()
   }
 
-  const formatDateTime = dateString => {
+  const formatDateTime = (dateString: string): string => {
     return new Date(dateString).toLocaleString()
   }
 
-  const getDueDateClass = dateString => {
+  const getDueDateClass = (dateString: string): string => {
     const dueDate = new Date(dateString)
     const today = new Date()
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
+    const diffDays = Math.ceil((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
 
     if (diffDays < 0) return 'text-error'
     if (diffDays < 7) return 'text-warning'
     return 'text-success'
   }
 
-  const getEventColor = eventType => {
-    const colorMap = {
+  const getEventColor = (eventType: string): string => {
+    const colorMap: Record<string, string> = {
       created: 'primary',
       assigned: 'info',
       precuration_submitted: 'success',
@@ -295,8 +348,8 @@
     return colorMap[eventType] || 'grey'
   }
 
-  const getEventIcon = eventType => {
-    const iconMap = {
+  const getEventIcon = (eventType: string): string => {
+    const iconMap: Record<string, string> = {
       created: 'mdi-plus',
       assigned: 'mdi-account-plus',
       precuration_submitted: 'mdi-file-check',
@@ -309,22 +362,22 @@
     return iconMap[eventType] || 'mdi-circle'
   }
 
-  const formatEventType = eventType => {
+  const formatEventType = (eventType: string): string => {
     return eventType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   // Event handlers
-  const handleStageChanged = action => {
+  const handleStageChanged = (action: unknown) => {
     logger.info('Stage changed:', action)
     loadAssignmentData()
   }
 
-  const handleActionCompleted = action => {
+  const handleActionCompleted = (action: unknown) => {
     logger.info('Action completed:', action)
     loadAssignmentData()
   }
 
-  const handlePrecurationSubmit = async data => {
+  const handlePrecurationSubmit = async (data: FormData) => {
     try {
       await assignmentsStore.submitPrecuration(assignmentId.value, data)
       precurationData.value = data
@@ -334,20 +387,22 @@
         activeTab.value = 'curation'
       }
     } catch (error) {
-      logger.error('Precuration submission failed:', { error: error.message, stack: error.stack })
+      const err = error as ErrorLike
+      logger.error('Precuration submission failed:', { error: err.message, stack: err.stack })
     }
   }
 
-  const handlePrecurationDraft = async data => {
+  const handlePrecurationDraft = async (data: FormData) => {
     try {
       await assignmentsStore.savePrecurationDraft(assignmentId.value, data)
       precurationData.value = data
     } catch (error) {
-      logger.error('Precuration draft save failed:', { error: error.message, stack: error.stack })
+      const err = error as ErrorLike
+      logger.error('Precuration draft save failed:', { error: err.message, stack: err.stack })
     }
   }
 
-  const handleCurationSubmit = async data => {
+  const handleCurationSubmit = async (data: FormData) => {
     try {
       await assignmentsStore.submitCuration(assignmentId.value, data)
       curationData.value = data
@@ -355,24 +410,26 @@
       // Switch to scoring tab
       activeTab.value = 'scoring'
     } catch (error) {
-      logger.error('Curation submission failed:', { error: error.message, stack: error.stack })
+      const err = error as ErrorLike
+      logger.error('Curation submission failed:', { error: err.message, stack: err.stack })
     }
   }
 
-  const handleCurationDraft = async data => {
+  const handleCurationDraft = async (data: FormData) => {
     try {
       await assignmentsStore.saveCurationDraft(assignmentId.value, data)
       curationData.value = data
     } catch (error) {
-      logger.error('Curation draft save failed:', { error: error.message, stack: error.stack })
+      const err = error as ErrorLike
+      logger.error('Curation draft save failed:', { error: err.message, stack: err.stack })
     }
   }
 
-  const handleScoreUpdated = scoreResult => {
+  const handleScoreUpdated = (scoreResult: unknown) => {
     logger.info('Scores updated:', scoreResult)
   }
 
-  const handleClassificationChanged = classification => {
+  const handleClassificationChanged = (classification: unknown) => {
     logger.info('Classification changed:', classification)
   }
 
@@ -399,8 +456,9 @@
         curationData.value = assignmentData.curation_data
       }
     } catch (err) {
-      error.value = err.message || 'Failed to load assignment'
-      logger.error('Failed to load assignment:', { error: err.message, stack: err.stack })
+      const e = err as ErrorLike
+      error.value = e.message || 'Failed to load assignment'
+      logger.error('Failed to load assignment:', { error: e.message, stack: e.stack })
     } finally {
       loading.value = false
     }
