@@ -353,6 +353,25 @@ class TestValidateSchemaDefinition:
 
 
 class TestGenerateJsonSchema:
+    def test_carries_ui_and_scoring_configuration(self, validator: SchemaValidator):
+        schema = validator.generate_json_schema(
+            {
+                "ui_configuration": {"layout": {"tabs": [{"id": "a"}]}},
+                "scoring_configuration": {"engine": "x"},
+            }
+        )
+
+        assert schema["ui_configuration"]["layout"]["tabs"] == [{"id": "a"}]
+        assert schema["scoring_configuration"] == {"engine": "x"}
+
+    def test_string_field_has_no_unknown_type_warning(self, validator: SchemaValidator):
+        result = validator.validate_evidence_data(
+            {"evidence_summary": "text"},
+            {"field_definitions": {"evidence_summary": {"type": "string"}}},
+        )
+
+        assert not any("Unknown field type" in w["message"] for w in result.warnings)
+
     def test_envelope_and_required(self, validator: SchemaValidator):
         schema = validator.generate_json_schema({})
 

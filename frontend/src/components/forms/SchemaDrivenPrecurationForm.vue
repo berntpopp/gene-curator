@@ -24,6 +24,7 @@
             :initial-data="evidenceData"
             :title="schema?.name || 'Precuration Form'"
             :readonly="readonly"
+            hide-actions
             @update:model-value="handleEvidenceChange"
             @validation-change="handleValidationChange"
             @submit="handleSubmit"

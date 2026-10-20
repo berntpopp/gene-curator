@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { errorMessage } from './apiError'
 import { validationAPI } from '@/api'
 import type { Schema } from '@/types/api'
+import type { JsonSchemaDocument } from '@/components/dynamic/types'
 
 /** A field type descriptor: the endpoint's dict entry plus its key as `name`. */
 export type FieldTypeInfo = Record<string, unknown> & { name: string }
@@ -18,7 +19,7 @@ interface ValidationState {
   supportedFieldTypes: FieldTypeInfo[]
   businessRules: BusinessRule[]
   validationResults: Record<string, Schema<'ValidationResponse'>>
-  jsonSchemas: Record<string, Schema<'JSONSchemaResponse'>>
+  jsonSchemas: Record<string, JsonSchemaDocument>
   loading: boolean
   error: string | null
 }
@@ -93,7 +94,9 @@ export const useValidationStore = defineStore('validation', {
       this.loading = true
       this.error = null
       try {
-        const jsonSchema = await validationAPI.generateJsonSchema(schemaId)
+        // The endpoint wraps the document: {json_schema, field_count, ...}
+        const response = await validationAPI.generateJsonSchema(schemaId)
+        const jsonSchema = response.json_schema as JsonSchemaDocument
 
         this.jsonSchemas[schemaId] = jsonSchema
         return jsonSchema
