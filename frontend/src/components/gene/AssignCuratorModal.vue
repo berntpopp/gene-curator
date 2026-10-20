@@ -193,21 +193,6 @@
                       hint="Assignment priority level"
                       persistent-hint
                     >
-                      <template #item="{ item, props: itemProps }">
-                        <v-list-item v-bind="itemProps">
-                          <template #prepend>
-                            <v-icon :color="item.raw.color" size="small">
-                              {{ item.raw.icon }}
-                            </v-icon>
-                          </template>
-                        </v-list-item>
-                      </template>
-                      <template #selection="{ item }">
-                        <v-icon :color="item.raw.color" size="small" class="mr-2">
-                          {{ item.raw.icon }}
-                        </v-icon>
-                        {{ item.raw.title }}
-                      </template>
                     </v-select>
                   </v-col>
                   <v-col cols="12">
@@ -280,6 +265,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike } from '@/components/forms/types'
+  import { priorityOptions } from '@/components/dynamic/assignmentDisplay'
   import type { CuratorOption } from './types'
   import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
@@ -342,13 +328,6 @@
   const selectedCurator = ref<CuratorOption | null>(null)
   const priority = ref('medium')
   const notes = ref('')
-
-  // Priority options - matches backend: "high" | "medium" | "low"
-  const priorityOptions = [
-    { title: 'Low', value: 'low', icon: 'mdi-arrow-down', color: 'grey' },
-    { title: 'Medium', value: 'medium', icon: 'mdi-minus', color: 'primary' },
-    { title: 'High', value: 'high', icon: 'mdi-arrow-up', color: 'warning' }
-  ]
 
   // ============================================
   // COMPUTED

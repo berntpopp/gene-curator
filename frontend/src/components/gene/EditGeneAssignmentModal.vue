@@ -125,17 +125,14 @@
               Priority Level
             </div>
             <v-btn-toggle v-model="formData.priority" mandatory color="primary" variant="outlined">
-              <v-btn value="high" size="small">
-                <v-icon start size="small" color="error">mdi-flag</v-icon>
-                High
-              </v-btn>
-              <v-btn value="medium" size="small">
-                <v-icon start size="small" color="warning">mdi-flag</v-icon>
-                Medium
-              </v-btn>
-              <v-btn value="low" size="small">
-                <v-icon start size="small" color="grey">mdi-flag-outline</v-icon>
-                Low
+              <v-btn
+                v-for="option in priorityOptions"
+                :key="option.value"
+                :value="option.value"
+                size="small"
+              >
+                <v-icon start size="small" :color="getPriorityColor(option.value)">mdi-flag</v-icon>
+                {{ option.title }}
               </v-btn>
             </v-btn-toggle>
           </div>
@@ -213,6 +210,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike } from '@/components/forms/types'
+  import { getPriorityColor, priorityOptions } from '@/components/dynamic/assignmentDisplay'
   import type { GeneRow } from './types'
 
   // ============================================
@@ -308,23 +306,6 @@
   // ============================================
 
   /**
-   * Map model priority to form priority
-   */
-  const mapPriorityFromModel = (priority: string | null | undefined): Priority => {
-    // Model uses "normal", form uses "medium"
-    if (priority === 'normal') return 'medium'
-    return (priority || 'medium') as Priority
-  }
-
-  /**
-   * Map form priority to API priority
-   */
-  const mapPriorityToAPI = (priority: Priority): Priority => {
-    // API expects "high", "medium", "low"
-    return priority
-  }
-
-  /**
    * Format date for input field (YYYY-MM-DD)
    */
   const formatDateForInput = (date: string | Date | null | undefined): string | null => {
@@ -343,7 +324,7 @@
    */
   const initializeForm = () => {
     if (props.gene) {
-      const priority = mapPriorityFromModel(props.gene.priority)
+      const priority = (props.gene.priority || 'medium') as Priority
       const dueDate = formatDateForInput(props.gene.due_date)
       const notes = props.gene.assignment_notes || ''
 
@@ -446,7 +427,7 @@
         due_date?: string | null
       } = {}
       if (form.priority !== original.priority) {
-        updateData.priority_level = mapPriorityToAPI(form.priority)
+        updateData.priority_level = form.priority
       }
       if (form.assignment_notes !== original.assignment_notes) {
         updateData.assignment_notes = form.assignment_notes || null

@@ -24,7 +24,7 @@ const gene: GeneRow = {
   gene_hgnc_id: '',
   curator_id: 'u-1',
   curator_name: 'Ada',
-  priority: 'normal',
+  priority: 'medium',
   assignment_notes: 'old note',
   status: 'assigned',
   due_date: '2025-06-01T00:00:00Z',
@@ -65,7 +65,7 @@ describe('EditGeneAssignmentModal', () => {
     logger.error.mockReset()
   })
 
-  it('initialises the form from the gene, mapping normal to medium', async () => {
+  it('initialises the form from the gene', async () => {
     const wrapper = await mountModal()
 
     expect(internals(wrapper).formData).toEqual({
