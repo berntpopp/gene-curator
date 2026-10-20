@@ -18,8 +18,10 @@
                 <v-text-field
                   :model-value="item[col.key]"
                   density="compact"
-                  variant="plain"
-                  hide-details
+                  :aria-label="`${col.label}, row ${index + 1}`"
+                  variant="underlined"
+                  hide-details="auto"
+                  :rules="[pmidRule]"
                   :readonly="readonly"
                   placeholder="PMID"
                   @change="commitInput(index, col.key, $event)"
@@ -36,7 +38,8 @@
                 item-title="label"
                 item-value="value"
                 density="compact"
-                variant="plain"
+                :aria-label="`${col.label}, row ${index + 1}`"
+                variant="underlined"
                 hide-details
                 :readonly="readonly"
                 @update:model-value="updateField(index, col.key, $event)"
@@ -52,8 +55,10 @@
                 :max="col.max"
                 :step="col.step || 1"
                 density="compact"
-                variant="plain"
-                hide-details
+                :aria-label="`${col.label}, row ${index + 1}`"
+                variant="underlined"
+                hide-details="auto"
+                :rules="[rangeRule(col)]"
                 :readonly="readonly"
                 @change="commitInput(index, col.key, $event, true)"
               />
@@ -64,7 +69,8 @@
               <v-text-field
                 :model-value="item[col.key]"
                 density="compact"
-                variant="plain"
+                :aria-label="`${col.label}, row ${index + 1}`"
+                variant="underlined"
                 hide-details
                 :readonly="readonly"
                 @change="commitInput(index, col.key, $event)"
@@ -135,7 +141,22 @@
   // Cells commit on change (blur/Enter), not per keystroke: typing must not re-render the form tree
   function commitInput(index: number, key: string, event: Event, numeric = false) {
     const raw = (event.target as HTMLInputElement).value
-    updateField(index, key, numeric ? parseFloat(raw) || 0 : raw)
+    // Keep what was typed; the rules show the error (clamping is the scorer's job, #157)
+    updateField(
+      index,
+      key,
+      numeric && raw !== '' && Number.isFinite(Number(raw)) ? Number(raw) : raw
+    )
+  }
+
+  const pmidRule = (v: unknown) =>
+    !v || /^(PMID:?\s*)?\d{1,9}$/i.test(String(v).trim()) || 'PMID must be digits only'
+
+  const rangeRule = (col: EvidenceColumn) => (v: unknown) => {
+    if (v === '' || v == null) return true
+    const n = Number(v)
+    const { min = -Infinity, max = Infinity } = col
+    return (Number.isFinite(n) && n >= min && n <= max) || `Enter a number from ${min} to ${max}`
   }
 </script>
 

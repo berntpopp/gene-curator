@@ -60,6 +60,40 @@ describe('EvidenceDataTable', () => {
     expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 2.5 }])
   })
 
+  it('labels every cell input with column and row', () => {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ label: 'P1' }, { label: 'P2' }], columns }
+    })
+    const labels = wrapper
+      .findAll('tbody tr')[1]!
+      .findAll('input')
+      .map(i => i.attributes('aria-label'))
+    expect(labels).toEqual(['Label, row 2', 'PMID, row 2', 'Points, row 2'])
+  })
+
+  it('shows an inline error for a non-numeric PMID and an out-of-range points value', async () => {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ pmid: 'abc-not-a-pmid', points: 9 }], columns },
+      attachTo: document.body
+    })
+    const fields = wrapper.findAllComponents({ name: 'VTextField' })
+    // Rules run on input; trigger validation explicitly
+    for (const f of fields)
+      await (f.vm as unknown as { validate: () => Promise<unknown> }).validate()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('PMID must be digits only')
+    expect(wrapper.text()).toContain('Enter a number from 0 to 3')
+    wrapper.unmount()
+  })
+
+  it('keeps an out-of-range number instead of coercing it to zero', async () => {
+    const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
+    const input = wrapper.find('input[type="number"]')
+    input.element.value = '9'
+    await input.trigger('change')
+    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 9 }])
+  })
+
   it('emits remove with the row index when the delete button is pressed', async () => {
     const wrapper = mount(EvidenceDataTable, {
       props: { items: [{ label: 'P1' }, { label: 'P2' }], columns }
