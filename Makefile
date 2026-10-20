@@ -28,7 +28,7 @@ install: ## Install backend + frontend deps and git hooks
 	git config core.hooksPath .githooks
 
 ##@ Hybrid development (DB in Docker, API/UI local - recommended)
-hybrid-up: services-up ## Start Postgres + Redis, then run `make backend` and `make frontend`
+hybrid-up: services-up ## Start Postgres, then run `make backend` and `make frontend`
 	@echo "API: make backend -> http://localhost:$(BACKEND_PORT)/docs | UI: make frontend -> http://localhost:$(VITE_DEV_PORT)"
 
 hybrid-down: ## Stop local API/UI and DB services
@@ -36,11 +36,11 @@ hybrid-down: ## Stop local API/UI and DB services
 	-pkill -f "vite.*$(VITE_DEV_PORT)"
 	$(MAKE) services-down
 
-services-up: ## Start only Postgres + Redis
-	$(DC_INFRA) up -d --wait postgres redis
+services-up: ## Start only Postgres
+	$(DC_INFRA) up -d --wait postgres
 
-services-down: ## Stop Postgres + Redis
-	$(DC_INFRA) stop postgres redis
+services-down: ## Stop Postgres
+	$(DC_INFRA) stop postgres
 
 backend: ## Run the API locally with reload
 	cd backend && uv run uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_PORT)

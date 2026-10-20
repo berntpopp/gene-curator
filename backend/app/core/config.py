@@ -81,11 +81,6 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: list[str] = []
 
     # ========================================
-    # REDIS SETTINGS (OPTIONAL)
-    # ========================================
-    REDIS_URL: str | None = None
-
-    # ========================================
     # FILE UPLOAD SETTINGS (Deprecated - use api_config)
     # ========================================
     # NOTE: Upload configuration should be managed via config/api.yaml

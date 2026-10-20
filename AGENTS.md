@@ -16,7 +16,7 @@ configurable schemas, scope-based teams and a multi-stage, 4-eyes review workflo
 | Database | PostgreSQL 15 with row-level security; schema in `database/sql/*.sql` |
 | Quality | ruff, mypy (strict), bandit, pytest; ESLint 10 + typescript-eslint, Prettier, vue-tsc, Vitest, Playwright |
 
-Ports (source of truth `.env.dev`): API 8051, Vite 5193, Docker UI 3051, Postgres 5454, Redis 6399.
+Ports (source of truth `.env.dev`): API 8051, Vite 5193, Docker UI 3051, Postgres 5454.
 Seeded dev logins (`004_seed_data.sql`): `admin@genecurator.org`, `alice.smith@genecurator.org`
 (curator), `bob.jones@genecurator.org` (reviewer), all `admin123`. Local frontend needs `frontend/.env.local` with
 `VITE_API_BASE_URL=http://localhost:8051` and `VITE_ENABLE_DEV_LOGIN=true`; without it login fails silently.

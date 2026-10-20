@@ -364,19 +364,6 @@ DEFAULT_EMAIL_FROM = "noreply@gene-curator.org"
 """Default sender email address."""
 
 # ========================================
-# REDIS SETTINGS
-# ========================================
-
-REDIS_DEFAULT_PORT = 6379
-"""Default Redis port."""
-
-REDIS_DEFAULT_DB = 0
-"""Default Redis database number."""
-
-REDIS_DEFAULT_TIMEOUT = 5
-"""Default Redis operation timeout in seconds."""
-
-# ========================================
 # BULK OPERATIONS
 # ========================================
 

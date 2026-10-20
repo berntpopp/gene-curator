@@ -73,5 +73,32 @@ class MigrationCommandTests(unittest.TestCase):
         self.assertEqual(argv, "")
 
 
+class InfrastructureServicesTests(unittest.TestCase):
+    def test_infrastructure_starts_only_postgres(self) -> None:
+        result = subprocess.run(
+            [
+                "/usr/bin/docker",
+                "compose",
+                "--env-file",
+                ".env.dev",
+                "config",
+                "--services",
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.splitlines(), ["postgres"])
+        result = subprocess.run(
+            ["/usr/bin/make", "-n", "services-up"],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        self.assertEqual(result.stdout.split()[-4:], ["up", "-d", "--wait", "postgres"])
+
+
 if __name__ == "__main__":
     unittest.main()
