@@ -483,7 +483,7 @@ def delete_precuration(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> None:
-    """Soft delete a precuration (archive)."""
+    """Archive a precuration. Linked curations prevent deletion with HTTP 409."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 

@@ -446,7 +446,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         db_obj: PrecurationNew,
         user_id: UUID,
     ) -> PrecurationNew:
-        """Soft delete by setting status to archived."""
+        """Archive only precurations without linked curations, including archived ones."""
         curation_count = self.has_associated_curations(db, db_obj.id)
         if curation_count > 0:
             raise ValueError(
