@@ -124,7 +124,15 @@ async def health_check() -> dict[str, str | float]:
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Global exception caught", error=exc)
+    # ServerErrorMiddleware sits outside CORSMiddleware, so add the headers here
+    headers: dict[str, str] = {}
+    origin = request.headers.get("origin")
+    if origin and origin in cors_config.allow_origins:
+        headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+        if cors_config.allow_credentials:
+            headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
+        headers=headers,
         status_code=500,
         content={
             "detail": "Internal server error",
