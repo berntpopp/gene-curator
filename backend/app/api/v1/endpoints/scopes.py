@@ -160,6 +160,10 @@ def list_scopes(
     # Set RLS context - this will filter scopes automatically
     deps.set_rls_context(db, current_user)
 
+    # Caller's accepted membership role per scope (admins may have none)
+    user_scopes = scope_membership_crud.get_user_scopes(db, user_id=current_user.id)
+    roles = {scope.id: getattr(m.role, "value", m.role) for scope, m in user_scopes}
+
     # Application admins see ALL scopes with counts
     if current_user.role.value == "admin":
         scopes_with_counts = scope_crud.get_multi_with_counts(
@@ -182,12 +186,13 @@ def list_scopes(
                 total_genes=scope_data.pop("gene_count", 0),
                 member_count=scope_data.pop("member_count", 0),
             )
-            scope_item = ScopeListItem(**scope_data, stats=stats)
+            scope_item = ScopeListItem(
+                **scope_data, stats=stats, user_role=roles.get(scope_data["id"])
+            )
             result.append(scope_item)
         return result
 
     # Regular users see scopes they are members of
-    user_scopes = scope_membership_crud.get_user_scopes(db, user_id=current_user.id)
 
     # Extract scope objects
     scopes = [scope for scope, membership in user_scopes]
@@ -246,6 +251,7 @@ def list_scopes(
             updated_at=scope.updated_at,
             created_by=scope.created_by,
             stats=stats,
+            user_role=roles.get(scope.id),
         )
         result.append(scope_item)
 

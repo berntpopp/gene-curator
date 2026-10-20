@@ -119,13 +119,8 @@
   const authStore = useAuthStore()
   const usersStore = useUsersStore()
   const scopesStore = useScopesStore()
-  // The scope list response carries the caller's role, which the generated ScopeResponse omits
-  const scopes = computed(
-    () =>
-      scopesStore.userScopes as ((typeof scopesStore.userScopes)[number] & {
-        user_role?: string | null
-      })[]
-  )
+  // Only scopes where the caller has an accepted membership carry a role (admins also list the rest)
+  const scopes = computed(() => scopesStore.userScopes.filter(s => s.user_role))
   // The auth store types user as null (untyped JS state); narrow it to the generated user shape
   const currentUser = computed(() => authStore.user as Schema<'UserResponse'> | null)
 

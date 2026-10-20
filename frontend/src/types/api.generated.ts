@@ -7586,6 +7586,11 @@ export interface components {
             created_by: string | null;
             /** @description Basic scope statistics */
             stats?: components["schemas"]["ScopeListStats"] | null;
+            /**
+             * User Role
+             * @description Caller's role from an accepted membership in this scope, if any
+             */
+            user_role?: string | null;
         };
         /**
          * ScopeListStats

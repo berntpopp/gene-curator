@@ -352,7 +352,8 @@ describe('UserProfile', () => {
     vi.spyOn(useUsersStore(), 'fetchUser').mockResolvedValue({ ...profile, role: 'user' } as never)
     vi.spyOn(useScopesStore(), 'fetchUserScopes').mockImplementation(async () => {
       useScopesStore().scopes = [
-        { id: 's1', name: 'kidney', display_name: 'Kidney Genetics', user_role: 'curator' }
+        { id: 's1', name: 'kidney', display_name: 'Kidney Genetics', user_role: 'curator' },
+        { id: 's2', name: 'other', display_name: 'Other Scope', user_role: null }
       ] as never
       return [] as never
     })
@@ -360,6 +361,7 @@ describe('UserProfile', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Kidney Genetics')
     expect(wrapper.text()).toContain('Curator')
+    expect(wrapper.text()).not.toContain('Other Scope') // admin sees it, but no membership
     expect(wrapper.text()).not.toMatch(/\buser\b/)
   })
 
