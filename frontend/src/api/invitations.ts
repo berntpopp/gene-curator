@@ -35,26 +35,22 @@ export const invitationsApi = {
   },
 
   /**
-   * Accept a scope invitation
+   * Accept a scope invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept)
    *
-   * @param invitationId - Invitation UUID
-   * @param data - Optional acceptance data
-   * @param data.notes - Optional acceptance notes
-   * @returns Accepted membership object
-   *
-   * @example
-   * const membership = await invitationsApi.acceptInvitation('uuid-here')
+   * @param scopeId - Scope UUID the invitation belongs to
+   * @param membershipId - Invitation (membership) UUID
+   * @param data - Optional acceptance notes
+   * @returns Accepted membership
    */
   async acceptInvitation(
-    invitationId: string,
-    data: Record<string, unknown> = {}
-  ): Promise<unknown> {
-    // The accept endpoint is on scope_memberships router
-    // POST /scopes/{scope_id}/invitations/{membership_id}/accept
-    // But we need the scope_id which we may not have...
-    // Actually, looking at the backend, there's a simpler pattern we could use.
-    // For now, let's use the scope service pattern
-    const response = await apiClient.post<unknown>(`/invitations/${invitationId}/accept`, data)
+    scopeId: string,
+    membershipId: string,
+    data: Schema<'ScopeMembershipAccept'> | null = null
+  ): Promise<Schema<'ScopeMembershipResponse'>> {
+    const response = await apiClient.post<Schema<'ScopeMembershipResponse'>>(
+      `/scopes/${scopeId}/invitations/${membershipId}/accept`,
+      data
+    )
     return response.data
   },
 

@@ -5,7 +5,7 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { usersApi } from '@/api/users'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type User = Schema<'UserResponse'>
@@ -65,7 +65,7 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const skip = (page - 1) * limit
-      const response = apiData<User[]>(await usersApi.getUsers({ skip, limit }))
+      const response = await usersApi.getUsers({ skip, limit })
 
       users.value = response
       currentPage.value = page
@@ -96,7 +96,7 @@ export const useUsersStore = defineStore('users', () => {
 
     try {
       const skip = (page - 1) * limit
-      const response = apiData<User[]>(await usersApi.searchUsers(query, { skip, limit }))
+      const response = await usersApi.searchUsers(query, { skip, limit })
 
       searchQuery.value = query
       searchResults.value = response
@@ -115,7 +115,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = apiData<UserStatistics>(await usersApi.getUserStatistics())
+      const response = await usersApi.getUserStatistics()
       statistics.value = response
       return response
     } catch (err) {
@@ -131,7 +131,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = apiData<User>(await usersApi.getUser(userId))
+      const response = await usersApi.getUser(userId)
       selectedUser.value = response
       return response
     } catch (err) {
@@ -147,7 +147,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = apiData<User>(await usersApi.createUser(userData))
+      const response = await usersApi.createUser(userData)
 
       // Add to users list if we're on the first page
       if (currentPage.value === 1) {
@@ -176,7 +176,7 @@ export const useUsersStore = defineStore('users', () => {
     error.value = null
 
     try {
-      const response = apiData<User>(await usersApi.updateUser(userId, userData))
+      const response = await usersApi.updateUser(userId, userData)
 
       // Update in users list
       const index = users.value.findIndex(user => user.id === userId)

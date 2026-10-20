@@ -42,12 +42,12 @@ describe('GeneDetail view', () => {
     expect(wrapper.text()).toContain('Loading gene information...')
   })
 
-  it('shows an error when the gene is not in the database', async () => {
-    vi.mocked(genesAPI.getGeneById).mockResolvedValue(null as never)
+  it('shows an error when the gene cannot be loaded', async () => {
+    vi.mocked(genesAPI.getGeneById).mockRejectedValue(new Error('404'))
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to load gene information')
-    expect(wrapper.text()).toContain('Gene not found in database')
+    expect(wrapper.text()).toContain('Failed to load gene details')
   })
 
   it('renders HGNC data when the lookup succeeds', async () => {

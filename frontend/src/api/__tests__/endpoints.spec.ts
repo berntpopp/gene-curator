@@ -79,15 +79,12 @@ describe('API modules: response-specific behaviour', () => {
     vi.clearAllMocks()
   })
 
-  it('generateJsonSchema unwraps json_schema when present', async () => {
+  it('generateJsonSchema returns the JSONSchemaResponse body', async () => {
     client.get.mockResolvedValue({ data: { json_schema: { type: 'object' } } })
-    await expect(validationAPI.generateJsonSchema('s1')).resolves.toEqual({ type: 'object' })
+    await expect(validationAPI.generateJsonSchema('s1')).resolves.toEqual({
+      json_schema: { type: 'object' }
+    })
     expect(client.get).toHaveBeenCalledWith('/validation/schema/s1/json-schema')
-  })
-
-  it('generateJsonSchema returns the whole body when there is no wrapper', async () => {
-    client.get.mockResolvedValue({ data: { type: 'object' } })
-    await expect(validationAPI.generateJsonSchema('s1')).resolves.toEqual({ type: 'object' })
   })
 
   it('getAvailableTransitions returns the list or an empty array', async () => {

@@ -75,37 +75,21 @@ export const identityRows: Row[] = [
     name: 'scopes.deleteScope without force',
     run: () => scopesAPI.deleteScope('s1'),
     method: 'delete',
-    args: ['/scopes/s1', { params: {} }]
+    args: ['/scopes/s1', { params: {} }],
+    result: undefined
   },
   {
     name: 'scopes.deleteScope with force',
     run: () => scopesAPI.deleteScope('s1', { force: true }),
     method: 'delete',
-    args: ['/scopes/s1', { params: { force: true } }]
+    args: ['/scopes/s1', { params: { force: true } }],
+    result: undefined
   },
   {
     name: 'scopes.getScopeStatistics',
     run: () => scopesAPI.getScopeStatistics('s1'),
     method: 'get',
     args: ['/scopes/s1/statistics']
-  },
-  {
-    name: 'scopes.getScopeUsers',
-    run: () => scopesAPI.getScopeUsers('s1'),
-    method: 'get',
-    args: ['/scopes/s1/users']
-  },
-  {
-    name: 'scopes.assignUserToScope',
-    run: () => scopesAPI.assignUserToScope('s1', 'u1', { role: 'curator' }),
-    method: 'post',
-    args: ['/scopes/s1/users/u1', { role: 'curator' }]
-  },
-  {
-    name: 'scopes.removeUserFromScope',
-    run: () => scopesAPI.removeUserFromScope('s1', 'u1'),
-    method: 'delete',
-    args: ['/scopes/s1/users/u1']
   },
 
   // schemas
@@ -134,16 +118,16 @@ export const identityRows: Row[] = [
     args: ['/schemas/curation-schemas/x', { name: 'n' }]
   },
   {
+    name: 'schemas.validateCurationSchema',
+    run: () => schemasAPI.validateCurationSchema('x'),
+    method: 'post',
+    args: ['/schemas/curation-schemas/x/validate']
+  },
+  {
     name: 'schemas.deleteSchema',
     run: () => schemasAPI.deleteSchema('x'),
     method: 'delete',
     args: ['/schemas/curation-schemas/x']
-  },
-  {
-    name: 'schemas.getSchemaUsageStatistics',
-    run: () => schemasAPI.getSchemaUsageStatistics('x'),
-    method: 'get',
-    args: ['/schemas/curation-schemas/x/usage-statistics']
   },
   {
     name: 'schemas.getWorkflowPairs',
@@ -179,9 +163,9 @@ export const identityRows: Row[] = [
   // validation
   {
     name: 'validation.validateEvidence',
-    run: () => validationAPI.validateEvidence({ a: 1 }),
+    run: () => validationAPI.validateEvidence({ evidence_data: { a: 1 } }),
     method: 'post',
-    args: ['/validation/validate-evidence', { a: 1 }]
+    args: ['/validation/validate-evidence', { evidence_data: { a: 1 } }]
   },
   {
     name: 'validation.validateSchema',
@@ -217,9 +201,9 @@ export const identityRows: Row[] = [
   },
   {
     name: 'workflow.transitionCuration',
-    run: () => workflowAPI.transitionCuration('c1', { to_state: 'review' } as never),
+    run: () => workflowAPI.transitionCuration('c1', { target_stage: 'review' }),
     method: 'post',
-    args: ['/workflow/curation/c1/transition', { to_state: 'review' }]
+    args: ['/workflow/curation/c1/transition', { target_stage: 'review' }]
   },
   {
     name: 'workflow.getWorkflowState',
@@ -234,16 +218,28 @@ export const identityRows: Row[] = [
     args: ['/workflow/peer-reviewers', { params: { scope: 's' } }]
   },
   {
-    name: 'workflow.submitPeerReview uses the transition endpoint',
-    run: () => workflowAPI.submitPeerReview('c1', { to_state: 'active' } as never),
+    name: 'workflow.submitPeerReview posts to the review submit endpoint',
+    run: () => workflowAPI.submitPeerReview('r1', { decision: 'approve' }),
     method: 'post',
-    args: ['/workflow/curation/c1/transition', { to_state: 'active' }]
+    args: ['/workflow/reviews/r1/submit', { decision: 'approve' }]
+  },
+  {
+    name: 'workflow.transitionItem',
+    run: () => workflowAPI.transitionItem('precuration', 'p1', { target_stage: 'curation' }),
+    method: 'post',
+    args: ['/workflow/precuration/p1/transition', { target_stage: 'curation' }]
+  },
+  {
+    name: 'workflow.getWorkflowAuditTrail',
+    run: () => workflowAPI.getWorkflowAuditTrail('precuration', 'p1'),
+    method: 'get',
+    args: ['/workflow/precuration/p1/audit-trail']
   },
   {
     name: 'workflow.getCurationWorkflowHistory',
     run: () => workflowAPI.getCurationWorkflowHistory('c1'),
     method: 'get',
-    args: ['/workflow/curation/c1/history']
+    args: ['/workflow/curation/c1/audit-trail']
   },
   {
     name: 'workflow.getWorkflowStatistics',
@@ -299,13 +295,13 @@ export const identityRows: Row[] = [
     name: 'genes.getGeneCurationProgress',
     run: () => genesAPI.getGeneCurationProgress('g'),
     method: 'get',
-    args: ['/genes/g/curation-progress']
+    args: ['/genes/g/progress']
   },
   {
-    name: 'genes.searchGenes posts the search body',
-    run: () => genesAPI.searchGenes({ q: 'BRCA' }),
-    method: 'post',
-    args: ['/genes/search', { q: 'BRCA' }]
+    name: 'genes.searchGenes queries GET /genes/search',
+    run: () => genesAPI.searchGenes({ query: 'BRCA' }),
+    method: 'get',
+    args: ['/genes/search', { params: { query: 'BRCA' } }]
   },
   {
     name: 'genes.getStatistics',
@@ -367,7 +363,7 @@ export const identityRows: Row[] = [
     name: 'assignments.updateAssignmentPriority maps to priority_level',
     run: () => assignmentsAPI.updateAssignmentPriority('a', 'high'),
     method: 'put',
-    args: ['/gene-assignments/a/priority', { priority_level: 'high' }]
+    args: ['/gene-assignments/a', { priority_level: 'high' }]
   },
   {
     name: 'assignments.updateAssignment',

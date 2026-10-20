@@ -62,18 +62,6 @@ export const clinicalRows: Row[] = [
     args: ['/curations', { params: { gene_id: 'g', scope_id: 's' } }]
   },
   {
-    name: 'curations.getCurationStatistics',
-    run: () => curationsAPI.getCurationStatistics({ scope: 's' }),
-    method: 'get',
-    args: ['/curations/statistics', { params: { scope: 's' } }]
-  },
-  {
-    name: 'curations.validateCurationData',
-    run: () => curationsAPI.validateCurationData({ a: 1 }, 'schema-1'),
-    method: 'post',
-    args: ['/curations/validate', { data: { a: 1 }, schema_id: 'schema-1' }]
-  },
-  {
     name: 'curations.addEvidenceItem',
     run: () => curationsAPI.addEvidenceItem('c', { category: 'genetic' } as never),
     method: 'post',
@@ -89,7 +77,8 @@ export const clinicalRows: Row[] = [
     name: 'curations.deleteEvidenceItem',
     run: () => curationsAPI.deleteEvidenceItem('c', 'e'),
     method: 'delete',
-    args: ['/curations/c/evidence/e']
+    args: ['/curations/c/evidence/e'],
+    result: undefined
   },
   {
     name: 'curations.calculateScore',
@@ -165,18 +154,6 @@ export const clinicalRows: Row[] = [
     run: () => precurationsAPI.getPrecurationsByGeneAndScope('g', 's'),
     method: 'get',
     args: ['/precurations/', { params: { gene_id: 'g', scope_id: 's' } }]
-  },
-  {
-    name: 'precurations.getPrecurationStatistics',
-    run: () => precurationsAPI.getPrecurationStatistics({ scope: 's' }),
-    method: 'get',
-    args: ['/precurations/statistics/', { params: { scope: 's' } }]
-  },
-  {
-    name: 'precurations.validatePrecurationData',
-    run: () => precurationsAPI.validatePrecurationData({ a: 1 }, 'schema-2'),
-    method: 'post',
-    args: ['/precurations/validate', { data: { a: 1 }, schema_id: 'schema-2' }]
   },
 
   // external validation
@@ -323,9 +300,9 @@ export const clinicalRows: Row[] = [
   },
   {
     name: 'invitations.acceptInvitation',
-    run: () => invitationsApi.acceptInvitation('i1'),
+    run: () => invitationsApi.acceptInvitation('s1', 'i1'),
     method: 'post',
-    args: ['/invitations/i1/accept', {}]
+    args: ['/scopes/s1/invitations/i1/accept', null]
   },
   {
     name: 'invitations.declineInvitation',

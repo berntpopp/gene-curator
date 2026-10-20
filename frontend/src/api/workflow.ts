@@ -67,17 +67,44 @@ export const workflowAPI = {
   },
 
   /**
-   * Submit peer review
-   * Uses transition endpoint — the dedicated review endpoint does not exist
-   * CurationDetailView already uses transitionCuration() directly for approve/reject
+   * Submit a peer review decision (POST /workflow/reviews/{review_id}/submit)
+   * @param reviewId - Peer review request UUID
    */
   async submitPeerReview(
-    curationId: string,
-    reviewData: Schema<'WorkflowTransitionRequest'>
+    reviewId: string,
+    reviewData: Schema<'PeerReviewSubmission'>
+  ): Promise<Schema<'PeerReviewResult'>> {
+    const response = await apiClient.post<Schema<'PeerReviewResult'>>(
+      `/workflow/reviews/${reviewId}/submit`,
+      reviewData
+    )
+    return response.data
+  },
+
+  /**
+   * Transition any workflow item (precuration or curation) to another stage
+   */
+  async transitionItem(
+    itemType: string,
+    itemId: string,
+    transitionData: Schema<'WorkflowTransitionRequest'>
   ): Promise<Schema<'WorkflowTransition'>> {
     const response = await apiClient.post<Schema<'WorkflowTransition'>>(
-      `/workflow/curation/${curationId}/transition`,
-      reviewData
+      `/workflow/${itemType}/${itemId}/transition`,
+      transitionData
+    )
+    return response.data
+  },
+
+  /**
+   * Get the stage-transition audit trail of any workflow item
+   */
+  async getWorkflowAuditTrail(
+    itemType: string,
+    itemId: string
+  ): Promise<Schema<'WorkflowAuditTrail'>> {
+    const response = await apiClient.get<Schema<'WorkflowAuditTrail'>>(
+      `/workflow/${itemType}/${itemId}/audit-trail`
     )
     return response.data
   },
@@ -87,7 +114,7 @@ export const workflowAPI = {
    */
   async getCurationWorkflowHistory(curationId: string): Promise<Schema<'WorkflowAuditTrail'>> {
     const response = await apiClient.get<Schema<'WorkflowAuditTrail'>>(
-      `/workflow/curation/${curationId}/history`
+      `/workflow/curation/${curationId}/audit-trail`
     )
     return response.data
   },

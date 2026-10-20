@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Notification } from '@/stores/notifications'
 import { setActivePinia, createPinia } from 'pinia'
+import type { Schema } from '@/types/api'
 import { useNotificationsStore } from '@/stores/notifications'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
@@ -19,13 +20,21 @@ vi.mock('@/services/logService', () => ({
 
 const api = vi.mocked(notificationsAPI)
 
-const note = (id: string, extra: Record<string, unknown> = {}) =>
-  ({
-    id,
-    type: 'info',
-    is_read: false,
-    ...extra
-  }) as unknown as Notification
+const note = (id: string, extra: Partial<Notification> = {}): Notification => ({
+  id,
+  user_id: 'u1',
+  type: 'curation_approved',
+  title: 't',
+  message: 'm',
+  is_read: false,
+  created_at: '2026-01-01',
+  ...extra
+})
+
+const listOf = (notifications: Notification[]): Schema<'NotificationListResponse'> => ({
+  notifications,
+  total: notifications.length
+})
 
 describe('useNotificationsStore', () => {
   beforeEach(() => {
@@ -44,7 +53,7 @@ describe('useNotificationsStore', () => {
         note('n1', { type: 'review_assigned' }),
         note('n2', { is_read: true }),
         note('n3', { type: 'review_assigned', is_read: true })
-      ] as never
+      ]
 
       expect(store.unreadNotifications.map(n => n.id)).toEqual(['n1'])
       expect(store.totalUnread).toBe(1)
@@ -55,7 +64,7 @@ describe('useNotificationsStore', () => {
   describe('fetchNotifications', () => {
     it('loads up to 50 notifications', async () => {
       const store = useNotificationsStore()
-      api.getNotifications.mockResolvedValue({ notifications: [note('n1'), note('n2')] })
+      api.getNotifications.mockResolvedValue(listOf([note('n1'), note('n2')]))
 
       await store.fetchNotifications()
 
@@ -63,15 +72,6 @@ describe('useNotificationsStore', () => {
       expect(store.notifications).toHaveLength(2)
       expect(store.loading).toBe(false)
       expect(store.error).toBeNull()
-    })
-
-    it('uses an empty list when the response has none', async () => {
-      const store = useNotificationsStore()
-      api.getNotifications.mockResolvedValue({} as never)
-
-      await store.fetchNotifications()
-
-      expect(store.notifications).toEqual([])
     })
 
     it('stores the API detail on failure without throwing', async () => {
@@ -103,8 +103,8 @@ describe('useNotificationsStore', () => {
   describe('markAsRead', () => {
     it('marks the local notification read', async () => {
       const store = useNotificationsStore()
-      store.notifications = [note('n1')] as never
-      api.markAsRead.mockResolvedValue({} as never)
+      store.notifications = [note('n1')]
+      api.markAsRead.mockResolvedValue(note('n1', { is_read: true }))
 
       await store.markAsRead('n1')
 
@@ -114,7 +114,7 @@ describe('useNotificationsStore', () => {
 
     it('ignores ids that are not loaded', async () => {
       const store = useNotificationsStore()
-      api.markAsRead.mockResolvedValue({} as never)
+      api.markAsRead.mockResolvedValue(note('n1', { is_read: true }))
 
       await store.markAsRead('unknown')
 
@@ -143,8 +143,8 @@ describe('useNotificationsStore', () => {
   describe('markAllAsRead', () => {
     it('marks every local notification read', async () => {
       const store = useNotificationsStore()
-      store.notifications = [note('n1'), note('n2', { is_read: true })] as never
-      api.markAllAsRead.mockResolvedValue({} as never)
+      store.notifications = [note('n1'), note('n2', { is_read: true })]
+      api.markAllAsRead.mockResolvedValue({ message: 'ok', count: 1 })
 
       await store.markAllAsRead()
 
@@ -202,7 +202,7 @@ describe('useNotificationsStore', () => {
     it('fetches immediately and then every 60 seconds until stopped', async () => {
       vi.useFakeTimers()
       const store = useNotificationsStore()
-      api.getNotifications.mockResolvedValue({ notifications: [] })
+      api.getNotifications.mockResolvedValue(listOf([]))
 
       store.startPolling()
       expect(api.getNotifications).toHaveBeenCalledTimes(1)
@@ -219,7 +219,7 @@ describe('useNotificationsStore', () => {
     it('restarts cleanly when polling is started twice', () => {
       vi.useFakeTimers()
       const store = useNotificationsStore()
-      api.getNotifications.mockResolvedValue({ notifications: [] })
+      api.getNotifications.mockResolvedValue(listOf([]))
 
       store.startPolling()
       store.startPolling()

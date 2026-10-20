@@ -1,5 +1,6 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
+import type { MessageResponse } from './responses'
 
 export const schemasAPI = {
   /**
@@ -50,20 +51,20 @@ export const schemasAPI = {
   },
 
   /**
-   * Delete curation schema
+   * Validate a stored curation schema (field definitions, scoring, validation rules)
    */
-  async deleteSchema(id: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/schemas/curation-schemas/${id}`)
+  async validateCurationSchema(id: string): Promise<Schema<'SchemaValidationResult'>> {
+    const response = await apiClient.post<Schema<'SchemaValidationResult'>>(
+      `/schemas/curation-schemas/${id}/validate`
+    )
     return response.data
   },
 
   /**
-   * Get schema usage statistics
+   * Delete curation schema
    */
-  async getSchemaUsageStatistics(id: string): Promise<unknown> {
-    const response = await apiClient.get<unknown>(
-      `/schemas/curation-schemas/${id}/usage-statistics`
-    )
+  async deleteSchema(id: string): Promise<MessageResponse> {
+    const response = await apiClient.delete<MessageResponse>(`/schemas/curation-schemas/${id}`)
     return response.data
   },
 
@@ -115,8 +116,8 @@ export const schemasAPI = {
   /**
    * Delete workflow pair
    */
-  async deleteWorkflowPair(id: string): Promise<unknown> {
-    const response = await apiClient.delete<unknown>(`/schemas/workflow-pairs/${id}`)
+  async deleteWorkflowPair(id: string): Promise<MessageResponse> {
+    const response = await apiClient.delete<MessageResponse>(`/schemas/workflow-pairs/${id}`)
     return response.data
   }
 }

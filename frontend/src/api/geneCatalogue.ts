@@ -8,6 +8,18 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
 
+export interface CatalogueQuery {
+  skip?: number
+  limit?: number
+  search?: string
+  classification?: string
+  disease?: string
+  scope_id?: string
+  chromosome?: string
+  sort_by?: string
+  sort_order?: 'asc' | 'desc'
+}
+
 export const geneCatalogueAPI = {
   /**
    * Get the Gene Catalogue with filtering and pagination.
@@ -24,9 +36,7 @@ export const geneCatalogueAPI = {
    * @param params.sort_order - Sort order (asc or desc)
    * @returns Catalogue response with entries, pagination, and summary stats
    */
-  async getCatalogue(
-    params: Record<string, unknown> = {}
-  ): Promise<Schema<'GeneCatalogueResponse'>> {
+  async getCatalogue(params: CatalogueQuery = {}): Promise<Schema<'GeneCatalogueResponse'>> {
     const response = await apiClient.get<Schema<'GeneCatalogueResponse'>>('/gene-catalogue/', {
       params
     })

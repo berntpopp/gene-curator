@@ -105,14 +105,14 @@ describe('useScopesStore', () => {
   describe('fetchScope', () => {
     it('sets current and replaces or appends the list entry', async () => {
       const store = useScopesStore()
-      store.scopes = [scope('a', { name: 'old' })] as never
+      store.scopes = [scope('a', { name: 'old' })]
 
-      api.fetchScope.mockResolvedValueOnce(scope('a', { name: 'new' }))
+      api.fetchScope.mockResolvedValueOnce(scope('a', { name: 'new' }) as Schema<'ScopeWithStats'>)
       await store.fetchScope('a')
       expect(store.currentScope).toMatchObject({ name: 'new' })
       expect(store.scopes[0]).toMatchObject({ name: 'new' })
 
-      api.fetchScope.mockResolvedValueOnce(scope('b'))
+      api.fetchScope.mockResolvedValueOnce(scope('b') as Schema<'ScopeWithStats'>)
       await store.fetchScope('b')
       expect(store.scopes.map(s => s.id)).toEqual(['a', 'b'])
     })
@@ -129,7 +129,7 @@ describe('useScopesStore', () => {
   describe('createScope', () => {
     it('appends the scope and makes the creator admin', async () => {
       const store = useScopesStore()
-      api.createScope.mockResolvedValue(scope('new'))
+      api.createScope.mockResolvedValue(scope('new') as Schema<'Scope'>)
 
       const created = await store.createScope({
         name: 'New',
@@ -162,7 +162,7 @@ describe('useScopesStore', () => {
       const store = useScopesStore()
       store.scopes = [scope('a')] as never
       store.currentScope = scope('a')
-      api.updateScope.mockResolvedValue(scope('a', { name: 'renamed' }))
+      api.updateScope.mockResolvedValue(scope('a', { name: 'renamed' }) as Schema<'Scope'>)
 
       await store.updateScope('a', { name: 'renamed' } as Schema<'ScopeUpdate'>)
 
@@ -287,12 +287,12 @@ describe('useScopesStore', () => {
 
     it('inviteMember refreshes the members list', async () => {
       const store = useScopesStore()
-      api.inviteMember.mockResolvedValue({ ok: true })
+      api.inviteMember.mockResolvedValue(member('invited'))
       api.fetchMembers.mockResolvedValue([member('u2')])
 
       await expect(
         store.inviteMember('s1', { email: 'new@x.org', role: 'curator' } as never)
-      ).resolves.toEqual({ ok: true })
+      ).resolves.toEqual(member('invited'))
 
       expect(api.fetchMembers).toHaveBeenCalledWith('s1')
       expect(store.scopeUsers.s1).toEqual([member('u2')])
@@ -312,9 +312,11 @@ describe('useScopesStore', () => {
     it('updateMemberRole updates the cached member role', async () => {
       const store = useScopesStore()
       store.scopeUsers = { s1: [member('u1', 'viewer')] as never }
-      api.updateMemberRole.mockResolvedValue({ ok: true })
+      api.updateMemberRole.mockResolvedValue(member('u1', 'curator'))
 
-      await expect(store.updateMemberRole('s1', 'u1', 'curator')).resolves.toEqual({ ok: true })
+      await expect(store.updateMemberRole('s1', 'u1', 'curator')).resolves.toEqual(
+        member('u1', 'curator')
+      )
 
       expect(store.scopeUsers.s1?.[0]?.role).toBe('curator')
     })
@@ -359,10 +361,16 @@ describe('useScopesStore', () => {
   describe('fetchStatistics', () => {
     it('caches statistics and records errors', async () => {
       const store = useScopesStore()
-      api.fetchStatistics.mockResolvedValueOnce({ total_genes: 4 })
+      api.fetchStatistics.mockResolvedValueOnce({
+        total_genes_assigned: 4
+      } as Schema<'ScopeStatistics'>)
 
-      await expect(store.fetchStatistics('s1')).resolves.toEqual({ total_genes: 4 })
-      expect(store.scopeStatistics.s1).toEqual({ total_genes: 4 })
+      await expect(store.fetchStatistics('s1')).resolves.toEqual({
+        total_genes_assigned: 4
+      } as Schema<'ScopeStatistics'>)
+      expect(store.scopeStatistics.s1).toEqual({
+        total_genes_assigned: 4
+      } as Schema<'ScopeStatistics'>)
 
       api.fetchStatistics.mockRejectedValueOnce(fail('stats'))
       await expect(store.fetchStatistics('s1')).rejects.toThrow('stats')

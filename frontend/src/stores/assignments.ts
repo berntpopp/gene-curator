@@ -2,21 +2,10 @@ import { defineStore } from 'pinia'
 import { toApiError } from './apiError'
 import { assignmentsAPI } from '@/api'
 import type { Schema } from '@/types/api'
+import { pageStateFrom, type PageState } from './pagination'
 
-/** Assignment row as rendered by the assignment views (superset of the API schema). */
-export interface AssignmentRecord {
-  id: string
-  priority_level?: string
-  notes?: string
-  [key: string]: unknown
-}
-
-interface AssignmentsPagination {
-  page: number
-  per_page: number
-  total: number
-  pages: number
-}
+/** Assignment row as listed by the API. */
+export type AssignmentRecord = Schema<'GeneScopeAssignmentSummary'>
 
 interface AssignmentsState {
   assignments: AssignmentRecord[]
@@ -26,7 +15,7 @@ interface AssignmentsState {
   scopeOverviews: Record<string, Schema<'ScopeAssignmentOverview'>>
   loading: boolean
   error: string | null
-  pagination: AssignmentsPagination
+  pagination: PageState
 }
 
 export const useAssignmentsStore = defineStore('assignments', {
@@ -52,7 +41,7 @@ export const useAssignmentsStore = defineStore('assignments', {
     },
 
     getCuratorWorkload: state => (curatorId: string) => {
-      return state.curatorWorkloads[curatorId] || {}
+      return state.curatorWorkloads[curatorId]
     },
 
     getAvailableGenesForScope: state => (scopeId: string) => {
@@ -60,15 +49,15 @@ export const useAssignmentsStore = defineStore('assignments', {
     },
 
     getScopeOverview: state => (scopeId: string) => {
-      return state.scopeOverviews[scopeId] || {}
+      return state.scopeOverviews[scopeId]
     },
 
     getAssignmentsByPriority: state => (priority: string) => {
-      return state.assignments.filter(assignment => assignment.priority_level === priority)
+      return state.assignments.filter(assignment => assignment.priority === priority)
     },
 
     getHighPriorityAssignments: state => {
-      return state.assignments.filter(assignment => assignment.priority_level === 'high')
+      return state.assignments.filter(assignment => assignment.priority === 'high')
     }
   },
 
@@ -79,11 +68,8 @@ export const useAssignmentsStore = defineStore('assignments', {
       try {
         const response = await assignmentsAPI.getAssignments(params)
 
-        this.assignments = response.assignments || response.data || response
-
-        if (response.pagination) {
-          this.pagination = response.pagination
-        }
+        this.assignments = response.assignments
+        this.pagination = pageStateFrom(response)
 
         return response
       } catch (error) {
@@ -109,6 +95,19 @@ export const useAssignmentsStore = defineStore('assignments', {
         }
 
         return result
+      } catch (error) {
+        this.error = toApiError(error).message ?? null
+        throw error
+      } finally {
+        this.loading = false
+      }
+    },
+
+    async createAssignment(assignmentData: Schema<'GeneScopeAssignmentCreate'>) {
+      this.loading = true
+      this.error = null
+      try {
+        return await assignmentsAPI.createAssignment(assignmentData)
       } catch (error) {
         this.error = toApiError(error).message ?? null
         throw error
@@ -147,7 +146,7 @@ export const useAssignmentsStore = defineStore('assignments', {
         // Update the assignment in the local state
         const assignment = this.assignments.find(a => a.id === assignmentId)
         if (assignment) {
-          assignment.priority_level = priority
+          assignment.priority = priority
         }
 
         return result
@@ -162,7 +161,7 @@ export const useAssignmentsStore = defineStore('assignments', {
     async fetchAssignmentsByScope(scopeId: string, params: Record<string, unknown> = {}) {
       try {
         const assignments = await assignmentsAPI.getAssignmentsByScope(scopeId, params)
-        this.scopeAssignments[scopeId] = assignments.assignments || assignments
+        this.scopeAssignments[scopeId] = assignments
         return assignments
       } catch (error) {
         this.error = toApiError(error).message ?? null
@@ -192,14 +191,16 @@ export const useAssignmentsStore = defineStore('assignments', {
       }
     },
 
-    async updateAssignment(assignmentId: string, updateData: Record<string, unknown>) {
+    async updateAssignment(assignmentId: string, updateData: Schema<'GeneScopeAssignmentUpdate'>) {
       this.loading = true
       this.error = null
       try {
         const result = await assignmentsAPI.updateAssignment(assignmentId, updateData)
-        const index = this.assignments.findIndex(a => a.id === assignmentId)
-        if (index !== -1) {
-          this.assignments[index] = { ...this.assignments[index], ...result }
+        const existing = this.assignments.find(a => a.id === assignmentId)
+        if (existing) {
+          existing.assigned_curator_id = result.assigned_curator_id ?? null
+          existing.priority = result.priority
+          existing.is_active = result.is_active
         }
         return result
       } catch (error) {

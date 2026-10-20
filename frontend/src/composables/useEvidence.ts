@@ -20,12 +20,9 @@
 import { computed, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { useEvidenceStore } from '@/stores/evidence'
-import type { ScoredEvidence } from './useScoring'
+import type { Schema } from '@/types/api'
 
-/** Evidence item as used by this composable (fields beyond these are passed through). */
-export interface EvidenceItem extends ScoredEvidence {
-  [key: string]: unknown
-}
+export type EvidenceItem = Schema<'EvidenceItem'>
 
 export interface UseEvidenceReturn {
   loading: Ref<boolean>
@@ -36,8 +33,8 @@ export interface UseEvidenceReturn {
   totalScore: ComputedRef<number>
   evidenceByCategory: ComputedRef<Record<string, EvidenceItem[]>>
   fetchEvidence: () => Promise<void>
-  addEvidence: (data: Record<string, unknown>) => Promise<void>
-  updateEvidence: (itemId: string, data: Record<string, unknown>) => Promise<void>
+  addEvidence: (data: Schema<'EvidenceItemCreate'>) => Promise<void>
+  updateEvidence: (itemId: string, data: Schema<'EvidenceItemUpdate'>) => Promise<void>
   removeEvidence: (itemId: string) => Promise<void>
 }
 
@@ -69,7 +66,7 @@ export function useEvidence(curationId: string): UseEvidenceReturn {
   const evidenceByCategory = computed<Record<string, EvidenceItem[]>>(() => {
     const categories: Record<string, EvidenceItem[]> = {}
     evidenceItems.value.forEach(item => {
-      const category = String(item.evidence_category)
+      const category = item.evidence_category
       if (!categories[category]) {
         categories[category] = []
       }
@@ -92,7 +89,7 @@ export function useEvidence(curationId: string): UseEvidenceReturn {
     }
   }
 
-  async function addEvidence(data: Record<string, unknown>): Promise<void> {
+  async function addEvidence(data: Schema<'EvidenceItemCreate'>): Promise<void> {
     loading.value = true
     error.value = null
 
@@ -106,7 +103,7 @@ export function useEvidence(curationId: string): UseEvidenceReturn {
     }
   }
 
-  async function updateEvidence(itemId: string, data: Record<string, unknown>): Promise<void> {
+  async function updateEvidence(itemId: string, data: Schema<'EvidenceItemUpdate'>): Promise<void> {
     loading.value = true
     error.value = null
 

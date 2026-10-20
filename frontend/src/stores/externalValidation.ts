@@ -1,13 +1,11 @@
 import { defineStore } from 'pinia'
 import { externalValidationAPI } from '@/api/externalValidation'
 import { logService } from '@/services/logService'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
+import type { Schema } from '@/types/api'
 
-/** Result of an HGNC / PubMed / HPO validation; only `is_valid` is read by the store. */
-export interface ExternalValidationResult {
-  is_valid: boolean
-  [key: string]: unknown
-}
+/** Result of an HGNC / PubMed / HPO validation. */
+export type ExternalValidationResult = Schema<'ValidationResult'>
 
 export type ExternalValidator = 'hgnc' | 'pubmed' | 'hpo'
 
@@ -70,9 +68,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
       this.error = null
 
       try {
-        const result = apiData<ExternalValidationResult>(
-          await externalValidationAPI.validateHGNC(geneSymbol, skipCache)
-        )
+        const result = await externalValidationAPI.validateHGNC(geneSymbol, skipCache)
+
         this.cache.set(cacheKey, result)
         logService.info('HGNC validation complete', {
           geneSymbol,
@@ -104,9 +101,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
       this.error = null
 
       try {
-        const result = apiData<ExternalValidationResult>(
-          await externalValidationAPI.validatePubMed(pmid, skipCache)
-        )
+        const result = await externalValidationAPI.validatePubMed(pmid, skipCache)
+
         this.cache.set(cacheKey, result)
         logService.info('PubMed validation complete', {
           pmid,
@@ -138,9 +134,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
       this.error = null
 
       try {
-        const result = apiData<ExternalValidationResult>(
-          await externalValidationAPI.validateHPO(hpoTerm, skipCache)
-        )
+        const result = await externalValidationAPI.validateHPO(hpoTerm, skipCache)
+
         this.cache.set(cacheKey, result)
         logService.info('HPO validation complete', {
           hpoTerm,
@@ -163,9 +158,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
       this.error = null
 
       try {
-        const results = apiData<Record<string, ExternalValidationResult>>(
-          await externalValidationAPI.validateBatch(validator, values)
-        )
+        const results = await externalValidationAPI.validateBatch(validator, values)
+
         // Cache all results
         Object.entries(results).forEach(([value, result]) => {
           const cacheKey = this._getCacheKey(validator, value)
@@ -188,9 +182,8 @@ export const useExternalValidationStore = defineStore('externalValidation', {
      */
     async fetchCacheStatistics() {
       try {
-        const stats = apiData<Record<string, unknown>>(
-          await externalValidationAPI.getCacheStatistics()
-        )
+        const stats = await externalValidationAPI.getCacheStatistics()
+
         logService.info('Cache statistics fetched', { stats })
         return stats
       } catch (error) {

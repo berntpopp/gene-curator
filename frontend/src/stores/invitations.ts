@@ -11,7 +11,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { invitationsApi } from '@/api/invitations'
 import { logService } from '@/services/logService'
-import { toApiError, apiData } from './apiError'
+import { toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
 export type Invitation = Schema<'PendingInvitationResponse'>
@@ -86,13 +86,11 @@ export const useInvitationsStore = defineStore('invitations', () => {
     error.value = null
 
     try {
-      const response = apiData<{ invitations?: Invitation[] }>(
-        await invitationsApi.getPendingInvitations({
-          includeExpired: options.includeExpired || false
-        })
-      )
+      const response = await invitationsApi.getPendingInvitations({
+        includeExpired: options.includeExpired || false
+      })
 
-      invitations.value = response.invitations || []
+      invitations.value = response.invitations
       lastFetched.value = now
 
       logService.debug('Fetched pending invitations', {
@@ -118,16 +116,14 @@ export const useInvitationsStore = defineStore('invitations', () => {
    *
    * @param {string} invitationId - Invitation UUID
    * @param {string} scopeId - Scope UUID (needed for API path)
-   * @returns {Promise<Object>} Accepted membership
+   * @returns Accepted membership
    */
   async function acceptInvitation(invitationId: string, scopeId: string) {
     loading.value = true
     error.value = null
 
     try {
-      // Use scope memberships endpoint for accept
-      const { default: apiClient } = await import('@/api/client')
-      const response = await apiClient.post(`/scopes/${scopeId}/invitations/${invitationId}/accept`)
+      const membership = await invitationsApi.acceptInvitation(scopeId, invitationId)
 
       // Remove from local state
       invitations.value = invitations.value.filter(inv => inv.id !== invitationId)
@@ -137,7 +133,7 @@ export const useInvitationsStore = defineStore('invitations', () => {
         scopeId
       })
 
-      return apiData<Schema<'ScopeMembershipResponse'>>(response.data)
+      return membership
     } catch (err) {
       error.value = toApiError(err).response?.data?.detail || 'Failed to accept invitation'
       logService.error('Failed to accept invitation', {

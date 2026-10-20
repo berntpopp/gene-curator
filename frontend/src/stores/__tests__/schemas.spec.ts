@@ -11,7 +11,7 @@ vi.mock('@/api', () => ({
     createSchema: vi.fn(),
     updateSchema: vi.fn(),
     deleteSchema: vi.fn(),
-    getSchemaUsageStatistics: vi.fn(),
+    validateCurationSchema: vi.fn(),
     getWorkflowPairs: vi.fn(),
     createWorkflowPair: vi.fn(),
     updateWorkflowPair: vi.fn(),
@@ -29,6 +29,25 @@ const schema = (id: string, extra: Record<string, unknown> = {}) =>
   ({ id, name: id, ...extra }) as Schema<'CurationSchema'>
 const pair = (id: string) => ({ id, name: `pair-${id}` }) as Schema<'WorkflowPair'>
 
+const newSchema: Schema<'CurationSchemaCreate'> = {
+  name: 's',
+  version: '1',
+  schema_type: 'curation',
+  field_definitions: {},
+  workflow_states: {},
+  ui_configuration: {},
+  is_active: true,
+  use_dynamic_form: true
+}
+
+const newPair: Schema<'WorkflowPairCreate'> = {
+  name: 'p',
+  version: '1',
+  precuration_schema_id: 'a',
+  curation_schema_id: 'b',
+  is_active: true
+}
+
 describe('useSchemasStore', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -42,8 +61,8 @@ describe('useSchemasStore', () => {
         schema('a', { schema_type: 'precuration' }),
         schema('b', { schema_type: 'curation' }),
         schema('c', { schema_type: 'combined' })
-      ] as never
-      store.workflowPairs = [pair('w1')] as never
+      ]
+      store.workflowPairs = [pair('w1')]
 
       expect(store.getSchemaById('b')).toMatchObject({ id: 'b' })
       expect(store.getSchemaById('none')).toBeUndefined()
@@ -56,25 +75,16 @@ describe('useSchemasStore', () => {
   })
 
   describe('fetchSchemas', () => {
-    it('stores schemas from the wrapped response', async () => {
+    it('stores the schema list', async () => {
       const store = useSchemasStore()
-      api.getSchemas.mockResolvedValue({ schemas: [schema('a')] })
+      api.getSchemas.mockResolvedValue([schema('a')])
 
       const result = await store.fetchSchemas({ active: true })
 
       expect(api.getSchemas).toHaveBeenCalledWith({ active: true })
       expect(store.schemas.map(s => s.id)).toEqual(['a'])
-      expect(result).toEqual({ schemas: [schema('a')] })
+      expect(result).toEqual([schema('a')])
       expect(store.loading).toBe(false)
-    })
-
-    it('accepts a bare array response', async () => {
-      const store = useSchemasStore()
-      api.getSchemas.mockResolvedValue([schema('bare')])
-
-      await store.fetchSchemas()
-
-      expect(store.schemas.map(s => s.id)).toEqual(['bare'])
     })
 
     it('records the error and rethrows', async () => {
@@ -90,7 +100,7 @@ describe('useSchemasStore', () => {
   describe('fetchSchemaById', () => {
     it('sets current schema and replaces or appends the list entry', async () => {
       const store = useSchemasStore()
-      store.schemas = [schema('a', { name: 'old' })] as never
+      store.schemas = [schema('a', { name: 'old' })]
 
       api.getSchemaById.mockResolvedValueOnce(schema('a', { name: 'new' }))
       await store.fetchSchemaById('a')
@@ -116,7 +126,7 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.createSchema.mockResolvedValue(schema('n'))
 
-      await expect(store.createSchema({} as never)).resolves.toEqual(schema('n'))
+      await expect(store.createSchema(newSchema)).resolves.toEqual(schema('n'))
       expect(store.schemas.map(s => s.id)).toEqual(['n'])
     })
 
@@ -124,17 +134,17 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.createSchema.mockRejectedValue(new Error('invalid'))
 
-      await expect(store.createSchema({} as never)).rejects.toThrow('invalid')
+      await expect(store.createSchema(newSchema)).rejects.toThrow('invalid')
       expect(store.error).toBe('invalid')
     })
 
     it('updateSchema replaces list and current entries', async () => {
       const store = useSchemasStore()
-      store.schemas = [schema('a')] as never
+      store.schemas = [schema('a')]
       store.currentSchema = schema('a')
       api.updateSchema.mockResolvedValue(schema('a', { name: 'upd' }))
 
-      await store.updateSchema('a', {} as never)
+      await store.updateSchema('a', {})
 
       expect(store.schemas[0]).toMatchObject({ name: 'upd' })
       expect(store.currentSchema).toMatchObject({ name: 'upd' })
@@ -144,15 +154,15 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.updateSchema.mockRejectedValue(new Error('locked'))
 
-      await expect(store.updateSchema('a', {} as never)).rejects.toThrow('locked')
+      await expect(store.updateSchema('a', {})).rejects.toThrow('locked')
       expect(store.error).toBe('locked')
     })
 
     it('deleteSchema removes the entry and clears current when matching', async () => {
       const store = useSchemasStore()
-      store.schemas = [schema('a'), schema('b')] as never
+      store.schemas = [schema('a'), schema('b')]
       store.currentSchema = schema('a')
-      api.deleteSchema.mockResolvedValue({} as never)
+      api.deleteSchema.mockResolvedValue({})
 
       await expect(store.deleteSchema('a')).resolves.toBe(true)
 
@@ -163,7 +173,7 @@ describe('useSchemasStore', () => {
     it('deleteSchema keeps an unrelated current schema and records errors', async () => {
       const store = useSchemasStore()
       store.currentSchema = schema('keep')
-      api.deleteSchema.mockResolvedValueOnce({} as never)
+      api.deleteSchema.mockResolvedValueOnce({})
       await store.deleteSchema('a')
       expect(store.currentSchema).toMatchObject({ id: 'keep' })
 
@@ -173,35 +183,51 @@ describe('useSchemasStore', () => {
     })
   })
 
-  describe('usage statistics', () => {
-    it('stores statistics per schema id', async () => {
+  describe('validateSchema', () => {
+    it('validates a stored schema server-side', async () => {
       const store = useSchemasStore()
-      api.getSchemaUsageStatistics.mockResolvedValue({ curations: 4 })
+      const outcome = { is_valid: true } as Schema<'SchemaValidationResult'>
+      api.validateCurationSchema.mockResolvedValue(outcome)
 
-      await expect(store.fetchSchemaUsageStatistics('a')).resolves.toEqual({ curations: 4 })
-      expect(store.schemaUsageStatistics.a).toEqual({ curations: 4 })
+      await expect(store.validateSchema('a')).resolves.toBe(outcome)
+      expect(api.validateCurationSchema).toHaveBeenCalledWith('a')
     })
 
     it('records errors and rethrows', async () => {
       const store = useSchemasStore()
-      api.getSchemaUsageStatistics.mockRejectedValue(new Error('stats'))
+      api.validateCurationSchema.mockRejectedValue(new Error('invalid'))
 
-      await expect(store.fetchSchemaUsageStatistics('a')).rejects.toThrow('stats')
-      expect(store.error).toBe('stats')
+      await expect(store.validateSchema('a')).rejects.toThrow('invalid')
+      expect(store.error).toBe('invalid')
+    })
+  })
+
+  describe('duplicateSchema', () => {
+    it('creates a copy without server-managed fields under a "(copy)" name', async () => {
+      const store = useSchemasStore()
+      api.getSchemaById.mockResolvedValue(
+        schema('a', { name: 'orig', version: '1.0', is_active: true, schema_hash: 'h' })
+      )
+      api.createSchema.mockResolvedValue(schema('b', { name: 'orig (copy)' }))
+
+      const copy = await store.duplicateSchema('a')
+
+      const sent = api.createSchema.mock.calls[0]?.[0]
+      expect(sent).toMatchObject({ name: 'orig (copy)', version: '1.0', is_active: true })
+      expect(sent).not.toHaveProperty('id')
+      expect(sent).not.toHaveProperty('schema_hash')
+      expect(copy.id).toBe('b')
+      expect(store.schemas.map(s => s.id)).toEqual(['b'])
     })
   })
 
   describe('workflow pairs', () => {
-    it('fetchWorkflowPairs stores pairs from either response shape', async () => {
+    it('fetchWorkflowPairs stores the pairs', async () => {
       const store = useSchemasStore()
-      api.getWorkflowPairs.mockResolvedValueOnce({ workflow_pairs: [pair('w1')] })
+      api.getWorkflowPairs.mockResolvedValueOnce([pair('w1')])
       await store.fetchWorkflowPairs({ active: true })
       expect(api.getWorkflowPairs).toHaveBeenCalledWith({ active: true })
       expect(store.workflowPairs.map(p => p.id)).toEqual(['w1'])
-
-      api.getWorkflowPairs.mockResolvedValueOnce([pair('w2')])
-      await store.fetchWorkflowPairs()
-      expect(store.workflowPairs.map(p => p.id)).toEqual(['w2'])
     })
 
     it('fetchWorkflowPairs records errors and rethrows', async () => {
@@ -217,7 +243,7 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.createWorkflowPair.mockResolvedValue(pair('w1'))
 
-      await expect(store.createWorkflowPair({} as never)).resolves.toEqual(pair('w1'))
+      await expect(store.createWorkflowPair(newPair)).resolves.toEqual(pair('w1'))
       expect(store.workflowPairs.map(p => p.id)).toEqual(['w1'])
     })
 
@@ -225,17 +251,17 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.createWorkflowPair.mockRejectedValue(new Error('bad pair'))
 
-      await expect(store.createWorkflowPair({} as never)).rejects.toThrow('bad pair')
+      await expect(store.createWorkflowPair(newPair)).rejects.toThrow('bad pair')
       expect(store.error).toBe('bad pair')
     })
 
     it('updateWorkflowPair replaces list and current entries', async () => {
       const store = useSchemasStore()
-      store.workflowPairs = [pair('w1')] as never
+      store.workflowPairs = [pair('w1')]
       store.currentWorkflowPair = pair('w1')
-      api.updateWorkflowPair.mockResolvedValue({ id: 'w1', name: 'renamed' })
+      api.updateWorkflowPair.mockResolvedValue({ ...pair('w1'), name: 'renamed' })
 
-      await store.updateWorkflowPair('w1', {} as never)
+      await store.updateWorkflowPair('w1', {})
 
       expect(store.workflowPairs[0]).toMatchObject({ name: 'renamed' })
       expect(store.currentWorkflowPair).toMatchObject({ name: 'renamed' })
@@ -245,15 +271,15 @@ describe('useSchemasStore', () => {
       const store = useSchemasStore()
       api.updateWorkflowPair.mockRejectedValue(new Error('upd'))
 
-      await expect(store.updateWorkflowPair('w1', {} as never)).rejects.toThrow('upd')
+      await expect(store.updateWorkflowPair('w1', {})).rejects.toThrow('upd')
       expect(store.error).toBe('upd')
     })
 
     it('deleteWorkflowPair removes the pair and clears current when matching', async () => {
       const store = useSchemasStore()
-      store.workflowPairs = [pair('w1'), pair('w2')] as never
+      store.workflowPairs = [pair('w1'), pair('w2')]
       store.currentWorkflowPair = pair('w1')
-      api.deleteWorkflowPair.mockResolvedValue({} as never)
+      api.deleteWorkflowPair.mockResolvedValue({})
 
       await expect(store.deleteWorkflowPair('w1')).resolves.toBe(true)
 
@@ -264,7 +290,7 @@ describe('useSchemasStore', () => {
     it('deleteWorkflowPair keeps an unrelated current pair and records errors', async () => {
       const store = useSchemasStore()
       store.currentWorkflowPair = pair('keep')
-      api.deleteWorkflowPair.mockResolvedValueOnce({} as never)
+      api.deleteWorkflowPair.mockResolvedValueOnce({})
       await store.deleteWorkflowPair('w1')
       expect(store.currentWorkflowPair).toMatchObject({ id: 'keep' })
 

@@ -57,29 +57,13 @@ const SENSITIVE_KEYS: readonly string[] = [
  * Regex patterns for sensitive values
  * Each pattern includes a replacement string for redaction
  */
+// Order matters: specific genetic patterns must run before the broad phone pattern, which would
+// otherwise redact their digits (e.g. `chr7:100-200`, `c.123A>G`) as a phone number.
 const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string }[] = [
   // Email patterns
   {
     pattern: /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/g,
     replacement: '[REDACTED_EMAIL]'
-  },
-
-  // Phone patterns (international formats)
-  {
-    pattern: /\b(?:\+?[1-9]\d{0,2}[\s.-]?)?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}\b/g,
-    replacement: '[REDACTED_PHONE]'
-  },
-
-  // JWT token patterns (three base64 segments separated by dots)
-  {
-    pattern: /\b[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/g,
-    replacement: '[REDACTED_TOKEN]'
-  },
-
-  // API key patterns (common formats - long alphanumeric strings)
-  {
-    pattern: /\b[A-Za-z0-9]{32,}\b/g,
-    replacement: '[REDACTED_KEY]'
   },
 
   // HGVS notation for genetic variants (DNA level)
@@ -96,7 +80,25 @@ const SENSITIVE_VALUE_PATTERNS: readonly { pattern: RegExp; replacement: string 
   // Genomic coordinates (chr notation)
   { pattern: /\bchr\d{1,2}:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' },
   { pattern: /\bchrX:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' },
-  { pattern: /\bchrY:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' }
+  { pattern: /\bchrY:\d+-\d+\b/g, replacement: '[REDACTED_COORDINATE]' },
+
+  // JWT token patterns (three base64 segments separated by dots)
+  {
+    pattern: /\b[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\b/g,
+    replacement: '[REDACTED_TOKEN]'
+  },
+
+  // API key patterns (common formats - long alphanumeric strings)
+  {
+    pattern: /\b[A-Za-z0-9]{32,}\b/g,
+    replacement: '[REDACTED_KEY]'
+  },
+
+  // Phone patterns (international formats)
+  {
+    pattern: /\b(?:\+?[1-9]\d{0,2}[\s.-]?)?\(?\d{1,4}\)?[\s.-]?\d{1,4}[\s.-]?\d{1,9}\b/g,
+    replacement: '[REDACTED_PHONE]'
+  }
 ]
 
 /**

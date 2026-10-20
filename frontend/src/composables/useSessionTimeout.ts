@@ -23,6 +23,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import type { Ref } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { getTokenExpiry } from '@/utils/jwt'
 import { useLogger } from './useLogger'
 
 export interface UseSessionTimeoutReturn {
@@ -33,22 +34,8 @@ export interface UseSessionTimeoutReturn {
   checkTokenExpiry: () => void
 }
 
-/**
- * Auth store members used here, typed as this composable calls them.
- * Known mismatches with the JS store, kept as-is (behaviour must not change):
- * - `tokenExpiresAt` is never defined by the store, so expiry checks are inert.
- * - `refreshToken` is a state string in the store; the refresh action is
- *   `refreshAccessToken`, so extendSession() currently throws.
- */
-interface SessionAuthStore {
-  token: string | null
-  tokenExpiresAt?: number
-  refreshToken: () => Promise<unknown>
-  logout: () => Promise<unknown>
-}
-
 export function useSessionTimeout(): UseSessionTimeoutReturn {
-  const authStore = useAuthStore() as unknown as SessionAuthStore
+  const authStore = useAuthStore()
   const logger = useLogger()
 
   const showWarning = ref(false)
@@ -63,11 +50,11 @@ export function useSessionTimeout(): UseSessionTimeoutReturn {
    */
   function checkTokenExpiry(): void {
     // Skip if not authenticated
-    if (!authStore.token || !authStore.tokenExpiresAt) {
+    const expiresAt = authStore.token ? getTokenExpiry(authStore.token) : null
+    if (expiresAt === null) {
       return
     }
 
-    const expiresAt = authStore.tokenExpiresAt
     const remaining = expiresAt - Date.now()
 
     // Update time remaining (in seconds)
@@ -115,15 +102,14 @@ export function useSessionTimeout(): UseSessionTimeoutReturn {
   async function extendSession(): Promise<void> {
     try {
       logger.info('Attempting to extend session')
-      await authStore.refreshToken()
+      const newToken = await authStore.refreshAccessToken()
+      const newExpiry = getTokenExpiry(newToken)
 
       showWarning.value = false
       timeRemaining.value = 0
 
       logger.info('Session extended successfully', {
-        newExpiresAt: authStore.tokenExpiresAt
-          ? new Date(authStore.tokenExpiresAt).toISOString()
-          : 'unknown'
+        newExpiresAt: newExpiry ? new Date(newExpiry).toISOString() : 'unknown'
       })
     } catch (error) {
       logger.error('Failed to extend session', {
