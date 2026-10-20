@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- logging layer: the logger plugin reports install-time failures via console */
 /**
  * Vue Plugin for Global Logger Access
  *

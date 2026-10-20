@@ -52,10 +52,10 @@ export default defineConfigWithVueTs(
   },
   {
     files: [
-      'src/services/logService.js',
-      'src/plugins/logger.js',
-      'src/stores/logStore.js',
-      'src/utils/logSanitizer.js',
+      'src/services/logService.{js,ts}',
+      'src/plugins/logger.{js,ts}',
+      'src/stores/logStore.{js,ts}',
+      'src/utils/logSanitizer.{js,ts}',
       'src/test/**',
       '**/__tests__/**',
       'scripts/**',

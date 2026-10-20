@@ -13,7 +13,6 @@
  * - Performance tracking capabilities
  */
 
-/* eslint-disable no-console -- logging layer: the only place console output is allowed */
 import { sanitizeLogEntry } from '@/utils/logSanitizer'
 
 /** Minimal view of the Pinia log store this service writes to */

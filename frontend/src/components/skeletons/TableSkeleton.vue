@@ -56,7 +56,7 @@
   const props = withDefaults(
     defineProps<{
       loading: boolean
-      items: Record<string, unknown>[]
+      items: object[]
       headers: TableHeader[]
       /** Number of skeleton rows (1-20) */
       skeletonCount?: number
@@ -70,7 +70,7 @@
    * Display skeleton items while loading, otherwise show real items
    * Skeleton items have special isSkeleton flag for conditional rendering
    */
-  const displayItems = computed(() => {
+  const displayItems = computed<Array<object & { isSkeleton?: boolean }>>(() => {
     if (props.loading) {
       return Array.from({ length: props.skeletonCount }, (_, i) => ({
         isSkeleton: true,

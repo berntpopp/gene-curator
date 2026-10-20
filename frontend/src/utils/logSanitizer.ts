@@ -1,4 +1,3 @@
-/* eslint-disable no-console -- logging layer: testSanitization reports via console */
 /**
  * Log Sanitization Utility for Gene Curator
  *
