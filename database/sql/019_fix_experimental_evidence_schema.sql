@@ -361,7 +361,7 @@ WHERE name = 'ClinGen_SOP_v11'
   AND version = '1.0.0'
   AND schema_type = 'curation';
 
-RAISE NOTICE '✅ Updated ClinGen_SOP_v11 curation schema with complete experimental evidence structure';
+DO $$ BEGIN RAISE NOTICE '✅ Updated ClinGen_SOP_v11 curation schema with complete experimental evidence structure'; END $$;
 
 -- ============================================================================
 -- Verification

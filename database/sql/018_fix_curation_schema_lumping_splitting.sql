@@ -28,7 +28,7 @@ WHERE name = 'ClinGen_SOP_v11'
   AND version = '1.0.0'
   AND schema_type = 'curation';
 
-RAISE NOTICE '✅ Updated ClinGen_SOP_v11 curation schema - removed lumping_splitting_rationale';
+DO $$ BEGIN RAISE NOTICE '✅ Updated ClinGen_SOP_v11 curation schema - removed lumping_splitting_rationale'; END $$;
 
 -- ============================================================================
 -- Update Workflow Pair Data Mapping
@@ -49,7 +49,7 @@ SET
     updated_at = NOW()
 WHERE name = 'Standard_ClinGen' AND version = '1.0.0';
 
-RAISE NOTICE '✅ Updated Standard_ClinGen workflow pair data mapping';
+DO $$ BEGIN RAISE NOTICE '✅ Updated Standard_ClinGen workflow pair data mapping'; END $$;
 
 -- Also update the ClinGen Gene-Disease Validity workflow pair if it exists
 UPDATE workflow_pairs
@@ -67,7 +67,7 @@ SET
     updated_at = NOW()
 WHERE name = 'ClinGen Gene-Disease Validity' AND version = 'SOP v11';
 
-RAISE NOTICE '✅ Updated ClinGen Gene-Disease Validity workflow pair data mapping';
+DO $$ BEGIN RAISE NOTICE '✅ Updated ClinGen Gene-Disease Validity workflow pair data mapping'; END $$;
 
 -- ============================================================================
 -- Verification
