@@ -140,7 +140,7 @@
       <v-card>
         <v-data-table
           :headers="headers"
-          :items="catalogueStore.entries"
+          :items="entries"
           :loading="catalogueStore.loading"
           :items-per-page="catalogueStore.pagination.perPage"
           :expanded="expandedItems"
@@ -608,38 +608,8 @@
     classifications: Record<string, number>
   }
 
-  // The store is JS, so its state and getters are typed as never; narrow them here
-  interface CatalogueStore {
-    entries: CatalogueRow[]
-    loading: boolean
-    error: { message: string } | null
-    pagination: { page: number; perPage: number; total: number; hasNext: boolean; hasPrev: boolean }
-    filterOptions: {
-      classifications: string[]
-      diseases: string[]
-      scopes: Array<{ scope_id: string; scope_display_name: string }>
-    }
-    summary: {
-      totalGenesCurated: number
-      totalCurations: number
-      totalScopes: number
-      classificationSummary: Record<string, number>
-    }
-    hasActiveFilters: boolean
-    totalPages: number
-    fetchCatalogue: (params?: { page: number }) => Promise<unknown>
-    loadFilterOptions: () => Promise<unknown>
-    updateFilters: (filters: {
-      search: string | null
-      classification: string | null
-      disease: string | null
-      scopeId: string | null
-    }) => void
-    setPage: (page: number) => void
-    clearFilters: () => void
-  }
-
-  const catalogueStore = useGeneCatalogueStore() as unknown as CatalogueStore
+  const catalogueStore = useGeneCatalogueStore()
+  const entries = computed(() => catalogueStore.entries as CatalogueRow[])
   const router = useRouter()
 
   // Local state for filters
@@ -679,8 +649,8 @@
   // Scope options for filter dropdown
   const scopeOptions = computed(() => {
     return catalogueStore.filterOptions.scopes.map(s => ({
-      title: s.scope_display_name,
-      value: s.scope_id
+      title: s.display_name,
+      value: s.id
     }))
   })
 

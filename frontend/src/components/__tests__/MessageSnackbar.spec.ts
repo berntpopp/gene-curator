@@ -10,7 +10,6 @@ import { describe, it, expect, afterEach } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import MessageSnackbar from '../MessageSnackbar.vue'
 
-
 const mounted: VueWrapper[] = []
 
 function mountSnackbar(props: Record<string, unknown>) {

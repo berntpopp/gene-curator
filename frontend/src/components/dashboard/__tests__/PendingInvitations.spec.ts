@@ -8,7 +8,6 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import PendingInvitations from '../PendingInvitations.vue'
 
-
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 

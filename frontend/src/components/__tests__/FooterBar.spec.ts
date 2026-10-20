@@ -9,7 +9,6 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import FooterBar from '../FooterBar.vue'
 
-
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 
