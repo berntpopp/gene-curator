@@ -52,9 +52,7 @@
                   <v-icon>mdi-dna</v-icon>
                 </template>
                 <v-list-item-title>{{ item.raw.gene_symbol }}</v-list-item-title>
-                <v-list-item-subtitle v-if="item.raw.gene_name">
-                  {{ item.raw.gene_name }}
-                </v-list-item-subtitle>
+                <v-list-item-subtitle>{{ item.raw.hgnc_id }}</v-list-item-subtitle>
               </v-list-item>
             </template>
           </v-autocomplete>
@@ -92,18 +90,6 @@
               </v-list-item>
             </template>
           </v-autocomplete>
-
-          <!-- Due Date (Optional) -->
-          <div class="text-subtitle-2 mb-2">Due Date (Optional)</div>
-          <v-text-field
-            v-model="dueDate"
-            label="Due Date"
-            type="date"
-            variant="outlined"
-            hint="Set a target completion date"
-            persistent-hint
-            class="mb-4"
-          />
 
           <!-- Priority (Optional) -->
           <div class="text-subtitle-2 mb-2">Priority (Optional)</div>
@@ -174,7 +160,7 @@
   interface GeneOption {
     gene_id: string
     gene_symbol: string
-    gene_name?: string | null
+    hgnc_id: string
   }
 
   interface CuratorOption {
@@ -209,7 +195,6 @@
   } | null>(null)
   const selectedGenes = ref<string[]>([])
   const selectedCurator = ref<string | null>(null)
-  const dueDate = ref<string | null>(null)
   const priority = ref<string>('normal')
   const notes = ref('')
 
@@ -237,21 +222,19 @@
     loadingGenes.value = true
     try {
       // Fetch all genes (would be filtered by scope in real app)
-      const allGenes: GeneOption[] = await genesAPI.getGenes()
+      const { genes: allGenes } = await genesAPI.getGenes()
 
       // Fetch already assigned genes
-      const assignments: { gene_id: string }[] = await assignmentsAPI.getAssignments({
-        scope_id: props.scopeId
-      })
+      const { assignments } = await assignmentsAPI.getAssignments({ scope_id: props.scopeId })
       const assignedGeneIds = new Set(assignments.map(a => a.gene_id))
 
       // Filter out already assigned genes
       availableGenes.value = allGenes
-        .filter(gene => !assignedGeneIds.has(gene.gene_id))
+        .filter(gene => !assignedGeneIds.has(gene.id))
         .map(gene => ({
-          gene_id: gene.gene_id,
-          gene_symbol: gene.gene_symbol,
-          gene_name: gene.gene_name
+          gene_id: gene.id,
+          gene_symbol: gene.approved_symbol,
+          hgnc_id: gene.hgnc_id
         }))
 
       logger.debug('Available genes loaded', {
@@ -272,16 +255,15 @@
   async function fetchAvailableCurators() {
     loadingCurators.value = true
     try {
-      // The store is still JavaScript; its result is the member list shape below.
-      const members = (await scopesStore.fetchMembers(props.scopeId)) as CuratorOption[]
+      const members = await scopesStore.fetchMembers(props.scopeId)
 
       // Filter to only curators and admins
       availableCurators.value = members
-        .filter(member => ['curator', 'scope_admin', 'admin'].includes(member.role))
+        .filter(member => ['curator', 'admin'].includes(member.role))
         .map(member => ({
           user_id: member.user_id,
-          email: member.email,
-          full_name: member.full_name,
+          email: member.user_email ?? '',
+          full_name: member.user_full_name,
           role: member.role
         }))
 
@@ -320,7 +302,6 @@
   function getRoleColor(role: string): string {
     const colors: Record<string, string> = {
       admin: 'error',
-      scope_admin: 'warning',
       curator: 'primary',
       reviewer: 'info',
       viewer: 'grey'
@@ -342,10 +323,9 @@
       const assignments = selectedGenes.value.map(geneId => ({
         gene_id: geneId,
         scope_id: props.scopeId,
-        curator_id: selectedCurator.value,
-        due_date: dueDate.value || null,
-        priority: priority.value,
-        notes: notes.value || null
+        assigned_curator_id: selectedCurator.value,
+        priority_level: priority.value,
+        assignment_notes: notes.value || null
       }))
 
       // Bulk assign
@@ -385,7 +365,6 @@
   function resetForm() {
     selectedGenes.value = []
     selectedCurator.value = null
-    dueDate.value = null
     priority.value = 'normal'
     notes.value = ''
     if (formRef.value) {

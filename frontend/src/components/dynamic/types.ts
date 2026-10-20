@@ -6,6 +6,8 @@
  * `@/types/api`, so they are described here.
  */
 
+import type { Schema } from '@/types/api'
+
 /** A single field definition inside a generated JSON schema. */
 export interface FieldSchema {
   type?: string
@@ -101,13 +103,7 @@ export interface WorkflowPairOption {
 }
 
 /** Clinical scope offered by ScopeSelector */
-export interface ScopeOption {
-  id: string
-  display_name: string
-  institution?: string | null
-  description?: string | null
-  is_active: boolean
-}
+export type ScopeOption = Schema<'ScopeListItem'>
 
 /** Vuetify input variants accepted by the field wrappers */
 export type FieldVariant =

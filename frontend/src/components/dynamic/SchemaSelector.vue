@@ -165,9 +165,11 @@
     try {
       const pairData = {
         name: `${precuration.name}_${curation.name}`,
+        version: '1.0.0',
         precuration_schema_id: precuration.id,
         curation_schema_id: curation.id,
-        description: `Workflow pair for ${precuration.name} precuration and ${curation.name} curation`
+        description: `Workflow pair for ${precuration.name} precuration and ${curation.name} curation`,
+        is_active: true
       }
 
       const newPair = (await schemasStore.createWorkflowPair(pairData)) as WorkflowPairOption

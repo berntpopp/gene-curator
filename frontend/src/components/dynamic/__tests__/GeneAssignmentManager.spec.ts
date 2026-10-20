@@ -1,9 +1,6 @@
 /**
  * Tests for GeneAssignmentManager (assignment table, filters and dialogs).
  *
- * The store mocks provide `bulkUpdateAssignments`, which the real assignments
- * store does not implement (see GeneAssignmentManager.vue).
- *
  * @see src/components/dynamic/GeneAssignmentManager.vue
  */
 
@@ -15,7 +12,6 @@ const stores = vi.hoisted(() => ({
     loading: false,
     assignments: [] as Array<Record<string, unknown>>,
     fetchAssignments: vi.fn(),
-    bulkUpdateAssignments: vi.fn(),
     updateAssignment: vi.fn(),
     fetchCuratorWorkload: vi.fn()
   },
@@ -25,7 +21,8 @@ const stores = vi.hoisted(() => ({
 }))
 
 const api = vi.hoisted(() => ({
-  assignCurator: vi.fn()
+  assignCurator: vi.fn(),
+  updateAssignment: vi.fn()
 }))
 
 const notify = vi.hoisted(() => ({
@@ -111,9 +108,9 @@ const stubs = {
 
 const scopeA = { id: 'scope-a', display_name: 'Cancer', is_active: true }
 const scopeB = { id: 'scope-b', display_name: 'Metabolic', is_active: true }
-const curatorUser = { id: 'curator-1', full_name: 'Ada Curator', role: 'curator' }
-const reviewerUser = { id: 'reviewer-1', full_name: 'Rex Reviewer', role: 'reviewer' }
-const viewerUser = { id: 'viewer-1', full_name: 'Vic Viewer', role: 'viewer' }
+const curatorUser = { id: 'curator-1', name: 'Ada Curator', role: 'curator' }
+const reviewerUser = { id: 'reviewer-1', name: 'Rex Reviewer', role: 'reviewer' }
+const viewerUser = { id: 'viewer-1', name: 'Vic Viewer', role: 'viewer' }
 
 const assignmentOne = {
   id: 'a1',
@@ -176,7 +173,7 @@ describe('GeneAssignmentManager', () => {
     stores.auth.user = { id: 'curator-1' }
     stores.assignments.fetchAssignments.mockResolvedValue(undefined)
     stores.assignments.fetchCuratorWorkload.mockResolvedValue(undefined)
-    stores.assignments.bulkUpdateAssignments.mockResolvedValue(undefined)
+    api.updateAssignment.mockResolvedValue(undefined)
     stores.assignments.updateAssignment.mockResolvedValue(undefined)
     stores.scopes.fetchUserScopes.mockResolvedValue(undefined)
     stores.users.fetchUsers.mockResolvedValue(undefined)
@@ -302,12 +299,13 @@ describe('GeneAssignmentManager', () => {
       await buttonWithText(wrapper, 'Assign').trigger('click')
       await flushPromises()
 
-      expect(stores.assignments.bulkUpdateAssignments).toHaveBeenCalledWith({
-        assignment_ids: ['a1', 'a2'],
-        assigned_to: 'curator-1',
-        priority: 'urgent',
+      expect(api.assignCurator).toHaveBeenCalledTimes(2)
+      expect(api.assignCurator).toHaveBeenCalledWith('a1', 'curator-1')
+      expect(api.assignCurator).toHaveBeenCalledWith('a2', 'curator-1')
+      expect(api.updateAssignment).toHaveBeenCalledWith('a2', {
+        priority_level: 'urgent',
         due_date: '2026-12-01',
-        comment: null
+        assignment_notes: null
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Successfully assigned 2 items')
     })
@@ -320,11 +318,11 @@ describe('GeneAssignmentManager', () => {
       await buttonWithText(wrapper, 'Assign').trigger('click')
       await flushPromises()
 
-      expect(stores.assignments.bulkUpdateAssignments).not.toHaveBeenCalled()
+      expect(api.assignCurator).not.toHaveBeenCalled()
     })
 
     it('reports a failed bulk assignment', async () => {
-      stores.assignments.bulkUpdateAssignments.mockRejectedValue(new Error('conflict'))
+      api.assignCurator.mockRejectedValue(new Error('conflict'))
       const wrapper = mountManager()
       wrapper.findComponent({ name: 'VDataTable' }).vm.$emit('update:model-value', ['a1'])
       await flushPromises()
@@ -365,7 +363,7 @@ describe('GeneAssignmentManager', () => {
       expect(stores.assignments.updateAssignment).toHaveBeenCalledWith('a1', {
         priority_level: 'high',
         due_date: '2026-07-01',
-        notes: 'Check literature'
+        assignment_notes: 'Check literature'
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Assignment updated successfully')
     })
@@ -400,10 +398,21 @@ describe('GeneAssignmentManager', () => {
       const wrapper = mountManager()
 
       await wrapper.findAll('.row-stub')[0]!.findAll('button')[1]!.trigger('click')
+      byLabel(wrapper, 'New Curator').vm.$emit('update:model-value', reviewerUser.id)
       await buttonWithText(wrapper, 'Reassign').trigger('click')
       await flushPromises()
 
       expect(notify.showError).toHaveBeenCalledWith('Failed to reassign gene')
+    })
+
+    it('does not reassign without a chosen curator', async () => {
+      const wrapper = mountManager()
+
+      await wrapper.findAll('.row-stub')[0]!.findAll('button')[1]!.trigger('click')
+      await buttonWithText(wrapper, 'Reassign').trigger('click')
+      await flushPromises()
+
+      expect(api.assignCurator).not.toHaveBeenCalled()
     })
   })
 })

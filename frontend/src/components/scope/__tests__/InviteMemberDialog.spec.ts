@@ -109,7 +109,7 @@ describe('InviteMemberDialog', () => {
     vm.handleCancel()
 
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
-    expect(vm.selectedUser).toBeUndefined()
+    expect(vm.selectedUser).toBeNull()
   })
 
   it('resets the form each time the dialog opens', async () => {

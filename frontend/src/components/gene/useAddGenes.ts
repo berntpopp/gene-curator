@@ -4,24 +4,12 @@ import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
 import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
 import type { Schema } from '@/types/api'
+import type { BulkValidationEntry } from '@/composables/useHgncSearch'
 
 export type HgncGene = Schema<'HGNCGeneSearchResult'>
 
 /** One row of the bulk validation table. */
-export interface BulkValidationResult {
-  status: string
-  gene?: HgncGene | null
-  alternatives?: HgncGene[]
-  message?: string | null
-  [key: string]: unknown
-}
-
-interface BulkCreateResponse {
-  total_created: number
-  total_skipped: number
-  total_errors: number
-  created_genes?: Array<{ id: string }>
-}
+export type BulkValidationResult = BulkValidationEntry
 
 export interface AddGenesOptions {
   scopeId: () => string | null
@@ -57,11 +45,7 @@ export function useAddGenes(options: AddGenesOptions) {
 
     logger.debug('Adding single gene', { gene_data: geneData })
 
-    const result = (await genesAPI.createGene(geneData)) as {
-      id: string
-      hgnc_id: string
-      approved_symbol: string
-    }
+    const result = await genesAPI.createGene(geneData)
 
     logger.info('Gene added successfully', {
       gene_id: result.id,
@@ -70,17 +54,18 @@ export function useAddGenes(options: AddGenesOptions) {
     })
 
     // If scopeId is provided, also assign the gene to the scope (unassigned status)
-    if (scopeId()) {
+    const targetScopeId = scopeId()
+    if (targetScopeId) {
       try {
         await assignmentsAPI.createAssignment({
           gene_id: result.id,
-          scope_id: scopeId(),
+          scope_id: targetScopeId,
           assigned_curator_id: null, // Unassigned
           priority_level: 'medium'
         })
         logger.info('Gene assigned to scope', {
           gene_id: result.id,
-          scope_id: scopeId()
+          scope_id: targetScopeId
         })
         notificationStore.addToast(
           `Gene ${result.approved_symbol} added and assigned to scope`,
@@ -90,7 +75,7 @@ export function useAddGenes(options: AddGenesOptions) {
         // Gene was added but assignment failed - still report success for gene creation
         logger.warn('Gene added but scope assignment failed', {
           gene_id: result.id,
-          scope_id: scopeId(),
+          scope_id: targetScopeId,
           error: (assignError as ApiErrorLike).message
         })
         notificationStore.addToast(
@@ -130,10 +115,11 @@ export function useAddGenes(options: AddGenesOptions) {
       skip_duplicates: skipDuplicates.value
     })
 
-    const result = (await genesAPI.bulkCreateGenes({
+    const result = await genesAPI.bulkCreateGenes({
       genes: genesToAdd,
+      validate_hgnc: true,
       skip_duplicates: skipDuplicates.value
-    })) as BulkCreateResponse
+    })
 
     logger.info('Bulk genes added', {
       created: result.total_created,
@@ -142,17 +128,19 @@ export function useAddGenes(options: AddGenesOptions) {
     })
 
     // If scopeId is provided and genes were created, assign them to the scope
-    if (scopeId() && result.created_genes && result.created_genes.length > 0) {
+    const targetScopeId = scopeId()
+    if (targetScopeId && result.created_genes.length > 0) {
       try {
-        const geneIds = (result.created_genes ?? []).map(g => g.id)
+        const geneIds = result.created_genes.map(g => g.id)
         await assignmentsAPI.bulkAssignGenes({
           gene_ids: geneIds,
-          scope_id: scopeId(),
-          assigned_curator_id: null // Unassigned
+          scope_id: targetScopeId,
+          assigned_curator_id: null, // Unassigned
+          priority_level: 'medium'
         })
         logger.info('Bulk genes assigned to scope', {
           gene_count: geneIds.length,
-          scope_id: scopeId()
+          scope_id: targetScopeId
         })
         notificationStore.addToast(
           `Added and assigned ${result.total_created} genes (${result.total_skipped} skipped, ${result.total_errors} failed)`,
@@ -160,8 +148,8 @@ export function useAddGenes(options: AddGenesOptions) {
         )
       } catch (assignError) {
         logger.warn('Genes added but scope assignment failed', {
-          gene_count: result.created_genes?.length ?? 0,
-          scope_id: scopeId(),
+          gene_count: result.created_genes.length,
+          scope_id: targetScopeId,
           error: (assignError as ApiErrorLike).message
         })
         notificationStore.addToast(

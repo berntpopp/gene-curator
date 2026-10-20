@@ -59,7 +59,12 @@ describe('AddGenesDrawer', () => {
       hgnc_id: 'HGNC:1100',
       approved_symbol: 'BRCA1'
     })
-    genesAPI.bulkCreateGenes.mockResolvedValue({ created: 2, skipped: 0, failed: 0 })
+    genesAPI.bulkCreateGenes.mockResolvedValue({
+      created_genes: [],
+      total_created: 2,
+      total_skipped: 0,
+      total_errors: 0
+    })
   })
 
   afterEach(() => {
@@ -136,12 +141,18 @@ describe('AddGenesDrawer', () => {
         { hgnc_id: 'HGNC:1101', approved_symbol: 'GENE1101' },
         { hgnc_id: 'HGNC:50000', approved_symbol: 'TP53' }
       ],
+      validate_hgnc: true,
       skip_duplicates: true
     })
   })
 
   it('warns in the toast when some bulk rows failed', async () => {
-    genesAPI.bulkCreateGenes.mockResolvedValue({ created: 2, skipped: 0, failed: 1 })
+    genesAPI.bulkCreateGenes.mockResolvedValue({
+      created_genes: [],
+      total_created: 2,
+      total_skipped: 0,
+      total_errors: 1
+    })
     const w = mountDrawer()
     const vm = vmOf(w)
     vm.mode = 'bulk'

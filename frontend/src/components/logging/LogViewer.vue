@@ -210,26 +210,8 @@
 <script setup lang="ts">
   import { ref, computed, watch, type Ref } from 'vue'
   import { useLogStore } from '@/stores/logStore'
-  import { LogLevel } from '@/services/logService'
+  import { LogLevel, logService, type LogEntry } from '@/services/logService'
   import { useDrawerState } from '@/composables/useDrawerState'
-
-  interface LogEntry {
-    timestamp: string
-    level: string
-    message: string
-    data?: unknown
-    correlationId?: string
-  }
-
-  interface GlobalLogService {
-    info: (message: string, data?: unknown) => void
-    debug: (message: string, data?: unknown) => void
-    error: (message: string, data?: unknown) => void
-  }
-
-  // ponytail: window.logService is never assigned in src, so these calls are no-ops today.
-  // Kept as-is to preserve behaviour; wire up logService to make them real.
-  const globalLog = () => (window as Window & { logService?: GlobalLogService }).logService
 
   // Store access
   const logStore = useLogStore()
@@ -394,16 +376,16 @@
       URL.revokeObjectURL(url)
 
       // Log success (using global logService to avoid circular dependency)
-      globalLog()?.info('Logs exported successfully')
+      logService.info('Logs exported successfully')
     } catch (error) {
-      globalLog()?.error('Failed to download logs', { error: (error as Error).message })
+      logService.error('Failed to download logs', { error: (error as Error).message })
     }
   }
 
   function clearLogs() {
     if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
       const count = logStore.clearLogs()
-      globalLog()?.info(`Cleared ${count} log entries`)
+      logService.info(`Cleared ${count} log entries`)
     }
   }
 
@@ -416,13 +398,13 @@
       navigator.clipboard
         .writeText(logText)
         .then(() => {
-          globalLog()?.debug('Log entry copied to clipboard')
+          logService.debug('Log entry copied to clipboard')
         })
         .catch(error => {
-          globalLog()?.error('Failed to copy log entry', { error: (error as Error).message })
+          logService.error('Failed to copy log entry', { error: (error as Error).message })
         })
     } catch (error) {
-      globalLog()?.error('Failed to copy log entry', { error: (error as Error).message })
+      logService.error('Failed to copy log entry', { error: (error as Error).message })
     }
   }
 
@@ -430,9 +412,9 @@
     try {
       logStore.trimLogs(newValue)
       maxEntries.value = newValue
-      globalLog()?.info(`Log retention limit updated to ${newValue} entries`)
+      logService.info(`Log retention limit updated to ${newValue} entries`)
     } catch (error) {
-      globalLog()?.error('Failed to update max entries', { error: (error as Error).message })
+      logService.error('Failed to update max entries', { error: (error as Error).message })
     }
   }
 

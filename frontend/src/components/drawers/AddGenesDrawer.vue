@@ -189,14 +189,6 @@
     location?: string
   }
 
-  // Shape the component reads from the bulk endpoint. The generated contract
-  // (GeneBulkCreateResponse) names these total_created/total_skipped/total_errors.
-  interface BulkCreateResult {
-    created: number
-    skipped: number
-    failed: number
-  }
-
   interface ApiError {
     message: string
     response?: { data?: { detail?: string } }
@@ -357,20 +349,21 @@
       skip_duplicates: bulkOptions.value.skip_duplicates
     })
 
-    const result: BulkCreateResult = await genesAPI.bulkCreateGenes({
+    const result = await genesAPI.bulkCreateGenes({
       genes,
+      validate_hgnc: true,
       skip_duplicates: bulkOptions.value.skip_duplicates
     })
 
     logger.info('Bulk genes added', {
-      created: result.created,
-      skipped: result.skipped,
-      failed: result.failed
+      created: result.total_created,
+      skipped: result.total_skipped,
+      failed: result.total_errors
     })
 
     notificationStore.addToast(
-      `Added ${result.created} genes (${result.skipped} skipped, ${result.failed} failed)`,
-      result.failed > 0 ? 'warning' : 'success'
+      `Added ${result.total_created} genes (${result.total_skipped} skipped, ${result.total_errors} failed)`,
+      result.total_errors > 0 ? 'warning' : 'success'
     )
   }
 

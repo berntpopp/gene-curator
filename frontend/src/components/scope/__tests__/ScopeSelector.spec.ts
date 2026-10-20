@@ -23,7 +23,6 @@ interface SelectorInternals {
     name: string
     display_name: string
     is_public: boolean
-    user_role: string
   }) => void
   createScope: () => void
 }
@@ -35,7 +34,7 @@ const scopeA = {
   name: 'kidney',
   display_name: 'Kidney',
   is_public: true,
-  user_role: 'admin'
+  institution: 'Charite'
 }
 
 describe('ScopeSelector', () => {
@@ -115,7 +114,7 @@ describe('ScopeSelector', () => {
     const store = useScopesStore()
     store.scopes = [
       scopeA,
-      { ...scopeA, id: 'scope-b', display_name: 'Liver', user_role: 'viewer' }
+      { ...scopeA, id: 'scope-b', display_name: 'Liver', institution: undefined }
     ] as never
     const { wrapper } = await mountSelector({ attachTo: document.body })
     const push = vi.spyOn(router, 'push')
@@ -126,6 +125,7 @@ describe('ScopeSelector', () => {
     const items = Array.from(document.querySelectorAll('.v-list-item'))
     const liver = items.find(el => el.textContent?.includes('Liver')) as HTMLElement | undefined
     expect(document.body.textContent).toContain('My Scopes')
+    expect(document.body.textContent).toContain('Charite')
     expect(liver).toBeDefined()
     liver?.click()
     await flushPromises()

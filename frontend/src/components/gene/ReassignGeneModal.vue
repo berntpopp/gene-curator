@@ -217,7 +217,7 @@
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
   import type { CuratorOption, GeneRow } from './types'
-  import { getAvatarColor, getInitials } from './curatorDisplay'
+  import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
@@ -304,24 +304,12 @@
   const fetchAvailableCurators = async () => {
     loadingCurators.value = true
     try {
-      const members = (await scopesStore.fetchMembers(props.scopeId)) as Array<
-        Record<string, string | null | undefined>
-      > | null
+      const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Map members with display name - include all who can curate
-      availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin', 'reviewer'].includes(m.role as string))
-        .map(member => ({
-          ...member,
-          user_id: member.user_id as string,
-          role: member.role as string,
-          full_name: member.user_full_name || member.full_name,
-          email: member.user_email || member.email,
-          displayName: (member.user_full_name ||
-            member.full_name ||
-            member.user_email ||
-            member.email) as string
-        }))
+      // Include all who can curate
+      availableCurators.value = members
+        .filter(m => ['curator', 'admin', 'reviewer'].includes(m.role))
+        .map(toCuratorOption)
 
       logger.debug('Available curators loaded for reassignment', {
         count: availableCurators.value.length

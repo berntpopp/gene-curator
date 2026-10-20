@@ -140,6 +140,7 @@
   import ScorePreview from '@/components/evidence/ScorePreview.vue'
   import FormActions from '@/components/forms/FormActions.vue'
   import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
+  import type { ClinGenEvidenceData } from '@/components/clingen/types'
 
   type CurationSchema = Schema<'CurationSchema'>
 
@@ -265,7 +266,6 @@
     clearHistory
   } = useHistory(
     recoveryKey.value,
-    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
     (state: EvidenceData) => {
       evidenceData.value = { ...state }
     }
@@ -311,8 +311,8 @@
   /**
    * Handle evidence data changes from DynamicForm
    */
-  function handleEvidenceChange(newData: EvidenceData) {
-    evidenceData.value = newData
+  function handleEvidenceChange(newData: EvidenceData | ClinGenEvidenceData) {
+    evidenceData.value = { ...newData }
   }
 
   /**

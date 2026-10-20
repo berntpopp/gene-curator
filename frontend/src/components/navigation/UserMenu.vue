@@ -9,7 +9,7 @@
     <v-menu v-else offset-y>
       <template #activator="{ props }">
         <!-- User Avatar with Notification Badge -->
-        <NotificationBadge :count="totalUnread" :priority="highestPriority">
+        <NotificationBadge :count="totalUnread">
           <v-btn icon v-bind="props">
             <v-avatar size="32">
               <v-icon>mdi-account-circle</v-icon>
@@ -85,8 +85,6 @@
   type LogFn = (message: string, data?: Record<string, unknown>) => void
   type ComponentLogger = { debug: LogFn; info: LogFn; error: LogFn }
 
-  type NotificationPriority = 'critical' | 'warning' | 'info'
-
   /** Route meta keys this menu reads (vue-router meta is untyped here) */
   interface MenuRouteMeta {
     icon?: string
@@ -161,10 +159,6 @@
    * Notification counts from store
    */
   const totalUnread = computed(() => notificationsStore.totalUnread)
-  // The notifications store does not define highestPriority today, so this is undefined and the badge keeps its default priority
-  const highestPriority = computed(
-    () => (notificationsStore as { highestPriority?: NotificationPriority }).highestPriority
-  )
 
   /**
    * Handle user logout

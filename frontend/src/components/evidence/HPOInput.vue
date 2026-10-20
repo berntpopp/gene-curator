@@ -253,7 +253,7 @@
       return validationResults.value.get(term)
     }
     // Fallback to store cache
-    return validationStore.getCachedResult('hpo', term)
+    return validationStore.getCachedResult('hpo', term) ?? undefined
   }
 
   /**

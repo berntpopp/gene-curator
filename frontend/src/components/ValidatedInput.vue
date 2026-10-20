@@ -5,7 +5,7 @@
     :hint="hint"
     :loading="isValidating"
     :error-messages="errorMessages"
-    :success-messages="successMessages"
+    :messages="successMessages"
     :prepend-inner-icon="statusIcon"
     :color="statusColor"
     :required="required"

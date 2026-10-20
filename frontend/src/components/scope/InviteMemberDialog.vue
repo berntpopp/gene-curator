@@ -168,6 +168,7 @@
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
 
   /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
   type LogFn = (message: string, data?: Record<string, unknown>) => void
@@ -177,7 +178,9 @@
   interface InviteCandidate {
     id: string
     name?: string | null
-    email?: string | null
+    email: string
+    institution?: string | null
+    displayName: string
   }
 
   /** Payload emitted after a successful invitation */
@@ -233,9 +236,9 @@
   const formValid = ref(false)
   const submitting = ref(false)
   const inviteTab = ref('existing')
-  const selectedUser = ref<InviteCandidate | undefined>(undefined)
+  const selectedUser = ref<InviteCandidate | null>(null)
   const emailInvite = ref('')
-  const selectedRole = ref('viewer')
+  const selectedRole = ref<Schema<'ScopeRole'>>('viewer')
   const notes = ref('')
 
   // ============================================
@@ -320,7 +323,7 @@
    * Reset form to initial state
    */
   const resetForm = () => {
-    selectedUser.value = undefined
+    selectedUser.value = null
     emailInvite.value = ''
     selectedRole.value = 'viewer'
     notes.value = ''
@@ -347,7 +350,7 @@
     submitting.value = true
 
     try {
-      const invitationData: { role: string; user_id?: string; email?: string; notes?: string } = {
+      const invitationData: Schema<'ScopeMembershipCreate'> = {
         role: selectedRole.value
       }
 

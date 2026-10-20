@@ -10,6 +10,7 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import LogViewer from '../LogViewer.vue'
+import { logService } from '@/services/logService'
 
 vi.mock('@/stores/logStore', async () => {
   const { reactive } = await import('vue')
@@ -103,6 +104,7 @@ describe('LogViewer', () => {
   })
 
   afterEach(() => {
+    vi.restoreAllMocks()
     wrapper?.unmount()
     wrapper = undefined
     store.logs = []
@@ -194,6 +196,7 @@ describe('LogViewer', () => {
   })
 
   it('downloads the logs as JSON', () => {
+    const info = vi.spyOn(logService, 'info').mockImplementation(() => undefined)
     const createObjectURL = vi.fn(() => 'blob:logs')
     const revokeObjectURL = vi.fn()
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL, revokeObjectURL }))
@@ -208,6 +211,7 @@ describe('LogViewer', () => {
     })
     expect(createObjectURL).toHaveBeenCalled()
     expect(revokeObjectURL).toHaveBeenCalledWith('blob:logs')
+    expect(info).toHaveBeenCalledWith('Logs exported successfully')
   })
 
   it('clears logs only after confirmation', async () => {
@@ -267,7 +271,10 @@ describe('LogViewer', () => {
     })
     mountViewer()
 
+    const error = vi.spyOn(logService, 'error').mockImplementation(() => undefined)
+
     expect(() => buttonByTitle('Download logs as JSON')?.trigger('click')).not.toThrow()
+    expect(error).toHaveBeenCalledWith('Failed to download logs', { error: 'disk full' })
   })
 
   it('closes the drawer from the close button', async () => {

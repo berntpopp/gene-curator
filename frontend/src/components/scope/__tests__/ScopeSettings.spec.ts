@@ -19,7 +19,7 @@ vi.mock('@/api/scopes', () => ({
 }))
 
 vi.mock('@/api/schemas', () => ({
-  schemasAPI: { getWorkflowPairs: vi.fn() }
+  schemasAPI: { getWorkflowPairs: vi.fn(), getSchemas: vi.fn() }
 }))
 
 vi.mock('@/services/logService', () => ({
@@ -48,9 +48,14 @@ const pair = {
   name: 'ClinGen SOP v11',
   version: '1.0',
   description: 'Standard workflow',
-  precuration_schema_name: 'Precuration v1',
-  curation_schema_name: 'Curation v1'
+  precuration_schema_id: 'sch-pre',
+  curation_schema_id: 'sch-cur',
+  is_active: true
 }
+const schemas = [
+  { id: 'sch-pre', name: 'Precuration v1' },
+  { id: 'sch-cur', name: 'Curation v1' }
+] as Awaited<ReturnType<typeof schemasAPI.getSchemas>>
 
 const baseScope = {
   id: 'scope-1',
@@ -72,10 +77,12 @@ describe('ScopeSettings', () => {
     setActivePinia(pinia)
     vi.mocked(schemasAPI.getWorkflowPairs).mockReset()
     vi.mocked(schemasAPI.getWorkflowPairs).mockResolvedValue([pair])
+    vi.mocked(schemasAPI.getSchemas).mockReset()
+    vi.mocked(schemasAPI.getSchemas).mockResolvedValue(schemas)
     vi.mocked(scopesAPI.updateScope).mockReset()
-    vi.mocked(scopesAPI.updateScope).mockResolvedValue({})
+    vi.mocked(scopesAPI.updateScope).mockResolvedValue({} as never)
     vi.mocked(scopesAPI.deleteScope).mockReset()
-    vi.mocked(scopesAPI.deleteScope).mockResolvedValue({})
+    vi.mocked(scopesAPI.deleteScope).mockResolvedValue({} as never)
   })
 
   async function mountSettings(
@@ -117,10 +124,8 @@ describe('ScopeSettings', () => {
     expect(wrapper.text()).toContain('Curation v1')
   })
 
-  it('shows a fallback for a pair without schema names', async () => {
-    vi.mocked(schemasAPI.getWorkflowPairs).mockResolvedValueOnce([
-      { ...pair, precuration_schema_name: null }
-    ])
+  it('shows a fallback when the linked schemas cannot be resolved', async () => {
+    vi.mocked(schemasAPI.getSchemas).mockResolvedValueOnce([])
     const { wrapper } = await mountSettings({ scope: { default_workflow_pair_id: 'wp-1' } })
 
     expect(wrapper.text()).toContain('Not configured')

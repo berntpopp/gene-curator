@@ -179,6 +179,7 @@ describe('AddGeneModal', () => {
       results: [{ status: 'suggestion', gene: brca2 }]
     })
     vi.mocked(genesAPI.bulkCreateGenes).mockResolvedValue({
+      created_genes: [],
       total_created: 1,
       total_skipped: 0,
       total_errors: 0
@@ -196,6 +197,7 @@ describe('AddGeneModal', () => {
 
     expect(genesAPI.bulkCreateGenes).toHaveBeenCalledWith({
       genes: [expect.objectContaining({ hgnc_id: 'HGNC:1101', approved_symbol: 'BRCA2' })],
+      validate_hgnc: true,
       skip_duplicates: true
     })
     expect(addToast).toHaveBeenCalledWith('Added 1 genes (0 skipped, 0 failed)', 'success')

@@ -202,7 +202,6 @@
     clearHistory
   } = useHistory(
     recoveryKey.value,
-    // @ts-expect-error useHistory's JSDoc types applyState as null (see report)
     (state: EvidenceData) => {
       evidenceData.value = { ...state }
     }

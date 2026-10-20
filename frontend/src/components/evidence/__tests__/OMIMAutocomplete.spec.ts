@@ -141,7 +141,7 @@ describe('OMIMAutocomplete', () => {
       omim_id: 'OMIM:300855',
       name: 'Ogden syndrome',
       genes: [{ gene_id: '1', symbol: 'NAA10' }],
-      phenotypes: { 'Clinical synopsis': [{ hpo_id: 'HP:1', name: 'Hypotonia' }] }
+      phenotypes: { 'Clinical synopsis': [{ hpo_id: 'HP:1', name: 'Hypotonia', sources: [] }] }
     })
     const { vm } = mountOmim()
 

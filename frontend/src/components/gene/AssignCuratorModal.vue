@@ -86,8 +86,6 @@
                 </v-list-item-title>
                 <v-list-item-subtitle v-if="item.raw.hgnc_id" class="text-caption">
                   {{ item.raw.hgnc_id }}
-                  <span v-if="item.raw.approved_name" class="mx-1">|</span>
-                  {{ item.raw.approved_name }}
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
@@ -307,7 +305,7 @@
   import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
   import type { Schema } from '@/types/api'
   import type { CuratorOption } from './types'
-  import { getAvatarColor, getInitials } from './curatorDisplay'
+  import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
@@ -331,8 +329,7 @@
   }>()
 
   /** Gene candidate in the assignment picker (catalogue gene record). */
-  // approved_name is read by the template but is not part of the Gene schema (kept as-is)
-  type GeneCandidate = Schema<'Gene'> & { approved_name?: string | null }
+  type GeneCandidate = Schema<'GeneSummary'>
 
   // ============================================
   // COMPOSABLES & STORES
@@ -455,22 +452,13 @@
     loadingGenes.value = true
     try {
       // Fetch genes from catalog (max 500 per backend limit)
-      const genesResponse = (await genesAPI.getGenes({ limit: 500 })) as
-        | GeneCandidate[]
-        | { genes?: GeneCandidate[]; items?: GeneCandidate[] }
-      const allGenes = (
-        Array.isArray(genesResponse)
-          ? genesResponse
-          : genesResponse.genes || genesResponse.items || []
-      ) as GeneCandidate[]
+      const { genes: allGenes } = await genesAPI.getGenes({ limit: 500 })
 
       // Fetch existing assignments for this scope
-      let assignedGeneIds = new Set()
+      let assignedGeneIds = new Set<string>()
       try {
-        const assignments = (await assignmentsAPI.getAssignmentsByScope(props.scopeId)) as Array<{
-          gene_id: string
-        }> | null
-        assignedGeneIds = new Set((assignments || []).map(a => a.gene_id))
+        const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
+        assignedGeneIds = new Set(assignments.map(a => a.gene_id))
       } catch {
         // If no assignments yet, all genes are available
       }
@@ -496,26 +484,11 @@
   const fetchAvailableCurators = async () => {
     loadingCurators.value = true
     try {
-      const members = (await scopesStore.fetchMembers(props.scopeId)) as Array<
-        Record<string, string | null | undefined>
-      > | null
+      const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Map members with display name
-      // API returns user_full_name, user_email from ScopeMembershipResponse
-      availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin'].includes(m.role as string))
-        .map(member => ({
-          ...member,
-          user_id: member.user_id as string,
-          role: member.role as string,
-          // Normalize field names from API response
-          full_name: member.user_full_name || member.full_name,
-          email: member.user_email || member.email,
-          displayName: (member.user_full_name ||
-            member.full_name ||
-            member.user_email ||
-            member.email) as string
-        }))
+      availableCurators.value = members
+        .filter(m => ['curator', 'admin'].includes(m.role))
+        .map(toCuratorOption)
 
       logger.debug('Available curators loaded', { count: availableCurators.value.length })
     } catch (error) {

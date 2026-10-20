@@ -95,13 +95,6 @@ describe('AssignCuratorModal', () => {
     expect(internals(wrapper).availableGenes).toHaveLength(3)
   })
 
-  it('accepts a bare array or an items-keyed payload from the catalogue', async () => {
-    getGenes.mockResolvedValue({ items: catalogue } as never)
-    const wrapper = await mountModal()
-
-    expect(internals(wrapper).availableGenes).toHaveLength(2)
-  })
-
   it('loads only curator-capable members', async () => {
     const wrapper = await mountModal()
 

@@ -356,7 +356,7 @@
       await validationStore.validateField({
         field_name: fieldName,
         field_value: value,
-        schema_id: props.schemaId
+        field_config: { ...jsonSchema.value.properties?.[fieldName] }
       })
     } catch (err) {
       logger.error('Field validation error:', errorDetails(err))

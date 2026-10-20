@@ -4,7 +4,6 @@
   **Refactored Component** - Uses new composables and service layer pattern
 
   **DRY Improvements**:
-  - Uses useRoleColors composable (eliminates duplicate role color logic)
   - Uses useScopeUtils composable (reuses visibility icon logic)
   - Uses refactored useScopesStore with service layer
 
@@ -16,7 +15,7 @@
 
   **UI/UX Features**:
   - Dropdown menu for scope selection
-  - Shows user's role within each scope
+  - Shows the institution of each scope
   - Public/private scope indicators
   - Active scope highlighting
   - Quick scope creation button
@@ -49,15 +48,9 @@
 
         <v-list-item-title>{{ scope.display_name }}</v-list-item-title>
 
-        <v-list-item-subtitle>
-          <v-chip
-            size="x-small"
-            :color="getRoleColor(scope.user_role)"
-            :prepend-icon="getRoleIcon(scope.user_role)"
-          >
-            {{ scope.user_role }}
-          </v-chip>
-        </v-list-item-subtitle>
+        <v-list-item-subtitle v-if="scope.institution">{{
+          scope.institution
+        }}</v-list-item-subtitle>
       </v-list-item>
 
       <!-- Empty state -->
@@ -87,9 +80,9 @@
   import { computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useRouter } from 'vue-router'
-  import { useRoleColors } from '@/composables/useRoleColors'
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
 
   /** Scoped logger from useLogger(); its JSDoc types the return as Object, so it is narrowed here */
   type LogFn = (message: string, data?: Record<string, unknown>) => void
@@ -99,20 +92,7 @@
   // COMPOSABLES & STORE
   // ============================================
 
-  /** Scope as listed in the selector, with the current user's role in it */
-  interface UserScope {
-    id: string
-    name: string
-    display_name: string
-    is_public: boolean
-    user_role: string
-  }
-
-  /** Narrowed view of useRoleColors() (its JSDoc types the return as Object) */
-  interface RoleColorUtils {
-    getRoleColor: (role: string) => string
-    getRoleIcon: (role: string) => string
-  }
+  type UserScope = Schema<'ScopeListItem'>
 
   /** Narrowed view of useScopeUtils() (its JSDoc types the return as Object) */
   interface ScopeUtils {
@@ -121,7 +101,6 @@
 
   const scopeStore = useScopesStore()
   const router = useRouter()
-  const { getRoleColor, getRoleIcon } = useRoleColors() as RoleColorUtils
   const { getScopeVisibilityIcon } = useScopeUtils() as ScopeUtils
   const logger = useLogger() as ComponentLogger
 
@@ -129,8 +108,8 @@
   // COMPUTED PROPERTIES
   // ============================================
 
-  const currentScope = computed(() => scopeStore.currentScope as UserScope | null)
-  const userScopes = computed(() => scopeStore.userScopes as UserScope[])
+  const currentScope = computed(() => scopeStore.currentScope)
+  const userScopes = computed(() => scopeStore.userScopes)
   const loading = computed(() => scopeStore.loading)
 
   // ============================================
@@ -144,8 +123,7 @@
   const selectScope = (scope: UserScope) => {
     logger.info('Scope selected', {
       scope_id: scope.id,
-      scope_name: scope.name,
-      user_role: scope.user_role
+      scope_name: scope.name
     })
 
     scopeStore.setCurrentScope(scope)

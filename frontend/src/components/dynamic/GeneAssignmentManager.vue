@@ -44,7 +44,7 @@
           <v-select
             v-model="selectedAssignee"
             :items="availableUsers"
-            item-title="full_name"
+            item-title="name"
             item-value="id"
             label="Filter by Assignee"
             variant="outlined"
@@ -203,7 +203,7 @@
           <v-select
             v-model="bulkAssignee"
             :items="availableUsers"
-            item-title="full_name"
+            item-title="name"
             item-value="id"
             label="Assign to User"
             variant="outlined"
@@ -399,7 +399,7 @@
             <v-select
               v-model="reassignCuratorId"
               :items="availableUsers"
-              item-title="full_name"
+              item-title="name"
               item-value="id"
               label="New Curator"
               variant="outlined"
@@ -444,7 +444,8 @@
     priorityOptions,
     statusOptions
   } from './assignmentDisplay'
-  import type { ComponentLogger, ScopeOption } from './types'
+  import type { Schema } from '@/types/api'
+  import type { ComponentLogger } from './types'
 
   const assignmentsStore = useAssignmentsStore()
   const scopesStore = useScopesStore()
@@ -481,22 +482,7 @@
     updated_at?: string
   }
 
-  interface AssignedUser {
-    id: string
-    full_name: string
-    role: string
-  }
-
-  /** The bulk action this component calls on the assignments store (not implemented there) */
-  interface BulkUpdateStore {
-    bulkUpdateAssignments: (payload: {
-      assignment_ids: string[]
-      assigned_to: string
-      priority: string | null
-      due_date: string | null
-      comment: string | null
-    }) => Promise<unknown>
-  }
+  type AssignedUser = Schema<'UserResponse'>
 
   interface EditFormData {
     priority_level: string | null
@@ -540,10 +526,8 @@
   const assignments = computed(
     () => (assignmentsStore.assignments as GeneAssignment[] | null) || []
   )
-  const availableScopes = computed(() => (scopesStore.scopes as ScopeOption[] | null) || [])
-  const availableUsers = computed(() =>
-    ((usersStore.users as AssignedUser[] | null) || []).filter(user => user.role !== 'viewer')
-  )
+  const availableScopes = computed(() => scopesStore.scopes)
+  const availableUsers = computed(() => usersStore.users.filter(user => user.role !== 'viewer'))
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
@@ -596,7 +580,7 @@
 
   const getUserName = (userId: string | null | undefined): string => {
     const user = availableUsers.value.find(u => u.id === userId)
-    return user?.full_name || 'Unknown'
+    return user?.name || 'Unknown'
   }
 
   const getUserRole = (userId: string | null | undefined): string => {
@@ -622,19 +606,25 @@
 
     bulkAssigning.value = true
     try {
-      // NOTE: the assignments store has no bulkUpdateAssignments action (it exposes
-      // bulkAssignGenes); the call fails at runtime and is handled below.
-      await (assignmentsStore as unknown as BulkUpdateStore).bulkUpdateAssignments({
-        assignment_ids: selectedAssignments.value,
-        assigned_to: bulkAssignee.value.id,
-        priority: bulkPriority.value,
-        due_date: bulkDueDate.value || null,
-        comment: bulkComment.value || null
-      })
+      // The curator goes through the dedicated assign-curator endpoint; the PUT update
+      // carries priority, due date and note only when one was chosen.
+      const curatorId = bulkAssignee.value.id
+      const hasUpdate = bulkPriority.value || bulkDueDate.value || bulkComment.value
+      for (const id of selectedAssignments.value) {
+        await assignmentsAPI.assignCurator(id, curatorId)
+        if (hasUpdate) {
+          await assignmentsAPI.updateAssignment(id, {
+            priority_level: bulkPriority.value,
+            due_date: bulkDueDate.value || null,
+            assignment_notes: bulkComment.value || null
+          })
+        }
+      }
+      await assignmentsStore.fetchAssignments()
 
       logger.info('Bulk assignment successful', {
         count: selectedAssignments.value.length,
-        assignedTo: bulkAssignee.value.full_name
+        assignedTo: bulkAssignee.value.name
       })
       showSuccess(`Successfully assigned ${selectedAssignments.value.length} items`)
 
@@ -674,9 +664,14 @@
   }
 
   const saveAssignment = async () => {
+    if (!editingAssignmentId) return
     saving.value = true
     try {
-      await assignmentsStore.updateAssignment(editingAssignmentId, editFormData.value)
+      await assignmentsStore.updateAssignment(editingAssignmentId, {
+        priority_level: editFormData.value.priority_level,
+        due_date: editFormData.value.due_date || null,
+        assignment_notes: editFormData.value.notes || null
+      })
       showSuccess('Assignment updated successfully')
       editDialog.value = false
     } catch (err) {
@@ -700,10 +695,11 @@
 
   const executeReassign = async () => {
     const { valid } = await reassignForm.value!.validate()
-    if (!valid) return
+    const curatorId = reassignCuratorId.value
+    if (!valid || !curatorId) return
     reassigning.value = true
     try {
-      await assignmentsAPI.assignCurator(reassigningAssignment.value!.id, reassignCuratorId.value)
+      await assignmentsAPI.assignCurator(reassigningAssignment.value!.id, curatorId)
       showSuccess('Gene reassigned successfully')
       reassignDialog.value = false
       await assignmentsStore.fetchAssignments()

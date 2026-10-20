@@ -14,7 +14,12 @@
 
     <!-- Text Fields -->
     <v-text-field
-      v-else-if="fieldSchema.type === 'string' && !fieldSchema.multiline && !fieldSchema.enum"
+      v-else-if="
+        fieldSchema.type === 'string' &&
+        !fieldSchema.multiline &&
+        !fieldSchema.enum &&
+        fieldSchema.format !== 'date'
+      "
       :model-value="modelValue"
       :label="getFieldLabel()"
       :placeholder="fieldSchema.placeholder"

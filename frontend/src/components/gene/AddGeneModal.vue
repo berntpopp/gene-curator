@@ -351,7 +351,6 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike, ComponentLogger } from '@/components/forms/types'
-  import type { Ref } from 'vue'
   import {
     getValidationClass,
     getValidationColor,
@@ -385,22 +384,7 @@
 
   const logger = useLogger() as ComponentLogger
   const notificationStore = useNotificationsStore()
-  // useHgncSearch is JSDoc-typed as Object; this is its used surface
-  const {
-    results: searchResults,
-    isSearching,
-    search,
-    validateBulk
-  } = useHgncSearch() as {
-    results: Ref<HgncGene[]>
-    isSearching: Ref<boolean>
-    search: (query?: string) => Promise<unknown>
-    validateBulk: (identifiers: string[]) => Promise<{
-      valid: unknown[]
-      invalid: unknown[]
-      results: BulkValidationResult[]
-    }>
-  }
+  const { results: searchResults, isSearching, search, validateBulk } = useHgncSearch()
 
   // ============================================
   // STATE
@@ -533,7 +517,7 @@
     if (bulkValidationResults.value[idx]) {
       bulkValidationResults.value[idx].gene = alternative
       bulkValidationResults.value[idx].status = 'valid'
-      bulkValidationResults.value[idx].message = null
+      bulkValidationResults.value[idx].message = undefined
     }
   }
 

@@ -1,6 +1,19 @@
 /**
  * Display helpers for curator avatars shared by the assignment modals.
  */
+import type { Schema } from '@/types/api'
+import type { CuratorOption } from './types'
+
+/** Map a scope membership to a curator choice (names come from the user_* response fields). */
+export function toCuratorOption(member: Schema<'ScopeMembershipResponse'>): CuratorOption {
+  return {
+    user_id: member.user_id,
+    role: member.role,
+    full_name: member.user_full_name,
+    email: member.user_email,
+    displayName: member.user_full_name || member.user_email || member.user_id
+  }
+}
 
 const AVATAR_COLORS = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
 
