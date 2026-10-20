@@ -189,7 +189,7 @@ describe('ScopeSelection', () => {
 describe('UserManagement', () => {
   const users = useUsersStore() as unknown as {
     paginatedUsers: unknown[]
-    statistics: Record<string, number>
+    statistics: Record<string, number | Record<string, number>>
     error: string | null
     fetchUsers: ReturnType<typeof vi.fn>
     fetchUserStatistics: ReturnType<typeof vi.fn>
@@ -262,8 +262,8 @@ describe('UserManagement', () => {
     expect(document.body.textContent).not.toContain('Password must be at least 8')
 
     const type = async (i: number, v: string) => {
-      inputs[i].value = v
-      inputs[i].dispatchEvent(new Event('input'))
+      inputs[i]!.value = v
+      inputs[i]!.dispatchEvent(new Event('input'))
       await flushPromises()
     }
     const reset = [...document.querySelectorAll('button')].find(b =>
