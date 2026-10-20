@@ -119,3 +119,15 @@ def test_reviewer_cannot_start_work_via_workflow_direct(
     )
     assert result.is_valid is False
     assert any("not authorized" in error for error in result.errors)
+
+
+def test_viewer_cannot_delete_precuration(
+    client: TestClient, db_session: Session, test_precuration: PrecurationNew
+):
+    user = make_user(db_session)
+    scope = db_session.get(Scope, test_precuration.scope_id)
+    make_member(db_session, scope, user, "viewer")
+    response = client.delete(
+        f"/api/v1/precurations/{test_precuration.id}", headers=auth_headers(user)
+    )
+    assert response.status_code == 403

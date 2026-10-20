@@ -52,6 +52,7 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
             ScopeMembership.user_id == user_id,
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active,
+            ScopeMembership.accepted_at.isnot(None),
         )
         .first()
     )

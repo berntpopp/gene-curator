@@ -496,7 +496,9 @@ def delete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
+    )
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":
