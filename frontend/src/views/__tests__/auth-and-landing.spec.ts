@@ -16,7 +16,11 @@ import { useGenesStore } from '@/stores/genes'
 
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
   routerPush: vi.fn(),
-  routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
+  routeState: {
+    params: {} as Record<string, string>,
+    query: {} as Record<string, string>,
+    fullPath: '/'
+  },
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   showError: vi.fn(),
   showSuccess: vi.fn()
@@ -40,16 +44,32 @@ const mountOpts = (pinia: ReturnType<typeof createPinia>) => ({
 })
 
 describe('static pages', () => {
-  it('NotFound renders the 404 message and navigation buttons', () => {
+  it('NotFound shows the requested path and a Home action', () => {
+    routeState.fullPath = '/no/such/page?x=1'
     const wrapper = mount(NotFound, mountOpts(createPinia()))
     expect(wrapper.text()).toContain('Page Not Found')
+    expect(wrapper.text()).toContain('/no/such/page?x=1')
     expect(wrapper.text()).toContain('Go Home')
-    expect(wrapper.text()).toContain('Browse Genes')
+    expect(wrapper.text()).toContain('Gene Catalogue')
+    expect(wrapper.find('.text-error').exists()).toBe(false)
   })
 
-  it('NotAuthorized renders the access denied message', () => {
+  it('NotAuthorized offers Sign in to anonymous users', () => {
+    routeState.query = { redirect: '/admin/users' }
     const wrapper = mount(NotAuthorized, mountOpts(createPinia()))
     expect(wrapper.text()).toContain('Access Denied')
+    expect(wrapper.text()).toContain('administrator')
+    const signIn = wrapper.findAllComponents({ name: 'VBtn' }).find(b => b.text() === 'Sign in')
+    expect(signIn?.props('to')).toEqual({ name: 'Login', query: { redirect: '/admin/users' } })
+  })
+
+  it('NotAuthorized sends signed-in users to the dashboard', () => {
+    const pinia = createPinia()
+    setActivePinia(pinia)
+    useAuthStore().isAuthenticated = true
+    const wrapper = mount(NotAuthorized, mountOpts(pinia))
+    expect(wrapper.text()).toContain('Go to Dashboard')
+    expect(wrapper.text()).not.toContain('Sign in')
   })
 
   it.each([
