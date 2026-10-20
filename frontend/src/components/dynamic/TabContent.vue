@@ -43,49 +43,50 @@
   </v-card-text>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, onActivated, onDeactivated } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import DynamicField from './DynamicField.vue'
+  import type {
+    ComponentLogger,
+    FieldSchema,
+    FieldValidation,
+    FormValidationResult,
+    JsonSchemaDocument,
+    TabConfig
+  } from './types'
 
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
 
-  const props = defineProps({
-    tab: {
-      type: Object,
-      required: true
-    },
-    schema: {
-      type: Object,
-      required: true
-    },
-    formData: {
-      type: Object,
-      required: true
-    },
-    validationResult: {
-      type: Object,
-      default: null
-    },
-    backendErrors: {
-      type: Object,
-      default: () => ({})
-    },
-    readonly: {
-      type: Boolean,
-      default: false
+  const props = withDefaults(
+    defineProps<{
+      tab: TabConfig
+      schema: JsonSchemaDocument
+      formData: Record<string, unknown>
+      validationResult?: FormValidationResult | null
+      /** Backend errors keyed by dot-notation field path */
+      backendErrors?: Record<string, string[]>
+      readonly?: boolean
+    }>(),
+    {
+      validationResult: null,
+      backendErrors: () => ({}),
+      readonly: false
     }
-  })
+  )
 
-  defineEmits(['update:field', 'clear-backend-error'])
+  defineEmits<{
+    'update:field': [fieldPath: string, value: unknown]
+    'clear-backend-error': [fieldPath: string]
+  }>()
 
   // Initialize open sections based on schema defaults
   // Sections with collapsed: true start closed
   // Sections without collapsed or with collapsed: false start open
-  const openSections = ref(
+  const openSections = ref<number[]>(
     props.tab.sections
       .map((section, index) => (!section.collapsed ? index : null))
-      .filter(i => i !== null)
+      .filter((i): i is number => i !== null)
   )
 
   // KeepAlive lifecycle hooks
@@ -99,43 +100,34 @@
 
   /**
    * Extract field name from dot-notation path
-   * @param {string} fieldPath - Dot-notation field path (e.g., "case_info.gene_symbol")
-   * @returns {string} Last segment of path
+   * @param fieldPath - Dot-notation field path (e.g., "case_info.gene_symbol")
+   * @returns Last segment of path
    */
-  function getFieldName(fieldPath) {
+  function getFieldName(fieldPath: string): string {
     const parts = fieldPath.split('.')
-    return parts[parts.length - 1]
+    return parts[parts.length - 1] ?? fieldPath
   }
 
   /**
    * Navigate schema.properties using path segments, handling nested object/array types
-   * @param {string} fieldPath - Dot-notation field path
-   * @returns {Object} Field schema definition
+   * @param fieldPath - Dot-notation field path
+   * @returns Field schema definition
    */
-  function getFieldSchema(fieldPath) {
+  function getFieldSchema(fieldPath: string): FieldSchema {
     const parts = fieldPath.split('.')
-    let schema = props.schema.properties
+    // Current lookup level: a properties map, or a field node when the path is malformed
+    let level: Record<string, unknown> | undefined = props.schema.properties
+    let field: FieldSchema | undefined
 
     for (let i = 0; i < parts.length; i++) {
-      const part = parts[i]
+      const part = parts[i] ?? ''
+      field = level?.[part] as FieldSchema | undefined
 
-      if (schema[part]) {
-        // Direct property found
-        schema = schema[part]
-
-        // If it's an object type, move into properties for next iteration
-        if (i < parts.length - 1 && schema.type === 'object' && schema.properties) {
-          schema = schema.properties
-        }
-        // If it's an array type, move into items.properties for next iteration
-        else if (i < parts.length - 1 && schema.type === 'array' && schema.items?.properties) {
-          schema = schema.items.properties
-        }
-      } else {
+      if (!field) {
         logger.warn('Field schema not found', {
           fieldPath,
           part,
-          availableKeys: Object.keys(schema)
+          availableKeys: Object.keys(level ?? {})
         })
         // Return fallback schema
         return {
@@ -144,22 +136,34 @@
           description: 'Schema definition not found'
         }
       }
+
+      const isLast = i === parts.length - 1
+      // If it's an object type, move into properties for next iteration
+      if (!isLast && field.type === 'object' && field.properties) {
+        level = field.properties as Record<string, unknown>
+      }
+      // If it's an array type, move into items.properties for next iteration
+      else if (!isLast && field.type === 'array' && field.items?.properties) {
+        level = field.items.properties as Record<string, unknown>
+      } else {
+        level = field as Record<string, unknown>
+      }
     }
 
-    return schema
+    return field as FieldSchema
   }
 
   /**
    * Navigate formData using path segments
-   * @param {string} fieldPath - Dot-notation field path
-   * @returns {*} Field value
+   * @param fieldPath - Dot-notation field path
+   * @returns Field value
    */
-  function getFieldValue(fieldPath) {
+  function getFieldValue(fieldPath: string): unknown {
     const parts = fieldPath.split('.')
-    let value = props.formData
+    let value: unknown = props.formData
 
     for (const part of parts) {
-      value = value?.[part]
+      value = (value as Record<string, unknown> | null | undefined)?.[part]
       if (value === undefined) break
     }
 
@@ -168,10 +172,10 @@
 
   /**
    * Extract field-specific errors from validationResult
-   * @param {string} fieldPath - Dot-notation field path
-   * @returns {Object|null} Field validation result
+   * @param fieldPath - Dot-notation field path
+   * @returns Field validation result
    */
-  function getFieldValidation(fieldPath) {
+  function getFieldValidation(fieldPath: string): FieldValidation | null {
     if (!props.validationResult?.field_validations) return null
 
     const validation = props.validationResult.field_validations[fieldPath]

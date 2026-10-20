@@ -7,7 +7,13 @@
  * @module composables/useValidationRules
  */
 
-import { computed } from 'vue'
+import { computed, type ComputedRef } from 'vue'
+import type { FieldSchema } from '../types'
+
+/** A Vuetify validation rule: returns `true` when valid, otherwise an error message. */
+export type ValidationRule = (value: unknown) => true | string
+
+const isEmpty = (value: unknown): boolean => value === null || value === undefined || value === ''
 
 /**
  * Generate Vuetify validation rules from field schema constraints
@@ -15,22 +21,24 @@ import { computed } from 'vue'
  * Rules are applied in order and Vuetify shows the first failing rule.
  * Empty values skip non-required validations to avoid confusing error stacking.
  *
- * @param {Function} fieldSchemaGetter - Reactive getter for field schema object
- * @returns {Object} { validationRules: ComputedRef<Function[]> }
+ * @param fieldSchemaGetter - Reactive getter for field schema object
+ * @returns { validationRules: ComputedRef<ValidationRule[]> }
  *
  * @example
  * const { validationRules } = useValidationRules(() => props.fieldSchema)
  */
-export function useValidationRules(fieldSchemaGetter) {
-  const validationRules = computed(() => {
+export function useValidationRules(fieldSchemaGetter: () => FieldSchema): {
+  validationRules: ComputedRef<ValidationRule[]>
+} {
+  const validationRules = computed<ValidationRule[]>(() => {
     const fieldSchema = fieldSchemaGetter()
-    const rules = []
+    const rules: ValidationRule[] = []
 
     // 1. Required rule (VALD-01)
     if (fieldSchema.required === true) {
       rules.push(value => {
         // Check for null, undefined, empty string
-        if (value === null || value === undefined || value === '') {
+        if (isEmpty(value)) {
           return fieldSchema.errorMessage || 'Required'
         }
         // Check for empty arrays
@@ -48,7 +56,7 @@ export function useValidationRules(fieldSchemaGetter) {
         if (!value) {
           return true
         }
-        if (value.length < fieldSchema.minLength) {
+        if ((value as { length: number }).length < fieldSchema.minLength!) {
           return fieldSchema.errorMessage || `Minimum ${fieldSchema.minLength} characters`
         }
         return true
@@ -62,7 +70,7 @@ export function useValidationRules(fieldSchemaGetter) {
         if (!value) {
           return true
         }
-        if (value.length > fieldSchema.maxLength) {
+        if ((value as { length: number }).length > fieldSchema.maxLength!) {
           return fieldSchema.errorMessage || `Maximum ${fieldSchema.maxLength} characters`
         }
         return true
@@ -73,10 +81,10 @@ export function useValidationRules(fieldSchemaGetter) {
     if (fieldSchema.minimum !== undefined) {
       rules.push(value => {
         // Skip validation if value is null or empty string
-        if (value === null || value === undefined || value === '') {
+        if (isEmpty(value)) {
           return true
         }
-        if (value < fieldSchema.minimum) {
+        if ((value as number) < fieldSchema.minimum!) {
           return fieldSchema.errorMessage || `Minimum value: ${fieldSchema.minimum}`
         }
         return true
@@ -87,10 +95,10 @@ export function useValidationRules(fieldSchemaGetter) {
     if (fieldSchema.maximum !== undefined) {
       rules.push(value => {
         // Skip validation if value is null or empty string
-        if (value === null || value === undefined || value === '') {
+        if (isEmpty(value)) {
           return true
         }
-        if (value > fieldSchema.maximum) {
+        if ((value as number) > fieldSchema.maximum!) {
           return fieldSchema.errorMessage || `Maximum value: ${fieldSchema.maximum}`
         }
         return true
@@ -105,12 +113,12 @@ export function useValidationRules(fieldSchemaGetter) {
           return true
         }
         try {
-          const regex = new RegExp(fieldSchema.pattern)
-          if (!regex.test(value)) {
+          const regex = new RegExp(fieldSchema.pattern!)
+          if (!regex.test(String(value))) {
             return fieldSchema.errorMessage || 'Invalid format'
           }
           return true
-        } catch (error) {
+        } catch {
           // Invalid regex pattern - fail validation
           return 'Invalid pattern configuration'
         }
@@ -124,7 +132,7 @@ export function useValidationRules(fieldSchemaGetter) {
         if (!value) {
           return true
         }
-        if (!fieldSchema.enum.includes(value)) {
+        if (!fieldSchema.enum!.includes(value as string | number)) {
           return fieldSchema.errorMessage || 'Must be one of the allowed values'
         }
         return true

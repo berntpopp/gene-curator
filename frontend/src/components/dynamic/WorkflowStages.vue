@@ -18,6 +18,7 @@
           alt-labels
           class="mb-6"
         >
+          <!-- @vue-expect-error Vuetify types the stepper item.* slot props as StepperItem -->
           <template #item.icon="{ item, index }">
             <v-icon
               :color="getStageColor(index)"
@@ -27,6 +28,7 @@
             </v-icon>
           </template>
 
+          <!-- @vue-expect-error Vuetify types the stepper item.* slot props as StepperItem -->
           <template #item.title="{ item, index }">
             <div class="text-subtitle-2">
               {{ item.raw.name }}
@@ -42,6 +44,7 @@
             </div>
           </template>
 
+          <!-- @vue-expect-error Vuetify types the stepper item.* slot props as StepperItem -->
           <template #item.subtitle="{ item }">
             <div class="text-caption text-medium-emphasis mt-1">
               {{ item.raw.description }}
@@ -209,12 +212,62 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+  import { ref, computed, onMounted, watch, type PropType } from 'vue'
   import { useLogger } from '@/composables/useLogger'
-
-  const logger = useLogger()
-  import { ref, computed, onMounted, watch } from 'vue'
   import { useWorkflowStore } from '@/stores'
+  import { errorDetails } from './errorDetails'
+  import type { ComponentLogger } from './types'
+
+  const logger = useLogger() as ComponentLogger
+
+  /** One rule shown in a stage's "Validation Requirements" list */
+  interface StageValidationRule {
+    id: string
+    description: string
+    is_satisfied: boolean
+    error_message?: string | null
+  }
+
+  /** A stage of a workflow pair (as listed by the workflow store) */
+  interface WorkflowStage {
+    id: string
+    name: string
+    description?: string | null
+    stage_type?: string
+    required_roles?: string[]
+    status?: string
+    validation_rules?: StageValidationRule[]
+  }
+
+  /** The entity's current stage, plus the actions the backend allows from it */
+  interface CurrentStage extends Omit<WorkflowStage, 'id' | 'status'> {
+    stage_id: string
+    status: string
+    can_advance?: boolean
+    can_reject?: boolean
+    can_request_revision?: boolean
+  }
+
+  /** One entry of the entity's stage history */
+  interface StageHistoryEvent {
+    id: string
+    action: string
+    from_stage: string
+    to_stage: string
+    created_at: string
+    user_name: string
+    user_role: string
+    comment?: string | null
+  }
+
+  type EntityType = 'precuration' | 'curation'
+
+  interface EntityActionPayload {
+    entity_id: string
+    entity_type: EntityType
+    comment: string
+  }
 
   const props = defineProps({
     workflowPairId: {
@@ -226,29 +279,59 @@
       required: true
     },
     entityType: {
-      type: String,
+      type: String as PropType<EntityType>,
       required: true,
-      validator: value => ['precuration', 'curation'].includes(value)
+      validator: (value: string) => ['precuration', 'curation'].includes(value)
     }
   })
 
-  const emit = defineEmits(['stage-changed', 'action-completed'])
+  const emit = defineEmits<{
+    'stage-changed': [action: string]
+    'action-completed': [action: string]
+  }>()
 
-  const workflowStore = useWorkflowStore()
+  /**
+   * Store members this component calls. The workflow store does not implement
+   * most of them (see the note on AssignmentDetail), so they are declared here
+   * instead of being inferred from the store.
+   */
+  interface WorkflowStoreApi {
+    loading: boolean
+    error: string | null
+    getWorkflowStages: (pairId: string) => WorkflowStage[]
+    getCurrentStage: (entityId: string) => CurrentStage | null
+    getStageHistory: (entityId: string) => StageHistoryEvent[]
+    advanceStage: (payload: EntityActionPayload) => Promise<unknown>
+    rejectStage: (payload: EntityActionPayload) => Promise<unknown>
+    requestRevision: (payload: EntityActionPayload) => Promise<unknown>
+    saveDraft: (payload: Omit<EntityActionPayload, 'comment'>) => Promise<unknown>
+    fetchWorkflowStages: (pairId: string) => Promise<unknown>
+    fetchCurrentStage: (entityId: string, entityType: EntityType) => Promise<unknown>
+    fetchStageHistory: (entityId: string) => Promise<unknown>
+  }
+
+  const workflowStore = useWorkflowStore() as unknown as WorkflowStoreApi
   const advancing = ref(false)
   const rejecting = ref(false)
   const requesting = ref(false)
   const saving = ref(false)
 
+  // The workflow store is untyped JS; its getters are typed at this boundary
   const loading = computed(() => workflowStore.loading)
   const error = computed(() => workflowStore.error)
-  const workflowStages = computed(() => workflowStore.getWorkflowStages(props.workflowPairId))
-  const currentStage = computed(() => workflowStore.getCurrentStage(props.entityId))
-  const stageHistory = computed(() => workflowStore.getStageHistory(props.entityId))
+  const workflowStages = computed<WorkflowStage[]>(
+    () => workflowStore.getWorkflowStages(props.workflowPairId) as WorkflowStage[]
+  )
+  const currentStage = computed<CurrentStage | null>(
+    () => workflowStore.getCurrentStage(props.entityId) as CurrentStage | null
+  )
+  const stageHistory = computed<StageHistoryEvent[]>(
+    () => workflowStore.getStageHistory(props.entityId) as StageHistoryEvent[]
+  )
 
   const currentStageIndex = computed(() => {
     if (!currentStage.value || !workflowStages.value.length) return 0
-    return workflowStages.value.findIndex(stage => stage.id === currentStage.value.stage_id)
+    return workflowStages.value.findIndex(stage => stage.id === currentStage.value?.stage_id)
   })
 
   const canAdvanceStage = computed(() => {
@@ -265,19 +348,21 @@
     return currentStage.value?.can_request_revision
   })
 
-  const getNextStageName = () => {
+  const getNextStageName = (): string => {
     const nextIndex = currentStageIndex.value + 1
-    return nextIndex < workflowStages.value.length ? workflowStages.value[nextIndex].name : ''
+    return nextIndex < workflowStages.value.length
+      ? (workflowStages.value[nextIndex]?.name ?? '')
+      : ''
   }
 
-  const getStageColor = index => {
+  const getStageColor = (index: number): string => {
     if (index < currentStageIndex.value) return 'success'
     if (index === currentStageIndex.value) return 'primary'
     return 'grey'
   }
 
-  const getStageIcon = stage => {
-    const iconMap = {
+  const getStageIcon = (stage: WorkflowStage | CurrentStage): string => {
+    const iconMap: Record<string, string> = {
       draft: 'mdi-file-document-edit',
       primary_review: 'mdi-account-search',
       secondary_review: 'mdi-account-check',
@@ -285,62 +370,62 @@
       published: 'mdi-publish',
       rejected: 'mdi-close-circle'
     }
-    return iconMap[stage.stage_type] || 'mdi-circle'
+    return iconMap[stage.stage_type ?? ''] ?? 'mdi-circle'
   }
 
-  const getStatusColor = status => {
-    const colorMap = {
+  const getStatusColor = (status: string): string => {
+    const colorMap: Record<string, string> = {
       pending: 'warning',
       in_progress: 'primary',
       completed: 'success',
       rejected: 'error'
     }
-    return colorMap[status] || 'grey'
+    return colorMap[status] ?? 'grey'
   }
 
-  const getStatusIcon = status => {
-    const iconMap = {
+  const getStatusIcon = (status: string): string => {
+    const iconMap: Record<string, string> = {
       pending: 'mdi-clock-outline',
       in_progress: 'mdi-play-circle',
       completed: 'mdi-check-circle',
       rejected: 'mdi-close-circle'
     }
-    return iconMap[status] || 'mdi-help-circle'
+    return iconMap[status] ?? 'mdi-help-circle'
   }
 
-  const getEventColor = action => {
-    const colorMap = {
+  const getEventColor = (action: string): string => {
+    const colorMap: Record<string, string> = {
       advanced: 'success',
       rejected: 'error',
       revision_requested: 'warning',
       draft_saved: 'info'
     }
-    return colorMap[action] || 'grey'
+    return colorMap[action] ?? 'grey'
   }
 
-  const getEventIcon = action => {
-    const iconMap = {
+  const getEventIcon = (action: string): string => {
+    const iconMap: Record<string, string> = {
       advanced: 'mdi-arrow-right-circle',
       rejected: 'mdi-close-circle',
       revision_requested: 'mdi-comment-edit',
       draft_saved: 'mdi-content-save'
     }
-    return iconMap[action] || 'mdi-circle'
+    return iconMap[action] ?? 'mdi-circle'
   }
 
-  const formatRole = role => {
+  const formatRole = (role: string): string => {
     return role.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatStatus = status => {
+  const formatStatus = (status: string): string => {
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatAction = action => {
+  const formatAction = (action: string): string => {
     return action.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string): string => {
     return new Date(dateString).toLocaleString()
   }
 
@@ -354,8 +439,8 @@
       })
       emit('stage-changed', 'advanced')
       emit('action-completed', 'advance')
-    } catch (error) {
-      logger.error('Failed to advance stage:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to advance stage:', errorDetails(err))
     } finally {
       advancing.value = false
     }
@@ -371,8 +456,8 @@
       })
       emit('stage-changed', 'rejected')
       emit('action-completed', 'reject')
-    } catch (error) {
-      logger.error('Failed to reject stage:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to reject stage:', errorDetails(err))
     } finally {
       rejecting.value = false
     }
@@ -388,8 +473,8 @@
       })
       emit('stage-changed', 'revision_requested')
       emit('action-completed', 'request_revision')
-    } catch (error) {
-      logger.error('Failed to request revision:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to request revision:', errorDetails(err))
     } finally {
       requesting.value = false
     }
@@ -403,8 +488,8 @@
         entity_type: props.entityType
       })
       emit('action-completed', 'save_draft')
-    } catch (error) {
-      logger.error('Failed to save draft:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to save draft:', errorDetails(err))
     } finally {
       saving.value = false
     }
@@ -417,11 +502,8 @@
       if (newPairId) {
         try {
           await workflowStore.fetchWorkflowStages(newPairId)
-        } catch (error) {
-          logger.error('Failed to load workflow stages:', {
-            error: error.message,
-            stack: error.stack
-          })
+        } catch (err) {
+          logger.error('Failed to load workflow stages:', errorDetails(err))
         }
       }
     },
@@ -438,11 +520,8 @@
             workflowStore.fetchCurrentStage(newEntityId, props.entityType),
             workflowStore.fetchStageHistory(newEntityId)
           ])
-        } catch (error) {
-          logger.error('Failed to load entity workflow data:', {
-            error: error.message,
-            stack: error.stack
-          })
+        } catch (err) {
+          logger.error('Failed to load entity workflow data:', errorDetails(err))
         }
       }
     },
@@ -457,11 +536,8 @@
           workflowStore.fetchCurrentStage(props.entityId, props.entityType),
           workflowStore.fetchStageHistory(props.entityId)
         ])
-      } catch (error) {
-        logger.error('Failed to initialize workflow stages:', {
-          error: error.message,
-          stack: error.stack
-        })
+      } catch (err) {
+        logger.error('Failed to initialize workflow stages:', errorDetails(err))
       }
     }
   })

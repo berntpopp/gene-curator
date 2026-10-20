@@ -9,7 +9,7 @@
  * - Null/undefined handling
  * - Case sensitivity verification
  *
- * @see src/components/dynamic/componentRegistry.js
+ * @see src/components/dynamic/componentRegistry.ts
  */
 
 import { describe, it, expect } from 'vitest'

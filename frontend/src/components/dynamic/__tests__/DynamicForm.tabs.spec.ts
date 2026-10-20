@@ -11,11 +11,11 @@
  *
  * @see src/components/dynamic/DynamicForm.vue
  */
-
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DynamicForm from '../DynamicForm.vue'
-
+import type { TabConfig } from '../types'
+import { vmOf, type MountOptions } from './testHelpers'
 // Track mock calls
 const mockLogger = {
   debug: vi.fn(),
@@ -129,7 +129,7 @@ const vuetifyStubs = {
 /**
  * Helper to create schema with tabs
  */
-function createTabSchema(tabs) {
+function createTabSchema(tabs: Array<Partial<TabConfig>>) {
   return {
     type: 'object',
     properties: {
@@ -161,7 +161,7 @@ function createFlatSchema() {
 /**
  * Helper to mount DynamicForm with mocks
  */
-function mountComponent(props = {}, options = {}) {
+function mountComponent(props: Record<string, unknown> = {}, options: MountOptions = {}) {
   return mount(DynamicForm, {
     props: {
       schemaId: 'test-schema',
@@ -294,8 +294,8 @@ describe('DynamicForm Tab Rendering', () => {
 
       const tabContents = wrapper.findAll('.tab-content')
       expect(tabContents).toHaveLength(2)
-      expect(tabContents[0].attributes('data-tab-id')).toBe('tab1')
-      expect(tabContents[1].attributes('data-tab-id')).toBe('tab2')
+      expect(tabContents[0]!.attributes('data-tab-id')).toBe('tab1')
+      expect(tabContents[1]!.attributes('data-tab-id')).toBe('tab2')
     })
   })
 
@@ -463,7 +463,7 @@ describe('DynamicForm Tab Rendering', () => {
       )
 
       // validTabs should be empty (triggers fallback)
-      expect(wrapper.vm.validTabs).toHaveLength(0)
+      expect(vmOf(wrapper).validTabs).toHaveLength(0)
     })
   })
 
@@ -498,7 +498,7 @@ describe('DynamicForm Tab Rendering', () => {
 
       const chips = wrapper.findAll('.v-chip')
       expect(chips).toHaveLength(1)
-      expect(chips[0].text()).toBe('8.5')
+      expect(chips[0]!.text()).toBe('8.5')
     })
 
     it('hides score badge when show_score_badge is false', async () => {
@@ -561,8 +561,8 @@ describe('DynamicForm Tab Rendering', () => {
 
       const chips = wrapper.findAll('.v-chip')
       expect(chips).toHaveLength(2)
-      expect(chips[0].attributes('data-color')).toBe('success')
-      expect(chips[1].attributes('data-color')).toBe('success')
+      expect(chips[0]!.attributes('data-color')).toBe('success')
+      expect(chips[1]!.attributes('data-color')).toBe('success')
     })
 
     it('applies warning color for score >= 2 and < 7', async () => {
@@ -595,8 +595,8 @@ describe('DynamicForm Tab Rendering', () => {
 
       const chips = wrapper.findAll('.v-chip')
       expect(chips).toHaveLength(2)
-      expect(chips[0].attributes('data-color')).toBe('warning')
-      expect(chips[1].attributes('data-color')).toBe('warning')
+      expect(chips[0]!.attributes('data-color')).toBe('warning')
+      expect(chips[1]!.attributes('data-color')).toBe('warning')
     })
 
     it('applies info color for score < 2', async () => {
@@ -629,8 +629,8 @@ describe('DynamicForm Tab Rendering', () => {
 
       const chips = wrapper.findAll('.v-chip')
       expect(chips).toHaveLength(2)
-      expect(chips[0].attributes('data-color')).toBe('info')
-      expect(chips[1].attributes('data-color')).toBe('info')
+      expect(chips[0]!.attributes('data-color')).toBe('info')
+      expect(chips[1]!.attributes('data-color')).toBe('info')
     })
 
     it('does not display badges when score is undefined', async () => {
@@ -704,9 +704,9 @@ describe('DynamicForm Tab Rendering', () => {
 
       const chips = wrapper.findAll('.v-chip')
       expect(chips).toHaveLength(3)
-      expect(chips[0].text()).toBe('5')
-      expect(chips[1].text()).toBe('6')
-      expect(chips[2].text()).toBe('7')
+      expect(chips[0]!.text()).toBe('5')
+      expect(chips[1]!.text()).toBe('6')
+      expect(chips[2]!.text()).toBe('7')
     })
   })
 
@@ -730,7 +730,7 @@ describe('DynamicForm Tab Rendering', () => {
       const wrapper = mountComponent()
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.vm.activeTab).toBe('first-tab')
+      expect(vmOf(wrapper).activeTab).toBe('first-tab')
       expect(mockLogger.debug).toHaveBeenCalledWith(
         'Initialized active tab',
         expect.objectContaining({ tabId: 'first-tab' })
@@ -761,8 +761,8 @@ describe('DynamicForm Tab Rendering', () => {
       // Check that touch prop exists in the component
       expect(wrapper.html()).toContain('v-window')
       // The nextTab and prevTab functions should exist on the component
-      expect(typeof wrapper.vm.nextTab).toBe('function')
-      expect(typeof wrapper.vm.prevTab).toBe('function')
+      expect(typeof vmOf(wrapper).nextTab).toBe('function')
+      expect(typeof vmOf(wrapper).prevTab).toBe('function')
     })
   })
 })

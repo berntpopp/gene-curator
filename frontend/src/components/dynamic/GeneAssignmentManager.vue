@@ -426,61 +426,129 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
   import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
+  import { errorDetails } from './errorDetails'
+  import {
+    formatDate,
+    formatPriority,
+    formatStatus,
+    getDueDateClass,
+    getDueDateStatus,
+    getPriorityColor,
+    getStatusColor,
+    priorityOptions,
+    statusOptions
+  } from './assignmentDisplay'
+  import type { ComponentLogger, ScopeOption } from './types'
 
   const assignmentsStore = useAssignmentsStore()
   const scopesStore = useScopesStore()
   const usersStore = useUsersStore()
   const authStore = useAuthStore()
-  const logger = useLogger()
+  const logger = useLogger() as ComponentLogger
+
+  /** Subset of Vuetify's VForm instance used here */
+  interface FormHandle {
+    validate: () => Promise<{ valid: boolean }>
+  }
+
+  /** One row of the assignments table, as the backend returns it */
+  interface GeneAssignment {
+    id: string
+    scope_id: string
+    status: string
+    priority: string
+    priority_level?: string | null
+    assigned_to?: string | null
+    gene_symbol?: string
+    gene_name?: string
+    gene?: string
+    disease_name?: string
+    disease?: string
+    omim_id?: string | number
+    scope_name?: string
+    scope?: string
+    assignee_name?: string
+    assignee?: string
+    due_date?: string | null
+    notes?: string | null
+    created_at?: string
+    updated_at?: string
+  }
+
+  interface AssignedUser {
+    id: string
+    full_name: string
+    role: string
+  }
+
+  /** The bulk action this component calls on the assignments store (not implemented there) */
+  interface BulkUpdateStore {
+    bulkUpdateAssignments: (payload: {
+      assignment_ids: string[]
+      assigned_to: string
+      priority: string | null
+      due_date: string | null
+      comment: string | null
+    }) => Promise<unknown>
+  }
+
+  interface EditFormData {
+    priority_level: string | null
+    due_date: string
+    notes: string
+  }
 
   // Reactive data
-  const selectedAssignments = ref([])
-  const selectedScope = ref(null)
-  const selectedStatus = ref(null)
-  const selectedAssignee = ref(null)
+  // v-data-table's selection holds item-value keys (assignment ids)
+  const selectedAssignments = ref<string[]>([])
+  const selectedScope = ref<string | null>(null)
+  const selectedStatus = ref<string | null>(null)
+  const selectedAssignee = ref<string | null>(null)
   const searchQuery = ref('')
   const bulkAssignDialog = ref(false)
-  const bulkAssignee = ref(null)
-  const bulkPriority = ref(null)
+  const bulkAssignee = ref<AssignedUser | null>(null)
+  const bulkPriority = ref<string | null>(null)
   const bulkDueDate = ref('')
   const bulkComment = ref('')
   const bulkAssigning = ref(false)
   const viewDialog = ref(false)
-  const selectedAssignment = ref(null)
+  const selectedAssignment = ref<GeneAssignment | null>(null)
   const editDialog = ref(false)
-  const editForm = ref(null)
   const saving = ref(false)
-  const editFormData = ref({
+  const editFormData = ref<EditFormData>({
     priority_level: null,
     due_date: '',
     notes: ''
   })
-  let editingAssignmentId = null
+  let editingAssignmentId: string | null = null
   const reassignDialog = ref(false)
-  const reassignForm = ref(null)
+  const reassignForm = ref<FormHandle | null>(null)
   const reassigning = ref(false)
-  const reassigningAssignment = ref(null)
-  const reassignCuratorId = ref(null)
+  const reassigningAssignment = ref<GeneAssignment | null>(null)
+  const reassignCuratorId = ref<string | null>(null)
   const reassignNote = ref('')
 
-  // Computed properties with defensive defaults
+  // Computed properties with defensive defaults. The assignments store is untyped
+  // JS, so its list is typed at this boundary.
   const loading = computed(() => assignmentsStore.loading)
-  const assignments = computed(() => assignmentsStore.assignments || [])
-  const availableScopes = computed(() => scopesStore.scopes || [])
-  const availableUsers = computed(() =>
-    (usersStore.users || []).filter(user => user.role !== 'viewer')
+  const assignments = computed(
+    () => (assignmentsStore.assignments as GeneAssignment[] | null) || []
   )
+  const availableScopes = computed(() => (scopesStore.scopes as ScopeOption[] | null) || [])
+  const availableUsers = computed(() =>
+    ((usersStore.users as AssignedUser[] | null) || []).filter(user => user.role !== 'viewer')
+  )
+
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
     logger.error('GeneAssignmentManager error', {
-      error: err.message,
-      stack: err.stack,
+      ...errorDetails(err),
       component: instance?.$options?.name || 'GeneAssignmentManager',
       errorInfo: info
     })
@@ -490,22 +558,6 @@
     // Don't propagate error up - handle it here
     return false
   })
-
-  const statusOptions = [
-    { title: 'Unassigned', value: 'unassigned' },
-    { title: 'Assigned', value: 'assigned' },
-    { title: 'In Progress', value: 'in_progress' },
-    { title: 'Under Review', value: 'under_review' },
-    { title: 'Completed', value: 'completed' },
-    { title: 'On Hold', value: 'on_hold' }
-  ]
-
-  const priorityOptions = [
-    { title: 'Low', value: 'low' },
-    { title: 'Medium', value: 'medium' },
-    { title: 'High', value: 'high' },
-    { title: 'Urgent', value: 'urgent' }
-  ]
 
   const tableHeaders = [
     { title: 'Gene', key: 'gene', sortable: true },
@@ -537,74 +589,19 @@
   })
 
   // Helper methods
-  const getScopeName = scopeId => {
+  const getScopeName = (scopeId: string): string => {
     const scope = availableScopes.value.find(s => s.id === scopeId)
     return scope?.display_name || 'Unknown'
   }
 
-  const getUserName = userId => {
+  const getUserName = (userId: string | null | undefined): string => {
     const user = availableUsers.value.find(u => u.id === userId)
     return user?.full_name || 'Unknown'
   }
 
-  const getUserRole = userId => {
+  const getUserRole = (userId: string | null | undefined): string => {
     const user = availableUsers.value.find(u => u.id === userId)
     return user?.role || 'Unknown'
-  }
-
-  const getStatusColor = status => {
-    const colorMap = {
-      unassigned: 'grey',
-      assigned: 'info',
-      in_progress: 'primary',
-      under_review: 'warning',
-      completed: 'success',
-      on_hold: 'orange'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const getPriorityColor = priority => {
-    const colorMap = {
-      low: 'green',
-      medium: 'orange',
-      high: 'red',
-      urgent: 'deep-purple'
-    }
-    return colorMap[priority] || 'grey'
-  }
-
-  const formatStatus = status => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
-  const formatPriority = priority => {
-    return priority.charAt(0).toUpperCase() + priority.slice(1)
-  }
-
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const getDueDateClass = dateString => {
-    const dueDate = new Date(dateString)
-    const today = new Date()
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return 'text-error'
-    if (diffDays < 7) return 'text-warning'
-    return 'text-success'
-  }
-
-  const getDueDateStatus = dateString => {
-    const dueDate = new Date(dateString)
-    const today = new Date()
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`
-    if (diffDays === 0) return 'Due today'
-    if (diffDays === 1) return 'Due tomorrow'
-    return `${diffDays} days remaining`
   }
 
   // Actions
@@ -625,7 +622,9 @@
 
     bulkAssigning.value = true
     try {
-      await assignmentsStore.bulkUpdateAssignments({
+      // NOTE: the assignments store has no bulkUpdateAssignments action (it exposes
+      // bulkAssignGenes); the call fails at runtime and is handled below.
+      await (assignmentsStore as unknown as BulkUpdateStore).bulkUpdateAssignments({
         assignment_ids: selectedAssignments.value,
         assigned_to: bulkAssignee.value.id,
         priority: bulkPriority.value,
@@ -641,11 +640,10 @@
 
       bulkAssignDialog.value = false
       selectedAssignments.value = []
-    } catch (error) {
+    } catch (err) {
       logger.error('Bulk assignment failed', {
         count: selectedAssignments.value.length,
-        error: error.message,
-        stack: error.stack
+        ...errorDetails(err)
       })
       showError('Bulk assignment failed')
     } finally {
@@ -658,16 +656,13 @@
       await assignmentsStore.fetchAssignments()
       logger.info('Assignments refreshed', { count: assignments.value.length })
       showSuccess('Assignments refreshed')
-    } catch (error) {
-      logger.error('Refresh failed', {
-        error: error.message,
-        stack: error.stack
-      })
+    } catch (err) {
+      logger.error('Refresh failed', errorDetails(err))
       showError('Refresh failed')
     }
   }
 
-  const editAssignment = assignment => {
+  const editAssignment = (assignment: GeneAssignment) => {
     logger.info('Edit assignment requested', { assignmentId: assignment.id })
     editingAssignmentId = assignment.id
     editFormData.value = {
@@ -684,15 +679,15 @@
       await assignmentsStore.updateAssignment(editingAssignmentId, editFormData.value)
       showSuccess('Assignment updated successfully')
       editDialog.value = false
-    } catch (error) {
+    } catch (err) {
       showError('Failed to update assignment')
-      logger.error('Save assignment failed', { error: error.message })
+      logger.error('Save assignment failed', { error: errorDetails(err).error })
     } finally {
       saving.value = false
     }
   }
 
-  const reassignGene = assignment => {
+  const reassignGene = (assignment: GeneAssignment) => {
     logger.info('Reassign gene requested', {
       assignmentId: assignment.id,
       geneSymbol: assignment.gene_symbol
@@ -704,23 +699,23 @@
   }
 
   const executeReassign = async () => {
-    const { valid } = await reassignForm.value.validate()
+    const { valid } = await reassignForm.value!.validate()
     if (!valid) return
     reassigning.value = true
     try {
-      await assignmentsAPI.assignCurator(reassigningAssignment.value.id, reassignCuratorId.value)
+      await assignmentsAPI.assignCurator(reassigningAssignment.value!.id, reassignCuratorId.value)
       showSuccess('Gene reassigned successfully')
       reassignDialog.value = false
       await assignmentsStore.fetchAssignments()
-    } catch (error) {
+    } catch (err) {
       showError('Failed to reassign gene')
-      logger.error('Reassign failed', { error: error.message })
+      logger.error('Reassign failed', { error: errorDetails(err).error })
     } finally {
       reassigning.value = false
     }
   }
 
-  const viewAssignment = assignment => {
+  const viewAssignment = (assignment: GeneAssignment) => {
     logger.info('View assignment requested', { assignmentId: assignment.id })
     selectedAssignment.value = assignment
     viewDialog.value = true
@@ -728,12 +723,13 @@
 
   onMounted(async () => {
     try {
-      const curatorId = authStore.user?.id
+      // The auth store's user is untyped JS (inferred as null)
+      const curatorId = (authStore.user as { id?: string } | null)?.id
 
       // Call existing methods with proper parameters
-      const promises = [
+      const promises: Promise<unknown>[] = [
         assignmentsStore.fetchAssignments(),
-        scopesStore.fetchScopes(),
+        scopesStore.fetchUserScopes(),
         usersStore.fetchUsers()
       ]
 
@@ -751,11 +747,8 @@
         scopesCount: availableScopes.value.length,
         usersCount: availableUsers.value.length
       })
-    } catch (error) {
-      logger.error('Failed to load assignment data', {
-        error: error.message,
-        stack: error.stack
-      })
+    } catch (err) {
+      logger.error('Failed to load assignment data', errorDetails(err))
       showError('Failed to load assignment data. Please refresh.')
     }
   })

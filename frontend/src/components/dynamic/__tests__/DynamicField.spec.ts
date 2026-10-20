@@ -14,8 +14,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, shallowMount } from '@vue/test-utils'
+import { type MountOptions } from './testHelpers'
 import DynamicField from '../DynamicField.vue'
-
 // Track mock calls
 const mockLogger = {
   debug: vi.fn(),
@@ -158,7 +158,7 @@ const vuetifyStubs = {
 /**
  * Helper to mount DynamicField with common defaults
  */
-function mountComponent(props = {}, options = {}) {
+function mountComponent(props: Record<string, unknown> = {}, options: MountOptions = {}) {
   return mount(DynamicField, {
     props: {
       fieldName: 'testField',
@@ -186,7 +186,7 @@ function mountComponent(props = {}, options = {}) {
 /**
  * Helper to shallow mount DynamicField
  */
-function shallowMountComponent(props = {}, options = {}) {
+function shallowMountComponent(props: Record<string, unknown> = {}, options: MountOptions = {}) {
   return shallowMount(DynamicField, {
     props: {
       fieldName: 'testField',
@@ -401,10 +401,10 @@ describe('DynamicField', () => {
         modelValue: ''
       })
 
-      const emittedEvents = wrapper.emitted('component-fallback')
+      const emittedEvents = wrapper.emitted('component-fallback')!
       expect(emittedEvents).toBeDefined()
       expect(emittedEvents.length).toBeGreaterThan(0)
-      expect(emittedEvents[0][0]).toEqual(
+      expect(emittedEvents[0]![0]).toEqual(
         expect.objectContaining({
           requestedComponent: 'NotFoundComponent',
           fieldName: 'fallbackField',
@@ -424,7 +424,7 @@ describe('DynamicField', () => {
         modelValue: ''
       })
 
-      const emittedEvents = wrapper.emitted('component-fallback')
+      const emittedEvents = wrapper.emitted('component-fallback')!
       expect(emittedEvents).toBeUndefined()
     })
   })
@@ -677,7 +677,7 @@ describe('DynamicField', () => {
       const input = wrapper.find('.v-text-field input')
       expect(input.exists()).toBe(true)
       await input.setValue('new value')
-      const emitted = wrapper.emitted('update:model-value')
+      const emitted = wrapper.emitted('update:model-value')!
       expect(emitted).toBeDefined()
       expect(emitted[0]).toEqual(['new value'])
     })
@@ -954,7 +954,7 @@ describe('DynamicField', () => {
       const icons = wrapper.findAll('.v-icon')
       const helpIcon = icons.find(icon => icon.html().includes('mdi-help-circle-outline'))
       expect(helpIcon).toBeDefined()
-      await helpIcon.trigger('click')
+      await helpIcon!.trigger('click')
 
       expect(mockOpen).toHaveBeenCalledWith(
         'https://docs.example.com/help',
@@ -1009,7 +1009,7 @@ describe('DynamicField', () => {
 
       const icons = wrapper.findAll('.v-icon')
       const helpIcon = icons.find(icon => icon.html().includes('mdi-help-circle-outline'))
-      await helpIcon.trigger('click')
+      await helpIcon!.trigger('click')
 
       expect(mockLogger.info).toHaveBeenCalledWith(
         'Help documentation opened',

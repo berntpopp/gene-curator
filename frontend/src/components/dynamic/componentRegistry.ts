@@ -10,6 +10,7 @@
  * @module componentRegistry
  */
 
+import type { Component } from 'vue'
 import MONDOAutocomplete from '@/components/evidence/MONDOAutocomplete.vue'
 import PMIDInput from '@/components/evidence/PMIDInput.vue'
 import HPOInheritanceSelect from '@/components/evidence/HPOInheritanceSelect.vue'
@@ -26,9 +27,8 @@ import HPOInput from '@/components/evidence/HPOInput.vue'
  * - OMIMAutocomplete: OMIM disease selection with search (single or multiple)
  * - HPOInput: HPO phenotype term input with validation
  *
- * @type {Object.<string, import('vue').Component>}
  */
-export const componentRegistry = {
+export const componentRegistry: Record<string, Component> = {
   MONDOAutocomplete,
   PMIDInput,
   HPOInheritanceSelect,
@@ -48,7 +48,7 @@ export const componentRegistry = {
  *   // Use the component
  * }
  */
-export function getComponent(name) {
+export function getComponent(name: string | null | undefined): Component | null {
   if (!name) return null
   return componentRegistry[name] || null
 }
