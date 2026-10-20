@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
 import AppBar from '../AppBar.vue'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -26,15 +26,18 @@ const passthrough = defineComponent({
   }
 })
 
-const router = { push: vi.fn() }
+const display = vi.hoisted(() => ({ mdAndUp: { value: true } }))
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => display
+}))
 
 let wrapper: VueWrapper | undefined
 
 function mountAppBar() {
   wrapper = mount(AppBar, {
     global: {
-      mocks: { $router: router },
-      stubs: { VAppBar: passthrough }
+      stubs: { VAppBar: passthrough, RouterLink: RouterLinkStub }
     }
   })
   return wrapper
@@ -54,12 +57,24 @@ describe('AppBar', () => {
     expect(wrapper?.text()).toContain('Version: 0.3.0 - Build: dev')
   })
 
-  it('navigates home from the title', async () => {
+  it('links logo and title to home with one keyboard-reachable link', () => {
     mountAppBar()
 
-    await wrapper?.find('.clickable').trigger('click')
+    const link = wrapper?.findComponent(RouterLinkStub)
+    expect(link?.props('to')).toBe('/')
+    expect(link?.attributes('aria-label')).toBe('Gene Curator home')
+    expect(link?.text()).toContain('Gene Curator')
+    expect(wrapper?.find('.v-img').attributes('alt') ?? '').toBe('')
+  })
 
-    expect(router.push).toHaveBeenCalledWith('/')
+  it('hides version, theme toggle and user menu below md', () => {
+    display.mdAndUp = ref(false)
+    mountAppBar()
+
+    expect(wrapper?.text()).not.toContain('Version')
+    expect(wrapper?.find('.ml-2').exists()).toBe(false)
+    expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
+    display.mdAndUp = ref(true)
   })
 
   it('toggles the theme, persists it and logs the change', async () => {

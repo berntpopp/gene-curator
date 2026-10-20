@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
@@ -15,6 +16,12 @@ import MainNavigation from '../MainNavigation.vue'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
+}))
+
+const display = vi.hoisted(() => ({ mdAndUp: { value: true } }))
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => display
 }))
 
 interface Item {
@@ -37,6 +44,7 @@ function makeRouter(): Router {
     history: createMemoryHistory(),
     routes: [
       { path: '/', name: 'Home', component },
+      { path: '/profile', name: 'UserProfile', component },
       {
         path: '/dashboard',
         name: 'Dashboard',
@@ -207,5 +215,62 @@ describe('MainNavigation', () => {
     // The item is a router link to the review queue; navigation itself is covered by the router
     expect(option?.getAttribute('href')).toBe('/review')
     wrapper.unmount()
+  })
+
+  describe('below md (mobile)', () => {
+    // v-navigation-drawer needs a Vuetify layout; render it as a plain container instead.
+    const drawerStub = defineComponent({
+      setup(_, { slots }) {
+        return () => h('aside', { class: 'drawer' }, [slots.default?.(), slots.append?.()])
+      }
+    })
+
+    async function mountMobile(user: { role: string } | null) {
+      display.mdAndUp = ref(false)
+      const auth = useAuthStore()
+      auth.isAuthenticated = user !== null
+      auth.user = user as typeof auth.user
+      vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(2)
+      const wrapper = mount(MainNavigation, {
+        global: { plugins: [pinia, router], stubs: { VNavigationDrawer: drawerStub } }
+      })
+      await flushPromises()
+      return { wrapper, auth }
+    }
+
+    afterEach(() => {
+      display.mdAndUp = ref(true)
+    })
+
+    it('offers a menu button and lists the same entries as the desktop menu', async () => {
+      const { wrapper } = await mountMobile({ role: 'admin' })
+
+      expect(wrapper.find('[aria-label="Open menu"]').exists()).toBe(true)
+      const labels = wrapper.findAll('.drawer .v-list-item').map(i => i.text())
+      for (const label of ['Dashboard', 'Titled page', 'Curations', 'Review queue', 'Schemas']) {
+        expect(labels.some(l => l.includes(label))).toBe(true)
+      }
+      expect(labels.some(l => l.includes('Review queue') && l.includes('2'))).toBe(true)
+      expect(labels.some(l => l.includes('Logout'))).toBe(true)
+      expect(wrapper.find('.drawer [href="/profile"]').exists()).toBe(true)
+    })
+
+    it('logs out from the drawer', async () => {
+      const { wrapper, auth } = await mountMobile({ role: 'user' })
+      const logout = vi.spyOn(auth, 'logout').mockResolvedValue(undefined as never)
+
+      await wrapper
+        .findAll('.drawer .v-list-item')
+        .find(i => i.text().includes('Logout'))
+        ?.trigger('click')
+
+      expect(logout).toHaveBeenCalled()
+    })
+
+    it('offers Sign in to guests', async () => {
+      const { wrapper } = await mountMobile(null)
+
+      expect(wrapper.find('.drawer [href="/login"]').exists()).toBe(true)
+    })
   })
 })
