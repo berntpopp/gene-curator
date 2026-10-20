@@ -17,45 +17,40 @@
   </v-snackbar>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, watch } from 'vue'
 
   // Props
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    message: {
-      type: String,
-      default: ''
-    },
-    color: {
-      type: String,
-      default: 'info'
-    },
-    timeout: {
-      type: Number,
-      default: 5000
-    },
-    location: {
-      type: String,
-      default: 'bottom'
-    },
-    multiLine: {
-      type: Boolean,
-      default: false
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      message?: string
+      color?: string
+      timeout?: number
+      location?: 'top' | 'bottom' | 'left' | 'right' | 'start' | 'end'
+      multiLine?: boolean
+    }>(),
+    {
+      modelValue: false,
+      message: '',
+      color: 'info',
+      timeout: 5000,
+      location: 'bottom',
+      multiLine: false
     }
-  })
+  )
 
   // Emits
-  const emit = defineEmits(['update:modelValue', 'close'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    close: []
+  }>()
 
   // State
   const show = ref(props.modelValue)
 
   // Icon mapping based on color
-  const iconMap = {
+  const iconMap: Record<string, string> = {
     success: 'mdi-check-circle',
     error: 'mdi-alert-circle',
     warning: 'mdi-alert',

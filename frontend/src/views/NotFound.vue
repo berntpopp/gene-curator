@@ -7,14 +7,14 @@
         <p class="text-h6 mb-6 text-medium-emphasis">The page you're looking for doesn't exist.</p>
         <div class="d-flex justify-center gap-3">
           <v-btn :to="{ name: 'Home' }" color="primary"> Go Home </v-btn>
-          <v-btn :to="{ name: 'Genes' }" color="secondary"> Browse Genes </v-btn>
+          <v-btn :to="{ name: 'GeneCatalogue' }" color="secondary"> Browse Genes </v-btn>
         </div>
       </v-col>
     </v-row>
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   // Static 404 page
 </script>
 

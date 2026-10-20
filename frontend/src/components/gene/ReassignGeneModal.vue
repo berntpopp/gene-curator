@@ -8,7 +8,6 @@
   - Displays current gene info (read-only)
   - Shows current curator assignment
   - Allows selecting a new curator
-  - Optional reassignment notes
 
   **Props**:
   - modelValue: v-model for dialog visibility
@@ -36,7 +35,13 @@
         <v-icon start color="primary" size="28">mdi-account-switch</v-icon>
         <span class="text-h6">Reassign Gene</span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="handleCancel" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="handleCancel"
+        />
       </v-card-title>
 
       <v-divider />
@@ -137,18 +142,6 @@
               </div>
             </template>
           </v-autocomplete>
-
-          <!-- Optional Notes -->
-          <v-textarea
-            v-model="notes"
-            label="Reassignment Notes (optional)"
-            variant="outlined"
-            density="compact"
-            rows="2"
-            counter="500"
-            placeholder="Add context for the reassignment..."
-            :rules="[v => !v || v.length <= 500 || 'Max 500 characters']"
-          />
         </v-form>
 
         <!-- Reassignment Preview -->
@@ -208,34 +201,37 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike } from '@/components/forms/types'
+  import type { CuratorOption, GeneRow } from './types'
+  import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    gene: {
-      type: Object,
-      default: null
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId: string
+      gene?: GeneRow | null
+    }>(),
+    {
+      modelValue: false,
+      gene: null
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'reassigned'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    reassigned: []
+  }>()
 
   // ============================================
   // COMPOSABLES & STORES
@@ -250,7 +246,8 @@
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  // Form ref (bound in template as ref="formRef")
+  const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const formValid = ref(false)
 
   // Loading states
@@ -258,11 +255,10 @@
   const isReassigning = ref(false)
 
   // Data
-  const availableCurators = ref([])
+  const availableCurators = ref<CuratorOption[]>([])
 
   // Form state
-  const selectedCurator = ref(null)
-  const notes = ref('')
+  const selectedCurator = ref<CuratorOption | null>(null)
 
   // ============================================
   // COMPUTED
@@ -286,28 +282,9 @@
   // ============================================
 
   /**
-   * Get avatar color based on email hash
-   */
-  const getAvatarColor = email => {
-    const colors = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
-    const hash = (email || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[hash % colors.length]
-  }
-
-  /**
-   * Get initials from name
-   */
-  const getInitials = name => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
-  /**
    * Get role color
    */
-  const getRoleColor = role => {
+  const getRoleColor = (role: string) => {
     return useGetRoleColor(role)
   }
 
@@ -319,22 +296,16 @@
     try {
       const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Map members with display name - include all who can curate
-      availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin', 'reviewer'].includes(m.role))
-        .map(member => ({
-          ...member,
-          full_name: member.user_full_name || member.full_name,
-          email: member.user_email || member.email,
-          displayName:
-            member.user_full_name || member.full_name || member.user_email || member.email
-        }))
+      // Reviewers must not curate (four-eyes principle)
+      availableCurators.value = members
+        .filter(m => ['curator', 'admin'].includes(m.role))
+        .map(toCuratorOption)
 
       logger.debug('Available curators loaded for reassignment', {
         count: availableCurators.value.length
       })
     } catch (error) {
-      logger.error('Failed to fetch curators', { error: error.message })
+      logger.error('Failed to fetch curators', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load curators', 'error')
     } finally {
       loadingCurators.value = false
@@ -346,7 +317,6 @@
    */
   const resetForm = () => {
     selectedCurator.value = null
-    notes.value = ''
     formValid.value = false
   }
 
@@ -362,10 +332,10 @@
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!canSubmit.value) return
+    if (!canSubmit.value || !props.gene || !selectedCurator.value) return
 
     // Validate form
-    const { valid } = await formRef.value.validate()
+    const { valid } = await formRef.value!.validate()
     if (!valid) return
 
     isReassigning.value = true
@@ -390,9 +360,10 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to reassign gene', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to reassign gene', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to reassign: ${error.response?.data?.detail || error.message}`,
+        `Failed to reassign: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {

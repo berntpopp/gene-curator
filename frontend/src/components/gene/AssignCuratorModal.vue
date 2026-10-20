@@ -37,7 +37,13 @@
         <v-icon start color="primary" size="28">mdi-account-arrow-right</v-icon>
         <span class="text-h6">Assign Genes to Curator</span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="handleCancel" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="handleCancel"
+        />
       </v-card-title>
 
       <v-divider />
@@ -86,8 +92,6 @@
                 </v-list-item-title>
                 <v-list-item-subtitle v-if="item.raw.hgnc_id" class="text-caption">
                   {{ item.raw.hgnc_id }}
-                  <span v-if="item.raw.approved_name" class="mx-1">|</span>
-                  {{ item.raw.approved_name }}
                 </v-list-item-subtitle>
               </v-list-item>
             </template>
@@ -194,18 +198,6 @@
               <v-expansion-panel-text>
                 <v-row dense>
                   <v-col cols="12" sm="6">
-                    <v-text-field
-                      v-model="dueDate"
-                      label="Due Date"
-                      type="date"
-                      variant="outlined"
-                      density="compact"
-                      hint="Target completion date"
-                      persistent-hint
-                      clearable
-                    />
-                  </v-col>
-                  <v-col cols="12" sm="6">
                     <v-select
                       v-model="priority"
                       :items="priorityOptions"
@@ -264,9 +256,6 @@
               <div class="text-body-2">
                 <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
                 <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
-                <span v-if="dueDate">
-                  with due date <strong>{{ formatDate(dueDate) }}</strong></span
-                >
                 <span v-if="priority !== 'normal'">
                   at <strong>{{ priority }}</strong> priority
                 </span>
@@ -297,34 +286,41 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { genesAPI, assignmentsAPI } from '@/api'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike } from '@/components/forms/types'
+  import type { Schema } from '@/types/api'
+  import type { CuratorOption } from './types'
+  import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    preSelectedGenes: {
-      type: Array,
-      default: () => []
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId: string
+      preSelectedGenes?: string[]
+    }>(),
+    {
+      modelValue: false,
+      preSelectedGenes: () => []
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'assigned'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    assigned: []
+  }>()
+
+  /** Gene candidate in the assignment picker (catalogue gene record). */
+  type GeneCandidate = Schema<'GeneSummary'>
 
   // ============================================
   // COMPOSABLES & STORES
@@ -339,7 +335,8 @@
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  // Form ref (bound in template as ref="formRef")
+  const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const formValid = ref(false)
 
   // Loading states
@@ -348,13 +345,12 @@
   const isAssigning = ref(false)
 
   // Data
-  const availableGenes = ref([])
-  const availableCurators = ref([])
+  const availableGenes = ref<GeneCandidate[]>([])
+  const availableCurators = ref<CuratorOption[]>([])
 
   // Form state
-  const selectedGenes = ref([])
-  const selectedCurator = ref(null)
-  const dueDate = ref(null)
+  const selectedGenes = ref<GeneCandidate[]>([])
+  const selectedCurator = ref<CuratorOption | null>(null)
   const priority = ref('medium')
   const notes = ref('')
 
@@ -389,12 +385,11 @@
   })
 
   const hasOptionalSettings = computed(() => {
-    return dueDate.value || priority.value !== 'medium' || notes.value
+    return priority.value !== 'medium' || notes.value
   })
 
   const optionalSettingsCount = computed(() => {
     let count = 0
-    if (dueDate.value) count++
     if (priority.value !== 'medium') count++
     if (notes.value) count++
     return count
@@ -407,7 +402,7 @@
   /**
    * Check if a gene is currently selected
    */
-  const isGeneSelected = gene => {
+  const isGeneSelected = (gene: GeneCandidate) => {
     return selectedGenes.value.some(g => g.id === gene.id)
   }
 
@@ -423,37 +418,10 @@
   }
 
   /**
-   * Get avatar color based on email hash
-   */
-  const getAvatarColor = email => {
-    const colors = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
-    const hash = (email || '').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
-    return colors[hash % colors.length]
-  }
-
-  /**
-   * Get initials from name
-   */
-  const getInitials = name => {
-    if (!name) return '?'
-    const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
-  }
-
-  /**
    * Get role color
    */
-  const getRoleColor = role => {
+  const getRoleColor = (role: string) => {
     return useGetRoleColor(role)
-  }
-
-  /**
-   * Format date for display
-   */
-  const formatDate = dateStr => {
-    if (!dateStr) return ''
-    return new Date(dateStr).toLocaleDateString()
   }
 
   /**
@@ -463,14 +431,13 @@
     loadingGenes.value = true
     try {
       // Fetch genes from catalog (max 500 per backend limit)
-      const genesResponse = await genesAPI.getGenes({ limit: 500 })
-      const allGenes = genesResponse.genes || genesResponse.items || genesResponse
+      const { genes: allGenes } = await genesAPI.getGenes({ limit: 500 })
 
       // Fetch existing assignments for this scope
-      let assignedGeneIds = new Set()
+      let assignedGeneIds = new Set<string>()
       try {
         const assignments = await assignmentsAPI.getAssignmentsByScope(props.scopeId)
-        assignedGeneIds = new Set((assignments || []).map(a => a.gene_id))
+        assignedGeneIds = new Set(assignments.map(a => a.gene_id))
       } catch {
         // If no assignments yet, all genes are available
       }
@@ -483,7 +450,7 @@
         available: availableGenes.value.length
       })
     } catch (error) {
-      logger.error('Failed to fetch available genes', { error: error.message })
+      logger.error('Failed to fetch available genes', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load genes', 'error')
     } finally {
       loadingGenes.value = false
@@ -498,22 +465,13 @@
     try {
       const members = await scopesStore.fetchMembers(props.scopeId)
 
-      // Map members with display name
-      // API returns user_full_name, user_email from ScopeMembershipResponse
-      availableCurators.value = (members || [])
-        .filter(m => ['curator', 'scope_admin', 'admin'].includes(m.role))
-        .map(member => ({
-          ...member,
-          // Normalize field names from API response
-          full_name: member.user_full_name || member.full_name,
-          email: member.user_email || member.email,
-          displayName:
-            member.user_full_name || member.full_name || member.user_email || member.email
-        }))
+      availableCurators.value = members
+        .filter(m => ['curator', 'admin'].includes(m.role))
+        .map(toCuratorOption)
 
       logger.debug('Available curators loaded', { count: availableCurators.value.length })
     } catch (error) {
-      logger.error('Failed to fetch curators', { error: error.message })
+      logger.error('Failed to fetch curators', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load curators', 'error')
     } finally {
       loadingCurators.value = false
@@ -526,7 +484,6 @@
   const resetForm = () => {
     selectedGenes.value = []
     selectedCurator.value = null
-    dueDate.value = null
     priority.value = 'medium'
     notes.value = ''
     formValid.value = false
@@ -544,10 +501,10 @@
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!canSubmit.value) return
+    if (!canSubmit.value || !selectedCurator.value) return
 
     // Validate form
-    const { valid } = await formRef.value.validate()
+    const { valid } = await formRef.value!.validate()
     if (!valid) return
 
     isAssigning.value = true
@@ -555,18 +512,18 @@
     try {
       // Create assignments for each selected gene
       // Backend expects assigned_curator_id and priority_level: "high" | "medium" | "low"
-      const priorityMapping = {
+      const priorityMapping: Record<string, 'low' | 'medium' | 'high'> = {
         low: 'low',
         normal: 'medium',
         medium: 'medium',
-        high: 'high',
-        urgent: 'high'
+        high: 'high'
       }
+      const curatorId = selectedCurator.value.user_id
       const promises = selectedGenes.value.map(gene =>
         assignmentsAPI.createAssignment({
           gene_id: gene.id,
           scope_id: props.scopeId,
-          assigned_curator_id: selectedCurator.value.user_id,
+          assigned_curator_id: curatorId,
           priority_level: priorityMapping[priority.value] || 'medium',
           assignment_notes: notes.value || undefined
         })
@@ -576,7 +533,7 @@
 
       logger.info('Genes assigned successfully', {
         count: selectedGenes.value.length,
-        curator_id: selectedCurator.value.user_id
+        curator_id: curatorId
       })
 
       notificationStore.addToast(
@@ -588,9 +545,10 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to assign genes', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to assign genes', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to assign genes: ${error.response?.data?.detail || error.message}`,
+        `Failed to assign genes: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {

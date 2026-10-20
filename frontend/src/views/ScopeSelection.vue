@@ -81,7 +81,7 @@
                     :items="availableGenes"
                     :loading="searchingGenes"
                     :search="geneSearchQuery"
-                    item-title="symbol"
+                    item-title="approved_symbol"
                     item-value="id"
                     label="Search for a gene"
                     placeholder="Type gene symbol or name..."
@@ -92,50 +92,20 @@
                   >
                     <template #item="{ props, item }">
                       <v-list-item v-bind="props">
-                        <v-list-item-title>{{ item.raw.symbol }}</v-list-item-title>
+                        <v-list-item-title>{{ item.raw.approved_symbol }}</v-list-item-title>
                         <v-list-item-subtitle>
-                          {{ item.raw.name }} • {{ item.raw.location }}
+                          {{ item.raw.hgnc_id }} • {{ item.raw.location }}
                         </v-list-item-subtitle>
                         <template #append>
                           <v-chip
-                            v-if="item.raw.assignment_status"
-                            :color="getAssignmentStatusColor(item.raw.assignment_status)"
+                            v-if="item.raw.is_assigned"
+                            color="warning"
                             size="small"
                             variant="outlined"
                           >
-                            {{ formatAssignmentStatus(item.raw.assignment_status) }}
+                            Assigned
                           </v-chip>
                         </template>
-                      </v-list-item>
-                    </template>
-                  </v-autocomplete>
-                </div>
-
-                <!-- Disease/Phenotype Selection -->
-                <div class="mb-4">
-                  <div class="text-subtitle-1 font-weight-medium mb-2">
-                    Associated Disease/Phenotype
-                  </div>
-                  <v-autocomplete
-                    v-model="selectedDisease"
-                    :items="availableDiseases"
-                    :loading="searchingDiseases"
-                    :search="diseaseSearchQuery"
-                    item-title="name"
-                    item-value="id"
-                    label="Search for a disease or phenotype"
-                    placeholder="Type disease name or OMIM ID..."
-                    variant="outlined"
-                    return-object
-                    clearable
-                    @update:search="searchDiseases"
-                  >
-                    <template #item="{ props, item }">
-                      <v-list-item v-bind="props">
-                        <v-list-item-title>{{ item.raw.name }}</v-list-item-title>
-                        <v-list-item-subtitle>
-                          OMIM: {{ item.raw.omim_id }} • {{ item.raw.category }}
-                        </v-list-item-subtitle>
                       </v-list-item>
                     </template>
                   </v-autocomplete>
@@ -150,14 +120,6 @@
                         v-model="assignmentPriority"
                         :items="priorityOptions"
                         label="Priority Level"
-                        variant="outlined"
-                      />
-                    </v-col>
-                    <v-col cols="12" sm="6">
-                      <v-text-field
-                        v-model="assignmentDueDate"
-                        type="date"
-                        label="Due Date (Optional)"
                         variant="outlined"
                       />
                     </v-col>
@@ -206,15 +168,37 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, computed, watch } from 'vue'
+  import { ref, computed } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGenesStore, useAssignmentsStore } from '@/stores'
+  import type { Schema } from '@/types/api'
   import ScopeSelector from '@/components/dynamic/ScopeSelector.vue'
   import SchemaSelector from '@/components/dynamic/SchemaSelector.vue'
+  import type { SchemaOption, WorkflowPairOption } from '@/components/dynamic/types'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  interface ScopeOption {
+    id: string
+    name?: string
+    display_name?: string
+  }
+
+  interface SelectedSchemas {
+    workflowPair: WorkflowPairOption | null | undefined
+    precurationSchema: SchemaOption | null
+    curationSchema: SchemaOption | null
+  }
+
+  type GeneOption = Schema<'GeneSummary'>
 
   const router = useRouter()
   const genesStore = useGenesStore()
@@ -222,49 +206,41 @@
 
   // Reactive state
   const currentStep = ref(1)
-  const selectedScope = ref(null)
-  const selectedSchemas = ref(null)
-  const selectedGene = ref(null)
-  const selectedDisease = ref(null)
+  const selectedScope = ref<ScopeOption | null>(null)
+  const selectedSchemas = ref<SelectedSchemas | null>(null)
+  const selectedGene = ref<GeneOption | null>(null)
   const assignmentPriority = ref('medium')
-  const assignmentDueDate = ref('')
   const assignmentNotes = ref('')
   const creating = ref(false)
 
   // Search states
   const geneSearchQuery = ref('')
-  const diseaseSearchQuery = ref('')
   const searchingGenes = ref(false)
-  const searchingDiseases = ref(false)
-  const availableGenes = ref([])
-  const availableDiseases = ref([])
+  const availableGenes = ref<GeneOption[]>([])
 
   const priorityOptions = [
     { title: 'Low', value: 'low' },
     { title: 'Medium', value: 'medium' },
-    { title: 'High', value: 'high' },
-    { title: 'Urgent', value: 'urgent' }
+    { title: 'High', value: 'high' }
   ]
 
   const canCreateAssignment = computed(() => {
-    return (
-      selectedScope.value && selectedSchemas.value && selectedGene.value && selectedDisease.value
-    )
+    return selectedScope.value && selectedSchemas.value && selectedGene.value
   })
 
   // Step handlers
-  const handleScopeSelected = scope => {
+  const handleScopeSelected = (scope: ScopeOption) => {
     selectedScope.value = scope
     currentStep.value = 2
   }
 
-  const handleSchemasSelected = schemas => {
+  const handleSchemasSelected = (schemas: SelectedSchemas) => {
     selectedSchemas.value = schemas
     currentStep.value = 3
   }
 
   // Search functions
-  const searchGenes = async query => {
+  const searchGenes = async (query: string) => {
     if (!query || query.length < 2) {
       availableGenes.value = []
       return
@@ -272,83 +248,34 @@
 
     searchingGenes.value = true
     try {
-      const results = await genesStore.searchGenes({
+      // The API answers with a plain GeneSummary list (is_assigned replaces the old status field)
+      availableGenes.value = await genesStore.searchGenes({
         query,
         scope_id: selectedScope.value?.id,
-        include_assignment_status: true,
         limit: 20
       })
-      availableGenes.value = results
     } catch (error) {
-      logger.error('Gene search failed:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Gene search failed:', { error: err.message, stack: err.stack })
       availableGenes.value = []
     } finally {
       searchingGenes.value = false
     }
   }
 
-  const searchDiseases = async query => {
-    if (!query || query.length < 2) {
-      availableDiseases.value = []
-      return
-    }
-
-    searchingDiseases.value = true
-    try {
-      // Mock disease search - replace with actual API call
-      const mockDiseases = [
-        {
-          id: '1',
-          name: 'Cardiomyopathy, Hypertrophic',
-          omim_id: '192600',
-          category: 'Cardiovascular'
-        },
-        { id: '2', name: 'Long QT Syndrome', omim_id: '192500', category: 'Cardiovascular' },
-        { id: '3', name: 'Brugada Syndrome', omim_id: '601144', category: 'Cardiovascular' }
-      ]
-
-      availableDiseases.value = mockDiseases.filter(
-        d => d.name.toLowerCase().includes(query.toLowerCase()) || d.omim_id.includes(query)
-      )
-    } catch (error) {
-      logger.error('Disease search failed:', { error: error.message, stack: error.stack })
-      availableDiseases.value = []
-    } finally {
-      searchingDiseases.value = false
-    }
-  }
-
-  // Helper functions
-  const getAssignmentStatusColor = status => {
-    const colorMap = {
-      available: 'success',
-      assigned: 'warning',
-      in_progress: 'primary',
-      completed: 'grey'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const formatAssignmentStatus = status => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
   // Create assignment
   const createAssignment = async () => {
-    if (!canCreateAssignment.value) return
+    const scope = selectedScope.value
+    const gene = selectedGene.value
+    if (!scope || !selectedSchemas.value || !gene) return
 
     creating.value = true
     try {
-      const assignmentData = {
-        gene_id: selectedGene.value.id,
-        disease_id: selectedDisease.value.id,
-        scope_id: selectedScope.value.id,
-        workflow_pair_id: selectedSchemas.value.workflowPair.id,
-        priority: assignmentPriority.value,
-        due_date: assignmentDueDate.value || null,
-        notes: assignmentNotes.value || null,
-        precuration_schema_id: selectedSchemas.value.precurationSchema.id,
-        curation_schema_id: selectedSchemas.value.curationSchema.id
+      const assignmentData: Schema<'GeneScopeAssignmentCreate'> = {
+        gene_id: gene.id,
+        scope_id: scope.id,
+        priority_level: assignmentPriority.value,
+        assignment_notes: assignmentNotes.value || null
       }
 
       const assignment = await assignmentsStore.createAssignment(assignmentData)
@@ -356,19 +283,12 @@
       // Navigate to the new assignment
       router.push({ name: 'AssignmentDetail', params: { id: assignment.id } })
     } catch (error) {
-      logger.error('Failed to create assignment:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to create assignment:', { error: err.message, stack: err.stack })
     } finally {
       creating.value = false
     }
   }
-
-  // Watch for gene selection to trigger disease search
-  watch(selectedGene, gene => {
-    if (gene) {
-      // Auto-search for related diseases based on gene
-      searchDiseases(gene.symbol)
-    }
-  })
 </script>
 
 <style scoped>

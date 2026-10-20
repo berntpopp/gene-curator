@@ -147,8 +147,12 @@ class CRUDGeneScopeAssignment(
         scope_id: UUID | None = None,
         curator_id: UUID | None = None,
         gene_id: UUID | None = None,
+        scope_ids: Sequence[UUID] | None = None,
+        priority: str | None = None,
+        has_curator: bool | None = None,
+        is_active: bool = True,
     ) -> Sequence[GeneScopeAssignment]:
-        """Get active assignments with related entity details."""
+        """Get assignments with details; scope_ids=None means unrestricted."""
         stmt = (
             select(GeneScopeAssignment)
             .options(
@@ -156,45 +160,29 @@ class CRUDGeneScopeAssignment(
                 joinedload(GeneScopeAssignment.scope),
                 joinedload(GeneScopeAssignment.assigned_curator),
             )
-            .where(GeneScopeAssignment.is_active)
+            .where(GeneScopeAssignment.is_active == is_active)
         )
 
         if scope_id:
             stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
+
+        if scope_ids is not None:
+            stmt = stmt.where(GeneScopeAssignment.scope_id.in_(scope_ids))
 
         if curator_id:
             stmt = stmt.where(GeneScopeAssignment.assigned_curator_id == curator_id)
 
         if gene_id:
             stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
+
+        if priority:
+            stmt = stmt.where(GeneScopeAssignment.priority == priority)
+
+        if has_curator is not None:
+            has_curator_col = GeneScopeAssignment.assigned_curator_id.is_not(None)
+            stmt = stmt.where(has_curator_col == has_curator)
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().unique().all()
-
-    def get_active_assignments(
-        self,
-        db: Session,
-        *,
-        skip: int = 0,
-        limit: int = 100,
-        scope_id: UUID | None = None,
-        curator_id: UUID | None = None,
-        gene_id: UUID | None = None,
-    ) -> Sequence[GeneScopeAssignment]:
-        """Get active gene-scope assignments with filtering."""
-        stmt = select(GeneScopeAssignment).where(
-            GeneScopeAssignment.is_active  # Fixed: use == instead of is
-        )
-
-        if scope_id:
-            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
-
-        if curator_id:
-            stmt = stmt.where(GeneScopeAssignment.assigned_curator_id == curator_id)
-
-        if gene_id:
-            stmt = stmt.where(GeneScopeAssignment.gene_id == gene_id)
-
-        return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
     def get_scope_assignments(
         self,
@@ -225,58 +213,23 @@ class CRUDGeneScopeAssignment(
             .all()
         )
 
-    def get_curator_assignments(
-        self,
-        db: Session,
-        *,
-        curator_id: UUID,
-        skip: int = 0,
-        limit: int = 100,
-        scope_id: UUID | None = None,
-    ) -> Sequence[GeneScopeAssignment]:
-        """Get all assignments for a specific curator."""
-        stmt = select(GeneScopeAssignment).where(
-            and_(
-                GeneScopeAssignment.assigned_curator_id == curator_id,
-                GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
-            )
-        )
-
-        if scope_id:
-            stmt = stmt.where(GeneScopeAssignment.scope_id == scope_id)
-
-        return (
-            db.execute(
-                stmt.order_by(GeneScopeAssignment.assigned_at.desc())
-                .offset(skip)
-                .limit(limit)
-            )
-            .scalars()
-            .all()
-        )
-
     def get_unassigned_genes(
         self, db: Session, *, scope_id: UUID, skip: int = 0, limit: int = 100
     ) -> list[dict[str, Any]]:
         """Get genes available for assignment in a scope."""
         # Find genes that are not currently assigned to this scope or have inactive assignments
-        subquery = (
-            select(GeneScopeAssignment.gene_id)
-            .where(
-                and_(
-                    GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
-                )
+        # Plain (multi-row) subquery: a scalar subquery here breaks for >1 assignment
+        # and yields NULL (hence no rows) when the scope has none.
+        subquery = select(GeneScopeAssignment.gene_id).where(
+            and_(
+                GeneScopeAssignment.scope_id == scope_id,
+                GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
             )
-            .scalar_subquery()
         )
 
         available_genes = (
             db.execute(
-                select(Gene)
-                .where(~Gene.id.in_(select(subquery)))
-                .offset(skip)
-                .limit(limit)
+                select(Gene).where(~Gene.id.in_(subquery)).offset(skip).limit(limit)
             )
             .scalars()
             .all()
@@ -318,6 +271,15 @@ class CRUDGeneScopeAssignment(
             if priority == "medium":
                 priority = "normal"
             obj_in_data["priority"] = priority
+
+        if existing:
+            # (gene, scope) is unique: revive the deactivated row instead of inserting
+            for field, value in obj_in_data.items():
+                setattr(existing, field, value)
+            existing.is_active = True
+            db.commit()
+            db.refresh(existing)
+            return existing
 
         db_obj = GeneScopeAssignment(**obj_in_data)
         db.add(db_obj)

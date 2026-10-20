@@ -9,7 +9,7 @@
         </v-col>
         <v-col cols="12" md="6" class="text-md-right">
           <v-btn
-            v-if="authStore.isCurator"
+            v-if="authStore.isAuthenticated"
             :to="{ name: 'GeneAdmin' }"
             color="primary"
             prepend-icon="mdi-plus"
@@ -38,16 +38,6 @@
                 variant="outlined"
                 clearable
                 @input="debounceSearch"
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-select
-                v-model="selectedFamily"
-                :items="uniqueFamilies"
-                label="Gene Family"
-                variant="outlined"
-                clearable
-                @update:model-value="handleFilterChange"
               />
             </v-col>
             <v-col cols="12" md="3">
@@ -108,7 +98,7 @@
       <v-card>
         <v-data-table
           :headers="headers"
-          :items="genesStore.genes"
+          :items="genes"
           :loading="genesStore.loading"
           :items-per-page="genesStore.pagination.per_page"
           class="gene-table"
@@ -124,45 +114,6 @@
             </div>
           </template>
 
-          <!-- Previous/Alias Symbols -->
-          <template #item.previous_symbols="{ item }">
-            <div v-if="item.previous_symbols && item.previous_symbols.length">
-              <v-chip
-                v-for="symbol in item.previous_symbols.slice(0, 2)"
-                :key="symbol"
-                size="x-small"
-                variant="outlined"
-                class="ma-1"
-              >
-                {{ symbol }}
-              </v-chip>
-              <span v-if="item.previous_symbols.length > 2" class="text-caption">
-                +{{ item.previous_symbols.length - 2 }} more
-              </span>
-            </div>
-            <span v-else class="text-medium-emphasis">—</span>
-          </template>
-
-          <!-- Gene Family -->
-          <template #item.gene_family="{ item }">
-            <div v-if="item.gene_family && item.gene_family.length">
-              <v-chip
-                v-for="family in item.gene_family.slice(0, 1)"
-                :key="family"
-                size="small"
-                color="info"
-                variant="tonal"
-                class="ma-1"
-              >
-                {{ family }}
-              </v-chip>
-              <div v-if="item.gene_family.length > 1" class="text-caption">
-                +{{ item.gene_family.length - 1 }} more
-              </div>
-            </div>
-            <span v-else class="text-medium-emphasis">—</span>
-          </template>
-
           <!-- Location -->
           <template #item.location="{ item }">
             <div class="d-flex flex-column">
@@ -171,19 +122,6 @@
                 {{ item.location || '' }}
               </span>
             </div>
-          </template>
-
-          <!-- ClinGen Score -->
-          <template #item.clingen_score="{ item }">
-            <v-chip
-              v-if="item.details?.clingen_score !== undefined"
-              :color="getScoreColor(item.details.clingen_score)"
-              size="small"
-              variant="tonal"
-            >
-              {{ item.details.clingen_score }}
-            </v-chip>
-            <span v-else class="text-medium-emphasis">—</span>
           </template>
 
           <!-- Actions -->
@@ -197,7 +135,7 @@
                 title="View Details"
               />
               <v-btn
-                v-if="authStore.isCurator"
+                v-if="authStore.isAuthenticated"
                 icon="mdi-pencil"
                 variant="text"
                 size="small"
@@ -243,21 +181,23 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useGenesStore } from '@/stores/genes.js'
-  import { showError } from '@/composables/useNotifications.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { useGenesStore } from '@/stores/genes'
+  import { showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
 
+  // Searching shows the search results; otherwise the paged list
+  const genes = computed(() => (isSearching.value ? genesStore.searchResults : genesStore.genes))
+
   // Search and filter state
   const searchQuery = ref('')
-  const selectedFamily = ref(null)
-  const selectedChromosome = ref(null)
+  const selectedChromosome = ref<string | null>(null)
   const sortBy = ref('approved_symbol_asc')
   const currentPage = ref(1)
 
@@ -270,27 +210,9 @@
       width: '200px'
     },
     {
-      title: 'Previous/Alias',
-      key: 'previous_symbols',
-      sortable: false,
-      width: '180px'
-    },
-    {
-      title: 'Gene Family',
-      key: 'gene_family',
-      sortable: false,
-      width: '160px'
-    },
-    {
       title: 'Location',
       key: 'location',
       sortable: true,
-      width: '120px'
-    },
-    {
-      title: 'ClinGen Score',
-      key: 'clingen_score',
-      sortable: false,
       width: '120px'
     },
     {
@@ -300,7 +222,7 @@
       width: '100px',
       align: 'center'
     }
-  ]
+  ] as const
 
   const sortOptions = [
     { title: 'Gene Symbol (A-Z)', value: 'approved_symbol_asc' },
@@ -311,21 +233,11 @@
 
   // Computed values
   const isSearching = computed(() => {
-    return searchQuery.value || selectedFamily.value || selectedChromosome.value
-  })
-
-  const uniqueFamilies = computed(() => {
-    const families = new Set()
-    genesStore.genes.forEach(gene => {
-      if (gene.gene_family) {
-        gene.gene_family.forEach(family => families.add(family))
-      }
-    })
-    return Array.from(families).sort()
+    return Boolean(searchQuery.value || selectedChromosome.value)
   })
 
   const uniqueChromosomes = computed(() => {
-    const chromosomes = new Set()
+    const chromosomes = new Set<string>()
     genesStore.genes.forEach(gene => {
       if (gene.chromosome) {
         chromosomes.add(gene.chromosome)
@@ -341,7 +253,7 @@
   })
 
   // Debounced search
-  let searchTimeout = null
+  let searchTimeout: ReturnType<typeof setTimeout> | undefined
   const debounceSearch = () => {
     clearTimeout(searchTimeout)
     searchTimeout = setTimeout(() => {
@@ -356,29 +268,30 @@
   }
 
   const handleSortChange = async () => {
-    const [field, order] = sortBy.value.split('_')
-    // Update search params instead of calling non-existent method
-    genesStore.updateSearchParams({ sort_by: field, sort_order: order })
+    // Option values look like "approved_symbol_asc": the last segment is the order
+    const cut = sortBy.value.lastIndexOf('_')
+    genesStore.updateSearchParams({
+      sort_by: sortBy.value.slice(0, cut),
+      sort_order: sortBy.value.slice(cut + 1) as 'asc' | 'desc'
+    })
     await performSearch()
   }
 
-  const handlePageChange = async page => {
+  const handlePageChange = async (page: number) => {
     currentPage.value = page
-    // Update pagination and fetch new page
-    await genesStore.fetchGenes({ page })
+    await loadGenes()
   }
 
-  const handleRowClick = (event, { item }) => {
+  const handleRowClick = (_event: Event, { item }: { item: { id: string } }) => {
     router.push({ name: 'GeneDetail', params: { id: item.id } })
   }
 
-  const editGene = gene => {
+  const editGene = (gene: { id: string }) => {
     router.push({ name: 'GeneAdmin', query: { edit: gene.id } })
   }
 
   const clearFilters = () => {
     searchQuery.value = ''
-    selectedFamily.value = null
     selectedChromosome.value = null
     currentPage.value = 1
     genesStore.clearSearchResults()
@@ -390,7 +303,6 @@
       try {
         await genesStore.searchGenes({
           query: searchQuery.value,
-          gene_family: selectedFamily.value,
           chromosome: selectedChromosome.value,
           page: currentPage.value
         })
@@ -404,25 +316,11 @@
 
   const loadGenes = async () => {
     try {
-      await genesStore.fetchGenes({
-        page: currentPage.value
-      })
+      await genesStore.fetchGenes({ page: currentPage.value })
     } catch (error) {
       showError('Failed to load genes. Please try again.')
     }
   }
-
-  const getScoreColor = score => {
-    if (score >= 8) return 'success'
-    if (score >= 5) return 'warning'
-    if (score >= 2) return 'info'
-    return 'error'
-  }
-
-  // Watchers
-  watch(currentPage, newPage => {
-    genesStore.pagination.page = newPage
-  })
 
   // Lifecycle
   onMounted(async () => {

@@ -3,7 +3,7 @@
 Tests Pydantic schema validation without database dependencies.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 import pytest
@@ -134,7 +134,7 @@ class TestCurationSummary:
 
     def test_valid_summary(self):
         """Test valid curation summary."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         data = CurationSummary(
             id=uuid4(),
             gene_id=uuid4(),
@@ -170,7 +170,7 @@ class TestCurationListResponse:
 
     def test_list_response_with_curations(self):
         """Test list response with curations."""
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         summary = CurationSummary(
             id=uuid4(),
             gene_id=uuid4(),
@@ -201,7 +201,7 @@ class TestCuration:
     def test_curation_from_attributes(self):
         """Test Curation can be created from attributes (ORM-style)."""
         # Create a mock object with attributes
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         mock_data = {
             "id": uuid4(),
             "gene_id": uuid4(),

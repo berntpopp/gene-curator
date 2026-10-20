@@ -207,10 +207,11 @@
   </v-navigation-drawer>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { useLogStore } from '@/stores/logStore'
-  import { LogLevel } from '@/services/logService'
+  import { LogLevel, logService } from '@/services/logService'
+  import type { LogEntry } from '@/stores/logStore'
   import { useDrawerState } from '@/composables/useDrawerState'
 
   // Store access
@@ -262,7 +263,7 @@
 
   // Local reactive state
   const searchQuery = ref('')
-  const selectedLevels = ref([
+  const selectedLevels = ref<string[]>([
     LogLevel.DEBUG,
     LogLevel.INFO,
     LogLevel.WARN,
@@ -290,8 +291,8 @@
   ]
 
   // Computed properties
-  const filteredLogs = computed(() => {
-    let filtered = [...logStore.logs]
+  const filteredLogs = computed<LogEntry[]>(() => {
+    let filtered: LogEntry[] = [...logStore.logs]
 
     // Apply level filter
     if (selectedLevels.value.length > 0 && selectedLevels.value.length < 5) {
@@ -314,7 +315,7 @@
   })
 
   // Methods
-  function getLogColor(level) {
+  function getLogColor(level: string): string {
     switch (level) {
       case LogLevel.DEBUG:
         return 'grey'
@@ -331,7 +332,8 @@
     }
   }
 
-  function formatTimestamp(timestamp) {
+  function formatTimestamp(timestamp: string | undefined): string {
+    if (!timestamp) return ''
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour12: false,
       hour: '2-digit',
@@ -341,7 +343,7 @@
     })
   }
 
-  function formatLogData(data) {
+  function formatLogData(data: unknown): string {
     try {
       return JSON.stringify(data, null, 2)
     } catch {
@@ -355,7 +357,7 @@
         format: 'json',
         includeMetadata: true,
         filtered: false
-      })
+      }) as string
 
       const blob = new Blob([exportData], { type: 'application/json' })
       const url = URL.createObjectURL(blob)
@@ -372,20 +374,20 @@
       URL.revokeObjectURL(url)
 
       // Log success (using global logService to avoid circular dependency)
-      window.logService?.info('Logs exported successfully')
+      logService.info('Logs exported successfully')
     } catch (error) {
-      window.logService?.error('Failed to download logs', { error: error.message })
+      logService.error('Failed to download logs', { error: (error as Error).message })
     }
   }
 
   function clearLogs() {
     if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
       const count = logStore.clearLogs()
-      window.logService?.info(`Cleared ${count} log entries`)
+      logService.info(`Cleared ${count} log entries`)
     }
   }
 
-  function copyLogEntry(log) {
+  function copyLogEntry(log: LogEntry) {
     try {
       const logText = `[${log.timestamp}] ${log.level}: ${log.message}${
         log.data ? `\nData: ${JSON.stringify(log.data, null, 2)}` : ''
@@ -394,31 +396,31 @@
       navigator.clipboard
         .writeText(logText)
         .then(() => {
-          window.logService?.debug('Log entry copied to clipboard')
+          logService.debug('Log entry copied to clipboard')
         })
         .catch(error => {
-          window.logService?.error('Failed to copy log entry', { error: error.message })
+          logService.error('Failed to copy log entry', { error: (error as Error).message })
         })
     } catch (error) {
-      window.logService?.error('Failed to copy log entry', { error: error.message })
+      logService.error('Failed to copy log entry', { error: (error as Error).message })
     }
   }
 
-  function updateMaxEntries(newValue) {
+  function updateMaxEntries(newValue: number) {
     try {
       logStore.trimLogs(newValue)
       maxEntries.value = newValue
-      window.logService?.info(`Log retention limit updated to ${newValue} entries`)
+      logService.info(`Log retention limit updated to ${newValue} entries`)
     } catch (error) {
-      window.logService?.error('Failed to update max entries', { error: error.message })
+      logService.error('Failed to update max entries', { error: (error as Error).message })
     }
   }
 
-  function updateSearch(value) {
+  function updateSearch(value: string | null) {
     logStore.setSearchQuery(value || '')
   }
 
-  function updateLevelFilter(value) {
+  function updateLevelFilter(value: string[]) {
     logStore.setLevelFilter(value)
   }
 

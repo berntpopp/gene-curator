@@ -4,7 +4,7 @@ Extends CRUDBase with precuration-specific operations.
 Follows patterns from curation.py.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, ClassVar
 from uuid import UUID
 
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpdate]):

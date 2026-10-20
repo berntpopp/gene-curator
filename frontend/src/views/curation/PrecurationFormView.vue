@@ -66,7 +66,7 @@
                     <span class="mx-2">Precuration</span>
                     <v-chip size="small" color="white" variant="flat" class="text-primary">
                       <v-icon start size="small">mdi-clipboard-text</v-icon>
-                      {{ precurationId ? 'Edit' : 'New' }}
+                      New
                     </v-chip>
                   </div>
                 </div>
@@ -107,7 +107,6 @@
           <SchemaDrivenPrecurationForm
             v-if="precurationSchemaId"
             :schema-id="precurationSchemaId"
-            :precuration-id="precurationId"
             :scope-id="scopeId"
             :gene-id="geneId"
             :gene="gene"
@@ -128,15 +127,14 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * PrecurationFormView
    *
-   * Scope-aware view for creating and editing precurations.
+   * Scope-aware view for creating precurations.
    * Precurations are preliminary assessments before full curation.
    *
    * Route: /scopes/:scopeId/genes/:geneId/precuration/new
-   *        /scopes/:scopeId/precurations/:precurationId/edit
    *
    * Responsibilities:
    * - Extract route params
@@ -156,22 +154,46 @@
   import { useLogger } from '@/composables/useLogger'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
 
+  interface ScopeRecord {
+    default_workflow_pair_id?: string | null
+    display_name?: string | null
+  }
+
+  interface GeneRecord {
+    gene_name?: string | null
+    name?: string | null
+    hgnc_id?: string | null
+    ncbi_gene_id?: string | number | null
+    entrez_id?: string | number | null
+    gene_symbol?: string | null
+    symbol?: string | null
+  }
+
+  interface WorkflowPairRecord {
+    id: string
+    precuration_schema_id?: string | null
+  }
+
+  interface ErrorLike {
+    message?: string
+  }
+
   const router = useRouter()
   const route = useRoute()
   const notificationsStore = useNotificationsStore()
   const logger = useLogger()
 
   // Route params
-  const scopeId = computed(() => route.params.scopeId)
-  const geneId = computed(() => route.params.geneId)
-  const precurationId = computed(() => route.params.precurationId || null)
+  const scopeId = computed(() => route.params.scopeId as string)
+  const geneId = computed(() => route.params.geneId as string | undefined)
 
   // State
-  const scope = ref(null)
-  const gene = ref(null)
-  const precurationSchemaId = ref(null)
+  const scope = ref<ScopeRecord | null>(null)
+  // Undefined until loaded. Typed non-null because vue-tsc drops v-if narrowing inside slot closures.
+  const gene = ref(undefined as unknown as GeneRecord)
+  const precurationSchemaId = ref<string | undefined>(undefined)
   const loading = ref(true)
-  const loadError = ref(null)
+  const loadError = ref<string | null>(null)
   const readonly = ref(false)
 
   /**
@@ -182,9 +204,9 @@
       scope.value = await scopesAPI.getScopeById(scopeId.value)
 
       if (scope.value?.default_workflow_pair_id) {
-        const workflowPairs = await schemasAPI.getWorkflowPairs()
+        const workflowPairs = (await schemasAPI.getWorkflowPairs()) as WorkflowPairRecord[]
         const workflowPair = workflowPairs.find(
-          wp => wp.id === scope.value.default_workflow_pair_id
+          wp => wp.id === scope.value?.default_workflow_pair_id
         )
         if (workflowPair?.precuration_schema_id) {
           precurationSchemaId.value = workflowPair.precuration_schema_id
@@ -196,8 +218,9 @@
         precuration_schema_id: precurationSchemaId.value
       })
     } catch (err) {
-      logger.error('Failed to load scope', { error: err.message })
-      loadError.value = `Could not load scope information: ${err.message}`
+      const e = err as ErrorLike
+      logger.error('Failed to load scope', { error: e.message })
+      loadError.value = `Could not load scope information: ${e.message}`
       throw err
     }
   }
@@ -209,15 +232,15 @@
     if (!geneId.value) return
 
     try {
-      gene.value = await genesAPI.getGeneById(geneId.value)
-
+      gene.value = (await genesAPI.getGeneById(geneId.value)) as GeneRecord
       logger.debug('Gene loaded for precuration', {
         gene_id: geneId.value,
         gene_symbol: gene.value?.gene_symbol || gene.value?.symbol
       })
     } catch (err) {
-      logger.error('Failed to load gene', { error: err.message })
-      loadError.value = `Could not load gene information: ${err.message}`
+      const e = err as ErrorLike
+      logger.error('Failed to load gene', { error: e.message })
+      loadError.value = `Could not load gene information: ${e.message}`
       throw err
     }
   }
@@ -251,7 +274,6 @@
    */
   function handleSaved() {
     logger.debug('Precuration draft saved', {
-      precuration_id: precurationId.value,
       scope_id: scopeId.value
     })
   }
@@ -268,12 +290,12 @@
       // Then load gene info (if creating new precuration)
       if (geneId.value) {
         await loadGene()
-      } else if (!precurationId.value) {
+      } else {
         loadError.value = 'No gene specified. Please select a gene from the scope dashboard.'
       }
     } catch (err) {
       // Error already set by load functions
-      logger.error('Failed to initialize precuration form', { error: err.message })
+      logger.error('Failed to initialize precuration form', { error: (err as ErrorLike).message })
     } finally {
       loading.value = false
     }

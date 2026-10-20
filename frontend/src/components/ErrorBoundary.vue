@@ -31,15 +31,12 @@
     <!-- Additional actions -->
     <div class="mt-4 d-flex gap-2">
       <v-btn variant="text" prepend-icon="mdi-home" @click="goHome"> Go to Dashboard </v-btn>
-      <v-btn variant="text" prepend-icon="mdi-bug-outline" @click="reportError">
-        Report Issue
-      </v-btn>
     </div>
   </div>
   <slot v-else />
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * Error Boundary Component
    *
@@ -65,8 +62,10 @@
   const router = useRouter()
   const logger = useLogger()
 
-  const error = ref(null)
-  const errorInfo = ref(null)
+  // Vue hands over the thrown value as unknown; the template reads message/stack, which
+  // is also safe for non-Error throws (they render the fallback text).
+  const error = ref<Error | null>(null)
+  const errorInfo = ref<string | null>(null)
 
   // Check if running in development mode
   const isDevelopment = import.meta.env.DEV
@@ -75,13 +74,14 @@
    * Capture errors from child components
    * Vue's onErrorCaptured hook
    */
-  onErrorCaptured((err, instance, info) => {
-    error.value = err
+  onErrorCaptured((err: unknown, instance, info) => {
+    const caught = err as Error
+    error.value = caught
     errorInfo.value = info
 
     logger.error('Component error boundary caught error', {
-      error: err.message,
-      stack: err.stack,
+      error: caught.message,
+      stack: caught.stack,
       info,
       component: instance?.$options?.name || 'Unknown'
     })
@@ -109,29 +109,6 @@
     errorInfo.value = null
     router.push('/dashboard')
     logger.info('Error boundary - navigated to dashboard')
-  }
-
-  /**
-   * Open issue reporting (GitHub issues or support)
-   * Placeholder for actual reporting mechanism
-   */
-  function reportError() {
-    const errorDetails = {
-      message: error.value?.message,
-      stack: error.value?.stack,
-      info: errorInfo.value,
-      url: window.location.href,
-      timestamp: new Date().toISOString()
-    }
-
-    logger.info('Error report initiated', errorDetails)
-
-    // In production, this would open GitHub issues or support form
-    // For now, log to console
-    console.error('Error Report:', errorDetails)
-
-    // TODO: Implement actual error reporting
-    // window.open(`https://github.com/yourrepo/issues/new?body=${encodeURIComponent(JSON.stringify(errorDetails))}`)
   }
 </script>
 

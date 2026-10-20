@@ -67,22 +67,26 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+  import { ref, computed, onMounted } from 'vue'
   import { useLogger } from '@/composables/useLogger'
+  import { useScopesStore } from '@/stores'
+  import { errorDetails } from './errorDetails'
+  import type { ScopeOption } from './types'
 
   const logger = useLogger()
-  import { ref, computed, onMounted } from 'vue'
-  import { useScopesStore } from '@/stores'
 
-  const emit = defineEmits(['scope-selected'])
+  const emit = defineEmits<{
+    'scope-selected': [scope: ScopeOption]
+  }>()
 
   const scopesStore = useScopesStore()
-  const selectedScope = ref(null)
+  const selectedScope = ref<ScopeOption | null>(null)
 
   const loading = computed(() => scopesStore.loading)
   const availableScopes = computed(() => scopesStore.scopes.filter(scope => scope.is_active))
 
-  const onScopeSelected = scope => {
+  const onScopeSelected = (scope: ScopeOption) => {
     selectedScope.value = scope
     scopesStore.setCurrentScope(scope)
   }
@@ -95,9 +99,9 @@
 
   onMounted(async () => {
     try {
-      await scopesStore.fetchScopes()
-    } catch (error) {
-      logger.error('Failed to load scopes:', { error: error.message, stack: error.stack })
+      await scopesStore.fetchUserScopes()
+    } catch (err) {
+      logger.error('Failed to load scopes:', errorDetails(err))
     }
   })
 </script>

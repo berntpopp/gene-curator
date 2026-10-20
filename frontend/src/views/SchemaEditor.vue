@@ -8,13 +8,19 @@
     <div v-else-if="schema">
       <!-- Page Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn icon="mdi-arrow-left" variant="text" class="mr-4" @click="$router.back()" />
+        <v-btn
+          aria-label="Go back"
+          icon="mdi-arrow-left"
+          variant="text"
+          class="mr-4"
+          @click="$router.back()"
+        />
         <div>
           <h1 class="text-h4 font-weight-bold">
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
           </h1>
           <p class="text-body-1 text-medium-emphasis mt-1">
-            {{ schema.type }} schema v{{ schema.version }}
+            {{ schema.schema_type }} schema v{{ schema.version }}
           </p>
         </div>
         <v-spacer />
@@ -56,13 +62,11 @@
                     />
                   </v-col>
                   <v-col cols="12" sm="6">
-                    <v-select
-                      v-model="editableSchema.type"
-                      :items="schemaTypes"
+                    <v-text-field
+                      :model-value="schema.schema_type"
                       label="Schema Type"
                       variant="outlined"
-                      :readonly="!isEditing"
-                      :rules="isEditing ? [v => !!v || 'Type is required'] : []"
+                      readonly
                     />
                   </v-col>
                   <v-col cols="12" sm="6">
@@ -76,12 +80,11 @@
                   </v-col>
                   <v-col cols="12" sm="6">
                     <v-select
-                      v-model="editableSchema.status"
+                      v-model="editableSchema.is_active"
                       :items="statusOptions"
                       label="Status"
                       variant="outlined"
                       :readonly="!isEditing"
-                      :rules="isEditing ? [v => !!v || 'Status is required'] : []"
                     />
                   </v-col>
                   <v-col cols="12">
@@ -102,16 +105,16 @@
           <v-card class="mb-6">
             <v-card-title class="d-flex align-center">
               <v-icon start>mdi-code-json</v-icon>
-              JSON Schema Definition
+              Field Definitions
             </v-card-title>
             <v-card-text>
               <div v-if="!isEditing" class="mb-4">
-                <pre class="json-display">{{ formatJson(editableSchema.json_schema) }}</pre>
+                <pre class="json-display">{{ formatJson(schema.field_definitions) }}</pre>
               </div>
               <v-textarea
                 v-else
                 v-model="jsonSchemaText"
-                label="JSON Schema"
+                label="Field Definitions (JSON)"
                 variant="outlined"
                 rows="20"
                 font-family="monospace"
@@ -120,20 +123,20 @@
                 @input="validateJson"
               />
               <div v-if="isEditing" class="text-caption text-medium-emphasis mt-2">
-                Define the field structure and validation rules using JSON Schema format
+                Define the fields of this schema as a JSON object keyed by field name
               </div>
             </v-card-text>
           </v-card>
 
           <!-- Scoring Configuration -->
-          <v-card v-if="editableSchema.scoring_config">
+          <v-card v-if="schema.scoring_configuration">
             <v-card-title class="d-flex align-center">
               <v-icon start>mdi-calculator</v-icon>
               Scoring Configuration
             </v-card-title>
             <v-card-text>
               <div v-if="!isEditing">
-                <pre class="json-display">{{ formatJson(editableSchema.scoring_config) }}</pre>
+                <pre class="json-display">{{ formatJson(schema.scoring_configuration) }}</pre>
               </div>
               <v-textarea
                 v-else
@@ -161,10 +164,6 @@
               <div class="d-flex justify-space-between mb-2">
                 <span>Required Fields:</span>
                 <span class="font-weight-medium">{{ getRequiredFieldCount() }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span>Active Curations:</span>
-                <span class="font-weight-medium">{{ schema.usage_count || 0 }}</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span>Last Modified:</span>
@@ -199,13 +198,7 @@
                   Duplicate Schema
                 </v-btn>
 
-                <v-btn
-                  color="error"
-                  variant="outlined"
-                  block
-                  :disabled="schema.usage_count > 0"
-                  @click="deleteSchema"
-                >
+                <v-btn color="error" variant="outlined" block @click="deleteSchema">
                   <v-icon start>mdi-delete</v-icon>
                   Delete Schema
                 </v-btn>
@@ -225,13 +218,22 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
+  import type { Schema } from '@/types/api'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  type SchemaDetail = Schema<'CurationSchema'>
 
   const route = useRoute()
   const router = useRouter()
@@ -240,46 +242,48 @@
   const loading = ref(false)
   const saving = ref(false)
   const validating = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const isEditing = ref(false)
-  const schema = ref(null)
-  const editableSchema = ref({})
+  const schema = ref<SchemaDetail | null>(null)
+  const editableSchema = ref<Schema<'CurationSchemaUpdate'>>({})
   const jsonSchemaText = ref('')
   const scoringConfigText = ref('')
   const isValidJson = ref(true)
   const jsonError = ref('')
-  const basicForm = ref(null)
+  const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
-  const schemaId = computed(() => route.params.id)
-
-  const schemaTypes = [
-    { title: 'Precuration', value: 'precuration' },
-    { title: 'Curation', value: 'curation' },
-    { title: 'Combined', value: 'combined' }
-  ]
+  const schemaId = computed(() => String(route.params.id))
 
   const statusOptions = [
-    { title: 'Draft', value: 'draft' },
-    { title: 'Active', value: 'active' },
-    { title: 'Deprecated', value: 'deprecated' }
+    { title: 'Active', value: true },
+    { title: 'Inactive', value: false }
   ]
 
-  const formatJson = obj => {
+  const formatJson = (obj: unknown) => {
     return JSON.stringify(obj, null, 2)
   }
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return new Date(dateString as string).toLocaleDateString()
   }
 
-  const getFieldCount = () => {
-    if (!editableSchema.value.json_schema?.properties) return 0
-    return Object.keys(editableSchema.value.json_schema.properties).length
-  }
+  const fieldDefinitions = () => Object.values(schema.value?.field_definitions ?? {})
+  const getFieldCount = () => fieldDefinitions().length
+  const getRequiredFieldCount = () =>
+    fieldDefinitions().filter(f => (f as { required?: boolean } | null)?.required === true).length
 
-  const getRequiredFieldCount = () => {
-    if (!editableSchema.value.json_schema?.required) return 0
-    return editableSchema.value.json_schema.required.length
+  // Seed the edit buffer and JSON editors from a loaded schema
+  const resetEditor = (source: SchemaDetail) => {
+    editableSchema.value = {
+      name: source.name,
+      version: source.version,
+      description: source.description,
+      is_active: source.is_active
+    }
+    jsonSchemaText.value = formatJson(source.field_definitions)
+    scoringConfigText.value = source.scoring_configuration
+      ? formatJson(source.scoring_configuration)
+      : ''
   }
 
   const validateJson = () => {
@@ -289,7 +293,7 @@
       jsonError.value = ''
     } catch (e) {
       isValidJson.value = false
-      jsonError.value = e.message
+      jsonError.value = (e as Error).message
     }
   }
 
@@ -297,55 +301,53 @@
     try {
       JSON.parse(scoringConfigText.value)
     } catch (e) {
-      logger.error('Invalid scoring config JSON:', { error: e.message, stack: e.stack })
+      const err = e as Error
+      logger.error('Invalid scoring config JSON:', { error: err.message, stack: err.stack })
     }
   }
 
   const saveSchema = async () => {
+    if (!basicForm.value) return
     const { valid } = await basicForm.value.validate()
     if (!valid || !isValidJson.value) return
 
     saving.value = true
     try {
-      // Parse JSON fields
-      editableSchema.value.json_schema = JSON.parse(jsonSchemaText.value)
-      if (scoringConfigText.value) {
-        editableSchema.value.scoring_config = JSON.parse(scoringConfigText.value)
-      }
-
-      await schemasStore.updateSchema(schemaId.value, editableSchema.value)
-      schema.value = { ...editableSchema.value }
+      schema.value = await schemasStore.updateSchema(schemaId.value, {
+        ...editableSchema.value,
+        field_definitions: JSON.parse(jsonSchemaText.value),
+        scoring_configuration: scoringConfigText.value ? JSON.parse(scoringConfigText.value) : null
+      })
       isEditing.value = false
     } catch (error) {
-      logger.error('Failed to save schema:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to save schema:', { error: err.message, stack: err.stack })
     } finally {
       saving.value = false
     }
   }
 
   const cancelEdit = () => {
-    editableSchema.value = { ...schema.value }
-    jsonSchemaText.value = formatJson(schema.value.json_schema)
-    scoringConfigText.value = schema.value.scoring_config
-      ? formatJson(schema.value.scoring_config)
-      : ''
+    if (schema.value) resetEditor(schema.value)
     isEditing.value = false
   }
 
   const validateSchema = async () => {
+    if (!schema.value) return
     validating.value = true
     try {
       const result = await schemasStore.validateSchema(schemaId.value)
       logger.info('Schema validation result:', result)
-      // Show validation results to user
     } catch (error) {
-      logger.error('Schema validation failed:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Schema validation failed:', { error: err.message, stack: err.stack })
     } finally {
       validating.value = false
     }
   }
 
   const exportSchema = () => {
+    if (!schema.value) return
     const blob = new Blob([JSON.stringify(schema.value, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -356,21 +358,25 @@
   }
 
   const duplicateSchema = async () => {
+    if (!schema.value) return
     try {
       const duplicated = await schemasStore.duplicateSchema(schemaId.value)
       router.push({ name: 'SchemaEditor', params: { id: duplicated.id } })
     } catch (error) {
-      logger.error('Failed to duplicate schema:', { error: error.message, stack: error.stack })
+      const err = error as ApiError
+      logger.error('Failed to duplicate schema:', { error: err.message, stack: err.stack })
     }
   }
 
   const deleteSchema = async () => {
+    if (!schema.value) return
     if (confirm(`Are you sure you want to delete "${schema.value.name}"?`)) {
       try {
         await schemasStore.deleteSchema(schemaId.value)
         router.push({ name: 'SchemaManagement' })
       } catch (error) {
-        logger.error('Failed to delete schema:', { error: error.message, stack: error.stack })
+        const err = error as ApiError
+        logger.error('Failed to delete schema:', { error: err.message, stack: err.stack })
       }
     }
   }
@@ -382,14 +388,11 @@
     try {
       const schemaData = await schemasStore.fetchSchemaById(schemaId.value)
       schema.value = schemaData
-      editableSchema.value = { ...schemaData }
-      jsonSchemaText.value = formatJson(schemaData.json_schema)
-      scoringConfigText.value = schemaData.scoring_config
-        ? formatJson(schemaData.scoring_config)
-        : ''
+      resetEditor(schemaData)
     } catch (err) {
-      error.value = err.message || 'Failed to load schema'
-      logger.error('Failed to load schema:', { error: err.message, stack: err.stack })
+      const apiErr = err as ApiError
+      error.value = apiErr.message || 'Failed to load schema'
+      logger.error('Failed to load schema:', { error: apiErr.message, stack: apiErr.stack })
     } finally {
       loading.value = false
     }

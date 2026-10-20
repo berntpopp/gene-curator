@@ -430,6 +430,27 @@ class OntologyService:
     # In-memory cache for inheritance patterns (rarely change)
     _inheritance_cache: HPOInheritanceResponse | None = None
 
+    async def _fetch_inheritance_branch(
+        self, path: str, category: str
+    ) -> tuple[bool, list[HPOInheritancePattern]]:
+        """Fetch one HPO inheritance branch; returns (upstream_ok, patterns)."""
+        response = await self._hpo_client.get(path)
+        if response.status_code != 200:
+            return False, []
+        # API returns array directly, not {terms: [...]}
+        terms = response.json()
+        if not isinstance(terms, list):
+            return True, []
+        return True, [
+            HPOInheritancePattern(
+                hpo_id=term.get("id", ""),
+                name=term.get("name", ""),
+                definition=term.get("definition"),
+                category=category,
+            )
+            for term in terms
+        ]
+
     @timed_operation("hpo_inheritance", warning_threshold_ms=5000)
     async def get_inheritance_patterns(self) -> HPOInheritanceResponse:
         """Get all HPO inheritance pattern terms
@@ -454,45 +475,16 @@ class OntologyService:
                 cached=True,
             )
 
-        mendelian_patterns: list[HPOInheritancePattern] = []
-        non_mendelian_patterns: list[HPOInheritancePattern] = []
-
         try:
-            # Fetch Mendelian inheritance patterns (HP:0034345 descendants)
-            mendelian_response = await self._hpo_client.get(
-                "/terms/HP:0034345/descendants"
+            mendelian_ok, mendelian_patterns = await self._fetch_inheritance_branch(
+                "/terms/HP:0034345/descendants", "mendelian"
             )
-            if mendelian_response.status_code == 200:
-                # API returns array directly, not {terms: [...]}
-                terms = mendelian_response.json()
-                if isinstance(terms, list):
-                    for term in terms:
-                        mendelian_patterns.append(
-                            HPOInheritancePattern(
-                                hpo_id=term.get("id", ""),
-                                name=term.get("name", ""),
-                                definition=term.get("definition"),
-                                category="mendelian",
-                            )
-                        )
-
-            # Fetch Non-Mendelian inheritance patterns (HP:0001426 descendants)
-            non_mendelian_response = await self._hpo_client.get(
-                "/terms/HP:0001426/descendants"
+            (
+                non_mendelian_ok,
+                non_mendelian_patterns,
+            ) = await self._fetch_inheritance_branch(
+                "/terms/HP:0001426/descendants", "non_mendelian"
             )
-            if non_mendelian_response.status_code == 200:
-                # API returns array directly, not {terms: [...]}
-                terms = non_mendelian_response.json()
-                if isinstance(terms, list):
-                    for term in terms:
-                        non_mendelian_patterns.append(
-                            HPOInheritancePattern(
-                                hpo_id=term.get("id", ""),
-                                name=term.get("name", ""),
-                                definition=term.get("definition"),
-                                category="non_mendelian",
-                            )
-                        )
 
             total = len(mendelian_patterns) + len(non_mendelian_patterns)
 
@@ -503,8 +495,9 @@ class OntologyService:
                 cached=False,
             )
 
-            # Cache the result
-            OntologyService._inheritance_cache = result
+            # Cache only complete results: an upstream outage must not pin empty lists
+            if mendelian_ok and non_mendelian_ok:
+                OntologyService._inheritance_cache = result
 
             logger.info(
                 "HPO inheritance patterns fetched",

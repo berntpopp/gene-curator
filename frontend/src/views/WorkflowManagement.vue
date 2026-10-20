@@ -38,26 +38,19 @@
         <template #item.schemas="{ item }">
           <div>
             <v-chip size="small" color="blue" variant="outlined" class="mb-1">
-              Pre: {{ item.precuration_schema_name }}
+              Pre: {{ getSchemaName(item.precuration_schema_id, 'precuration') }}
             </v-chip>
             <br />
             <v-chip size="small" color="green" variant="outlined">
-              Cur: {{ item.curation_schema_name }}
+              Cur: {{ getSchemaName(item.curation_schema_id, 'curation') }}
             </v-chip>
           </div>
         </template>
 
-        <template #item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
-            {{ formatStatus(item.status) }}
+        <template #item.is_active="{ item }">
+          <v-chip :color="item.is_active ? 'success' : 'grey'" size="small" variant="flat">
+            {{ item.is_active ? 'Active' : 'Inactive' }}
           </v-chip>
-        </template>
-
-        <template #item.usage_count="{ item }">
-          <div class="text-center">
-            <div class="text-h6 font-weight-bold">{{ item.usage_count || 0 }}</div>
-            <div class="text-caption">Active</div>
-          </div>
         </template>
 
         <template #item.created_at="{ item }">
@@ -66,14 +59,26 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewWorkflow(item)" />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editWorkflow(item)" />
             <v-btn
+              aria-label="View workflow"
+              icon="mdi-eye"
+              size="small"
+              variant="text"
+              @click="viewWorkflow(item)"
+            />
+            <v-btn
+              aria-label="Edit workflow"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editWorkflow(item)"
+            />
+            <v-btn
+              aria-label="Delete workflow"
               icon="mdi-delete"
               size="small"
               variant="text"
               color="error"
-              :disabled="item.usage_count > 0"
               @click="deleteWorkflow(item)"
             />
           </div>
@@ -104,12 +109,6 @@
                 </div>
                 <div class="text-caption text-medium-emphasis">Order: {{ stage.order }}</div>
               </v-card-text>
-              <v-card-actions>
-                <v-btn size="small" variant="text" @click="editStage(stage)">
-                  <v-icon start>mdi-pencil</v-icon>
-                  Edit
-                </v-btn>
-              </v-card-actions>
             </v-card>
           </v-col>
         </v-row>
@@ -156,20 +155,6 @@
               <v-list-item-subtitle>{{
                 getSchemaName(selectedWorkflow.curation_schema_id, 'curation')
               }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item v-if="selectedWorkflow.data_mapping">
-              <v-list-item-title>Data Mapping</v-list-item-title>
-              <v-list-item-subtitle>
-                <pre class="text-caption mt-1">{{
-                  JSON.stringify(selectedWorkflow.data_mapping, null, 2)
-                }}</pre>
-              </v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Usage Count</v-list-item-title>
-              <v-list-item-subtitle
-                >{{ selectedWorkflow.usage_count || 0 }} scopes</v-list-item-subtitle
-              >
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Created</v-list-item-title>
@@ -305,11 +290,25 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
-  import { showError, showSuccess, showInfo } from '@/composables/useNotifications'
+  import { showError, showSuccess } from '@/composables/useNotifications'
+  import type { Schema } from '@/types/api'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+  }
+
+  type WorkflowRow = Schema<'WorkflowPair'>
+
+  interface SchemaOption {
+    id: string
+    name: string
+  }
 
   const schemasStore = useSchemasStore()
   const workflowStore = useWorkflowStore()
@@ -318,16 +317,21 @@
   const loading = ref(false)
   const creating = ref(false)
   const createWorkflowDialog = ref(false)
-  const createForm = ref(null)
+  const createForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const viewWorkflowDialog = ref(false)
-  const selectedWorkflow = ref(null)
+  const selectedWorkflow = ref<WorkflowRow | null>(null)
   const editWorkflowDialog = ref(false)
-  const editWorkflowForm = ref(null)
+  const editWorkflowForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const savingWorkflow = ref(false)
   const editWorkflowData = ref({ name: '', description: '', is_active: true })
-  let editingWorkflowId = null
+  let editingWorkflowId: string | null = null
 
-  const newWorkflow = ref({
+  const newWorkflow = ref<{
+    name: string
+    description: string
+    precuration_schema_id: string | null
+    curation_schema_id: string | null
+  }>({
     name: '',
     description: '',
     precuration_schema_id: null,
@@ -337,8 +341,7 @@
   const workflowHeaders = [
     { title: 'Name', key: 'name', sortable: true },
     { title: 'Schemas', key: 'schemas', sortable: false },
-    { title: 'Status', key: 'status', sortable: true },
-    { title: 'Usage', key: 'usage_count', sortable: true },
+    { title: 'Status', key: 'is_active', sortable: true },
     { title: 'Created', key: 'created_at', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
   ]
@@ -346,16 +349,19 @@
   // Defensive computed properties with defaults
   // Note: workflowPairs are in schemasStore (schema-related data)
   // workflowStages are static configuration in workflowStore
-  const workflowPairs = computed(() => schemasStore.workflowPairs || [])
+  const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
-  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas || [])
-  const curationSchemas = computed(() => schemasStore.getCurationSchemas || [])
+  const precurationSchemas = computed(
+    (): SchemaOption[] => schemasStore.getPrecurationSchemas || []
+  )
+  const curationSchemas = computed((): SchemaOption[] => schemasStore.getCurationSchemas || [])
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
+    const apiErr = err as ApiError
     logger.error('WorkflowManagement error', {
-      error: err.message,
-      stack: err.stack,
+      error: apiErr.message,
+      stack: apiErr.stack,
       component: instance?.$options?.name || 'WorkflowManagement',
       errorInfo: info
     })
@@ -366,17 +372,8 @@
     return false
   })
 
-  const getStatusColor = status => {
-    const colorMap = {
-      active: 'success',
-      draft: 'warning',
-      deprecated: 'error'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const getStageColor = stageType => {
-    const colorMap = {
+  const getStageColor = (stageType: string) => {
+    const colorMap: Record<string, string> = {
       entry: 'blue',
       precuration: 'orange',
       curation: 'green',
@@ -386,8 +383,8 @@
     return colorMap[stageType] || 'grey'
   }
 
-  const getStageIcon = stageType => {
-    const iconMap = {
+  const getStageIcon = (stageType: string) => {
+    const iconMap: Record<string, string> = {
       entry: 'mdi-file-document-plus',
       precuration: 'mdi-file-document-edit',
       curation: 'mdi-file-document-check',
@@ -397,28 +394,23 @@
     return iconMap[stageType] || 'mdi-circle'
   }
 
-  const formatStatus = status => {
-    if (!status || typeof status !== 'string') return 'Draft'
-    return status.charAt(0).toUpperCase() + status.slice(1)
+  const formatDate = (dateString: string | null | undefined) => {
+    return new Date(dateString as string).toLocaleDateString()
   }
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const getSchemaName = (schemaId, type) => {
+  const getSchemaName = (schemaId: string | null | undefined, type: string) => {
     const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
-    const schema = schemas.find(s => s.id === schemaId)
+    const schema = schemas.find((s: { id: string }) => s.id === schemaId)
     return schema ? schema.name : schemaId || 'N/A'
   }
 
-  const viewWorkflow = workflow => {
+  const viewWorkflow = (workflow: WorkflowRow) => {
     logger.info('View workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
     selectedWorkflow.value = workflow
     viewWorkflowDialog.value = true
   }
 
-  const editWorkflow = workflow => {
+  const editWorkflow = (workflow: WorkflowRow) => {
     logger.info('Edit workflow requested', { workflowId: workflow.id, workflowName: workflow.name })
     editingWorkflowId = workflow.id
     editWorkflowData.value = {
@@ -430,8 +422,9 @@
   }
 
   const saveWorkflow = async () => {
+    if (!editWorkflowForm.value) return
     const { valid } = await editWorkflowForm.value.validate()
-    if (!valid) return
+    if (!valid || !editingWorkflowId) return
     savingWorkflow.value = true
     try {
       await schemasStore.updateWorkflowPair(editingWorkflowId, editWorkflowData.value)
@@ -439,13 +432,13 @@
       editWorkflowDialog.value = false
     } catch (error) {
       showError('Failed to update workflow')
-      logger.error('Save workflow failed', { error: error.message })
+      logger.error('Save workflow failed', { error: (error as ApiError).message })
     } finally {
       savingWorkflow.value = false
     }
   }
 
-  const deleteWorkflow = async workflow => {
+  const deleteWorkflow = async (workflow: WorkflowRow) => {
     if (confirm(`Are you sure you want to delete "${workflow.name}"?`)) {
       try {
         // workflowPairs CRUD is in schemasStore (schema-related data)
@@ -453,30 +446,33 @@
         logger.info('Workflow deleted', { workflowId: workflow.id, workflowName: workflow.name })
         showSuccess('Workflow deleted successfully')
       } catch (error) {
+        const err = error as ApiError
         logger.error('Failed to delete workflow', {
           workflowId: workflow.id,
-          error: error.message,
-          stack: error.stack
+          error: err.message,
+          stack: err.stack
         })
         showError('Failed to delete workflow')
       }
     }
   }
 
-  const editStage = stage => {
-    logger.info('Edit stage requested', { stageId: stage.id, stageName: stage.name })
-    // TODO: Implement stage edit when available
-    showInfo('Stage editing coming soon')
-  }
-
   const createWorkflow = async () => {
+    if (!createForm.value) return
     const { valid } = await createForm.value.validate()
-    if (!valid) return
+    const { precuration_schema_id, curation_schema_id } = newWorkflow.value
+    if (!valid || !precuration_schema_id || !curation_schema_id) return
 
     creating.value = true
     try {
       // workflowPairs CRUD is in schemasStore (schema-related data)
-      await schemasStore.createWorkflowPair(newWorkflow.value)
+      await schemasStore.createWorkflowPair({
+        ...newWorkflow.value,
+        precuration_schema_id,
+        curation_schema_id,
+        version: '1.0.0',
+        is_active: true
+      })
       logger.info('Workflow created', { workflowName: newWorkflow.value.name })
       showSuccess('Workflow created successfully')
 
@@ -488,10 +484,11 @@
         curation_schema_id: null
       }
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to create workflow', {
         workflowName: newWorkflow.value.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to create workflow')
     } finally {
@@ -519,9 +516,10 @@
         analyticsLoaded: !!workflowStore.analytics
       })
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to load workflow data', {
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to load workflow data. Please refresh.')
     } finally {

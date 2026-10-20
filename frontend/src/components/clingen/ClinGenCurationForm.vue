@@ -199,7 +199,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ClinGenCurationForm
    *
@@ -221,35 +221,42 @@
   import ContradictoryEvidenceSection from './sections/ContradictoryEvidenceSection.vue'
   import LumpingSplittingSection from './sections/LumpingSplittingSection.vue'
   import ScoreSummary from './ScoreSummary.vue'
+  import { createEmptyExperimentalEvidence, createEmptyGeneticEvidence } from './evidenceDefaults'
+  import { calculateExperimentalScore, calculateGeneticScore, classifyScore } from './scoring'
+  import type {
+    ClinGenEvidenceData,
+    DiseaseInfo,
+    EvidenceItem,
+    ExperimentalEvidence,
+    GeneInfo,
+    GeneticEvidence,
+    PrecurationData
+  } from './types'
 
-  const props = defineProps({
-    curationId: {
-      type: String,
-      default: null
-    },
-    gene: {
-      type: Object,
-      required: true
-    },
-    precurationData: {
-      type: Object,
-      default: () => ({})
-    },
-    initialData: {
-      type: Object,
-      default: () => ({})
-    },
-    readonly: {
-      type: Boolean,
-      default: false
-    },
-    status: {
-      type: String,
-      default: 'draft'
+  const props = withDefaults(
+    defineProps<{
+      curationId?: string | null
+      gene: GeneInfo
+      precurationData?: PrecurationData
+      initialData?: Partial<ClinGenEvidenceData>
+      readonly?: boolean
+      status?: string
+    }>(),
+    {
+      curationId: null,
+      precurationData: () => ({}),
+      initialData: () => ({}),
+      readonly: false,
+      status: 'draft'
     }
-  })
+  )
 
-  const emit = defineEmits(['submit', 'save-draft', 'cancel', 'update:model-value'])
+  const emit = defineEmits<{
+    submit: [data: ClinGenEvidenceData]
+    'save-draft': [data: ClinGenEvidenceData]
+    cancel: []
+    'update:model-value': [data: ClinGenEvidenceData]
+  }>()
 
   const logger = useLogger()
 
@@ -259,51 +266,15 @@
   const submitting = ref(false)
 
   // Evidence data structure per ClinGen SOP v11
-  const evidenceData = ref({
+  const evidenceData = ref<ClinGenEvidenceData>({
     evidence_summary: '',
-    genetic_evidence: {
-      case_level: {
-        autosomal_dominant_or_x_linked: {
-          predicted_or_proven_null: [],
-          other_variant_type: []
-        },
-        autosomal_recessive: {
-          predicted_or_proven_null: [],
-          other_variant_type: []
-        }
-      },
-      segregation: [],
-      case_control: {
-        single_variant_analysis: [],
-        aggregate_variant_analysis: []
-      }
-    },
-    experimental_evidence: {
-      function: {
-        biochemical_function: [],
-        protein_interaction: [],
-        expression: []
-      },
-      functional_alteration: {
-        patient_cells: [],
-        non_patient_cells: []
-      },
-      models: {
-        non_human_model_organism: [],
-        cell_culture_model: []
-      },
-      rescue: {
-        human: [],
-        non_human_model_organism: [],
-        cell_culture: [],
-        patient_cells: []
-      }
-    },
+    genetic_evidence: createEmptyGeneticEvidence(),
+    experimental_evidence: createEmptyExperimentalEvidence(),
     contradictory_evidence: []
   })
 
   // Computed properties from precuration
-  const diseaseEntity = computed(() => ({
+  const diseaseEntity = computed<DiseaseInfo>(() => ({
     name:
       props.precurationData?.disease_name || props.precurationData?.entity_definition?.disease_name,
     mondo_id: props.precurationData?.mondo_id || props.precurationData?.entity_definition?.mondo_id
@@ -319,10 +290,14 @@
   const sopVersion = computed(() => 'SOP v11')
   const expertPanel = computed(() => props.precurationData?.expert_panel || 'Not specified')
 
+  const hasContradictoryEvidence = computed(
+    () => (evidenceData.value.contradictory_evidence?.length ?? 0) > 0
+  )
+
   // Score calculations
   const scores = computed(() => {
-    const genetic = calculateGeneticScore()
-    const experimental = calculateExperimentalScore()
+    const genetic = calculateGeneticScore(evidenceData.value.genetic_evidence)
+    const experimental = calculateExperimentalScore(evidenceData.value.experimental_evidence)
     const total = Math.min(genetic.total + experimental.total, 18)
 
     return {
@@ -335,20 +310,8 @@
   })
 
   // Classification based on score
-  const currentClassification = computed(() => {
-    const score = scores.value.total
-    const hasContradictory = hasContradictoryEvidence.value
-
-    if (hasContradictory) return 'Disputed'
-    if (score >= 12) return 'Definitive'
-    if (score >= 7) return 'Strong'
-    if (score >= 2) return 'Moderate'
-    if (score >= 0.1) return 'Limited'
-    return 'No Known Disease Relationship'
-  })
-
-  const hasContradictoryEvidence = computed(
-    () => evidenceData.value.contradictory_evidence?.length > 0
+  const currentClassification = computed(() =>
+    classifyScore(scores.value.total, hasContradictoryEvidence.value)
   )
 
   const canSubmit = computed(() => {
@@ -358,139 +321,33 @@
 
     // Check nested case_level structure for any evidence
     const hasCaseLevelEvidence =
-      caseLevel?.autosomal_dominant_or_x_linked?.predicted_or_proven_null?.length > 0 ||
-      caseLevel?.autosomal_dominant_or_x_linked?.other_variant_type?.length > 0 ||
-      caseLevel?.autosomal_recessive?.predicted_or_proven_null?.length > 0 ||
-      caseLevel?.autosomal_recessive?.other_variant_type?.length > 0
+      (caseLevel?.autosomal_dominant_or_x_linked?.predicted_or_proven_null?.length ?? 0) > 0 ||
+      (caseLevel?.autosomal_dominant_or_x_linked?.other_variant_type?.length ?? 0) > 0 ||
+      (caseLevel?.autosomal_recessive?.predicted_or_proven_null?.length ?? 0) > 0 ||
+      (caseLevel?.autosomal_recessive?.other_variant_type?.length ?? 0) > 0
 
-    const hasGenetic = hasCaseLevelEvidence || ge.segregation?.length > 0
+    const hasGenetic = hasCaseLevelEvidence || (ge.segregation?.length ?? 0) > 0
 
     return hasGenetic && !props.readonly
   })
 
-  // Score calculation functions
-  function calculateGeneticScore() {
-    const ge = evidenceData.value.genetic_evidence
-
-    let caseLevelTotal = 0
-    let segregationTotal = 0
-    let caseControlTotal = 0
-
-    // Case-level scoring - navigate nested structure
-    if (ge.case_level) {
-      // AD/X-linked variants
-      if (ge.case_level.autosomal_dominant_or_x_linked) {
-        const adXl = ge.case_level.autosomal_dominant_or_x_linked
-        caseLevelTotal += sumProbandPoints(adXl.predicted_or_proven_null)
-        caseLevelTotal += sumProbandPoints(adXl.other_variant_type)
-      }
-      // AR variants
-      if (ge.case_level.autosomal_recessive) {
-        const ar = ge.case_level.autosomal_recessive
-        caseLevelTotal += sumProbandPoints(ar.predicted_or_proven_null)
-        caseLevelTotal += sumProbandPoints(ar.other_variant_type)
-      }
-    }
-
-    // Segregation scoring
-    if (ge.segregation && Array.isArray(ge.segregation)) {
-      segregationTotal = ge.segregation.reduce((sum, item) => {
-        return sum + (parseFloat(item.points) || 0)
-      }, 0)
-    }
-
-    // Case-control scoring - navigate nested structure
-    if (ge.case_control) {
-      if (ge.case_control.single_variant_analysis) {
-        caseControlTotal += sumPoints(ge.case_control.single_variant_analysis)
-      }
-      if (ge.case_control.aggregate_variant_analysis) {
-        caseControlTotal += sumPoints(ge.case_control.aggregate_variant_analysis)
-      }
-    }
-
-    return {
-      caseLevel: Math.min(caseLevelTotal, 12),
-      segregation: Math.min(segregationTotal, 3),
-      caseControl: Math.min(caseControlTotal, 6),
-      total: Math.min(caseLevelTotal + segregationTotal + caseControlTotal, 12)
-    }
-  }
-
-  function calculateExperimentalScore() {
-    const exp = evidenceData.value.experimental_evidence
-    let functionTotal = 0
-    let functionalAlterationTotal = 0
-    let modelsTotal = 0
-    let rescueTotal = 0
-
-    // Function (max 2)
-    if (exp.function) {
-      const biochem = sumPoints(exp.function.biochemical_function)
-      const protein = sumPoints(exp.function.protein_interaction)
-      const expression = sumPoints(exp.function.expression)
-      functionTotal = Math.min(biochem + protein + expression, 2)
-    }
-
-    // Functional Alteration (max 2)
-    if (exp.functional_alteration) {
-      const patient = sumPoints(exp.functional_alteration.patient_cells)
-      const nonPatient = sumPoints(exp.functional_alteration.non_patient_cells)
-      functionalAlterationTotal = Math.min(patient + nonPatient, 2)
-    }
-
-    // Models (max 4)
-    if (exp.models) {
-      const organism = sumPoints(exp.models.non_human_model_organism)
-      const cellCulture = sumPoints(exp.models.cell_culture_model)
-      modelsTotal = Math.min(organism + cellCulture, 4)
-    }
-
-    // Rescue (max 4)
-    if (exp.rescue) {
-      const human = sumPoints(exp.rescue.human)
-      const organism = sumPoints(exp.rescue.non_human_model_organism)
-      const cellCulture = sumPoints(exp.rescue.cell_culture)
-      const patientCells = sumPoints(exp.rescue.patient_cells)
-      rescueTotal = Math.min(human + organism + cellCulture + patientCells, 4)
-    }
-
-    return {
-      function: functionTotal,
-      functionalAlteration: functionalAlterationTotal,
-      models: modelsTotal,
-      rescue: rescueTotal,
-      total: Math.min(functionTotal + functionalAlterationTotal + modelsTotal + rescueTotal, 6)
-    }
-  }
-
-  function sumPoints(items) {
-    if (!Array.isArray(items)) return 0
-    return items.reduce((sum, item) => sum + (parseFloat(item.points) || 0), 0)
-  }
-
-  function sumProbandPoints(items) {
-    if (!Array.isArray(items)) return 0
-    return items.reduce((sum, item) => sum + (parseFloat(item.proband_counted_points) || 0), 0)
-  }
-
   // Event handlers
-  function handleGeneticUpdate(data) {
+  function handleGeneticUpdate(data: GeneticEvidence) {
     evidenceData.value.genetic_evidence = data
     emitUpdate()
   }
 
-  function handleExperimentalUpdate(data) {
+  function handleExperimentalUpdate(data: ExperimentalEvidence) {
     evidenceData.value.experimental_evidence = data
     emitUpdate()
   }
 
-  function handleContradictoryUpdate(data) {
+  function handleContradictoryUpdate(data: EvidenceItem[]) {
     evidenceData.value.contradictory_evidence = data
     emitUpdate()
   }
 
-  function updateEvidenceSummary(summary) {
+  function updateEvidenceSummary(summary: string) {
     evidenceData.value.evidence_summary = summary
     emitUpdate()
   }
@@ -532,7 +389,7 @@
   }
 
   // Keyboard shortcuts
-  function handleKeydown(event) {
+  function handleKeydown(event: KeyboardEvent) {
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {

@@ -6,8 +6,7 @@ Provides common dependencies like database sessions and user authentication.
 from collections.abc import Generator
 from typing import Any
 
-from fastapi import Depends
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 
 
 # Mock implementations for testing - would use real implementations in production
@@ -43,12 +42,3 @@ def get_current_active_user() -> UserDependency:
 
 # Security scheme
 security = HTTPBearer(auto_error=False)
-
-
-def get_current_user_token(
-    credentials: HTTPAuthorizationCredentials | None = Depends(security),
-) -> str | None:
-    """Extract token from authorization header."""
-    if credentials:
-        return credentials.credentials
-    return None

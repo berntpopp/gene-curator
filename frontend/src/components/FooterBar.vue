@@ -72,7 +72,7 @@
   </v-footer>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { computed } from 'vue'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'

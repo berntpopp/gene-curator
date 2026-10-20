@@ -104,54 +104,53 @@
   </v-autocomplete>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, watch, computed } from 'vue'
   import { scopeService } from '@/services/scopeService'
   import { useLogger } from '@/composables/useLogger'
+
+  interface UserOption {
+    id: string
+    name?: string | null
+    email: string
+    institution?: string | null
+  }
+
+  interface UserSearchResult extends UserOption {
+    displayName: string
+  }
+
+  interface ApiError {
+    message: string
+    stack?: string
+  }
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    /**
-     * Scope ID for searching non-members
-     */
-    scopeId: {
-      type: String,
-      required: true
-    },
-    /**
-     * v-model value (selected user object)
-     */
-    modelValue: {
-      type: Object,
-      default: null
-    },
-    /**
-     * Input label
-     */
-    label: {
-      type: String,
-      default: 'Search users'
-    },
-    /**
-     * Placeholder text
-     */
-    placeholder: {
-      type: String,
-      default: 'Type to search by name, email, or institution...'
-    },
-    /**
-     * Additional user IDs to exclude from results
-     */
-    excludeUserIds: {
-      type: Array,
-      default: () => []
+  const props = withDefaults(
+    defineProps<{
+      /** Scope ID for searching non-members */
+      scopeId: string
+      /** v-model value (selected user object) */
+      modelValue?: UserSearchResult | null
+      /** Input label */
+      label?: string
+      /** Placeholder text */
+      placeholder?: string
+      /** Additional user IDs to exclude from results */
+      excludeUserIds?: string[]
+    }>(),
+    {
+      modelValue: null,
+      label: 'Search users',
+      placeholder: 'Type to search by name, email, or institution...',
+      excludeUserIds: () => []
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue'])
+  const emit = defineEmits<{ 'update:modelValue': [value: UserSearchResult | null] }>()
 
   // ============================================
   // COMPOSABLES
@@ -164,9 +163,9 @@
   // ============================================
 
   const searchQuery = ref('')
-  const searchResults = ref([])
+  const searchResults = ref<UserSearchResult[]>([])
   const searching = ref(false)
-  const debounceTimeout = ref(null)
+  const debounceTimeout = ref<ReturnType<typeof setTimeout> | null>(null)
 
   // ============================================
   // COMPUTED
@@ -184,11 +183,13 @@
   /**
    * Get user initials for avatar
    */
-  const getInitials = name => {
+  const getInitials = (name: string | null | undefined): string => {
     if (!name) return '?'
     const parts = name.trim().split(' ')
-    if (parts.length === 1) return parts[0].charAt(0).toUpperCase()
-    return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase()
+    const first = parts[0]?.charAt(0) ?? ''
+    if (parts.length === 1) return first.toUpperCase()
+    const last = parts[parts.length - 1]?.charAt(0) ?? ''
+    return (first + last).toUpperCase()
   }
 
   /**
@@ -203,7 +204,7 @@
   /**
    * Handle search input changes with debouncing
    */
-  const onSearchUpdate = query => {
+  const onSearchUpdate = (query: string) => {
     searchQuery.value = query
 
     // Clear previous timeout
@@ -227,11 +228,11 @@
   /**
    * Perform the actual search
    */
-  const performSearch = async query => {
+  const performSearch = async (query: string) => {
     searching.value = true
 
     try {
-      const results = await scopeService.searchUsersForInvite(props.scopeId, query)
+      const results: UserOption[] = await scopeService.searchUsersForInvite(props.scopeId, query)
 
       // Filter out excluded users
       let filtered = results
@@ -250,10 +251,11 @@
         resultCount: searchResults.value.length
       })
     } catch (error) {
+      const err = error as ApiError
       logger.error('User search failed', {
         query,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       searchResults.value = []
     } finally {

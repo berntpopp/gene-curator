@@ -98,15 +98,22 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewSchema(item)" />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editSchema(item)" />
             <v-btn
+              aria-label="Edit schema"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editSchema(item)"
+            />
+            <v-btn
+              aria-label="Duplicate schema"
               icon="mdi-content-copy"
               size="small"
               variant="text"
               @click="duplicateSchema(item)"
             />
             <v-btn
+              aria-label="Delete schema"
               icon="mdi-delete"
               size="small"
               variant="text"
@@ -170,7 +177,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
@@ -178,11 +185,21 @@
   import { showError, showSuccess } from '@/composables/useNotifications'
   import {
     transformSchemas,
+    type TransformedSchema,
     formatType,
     formatStatus,
     getTypeColor,
     getStatusColor
   } from '@/utils/schemaTransformer'
+
+  // Minimal shape of errors thrown by the API client (axios) or the stores
+  interface ApiError {
+    message?: string
+    stack?: string
+    response?: { status?: number }
+  }
+
+  type SchemaRow = TransformedSchema & { id: string; created_at?: string | null }
 
   const router = useRouter()
   const schemasStore = useSchemasStore()
@@ -191,16 +208,17 @@
   const loading = ref(false)
   const creating = ref(false)
   const searchQuery = ref('')
-  const selectedType = ref(null)
-  const selectedStatus = ref(null)
+  const selectedType = ref<string | null>(null)
+  const selectedStatus = ref<string | null>(null)
   const createSchemaDialog = ref(false)
-  const createForm = ref(null)
+  const createForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
+    const apiErr = err as ApiError
     logger.error('SchemaManagement error', {
-      error: err.message,
-      stack: err.stack,
+      error: apiErr.message,
+      stack: apiErr.stack,
       component: instance?.$options?.name || 'SchemaManagement',
       errorInfo: info
     })
@@ -211,7 +229,12 @@
     return false
   })
 
-  const newSchema = ref({
+  const newSchema = ref<{
+    name: string
+    description: string
+    type: string | null
+    version: string
+  }>({
     name: '',
     description: '',
     type: null,
@@ -241,7 +264,7 @@
 
   // Transform raw schemas from store using schemaTransformer utility (DRY principle)
   // This handles backend field mapping (schema_type -> type, is_active -> status)
-  const schemas = computed(() => transformSchemas(schemasStore.schemas))
+  const schemas = computed(() => transformSchemas(schemasStore.schemas) as SchemaRow[])
 
   const filteredSchemas = computed(() => {
     // Defensive: ensure schemas is always an array
@@ -261,29 +284,24 @@
   // Note: getTypeColor, getStatusColor, formatType, formatStatus
   // are now imported from @/utils/schemaTransformer (DRY principle)
 
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
+  const formatDate = (dateString: string | null | undefined) => {
+    return dateString ? new Date(dateString).toLocaleDateString() : ''
   }
 
-  const viewSchema = schema => {
-    logger.info('View schema requested', { schemaId: schema.id, schemaName: schema.name })
-    // TODO: Implement schema detail view when available
-  }
-
-  const editSchema = schema => {
+  const editSchema = (schema: SchemaRow) => {
     try {
       router.push({ name: 'SchemaEditor', params: { id: schema.id } })
       logger.info('Navigate to schema editor', { schemaId: schema.id, schemaName: schema.name })
     } catch (error) {
       logger.error('Failed to navigate to schema editor', {
         schemaId: schema.id,
-        error: error.message
+        error: (error as ApiError).message
       })
       showError('Failed to open schema editor')
     }
   }
 
-  const duplicateSchema = async schema => {
+  const duplicateSchema = async (schema: SchemaRow) => {
     try {
       const duplicated = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema duplicated', {
@@ -293,28 +311,30 @@
       })
       showSuccess(`Schema "${schema.name}" duplicated successfully`)
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to duplicate schema', {
         schemaId: schema.id,
         schemaName: schema.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to duplicate schema')
     }
   }
 
-  const deleteSchema = async schema => {
+  const deleteSchema = async (schema: SchemaRow) => {
     if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
       try {
         await schemasStore.deleteSchema(schema.id)
         logger.info('Schema deleted', { schemaId: schema.id, schemaName: schema.name })
         showSuccess(`Schema "${schema.name}" deleted successfully`)
       } catch (error) {
+        const err = error as ApiError
         logger.error('Failed to delete schema', {
           schemaId: schema.id,
           schemaName: schema.name,
-          error: error.message,
-          stack: error.stack
+          error: err.message,
+          stack: err.stack
         })
         showError('Failed to delete schema')
       }
@@ -322,12 +342,23 @@
   }
 
   const createSchema = async () => {
+    if (!createForm.value) return
     const { valid } = await createForm.value.validate()
     if (!valid) return
 
     creating.value = true
     try {
-      await schemasStore.createSchema(newSchema.value)
+      const { type, ...basics } = newSchema.value
+      // Created as an inactive skeleton; the fields are defined in the schema editor
+      await schemasStore.createSchema({
+        ...basics,
+        schema_type: type as string,
+        field_definitions: {},
+        workflow_states: {},
+        ui_configuration: {},
+        is_active: false,
+        use_dynamic_form: true
+      })
       logger.info('Schema created', { schemaName: newSchema.value.name })
       showSuccess(`Schema "${newSchema.value.name}" created successfully`)
 
@@ -339,10 +370,11 @@
         version: '1.0.0'
       }
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to create schema', {
         schemaName: newSchema.value.name,
-        error: error.message,
-        stack: error.stack
+        error: err.message,
+        stack: err.stack
       })
       showError('Failed to create schema')
     } finally {
@@ -356,15 +388,16 @@
       await schemasStore.fetchSchemas()
       logger.info('SchemaManagement mounted', { schemasCount: schemas.value.length })
     } catch (error) {
+      const err = error as ApiError
       logger.error('Failed to load schemas', {
-        error: error.message,
-        status: error.response?.status,
+        error: err.message,
+        status: err.response?.status,
         endpoint: '/api/v1/schemas',
-        stack: error.stack
+        stack: err.stack
       })
 
       // Check if 404 (endpoint doesn't exist yet)
-      if (error.response?.status === 404) {
+      if (err.response?.status === 404) {
         showError('Schema management is not yet available. This feature is under development.')
       } else {
         showError('Failed to load schemas. Please refresh.')

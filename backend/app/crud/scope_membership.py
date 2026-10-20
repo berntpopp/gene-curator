@@ -31,6 +31,18 @@ INVITATION_VALIDITY_DAYS = 7
 logger = get_logger(__name__)
 
 
+def is_invitation_expired(expires_at: datetime | None, now: datetime) -> bool:
+    """Return True if an invitation's expiry lies before `now`.
+
+    Naive timestamps (SQLite returns them without tzinfo) are treated as UTC.
+    """
+    if expires_at is None:
+        return False
+    if expires_at.tzinfo is None:
+        expires_at = expires_at.replace(tzinfo=UTC)
+    return expires_at < now
+
+
 class ScopeMembershipCRUD(
     CRUDBase[ScopeMembership, ScopeMembershipCreate, ScopeMembershipUpdate]
 ):
@@ -65,6 +77,10 @@ class ScopeMembershipCRUD(
             ValueError: If user_id provided but user doesn't exist
             ValueError: If user is already a member
         """
+        # Email-only invitations are not implemented (membership.user_id is NOT NULL)
+        if obj_in.user_id is None:
+            raise ValueError("Email invitations are not supported yet; provide user_id")
+
         # Validate user exists if user_id provided
         if obj_in.user_id:
             user = (
@@ -192,6 +208,14 @@ class ScopeMembershipCRUD(
             )
             raise ValueError("Invitation already accepted")
 
+        if is_invitation_expired(membership.expires_at, datetime.now(UTC)):
+            logger.warning(
+                "Accept invitation failed: expired",
+                membership_id=str(membership_id),
+                expires_at=str(membership.expires_at),
+            )
+            raise ValueError("Invitation has expired")
+
         # Accept invitation
         membership.accepted_at = datetime.now(UTC)
         db.commit()
@@ -206,6 +230,29 @@ class ScopeMembershipCRUD(
         )
 
         return membership
+
+    def create_owner_membership(
+        self, db: Session, *, scope_id: UUID, owner_id: UUID
+    ) -> ScopeMembership:
+        """
+        Make a scope's creator its active admin (no invitation to accept).
+
+        Invitations are always pending (accepted_at NULL grants no access), so
+        the creator's own membership must be accepted immediately.
+        """
+        membership = self.create_invitation(
+            db,
+            scope_id=scope_id,
+            invited_by_id=owner_id,
+            obj_in=ScopeMembershipCreate(
+                user_id=owner_id,
+                email=None,
+                team_id=None,
+                role=ScopeRole.ADMIN,
+                notes="Creator and initial scope administrator",
+            ),
+        )
+        return self.accept_invitation(db, membership_id=membership.id, user_id=owner_id)
 
     def list_members(
         self,

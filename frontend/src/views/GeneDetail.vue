@@ -29,7 +29,7 @@
       <v-alert-title>Failed to load gene information</v-alert-title>
       {{ error }}
       <template #append>
-        <v-btn :to="{ name: 'Genes' }" variant="text" color="error"> Back to Genes </v-btn>
+        <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="error"> Back to Genes </v-btn>
       </template>
     </v-alert>
 
@@ -37,7 +37,13 @@
     <template v-else-if="localGene">
       <!-- Header -->
       <div class="d-flex align-center mb-6">
-        <v-btn :to="{ name: 'Genes' }" icon="mdi-arrow-left" variant="text" class="mr-3" />
+        <v-btn
+          aria-label="Back to genes"
+          :to="{ name: 'GeneCatalogue' }"
+          icon="mdi-arrow-left"
+          variant="text"
+          class="mr-3"
+        />
         <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
         <div class="flex-grow-1">
           <div class="d-flex align-center">
@@ -229,7 +235,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * GeneDetail View
    *
@@ -237,11 +243,15 @@
    * combined with local database metadata.
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
-  import { useGenesStore } from '@/stores/genes.js'
+  import { useGenesStore } from '@/stores/genes'
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
+
+  type Gene = Schema<'Gene'>
+  type HgncGene = Schema<'HGNCGeneSearchResult'>
 
   const route = useRoute()
   const genesStore = useGenesStore()
@@ -249,18 +259,18 @@
 
   // State
   const loading = ref(true)
-  const error = ref(null)
-  const hgncData = ref(null)
+  const error = ref<string | null>(null)
+  const hgncData = ref<HgncGene | null>(null)
 
-  // Local gene data from database
-  const localGene = computed(() => genesStore.currentGene)
+  // Local gene data from database (store is JS, so its currentGene is typed null)
+  const localGene = computed(() => genesStore.currentGene as Gene | null)
 
   // Computed properties for aliases (prefer HGNC data, fallback to local)
-  const aliasSymbols = computed(() => {
+  const aliasSymbols = computed<string[]>(() => {
     return hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
   })
 
-  const previousSymbols = computed(() => {
+  const previousSymbols = computed<string[]>(() => {
     return hgncData.value?.previous_symbols || localGene.value?.previous_symbols || []
   })
 
@@ -269,7 +279,7 @@
   })
 
   // HGNC external URL
-  const hgncUrl = computed(() => {
+  const hgncUrl = computed<string>(() => {
     const hgncId = hgncData.value?.hgnc_id || localGene.value?.hgnc_id
     if (!hgncId) return ''
     const numericId = hgncId.replace('HGNC:', '')
@@ -279,7 +289,7 @@
   /**
    * Format date for display
    */
-  function formatDate(dateString) {
+  function formatDate(dateString: string | null | undefined): string {
     if (!dateString) return '—'
     const date = new Date(dateString)
     return date.toLocaleDateString(undefined, {
@@ -294,60 +304,59 @@
   /**
    * Fetch HGNC data for the gene
    */
-  async function fetchHgncData(hgncId) {
+  async function fetchHgncData(hgncId: string | null | undefined): Promise<void> {
     if (!hgncId) return
 
     try {
       const response = await externalValidationAPI.fetchHGNCGene(hgncId)
 
-      if (response.results && response.results.length > 0) {
-        hgncData.value = response.results[0]
+      if (response.results.length > 0) {
+        hgncData.value = response.results[0] ?? null
         logger.debug('HGNC data fetched', {
           hgnc_id: hgncId,
-          symbol: hgncData.value.symbol
+          symbol: hgncData.value?.symbol
         })
       }
     } catch (e) {
       logger.warn('Failed to fetch HGNC data, using local data', {
         hgnc_id: hgncId,
-        error: e.message
+        error: (e as Error).message
       })
       // Don't set error - we can still show local data
     }
   }
 
-  onMounted(async () => {
+  async function loadGene(geneId: string) {
     try {
       loading.value = true
       error.value = null
+      hgncData.value = null
 
-      const geneId = route.params.id
-      await genesStore.fetchGeneById(geneId)
-
-      if (!localGene.value) {
-        error.value = 'Gene not found in database'
-        return
-      }
+      const gene = await genesStore.fetchGeneById(geneId)
 
       // Fetch HGNC data for enhanced information
-      if (localGene.value.hgnc_id) {
-        await fetchHgncData(localGene.value.hgnc_id)
+      if (gene.hgnc_id) {
+        await fetchHgncData(gene.hgnc_id)
       }
 
       logger.info('Gene details loaded', {
         gene_id: geneId,
-        symbol: localGene.value.approved_symbol
+        symbol: gene.approved_symbol
       })
     } catch (err) {
+      const e = err as Error
       logger.error('Failed to load gene details', {
-        error: err.message,
-        stack: err.stack
+        error: e.message,
+        stack: e.stack
       })
       error.value = 'Failed to load gene details'
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  // Reload when navigating between genes (the component is reused for /genes/:id)
+  watch(() => route.params.id as string, loadGene, { immediate: true })
 </script>
 
 <style scoped>

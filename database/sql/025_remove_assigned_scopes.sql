@@ -22,5 +22,6 @@ WHERE u.assigned_scopes IS NOT NULL
 )
 ON CONFLICT DO NOTHING;
 
--- Step 2: Drop the column
+-- Step 2: Drop the column (and the unused views from 003 that still read it)
+DROP VIEW IF EXISTS user_workload_dashboard, data_integrity_checks;
 ALTER TABLE users DROP COLUMN IF EXISTS assigned_scopes;

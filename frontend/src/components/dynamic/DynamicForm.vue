@@ -101,8 +101,8 @@
               </template>
               <div class="font-weight-medium mb-2">Form Validation Errors</div>
               <ul class="pl-4">
-                <li v-for="error in validationResult.errors" :key="error.field">
-                  <strong>{{ error.field }}:</strong> {{ error.message }}
+                <li v-for="item in validationResult.errors" :key="item.field">
+                  <strong>{{ item.field }}:</strong> {{ item.message }}
                 </li>
               </ul>
             </v-alert>
@@ -181,51 +181,88 @@
   </v-form>
 </template>
 
-<script setup>
-  import { useLogger } from '@/composables/useLogger'
-
-  const logger = useLogger()
+<script setup lang="ts">
   import { ref, computed, onMounted, watch, nextTick } from 'vue'
+  import { useLogger } from '@/composables/useLogger'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
   import TabContent from './TabContent.vue'
   import ScoreDisplay from './ScoreDisplay.vue'
+  import { useFormTabs } from './composables/useFormTabs'
+  import { errorDetails } from './errorDetails'
+  import { toFormValidation } from './validationResult'
+  import type {
+    FieldSchema,
+    FieldValidation,
+    FormValidationResult,
+    JsonSchemaDocument
+  } from './types'
 
-  const props = defineProps({
-    schemaId: {
-      type: String,
-      required: true
-    },
-    title: {
-      type: String,
-      default: 'Dynamic Form'
-    },
-    initialData: {
-      type: Object,
-      default: () => ({})
-    },
-    readonly: {
-      type: Boolean,
-      default: false
+  const logger = useLogger()
+
+  /** Subset of Vuetify's VForm instance used here */
+  interface FormHandle {
+    validate: () => Promise<{ valid: boolean }>
+  }
+
+  type FormData = Record<string, unknown>
+
+  const props = withDefaults(
+    defineProps<{
+      schemaId: string
+      title?: string
+      initialData?: FormData
+      readonly?: boolean
+    }>(),
+    {
+      title: 'Dynamic Form',
+      initialData: () => ({}),
+      readonly: false
     }
-  })
+  )
 
-  const emit = defineEmits(['submit', 'save-draft', 'update:modelValue', 'validation-change'])
+  const emit = defineEmits<{
+    submit: [data: FormData]
+    'save-draft': [data: FormData]
+    'update:modelValue': [data: FormData]
+    'validation-change': [result: FormValidationResult | undefined]
+  }>()
 
   const validationStore = useValidationStore()
-  const formRef = ref(null)
-  const formData = ref({ ...props.initialData })
+  const formRef = ref<FormHandle | null>(null)
+  const formData = ref<FormData>({ ...props.initialData })
   const saving = ref(false)
   const submitting = ref(false)
   const validating = ref(false)
-  const activeTab = ref(null)
-  const backendErrors = ref({}) // { fieldPath: [error messages] }
-  const nonFieldErrors = ref([]) // Errors not mapped to specific fields
+  const activeTab = ref<string | null>(null)
+  const backendErrors = ref<Record<string, string[]>>({}) // { fieldPath: [error messages] }
+  const nonFieldErrors = ref<string[]>([]) // Errors not mapped to specific fields
+
+  // Debounce timers for the two update paths (one per path, as before)
+  let fieldUpdateTimer: ReturnType<typeof setTimeout> | undefined
+  let tabUpdateTimer: ReturnType<typeof setTimeout> | undefined
 
   const loading = computed(() => validationStore.loading)
   const error = computed(() => validationStore.error)
-  const jsonSchema = computed(() => validationStore.getJsonSchema(props.schemaId))
-  const validationResult = computed(() => validationStore.getValidationResult('form'))
+  // The store is untyped JS; an unloaded schema is treated as an empty document
+  const jsonSchema = computed<JsonSchemaDocument>(
+    () => validationStore.getJsonSchema(props.schemaId) ?? {}
+  )
+  const validationResult = computed(() => {
+    const raw = validationStore.getValidationResult('form')
+    return raw ? toFormValidation(raw) : undefined
+  })
+
+  const {
+    hasTabs,
+    validTabs,
+    tabScores,
+    tabValidationErrors,
+    getScoreColor,
+    nextTab,
+    prevTab,
+    findFirstInvalidTab
+  } = useFormTabs({ jsonSchema, validationResult, backendErrors, activeTab })
 
   const showScoring = computed(() => {
     return jsonSchema.value?.scoring_configuration?.engine != null
@@ -245,174 +282,53 @@
     return true
   })
 
-  const hasTabs = computed(() => {
-    const layout = jsonSchema.value?.ui_configuration?.layout
-
-    if (!layout) {
-      logger.debug('No ui_configuration.layout - using flat rendering')
-      return false
+  const clearFieldBackendError = (fieldPath: string) => {
+    if (backendErrors.value[fieldPath]) {
+      delete backendErrors.value[fieldPath]
     }
-
-    if (layout.type !== 'tabs') {
-      logger.debug('Layout type not tabs - using flat rendering', { type: layout.type })
-      return false
-    }
-
-    if (!Array.isArray(layout.tabs) || layout.tabs.length === 0) {
-      logger.warn('Invalid tabs configuration - using flat rendering', { layout })
-      return false
-    }
-
-    return true
-  })
-
-  const validTabs = computed(() => {
-    if (!hasTabs.value) return []
-
-    const tabs = jsonSchema.value.ui_configuration.layout.tabs.filter(tab => {
-      // Validate tab structure
-      if (!tab.id || !tab.name) {
-        logger.warn('Tab missing required fields', { tab })
-        return false
-      }
-
-      if (!Array.isArray(tab.sections) || tab.sections.length === 0) {
-        logger.warn('Tab has no sections', { tabId: tab.id })
-        return false
-      }
-
-      return true
-    })
-
-    // If fewer than 2 valid tabs, fallback to flat rendering
-    if (tabs.length < 2) {
-      logger.warn('Fewer than 2 valid tabs - using flat rendering', { validCount: tabs.length })
-      return []
-    }
-
-    return tabs
-  })
-
-  /**
-   * Calculate score for each tab with show_score_badge enabled
-   * Maps tab IDs to their corresponding score from validationResult
-   */
-  const tabScores = computed(() => {
-    if (!validationResult.value?.score_calculations) return {}
-
-    const scores = {}
-    validTabs.value.forEach(tab => {
-      if (tab.show_score_badge) {
-        scores[tab.id] = calculateTabScore(tab)
-      }
-    })
-
-    return scores
-  })
-
-  /**
-   * Map tab ID to score calculation field
-   * Convention: tab.id maps to score_calculations[tab.id + '_score']
-   * Special cases: genetic -> genetic_evidence_score, experimental -> experimental_evidence_score
-   */
-  function calculateTabScore(tab) {
-    const scoreCalcs = validationResult.value?.score_calculations
-    if (!scoreCalcs) return null
-
-    // Check for direct mapping with _score suffix
-    const scoreKey = `${tab.id}_score`
-    if (scoreCalcs[scoreKey] !== undefined) {
-      return scoreCalcs[scoreKey]
-    }
-
-    // Check for special cases
-    const specialMappings = {
-      genetic: 'genetic_evidence_score',
-      experimental: 'experimental_evidence_score',
-      clinical: 'clinical_evidence_score'
-    }
-
-    const specialKey = specialMappings[tab.id]
-    if (specialKey && scoreCalcs[specialKey] !== undefined) {
-      return scoreCalcs[specialKey]
-    }
-
-    return null
   }
 
-  /**
-   * Track which tabs have validation errors
-   */
-  const tabValidationErrors = computed(() => {
-    const errors = {}
-
-    validTabs.value.forEach(tab => {
-      // Get all field paths in this tab
-      const fieldsInTab = getTabFieldPaths(tab)
-      const hasErrors = fieldsInTab.some(fieldPath => backendErrors.value[fieldPath]?.length > 0)
-      errors[tab.id] = hasErrors
-    })
-
-    return errors
-  })
-
-  /**
-   * Extract all field paths from a tab's sections
-   */
-  const getTabFieldPaths = tab => {
-    const paths = []
-    tab.sections?.forEach(section => {
-      section.fields?.forEach(fieldPath => {
-        paths.push(fieldPath)
-      })
-    })
-    return paths
+  const validateForm = async () => {
+    validating.value = true
+    try {
+      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      handleBackendValidation(result ? toFormValidation(result) : undefined)
+    } catch (err) {
+      logger.error('Form validation error:', errorDetails(err))
+    } finally {
+      validating.value = false
+    }
   }
 
-  /**
-   * Determine color for score badge based on value
-   * @param {number|null} score - Score value
-   * @returns {string} Vuetify color name
-   */
-  function getScoreColor(score) {
-    if (score === null || score === undefined) return 'grey'
-    if (score >= 7) return 'success'
-    if (score >= 2) return 'warning'
-    return 'info'
-  }
-
-  const updateField = (fieldName, value) => {
+  const updateField = (fieldName: string, value: unknown) => {
     clearFieldBackendError(fieldName)
     formData.value[fieldName] = value
     // Trigger validation debounced
-    clearTimeout(updateField.timeout)
-    updateField.timeout = setTimeout(() => {
+    clearTimeout(fieldUpdateTimer)
+    fieldUpdateTimer = setTimeout(() => {
       validateForm()
     }, 500)
   }
 
   /**
    * Set nested value using dot notation path
-   * @param {Object} obj - Target object
-   * @param {string} path - Dot-notation path
-   * @param {*} value - Value to set
    */
-  const setNestedValue = (obj, path, value) => {
+  const setNestedValue = (obj: FormData, path: string, value: unknown) => {
     const keys = path.split('.')
-    const lastKey = keys.pop()
-    const target = keys.reduce((acc, key) => {
+    const lastKey = keys.pop()!
+    const target = keys.reduce<FormData>((acc, key) => {
       if (!acc[key]) acc[key] = {}
-      return acc[key]
+      return acc[key] as FormData
     }, obj)
     target[lastKey] = value
   }
 
   /**
    * Handle field updates from TabContent (supports nested paths)
-   * @param {string} fieldPath - Dot-notation field path
-   * @param {*} value - New field value
+   * @param fieldPath - Dot-notation field path
+   * @param value - New field value
    */
-  const handleTabFieldUpdate = (fieldPath, value) => {
+  const handleTabFieldUpdate = (fieldPath: string, value: unknown) => {
     clearFieldBackendError(fieldPath)
 
     // Handle nested paths using dot notation
@@ -426,29 +342,28 @@
     emit('update:modelValue', { ...formData.value })
 
     // Trigger validation debounced
-    clearTimeout(handleTabFieldUpdate.timeout)
-    handleTabFieldUpdate.timeout = setTimeout(() => {
+    clearTimeout(tabUpdateTimer)
+    tabUpdateTimer = setTimeout(() => {
       validateForm()
     }, 500)
   }
 
-  const validateField = async (fieldName, value) => {
+  const validateField = async (fieldName: string, value: unknown) => {
     try {
       await validationStore.validateField({
         field_name: fieldName,
         field_value: value,
-        schema_id: props.schemaId
+        field_config: { ...jsonSchema.value.properties?.[fieldName] }
       })
-    } catch (error) {
-      logger.error('Field validation error:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Field validation error:', errorDetails(err))
     }
   }
 
   /**
    * Process backend validation result and map errors to fields
-   * @param {Object} result - Validation result from backend
    */
-  const handleBackendValidation = result => {
+  const handleBackendValidation = (result: FormValidationResult | undefined) => {
     backendErrors.value = {}
     nonFieldErrors.value = []
 
@@ -459,48 +374,26 @@
       Object.entries(result.field_validations).forEach(([field, validation]) => {
         if (validation.errors && validation.errors.length > 0) {
           // Take first error only per CONTEXT.md decision
-          backendErrors.value[field] = [validation.errors[0].message]
+          backendErrors.value[field] = [validation.errors[0]!.message]
         }
       })
     }
 
     // Collect non-field errors (errors without field mapping)
     if (result.errors) {
-      result.errors.forEach(error => {
-        if (!error.field || !result.field_validations?.[error.field]) {
-          nonFieldErrors.value.push(error.message)
+      result.errors.forEach(err => {
+        if (!err.field || !result.field_validations?.[err.field]) {
+          nonFieldErrors.value.push(err.message)
         }
       })
     }
   }
 
-  /**
-   * Clear backend error for a specific field
-   * @param {string} fieldPath - Field path (supports dot notation)
-   */
-  const clearFieldBackendError = fieldPath => {
-    if (backendErrors.value[fieldPath]) {
-      delete backendErrors.value[fieldPath]
-    }
-  }
-
-  const validateForm = async () => {
-    validating.value = true
-    try {
-      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
-      handleBackendValidation(result)
-    } catch (error) {
-      logger.error('Form validation error:', { error: error.message, stack: error.stack })
-    } finally {
-      validating.value = false
-    }
-  }
-
-  const getFieldValidation = fieldName => {
+  const getFieldValidation = (fieldName: string): FieldValidation | undefined => {
     return validationResult.value?.field_validations?.[fieldName]
   }
 
-  const getFieldCols = field => {
+  const getFieldCols = (field: FieldSchema): number => {
     // Determine column width based on field type
     switch (field.type) {
       case 'boolean':
@@ -517,43 +410,13 @@
   }
 
   /**
-   * Navigate to next tab (for mobile swipe gesture)
-   */
-  function nextTab() {
-    const currentIndex = validTabs.value.findIndex(t => t.id === activeTab.value)
-    if (currentIndex < validTabs.value.length - 1) {
-      activeTab.value = validTabs.value[currentIndex + 1].id
-    }
-  }
-
-  /**
-   * Navigate to previous tab (for mobile swipe gesture)
-   */
-  function prevTab() {
-    const currentIndex = validTabs.value.findIndex(t => t.id === activeTab.value)
-    if (currentIndex > 0) {
-      activeTab.value = validTabs.value[currentIndex - 1].id
-    }
-  }
-
-  /**
-   * Find first tab containing validation errors
-   */
-  const findFirstInvalidTab = () => {
-    for (const tab of validTabs.value) {
-      if (tabValidationErrors.value[tab.id]) {
-        return tab.id
-      }
-    }
-    return null
-  }
-
-  /**
    * Focus first field with validation error in current tab
    */
   const focusFirstInvalidField = () => {
     // Query for Vuetify input with error state
-    const errorInput = document.querySelector('.v-input--error input, .v-input--error textarea')
+    const errorInput = document.querySelector<HTMLElement>(
+      '.v-input--error input, .v-input--error textarea'
+    )
     if (errorInput) {
       errorInput.focus()
       logger.debug('Focused first invalid field')
@@ -564,7 +427,7 @@
     submitting.value = true
     try {
       // Validate using v-form ref (VALD-06)
-      const { valid } = await formRef.value.validate()
+      const { valid } = await formRef.value!.validate()
 
       if (!valid) {
         // Find first tab with error and navigate to it
@@ -584,8 +447,8 @@
       if (validationResult.value?.is_valid !== false) {
         emit('submit', formData.value)
       }
-    } catch (error) {
-      logger.error('Submit error:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Submit error:', errorDetails(err))
     } finally {
       submitting.value = false
     }
@@ -595,8 +458,8 @@
     saving.value = true
     try {
       emit('save-draft', formData.value)
-    } catch (error) {
-      logger.error('Save draft error:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Save draft error:', errorDetails(err))
     } finally {
       saving.value = false
     }
@@ -607,7 +470,7 @@
     validTabs,
     tabs => {
       if (tabs.length > 0 && !activeTab.value) {
-        activeTab.value = tabs[0].id
+        activeTab.value = tabs[0]!.id
         logger.debug('Initialized active tab', { tabId: activeTab.value })
       }
     },
@@ -621,11 +484,8 @@
       if (newSchemaId) {
         try {
           await validationStore.generateJsonSchema(newSchemaId)
-        } catch (error) {
-          logger.error('Failed to generate JSON schema:', {
-            error: error.message,
-            stack: error.stack
-          })
+        } catch (err) {
+          logger.error('Failed to generate JSON schema:', errorDetails(err))
         }
       }
     },
@@ -668,8 +528,8 @@
         if (Object.keys(formData.value).length > 0) {
           await validateForm()
         }
-      } catch (error) {
-        logger.error('Failed to initialize form:', { error: error.message, stack: error.stack })
+      } catch (err) {
+        logger.error('Failed to initialize form:', errorDetails(err))
       }
     }
   })

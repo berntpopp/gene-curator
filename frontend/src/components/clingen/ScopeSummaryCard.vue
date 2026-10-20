@@ -72,15 +72,22 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { computed } from 'vue'
 
-  const props = defineProps({
-    scopeSummary: {
-      type: Object,
-      required: true
-    }
-  })
+  interface ScopeSummary {
+    scope_name: string
+    classification?: string | null
+    genetic_score: number
+    experimental_score: number
+    total_score: number
+    curator_count: number
+    evidence_count: number
+    last_updated?: string | null
+    is_public?: boolean
+  }
+
+  const props = defineProps<{ scopeSummary: ScopeSummary }>()
 
   // Classification color based on score
   const classificationColor = computed(() => {
@@ -98,7 +105,7 @@
   })
 
   // Format date helper
-  const formatDate = dateString => {
+  const formatDate = (dateString: string | null | undefined): string => {
     if (!dateString) return 'N/A'
     const date = new Date(dateString)
     return date.toLocaleDateString('en-US', {

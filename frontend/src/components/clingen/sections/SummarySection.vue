@@ -240,7 +240,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * SummarySection
    *
@@ -250,30 +250,24 @@
 
   import { ref, computed, watch } from 'vue'
 
-  const props = defineProps({
-    evidenceSummary: {
-      type: String,
-      default: ''
-    },
-    geneticScore: {
-      type: Number,
-      default: 0
-    },
-    experimentalScore: {
-      type: Number,
-      default: 0
-    },
-    totalScore: {
-      type: Number,
-      default: 0
-    },
-    classification: {
-      type: String,
-      default: 'No Known Disease Relationship'
+  const props = withDefaults(
+    defineProps<{
+      evidenceSummary?: string
+      geneticScore?: number
+      experimentalScore?: number
+      totalScore?: number
+      classification?: string
+    }>(),
+    {
+      evidenceSummary: '',
+      geneticScore: 0,
+      experimentalScore: 0,
+      totalScore: 0,
+      classification: 'No Known Disease Relationship'
     }
-  })
+  )
 
-  defineEmits(['update:evidence-summary'])
+  defineEmits<{ 'update:evidence-summary': [summary: string] }>()
 
   const summaryText = ref(props.evidenceSummary)
 
@@ -284,17 +278,18 @@
     }
   )
 
+  const colorMap: Record<string, string> = {
+    definitive: 'success',
+    strong: 'info',
+    moderate: 'warning',
+    limited: 'grey',
+    disputed: 'error',
+    refuted: 'error',
+    'no known disease relationship': 'grey'
+  }
+
   const classificationColor = computed(() => {
     const classification = props.classification?.toLowerCase() || ''
-    const colorMap = {
-      definitive: 'success',
-      strong: 'info',
-      moderate: 'warning',
-      limited: 'grey',
-      disputed: 'error',
-      refuted: 'error',
-      'no known disease relationship': 'grey'
-    }
     return colorMap[classification] || 'grey'
   })
 </script>

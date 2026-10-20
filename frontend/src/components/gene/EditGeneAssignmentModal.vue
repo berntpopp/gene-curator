@@ -39,7 +39,13 @@
         <v-icon start color="primary" size="28">mdi-pencil</v-icon>
         <span class="text-h6">Edit Gene Assignment</span>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="handleCancel" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="handleCancel"
+        />
       </v-card-title>
 
       <v-divider />
@@ -201,32 +207,52 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, watch } from 'vue'
   import { assignmentsAPI, genesAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { ApiErrorLike } from '@/components/forms/types'
+  import type { GeneRow } from './types'
 
   // ============================================
   // PROPS & EMITS
   // ============================================
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    gene: {
-      type: Object,
-      default: null
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      scopeId: string
+      gene?: GeneRow | null
+    }>(),
+    {
+      modelValue: false,
+      gene: null
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'updated', 'revalidated'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+    updated: []
+    revalidated: [result: GeneValidationResult]
+  }>()
+
+  /** Result of genesAPI.validateGene (only the fields this modal reads). */
+  interface GeneValidationResult {
+    is_valid: boolean
+    approved_symbol?: string | null
+    warnings?: string[]
+    errors?: string[]
+    external_data?: unknown
+  }
+
+  type Priority = 'low' | 'medium' | 'high'
+
+  interface AssignmentForm {
+    priority: Priority
+    due_date: string | null
+    assignment_notes: string
+  }
 
   // ============================================
   // COMPOSABLES & STORES
@@ -239,7 +265,8 @@
   // STATE
   // ============================================
 
-  const formRef = ref(null)
+  // Form ref (bound in template as ref="formRef")
+  const formRef = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
   const formValid = ref(false)
 
   // Loading states
@@ -247,17 +274,17 @@
   const isRevalidating = ref(false)
 
   // Form data
-  const formData = ref({
+  const formData = ref<AssignmentForm>({
     priority: 'medium',
     due_date: null,
     assignment_notes: ''
   })
 
   // Original data for change detection
-  const originalData = ref({})
+  const originalData = ref<Partial<AssignmentForm>>({})
 
   // Validation result
-  const validationResult = ref(null)
+  const validationResult = ref<GeneValidationResult | null>(null)
 
   // ============================================
   // COMPUTED
@@ -283,16 +310,16 @@
   /**
    * Map model priority to form priority
    */
-  const mapPriorityFromModel = priority => {
+  const mapPriorityFromModel = (priority: string | null | undefined): Priority => {
     // Model uses "normal", form uses "medium"
     if (priority === 'normal') return 'medium'
-    return priority || 'medium'
+    return (priority || 'medium') as Priority
   }
 
   /**
    * Map form priority to API priority
    */
-  const mapPriorityToAPI = priority => {
+  const mapPriorityToAPI = (priority: Priority): Priority => {
     // API expects "high", "medium", "low"
     return priority
   }
@@ -300,15 +327,15 @@
   /**
    * Format date for input field (YYYY-MM-DD)
    */
-  const formatDateForInput = date => {
+  const formatDateForInput = (date: string | Date | null | undefined): string | null => {
     if (!date) return null
     if (typeof date === 'string') {
       // If it's already a string, try to parse and format
       const d = new Date(date)
       if (isNaN(d.getTime())) return null
-      return d.toISOString().split('T')[0]
+      return d.toISOString().split('T')[0] ?? null
     }
-    return date.toISOString().split('T')[0]
+    return date.toISOString().split('T')[0] ?? null
   }
 
   /**
@@ -385,9 +412,10 @@
 
       emit('revalidated', result)
     } catch (error) {
-      logger.error('Failed to revalidate gene', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to revalidate gene', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to revalidate: ${error.response?.data?.detail || error.message}`,
+        `Failed to revalidate: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {
@@ -402,22 +430,29 @@
     if (!hasChanges.value || !props.gene?.assignment_id) return
 
     // Validate form
-    const { valid } = await formRef.value.validate()
+    const { valid } = await formRef.value!.validate()
     if (!valid) return
 
     isSaving.value = true
 
     try {
-      const updateData = {
-        priority_level: mapPriorityToAPI(formData.value.priority),
-        assignment_notes: formData.value.assignment_notes || null
+      // Send only edited fields: list rows may lack due_date/notes, and resending the
+      // blank form values would erase what the server has stored
+      const form = formData.value
+      const original = originalData.value
+      const updateData: {
+        priority_level?: Priority
+        assignment_notes?: string | null
+        due_date?: string | null
+      } = {}
+      if (form.priority !== original.priority) {
+        updateData.priority_level = mapPriorityToAPI(form.priority)
       }
-
-      // Add due_date if set (convert to ISO format)
-      if (formData.value.due_date) {
-        updateData.due_date = new Date(formData.value.due_date).toISOString()
-      } else {
-        updateData.due_date = null
+      if (form.assignment_notes !== original.assignment_notes) {
+        updateData.assignment_notes = form.assignment_notes || null
+      }
+      if (form.due_date !== original.due_date) {
+        updateData.due_date = form.due_date ? new Date(form.due_date).toISOString() : null
       }
 
       await assignmentsAPI.updateAssignment(props.gene.assignment_id, updateData)
@@ -438,9 +473,10 @@
       resetForm()
       isOpen.value = false
     } catch (error) {
-      logger.error('Failed to update assignment', { error: error.message })
+      const apiError = error as ApiErrorLike
+      logger.error('Failed to update assignment', { error: apiError.message })
       notificationStore.addToast(
-        `Failed to update: ${error.response?.data?.detail || error.message}`,
+        `Failed to update: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
         'error'
       )
     } finally {
@@ -462,7 +498,6 @@
     }
   })
 </script>
-
 <style scoped>
   .text-subtitle-2 {
     display: flex;

@@ -17,7 +17,7 @@ import asyncio
 import json
 import traceback
 from collections.abc import Callable
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Request
@@ -192,7 +192,7 @@ class DatabaseLogger:
                 await db.execute(
                     insert_query,
                     {
-                        "timestamp": datetime.now(timezone.utc),
+                        "timestamp": datetime.now(UTC),
                         "level": level,
                         "message": message,
                         "logger": source,
@@ -224,28 +224,6 @@ class DatabaseLogger:
 
             fallback_logger = logging.getLogger("database_logger")
             fallback_logger.error(f"Unexpected error writing log: {e}")
-
-    async def wait_for_pending_tasks(self, timeout: float = 5.0) -> None:
-        """
-        Wait for all pending log writes to complete.
-
-        Args:
-            timeout: Maximum time to wait in seconds
-        """
-        if not self._pending_tasks:
-            return
-
-        try:
-            await asyncio.wait_for(
-                asyncio.gather(*self._pending_tasks, return_exceptions=True),
-                timeout=timeout,
-            )
-        except asyncio.TimeoutError:
-            import logging
-
-            logging.getLogger("database_logger").warning(
-                f"Timeout waiting for {len(self._pending_tasks)} pending log writes"
-            )
 
 
 def get_database_logger() -> DatabaseLogger:

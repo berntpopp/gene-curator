@@ -77,6 +77,7 @@
       <v-tooltip v-if="selectedItem" location="top">
         <template #activator="{ props: tooltipProps }">
           <v-btn
+            aria-label="More information"
             v-bind="tooltipProps"
             icon="mdi-information"
             variant="text"
@@ -96,7 +97,7 @@
   </v-autocomplete>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * MONDOAutocomplete Component
    *
@@ -116,63 +117,62 @@
   import { ontologyAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useDebounceFn } from '@vueuse/core'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: String,
-      default: ''
-    },
-    diseaseName: {
-      type: String,
-      default: ''
-    },
-    label: {
-      type: String,
-      default: 'MONDO Disease'
-    },
-    hint: {
-      type: String,
-      default: 'Search by disease name or MONDO ID'
-    },
-    required: {
-      type: Boolean,
-      default: false
-    },
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-    clearable: {
-      type: Boolean,
-      default: true
-    },
-    prependIcon: {
-      type: String,
-      default: 'mdi-database'
-    },
-    minSearchLength: {
-      type: Number,
-      default: 2
-    },
-    maxResults: {
-      type: Number,
-      default: 15
+  /** A MONDO term as shown in the autocomplete (search hit or placeholder for a saved ID) */
+  interface MondoOption {
+    mondo_id: string
+    label: string
+    definition?: string | null
+    synonyms?: string[]
+    xrefs?: string[]
+    displayText?: string
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string
+      diseaseName?: string
+      label?: string
+      hint?: string
+      required?: boolean
+      disabled?: boolean
+      clearable?: boolean
+      prependIcon?: string
+      minSearchLength?: number
+      maxResults?: number
+    }>(),
+    {
+      modelValue: '',
+      diseaseName: '',
+      label: 'MONDO Disease',
+      hint: 'Search by disease name or MONDO ID',
+      required: false,
+      disabled: false,
+      clearable: true,
+      prependIcon: 'mdi-database',
+      minSearchLength: 2,
+      maxResults: 15
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'update:diseaseName', 'select'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: string]
+    'update:diseaseName': [value: string]
+    select: [item: MondoOption | null]
+  }>()
 
   const logger = useLogger()
 
   // State
   const searchQuery = ref('')
-  const searchResults = ref([])
+  const searchResults = ref<MondoOption[]>([])
   const isSearching = ref(false)
-  const selectedItem = ref(null)
-  const error = ref(null)
+  const selectedItem = ref<MondoOption | null>(null)
+  const error = ref<string | null>(null)
 
   // Selected ID for v-autocomplete
-  const selectedId = computed({
+  const selectedId = computed<MondoOption | null>({
     get: () => {
       if (selectedItem.value) return selectedItem.value
       if (props.modelValue) {
@@ -193,7 +193,7 @@
   /**
    * Perform search against MONDO API
    */
-  async function performSearch(query) {
+  async function performSearch(query: string) {
     if (!query || query.length < props.minSearchLength) {
       searchResults.value = []
       return
@@ -203,7 +203,10 @@
     error.value = null
 
     try {
-      const response = await ontologyAPI.searchMONDO(query, props.maxResults)
+      const response = (await ontologyAPI.searchMONDO(
+        query,
+        props.maxResults
+      )) as Schema<'MONDOSearchResponse'>
 
       // Map results with display text
       searchResults.value = response.results.map(r => ({
@@ -218,7 +221,10 @@
       })
     } catch (e) {
       error.value = 'Search failed'
-      logger.error('MONDO search error', { query, error: e.message })
+      logger.error('MONDO search error', {
+        query,
+        error: e instanceof Error ? e.message : undefined
+      })
       searchResults.value = []
     } finally {
       isSearching.value = false
@@ -231,7 +237,7 @@
   /**
    * Handle search input change
    */
-  function handleSearch(query) {
+  function handleSearch(query: string | null | undefined) {
     if (query && query !== selectedItem.value?.label) {
       debouncedSearch(query)
     }
@@ -240,7 +246,7 @@
   /**
    * Handle item selection
    */
-  function handleSelect(item) {
+  function handleSelect(item: MondoOption | null | undefined) {
     if (item) {
       selectedItem.value = item
       emit('update:modelValue', item.mondo_id)
@@ -262,9 +268,12 @@
       if (newValue && (!selectedItem.value || selectedItem.value.mondo_id !== newValue)) {
         // Try to find the term by searching
         try {
-          const response = await ontologyAPI.searchMONDO(newValue, 1)
-          if (response.results.length > 0) {
-            const found = response.results[0]
+          const response = (await ontologyAPI.searchMONDO(
+            newValue,
+            1
+          )) as Schema<'MONDOSearchResponse'>
+          const found = response.results[0]
+          if (found) {
             selectedItem.value = {
               ...found,
               displayText: `${found.label} (${found.mondo_id})`
@@ -279,7 +288,7 @@
   )
 
   // Error messages for form validation
-  const errorMessages = computed(() => {
+  const errorMessages = computed<string[]>(() => {
     if (error.value) return [error.value]
     if (props.required && !props.modelValue) {
       return ['MONDO disease is required']

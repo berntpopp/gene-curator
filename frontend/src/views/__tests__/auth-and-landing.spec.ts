@@ -1,0 +1,255 @@
+/**
+ * Behaviour tests for the static pages and the auth/landing views:
+ * NotFound, NotAuthorized, Login, Register, Home.
+ */
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import NotFound from '@/views/NotFound.vue'
+import NotAuthorized from '@/views/NotAuthorized.vue'
+import router from '@/router'
+import Login from '@/views/Login.vue'
+import Register from '@/views/Register.vue'
+import Home from '@/views/Home.vue'
+import { useAuthStore } from '@/stores/auth'
+import { useGenesStore } from '@/stores/genes'
+
+const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
+  routerPush: vi.fn(),
+  routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
+  logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  showError: vi.fn(),
+  showSuccess: vi.fn()
+}))
+
+vi.mock('vue-router', async importOriginal => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRouter: () => ({ push: routerPush, back: vi.fn() }),
+  useRoute: () => routeState
+}))
+vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
+vi.mock('@/composables/useNotifications', () => ({
+  showError,
+  showSuccess,
+  showInfo: vi.fn(),
+  showWarning: vi.fn()
+}))
+
+const mountOpts = (pinia: ReturnType<typeof createPinia>) => ({
+  global: { plugins: [pinia], stubs: { RouterLink: RouterLinkStub } }
+})
+
+describe('static pages', () => {
+  it('NotFound renders the 404 message and navigation buttons', () => {
+    const wrapper = mount(NotFound, mountOpts(createPinia()))
+    expect(wrapper.text()).toContain('Page Not Found')
+    expect(wrapper.text()).toContain('Go Home')
+    expect(wrapper.text()).toContain('Browse Genes')
+  })
+
+  it('NotAuthorized renders the access denied message', () => {
+    const wrapper = mount(NotAuthorized, mountOpts(createPinia()))
+    expect(wrapper.text()).toContain('Access Denied')
+  })
+
+  it.each([
+    ['NotFound', NotFound],
+    ['NotAuthorized', NotAuthorized]
+  ])('%s only links to routes that exist', (_name, page) => {
+    const wrapper = mount(page, mountOpts(createPinia()))
+    const named = wrapper
+      .findAllComponents({ name: 'VBtn' })
+      .map(btn => btn.props('to') as { name?: string } | string | undefined)
+      .filter((to): to is { name: string } => typeof to === 'object' && !!to?.name)
+    expect(named.length).toBeGreaterThan(0)
+    for (const to of named) expect(router.hasRoute(to.name)).toBe(true)
+  })
+})
+
+describe('Login', () => {
+  let pinia: ReturnType<typeof createPinia>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    routeState.query = {}
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
+  it('logs in with the entered credentials and redirects to Home', async () => {
+    const auth = useAuthStore()
+    const login = vi.spyOn(auth, 'login').mockResolvedValue(undefined as never)
+    const wrapper = mount(Login, mountOpts(pinia))
+
+    await wrapper.find('input[type="email"]').setValue('user@example.org')
+    await wrapper.find('input[type="password"]').setValue('secret123')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(login).toHaveBeenCalledWith({ email: 'user@example.org', password: 'secret123' })
+    expect(showSuccess).toHaveBeenCalledWith('Login successful!')
+    expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
+  })
+
+  it('honours a redirect query parameter', async () => {
+    routeState.query = { redirect: '/genes' }
+    const auth = useAuthStore()
+    vi.spyOn(auth, 'login').mockResolvedValue(undefined as never)
+    const wrapper = mount(Login, mountOpts(pinia))
+
+    await wrapper.find('input[type="email"]').setValue('user@example.org')
+    await wrapper.find('input[type="password"]').setValue('secret123')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(routerPush).toHaveBeenCalledWith('/genes')
+  })
+
+  it('shows a field error and a notification when the server rejects the login', async () => {
+    const auth = useAuthStore()
+    vi.spyOn(auth, 'login').mockRejectedValue({
+      message: 'Request failed',
+      response: { data: { detail: 'Invalid email address' } }
+    })
+    const wrapper = mount(Login, mountOpts(pinia))
+
+    await wrapper.find('input[type="email"]').setValue('user@example.org')
+    await wrapper.find('input[type="password"]').setValue('wrong-pass')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).toHaveBeenCalledWith('Login failed. Please check your credentials.')
+    expect(logger.error).toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Invalid email address')
+    expect(routerPush).not.toHaveBeenCalled()
+  })
+
+  it('renders the auth store error as an alert', async () => {
+    const auth = useAuthStore()
+    auth.error = 'Account locked' as never
+    const wrapper = mount(Login, mountOpts(pinia))
+    await flushPromises()
+    expect(wrapper.text()).toContain('Account locked')
+  })
+
+  it('quick login fills the admin development credentials and submits', async () => {
+    const auth = useAuthStore()
+    const login = vi.spyOn(auth, 'login').mockResolvedValue(undefined as never)
+    const wrapper = mount(Login, mountOpts(pinia))
+
+    const adminButton = wrapper.findAll('button').find(b => b.text().includes('Login as Admin'))
+    expect(adminButton).toBeDefined()
+    await adminButton!.trigger('click')
+    await flushPromises()
+
+    expect(login).toHaveBeenCalledWith({
+      email: 'admin@genecurator.org',
+      password: 'admin123'
+    })
+  })
+})
+
+describe('Register', () => {
+  let pinia: ReturnType<typeof createPinia>
+  beforeEach(() => {
+    vi.clearAllMocks()
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
+  it('registers a valid account and navigates Home', async () => {
+    const auth = useAuthStore()
+    const register = vi.spyOn(auth, 'register').mockResolvedValue(undefined as never)
+    const wrapper = mount(Register, mountOpts(pinia))
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0]!.setValue('Ada Lovelace')
+    await inputs[1]!.setValue('new@example.org')
+    await inputs[2]!.setValue('Passw0rd')
+    await inputs[3]!.setValue('Passw0rd')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(register).toHaveBeenCalledWith({
+      name: 'Ada Lovelace',
+      email: 'new@example.org',
+      password: 'Passw0rd',
+      role: 'user',
+      is_active: true
+    })
+    expect(showSuccess).toHaveBeenCalled()
+    expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
+  })
+
+  it('reports a failed registration without navigating', async () => {
+    const auth = useAuthStore()
+    vi.spyOn(auth, 'register').mockRejectedValue(new Error('Email taken'))
+    const wrapper = mount(Register, mountOpts(pinia))
+
+    const inputs = wrapper.findAll('input')
+    await inputs[0]!.setValue('Dup User')
+    await inputs[1]!.setValue('dup@example.org')
+    await inputs[2]!.setValue('Passw0rd')
+    await inputs[3]!.setValue('Passw0rd')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).toHaveBeenCalledWith('Registration failed. Please try again.')
+    expect(routerPush).not.toHaveBeenCalled()
+  })
+})
+
+describe('Home', () => {
+  let pinia: ReturnType<typeof createPinia>
+  beforeEach(() => {
+    vi.clearAllMocks()
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
+  it('shows the loading state until statistics arrive, then the overview cards', async () => {
+    const genes = useGenesStore()
+    vi.spyOn(genes, 'fetchStatistics').mockResolvedValue({
+      curated_genes: 12,
+      active_curations: 7,
+      total_scopes: 3,
+      pending_review: 2
+    } as never)
+    const wrapper = mount(Home, mountOpts(pinia))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Curated Genes')
+    expect(wrapper.text()).toContain('12')
+    expect(wrapper.text()).toContain('Pending Review')
+  })
+
+  it('keeps the loading message and logs a warning when statistics fail', async () => {
+    const genes = useGenesStore()
+    vi.spyOn(genes, 'fetchStatistics').mockRejectedValue(new Error('offline'))
+    const wrapper = mount(Home, mountOpts(pinia))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Loading statistics...')
+    expect(logger.warn).toHaveBeenCalledWith(
+      'Failed to load statistics:',
+      expect.objectContaining({ error: 'offline' })
+    )
+  })
+
+  it('greets an authenticated user with their email and role', async () => {
+    const auth = useAuthStore()
+    auth.isAuthenticated = true
+    auth.user = { email: 'curator@example.org', role: 'curator' } as never
+    vi.spyOn(useGenesStore(), 'fetchStatistics').mockResolvedValue({} as never)
+    const wrapper = mount(Home, mountOpts(pinia))
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Welcome back, curator@example.org!')
+    expect(wrapper.text()).toContain('curator')
+  })
+})

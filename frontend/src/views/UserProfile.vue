@@ -13,7 +13,7 @@
               <v-avatar size="100" class="mb-4">
                 <v-icon size="60">mdi-account-circle</v-icon>
               </v-avatar>
-              <h2 class="text-h4 mb-2">{{ userProfile?.name || authStore.user?.email }}</h2>
+              <h2 class="text-h4 mb-2">{{ userProfile?.name || currentUser?.email }}</h2>
               <div class="mb-3">
                 <v-chip :color="getRoleColor(userProfile?.role)" variant="tonal" size="large">
                   <v-icon start>{{ getRoleIcon(userProfile?.role) }}</v-icon>
@@ -207,25 +207,31 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, onMounted, watch } from 'vue'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { useUsersStore } from '@/stores/users.js'
-  import { authApi } from '@/api/auth.js'
+  import { ref, computed, onMounted, watch } from 'vue'
+  import { useAuthStore } from '@/stores/auth'
+  import { useUsersStore } from '@/stores/users'
+  import { authApi } from '@/api/auth'
+  import type { Schema } from '@/types/api'
 
   const authStore = useAuthStore()
   const usersStore = useUsersStore()
+  // The auth store types user as null (untyped JS state); narrow it to the generated user shape
+  const currentUser = computed(() => authStore.user as Schema<'UserResponse'> | null)
 
   // Reactive state
-  const userProfile = ref(null)
-  const userActivity = ref(null)
+  const userProfile = ref<Schema<'UserResponse'> | null>(null)
+  const userActivity = ref<Record<string, unknown> | null>(null)
   const loading = ref(false)
   const passwordLoading = ref(false)
   const passwordFormValid = ref(false)
-  const passwordForm = ref(null)
+  const passwordForm = ref<{
+    validate: () => Promise<{ valid: boolean }>
+    reset: () => void
+  } | null>(null)
 
   // Password change form
   const passwordData = ref({
@@ -237,27 +243,31 @@
   const snackbar = ref({
     show: false,
     message: '',
-    color: 'success'
+    color: 'success' as string
   })
 
   // Form validation rules
   const rules = {
-    required: value => !!value || 'This field is required',
-    minLength: value => (value && value.length >= 8) || 'Minimum 8 characters required'
+    required: (value: unknown) => !!value || 'This field is required',
+    minLength: (value: string) => (value && value.length >= 8) || 'Minimum 8 characters required'
   }
 
   // Methods
-  const getRoleColor = role => {
-    const colors = { admin: 'error', curator: 'warning', viewer: 'info' }
-    return colors[role] || 'grey'
+  const getRoleColor = (role: string | undefined) => {
+    const colors: Record<string, string> = { admin: 'error', curator: 'warning', viewer: 'info' }
+    return colors[role ?? ''] || 'grey'
   }
 
-  const getRoleIcon = role => {
-    const icons = { admin: 'mdi-shield-crown', curator: 'mdi-pencil', viewer: 'mdi-eye' }
-    return icons[role] || 'mdi-account'
+  const getRoleIcon = (role: string | undefined) => {
+    const icons: Record<string, string> = {
+      admin: 'mdi-shield-crown',
+      curator: 'mdi-pencil',
+      viewer: 'mdi-eye'
+    }
+    return icons[role ?? ''] || 'mdi-account'
   }
 
-  const formatDate = dateString => {
+  const formatDate = (dateString: string | null | undefined) => {
     if (!dateString) return 'Unknown'
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -267,9 +277,9 @@
   }
 
   async function loadUserProfile() {
-    if (!authStore.user?.id) {
+    if (!currentUser.value?.id) {
       // If we don't have user ID from auth store, use the auth store data
-      userProfile.value = authStore.user
+      userProfile.value = currentUser.value
       return
     }
 
@@ -277,16 +287,17 @@
 
     try {
       // Fetch complete user profile from database
-      const profile = await usersStore.fetchUser(authStore.user.id)
+      const profile = await usersStore.fetchUser(currentUser.value.id)
       userProfile.value = profile
 
       // Fetch user activity
-      const activity = await usersStore.fetchUserActivity(authStore.user.id)
+      const activity = await usersStore.fetchUserActivity(currentUser.value.id)
       userActivity.value = activity
     } catch (error) {
-      logger.error('Failed to load user profile:', { error: error.message, stack: error.stack })
+      const err = error as Error
+      logger.error('Failed to load user profile:', { error: err.message, stack: err.stack })
       // Fallback to auth store data
-      userProfile.value = authStore.user
+      userProfile.value = currentUser.value
       showSnackbar('Failed to load complete profile information', 'warning')
     } finally {
       loading.value = false
@@ -313,14 +324,15 @@
 
       showSnackbar('Password changed successfully', 'success')
     } catch (error) {
-      const message = error.response?.data?.detail || 'Failed to change password'
+      const err = error as { response?: { data?: { detail?: string } } }
+      const message = err.response?.data?.detail || 'Failed to change password'
       showSnackbar(message, 'error')
     } finally {
       passwordLoading.value = false
     }
   }
 
-  function showSnackbar(message, color = 'success') {
+  function showSnackbar(message: string, color = 'success') {
     snackbar.value = {
       show: true,
       message,
@@ -341,7 +353,7 @@
 
   // Initialize
   onMounted(() => {
-    if (authStore.user) {
+    if (currentUser.value) {
       loadUserProfile()
     }
   })

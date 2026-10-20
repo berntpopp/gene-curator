@@ -70,9 +70,9 @@
         </template>
         <div class="font-weight-medium mb-1">Methodology Pair Selected</div>
         <div class="text-body-2">
-          Precuration: {{ selectedPrecurationSchema.name }} v{{ selectedPrecurationSchema.version
+          Precuration: {{ selectedPrecurationSchema?.name }} v{{ selectedPrecurationSchema?.version
           }}<br />
-          Curation: {{ selectedCurationSchema.name }} v{{ selectedCurationSchema.version }}
+          Curation: {{ selectedCurationSchema?.name }} v{{ selectedCurationSchema?.version }}
         </div>
       </v-alert>
 
@@ -105,40 +105,51 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
+  import { ref, computed, onMounted, watch } from 'vue'
   import { useLogger } from '@/composables/useLogger'
+  import { useSchemasStore } from '@/stores'
+  import { errorDetails } from './errorDetails'
+  import type { SchemaOption, WorkflowPairOption } from './types'
 
   const logger = useLogger()
-  import { ref, computed, onMounted, watch } from 'vue'
-  import { useSchemasStore } from '@/stores'
 
-  const emit = defineEmits(['schemas-selected'])
+  const emit = defineEmits<{
+    'schemas-selected': [
+      data: {
+        precurationSchema: SchemaOption | null
+        curationSchema: SchemaOption | null
+        workflowPair: WorkflowPairOption | null | undefined
+      }
+    ]
+  }>()
 
   const schemasStore = useSchemasStore()
-  const selectedPrecurationSchema = ref(null)
-  const selectedCurationSchema = ref(null)
-  const existingWorkflowPair = ref(null)
+  const selectedPrecurationSchema = ref<SchemaOption | null>(null)
+  const selectedCurationSchema = ref<SchemaOption | null>(null)
+  const existingWorkflowPair = ref<WorkflowPairOption | null | undefined>(null)
   const creating = ref(false)
 
+  // The schemas store is untyped JS; these getters are typed at this boundary
   const loading = computed(() => schemasStore.loading)
-  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas)
-  const curationSchemas = computed(() => schemasStore.getCurationSchemas)
+  const precurationSchemas = computed(() => schemasStore.getPrecurationSchemas as SchemaOption[])
+  const curationSchemas = computed(() => schemasStore.getCurationSchemas as SchemaOption[])
 
   const canCreateWorkflowPair = computed(
-    () => selectedPrecurationSchema.value && selectedCurationSchema.value
+    () => !!selectedPrecurationSchema.value && !!selectedCurationSchema.value
   )
 
-  const canProceed = computed(() => existingWorkflowPair.value || canCreateWorkflowPair.value)
+  const canProceed = computed(() => !!existingWorkflowPair.value || canCreateWorkflowPair.value)
 
   // Check for existing workflow pairs when schemas are selected
-  watch([selectedPrecurationSchema, selectedCurationSchema], async () => {
-    if (canCreateWorkflowPair.value) {
+  watch([selectedPrecurationSchema, selectedCurationSchema], () => {
+    if (selectedPrecurationSchema.value && selectedCurationSchema.value) {
       // Check if workflow pair already exists
       const pairs = schemasStore.workflowPairs
       existingWorkflowPair.value = pairs.find(
         pair =>
-          pair.precuration_schema_id === selectedPrecurationSchema.value.id &&
-          pair.curation_schema_id === selectedCurationSchema.value.id
+          pair.precuration_schema_id === selectedPrecurationSchema.value?.id &&
+          pair.curation_schema_id === selectedCurationSchema.value?.id
       )
     } else {
       existingWorkflowPair.value = null
@@ -146,21 +157,25 @@
   })
 
   const createWorkflowPair = async () => {
-    if (!canCreateWorkflowPair.value) return
+    const precuration = selectedPrecurationSchema.value
+    const curation = selectedCurationSchema.value
+    if (!precuration || !curation) return
 
     creating.value = true
     try {
       const pairData = {
-        name: `${selectedPrecurationSchema.value.name}_${selectedCurationSchema.value.name}`,
-        precuration_schema_id: selectedPrecurationSchema.value.id,
-        curation_schema_id: selectedCurationSchema.value.id,
-        description: `Workflow pair for ${selectedPrecurationSchema.value.name} precuration and ${selectedCurationSchema.value.name} curation`
+        name: `${precuration.name}_${curation.name}`,
+        version: '1.0.0',
+        precuration_schema_id: precuration.id,
+        curation_schema_id: curation.id,
+        description: `Workflow pair for ${precuration.name} precuration and ${curation.name} curation`,
+        is_active: true
       }
 
       const newPair = await schemasStore.createWorkflowPair(pairData)
       existingWorkflowPair.value = newPair
-    } catch (error) {
-      logger.error('Failed to create workflow pair:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to create workflow pair:', errorDetails(err))
     } finally {
       creating.value = false
     }
@@ -178,8 +193,8 @@
   onMounted(async () => {
     try {
       await Promise.all([schemasStore.fetchSchemas(), schemasStore.fetchWorkflowPairs()])
-    } catch (error) {
-      logger.error('Failed to load schemas:', { error: error.message, stack: error.stack })
+    } catch (err) {
+      logger.error('Failed to load schemas:', errorDetails(err))
     }
   })
 </script>

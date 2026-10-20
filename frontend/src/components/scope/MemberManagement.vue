@@ -91,8 +91,14 @@
 
             <!-- Actions (admin only) -->
             <v-menu v-if="canEditMemberRoles && member.user_id !== currentUserId">
-              <template #activator="{ props }">
-                <v-btn v-bind="props" icon="mdi-dots-vertical" size="small" variant="text"></v-btn>
+              <template #activator="{ props: activatorProps }">
+                <v-btn
+                  aria-label="Member actions"
+                  v-bind="activatorProps"
+                  icon="mdi-dots-vertical"
+                  size="small"
+                  variant="text"
+                ></v-btn>
               </template>
 
               <v-list>
@@ -173,7 +179,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useAuthStore } from '@/stores/auth'
@@ -182,17 +188,25 @@
   import { useLogger } from '@/composables/useLogger'
   import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
   import { scopeService } from '@/services/scopeService'
+  import type { Schema } from '@/types/api'
+
+  type ScopeMember = Schema<'ScopeMembershipResponse'>
+  type ScopeRole = Schema<'ScopeRole'>
+
+  /** Payload emitted by InviteMemberDialog after a successful invitation */
+  interface InvitedPayload {
+    id?: string
+    userName?: string | null
+    userEmail?: string | null
+  }
 
   // ============================================
   // PROPS
   // ============================================
 
-  const props = defineProps({
-    scopeId: {
-      type: String,
-      required: true
-    }
-  })
+  const props = defineProps<{
+    scopeId: string
+  }>()
 
   // ============================================
   // COMPOSABLES & STORE
@@ -210,13 +224,13 @@
   // STATE
   // ============================================
 
-  const members = ref([])
+  const members = ref<ScopeMember[]>([])
   const loading = ref(false)
   const showInviteDialog = ref(false)
   const showRemoveDialog = ref(false)
   const removing = ref(false)
 
-  const memberToRemove = ref(null)
+  const memberToRemove = ref<ScopeMember | null>(null)
 
   // Snackbar
   const showSnackbar = ref(false)
@@ -226,7 +240,7 @@
   /**
    * Existing member IDs (for excluding from search)
    */
-  const existingMemberIds = computed(() => {
+  const existingMemberIds = computed<string[]>(() => {
     return members.value.map(m => m.user_id)
   })
 
@@ -236,7 +250,7 @@
 
   const currentUserId = computed(() => authStore.user?.id)
 
-  const availableRoles = ['admin', 'curator', 'reviewer', 'viewer']
+  const availableRoles: ScopeRole[] = ['admin', 'curator', 'reviewer', 'viewer']
 
   // ============================================
   // METHODS
@@ -259,10 +273,11 @@
         pending: data.filter(m => m.is_pending).length
       })
     } catch (error) {
+      const err = error instanceof Error ? error : undefined
       logger.error('Failed to fetch members', {
         scope_id: props.scopeId,
-        error: error.message,
-        stack: error.stack
+        error: err?.message,
+        stack: err?.stack
       })
       showNotification('Failed to load members', 'error')
     } finally {
@@ -273,7 +288,7 @@
   /**
    * Handle successful invitation from InviteMemberDialog
    */
-  const handleInvited = async invitationResult => {
+  const handleInvited = async (invitationResult: InvitedPayload) => {
     logger.info('Member invited successfully', {
       scope_id: props.scopeId,
       user_name: invitationResult.userName,
@@ -292,7 +307,7 @@
   /**
    * Update member role
    */
-  const updateRole = async (userId, newRole) => {
+  const updateRole = async (userId: string, newRole: ScopeRole) => {
     try {
       logger.debug('Updating member role', {
         scope_id: props.scopeId,
@@ -311,11 +326,12 @@
       showNotification('Member role updated successfully', 'success')
       await fetchMembers()
     } catch (error) {
+      const err = error instanceof Error ? error : undefined
       logger.error('Failed to update member role', {
         scope_id: props.scopeId,
         user_id: userId,
-        error: error.message,
-        stack: error.stack
+        error: err?.message,
+        stack: err?.stack
       })
       showNotification('Failed to update member role', 'error')
     }
@@ -324,7 +340,7 @@
   /**
    * Show remove confirmation dialog
    */
-  const confirmRemoveMember = member => {
+  const confirmRemoveMember = (member: ScopeMember) => {
     memberToRemove.value = member
     showRemoveDialog.value = true
   }
@@ -333,21 +349,22 @@
    * Remove member from scope
    */
   const removeMember = async () => {
-    if (!memberToRemove.value) return
+    const target = memberToRemove.value
+    if (!target) return
 
     removing.value = true
 
     try {
       logger.debug('Removing member', {
         scope_id: props.scopeId,
-        user_id: memberToRemove.value.user_id
+        user_id: target.user_id
       })
 
-      await scopeStore.removeMember(props.scopeId, memberToRemove.value.user_id)
+      await scopeStore.removeMember(props.scopeId, target.user_id)
 
       logger.info('Member removed', {
         scope_id: props.scopeId,
-        user_id: memberToRemove.value.user_id
+        user_id: target.user_id
       })
 
       showNotification('Member removed successfully', 'success')
@@ -355,11 +372,12 @@
       memberToRemove.value = null
       await fetchMembers()
     } catch (error) {
+      const err = error instanceof Error ? error : undefined
       logger.error('Failed to remove member', {
         scope_id: props.scopeId,
-        user_id: memberToRemove.value.user_id,
-        error: error.message,
-        stack: error.stack
+        user_id: target.user_id,
+        error: err?.message,
+        stack: err?.stack
       })
       showNotification('Failed to remove member', 'error')
     } finally {
@@ -370,7 +388,7 @@
   /**
    * Show notification snackbar
    */
-  const showNotification = (message, color = 'success') => {
+  const showNotification = (message: string, color = 'success') => {
     snackbarMessage.value = message
     snackbarColor.value = color
     showSnackbar.value = true

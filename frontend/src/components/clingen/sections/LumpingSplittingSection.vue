@@ -39,6 +39,7 @@
             >
               <template #append-inner>
                 <v-btn
+                  aria-label="Open in Monarch"
                   v-if="mondoId"
                   icon
                   size="x-small"
@@ -207,17 +208,7 @@
               Supporting Literature
             </div>
             <v-chip-group>
-              <v-chip
-                v-for="pmid in supportingPmids"
-                :key="pmid"
-                size="small"
-                variant="outlined"
-                :href="`https://pubmed.ncbi.nlm.nih.gov/${pmid}`"
-                target="_blank"
-              >
-                PMID: {{ pmid }}
-                <v-icon end size="x-small">mdi-open-in-new</v-icon>
-              </v-chip>
+              <PubmedLinkChip v-for="pmid in supportingPmids" :key="pmid" :pmid="pmid" />
             </v-chip-group>
           </v-col>
         </v-row>
@@ -236,24 +227,10 @@
         </v-row>
       </v-card-text>
     </v-card>
-
-    <!-- Link to Precuration -->
-    <v-card v-if="precurationId" variant="text" class="mt-4">
-      <v-card-text class="text-center">
-        <v-btn
-          variant="outlined"
-          color="primary"
-          :to="{ name: 'precuration-detail', params: { precurationId } }"
-        >
-          <v-icon start>mdi-file-document</v-icon>
-          View Source Precuration
-        </v-btn>
-      </v-card-text>
-    </v-card>
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * LumpingSplittingSection
    *
@@ -268,20 +245,22 @@
    */
 
   import { computed } from 'vue'
+  import PubmedLinkChip from '../PubmedLinkChip.vue'
+  import type { PrecurationData } from '../types'
 
-  const props = defineProps({
-    precurationData: {
-      type: Object,
-      default: () => ({})
-    },
-    readonly: {
-      type: Boolean,
-      default: true
+  const props = withDefaults(
+    defineProps<{
+      precurationData?: PrecurationData
+      readonly?: boolean
+    }>(),
+    {
+      precurationData: () => ({}),
+      readonly: true
     }
-  })
+  )
 
   // ClinGen Curation Type options
-  const CURATION_TYPE_OPTIONS = {
+  const CURATION_TYPE_OPTIONS: Record<string, { label: string; color: string }> = {
     single_from_list: {
       label: 'Curate a single gene-disease entity from this list',
       color: 'primary'
@@ -301,7 +280,7 @@
   }
 
   // ClinGen Rationale options
-  const RATIONALE_OPTIONS = {
+  const RATIONALE_OPTIONS: Record<string, string> = {
     assertion: 'Assertion',
     molecular_mechanism: 'Molecular Mechanism',
     phenotypic_variability: 'Phenotypic Variability',
@@ -375,7 +354,7 @@
   )
 
   // Supporting PMIDs
-  const supportingPmids = computed(() => {
+  const supportingPmids = computed<string[]>(() => {
     const pmids =
       props.precurationData?.supporting_pmids ||
       props.precurationData?.lumping_splitting?.supporting_pmids ||
@@ -398,20 +377,16 @@
       null
   )
 
-  const precurationId = computed(
-    () => props.precurationData?.id || props.precurationData?.precuration_id || null
-  )
-
   // Helper functions
-  function getCurationTypeLabel(type) {
+  function getCurationTypeLabel(type: string) {
     return CURATION_TYPE_OPTIONS[type]?.label || type
   }
 
-  function getCurationTypeColor(type) {
+  function getCurationTypeColor(type: string) {
     return CURATION_TYPE_OPTIONS[type]?.color || 'grey'
   }
 
-  function getRationaleLabel(rationale) {
+  function getRationaleLabel(rationale: string) {
     return RATIONALE_OPTIONS[rationale] || rationale
   }
 </script>

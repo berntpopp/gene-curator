@@ -3,7 +3,7 @@ Multi-stage workflow engine for schema-agnostic curation system.
 Implements the 5-stage pipeline: Entry → Precuration → Curation → Review → Active
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -251,7 +251,7 @@ class WorkflowEngine:
             from_stage=current_stage,
             to_stage=target_stage,
             executed_by=user_id,
-            executed_at=datetime.utcnow(),
+            executed_at=datetime.now(UTC),
             notes=notes,
             metadata=metadata or {},
             **transition_result,
@@ -289,7 +289,7 @@ class WorkflowEngine:
             pending_reviews=pending_reviews,
             progress_metrics=progress_metrics,
             last_updated=(
-                item.updated_at if hasattr(item, "updated_at") else datetime.utcnow()
+                item.updated_at if hasattr(item, "updated_at") else datetime.now(UTC)
             ),
             last_updated_by=item.updated_by if hasattr(item, "updated_by") else None,
         )
@@ -304,6 +304,9 @@ class WorkflowEngine:
         review_type: str = "peer_review",
     ) -> PeerReviewRequest:
         """Assign a peer reviewer to an item in review stage."""
+        # Review.curation_id references curations only; precurations cannot be reviewed
+        if item_type != "curation":
+            raise ValueError("Peer review is only supported for curations")
 
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
 
@@ -311,26 +314,14 @@ class WorkflowEngine:
             raise ValueError("Item must be in review stage to assign peer reviewer")
 
         # Validate reviewer is different from creator
-        if item_type == "curation":
-            curation_result = (
-                db.execute(select(CurationNew).where(CurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if not curation_result:
-                raise ValueError("Curation not found")
-            original_creator = curation_result.created_by
-        else:
-            precuration_result = (
-                db.execute(select(PrecurationNew).where(PrecurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if not precuration_result:
-                raise ValueError("Precuration not found")
-            original_creator = precuration_result.created_by
-
-        if reviewer_id == original_creator:
+        curation_result = (
+            db.execute(select(CurationNew).where(CurationNew.id == item_id))
+            .scalars()
+            .first()
+        )
+        if not curation_result:
+            raise ValueError("Curation not found")
+        if reviewer_id == curation_result.created_by:
             raise ValueError(
                 "4-eyes principle violation: Cannot assign original creator as reviewer"
             )
@@ -341,7 +332,7 @@ class WorkflowEngine:
             reviewer_id=reviewer_id,
             assigned_by=assigned_by,
             status=ReviewStatus.PENDING,
-            assigned_at=datetime.utcnow(),
+            assigned_at=datetime.now(UTC),
         )
 
         db.add(review)
@@ -410,11 +401,15 @@ class WorkflowEngine:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
 
         # Update review
-        review.status = ReviewStatus.APPROVED
+        review.status = {
+            "approve": ReviewStatus.APPROVED,
+            "request_changes": ReviewStatus.NEEDS_REVISION,
+            "reject": ReviewStatus.REJECTED,
+        }[decision]
         review.recommendation = decision
         review.comments = comments
         review.feedback_data = suggested_changes or {}
-        review.reviewed_at = datetime.utcnow()
+        review.reviewed_at = datetime.now(UTC)
 
         db.commit()
 
@@ -485,7 +480,7 @@ class WorkflowEngine:
         """Get workflow performance statistics."""
         from datetime import timedelta
 
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=days)
 
         # Base queries
         precuration_stmt = select(PrecurationNew).where(
@@ -567,7 +562,7 @@ class WorkflowEngine:
         completed_reviews = (
             db.execute(
                 select(sqlalchemy_func.count()).select_from(
-                    review_stmt.where(Review.status == ReviewStatus.APPROVED).subquery()
+                    review_stmt.where(Review.status != ReviewStatus.PENDING).subquery()
                 )
             ).scalar()
             or 0
@@ -752,6 +747,7 @@ class WorkflowEngine:
                     ScopeMembership.user_id == user.id,
                     ScopeMembership.scope_id == scope_id,
                     ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(scope_role_requirements),
                 )
                 .first()
@@ -799,6 +795,7 @@ class WorkflowEngine:
                     ScopeMembership.user_id == user.id,
                     ScopeMembership.scope_id == item.scope_id,
                     ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(eligible_scope_roles),
                 )
                 .first()
@@ -960,11 +957,11 @@ class WorkflowEngine:
 
             replaced_curation_id = None
             if existing_active:
-                # Archive the existing active curation
-                existing_active.archived_at = datetime.utcnow()
+                existing_active.archived_at = datetime.now(UTC)
                 existing_active.archived_by = user_id
                 existing_active.archive_reason = "Replaced by new active curation"
                 replaced_curation_id = existing_active.curation_id
+                db.flush()  # archive UPDATE must precede the new row's INSERT
 
             # Create new active curation record
             active_curation = ActiveCuration(
@@ -972,7 +969,7 @@ class WorkflowEngine:
                 scope_id=item.scope_id,
                 curation_id=item.id if hasattr(item, "id") else None,
                 activated_by=user_id,
-                activated_at=datetime.utcnow(),
+                activated_at=datetime.now(UTC),
                 replaced_curation_id=replaced_curation_id,
                 # Audit fields required by audit trigger
                 created_by=user_id,
@@ -1154,14 +1151,14 @@ class WorkflowEngine:
         if pending_reviews and pending_reviews > 0:
             return False
 
-        # All completed reviews must be approved
+        # Every completed review must say approve (legacy rows: APPROVED + reject)
         rejected_reviews = db.execute(
             select(sqlalchemy_func.count()).select_from(
                 select(Review)
                 .where(
                     and_(
                         Review.curation_id == item_id,
-                        Review.status == ReviewStatus.APPROVED,
+                        Review.status != ReviewStatus.PENDING,
                         Review.recommendation != "approve",
                     )
                 )
@@ -1217,6 +1214,7 @@ class WorkflowEngine:
                 .filter(
                     ScopeMembership.scope_id == scope_id,
                     ScopeMembership.is_active == True,  # noqa: E712
+                    ScopeMembership.accepted_at.isnot(None),
                     ScopeMembership.role.in_(eligible_scope_roles),
                 )
                 .subquery()

@@ -148,25 +148,34 @@ class ValidationService:
             input_value: Value that was validated
             result: Validation result to cache
         """
+        # Transient failures (timeouts, 5xx) must not be pinned for the full TTL
+        if result.status == "error":
+            return
+
         cache_key = self._generate_cache_key(validator_name, input_value)
         ttl_days = self.TTL_DAYS.get(validator_name, 7)  # Default 7 days
         expires_at = datetime.now() + timedelta(days=ttl_days)
 
-        cache_entry = ValidationCache(
-            validator_name=validator_name,
-            input_value=input_value.strip(),
-            validator_input_hash=cache_key,
-            is_valid=result.is_valid,
-            validation_status=result.status,
-            validation_response=result.data or {},
-            suggestions=result.suggestions,
-            error_message=result.error_message,
-            error_code=result.error_code,
-            expires_at=expires_at,
-            access_count=0,  # Will be incremented on first access
+        # validator_input_hash is unique: refresh an expired or skipped entry in place
+        cache_entry = (
+            self.db.query(ValidationCache)
+            .filter(ValidationCache.validator_input_hash == cache_key)
+            .first()
         )
+        if cache_entry is None:
+            cache_entry = ValidationCache(validator_input_hash=cache_key)
+            self.db.add(cache_entry)
 
-        self.db.add(cache_entry)
+        cache_entry.validator_name = validator_name
+        cache_entry.input_value = input_value.strip()
+        cache_entry.is_valid = result.is_valid
+        cache_entry.validation_status = result.status
+        cache_entry.validation_response = result.data or {}
+        cache_entry.suggestions = result.suggestions
+        cache_entry.error_message = result.error_message
+        cache_entry.error_code = result.error_code
+        cache_entry.expires_at = expires_at
+        cache_entry.access_count = 0  # Will be incremented on first access
         self.db.commit()
 
         logger.info(

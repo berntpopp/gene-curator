@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="d-flex justify-space-between align-center mb-6">
           <div class="d-flex align-center">
-            <v-btn icon variant="text" class="mr-3" @click="goBack">
+            <v-btn aria-label="Go back" icon variant="text" class="mr-3" @click="goBack">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
             <h1 class="text-h4 d-inline">Curation Details</h1>
@@ -520,13 +520,39 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import { computeScores, classifyScores, type EvidenceData } from './curationScores'
+
+  interface CurationRecord {
+    status: string
+    workflow_pair_id?: string
+    evidence_data?: EvidenceData | null
+    gene_symbol?: string | null
+    hgnc_id?: string | null
+    disease_name?: string | null
+    mondo_id?: string | null
+    mode_of_inheritance?: string | null
+    workflow_stage?: string | null
+    curator_name?: string | null
+    lock_version?: number | null
+    created_at?: string | null
+    updated_at?: string | null
+    can_edit?: boolean
+    can_delete?: boolean
+    can_review?: boolean
+  }
+
+  // Error shape from axios (API) and plain Error alike
+  interface ErrorLike {
+    message?: string
+    response?: { data?: { detail?: string } }
+  }
 
   const router = useRouter()
   const route = useRoute()
@@ -534,13 +560,15 @@
   const logger = useLogger()
 
   // Route params
-  const scopeId = computed(() => route.params.scopeId)
-  const curationId = computed(() => route.params.curationId)
+  const scopeId = computed(() => route.params.scopeId as string)
+  const curationId = computed(() => route.params.curationId as string)
 
   // State
-  const curation = ref(null)
+  // Null until loaded; the template renders only once loaded. Typed non-null because
+  // vue-tsc drops v-if narrowing inside slot closures and after awaits.
+  const curation = ref(null as unknown as CurationRecord)
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const showSubmitDialog = ref(false)
   const showDeleteDialog = ref(false)
   const showApproveDialog = ref(false)
@@ -550,118 +578,17 @@
   const approving = ref(false)
   const rejecting = ref(false)
   const reviewComments = ref('')
-  const curationSchemaId = ref(null)
+  const curationSchemaId = ref<string | null>(null)
   const loadingSchema = ref(false)
 
   // Calculate scores from evidence_data
-  const scores = computed(() => {
-    const evidence = curation.value?.evidence_data || {}
-    const genetic = evidence.genetic_evidence || {}
-    const experimental = evidence.experimental_evidence || {}
-
-    // Case-level scores
-    const caseLevel = genetic.case_level || {}
-    const adxl = caseLevel.autosomal_dominant_or_x_linked || {}
-    const ar = caseLevel.autosomal_recessive || {}
-
-    const adxlNull = (adxl.predicted_or_proven_null || []).reduce(
-      (sum, v) => sum + (v.proband_counted_points || 0),
-      0
-    )
-    const adxlOther = (adxl.other_variant_type || []).reduce(
-      (sum, v) => sum + (v.proband_counted_points || 0),
-      0
-    )
-    const arNull = (ar.predicted_or_proven_null || []).reduce(
-      (sum, v) => sum + (v.proband_counted_points || 0),
-      0
-    )
-    const arOther = (ar.other_variant_type || []).reduce(
-      (sum, v) => sum + (v.proband_counted_points || 0),
-      0
-    )
-
-    // Segregation
-    const segregation = (genetic.segregation || []).reduce((sum, s) => sum + (s.points || 0), 0)
-
-    // Case-control
-    const caseControlData = genetic.case_control || {}
-    const singleVariant = (caseControlData.single_variant_analysis || []).reduce(
-      (sum, c) => sum + (c.points || 0),
-      0
-    )
-    const aggregateVariant = (caseControlData.aggregate_variant_analysis || []).reduce(
-      (sum, c) => sum + (c.points || 0),
-      0
-    )
-    const caseControl = singleVariant + aggregateVariant
-
-    // Genetic total (capped at 12)
-    const geneticRaw = adxlNull + adxlOther + arNull + arOther + segregation + caseControl
-    const geneticTotal = Math.min(geneticRaw, 12)
-
-    // Experimental scores
-    const func = experimental.function || {}
-    const biochemical = (func.biochemical_function || []).reduce(
-      (sum, f) => sum + (f.points || 0),
-      0
-    )
-    const proteinInteraction = (func.protein_interaction || []).reduce(
-      (sum, f) => sum + (f.points || 0),
-      0
-    )
-    const expression = (func.expression || []).reduce((sum, f) => sum + (f.points || 0), 0)
-
-    const functionalAltData = experimental.functional_alteration || {}
-    const functionalAlteration =
-      (functionalAltData.patient_cells || []).reduce((sum, f) => sum + (f.points || 0), 0) +
-      (functionalAltData.non_patient_cells || []).reduce((sum, f) => sum + (f.points || 0), 0)
-
-    const modelsData = experimental.models || {}
-    const models =
-      (modelsData.non_human_model_organism || []).reduce((sum, m) => sum + (m.points || 0), 0) +
-      (modelsData.cell_culture_model || []).reduce((sum, m) => sum + (m.points || 0), 0)
-
-    const rescueData = experimental.rescue || {}
-    const rescue =
-      (rescueData.human || []).reduce((sum, r) => sum + (r.points || 0), 0) +
-      (rescueData.non_human_model_organism || []).reduce((sum, r) => sum + (r.points || 0), 0) +
-      (rescueData.cell_culture || []).reduce((sum, r) => sum + (r.points || 0), 0) +
-      (rescueData.patient_cells || []).reduce((sum, r) => sum + (r.points || 0), 0)
-
-    // Experimental total (capped at 6)
-    const experimentalRaw =
-      biochemical + proteinInteraction + expression + functionalAlteration + models + rescue
-    const experimentalTotal = Math.min(experimentalRaw, 6)
-
-    return {
-      caseLevel: { adxlNull, adxlOther, arNull, arOther },
-      segregation,
-      caseControl,
-      genetic: geneticTotal,
-      function: { biochemical, proteinInteraction, expression },
-      functionalAlteration,
-      models,
-      rescue,
-      experimental: experimentalTotal,
-      total: geneticTotal + experimentalTotal
-    }
-  })
+  const scores = computed(() => computeScores(curation.value?.evidence_data))
 
   // Classification based on score
-  const classification = computed(() => {
-    const total = scores.value.total
-    const genetic = scores.value.genetic
+  const classification = computed(() => classifyScores(scores.value.total, scores.value.genetic))
 
-    if (total >= 12 && genetic >= 6) return 'Definitive'
-    if (total >= 12 && genetic >= 4.5) return 'Strong'
-    if (total >= 9 && genetic >= 3) return 'Moderate'
-    if (total >= 1) return 'Limited'
-    return 'No Known Disease Relationship'
-  })
-
-  const classificationColor = computed(() => {
-    const colors = {
+  const classificationColor = computed<string>(() => {
+    const colors: Record<string, string> = {
       Definitive: 'success',
       Strong: 'info',
       Moderate: 'warning',
@@ -693,18 +620,18 @@
   })
 
   // Utility functions
-  const formatStatus = status => {
+  const formatStatus = (status: string | null | undefined): string => {
     if (!status) return 'Unknown'
     return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
-  const formatDateTime = dateString => {
+  const formatDateTime = (dateString: string | null | undefined): string => {
     if (!dateString) return 'N/A'
     return new Date(dateString).toLocaleString()
   }
 
-  const formatInheritance = moi => {
-    const labels = {
+  const formatInheritance = (moi: string): string => {
+    const labels: Record<string, string> = {
       AD: 'Autosomal Dominant',
       AR: 'Autosomal Recessive',
       XLD: 'X-linked Dominant',
@@ -714,8 +641,8 @@
     return labels[moi] || moi
   }
 
-  const getStatusColor = status => {
-    const colors = {
+  const getStatusColor = (status: string): string => {
+    const colors: Record<string, string> = {
       draft: 'grey',
       submitted: 'info',
       under_review: 'warning',
@@ -726,8 +653,8 @@
     return colors[status] || 'grey'
   }
 
-  const getInheritanceColor = moi => {
-    const colors = {
+  const getInheritanceColor = (moi: string): string => {
+    const colors: Record<string, string> = {
       AD: 'blue',
       AR: 'green',
       XLD: 'purple',
@@ -750,7 +677,7 @@
       })
     } catch (err) {
       logger.warn('Failed to load curation schema for evidence display', {
-        error: err.message,
+        error: (err as ErrorLike).message,
         workflow_pair_id: curation.value.workflow_pair_id
       })
       // Non-fatal: evidence display is supplementary, score tables still show
@@ -765,14 +692,14 @@
 
     try {
       const data = await curationsAPI.getCuration(curationId.value)
-      curation.value = data
+      curation.value = data as CurationRecord
       logger.debug('Curation loaded', { curation_id: curationId.value })
       // Load schema for read-only evidence display
       await loadCurationSchema()
     } catch (err) {
       error.value = 'Failed to load curation details'
       logger.error('Failed to load curation', {
-        error: err.message,
+        error: (err as ErrorLike).message,
         curation_id: curationId.value
       })
     } finally {
@@ -799,7 +726,7 @@
       notificationStore.addToast('Curation submitted for review', 'success')
       await loadCuration()
     } catch (err) {
-      const errorDetail = err.response?.data?.detail || err.message
+      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
       logger.error('Failed to submit curation', { error: errorDetail })
       notificationStore.addToast(`Failed to submit: ${errorDetail}`, 'error')
     } finally {
@@ -815,7 +742,7 @@
       notificationStore.addToast('Curation deleted successfully', 'success')
       router.push({ name: 'scope-dashboard', params: { scopeId: scopeId.value } })
     } catch (err) {
-      logger.error('Failed to delete curation', { error: err.message })
+      logger.error('Failed to delete curation', { error: (err as ErrorLike).message })
       notificationStore.addToast('Failed to delete curation', 'error')
     } finally {
       deleting.value = false
@@ -835,7 +762,7 @@
       notificationStore.addToast('Curation approved and activated', 'success')
       await loadCuration()
     } catch (err) {
-      const errorDetail = err.response?.data?.detail || err.message
+      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
       logger.error('Failed to approve curation', { error: errorDetail })
       notificationStore.addToast(`Failed to approve: ${errorDetail}`, 'error')
     } finally {
@@ -856,7 +783,7 @@
       notificationStore.addToast('Curation returned to curator for changes', 'success')
       await loadCuration()
     } catch (err) {
-      const errorDetail = err.response?.data?.detail || err.message
+      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
       logger.error('Failed to request changes', { error: errorDetail })
       notificationStore.addToast(`Failed to request changes: ${errorDetail}`, 'error')
     } finally {
@@ -876,7 +803,7 @@
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `curation_${curation.value.gene_symbol || 'unknown'}_${curationId.value}.json`
+    a.download = `curation_${curation.value?.gene_symbol || 'unknown'}_${curationId.value}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

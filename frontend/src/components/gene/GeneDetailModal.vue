@@ -47,7 +47,13 @@
           {{ geneData.status }}
         </v-chip>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="close" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="close"
+        />
       </v-card-title>
 
       <v-divider />
@@ -195,7 +201,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * GeneDetailModal Component
    *
@@ -205,34 +211,36 @@
   import { ref, computed, watch } from 'vue'
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
+  import type { ApiErrorLike } from '@/components/forms/types'
 
-  const props = defineProps({
-    modelValue: {
-      type: Boolean,
-      default: false
-    },
-    hgncId: {
-      type: String,
-      default: ''
-    },
-    geneSymbol: {
-      type: String,
-      default: ''
-    },
-    geneId: {
-      type: String,
-      default: ''
+  type HgncGene = Schema<'HGNCGeneSearchResult'>
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: boolean
+      hgncId?: string
+      geneSymbol?: string
+      geneId?: string
+    }>(),
+    {
+      modelValue: false,
+      hgncId: '',
+      geneSymbol: '',
+      geneId: ''
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: boolean]
+  }>()
 
   const logger = useLogger()
 
   // State
-  const geneData = ref(null)
+  const geneData = ref<HgncGene | null>(null)
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // Computed v-model binding
   const isOpen = computed({
@@ -242,7 +250,10 @@
 
   // Check if gene has any aliases
   const hasAliases = computed(() => {
-    return geneData.value?.alias_symbols?.length > 0 || geneData.value?.previous_symbols?.length > 0
+    return (
+      (geneData.value?.alias_symbols?.length ?? 0) > 0 ||
+      (geneData.value?.previous_symbols?.length ?? 0) > 0
+    )
   })
 
   // HGNC external URL
@@ -268,20 +279,22 @@
     try {
       const response = await externalValidationAPI.fetchHGNCGene(props.hgncId)
 
-      if (response.results && response.results.length > 0) {
-        geneData.value = response.results[0]
+      const [first] = response.results ?? []
+      if (first) {
+        geneData.value = first
         logger.debug('Gene data fetched', {
           hgnc_id: props.hgncId,
-          symbol: geneData.value.symbol
+          symbol: first.symbol
         })
       } else {
         error.value = 'Gene not found in HGNC database'
       }
     } catch (e) {
-      error.value = e.message || 'Failed to fetch gene information'
+      const message = (e as ApiErrorLike).message
+      error.value = message || 'Failed to fetch gene information'
       logger.error('Failed to fetch gene data', {
         hgnc_id: props.hgncId,
-        error: e.message
+        error: message
       })
     } finally {
       loading.value = false

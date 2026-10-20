@@ -115,6 +115,7 @@ CREATE TABLE curation_schemas (
     institution VARCHAR(255),
     created_by UUID,                               -- Will reference users(id)
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),               -- Seed migrations (016+) upsert this
     is_active BOOLEAN DEFAULT true,
     
     -- Schema validation checksum
@@ -142,6 +143,7 @@ CREATE TABLE workflow_pairs (
     description TEXT,
     created_by UUID,                               -- Will reference users(id)
     created_at TIMESTAMPTZ DEFAULT NOW(),
+    updated_at TIMESTAMPTZ DEFAULT NOW(),               -- Seed migrations (016+) upsert this
     is_active BOOLEAN DEFAULT true,
     
     UNIQUE(name, version)

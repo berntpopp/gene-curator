@@ -58,8 +58,8 @@
 
             <!-- User role badge -->
             <v-chip
-              :color="getRoleColor(userRole)"
-              :prepend-icon="getRoleIcon(userRole)"
+              :color="getRoleColor(userRole ?? '')"
+              :prepend-icon="getRoleIcon(userRole ?? '')"
               size="large"
             >
               {{ userRole || 'No role' }}
@@ -249,7 +249,7 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
@@ -258,6 +258,16 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import MemberManagement from '@/components/scope/MemberManagement.vue'
+
+  interface ScopeStats {
+    member_count?: number
+    total_curations?: number
+    total_genes_assigned?: number
+    active_curations?: number
+    draft_curations?: number
+    submitted_curations?: number
+    curations_in_review?: number
+  }
 
   // Lazy load heavy components (optimize initial bundle size)
   const ScopeOverview = defineAsyncComponent(() => import('@/components/scope/ScopeOverview.vue'))
@@ -280,24 +290,24 @@
   // STATE
   // ============================================
 
-  const scopeStats = ref(null)
+  const scopeStats = ref<ScopeStats | undefined>(undefined)
 
   // ============================================
   // COMPUTED PROPERTIES
   // ============================================
 
-  const scopeId = computed(() => route.params.scopeId)
+  const scopeId = computed(() => route.params.scopeId as string)
 
   // Valid tab values
-  const validTabs = ['overview', 'genes', 'curations', 'members', 'settings']
+  const validTabs: string[] = ['overview', 'genes', 'curations', 'members', 'settings']
 
   // Active tab synced with route (must be after scopeId)
   const activeTab = computed({
     get: () => {
-      const tab = route.params.tab
+      const tab = route.params.tab as string
       return validTabs.includes(tab) ? tab : 'overview'
     },
-    set: tabValue => {
+    set: (tabValue: string) => {
       router.push({
         name: 'scope-dashboard',
         params: { scopeId: scopeId.value, tab: tabValue }
@@ -313,7 +323,7 @@
   const { canManageScope, canViewMembers } = useScopePermissions(userRole)
 
   // In-progress count: draft + submitted + in_review curations
-  const inProgressCount = computed(() => {
+  const inProgressCount = computed<number>(() => {
     if (!scopeStats.value) return 0
     return (
       (scopeStats.value.draft_curations || 0) +
@@ -322,7 +332,7 @@
     )
   })
 
-  const curationProgress = computed(() => {
+  const curationProgress = computed<number>(() => {
     if (!scopeStats.value) return 0
     return calculateProgress(
       scopeStats.value.active_curations,
@@ -356,7 +366,8 @@
       await scopeStore.fetchUserRole(scopeId.value)
 
       // Fetch scope statistics
-      scopeStats.value = await scopeStore.fetchStatistics(scopeId.value)
+      scopeStats.value =
+        ((await scopeStore.fetchStatistics(scopeId.value)) as ScopeStats | null) ?? undefined
 
       logger.info('Scope dashboard loaded', {
         scope_id: scopeId.value,
@@ -366,8 +377,8 @@
     } catch (err) {
       logger.error('Failed to fetch scope dashboard data', {
         scope_id: scopeId.value,
-        error: err.message,
-        stack: err.stack
+        error: (err as Error).message,
+        stack: (err as Error).stack
       })
     }
   }

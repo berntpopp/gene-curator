@@ -13,7 +13,7 @@ Created: 2025-01-13
 Author: Claude Code (Automated Implementation)
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -24,6 +24,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
+from app.crud.scope_membership import is_invitation_expired
 from app.models import Scope, ScopeMembership, User, UserNew
 from app.schemas.invitation import (
     PendingInvitationResponse,
@@ -56,7 +57,7 @@ def get_my_pending_invitations(
     Returns:
         PendingInvitationsListResponse with list of pending invitations
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
 
     # Query pending invitations with scope and inviter details
     stmt = (
@@ -93,7 +94,7 @@ def get_my_pending_invitations(
         inviter_name,
         inviter_email,
     ) in results:
-        is_expired = membership.expires_at is not None and membership.expires_at < now
+        is_expired = is_invitation_expired(membership.expires_at, now)
 
         invitation = PendingInvitationResponse(
             id=membership.id,

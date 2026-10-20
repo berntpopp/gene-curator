@@ -62,12 +62,3 @@ class EvidenceItem(EvidenceItemBase):
     is_deleted: bool = False
 
     model_config = ConfigDict(from_attributes=True)
-
-
-class EvidenceItemWithDetails(EvidenceItem):
-    """Evidence item with creator details"""
-
-    creator_name: str | None = None
-    creator_email: str | None = None
-
-    model_config = ConfigDict(from_attributes=True)

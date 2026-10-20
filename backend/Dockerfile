@@ -2,7 +2,7 @@
 FROM python:3.12-slim AS base
 
 # Install uv from official image (replaces curl-based install)
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /usr/local/bin/
 
 # Set environment variables for Python and uv
 ENV PYTHONUNBUFFERED=1 \

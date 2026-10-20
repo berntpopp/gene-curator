@@ -30,7 +30,6 @@ from app.models import Scope, ScopeMembership, User, UserNew
 from app.schemas.auth import UserResponse
 from app.schemas.scope_membership import (
     ScopeMemberListResponse,
-    ScopeMembershipAccept,
     ScopeMembershipCreate,
     ScopeMembershipResponse,
     ScopeMembershipUpdate,
@@ -39,6 +38,27 @@ from app.schemas.scope_membership import (
 logger = get_logger(__name__)
 
 router = APIRouter()
+
+
+def _is_active_admin(membership: ScopeMembership) -> bool:
+    return (
+        membership.role == ScopeRole.ADMIN.value
+        and membership.is_active
+        and membership.accepted_at is not None
+    )
+
+
+def _other_active_admins(db: Session, scope_id: UUID, membership_id: UUID) -> int:
+    count = db.execute(
+        select(func.count(ScopeMembership.id)).where(
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.id != membership_id,
+            ScopeMembership.role == ScopeRole.ADMIN.value,
+            ScopeMembership.is_active == True,  # noqa: E712
+            ScopeMembership.accepted_at.isnot(None),
+        )
+    ).scalar()
+    return count or 0
 
 
 @router.get("/{scope_id}/users/search", response_model=list[UserResponse])
@@ -207,7 +227,6 @@ def accept_invitation(
     db: Session = Depends(get_db),
     scope_id: UUID,
     membership_id: UUID,
-    accept_data: ScopeMembershipAccept | None = None,
     current_user: User = Depends(get_current_active_user),
 ) -> ScopeMembershipResponse:
     """
@@ -220,7 +239,6 @@ def accept_invitation(
         db: Database session
         scope_id: Scope UUID
         membership_id: Membership UUID
-        accept_data: Optional acceptance message
         current_user: Current user (must be invited user)
 
     Returns:
@@ -371,6 +389,19 @@ def update_member_role(
             detail="Membership not found",
         )
 
+    # Never leave a scope without an active admin
+    demotes = update_data.role is not None and update_data.role != ScopeRole.ADMIN
+    deactivates = update_data.is_active is False
+    if (
+        _is_active_admin(membership)
+        and (demotes or deactivates)
+        and _other_active_admins(db, scope_id, membership.id) == 0
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot demote or deactivate the last admin of a scope",
+        )
+
     # Update role if provided
     if update_data.role:
         membership = scope_membership_crud.update_role(
@@ -471,27 +502,20 @@ def remove_member(
         )
 
     # Prevent removing last admin
-    if membership.role == ScopeRole.ADMIN.value:
-        admin_count = db.execute(
-            select(func.count(ScopeMembership.id)).where(
-                ScopeMembership.scope_id == scope_id,
-                ScopeMembership.role == ScopeRole.ADMIN.value,
-                ScopeMembership.is_active == True,  # noqa: E712
-                ScopeMembership.accepted_at.isnot(None),
-            )
-        ).scalar()
-
-        if admin_count is not None and admin_count <= 1:
-            logger.warning(
-                "Remove member failed: cannot remove last admin",
-                scope_id=str(scope_id),
-                user_id=str(user_id),
-                removed_by=str(current_user.id),
-            )
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Cannot remove the last admin from a scope",
-            )
+    if (
+        _is_active_admin(membership)
+        and _other_active_admins(db, scope_id, membership.id) == 0
+    ):
+        logger.warning(
+            "Remove member failed: cannot remove last admin",
+            scope_id=str(scope_id),
+            user_id=str(user_id),
+            removed_by=str(current_user.id),
+        )
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot remove the last admin from a scope",
+        )
 
     # Remove member (soft delete)
     scope_membership_crud.remove_member(

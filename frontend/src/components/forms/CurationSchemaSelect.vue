@@ -7,7 +7,7 @@
 
     <v-card-text>
       <v-select
-        v-model="selectedSchemaId"
+        :model-value="selectedSchemaId ?? undefined"
         :items="availableSchemas"
         :loading="loading"
         item-title="name"
@@ -15,7 +15,7 @@
         label="Curation Schema"
         placeholder="Choose curation methodology..."
         variant="outlined"
-        :hint="selectedSchema?.description"
+        :hint="selectedSchema?.description ?? undefined"
         persistent-hint
         @update:model-value="handleSelection"
       >
@@ -56,7 +56,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * CurationSchemaSelect Component
    *
@@ -77,32 +77,33 @@
 
   import { ref, computed, onMounted, watch } from 'vue'
   import { useSchemasStore } from '@/stores/schemas'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: String,
-      default: null
-    },
-    scopeId: {
-      type: String,
-      required: true
-    },
-    schemaType: {
-      type: String,
-      default: 'curation',
-      validator: v => ['curation', 'precuration', 'combined'].includes(v)
+  type CurationSchema = Schema<'CurationSchema'>
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string | null
+      scopeId: string
+      schemaType?: 'curation' | 'precuration' | 'combined'
+    }>(),
+    {
+      modelValue: null,
+      schemaType: 'curation'
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue'])
+  const emit = defineEmits<{
+    'update:modelValue': [schemaId: string]
+  }>()
 
   const schemasStore = useSchemasStore()
-  const selectedSchemaId = ref(props.modelValue)
+  const selectedSchemaId = ref<string | null>(props.modelValue)
 
   const loading = computed(() => schemasStore.loading)
 
   // Filter schemas by type (curation or combined)
-  const availableSchemas = computed(() => {
+  const availableSchemas = computed<CurationSchema[]>(() => {
     return schemasStore.schemas.filter(
       s => s.schema_type === props.schemaType || s.schema_type === 'combined'
     )
@@ -113,11 +114,12 @@
     return availableSchemas.value.find(s => s.id === selectedSchemaId.value)
   })
 
-  function getFieldCount(schema) {
-    return schema.field_definitions?.length || 0
+  function getFieldCount(schema: CurationSchema): number {
+    // field_definitions is typed as a plain object; only array-like values have a length
+    return (schema.field_definitions as { length?: number } | undefined)?.length || 0
   }
 
-  function handleSelection(schemaId) {
+  function handleSelection(schemaId: string | null) {
     selectedSchemaId.value = schemaId
   }
 

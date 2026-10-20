@@ -8,7 +8,7 @@
     <v-card-text>
       <!-- Assignment Filters -->
       <v-row class="mb-4">
-        <v-col cols="12" sm="4">
+        <v-col cols="12" sm="6">
           <v-select
             v-model="selectedScope"
             :items="availableScopes"
@@ -17,7 +17,6 @@
             label="Filter by Scope"
             variant="outlined"
             clearable
-            @update:model-value="applyFilters"
           >
             <template #prepend-inner>
               <v-icon>mdi-domain</v-icon>
@@ -25,31 +24,15 @@
           </v-select>
         </v-col>
 
-        <v-col cols="12" sm="4">
-          <v-select
-            v-model="selectedStatus"
-            :items="statusOptions"
-            label="Filter by Status"
-            variant="outlined"
-            clearable
-            @update:model-value="applyFilters"
-          >
-            <template #prepend-inner>
-              <v-icon>mdi-tag</v-icon>
-            </template>
-          </v-select>
-        </v-col>
-
-        <v-col cols="12" sm="4">
+        <v-col cols="12" sm="6">
           <v-select
             v-model="selectedAssignee"
             :items="availableUsers"
-            item-title="full_name"
+            item-title="name"
             item-value="id"
             label="Filter by Assignee"
             variant="outlined"
             clearable
-            @update:model-value="applyFilters"
           >
             <template #prepend-inner>
               <v-icon>mdi-account</v-icon>
@@ -113,7 +96,7 @@
           <v-toolbar flat>
             <v-text-field
               v-model="searchQuery"
-              placeholder="Search genes, diseases, or assignees..."
+              placeholder="Search genes or assignees..."
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               density="compact"
@@ -123,41 +106,27 @@
           </v-toolbar>
         </template>
 
-        <template #item.gene="{ item }">
+        <template #item.gene_symbol="{ item }">
           <div>
             <div class="font-weight-medium">{{ item.gene_symbol }}</div>
-            <div class="text-caption">{{ item.gene_name }}</div>
+            <div class="text-caption">{{ item.gene_hgnc_id }}</div>
           </div>
         </template>
 
-        <template #item.disease="{ item }">
-          <div>
-            <div class="font-weight-medium">{{ item.disease_name }}</div>
-            <div class="text-caption">OMIM: {{ item.omim_id }}</div>
-          </div>
-        </template>
-
-        <template #item.scope="{ item }">
+        <template #item.scope_name="{ item }">
           <v-chip size="small" color="info" variant="outlined">
-            {{ getScopeName(item.scope_id) }}
+            {{ item.scope_name }}
           </v-chip>
         </template>
 
-        <template #item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
-            {{ formatStatus(item.status) }}
-          </v-chip>
-        </template>
-
-        <template #item.assignee="{ item }">
-          <div v-if="item.assigned_to">
+        <template #item.curator_name="{ item }">
+          <div v-if="item.assigned_curator_id">
             <div class="d-flex align-center">
               <v-avatar size="24" class="mr-2">
                 <v-icon>mdi-account</v-icon>
               </v-avatar>
               <div>
-                <div class="text-body-2">{{ getUserName(item.assigned_to) }}</div>
-                <div class="text-caption">{{ getUserRole(item.assigned_to) }}</div>
+                <div class="text-body-2">{{ item.curator_name }}</div>
               </div>
             </div>
           </div>
@@ -170,26 +139,29 @@
           </v-chip>
         </template>
 
-        <template #item.due_date="{ item }">
-          <div v-if="item.due_date">
-            <div class="text-body-2">{{ formatDate(item.due_date) }}</div>
-            <div class="text-caption" :class="getDueDateClass(item.due_date)">
-              {{ getDueDateStatus(item.due_date) }}
-            </div>
-          </div>
-          <div v-else class="text-medium-emphasis">No due date</div>
-        </template>
-
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editAssignment(item)" />
             <v-btn
+              aria-label="Edit assignment"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editAssignment(item)"
+            />
+            <v-btn
+              aria-label="Reassign gene"
               icon="mdi-account-plus"
               size="small"
               variant="text"
               @click="reassignGene(item)"
             />
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewAssignment(item)" />
+            <v-btn
+              aria-label="View assignment"
+              icon="mdi-eye"
+              size="small"
+              variant="text"
+              @click="viewAssignment(item)"
+            />
           </div>
         </template>
       </v-data-table>
@@ -203,7 +175,7 @@
           <v-select
             v-model="bulkAssignee"
             :items="availableUsers"
-            item-title="full_name"
+            item-title="name"
             item-value="id"
             label="Assign to User"
             variant="outlined"
@@ -214,13 +186,6 @@
             v-model="bulkPriority"
             :items="priorityOptions"
             label="Set Priority"
-            variant="outlined"
-          />
-
-          <v-text-field
-            v-model="bulkDueDate"
-            type="date"
-            label="Due Date (Optional)"
             variant="outlined"
           />
 
@@ -267,13 +232,6 @@
               label="Priority"
               variant="outlined"
             />
-            <v-text-field
-              v-model="editFormData.due_date"
-              type="date"
-              label="Due Date"
-              variant="outlined"
-            />
-            <v-textarea v-model="editFormData.notes" label="Notes" variant="outlined" rows="3" />
           </v-form>
         </v-card-text>
         <v-card-actions>
@@ -297,75 +255,32 @@
           <v-list>
             <v-list-item>
               <v-list-item-title>Gene</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedAssignment.gene_symbol || selectedAssignment.gene || 'N/A'
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Disease</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.disease || 'N/A' }}</v-list-item-subtitle>
+              <v-list-item-subtitle>
+                {{ selectedAssignment.gene_symbol }} ({{ selectedAssignment.gene_hgnc_id }})
+              </v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Scope</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedAssignment.scope_name || selectedAssignment.scope || 'N/A'
-              }}</v-list-item-subtitle>
+              <v-list-item-subtitle>{{ selectedAssignment.scope_name }}</v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Assignee</v-list-item-title>
               <v-list-item-subtitle>{{
-                selectedAssignment.assignee_name || selectedAssignment.assignee || 'Unassigned'
+                selectedAssignment.curator_name || 'Unassigned'
               }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Status</v-list-item-title>
-              <v-list-item-subtitle>
-                <v-chip :color="getStatusColor(selectedAssignment.status)" size="small">
-                  {{ selectedAssignment.status || 'N/A' }}
-                </v-chip>
-              </v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
               <v-list-item-title>Priority</v-list-item-title>
               <v-list-item-subtitle>
-                <v-chip
-                  :color="
-                    getPriorityColor(
-                      selectedAssignment.priority_level || selectedAssignment.priority
-                    )
-                  "
-                  size="small"
-                >
-                  {{ selectedAssignment.priority_level || selectedAssignment.priority || 'None' }}
+                <v-chip :color="getPriorityColor(selectedAssignment.priority)" size="small">
+                  {{ selectedAssignment.priority }}
                 </v-chip>
               </v-list-item-subtitle>
             </v-list-item>
             <v-list-item>
-              <v-list-item-title>Due Date</v-list-item-title>
+              <v-list-item-title>Assigned</v-list-item-title>
               <v-list-item-subtitle>{{
-                selectedAssignment.due_date
-                  ? new Date(selectedAssignment.due_date).toLocaleDateString()
-                  : 'No due date'
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item v-if="selectedAssignment.notes">
-              <v-list-item-title>Notes</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.notes }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Created</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedAssignment.created_at
-                  ? new Date(selectedAssignment.created_at).toLocaleString()
-                  : 'N/A'
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Last Updated</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedAssignment.updated_at
-                  ? new Date(selectedAssignment.updated_at).toLocaleString()
-                  : 'N/A'
+                new Date(selectedAssignment.assigned_at).toLocaleString()
               }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
@@ -387,30 +302,20 @@
         <v-card-text>
           <div class="text-body-2 mb-4">
             Reassigning
-            <strong>{{ reassigningAssignment?.gene_symbol || reassigningAssignment?.gene }}</strong>
+            <strong>{{ reassigningAssignment?.gene_symbol }}</strong>
             from
-            <strong>{{
-              reassigningAssignment?.assignee_name ||
-              reassigningAssignment?.assignee ||
-              'Unassigned'
-            }}</strong>
+            <strong>{{ reassigningAssignment?.curator_name || 'Unassigned' }}</strong>
           </div>
           <v-form ref="reassignForm">
             <v-select
               v-model="reassignCuratorId"
               :items="availableUsers"
-              item-title="full_name"
+              item-title="name"
               item-value="id"
               label="New Curator"
               variant="outlined"
               :rules="[v => !!v || 'Please select a curator']"
               required
-            />
-            <v-textarea
-              v-model="reassignNote"
-              label="Transfer Note (Optional)"
-              variant="outlined"
-              rows="2"
             />
           </v-form>
         </v-card-text>
@@ -426,12 +331,15 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
   import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
+  import { errorDetails } from './errorDetails'
+  import { formatPriority, getPriorityColor, priorityOptions } from './assignmentDisplay'
+  import type { Schema } from '@/types/api'
 
   const assignmentsStore = useAssignmentsStore()
   const scopesStore = useScopesStore()
@@ -439,48 +347,54 @@
   const authStore = useAuthStore()
   const logger = useLogger()
 
+  /** Subset of Vuetify's VForm instance used here */
+  interface FormHandle {
+    validate: () => Promise<{ valid: boolean }>
+  }
+
+  /** One row of the assignments table */
+  type GeneAssignment = Schema<'GeneScopeAssignmentSummary'>
+
+  type AssignedUser = Schema<'UserResponse'>
+
+  interface EditFormData {
+    priority_level: string | null
+  }
+
   // Reactive data
-  const selectedAssignments = ref([])
-  const selectedScope = ref(null)
-  const selectedStatus = ref(null)
-  const selectedAssignee = ref(null)
+  // v-data-table's selection holds item-value keys (assignment ids)
+  const selectedAssignments = ref<string[]>([])
+  const selectedScope = ref<string | null>(null)
+  const selectedAssignee = ref<string | null>(null)
   const searchQuery = ref('')
   const bulkAssignDialog = ref(false)
-  const bulkAssignee = ref(null)
-  const bulkPriority = ref(null)
-  const bulkDueDate = ref('')
+  const bulkAssignee = ref<AssignedUser | null>(null)
+  const bulkPriority = ref<string | null>(null)
   const bulkComment = ref('')
   const bulkAssigning = ref(false)
   const viewDialog = ref(false)
-  const selectedAssignment = ref(null)
+  const selectedAssignment = ref<GeneAssignment | null>(null)
   const editDialog = ref(false)
-  const editForm = ref(null)
   const saving = ref(false)
-  const editFormData = ref({
-    priority_level: null,
-    due_date: '',
-    notes: ''
+  const editFormData = ref<EditFormData>({
+    priority_level: null
   })
-  let editingAssignmentId = null
+  let editingAssignmentId: string | null = null
   const reassignDialog = ref(false)
-  const reassignForm = ref(null)
+  const reassignForm = ref<FormHandle | null>(null)
   const reassigning = ref(false)
-  const reassigningAssignment = ref(null)
-  const reassignCuratorId = ref(null)
-  const reassignNote = ref('')
+  const reassigningAssignment = ref<GeneAssignment | null>(null)
+  const reassignCuratorId = ref<string | null>(null)
 
-  // Computed properties with defensive defaults
   const loading = computed(() => assignmentsStore.loading)
-  const assignments = computed(() => assignmentsStore.assignments || [])
-  const availableScopes = computed(() => scopesStore.scopes || [])
-  const availableUsers = computed(() =>
-    (usersStore.users || []).filter(user => user.role !== 'viewer')
-  )
+  const assignments = computed(() => assignmentsStore.assignments)
+  const availableScopes = computed(() => scopesStore.scopes)
+  const availableUsers = computed(() => usersStore.users.filter(user => user.is_active))
+
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
     logger.error('GeneAssignmentManager error', {
-      error: err.message,
-      stack: err.stack,
+      ...errorDetails(err),
       component: instance?.$options?.name || 'GeneAssignmentManager',
       errorInfo: info
     })
@@ -491,30 +405,11 @@
     return false
   })
 
-  const statusOptions = [
-    { title: 'Unassigned', value: 'unassigned' },
-    { title: 'Assigned', value: 'assigned' },
-    { title: 'In Progress', value: 'in_progress' },
-    { title: 'Under Review', value: 'under_review' },
-    { title: 'Completed', value: 'completed' },
-    { title: 'On Hold', value: 'on_hold' }
-  ]
-
-  const priorityOptions = [
-    { title: 'Low', value: 'low' },
-    { title: 'Medium', value: 'medium' },
-    { title: 'High', value: 'high' },
-    { title: 'Urgent', value: 'urgent' }
-  ]
-
   const tableHeaders = [
-    { title: 'Gene', key: 'gene', sortable: true },
-    { title: 'Disease', key: 'disease', sortable: true },
-    { title: 'Scope', key: 'scope', sortable: true },
-    { title: 'Status', key: 'status', sortable: true },
-    { title: 'Assignee', key: 'assignee', sortable: true },
+    { title: 'Gene', key: 'gene_symbol', sortable: true },
+    { title: 'Scope', key: 'scope_name', sortable: true },
+    { title: 'Assignee', key: 'curator_name', sortable: true },
     { title: 'Priority', key: 'priority', sortable: true },
-    { title: 'Due Date', key: 'due_date', sortable: true },
     { title: 'Actions', key: 'actions', sortable: false }
   ]
 
@@ -525,98 +420,18 @@
       filtered = filtered.filter(a => a.scope_id === selectedScope.value)
     }
 
-    if (selectedStatus.value) {
-      filtered = filtered.filter(a => a.status === selectedStatus.value)
-    }
-
     if (selectedAssignee.value) {
-      filtered = filtered.filter(a => a.assigned_to === selectedAssignee.value)
+      filtered = filtered.filter(a => a.assigned_curator_id === selectedAssignee.value)
     }
 
     return filtered
   })
 
-  // Helper methods
-  const getScopeName = scopeId => {
-    const scope = availableScopes.value.find(s => s.id === scopeId)
-    return scope?.display_name || 'Unknown'
-  }
-
-  const getUserName = userId => {
-    const user = availableUsers.value.find(u => u.id === userId)
-    return user?.full_name || 'Unknown'
-  }
-
-  const getUserRole = userId => {
-    const user = availableUsers.value.find(u => u.id === userId)
-    return user?.role || 'Unknown'
-  }
-
-  const getStatusColor = status => {
-    const colorMap = {
-      unassigned: 'grey',
-      assigned: 'info',
-      in_progress: 'primary',
-      under_review: 'warning',
-      completed: 'success',
-      on_hold: 'orange'
-    }
-    return colorMap[status] || 'grey'
-  }
-
-  const getPriorityColor = priority => {
-    const colorMap = {
-      low: 'green',
-      medium: 'orange',
-      high: 'red',
-      urgent: 'deep-purple'
-    }
-    return colorMap[priority] || 'grey'
-  }
-
-  const formatStatus = status => {
-    return status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
-  }
-
-  const formatPriority = priority => {
-    return priority.charAt(0).toUpperCase() + priority.slice(1)
-  }
-
-  const formatDate = dateString => {
-    return new Date(dateString).toLocaleDateString()
-  }
-
-  const getDueDateClass = dateString => {
-    const dueDate = new Date(dateString)
-    const today = new Date()
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return 'text-error'
-    if (diffDays < 7) return 'text-warning'
-    return 'text-success'
-  }
-
-  const getDueDateStatus = dateString => {
-    const dueDate = new Date(dateString)
-    const today = new Date()
-    const diffDays = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24))
-
-    if (diffDays < 0) return `${Math.abs(diffDays)} days overdue`
-    if (diffDays === 0) return 'Due today'
-    if (diffDays === 1) return 'Due tomorrow'
-    return `${diffDays} days remaining`
-  }
-
   // Actions
-  const applyFilters = () => {
-    // Filters are applied reactively through computed property
-  }
-
   const openBulkAssignDialog = () => {
     bulkAssignDialog.value = true
     bulkAssignee.value = null
     bulkPriority.value = null
-    bulkDueDate.value = ''
     bulkComment.value = ''
   }
 
@@ -625,27 +440,33 @@
 
     bulkAssigning.value = true
     try {
-      await assignmentsStore.bulkUpdateAssignments({
-        assignment_ids: selectedAssignments.value,
-        assigned_to: bulkAssignee.value.id,
-        priority: bulkPriority.value,
-        due_date: bulkDueDate.value || null,
-        comment: bulkComment.value || null
-      })
+      // The curator goes through the dedicated assign-curator endpoint; the PUT update
+      // carries priority, due date and note only when one was chosen.
+      const curatorId = bulkAssignee.value.id
+      const hasUpdate = bulkPriority.value || bulkComment.value
+      for (const id of selectedAssignments.value) {
+        await assignmentsAPI.assignCurator(id, curatorId)
+        if (hasUpdate) {
+          await assignmentsAPI.updateAssignment(id, {
+            ...(bulkPriority.value && { priority_level: bulkPriority.value }),
+            ...(bulkComment.value && { assignment_notes: bulkComment.value })
+          })
+        }
+      }
+      await assignmentsStore.fetchAssignments()
 
       logger.info('Bulk assignment successful', {
         count: selectedAssignments.value.length,
-        assignedTo: bulkAssignee.value.full_name
+        assignedTo: bulkAssignee.value.name
       })
       showSuccess(`Successfully assigned ${selectedAssignments.value.length} items`)
 
       bulkAssignDialog.value = false
       selectedAssignments.value = []
-    } catch (error) {
+    } catch (err) {
       logger.error('Bulk assignment failed', {
         count: selectedAssignments.value.length,
-        error: error.message,
-        stack: error.stack
+        ...errorDetails(err)
       })
       showError('Bulk assignment failed')
     } finally {
@@ -658,69 +479,67 @@
       await assignmentsStore.fetchAssignments()
       logger.info('Assignments refreshed', { count: assignments.value.length })
       showSuccess('Assignments refreshed')
-    } catch (error) {
-      logger.error('Refresh failed', {
-        error: error.message,
-        stack: error.stack
-      })
+    } catch (err) {
+      logger.error('Refresh failed', errorDetails(err))
       showError('Refresh failed')
     }
   }
 
-  const editAssignment = assignment => {
+  const editAssignment = (assignment: GeneAssignment) => {
     logger.info('Edit assignment requested', { assignmentId: assignment.id })
     editingAssignmentId = assignment.id
     editFormData.value = {
-      priority_level: assignment.priority_level || assignment.priority || null,
-      due_date: assignment.due_date || '',
-      notes: assignment.notes || ''
+      priority_level: assignment.priority
     }
     editDialog.value = true
   }
 
   const saveAssignment = async () => {
+    if (!editingAssignmentId) return
     saving.value = true
     try {
-      await assignmentsStore.updateAssignment(editingAssignmentId, editFormData.value)
+      await assignmentsStore.updateAssignment(editingAssignmentId, {
+        priority_level: editFormData.value.priority_level
+      })
       showSuccess('Assignment updated successfully')
       editDialog.value = false
-    } catch (error) {
+    } catch (err) {
       showError('Failed to update assignment')
-      logger.error('Save assignment failed', { error: error.message })
+      logger.error('Save assignment failed', { error: errorDetails(err).error })
     } finally {
       saving.value = false
     }
   }
 
-  const reassignGene = assignment => {
+  const reassignGene = (assignment: GeneAssignment) => {
     logger.info('Reassign gene requested', {
       assignmentId: assignment.id,
       geneSymbol: assignment.gene_symbol
     })
     reassigningAssignment.value = assignment
     reassignCuratorId.value = null
-    reassignNote.value = ''
     reassignDialog.value = true
   }
 
   const executeReassign = async () => {
-    const { valid } = await reassignForm.value.validate()
-    if (!valid) return
+    const { valid } = await reassignForm.value!.validate()
+    const curatorId = reassignCuratorId.value
+    if (!valid || !curatorId) return
     reassigning.value = true
     try {
-      await assignmentsAPI.assignCurator(reassigningAssignment.value.id, reassignCuratorId.value)
+      await assignmentsAPI.assignCurator(reassigningAssignment.value!.id, curatorId)
       showSuccess('Gene reassigned successfully')
       reassignDialog.value = false
       await assignmentsStore.fetchAssignments()
-    } catch (error) {
+    } catch (err) {
       showError('Failed to reassign gene')
-      logger.error('Reassign failed', { error: error.message })
+      logger.error('Reassign failed', { error: errorDetails(err).error })
     } finally {
       reassigning.value = false
     }
   }
 
-  const viewAssignment = assignment => {
+  const viewAssignment = (assignment: GeneAssignment) => {
     logger.info('View assignment requested', { assignmentId: assignment.id })
     selectedAssignment.value = assignment
     viewDialog.value = true
@@ -731,11 +550,12 @@
       const curatorId = authStore.user?.id
 
       // Call existing methods with proper parameters
-      const promises = [
+      const promises: Promise<unknown>[] = [
         assignmentsStore.fetchAssignments(),
-        scopesStore.fetchScopes(),
-        usersStore.fetchUsers()
+        scopesStore.fetchUserScopes()
       ]
+      // GET /users is admin-only; curators would only get a 403
+      if (authStore.isAdmin) promises.push(usersStore.fetchUsers())
 
       // Only fetch curator workload if user is logged in
       if (curatorId) {
@@ -751,11 +571,8 @@
         scopesCount: availableScopes.value.length,
         usersCount: availableUsers.value.length
       })
-    } catch (error) {
-      logger.error('Failed to load assignment data', {
-        error: error.message,
-        stack: error.stack
-      })
+    } catch (err) {
+      logger.error('Failed to load assignment data', errorDetails(err))
       showError('Failed to load assignment data. Please refresh.')
     }
   })

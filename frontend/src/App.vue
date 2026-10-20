@@ -28,12 +28,12 @@
   </v-app>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, watch, onMounted, onUnmounted } from 'vue'
-  import { useAuthStore } from '@/stores/auth.js'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
-  import { snackbarState } from '@/composables/useNotifications.js'
+  import { snackbarState } from '@/composables/useNotifications'
   import { useLogger } from '@/composables/useLogger'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
@@ -41,7 +41,12 @@
   import LogViewer from '@/components/logging/LogViewer.vue'
   import DisclaimerDialog from '@/components/DisclaimerDialog.vue'
 
-  const logger = useLogger()
+  // useLogger() is still JS and its JSDoc types the result as Object; narrow it here
+  interface ScopedLogger {
+    debug(message: string, data?: unknown): void
+    info(message: string, data?: unknown): void
+  }
+  const logger = useLogger() as ScopedLogger
   const authStore = useAuthStore()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
@@ -62,7 +67,7 @@
   )
 
   // Keyboard shortcut for log viewer (Ctrl+Shift+L)
-  const handleKeyPress = event => {
+  const handleKeyPress = (event: KeyboardEvent) => {
     if (event.ctrlKey && event.shiftKey && event.key === 'L') {
       event.preventDefault()
       logStore.toggleViewer()

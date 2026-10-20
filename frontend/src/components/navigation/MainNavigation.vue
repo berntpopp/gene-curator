@@ -52,7 +52,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * MainNavigation Component
    *
@@ -70,17 +70,34 @@
    */
 
   import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
-  import { useRouter } from 'vue-router'
-  import { usePermissions } from '@/composables/usePermissions'
+  import { useRouter, type RouteRecordNormalized } from 'vue-router'
+  import { storeToRefs } from 'pinia'
+  import { useAuthStore } from '@/stores/auth'
   import { useWorkflowStore } from '@/stores/workflow'
   import { TERMINOLOGY } from '@/config/terminology'
   import BaseNavigationItem from './BaseNavigationItem.vue'
 
+  // Route meta is untyped in vue-router here; these are the keys this menu reads
+  interface NavRouteMeta {
+    icon?: string
+    label?: string
+    title?: string
+    order?: number
+    requiresAuth?: boolean
+    requiresGuest?: boolean
+    requiredRoles?: string[]
+    showInMainMenu?: boolean
+    showInDropdown?: string
+  }
+
+  const metaOf = (route: RouteRecordNormalized): NavRouteMeta => route.meta as NavRouteMeta
+
   const router = useRouter()
-  const { can, isAuthenticated } = usePermissions()
+  const authStore = useAuthStore()
+  const { isAuthenticated } = storeToRefs(authStore)
   const workflowStore = useWorkflowStore()
   const pendingReviewCount = ref(0)
-  let badgeRefreshInterval = null
+  let badgeRefreshInterval: ReturnType<typeof setInterval> | null = null
 
   async function refreshBadgeCount() {
     try {
@@ -129,14 +146,14 @@
   const mainMenuItems = computed(() => {
     return router
       .getRoutes()
-      .filter(route => route.meta?.showInMainMenu === true)
-      .filter(route => hasAccess(route.meta))
+      .filter(route => metaOf(route).showInMainMenu === true)
+      .filter(route => hasAccess(metaOf(route)))
       .map(route => ({
         name: route.name,
         to: { name: route.name },
-        icon: route.meta.icon,
-        label: route.meta.label || route.meta.title,
-        order: route.meta.order || 999
+        icon: metaOf(route).icon,
+        label: metaOf(route).label || metaOf(route).title || '',
+        order: metaOf(route).order || 999
       }))
       .sort((a, b) => a.order - b.order)
   })
@@ -147,14 +164,14 @@
   const curationItems = computed(() => {
     return router
       .getRoutes()
-      .filter(route => route.meta?.showInDropdown === 'curation')
-      .filter(route => hasAccess(route.meta))
+      .filter(route => metaOf(route).showInDropdown === 'curation')
+      .filter(route => hasAccess(metaOf(route)))
       .map(route => ({
         name: route.name,
         to: { name: route.name },
-        icon: route.meta.icon,
-        label: route.meta.label || route.meta.title,
-        order: route.meta.order || 999,
+        icon: metaOf(route).icon,
+        label: metaOf(route).label || metaOf(route).title || '',
+        order: metaOf(route).order || 999,
         badge:
           route.name === 'review-queue' && pendingReviewCount.value > 0
             ? pendingReviewCount.value
@@ -170,14 +187,14 @@
   const curationSetupItems = computed(() => {
     return router
       .getRoutes()
-      .filter(route => route.meta?.showInDropdown === 'curationSetup')
-      .filter(route => hasAccess(route.meta))
+      .filter(route => metaOf(route).showInDropdown === 'curationSetup')
+      .filter(route => hasAccess(metaOf(route)))
       .map(route => ({
         name: route.name,
         to: { name: route.name },
-        icon: route.meta.icon,
-        label: route.meta.label || route.meta.title,
-        order: route.meta.order || 999
+        icon: metaOf(route).icon,
+        label: metaOf(route).label || metaOf(route).title || '',
+        order: metaOf(route).order || 999
       }))
       .sort((a, b) => a.order - b.order)
   })
@@ -198,7 +215,7 @@
   /**
    * Check if user has access to a route
    */
-  function hasAccess(routeMeta) {
+  function hasAccess(routeMeta: NavRouteMeta | undefined) {
     if (!routeMeta) return true
 
     // Check authentication
@@ -213,7 +230,7 @@
 
     // Check role requirements
     if (routeMeta.requiredRoles) {
-      return can.hasAnyRole(routeMeta.requiredRoles)
+      return authStore.hasAnyRole(routeMeta.requiredRoles)
     }
 
     return true

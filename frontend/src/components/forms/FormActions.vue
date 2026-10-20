@@ -74,7 +74,7 @@
   </v-card-actions>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * FormActions Component
    *
@@ -96,28 +96,28 @@
    * />
    */
 
-  defineProps({
-    canUndo: {
-      type: Boolean,
-      default: false
-    },
-    canRedo: {
-      type: Boolean,
-      default: false
-    },
-    canSubmit: {
-      type: Boolean,
-      default: true
-    },
-    saving: {
-      type: Boolean,
-      default: false
-    },
-    submitting: {
-      type: Boolean,
-      default: false
+  withDefaults(
+    defineProps<{
+      canUndo?: boolean
+      canRedo?: boolean
+      canSubmit?: boolean
+      saving?: boolean
+      submitting?: boolean
+    }>(),
+    {
+      canUndo: false,
+      canRedo: false,
+      canSubmit: true,
+      saving: false,
+      submitting: false
     }
-  })
+  )
 
-  defineEmits(['undo', 'redo', 'save-draft', 'submit', 'cancel'])
+  defineEmits<{
+    undo: []
+    redo: []
+    'save-draft': []
+    submit: []
+    cancel: []
+  }>()
 </script>

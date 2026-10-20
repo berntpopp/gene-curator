@@ -9,6 +9,7 @@ Provides:
 """
 
 from collections.abc import Generator
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import MagicMock, patch
 from uuid import uuid4
@@ -20,6 +21,7 @@ from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core import security
 from app.core.database import Base, get_db
 from app.core.security import create_access_token, get_password_hash
 from app.main import app
@@ -34,6 +36,9 @@ from app.models.models import (
     UserNew,
     WorkflowPair,
 )
+
+# bcrypt at production cost (~0.2 s/hash) dominated test time; hashes embed their rounds
+security.pwd_context.update(bcrypt__rounds=4)
 
 # Test database URL - in-memory SQLite for speed
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///:memory:"
@@ -55,16 +60,14 @@ def test_engine() -> Engine:
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.close()
 
+    # Schema once per session; db_session empties the tables after each test
+    Base.metadata.create_all(bind=engine)
     return engine
 
 
 @pytest.fixture(scope="function")
 def db_session(test_engine: Engine) -> Generator[Session, None, None]:
-    """Create a fresh database session for each test"""
-    # Create all tables
-    Base.metadata.create_all(bind=test_engine)
-
-    # Create session
+    """Session on an empty database; all rows are deleted after the test"""
     testing_session_local = sessionmaker(
         autocommit=False, autoflush=False, bind=test_engine
     )
@@ -75,8 +78,9 @@ def db_session(test_engine: Engine) -> Generator[Session, None, None]:
     finally:
         session.rollback()
         session.close()
-        # Drop all tables after test
-        Base.metadata.drop_all(bind=test_engine)
+        with test_engine.begin() as conn:
+            for table in reversed(Base.metadata.sorted_tables):
+                conn.execute(table.delete())
 
 
 @pytest.fixture
@@ -138,6 +142,7 @@ def test_user_curator(db_session: Session, test_scope: Scope) -> UserNew:
         scope_id=test_scope.id,
         user_id=user.id,
         role="curator",  # Scope-specific role
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()
@@ -164,6 +169,7 @@ def test_user_viewer(db_session: Session, test_scope: Scope) -> UserNew:
         scope_id=test_scope.id,
         user_id=user.id,
         role="viewer",  # Scope-specific role
+        accepted_at=datetime.now(UTC),
     )
     db_session.add(membership)
     db_session.commit()

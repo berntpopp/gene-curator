@@ -64,8 +64,8 @@
       :headers="tableHeaders"
       :skeleton-count="10"
     >
-      <template #item="{ item }">
-        <tr>
+      <template #item="slotProps">
+        <tr v-for="item in [slotProps.item as CurationRow]" :key="item.curation_id">
           <td>
             <div class="d-flex align-center">
               <v-icon icon="mdi-dna" size="small" class="mr-2" />
@@ -271,7 +271,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * CurationList Component
    *
@@ -294,20 +294,41 @@
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useCurationsStore } from '@/stores/curations'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
 
-  const props = defineProps({
-    scopeId: {
-      type: String,
-      required: true
-    }
-  })
+  /** Row shape shared by the table and the card view (transformed from the store). */
+  interface CurationRow {
+    curation_id: string
+    gene_id?: string
+    gene_symbol: string
+    disease_name?: string | null
+    curator_id?: string | null
+    curator_name?: string | null
+    status: string
+    classification?: string | null
+    score: number
+    updated_at?: string
+    created_at?: string
+  }
+
+  interface CuratorOption {
+    user_id: string
+    user_name?: string | null
+    user_email?: string | null
+  }
+
+  const props = defineProps<{
+    scopeId: string
+  }>()
 
   const router = useRouter()
   const authStore = useAuthStore()
+  const scopeStore = useScopesStore()
   const curationsStore = useCurationsStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
@@ -317,10 +338,10 @@
 
   // Local UI state (filters, view mode)
   const search = ref('')
-  const filterStatus = ref(null)
-  const filterCurator = ref(null)
+  const filterStatus = ref<string | null>(null)
+  const filterCurator = ref<string | null>(null)
   const viewMode = ref('table')
-  const curators = ref([])
+  const curators = ref<CuratorOption[]>([])
 
   // Table headers
   const tableHeaders = [
@@ -344,17 +365,15 @@
   ]
 
   // Permissions
-  const canCreateCuration = computed(() => {
-    const userRole = authStore.user?.role
-    return ['admin', 'scope_admin', 'curator'].includes(userRole)
-  })
+  const { canCurate, canManageScope } = useScopePermissions(
+    computed(() => scopeStore.currentUserRole)
+  )
+  const canCreateCuration = canCurate
 
-  function canDeleteCuration(curation) {
-    const userRole = authStore.user?.role
-    const userId = authStore.user?.user_id
+  function canDeleteCuration(curation: CurationRow) {
     return (
-      ['admin', 'scope_admin'].includes(userRole) ||
-      (curation.curator_id === userId && curation.status === 'draft')
+      canManageScope.value ||
+      (curation.curator_id === authStore.user?.id && curation.status === 'draft')
     )
   }
 
@@ -367,17 +386,18 @@
   })
 
   // Transform store curations to component format
-  const transformedCurations = computed(() => {
+  const transformedCurations = computed<CurationRow[]>(() => {
+    // The list endpoint returns CurationSummary rows
     return curations.value.map(curation => ({
-      curation_id: curation.id || curation.curation_id,
+      curation_id: curation.id,
       gene_id: curation.gene_id,
       gene_symbol: curation.gene_symbol || '—',
       disease_name: curation.disease_name,
-      curator_id: curation.created_by || curation.curator_id,
+      curator_id: curation.created_by,
       curator_name: curation.curator_name,
       status: curation.status,
-      classification: curation.computed_verdict || curation.classification,
-      score: curation.computed_scores?.total_score || curation.score || 0,
+      classification: curation.computed_verdict,
+      score: Number(curation.computed_scores?.total_score) || 0,
       updated_at: curation.updated_at,
       created_at: curation.created_at
     }))
@@ -418,7 +438,10 @@
         new Map(
           newCurations
             .filter(c => c.curator_id)
-            .map(c => [c.curator_id, { user_id: c.curator_id, user_name: c.curator_name }])
+            .map(c => [
+              c.curator_id,
+              { user_id: c.curator_id as string, user_name: c.curator_name }
+            ])
         ).values()
       )
     },
@@ -439,7 +462,7 @@
         scope_id: props.scopeId
       })
     } catch (error) {
-      logger.error('Failed to fetch curations', { error: error.message })
+      logger.error('Failed to fetch curations', { error: (error as Error).message })
       notificationStore.addToast('Failed to load curations', 'error')
     }
   }
@@ -447,8 +470,8 @@
   /**
    * Get status color
    */
-  function getStatusColor(status) {
-    const colors = {
+  function getStatusColor(status: string): string {
+    const colors: Record<string, string> = {
       draft: 'grey',
       submitted: 'info',
       under_review: 'warning',
@@ -461,8 +484,8 @@
   /**
    * Get status label
    */
-  function getStatusLabel(status) {
-    const labels = {
+  function getStatusLabel(status: string): string {
+    const labels: Record<string, string> = {
       draft: 'Draft',
       submitted: 'Submitted',
       under_review: 'Under Review',
@@ -475,21 +498,21 @@
   /**
    * Get classification color
    */
-  function getClassificationColor(classification) {
-    const colors = {
+  function getClassificationColor(classification: string | null | undefined): string {
+    const colors: Record<string, string> = {
       Definitive: 'success',
       Strong: 'info',
       Moderate: 'warning',
       Limited: 'grey',
       'No Known Disease Relationship': 'error'
     }
-    return colors[classification] || 'grey'
+    return colors[classification ?? ''] || 'grey'
   }
 
   /**
    * Format date
    */
-  function formatDate(dateString) {
+  function formatDate(dateString: string | null | undefined): string {
     if (!dateString) return '—'
     return new Date(dateString).toLocaleDateString()
   }
@@ -497,12 +520,12 @@
   /**
    * Format relative time
    */
-  function formatRelativeTime(dateString) {
+  function formatRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return '—'
 
     const now = new Date()
     const date = new Date(dateString)
-    const diffMs = now - date
+    const diffMs = now.getTime() - date.getTime()
     const diffSec = Math.floor(diffMs / 1000)
     const diffMin = Math.floor(diffSec / 60)
     const diffHours = Math.floor(diffMin / 60)
@@ -527,21 +550,21 @@
   /**
    * View curation details
    */
-  function viewCuration(curation) {
+  function viewCuration(curation: CurationRow) {
     router.push(`/scopes/${props.scopeId}/curations/${curation.curation_id}`)
   }
 
   /**
    * Edit curation
    */
-  function editCuration(curation) {
+  function editCuration(curation: CurationRow) {
     router.push(`/scopes/${props.scopeId}/curations/${curation.curation_id}/edit`)
   }
 
   /**
    * Delete curation using store action
    */
-  async function deleteCuration(curation) {
+  async function deleteCuration(curation: CurationRow) {
     if (!confirm(`Delete curation for ${curation.gene_symbol}?`)) return
 
     try {
@@ -549,7 +572,7 @@
       notificationStore.addToast('Curation deleted successfully', 'success')
       // Store automatically updates the curations list
     } catch (error) {
-      logger.error('Failed to delete curation', { error: error.message })
+      logger.error('Failed to delete curation', { error: (error as Error).message })
       notificationStore.addToast('Failed to delete curation', 'error')
     }
   }

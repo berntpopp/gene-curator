@@ -16,6 +16,16 @@
           <v-card-text>
             <v-form ref="registerForm" v-model="formValid" @submit.prevent="handleRegister">
               <v-text-field
+                v-model="userData.name"
+                label="Full name"
+                prepend-inner-icon="mdi-account"
+                variant="outlined"
+                :rules="nameRules"
+                required
+                class="mb-3"
+              />
+
+              <v-text-field
                 v-model="userData.email"
                 label="Email"
                 type="email"
@@ -87,47 +97,52 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
   import { ref, reactive } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { showSuccess, showError } from '@/composables/useNotifications.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { showSuccess, showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const authStore = useAuthStore()
 
   // Form state
-  const registerForm = ref(null)
   const formValid = ref(false)
   const showPassword = ref(false)
   const showConfirmPassword = ref(false)
   const confirmPassword = ref('')
 
+  // The API requires a name; public sign-up always creates a plain "user" (the server enforces it)
   const userData = reactive({
+    name: '',
     email: '',
-    password: ''
+    password: '',
+    role: 'user' as const,
+    is_active: true
   })
+
+  const nameRules = [(v: string) => !!v?.trim() || 'Name is required']
 
   // Validation rules
   const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid'
+    (v: string) => !!v || 'Email is required',
+    (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
   const passwordRules = [
-    v => !!v || 'Password is required',
-    v => v.length >= 6 || 'Password must be at least 6 characters',
-    v => /(?=.*[a-z])/.test(v) || 'Password must contain at least one lowercase letter',
-    v => /(?=.*[A-Z])/.test(v) || 'Password must contain at least one uppercase letter',
-    v => /(?=.*\d)/.test(v) || 'Password must contain at least one number'
+    (v: string) => !!v || 'Password is required',
+    (v: string) => v.length >= 6 || 'Password must be at least 6 characters',
+    (v: string) => /(?=.*[a-z])/.test(v) || 'Password must contain at least one lowercase letter',
+    (v: string) => /(?=.*[A-Z])/.test(v) || 'Password must contain at least one uppercase letter',
+    (v: string) => /(?=.*\d)/.test(v) || 'Password must contain at least one number'
   ]
 
   const confirmPasswordRules = [
-    v => !!v || 'Please confirm your password',
-    v => v === userData.password || 'Passwords do not match'
+    (v: string) => !!v || 'Please confirm your password',
+    (v: string) => v === userData.password || 'Passwords do not match'
   ]
 
   const handleRegister = async () => {
@@ -141,7 +156,8 @@
       showSuccess('Account created successfully! You are now logged in.')
       router.push({ name: 'Home' })
     } catch (error) {
-      logger.error('Registration error:', { error: error.message, stack: error.stack })
+      const err = error as Error
+      logger.error('Registration error:', { error: err.message, stack: err.stack })
       showError('Registration failed. Please try again.')
     }
   }

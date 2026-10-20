@@ -248,27 +248,63 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
+  import { isAxiosError } from 'axios'
   import { scopesAPI } from '@/api/scopes'
   import { schemasAPI } from '@/api/schemas'
   import { useAuthStore } from '@/stores/auth'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useScopePermissions } from '@/composables/useScopePermissions'
   import { logService } from '@/services/logService'
 
-  const props = defineProps({
-    scope: {
-      type: Object,
-      required: true
-    },
-    statistics: {
-      type: Object,
-      default: null
-    }
-  })
+  /** Scope fields this panel reads and edits */
+  interface SettingsScope {
+    id: string
+    name: string
+    display_name?: string | null
+    description?: string | null
+    institution?: string | null
+    is_public?: boolean
+    created_by?: string | null
+    default_workflow_pair_id?: string | null
+  }
 
-  const emit = defineEmits(['updated', 'deleted'])
+  /** Only the counter used for the delete warning */
+  interface SettingsStatistics {
+    total_genes_assigned?: number
+  }
+
+  /** Workflow pair with the names of its linked schemas (the API returns only their ids) */
+  interface WorkflowPairOption {
+    id: string
+    name: string
+    version: string
+    description?: string | null
+    precuration_schema_name?: string
+    curation_schema_name?: string
+    displayName: string
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      scope: SettingsScope
+      statistics?: SettingsStatistics | null
+    }>(),
+    {
+      statistics: null
+    }
+  )
+
+  const emit = defineEmits<{
+    updated: []
+    deleted: []
+  }>()
 
   const authStore = useAuthStore()
+  const currentUser = computed(() => authStore.user)
+  const scopeStore = useScopesStore()
+  const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
 
   // State
   const loadingWorkflowPairs = ref(false)
@@ -277,8 +313,8 @@
   const showDeleteDialog = ref(false)
   const deleteConfirmed = ref(false)
   const isDirty = ref(false)
-  const workflowPairs = ref([])
-  const selectedWorkflowPairId = ref(null)
+  const workflowPairs = ref<WorkflowPairOption[]>([])
+  const selectedWorkflowPairId = ref<string | null>(null)
   const editableScope = ref({
     display_name: '',
     description: '',
@@ -292,15 +328,12 @@
   const snackbarColor = ref('success')
 
   // Computed
-  const canEditSettings = computed(() => {
-    // Admin users or scope admins can edit
-    return authStore.isAdmin || authStore.user?.role === 'admin'
-  })
+  const canEditSettings = computed(() => authStore.isAdmin || canManageScope.value)
 
   const canDeleteScope = computed(() => {
     // Application admins or scope owners can delete scopes
     const isAppAdmin = authStore.isAdmin
-    const isScopeOwner = props.scope.created_by === authStore.user?.id
+    const isScopeOwner = props.scope.created_by === currentUser.value?.id
     return isAppAdmin || isScopeOwner
   })
 
@@ -325,13 +358,24 @@
   async function loadWorkflowPairs() {
     loadingWorkflowPairs.value = true
     try {
-      const pairs = await schemasAPI.getWorkflowPairs({ active_only: true })
+      const [pairs, schemas] = await Promise.all([
+        schemasAPI.getWorkflowPairs({ active_only: true }),
+        schemasAPI.getSchemas()
+      ])
+      const schemaNames = new Map(schemas.map(schema => [schema.id, schema.name]))
       workflowPairs.value = pairs.map(pair => ({
-        ...pair,
+        id: pair.id,
+        name: pair.name,
+        version: pair.version,
+        description: pair.description,
+        precuration_schema_name: schemaNames.get(pair.precuration_schema_id),
+        curation_schema_name: schemaNames.get(pair.curation_schema_id),
         displayName: `${pair.name} (${pair.version})`
       }))
     } catch (error) {
-      logService.error('Failed to load workflow pairs', { error: error.message })
+      logService.error('Failed to load workflow pairs', {
+        error: error instanceof Error ? error.message : undefined
+      })
       showError('Failed to load workflow pairs')
     } finally {
       loadingWorkflowPairs.value = false
@@ -364,8 +408,9 @@
         workflow_pair_id: selectedWorkflowPairId.value
       })
     } catch (error) {
-      logService.error('Failed to save scope settings', { error: error.message })
-      showError(`Failed to save settings: ${error.message}`)
+      const message = error instanceof Error ? error.message : undefined
+      logService.error('Failed to save scope settings', { error: message })
+      showError(`Failed to save settings: ${message}`)
     } finally {
       saving.value = false
     }
@@ -390,21 +435,24 @@
       showDeleteDialog.value = false
       emit('deleted')
     } catch (error) {
-      logService.error('Failed to delete scope', { error: error.message })
-      const message = error.response?.data?.detail || error.message
-      showError(`Failed to delete scope: ${message}`)
+      const fallback = error instanceof Error ? error.message : undefined
+      logService.error('Failed to delete scope', { error: fallback })
+      const detail = isAxiosError<{ detail?: string }>(error)
+        ? error.response?.data?.detail
+        : undefined
+      showError(`Failed to delete scope: ${detail || fallback}`)
     } finally {
       deleting.value = false
     }
   }
 
-  function showSuccess(message) {
+  function showSuccess(message: string) {
     snackbarMessage.value = message
     snackbarColor.value = 'success'
     showSnackbar.value = true
   }
 
-  function showError(message) {
+  function showError(message: string) {
     snackbarMessage.value = message
     snackbarColor.value = 'error'
     showSnackbar.value = true

@@ -4,7 +4,7 @@ Extends CRUDBase with curation-specific operations.
 Follows patterns from gene_assignment.py.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -38,7 +38,7 @@ logger = get_logger(__name__)
 
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _sum_points_from_items(items: list[dict[str, Any]], key: str = "points") -> float:
@@ -550,7 +550,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         )
 
         # Update computed fields from ScoringResult
-        db_obj.computed_scores = result.evidence_breakdown
+        db_obj.computed_scores = {**result.scores, **result.evidence_breakdown}
         db_obj.computed_verdict = result.verdict
         db_obj.computed_summary = result.verdict_rationale
 
@@ -558,8 +558,8 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db.commit()
 
         # Extract genetic and experimental scores from the scores dict
-        genetic_score = result.scores.get("genetic_score", 0.0)
-        experimental_score = result.scores.get("experimental_score", 0.0)
+        genetic_score = result.scores.get("genetic_evidence_total", 0.0)
+        experimental_score = result.scores.get("experimental_evidence_total", 0.0)
 
         return CurationScoreResponse(
             curation_id=db_obj.id,

@@ -47,6 +47,7 @@
         </template>
         <template #append>
           <v-btn
+            aria-label="Show OMIM details"
             icon="mdi-information"
             variant="text"
             size="x-small"
@@ -97,7 +98,12 @@
         <v-icon start color="warning">mdi-flask</v-icon>
         {{ detailDisease.name }}
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" @click="showDetailDialog = false" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          @click="showDetailDialog = false"
+        />
       </v-card-title>
 
       <v-card-subtitle>
@@ -167,7 +173,7 @@
         <v-btn
           color="warning"
           variant="text"
-          :href="`https://omim.org/entry/${detailDisease.omim_id.replace('OMIM:', '')}`"
+          :href="`https://omim.org/entry/${detailDisease?.omim_id.replace('OMIM:', '')}`"
           target="_blank"
         >
           <v-icon start>mdi-open-in-new</v-icon>
@@ -180,7 +186,7 @@
   </v-dialog>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * OMIMAutocomplete Component
    *
@@ -201,70 +207,78 @@
   import { ontologyAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useDebounceFn } from '@vueuse/core'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: [String, Array],
-      default: () => []
-    },
-    label: {
-      type: String,
-      default: 'OMIM Disease'
-    },
-    hint: {
-      type: String,
-      default: 'Search by disease name or OMIM number'
-    },
-    required: {
-      type: Boolean,
-      default: false
-    },
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-    multiple: {
-      type: Boolean,
-      default: false
-    },
-    clearable: {
-      type: Boolean,
-      default: true
-    },
-    prependIcon: {
-      type: String,
-      default: 'mdi-flask'
-    },
-    minSearchLength: {
-      type: Number,
-      default: 2
-    },
-    maxResults: {
-      type: Number,
-      default: 15
+  /** An OMIM disease as shown in the autocomplete (search hit or placeholder for a saved ID) */
+  interface OmimOption {
+    omim_id: string
+    name: string
+    mondo_id?: string | null
+    gene_symbols?: string[]
+    displayText?: string
+  }
+
+  /** Full OMIM disease record shown in the detail dialog */
+  interface OmimDetail {
+    omim_id: string
+    name: string
+    mondo_id?: string | null
+    description?: string | null
+    genes?: { gene_id: string; symbol: string }[]
+    phenotypes?: Record<string, { hpo_id: string; name: string; frequency?: string | null }[]>
+    error?: string
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string | string[]
+      label?: string
+      hint?: string
+      required?: boolean
+      disabled?: boolean
+      multiple?: boolean
+      clearable?: boolean
+      prependIcon?: string
+      minSearchLength?: number
+      maxResults?: number
+    }>(),
+    {
+      modelValue: () => [],
+      label: 'OMIM Disease',
+      hint: 'Search by disease name or OMIM number',
+      required: false,
+      disabled: false,
+      multiple: false,
+      clearable: true,
+      prependIcon: 'mdi-flask',
+      minSearchLength: 2,
+      maxResults: 15
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'select'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: string | string[]]
+    select: [item: OmimOption | OmimOption[] | null]
+  }>()
 
   const logger = useLogger()
 
   // State
   const searchQuery = ref('')
-  const searchResults = ref([])
+  const searchResults = ref<OmimOption[]>([])
   const isSearching = ref(false)
-  const error = ref(null)
-  const selectedItems = ref(props.multiple ? [] : null)
+  const error = ref<string | null>(null)
+  const selectedItems = ref<OmimOption | OmimOption[] | null>(props.multiple ? [] : null)
 
   // Detail dialog state
   const showDetailDialog = ref(false)
-  const detailDisease = ref(null)
+  const detailDisease = ref<OmimDetail | null>(null)
   const isLoadingDetails = ref(false)
 
   /**
    * Perform search against OMIM API
    */
-  async function performSearch(query) {
+  async function performSearch(query: string) {
     if (!query || query.length < props.minSearchLength) {
       searchResults.value = []
       return
@@ -274,7 +288,10 @@
     error.value = null
 
     try {
-      const response = await ontologyAPI.searchOMIM(query, props.maxResults)
+      const response = (await ontologyAPI.searchOMIM(
+        query,
+        props.maxResults
+      )) as Schema<'OMIMSearchResponse'>
 
       // Map results with display text
       searchResults.value = response.results.map(r => ({
@@ -289,7 +306,10 @@
       })
     } catch (e) {
       error.value = 'Search failed'
-      logger.error('OMIM search error', { query, error: e.message })
+      logger.error('OMIM search error', {
+        query,
+        error: e instanceof Error ? e.message : undefined
+      })
       searchResults.value = []
     } finally {
       isSearching.value = false
@@ -302,7 +322,7 @@
   /**
    * Handle search input change
    */
-  function handleSearch(query) {
+  function handleSearch(query: string | null | undefined) {
     if (query) {
       debouncedSearch(query)
     }
@@ -311,14 +331,14 @@
   /**
    * Handle item selection
    */
-  function handleSelect(items) {
+  function handleSelect(items: OmimOption | OmimOption[] | null | undefined) {
     if (props.multiple) {
-      const omimIds = items ? items.map(i => i.omim_id) : []
+      const omimIds = Array.isArray(items) ? items.map(i => i.omim_id) : []
       emit('update:modelValue', omimIds)
-      emit('select', items)
+      emit('select', items ?? null)
       logger.info('OMIM terms selected', { count: omimIds.length })
     } else {
-      const item = items
+      const item = Array.isArray(items) ? null : (items ?? null)
       emit('update:modelValue', item ? item.omim_id : '')
       emit('select', item)
       if (item) {
@@ -330,7 +350,7 @@
   /**
    * Load full OMIM disease details
    */
-  async function loadOMIMDetails(omimId) {
+  async function loadOMIMDetails(omimId: string) {
     showDetailDialog.value = true
     isLoadingDetails.value = true
 
@@ -338,11 +358,17 @@
       detailDisease.value = await ontologyAPI.getOMIMDisease(omimId)
       logger.debug('OMIM details loaded', { omim_id: omimId })
     } catch (e) {
-      logger.error('Failed to load OMIM details', { omim_id: omimId, error: e.message })
-      detailDisease.value = { omim_id: omimId, name: 'Failed to load', error: e.message }
+      const message = e instanceof Error ? e.message : undefined
+      logger.error('Failed to load OMIM details', { omim_id: omimId, error: message })
+      detailDisease.value = { omim_id: omimId, name: 'Failed to load', error: message }
     } finally {
       isLoadingDetails.value = false
     }
+  }
+
+  /** Current multi-selection, read live (the watcher awaits between reads) */
+  function selectedList(): OmimOption[] {
+    return Array.isArray(selectedItems.value) ? selectedItems.value : []
   }
 
   // Watch for external modelValue changes
@@ -352,15 +378,19 @@
       if (props.multiple) {
         if (Array.isArray(newValue) && newValue.length > 0) {
           // Load details for each OMIM ID
-          const items = []
+          const items: OmimOption[] = []
           for (const omimId of newValue) {
-            if (!selectedItems.value?.find(i => i.omim_id === omimId)) {
+            if (!selectedList().find(i => i.omim_id === omimId)) {
               try {
-                const response = await ontologyAPI.searchOMIM(omimId, 1)
-                if (response.results.length > 0) {
+                const response = (await ontologyAPI.searchOMIM(
+                  omimId,
+                  1
+                )) as Schema<'OMIMSearchResponse'>
+                const found = response.results[0]
+                if (found) {
                   items.push({
-                    ...response.results[0],
-                    displayText: `${response.results[0].name} (${response.results[0].omim_id})`
+                    ...found,
+                    displayText: `${found.name} (${found.omim_id})`
                   })
                 } else {
                   // Use placeholder if not found
@@ -376,17 +406,25 @@
             }
           }
           if (items.length > 0) {
-            selectedItems.value = [...(selectedItems.value || []), ...items]
+            selectedItems.value = [...selectedList(), ...items]
           }
         }
       } else {
-        if (newValue && (!selectedItems.value || selectedItems.value.omim_id !== newValue)) {
+        const currentId =
+          selectedItems.value && !Array.isArray(selectedItems.value)
+            ? selectedItems.value.omim_id
+            : undefined
+        if (typeof newValue === 'string' && newValue && currentId !== newValue) {
           try {
-            const response = await ontologyAPI.searchOMIM(newValue, 1)
-            if (response.results.length > 0) {
+            const response = (await ontologyAPI.searchOMIM(
+              newValue,
+              1
+            )) as Schema<'OMIMSearchResponse'>
+            const found = response.results[0]
+            if (found) {
               selectedItems.value = {
-                ...response.results[0],
-                displayText: `${response.results[0].name} (${response.results[0].omim_id})`
+                ...found,
+                displayText: `${found.name} (${found.omim_id})`
               }
             }
           } catch {
@@ -399,7 +437,7 @@
   )
 
   // Error messages for form validation
-  const errorMessages = computed(() => {
+  const errorMessages = computed<string[]>(() => {
     if (error.value) return [error.value]
     if (props.required) {
       if (props.multiple && (!props.modelValue || props.modelValue.length === 0)) {

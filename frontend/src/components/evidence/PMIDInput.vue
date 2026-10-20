@@ -88,7 +88,13 @@
                 <div class="d-flex ga-1">
                   <v-tooltip v-if="pub.abstract" location="top">
                     <template #activator="{ props: tooltipProps }">
-                      <v-btn v-bind="tooltipProps" icon variant="text" size="x-small">
+                      <v-btn
+                        aria-label="More information"
+                        v-bind="tooltipProps"
+                        icon
+                        variant="text"
+                        size="x-small"
+                      >
                         <v-icon size="small">mdi-text</v-icon>
                       </v-btn>
                     </template>
@@ -112,7 +118,7 @@
                     icon
                     variant="text"
                     size="x-small"
-                    :href="`https://pubmed.ncbi.nlm.nih.gov/${pub.pmid}/`"
+                    :href="pubmedUrl(pub.pmid)"
                     target="_blank"
                     aria-label="Open PubMed"
                   >
@@ -156,7 +162,7 @@
   </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * PMIDInput Component
    *
@@ -183,49 +189,52 @@
   import { ref, computed, watch } from 'vue'
   import { publicationsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps({
-    modelValue: {
-      type: Array,
-      default: () => []
-    },
-    publications: {
-      type: Array,
-      default: () => []
-    },
-    label: {
-      type: String,
-      default: 'PubMed IDs'
-    },
-    hint: {
-      type: String,
-      default: 'Enter PMIDs and click Validate'
-    },
-    required: {
-      type: Boolean,
-      default: false
-    },
-    disabled: {
-      type: Boolean,
-      default: false
-    },
-    validateOnMount: {
-      type: Boolean,
-      default: false
+  /** Publication as returned by the PMID validation endpoint */
+  type PmidPublication = Schema<'PublicationData'> & { abstract?: string | null }
+
+  interface PmidValidationError {
+    pmid: string
+    error?: string | null
+  }
+
+  const props = withDefaults(
+    defineProps<{
+      modelValue?: string[]
+      publications?: PmidPublication[]
+      label?: string
+      hint?: string
+      required?: boolean
+      disabled?: boolean
+      validateOnMount?: boolean
+    }>(),
+    {
+      modelValue: () => [],
+      publications: () => [],
+      label: 'PubMed IDs',
+      hint: 'Enter PMIDs and click Validate',
+      required: false,
+      disabled: false,
+      validateOnMount: false
     }
-  })
+  )
 
-  const emit = defineEmits(['update:modelValue', 'update:publications', 'validated'])
+  const emit = defineEmits<{
+    'update:modelValue': [value: string[]]
+    'update:publications': [value: PmidPublication[]]
+    validated: [result: { valid: PmidPublication[]; invalid: PmidValidationError[] }]
+  }>()
 
   const logger = useLogger()
 
   // State
-  const internalPMIDs = ref([...(props.modelValue || [])])
-  const validatedPublications = ref([...props.publications])
-  const validationErrors = ref([])
-  const validationResults = ref(new Map())
+  const internalPMIDs = ref<string[]>([...(props.modelValue || [])])
+  const validatedPublications = ref<PmidPublication[]>([...props.publications])
+  const validationErrors = ref<PmidValidationError[]>([])
+  const validationResults = ref(new Map<string, Schema<'PMIDValidationResult'>>())
   const isValidating = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
   const showDetails = ref(true)
 
   // Sync with parent modelValue
@@ -261,7 +270,7 @@
   /**
    * Normalize PMID string
    */
-  function normalizePmid(pmid) {
+  function normalizePmid(pmid: string | null | undefined): string {
     if (!pmid) return ''
     let clean = String(pmid).trim().toUpperCase()
     if (clean.startsWith('PMID:')) clean = clean.slice(5)
@@ -295,7 +304,9 @@
       }
 
       // Call API to validate
-      const response = await publicationsAPI.validatePMIDs(pmids)
+      const response = (await publicationsAPI.validatePMIDs(
+        pmids
+      )) as Schema<'PMIDValidationResponse'>
 
       // Update validation results map
       validationResults.value.clear()
@@ -304,9 +315,9 @@
       })
 
       // Extract valid publications
-      validatedPublications.value = response.results
-        .filter(r => r.is_valid && r.publication)
-        .map(r => r.publication)
+      validatedPublications.value = response.results.flatMap(r =>
+        r.is_valid && r.publication ? [r.publication] : []
+      )
 
       // Extract errors
       validationErrors.value = response.results
@@ -331,8 +342,9 @@
         invalid: validationErrors.value.length
       })
     } catch (e) {
-      error.value = e.message || 'Validation failed'
-      logger.error('PMID validation error', { error: e.message })
+      const message = e instanceof Error ? e.message : undefined
+      error.value = message || 'Validation failed'
+      logger.error('PMID validation error', { error: message })
     } finally {
       isValidating.value = false
     }
@@ -362,7 +374,7 @@
   /**
    * Get validation result for a PMID
    */
-  function getValidationResult(pmid) {
+  function getValidationResult(pmid: string): Schema<'PMIDValidationResult'> | undefined {
     const normalized = normalizePmid(pmid)
     return validationResults.value.get(normalized)
   }
@@ -370,7 +382,7 @@
   /**
    * Determine chip color based on validation state
    */
-  function getChipColor(pmid) {
+  function getChipColor(pmid: string): string {
     if (isValidating.value) return 'primary'
     const result = getValidationResult(pmid)
     if (!result) return 'default'
@@ -380,17 +392,22 @@
   /**
    * Get icon for chip based on validation state
    */
-  function getChipIcon(pmid) {
+  function getChipIcon(pmid: string): string {
     if (isValidating.value) return 'mdi-loading mdi-spin'
     const result = getValidationResult(pmid)
     if (!result) return ''
     return result.is_valid ? 'mdi-check-circle' : 'mdi-alert-circle'
   }
 
+  /** PubMed link for a PMID (kept out of the template: vue-tsc loses v-for scope on template literals) */
+  function pubmedUrl(pmid: string): string {
+    return `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`
+  }
+
   /**
    * Truncate title for display
    */
-  function truncateTitle(title, maxLength = 80) {
+  function truncateTitle(title: string | null | undefined, maxLength = 80): string {
     if (!title) return 'Untitled'
     if (title.length <= maxLength) return title
     return `${title.slice(0, maxLength)}...`
@@ -399,7 +416,7 @@
   /**
    * Truncate abstract for tooltip
    */
-  function truncateAbstract(abstract, maxLength = 300) {
+  function truncateAbstract(abstract: string | null | undefined, maxLength = 300): string {
     if (!abstract) return ''
     if (abstract.length <= maxLength) return abstract
     return `${abstract.slice(0, maxLength)}...`
@@ -408,7 +425,7 @@
   /**
    * Format authors for display
    */
-  function formatAuthors(pub) {
+  function formatAuthors(pub: PmidPublication): string {
     if (pub.author_string) return pub.author_string
     if (pub.authors && pub.authors.length > 0) {
       if (pub.authors.length <= 3) return pub.authors.join(', ')
@@ -423,7 +440,7 @@
   const invalidCount = computed(() => validationErrors.value.length)
 
   // Error messages for form validation
-  const errorMessages = computed(() => {
+  const errorMessages = computed<string[]>(() => {
     if (error.value) return [error.value]
     if (props.required && internalPMIDs.value.length === 0) {
       return ['At least one PMID is required']

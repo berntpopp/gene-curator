@@ -4,7 +4,7 @@ Authentication-related Pydantic schemas.
 
 import uuid
 from datetime import datetime
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
@@ -14,7 +14,7 @@ class UserBase(BaseModel):
 
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=255)
-    role: str = "viewer"  # Use string directly, validated by enum constraint in DB
+    role: Literal["admin", "user"] = "user"  # Mirrors UserRoleNew
     is_active: bool = True
 
 
@@ -72,32 +72,8 @@ class TokenRefresh(BaseModel):
     refresh_token: str
 
 
-class TokenPayload(BaseModel):
-    """Schema for JWT token payload."""
-
-    sub: str  # user ID
-    email: str
-    role: str
-    exp: int
-    iat: int | None = None
-    type: str | None = "access"  # access or refresh
-
-
 class PasswordChange(BaseModel):
     """Schema for password change."""
 
     current_password: str
-    new_password: str = Field(..., min_length=8, max_length=128)
-
-
-class PasswordReset(BaseModel):
-    """Schema for password reset request."""
-
-    email: EmailStr
-
-
-class PasswordResetConfirm(BaseModel):
-    """Schema for password reset confirmation."""
-
-    token: str
     new_password: str = Field(..., min_length=8, max_length=128)

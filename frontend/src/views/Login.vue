@@ -122,21 +122,21 @@
   </v-container>
 </template>
 
-<script setup>
+<script setup lang="ts">
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
   import { ref, reactive, computed } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth.js'
-  import { showSuccess, showError } from '@/composables/useNotifications.js'
+  import { useAuthStore } from '@/stores/auth'
+  import { showSuccess, showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const route = useRoute()
   const authStore = useAuthStore()
 
   // Form state
-  const loginForm = ref(null)
+  const loginForm = ref<{ validate: () => Promise<unknown> } | null>(null)
   const formValid = ref(false)
   const showPassword = ref(false)
 
@@ -145,7 +145,7 @@
     password: ''
   })
 
-  const fieldErrors = reactive({
+  const fieldErrors = reactive<{ email: string[]; password: string[] }>({
     email: [],
     password: []
   })
@@ -161,18 +161,19 @@
 
   // Validation rules
   const emailRules = [
-    v => !!v || 'Email is required',
-    v => /.+@.+\..+/.test(v) || 'Email must be valid'
+    (v: string) => !!v || 'Email is required',
+    (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
   ]
 
   const passwordRules = [
-    v => !!v || 'Password is required',
-    v => v.length >= 6 || 'Password must be at least 6 characters'
+    (v: string) => !!v || 'Password is required',
+    (v: string) => v.length >= 6 || 'Password must be at least 6 characters'
   ]
 
   // Development quick login credentials
   // Note: admin is application-level, others are standard users with scope-specific roles
-  const devCredentials = {
+  type DevRole = 'admin' | 'curator' | 'reviewer' | 'viewer'
+  const devCredentials: Record<DevRole, { email: string; password: string }> = {
     admin: { email: 'admin@genecurator.org', password: 'admin123' }, // Application admin
     curator: { email: 'alice.smith@genecurator.org', password: 'admin123' }, // User (curator role in kidney-genetics scope)
     reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' }, // User (reviewer role in cardio-genetics scope)
@@ -193,14 +194,20 @@
       showSuccess('Login successful!')
 
       // Redirect to intended page or home
-      const redirectTo = route.query.redirect || { name: 'Home' }
+      const redirect = route.query.redirect
+      const redirectTo = typeof redirect === 'string' && redirect ? redirect : { name: 'Home' }
       router.push(redirectTo)
     } catch (error) {
-      logger.error('Login error:', { error: error.message, stack: error.stack })
+      const err = error as {
+        message?: string
+        stack?: string
+        response?: { data?: { detail?: string } }
+      }
+      logger.error('Login error:', { error: err.message, stack: err.stack })
 
       // Handle specific field errors
-      if (error.response?.data?.detail) {
-        const detail = error.response.data.detail
+      if (err.response?.data?.detail) {
+        const detail = err.response.data.detail
         if (detail.includes('email')) {
           fieldErrors.email = [detail]
         } else if (detail.includes('password')) {
@@ -212,7 +219,7 @@
     }
   }
 
-  const quickLogin = async role => {
+  const quickLogin = async (role: DevRole) => {
     const creds = devCredentials[role]
     if (!creds) return
 
@@ -221,7 +228,7 @@
     credentials.password = creds.password
 
     // Force form validation to run (Vuetify needs this for programmatic input)
-    await loginForm.value.validate()
+    await loginForm.value?.validate()
 
     // Now submit the form
     await handleLogin()

@@ -124,7 +124,7 @@
   </v-card>
 </template>
 
-<script setup>
+<script setup lang="ts">
   /**
    * ScoreDisplay Component
    *
@@ -147,32 +147,23 @@
 
   import { computed } from 'vue'
   import { useSchemaScoring } from '@/composables/useSchemaScoring'
+  import type { ScoringConfiguration } from './types'
 
-  const props = defineProps({
-    /**
-     * Score calculations from validation result
-     * Object mapping category names to score values
-     */
-    scoreCalculations: {
-      type: Object,
-      default: () => ({})
-    },
-    /**
-     * Scoring configuration from schema
-     * Contains engine, thresholds, max_scores
-     */
-    scoringConfiguration: {
-      type: Object,
-      default: () => ({})
-    },
-    /**
-     * Loading state (validation in progress)
-     */
-    loading: {
-      type: Boolean,
-      default: false
+  const props = withDefaults(
+    defineProps<{
+      /** Score calculations from validation result: category name -> score value */
+      scoreCalculations?: Record<string, number>
+      /** Scoring configuration from schema (engine, thresholds, max_scores) */
+      scoringConfiguration?: ScoringConfiguration
+      /** Loading state (validation in progress) */
+      loading?: boolean
+    }>(),
+    {
+      scoreCalculations: () => ({}),
+      scoringConfiguration: () => ({}),
+      loading: false
     }
-  })
+  )
 
   // Convert props to refs for composable
   const scoreCalculationsRef = computed(() => props.scoreCalculations || {})
@@ -181,13 +172,22 @@
   // Use schema scoring composable for calculations
   const {
     totalScore,
-    categoryScores,
+    categoryScores: rawCategoryScores,
     classification,
     classificationColor,
     nearThreshold,
     maxScore,
     progressPercentage
   } = useSchemaScoring(scoreCalculationsRef, scoringConfigurationRef)
+
+  // The composable reports unknown values; keep the numeric ones the template formats
+  const categoryScores = computed(() => {
+    const scores: Record<string, number> = {}
+    for (const [name, score] of Object.entries(rawCategoryScores.value)) {
+      if (typeof score === 'number') scores[name] = score
+    }
+    return scores
+  })
 
   // Check if category scores exist
   const hasCategoryScores = computed(() => {
@@ -197,17 +197,17 @@
   // Check if thresholds exist
   const hasThresholds = computed(() => {
     const thresholds = props.scoringConfiguration?.classification_thresholds
-    return thresholds && Object.keys(thresholds).length > 0
+    return !!thresholds && Object.keys(thresholds).length > 0
   })
 
   // Sort thresholds by value (descending)
-  const sortedThresholds = computed(() => {
+  const sortedThresholds = computed<Record<string, number>>(() => {
     const thresholds = props.scoringConfiguration?.classification_thresholds
     if (!thresholds) return {}
 
     return Object.entries(thresholds)
       .sort(([, a], [, b]) => b - a)
-      .reduce((acc, [level, value]) => {
+      .reduce<Record<string, number>>((acc, [level, value]) => {
         acc[level] = value
         return acc
       }, {})
@@ -216,14 +216,14 @@
   /**
    * Format category name: snake_case -> Title Case
    */
-  function formatCategory(category) {
+  function formatCategory(category: string): string {
     return category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
   }
 
   /**
    * Get Vuetify color class for score value
    */
-  function getScoreColorClass(score) {
+  function getScoreColorClass(score: number): string {
     if (score >= 7) return 'text-success'
     if (score >= 2) return 'text-warning'
     return 'text-info'
@@ -232,7 +232,7 @@
   /**
    * Get icon color for category (based on score)
    */
-  function getCategoryIconColor(score) {
+  function getCategoryIconColor(score: number): string {
     if (score >= 7) return 'success'
     if (score >= 2) return 'warning'
     return 'info'
@@ -241,7 +241,7 @@
   /**
    * Get icon for category based on name
    */
-  function getCategoryIcon(category) {
+  function getCategoryIcon(category: string): string {
     const catLower = category.toLowerCase()
 
     if (catLower.includes('genetic') || catLower.includes('gene')) {
@@ -270,7 +270,7 @@
   /**
    * Get icon for classification level
    */
-  function getClassificationIcon(cls) {
+  function getClassificationIcon(cls: string): string {
     const clsLower = cls.toLowerCase()
 
     if (clsLower.includes('definitive') || clsLower.includes('strong')) {
@@ -291,7 +291,7 @@
   /**
    * Get color for a specific classification level (for threshold display)
    */
-  function getClassificationColorForLevel(level) {
+  function getClassificationColorForLevel(level: string): string {
     const levelLower = level.toLowerCase()
 
     if (levelLower.includes('definitive') || levelLower.includes('strong')) {
