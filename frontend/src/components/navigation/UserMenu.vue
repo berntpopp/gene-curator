@@ -24,7 +24,7 @@
           <v-list-item-title class="font-weight-bold">
             {{ user?.email }}
           </v-list-item-title>
-          <v-list-item-subtitle>
+          <v-list-item-subtitle v-if="roleLabel">
             {{ roleLabel }}
           </v-list-item-subtitle>
         </v-list-item>
@@ -76,6 +76,7 @@
   import { useAuthStore } from '@/stores/auth'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
+  import { showInfo } from '@/composables/useNotifications'
   import { TERMINOLOGY } from '@/config/terminology'
   import NotificationBadge from './NotificationBadge.vue'
   import BaseNavigationItem from './BaseNavigationItem.vue'
@@ -132,18 +133,8 @@
   const isAuthenticated = computed(() => authStore.isAuthenticated)
   const user = computed(() => authStore.user)
 
-  /**
-   * User role label
-   */
-  const roleLabel = computed(() => {
-    const role = user.value?.role
-    if (!role) return ''
-
-    // Use terminology for consistent role names
-    const roleKey = role.toUpperCase().replace(/-/g, '_')
-    const terminology: Record<string, string> = TERMINOLOGY
-    return terminology[roleKey] || role
-  })
+  /** App role badge: admins only; scope roles live on the Profile page. */
+  const roleLabel = computed(() => (user.value?.role === 'admin' ? TERMINOLOGY.ADMIN : ''))
 
   /**
    * Notification counts from store
@@ -156,6 +147,7 @@
   async function handleLogout() {
     try {
       await authStore.logout()
+      showInfo('Signed out')
       router.push({ name: 'Home' })
       logger.info('User logged out')
     } catch (error) {

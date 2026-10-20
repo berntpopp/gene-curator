@@ -148,7 +148,10 @@ apiClient.interceptors.response.use(
 
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
-        window.location.href = '/login'
+        if (window.location.pathname !== '/login') {
+          const here = window.location.pathname + window.location.search
+          window.location.href = `/login?reason=expired&redirect=${encodeURIComponent(here)}`
+        }
 
         clearCorrelationIdFor(originalRequest.headers['X-Request-ID'])
 

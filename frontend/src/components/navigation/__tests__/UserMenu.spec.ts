@@ -13,7 +13,9 @@ import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import { logService } from '@/services/logService'
 import UserMenu from '../UserMenu.vue'
+import { showInfo } from '@/composables/useNotifications'
 
+vi.mock('@/composables/useNotifications', () => ({ showInfo: vi.fn() }))
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
@@ -113,15 +115,12 @@ describe('UserMenu', () => {
     expect(admin.vm.userMenuItems.map(i => i.label)).toEqual(['Admin tools', 'Profile'])
   })
 
-  it('translates the role into its display label', async () => {
+  it('shows the app role for admins only, never a raw "user"', async () => {
     const admin = await mountMenu({ email: 'a@example.org', role: 'admin' })
     expect(admin.vm.roleLabel).toBe('Admin')
 
-    const unknown = await mountMenu({ email: 'x@example.org', role: 'mystery' })
-    expect(unknown.vm.roleLabel).toBe('mystery')
-
-    const noRole = await mountMenu({ email: 'y@example.org', role: '' })
-    expect(noRole.vm.roleLabel).toBe('')
+    const user = await mountMenu({ email: 'x@example.org', role: 'user' })
+    expect(user.vm.roleLabel).toBe('')
   })
 
   it('counts unread notifications for the badge', async () => {
@@ -143,6 +142,7 @@ describe('UserMenu', () => {
     await flushPromises()
 
     expect(logout).toHaveBeenCalledTimes(1)
+    expect(showInfo).toHaveBeenCalledWith('Signed out')
     expect(router.currentRoute.value.name).toBe('Home')
   })
 
