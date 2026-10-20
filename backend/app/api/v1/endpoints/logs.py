@@ -24,7 +24,7 @@ from app.core.constants import (
     EXPORT_FORMAT_JSON,
     VALID_EXPORT_FORMATS,
 )
-from app.core.database import get_db
+from app.core.database import get_async_db
 from app.core.deps import get_current_active_user
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
@@ -97,7 +97,7 @@ async def search_logs(
     ),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(None, ge=1, description="Maximum number of records to return"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
     """
@@ -142,10 +142,10 @@ async def search_logs(
     return logs
 
 
-@router.get("/{log_id}", response_model=LogEntry)
+@router.get("/{log_id:int}", response_model=LogEntry)
 async def get_log(
     log_id: int,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
     """
@@ -165,7 +165,7 @@ async def get_log(
 @router.get("/request/{request_id}", response_model=list[LogEntry])
 async def get_logs_by_request(
     request_id: str,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
     """
@@ -190,7 +190,7 @@ async def get_logs_by_request(
 
 @router.get("/stats/summary", response_model=LogStatsSummary)
 async def get_log_statistics(
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin),
 ) -> Any:
     """
@@ -219,7 +219,7 @@ async def get_recent_errors(
         None, ge=1, description="Maximum number of errors to return"
     ),
     hours: int | None = Query(None, ge=1, description="Time window in hours"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin_or_reviewer),
 ) -> Any:
     """
@@ -266,7 +266,7 @@ async def export_logs(
     start_date: datetime | None = Query(None, description="Start date (inclusive)"),
     end_date: datetime | None = Query(None, description="End date (inclusive)"),
     limit: int | None = Query(None, ge=1, description="Maximum records to export"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin),
 ) -> Any:
     """
@@ -392,7 +392,7 @@ async def export_logs(
 @router.delete("/cleanup")
 async def cleanup_old_logs(
     days: int | None = Query(None, description="Retention period in days"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_async_db),
     current_user: UserNew = Depends(require_admin),
 ) -> Any:
     """

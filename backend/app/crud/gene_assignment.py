@@ -260,23 +260,18 @@ class CRUDGeneScopeAssignment(
     ) -> list[dict[str, Any]]:
         """Get genes available for assignment in a scope."""
         # Find genes that are not currently assigned to this scope or have inactive assignments
-        subquery = (
-            select(GeneScopeAssignment.gene_id)
-            .where(
-                and_(
-                    GeneScopeAssignment.scope_id == scope_id,
-                    GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
-                )
+        # Plain (multi-row) subquery: a scalar subquery here breaks for >1 assignment
+        # and yields NULL (hence no rows) when the scope has none.
+        subquery = select(GeneScopeAssignment.gene_id).where(
+            and_(
+                GeneScopeAssignment.scope_id == scope_id,
+                GeneScopeAssignment.is_active,  # Fixed: use == instead of is,
             )
-            .scalar_subquery()
         )
 
         available_genes = (
             db.execute(
-                select(Gene)
-                .where(~Gene.id.in_(select(subquery)))
-                .offset(skip)
-                .limit(limit)
+                select(Gene).where(~Gene.id.in_(subquery)).offset(skip).limit(limit)
             )
             .scalars()
             .all()
@@ -318,6 +313,15 @@ class CRUDGeneScopeAssignment(
             if priority == "medium":
                 priority = "normal"
             obj_in_data["priority"] = priority
+
+        if existing:
+            # (gene, scope) is unique: revive the deactivated row instead of inserting
+            for field, value in obj_in_data.items():
+                setattr(existing, field, value)
+            existing.is_active = True
+            db.commit()
+            db.refresh(existing)
+            return existing
 
         db_obj = GeneScopeAssignment(**obj_in_data)
         db.add(db_obj)
