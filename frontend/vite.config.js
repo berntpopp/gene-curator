@@ -46,7 +46,7 @@ export default defineConfig({
       // lcov feeds diff-cover (90% on changed lines); text-summary for the console
       reporter: ['text-summary', 'lcov', 'html'],
       include: ['src/**/*.{js,vue}'],
-      exclude: ['src/test/**', '**/__tests__/**', '**/*.spec.js'],
+      exclude: ['src/test/**', '**/__tests__/**', '**/*.spec.{js,ts}', '**/*.d.ts', 'src/types/**'],
       // Ratchet floor: raise when coverage rises, never lower (target 90%, see AGENTS.md)
       thresholds: { lines: 7, statements: 7, branches: 5, functions: 5 }
     }

@@ -142,7 +142,7 @@ ci-repo: api-types-check ## Repo rules: file size limit, generated API types up 
 
 diff-cover: ## Changed lines must be >= $(DIFF_COVER_MIN)% covered (uses whichever coverage reports exist)
 	@if [ -f frontend/coverage/lcov.info ]; then sed 's#^SF:#SF:frontend/#' frontend/coverage/lcov.info > frontend/coverage/lcov.repo.info; fi
-	uvx diff-cover@9.7.1 $(wildcard backend/coverage.xml frontend/coverage/lcov.repo.info) \
+	uvx diff-cover@9.7.1 $$(ls backend/coverage.xml frontend/coverage/lcov.repo.info 2>/dev/null) \
 		--compare-branch=$(BASE) --fail-under=$(DIFF_COVER_MIN)
 
 api-types: ## Regenerate frontend/src/types/api.generated.ts from the backend OpenAPI schema
