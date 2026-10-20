@@ -5,7 +5,7 @@
         <!-- Header -->
         <div class="d-flex justify-space-between align-center mb-6">
           <div class="d-flex align-center">
-            <v-btn icon variant="text" class="mr-3" @click="goBack">
+            <v-btn aria-label="Go back" icon variant="text" class="mr-3" @click="goBack">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
             <h1 class="text-h4 d-inline">Curation Details</h1>

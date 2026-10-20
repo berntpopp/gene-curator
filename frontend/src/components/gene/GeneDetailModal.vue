@@ -47,7 +47,13 @@
           {{ geneData.status }}
         </v-chip>
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" density="compact" @click="close" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          density="compact"
+          @click="close"
+        />
       </v-card-title>
 
       <v-divider />

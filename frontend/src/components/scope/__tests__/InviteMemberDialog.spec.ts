@@ -10,7 +10,6 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useScopesStore } from '@/stores/scopes'
 import InviteMemberDialog from '../InviteMemberDialog.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -33,7 +32,6 @@ describe('InviteMemberDialog', () => {
   let pinia: ReturnType<typeof createPinia>
 
   beforeEach(() => {
-    stubVisualViewport()
     pinia = createPinia()
     setActivePinia(pinia)
   })

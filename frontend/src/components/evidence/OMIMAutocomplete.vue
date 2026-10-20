@@ -47,6 +47,7 @@
         </template>
         <template #append>
           <v-btn
+            aria-label="Show OMIM details"
             icon="mdi-information"
             variant="text"
             size="x-small"
@@ -97,7 +98,12 @@
         <v-icon start color="warning">mdi-flask</v-icon>
         {{ detailDisease.name }}
         <v-spacer />
-        <v-btn icon="mdi-close" variant="text" @click="showDetailDialog = false" />
+        <v-btn
+          aria-label="Close"
+          icon="mdi-close"
+          variant="text"
+          @click="showDetailDialog = false"
+        />
       </v-card-title>
 
       <v-card-subtitle>

@@ -7,9 +7,6 @@
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import FormRecoveryDialog from '../FormRecoveryDialog.vue'
-import { installVisualViewport } from './overlay-env'
-
-installVisualViewport()
 
 const NOW = new Date('2026-03-10T12:00:00Z')
 

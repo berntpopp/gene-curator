@@ -6,7 +6,6 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { nextTick } from 'vue'
-import './visualViewport'
 import { call, vmOf } from './vm'
 import ValidationDashboard from '@/views/ValidationDashboard.vue'
 import {

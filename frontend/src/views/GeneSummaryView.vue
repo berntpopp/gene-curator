@@ -118,7 +118,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGeneSummaryStore } from '@/stores/geneSummary'
   import { useGenesStore } from '@/stores/genes'
@@ -130,14 +130,14 @@
   const genesStore = useGenesStore()
   const logger = useLogger()
 
-  const geneId = route.params.geneId as string
+  const geneId = computed(() => route.params.geneId as string)
   const geneSymbol = ref('')
   const loading = ref(false)
   const error = ref<string | null>(null)
 
   // Computed summary
   const summary = computed(() => {
-    return geneSummaryStore.getPublicSummary(geneId)
+    return geneSummaryStore.getPublicSummary(geneId.value)
   })
 
   // The API types scope summaries as free-form dicts; the card documents the expected shape
@@ -182,10 +182,11 @@
     })
   }
 
-  // Fetch data on mount
-  onMounted(async () => {
-    logger.info('GeneSummaryView mounted', { geneId })
+  async function load(geneId: string) {
+    logger.info('GeneSummaryView loading', { geneId })
     loading.value = true
+    error.value = null
+    geneSymbol.value = ''
 
     try {
       // Fetch gene summary
@@ -208,7 +209,10 @@
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  // Reload when navigating between genes (the component is reused for /genes/:geneId/summary)
+  watch(geneId, load, { immediate: true })
 </script>
 
 <style scoped>

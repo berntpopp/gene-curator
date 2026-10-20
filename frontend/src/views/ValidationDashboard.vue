@@ -128,7 +128,13 @@
         </template>
 
         <template #item.actions="{ item }">
-          <v-btn icon="mdi-eye" size="small" variant="text" @click="viewValidationDetails(item)" />
+          <v-btn
+            aria-label="View validation details"
+            icon="mdi-eye"
+            size="small"
+            variant="text"
+            @click="viewValidationDetails(item)"
+          />
         </template>
       </v-data-table>
     </v-card>

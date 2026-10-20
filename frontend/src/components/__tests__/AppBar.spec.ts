@@ -75,4 +75,10 @@ describe('AppBar', () => {
 
     expect(localStorage.getItem('theme')).toBe('light')
   })
+
+  it('labels the icon-only theme toggle for screen readers', () => {
+    mountAppBar()
+
+    expect(wrapper?.find('.ml-2').attributes('aria-label')).toBe('Toggle theme')
+  })
 })

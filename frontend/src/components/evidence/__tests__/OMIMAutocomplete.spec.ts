@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ontologyAPI } from '@/api'
 import OMIMAutocomplete from '../OMIMAutocomplete.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/api', () => ({
   ontologyAPI: { searchOMIM: vi.fn(), getOMIMDisease: vi.fn() }
@@ -45,10 +44,6 @@ const hit = {
 }
 
 describe('OMIMAutocomplete', () => {
-  beforeEach(() => {
-    stubVisualViewport()
-  })
-
   beforeEach(() => {
     vi.mocked(ontologyAPI.searchOMIM).mockReset()
     vi.mocked(ontologyAPI.searchOMIM).mockResolvedValue({

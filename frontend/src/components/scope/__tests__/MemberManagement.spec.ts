@@ -12,7 +12,6 @@ import { scopeService } from '@/services/scopeService'
 import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
 import MemberManagement from '../MemberManagement.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/services/scopeService', () => ({
   scopeService: { fetchMembers: vi.fn() }
@@ -59,7 +58,6 @@ describe('MemberManagement', () => {
   let pinia: ReturnType<typeof createPinia>
 
   beforeEach(() => {
-    stubVisualViewport()
     pinia = createPinia()
     setActivePinia(pinia)
     vi.mocked(scopeService.fetchMembers).mockReset()

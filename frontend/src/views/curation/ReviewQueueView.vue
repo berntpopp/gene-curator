@@ -185,6 +185,7 @@
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import type { Schema } from '@/types/api'
 
   interface ReviewItem {
     id: string
@@ -198,24 +199,6 @@
     workflow_stage?: string | null
     total_score: number
     classification?: string | null
-    updated_at: string
-    created_at?: string | null
-    created_by?: string | null
-  }
-
-  // Raw curation row as returned by the list endpoint (only the fields mapped below)
-  interface RawCuration {
-    id: string
-    gene_id: string
-    gene_symbol?: string | null
-    disease_name?: string | null
-    scope_id?: string | null
-    scope_name?: string | null
-    curator_name?: string | null
-    status: string
-    workflow_stage?: string | null
-    computed_scores?: { total_score?: number | null } | null
-    computed_verdict?: string | null
     updated_at: string
     created_at?: string | null
     created_by?: string | null
@@ -313,13 +296,13 @@
     loading.value = true
     try {
       // Fetch curations with in_review status (pending peer review)
-      const response = (await curationsAPI.getCurations({
+      const response = await curationsAPI.getCurations({
         curation_status: 'in_review',
         limit: 200
-      })) as { curations?: RawCuration[] }
+      })
 
       curations.value = (response.curations || []).map(
-        (c): ReviewItem => ({
+        (c: Schema<'CurationSummary'>): ReviewItem => ({
           id: c.id,
           gene_id: c.gene_id,
           gene_symbol: c.gene_symbol,
@@ -329,7 +312,7 @@
           curator_name: c.curator_name,
           status: c.status,
           workflow_stage: c.workflow_stage,
-          total_score: c.computed_scores?.total_score || 0,
+          total_score: Number(c.computed_scores?.total_score) || 0,
           classification: c.computed_verdict,
           updated_at: c.updated_at,
           created_at: c.created_at,

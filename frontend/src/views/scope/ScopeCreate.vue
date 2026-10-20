@@ -145,6 +145,7 @@
 
                 <template #append>
                   <v-btn
+                    aria-label="Remove member"
                     icon="mdi-close"
                     size="small"
                     variant="text"

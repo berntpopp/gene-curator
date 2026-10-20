@@ -129,12 +129,18 @@
       </v-row>
     </v-container>
 
+    <v-container v-if="catalogueStore.error">
+      <v-alert type="error" variant="tonal" data-testid="catalogue-error">
+        {{ catalogueStore.error.message }}
+      </v-alert>
+    </v-container>
+
     <!-- Catalogue Table -->
     <v-container>
       <v-card>
         <v-data-table
           :headers="headers"
-          :items="catalogueStore.entries"
+          :items="entries"
           :loading="catalogueStore.loading"
           :items-per-page="catalogueStore.pagination.perPage"
           :expanded="expandedItems"
@@ -261,6 +267,7 @@
           <template #item.actions="{ item }">
             <div class="d-flex justify-center ga-1">
               <v-btn
+                aria-label="Show quick info"
                 icon
                 size="x-small"
                 variant="text"
@@ -271,6 +278,7 @@
                 <v-tooltip activator="parent" location="top">Quick View</v-tooltip>
               </v-btn>
               <v-btn
+                aria-label="Open gene details"
                 icon
                 size="x-small"
                 variant="text"
@@ -418,7 +426,7 @@
             <div class="text-caption text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
           </div>
           <v-spacer />
-          <v-btn icon variant="text" @click="quickInfoDialog = false">
+          <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
             <v-icon>mdi-close</v-icon>
           </v-btn>
         </v-card-title>
@@ -526,6 +534,7 @@
 
               <template #append>
                 <v-btn
+                  aria-label="Open scope dashboard"
                   icon
                   size="x-small"
                   variant="text"
@@ -599,37 +608,8 @@
     classifications: Record<string, number>
   }
 
-  // The store is JS, so its state and getters are typed as never; narrow them here
-  interface CatalogueStore {
-    entries: CatalogueRow[]
-    loading: boolean
-    pagination: { page: number; perPage: number; total: number; hasNext: boolean; hasPrev: boolean }
-    filterOptions: {
-      classifications: string[]
-      diseases: string[]
-      scopes: Array<{ scope_id: string; scope_display_name: string }>
-    }
-    summary: {
-      totalGenesCurated: number
-      totalCurations: number
-      totalScopes: number
-      classificationSummary: Record<string, number>
-    }
-    hasActiveFilters: boolean
-    totalPages: number
-    fetchCatalogue: (params?: { page: number }) => Promise<unknown>
-    loadFilterOptions: () => Promise<unknown>
-    updateFilters: (filters: {
-      search: string | null
-      classification: string | null
-      disease: string | null
-      scopeId: string | null
-    }) => void
-    setPage: (page: number) => void
-    clearFilters: () => void
-  }
-
-  const catalogueStore = useGeneCatalogueStore() as unknown as CatalogueStore
+  const catalogueStore = useGeneCatalogueStore()
+  const entries = computed(() => catalogueStore.entries as CatalogueRow[])
   const router = useRouter()
 
   // Local state for filters
@@ -669,8 +649,8 @@
   // Scope options for filter dropdown
   const scopeOptions = computed(() => {
     return catalogueStore.filterOptions.scopes.map(s => ({
-      title: s.scope_display_name,
-      value: s.scope_id
+      title: s.display_name,
+      value: s.id
     }))
   })
 
@@ -729,13 +709,16 @@
   }
 
   const navigateToScope = (curation: ScopeCuration) => {
-    router.push({ name: 'ScopeDashboard', params: { scopeId: curation.scope_id } })
+    router.push({ name: 'scope-dashboard', params: { scopeId: curation.scope_id } })
   }
 
   // Initialize on mount
   onMounted(async () => {
     // Load filter options and initial data in parallel
-    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()])
+    // Failures are surfaced via catalogueStore.error (alert above the table)
+    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()]).catch(
+      () => undefined
+    )
   })
 
   // Watch for page changes from store

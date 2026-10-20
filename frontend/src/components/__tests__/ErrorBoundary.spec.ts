@@ -92,14 +92,9 @@ describe('ErrorBoundary', () => {
     expect(logger.info).toHaveBeenCalledWith('Error boundary - navigated to dashboard')
   })
 
-  it('logs an error report from Report Issue', async () => {
-    await mountBoundary()
+  it('does not offer a Report Issue button that only logs', async () => {
+    const wrapper = await mountBoundary()
 
-    await clickButton('Report Issue')
-
-    expect(logger.error).toHaveBeenCalledWith(
-      'Error report initiated',
-      expect.objectContaining({ message: 'boom' })
-    )
+    expect(wrapper.text()).not.toContain('Report Issue')
   })
 })

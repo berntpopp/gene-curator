@@ -286,7 +286,7 @@ describe('GeneAssignmentManager', () => {
 
       await buttonWithText(wrapper, 'Bulk Assign (2)').trigger('click')
       byLabel(wrapper, 'Assign to User').vm.$emit('update:model-value', curatorUser)
-      byLabel(wrapper, 'Set Priority').vm.$emit('update:model-value', 'urgent')
+      byLabel(wrapper, 'Set Priority').vm.$emit('update:model-value', 'high')
       await flushPromises()
 
       await buttonWithText(wrapper, 'Assign').trigger('click')
@@ -296,7 +296,7 @@ describe('GeneAssignmentManager', () => {
       expect(api.assignCurator).toHaveBeenCalledWith('a1', 'curator-1')
       expect(api.assignCurator).toHaveBeenCalledWith('a2', 'curator-1')
       expect(api.updateAssignment).toHaveBeenCalledWith('a2', {
-        priority_level: 'urgent'
+        priority_level: 'high'
       })
       expect(notify.showSuccess).toHaveBeenCalledWith('Successfully assigned 2 items')
     })
@@ -341,7 +341,7 @@ describe('GeneAssignmentManager', () => {
       expect(wrapper.text()).toContain('HGNC:9008')
     })
 
-    it('edits priority and notes, then saves only what was filled', async () => {
+    it('edits priority and saves it', async () => {
       const wrapper = mountManager()
 
       await wrapper.findAll('.row-stub')[0]!.findAll('button')[0]!.trigger('click')
@@ -354,13 +354,8 @@ describe('GeneAssignmentManager', () => {
         priority_level: 'high'
       })
 
-      byLabel(wrapper, 'Notes').vm.$emit('update:model-value', 'Check literature')
-      await buttonWithText(wrapper, 'Save').trigger('click')
-      await flushPromises()
-      expect(stores.assignments.updateAssignment).toHaveBeenLastCalledWith('a1', {
-        priority_level: 'high',
-        assignment_notes: 'Check literature'
-      })
+      // The dialog never loaded notes, so it must not offer a field for them
+      expect(() => byLabel(wrapper, 'Notes')).toThrow()
       expect(notify.showSuccess).toHaveBeenCalledWith('Assignment updated successfully')
     })
 
@@ -380,7 +375,6 @@ describe('GeneAssignmentManager', () => {
 
       await wrapper.findAll('.row-stub')[0]!.findAll('button')[1]!.trigger('click')
       byLabel(wrapper, 'New Curator').vm.$emit('update:model-value', reviewerUser.id)
-      byLabel(wrapper, 'Transfer Note (Optional)').vm.$emit('update:model-value', 'Handover')
       await buttonWithText(wrapper, 'Reassign').trigger('click')
       await flushPromises()
 

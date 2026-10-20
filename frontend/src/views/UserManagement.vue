@@ -172,7 +172,13 @@
         <template #item.actions="{ item }">
           <v-menu>
             <template #activator="{ props }">
-              <v-btn icon="mdi-dots-vertical" variant="text" size="small" v-bind="props" />
+              <v-btn
+                aria-label="User actions"
+                icon="mdi-dots-vertical"
+                variant="text"
+                size="small"
+                v-bind="props"
+              />
             </template>
             <v-list>
               <v-list-item @click="viewUser(item)">

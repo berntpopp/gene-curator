@@ -10,15 +10,13 @@ export interface SelectOption {
 export const priorityOptions: SelectOption[] = [
   { title: 'Low', value: 'low' },
   { title: 'Medium', value: 'medium' },
-  { title: 'High', value: 'high' },
-  { title: 'Urgent', value: 'urgent' }
+  { title: 'High', value: 'high' }
 ]
 
 const PRIORITY_COLORS: Record<string, string> = {
   low: 'green',
   medium: 'orange',
-  high: 'red',
-  urgent: 'deep-purple'
+  high: 'red'
 }
 
 export function getPriorityColor(priority: string | null | undefined): string {

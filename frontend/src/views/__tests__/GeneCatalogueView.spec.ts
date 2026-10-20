@@ -11,13 +11,15 @@ vi.mock('@/api/geneCatalogue', () => ({
   }
 }))
 
+const push = vi.hoisted(() => vi.fn())
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() })
+  useRouter: () => ({ push })
 }))
 
 import { geneCatalogueAPI } from '@/api/geneCatalogue'
 import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
 import GeneCatalogueView from '@/views/GeneCatalogueView.vue'
+import { vmOf } from './vm'
 
 const entry = {
   gene_id: 'g1',
@@ -66,5 +68,31 @@ describe('GeneCatalogueView', () => {
     await flushPromises()
     expect(useGeneCatalogueStore().entries).toHaveLength(1)
     expect(wrapper.text()).toContain('BRCA1')
+  })
+
+  it('shows the store error instead of an empty page when the API fails', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockRejectedValue(new Error('boom'))
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="catalogue-error"]').exists()).toBe(true)
+  })
+
+  it('navigates to the registered scope-dashboard route', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const vm = wrapper.vm as unknown as { navigateToScope: (c: { scope_id: string }) => void }
+    vm.navigateToScope({ scope_id: 's1' })
+    expect(push).toHaveBeenCalledWith({ name: 'scope-dashboard', params: { scopeId: 's1' } })
+  })
+
+  it('builds scope filter options from the API id and display_name', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
+    vi.mocked(geneCatalogueAPI.getAvailableScopes).mockResolvedValue([
+      { id: 's1', name: 'kidney', display_name: 'Kidney Genetics' }
+    ] as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(vmOf(wrapper).scopeOptions).toEqual([{ title: 'Kidney Genetics', value: 's1' }])
   })
 })

@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ontologyAPI } from '@/api'
 import MONDOAutocomplete from '../MONDOAutocomplete.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/api', () => ({
   ontologyAPI: { searchMONDO: vi.fn() }
@@ -44,10 +43,6 @@ const hit = {
 }
 
 describe('MONDOAutocomplete', () => {
-  beforeEach(() => {
-    stubVisualViewport()
-  })
-
   beforeEach(() => {
     vi.mocked(ontologyAPI.searchMONDO).mockReset()
     vi.mocked(ontologyAPI.searchMONDO).mockResolvedValue({

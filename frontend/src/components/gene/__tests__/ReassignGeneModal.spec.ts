@@ -35,7 +35,8 @@ const gene: GeneRow = {
 const members = [
   { user_id: 'u-1', role: 'curator', user_full_name: 'Ada Lovelace', user_email: 'ada@x.org' },
   { user_id: 'u-2', role: 'curator', user_full_name: 'Grace Hopper', user_email: 'grace@x.org' },
-  { user_id: 'u-3', role: 'viewer', user_full_name: 'Viewer', user_email: 'v@x.org' }
+  { user_id: 'u-3', role: 'viewer', user_full_name: 'Viewer', user_email: 'v@x.org' },
+  { user_id: 'u-4', role: 'reviewer', user_full_name: 'Rev', user_email: 'r@x.org' }
 ]
 
 const dialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }

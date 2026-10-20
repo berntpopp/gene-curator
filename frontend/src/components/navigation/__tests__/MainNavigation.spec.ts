@@ -12,7 +12,6 @@ import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflow'
 import MainNavigation from '../MainNavigation.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -189,7 +188,6 @@ describe('MainNavigation', () => {
   })
 
   it('opens the curation dropdown and renders its items as router links', async () => {
-    stubVisualViewport()
     const auth = useAuthStore()
     auth.isAuthenticated = true
     auth.user = { role: 'user' } as unknown as typeof auth.user

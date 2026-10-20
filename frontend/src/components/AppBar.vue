@@ -23,7 +23,7 @@
     <MainNavigation />
 
     <!-- Theme Toggle -->
-    <v-btn icon class="ml-2" @click="toggleTheme">
+    <v-btn aria-label="Toggle theme" icon class="ml-2" @click="toggleTheme">
       <v-icon>
         {{ isDark ? 'mdi-weather-night' : 'mdi-white-balance-sunny' }}
       </v-icon>

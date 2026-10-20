@@ -8,9 +8,6 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import FooterBar from '../FooterBar.vue'
-import { installVisualViewport } from './overlay-env'
-
-installVisualViewport()
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))

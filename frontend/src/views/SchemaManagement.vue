@@ -98,15 +98,22 @@
 
         <template #item.actions="{ item }">
           <div class="d-flex gap-1">
-            <v-btn icon="mdi-eye" size="small" variant="text" @click="viewSchema(item)" />
-            <v-btn icon="mdi-pencil" size="small" variant="text" @click="editSchema(item)" />
             <v-btn
+              aria-label="Edit schema"
+              icon="mdi-pencil"
+              size="small"
+              variant="text"
+              @click="editSchema(item)"
+            />
+            <v-btn
+              aria-label="Duplicate schema"
               icon="mdi-content-copy"
               size="small"
               variant="text"
               @click="duplicateSchema(item)"
             />
             <v-btn
+              aria-label="Delete schema"
               icon="mdi-delete"
               size="small"
               variant="text"
@@ -279,11 +286,6 @@
 
   const formatDate = (dateString: string | null | undefined) => {
     return dateString ? new Date(dateString).toLocaleDateString() : ''
-  }
-
-  const viewSchema = (schema: SchemaRow) => {
-    logger.info('View schema requested', { schemaId: schema.id, schemaName: schema.name })
-    // TODO: Implement schema detail view when available
   }
 
   const editSchema = (schema: SchemaRow) => {

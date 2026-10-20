@@ -83,7 +83,7 @@ describe('LumpingSplittingSection', () => {
     expect(withLink.text()).toContain('Included MIM Phenotypes')
     expect(withLink.text()).toContain('Excluded MIM Phenotypes')
     expect(withLink.find('a[href="https://omim.org/entry/654321"]').exists()).toBe(true)
-    expect(withLink.text()).toContain('View Source Precuration')
+    expect(withLink.text()).not.toContain('View Source Precuration')
 
     const withoutLink = mount(LumpingSplittingSection, {
       props: { precurationData: {} },

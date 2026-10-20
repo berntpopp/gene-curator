@@ -8,7 +8,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { ontologyAPI } from '@/api'
 import HPOInheritanceSelect from '../HPOInheritanceSelect.vue'
-import { stubVisualViewport } from './overlayStubs'
 
 vi.mock('@/api', () => ({
   ontologyAPI: { getInheritancePatterns: vi.fn() }
@@ -50,10 +49,6 @@ const response = {
 }
 
 describe('HPOInheritanceSelect', () => {
-  beforeEach(() => {
-    stubVisualViewport()
-  })
-
   beforeEach(() => {
     vi.mocked(ontologyAPI.getInheritancePatterns).mockReset()
     vi.mocked(ontologyAPI.getInheritancePatterns).mockResolvedValue(response)

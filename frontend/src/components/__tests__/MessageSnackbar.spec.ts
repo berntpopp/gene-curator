@@ -9,9 +9,6 @@
 import { describe, it, expect, afterEach } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import MessageSnackbar from '../MessageSnackbar.vue'
-import { installVisualViewport } from './overlay-env'
-
-installVisualViewport()
 
 const mounted: VueWrapper[] = []
 
