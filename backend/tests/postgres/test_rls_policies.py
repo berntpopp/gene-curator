@@ -25,6 +25,7 @@ from app.crud.scope_membership import scope_membership_crud
 from app.models import Scope, ScopeMembership, UserNew
 from app.schemas.scope import ScopeCreate
 from app.schemas.scope_membership import ScopeMembershipCreate
+from tests.api.scopes.factories import make_workflow_pair
 
 pytestmark = pytest.mark.postgres
 
@@ -92,7 +93,7 @@ class TestRLSPolicies:
             description="Test scope for RLS",
             institution="Test Inst",
             is_public=False,
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user1.id)
 
@@ -119,7 +120,7 @@ class TestRLSPolicies:
             description="Test scope for RLS isolation",
             institution="Test Inst",
             is_public=False,
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
         scope = scope_crud.create_with_owner(db, obj_in=scope_data, owner_id=user2.id)
 
@@ -278,7 +279,7 @@ class TestRLSPolicies:
             description="Public test scope",
             institution="Test Inst",
             is_public=False,
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
         public_scope = scope_crud.create_with_owner(
             db, obj_in=public_scope_data, owner_id=user1.id

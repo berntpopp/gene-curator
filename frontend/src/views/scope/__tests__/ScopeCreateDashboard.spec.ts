@@ -182,6 +182,7 @@ describe('ScopeCreate', () => {
       response: { data: { detail: 'Scope exists' } }
     })
     vm.valid = true
+    ;(vm.scopeData as { default_workflow_pair_id: string }).default_workflow_pair_id = 'wp-1'
     await call(vm, 'handleSubmit')
     expect(vm.snackbarMessage).toBe('Failed to create scope: Scope exists')
     expect(vm.snackbarColor).toBe('error')

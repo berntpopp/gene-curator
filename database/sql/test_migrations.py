@@ -26,6 +26,8 @@ def test_runner_applies_once_and_rolls_back_failed_file(tmp_path: Path) -> None:
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
         "MIGRATION_TEST_URL": os.environ["DATABASE_URL"],
     }
+    # initdb only records the baseline; files between 027 and 030 are recorded by the first run.
+    subprocess.run(["/usr/bin/make", "db-migrate"], cwd=ROOT, env=env, check=True)
     with (
         psycopg2.connect(os.environ["DATABASE_URL"]) as connection,
         connection.cursor() as cursor,

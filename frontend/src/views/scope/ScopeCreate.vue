@@ -445,7 +445,12 @@
         initial_members: pendingMembers.value.length
       })
 
-      const newScope = await scopeStore.createScope(scopeData.value)
+      const { default_workflow_pair_id: methodology, ...rest } = scopeData.value
+      if (!methodology) return
+      const newScope = await scopeStore.createScope({
+        ...rest,
+        default_workflow_pair_id: methodology
+      })
 
       logger.info('Scope created successfully', {
         scope_id: newScope.id,
