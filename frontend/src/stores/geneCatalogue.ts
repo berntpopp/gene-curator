@@ -11,9 +11,64 @@
  */
 import { defineStore } from 'pinia'
 import { geneCatalogueAPI } from '@/api/geneCatalogue'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+interface CatalogueFilters {
+  search: string | null
+  classification: string | null
+  disease: string | null
+  scopeId: string | null
+  chromosome: string | null
+  sortBy: string
+  sortOrder: 'asc' | 'desc'
+}
+
+interface CataloguePagination {
+  page: number
+  perPage: number
+  total: number
+  hasNext: boolean
+  hasPrev: boolean
+}
+
+interface CatalogueSummary {
+  totalGenesCurated: number
+  totalCurations: number
+  totalScopes: number
+  classificationSummary: Record<string, number>
+}
+
+interface CatalogueFilterOptions {
+  classifications: unknown[]
+  diseases: unknown[]
+  scopes: unknown[]
+  loaded: boolean
+}
+
+interface GeneCatalogueState {
+  entries: Schema<'GeneCatalogueEntry'>[]
+  loading: boolean
+  error: { message: string } | null
+  pagination: CataloguePagination
+  filters: CatalogueFilters
+  summary: CatalogueSummary
+  filterOptions: CatalogueFilterOptions
+  expandedGeneIds: Set<string>
+}
+
+const DEFAULT_FILTERS: CatalogueFilters = {
+  search: null,
+  classification: null,
+  disease: null,
+  scopeId: null,
+  chromosome: null,
+  sortBy: 'approved_symbol',
+  sortOrder: 'asc'
+}
 
 export const useGeneCatalogueStore = defineStore('geneCatalogue', {
-  state: () => ({
+  state: (): GeneCatalogueState => ({
     // Catalogue entries (genes with curations)
     entries: [],
 
@@ -31,15 +86,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     },
 
     // Active filters
-    filters: {
-      search: null,
-      classification: null,
-      disease: null,
-      scopeId: null,
-      chromosome: null,
-      sortBy: 'approved_symbol',
-      sortOrder: 'asc'
-    },
+    filters: { ...DEFAULT_FILTERS },
 
     // Summary statistics
     summary: {
@@ -65,14 +112,14 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     /**
      * Get catalogue entry by gene ID
      */
-    getEntryByGeneId: state => geneId => {
+    getEntryByGeneId: state => (geneId: string) => {
       return state.entries.find(entry => entry.gene_id === geneId)
     },
 
     /**
      * Check if a gene row is expanded
      */
-    isGeneExpanded: state => geneId => {
+    isGeneExpanded: state => (geneId: string) => {
       return state.expandedGeneIds.has(geneId)
     },
 
@@ -108,24 +155,40 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     /**
      * Fetch catalogue entries with current filters and pagination
      */
-    async fetchCatalogue(params = {}) {
+    async fetchCatalogue(params: { page?: number } = {}) {
       this.loading = true
       this.error = null
 
       try {
         const skip = ((params.page || this.pagination.page) - 1) * this.pagination.perPage
 
-        const response = await geneCatalogueAPI.getCatalogue({
-          skip,
-          limit: this.pagination.perPage,
-          search: this.filters.search || undefined,
-          classification: this.filters.classification || undefined,
-          disease: this.filters.disease || undefined,
-          scope_id: this.filters.scopeId || undefined,
-          chromosome: this.filters.chromosome || undefined,
-          sort_by: this.filters.sortBy,
-          sort_order: this.filters.sortOrder
-        })
+        const response = apiData<{
+          entries?: Schema<'GeneCatalogueEntry'>[]
+          total?: number
+          has_next?: boolean
+          has_prev?: boolean
+          summary?: {
+            total_genes_curated?: number
+            total_curations?: number
+            total_scopes?: number
+            classification_summary?: Record<string, number>
+          }
+        }>(
+          // Empty filters are sent as undefined (omitted by axios); the API JSDoc marks them required
+          await geneCatalogueAPI.getCatalogue(
+            apiData<Parameters<typeof geneCatalogueAPI.getCatalogue>[0]>({
+              skip,
+              limit: this.pagination.perPage,
+              search: this.filters.search || undefined,
+              classification: this.filters.classification || undefined,
+              disease: this.filters.disease || undefined,
+              scope_id: this.filters.scopeId || undefined,
+              chromosome: this.filters.chromosome || undefined,
+              sort_by: this.filters.sortBy,
+              sort_order: this.filters.sortOrder
+            })
+          )
+        )
 
         this.entries = response.entries || []
         this.pagination.total = response.total || 0
@@ -144,7 +207,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
         return response
       } catch (error) {
-        this.error = { message: error.message || 'Failed to fetch catalogue' }
+        this.error = { message: toApiError(error).message || 'Failed to fetch catalogue' }
         throw error
       } finally {
         this.loading = false
@@ -161,9 +224,9 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
       try {
         const [classifications, diseases, scopes] = await Promise.all([
-          geneCatalogueAPI.getAvailableClassifications(),
-          geneCatalogueAPI.getAvailableDiseases(),
-          geneCatalogueAPI.getAvailableScopes()
+          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableClassifications()),
+          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableDiseases()),
+          apiData<unknown[] | null>(await geneCatalogueAPI.getAvailableScopes())
         ])
 
         this.filterOptions = {
@@ -175,7 +238,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
         return this.filterOptions
       } catch (error) {
-        this.error = { message: error.message || 'Failed to load filter options' }
+        this.error = { message: toApiError(error).message || 'Failed to load filter options' }
         throw error
       }
     },
@@ -183,7 +246,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     /**
      * Update filters and refetch
      */
-    updateFilters(newFilters) {
+    updateFilters(newFilters: Partial<CatalogueFilters>) {
       this.filters = { ...this.filters, ...newFilters }
       this.pagination.page = 1 // Reset to first page
     },
@@ -192,29 +255,21 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
      * Clear all filters
      */
     clearFilters() {
-      this.filters = {
-        search: null,
-        classification: null,
-        disease: null,
-        scopeId: null,
-        chromosome: null,
-        sortBy: 'approved_symbol',
-        sortOrder: 'asc'
-      }
+      this.filters = { ...DEFAULT_FILTERS }
       this.pagination.page = 1
     },
 
     /**
      * Set current page
      */
-    setPage(page) {
+    setPage(page: number) {
       this.pagination.page = page
     },
 
     /**
      * Toggle gene row expansion
      */
-    toggleGeneExpanded(geneId) {
+    toggleGeneExpanded(geneId: string) {
       if (this.expandedGeneIds.has(geneId)) {
         this.expandedGeneIds.delete(geneId)
       } else {
@@ -227,7 +282,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     /**
      * Expand gene row
      */
-    expandGene(geneId) {
+    expandGene(geneId: string) {
       this.expandedGeneIds.add(geneId)
       this.expandedGeneIds = new Set(this.expandedGeneIds)
     },
@@ -235,7 +290,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
     /**
      * Collapse gene row
      */
-    collapseGene(geneId) {
+    collapseGene(geneId: string) {
       this.expandedGeneIds.delete(geneId)
       this.expandedGeneIds = new Set(this.expandedGeneIds)
     },
@@ -268,15 +323,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
         hasNext: false,
         hasPrev: false
       }
-      this.filters = {
-        search: null,
-        classification: null,
-        disease: null,
-        scopeId: null,
-        chromosome: null,
-        sortBy: 'approved_symbol',
-        sortOrder: 'asc'
-      }
+      this.filters = { ...DEFAULT_FILTERS }
       this.summary = {
         totalGenesCurated: 0,
         totalCurations: 0,

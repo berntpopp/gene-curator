@@ -21,6 +21,23 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+/** One frontend log record as produced by logService. */
+export interface LogEntry {
+  timestamp?: string
+  level: string
+  message: string
+  data?: unknown
+  correlationId?: string
+  url?: string
+}
+
+export interface LogStats {
+  totalLogsReceived: number
+  totalLogsDropped: number
+  lastLogTime: string | null
+  sessionStartTime: string
+}
+
 /**
  * Get default max entries from LocalStorage or use environment-based default
  *
@@ -37,6 +54,8 @@ function getDefaultMaxEntries() {
       }
     }
   } catch (error) {
+    // This store is the logging sink itself, so it cannot log through logService
+    // eslint-disable-next-line no-console
     console.error('Failed to load max entries from storage:', error)
   }
   return import.meta.env.DEV ? 100 : 50
@@ -52,23 +71,23 @@ export const useLogStore = defineStore('log', () => {
   // State
   // ============================================================================
 
-  /** @type {Ref<Array>} Array of log entries */
-  const logs = ref([])
+  /** Array of log entries */
+  const logs = ref<LogEntry[]>([])
 
-  /** @type {Ref<boolean>} LogViewer visibility state */
+  /** LogViewer visibility state */
   const isViewerVisible = ref(false)
 
-  /** @type {Ref<number>} Maximum number of logs to keep */
+  /** Maximum number of logs to keep */
   const maxEntries = ref(getDefaultMaxEntries())
 
-  /** @type {Ref<string>} Search query for filtering logs */
+  /** Search query for filtering logs */
   const searchQuery = ref('')
 
-  /** @type {Ref<Array<string>>} Log levels to filter by */
-  const levelFilter = ref([])
+  /** Log levels to filter by */
+  const levelFilter = ref<string[]>([])
 
-  /** @type {Ref<Object>} Statistics tracking */
-  const stats = ref({
+  /** Statistics tracking */
+  const stats = ref<LogStats>({
     totalLogsReceived: 0,
     totalLogsDropped: 0,
     lastLogTime: null,
@@ -110,7 +129,7 @@ export const useLogStore = defineStore('log', () => {
    * Counts of logs by level
    */
   const logsByLevel = computed(() => {
-    const counts = {
+    const counts: Record<string, number> = {
       DEBUG: 0,
       INFO: 0,
       WARN: 0,
@@ -120,7 +139,7 @@ export const useLogStore = defineStore('log', () => {
 
     logs.value.forEach(log => {
       if (counts[log.level] !== undefined) {
-        counts[log.level]++
+        counts[log.level] = (counts[log.level] ?? 0) + 1
       }
     })
 
@@ -189,7 +208,7 @@ export const useLogStore = defineStore('log', () => {
    * @param {Object} entry - Log entry to add
    * @param {number|null} maxEntriesOverride - Optional override for max entries
    */
-  function addLogEntry(entry, maxEntriesOverride = null) {
+  function addLogEntry(entry: LogEntry, maxEntriesOverride: number | null = null) {
     const max = maxEntriesOverride || maxEntries.value
 
     // Add timestamp if not present
@@ -229,7 +248,7 @@ export const useLogStore = defineStore('log', () => {
    *
    * @param {number} newMaxEntries - New maximum entries
    */
-  function trimLogs(newMaxEntries) {
+  function trimLogs(newMaxEntries: number) {
     if (logs.value.length > newMaxEntries) {
       const toRemove = logs.value.length - newMaxEntries
       logs.value = logs.value.slice(toRemove)
@@ -264,7 +283,7 @@ export const useLogStore = defineStore('log', () => {
    *
    * @param {string} query - Search query
    */
-  function setSearchQuery(query) {
+  function setSearchQuery(query: string) {
     searchQuery.value = query
   }
 
@@ -273,7 +292,7 @@ export const useLogStore = defineStore('log', () => {
    *
    * @param {Array<string>} levels - Log levels to filter by
    */
-  function setLevelFilter(levels) {
+  function setLevelFilter(levels: string[]) {
     levelFilter.value = levels
   }
 
@@ -286,12 +305,14 @@ export const useLogStore = defineStore('log', () => {
    * @param {boolean} options.filtered - Export filtered logs only
    * @returns {string|Object} Exported logs data
    */
-  function exportLogs(options = {}) {
+  function exportLogs(
+    options: { format?: 'json' | 'csv'; includeMetadata?: boolean; filtered?: boolean } = {}
+  ): string | Record<string, unknown> {
     const { format = 'json', includeMetadata = true, filtered = false } = options
 
     const logsToExport = filtered ? filteredLogs.value : logs.value
 
-    const exportData = {
+    const exportData: Record<string, unknown> = {
       exportedAt: new Date().toISOString(),
       application: 'Gene Curator',
       environment: import.meta.env.MODE,
@@ -331,7 +352,7 @@ export const useLogStore = defineStore('log', () => {
    * @param {Array} logsArray - Logs to convert
    * @returns {string} CSV string
    */
-  function convertToCSV(logsArray) {
+  function convertToCSV(logsArray: LogEntry[]) {
     if (logsArray.length === 0) return ''
 
     const headers = ['Timestamp', 'Level', 'Message', 'Data', 'Correlation ID', 'URL']

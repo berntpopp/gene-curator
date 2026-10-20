@@ -5,10 +5,48 @@
  * Handles CRUD operations, optimistic locking conflicts, and draft auto-save.
  */
 import { defineStore } from 'pinia'
+import { toApiError, apiData } from './apiError'
 import { curationsAPI } from '@/api/curations'
+import type { Schema } from '@/types/api'
+
+/** A curation as listed (summary) or opened (detail); both carry the fields the store filters on. */
+export type CurationRecord = Schema<'CurationSummary'> | Schema<'CurationDetail'>
+
+/** Error state: plain message, or extra data for optimistic-lock conflicts (409). */
+export interface CurationError {
+  message?: string
+  isConflict?: boolean
+  isAutoSave?: boolean
+  currentVersion?: number
+  yourVersion?: number
+  currentState?: string
+}
+
+interface CurationsFilters {
+  scope_id: string | null
+  gene_id: string | null
+  status: string | null
+  curator_id: string | null
+}
+
+interface CurationsPagination {
+  page: number
+  per_page: number
+  total: number
+  pages: number
+}
+
+interface CurationsState {
+  curations: CurationRecord[]
+  currentCuration: CurationRecord | null
+  loading: boolean
+  error: CurationError | null
+  pagination: CurationsPagination
+  filters: CurationsFilters
+}
 
 export const useCurationsStore = defineStore('curations', {
-  state: () => ({
+  state: (): CurationsState => ({
     curations: [],
     currentCuration: null,
     loading: false,
@@ -28,15 +66,15 @@ export const useCurationsStore = defineStore('curations', {
   }),
 
   getters: {
-    getCurationById: state => id => {
+    getCurationById: state => (id: string) => {
       return state.curations.find(curation => curation.id === id)
     },
 
-    getCurationsByScope: state => scopeId => {
+    getCurationsByScope: state => (scopeId: string) => {
       return state.curations.filter(curation => curation.scope_id === scopeId)
     },
 
-    getCurationsByGene: state => geneId => {
+    getCurationsByGene: state => (geneId: string) => {
       return state.curations.filter(curation => curation.gene_id === geneId)
     },
 
@@ -57,16 +95,18 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Fetch curations with optional filters
      */
-    async fetchCurations(params = {}) {
+    async fetchCurations(params: Record<string, unknown> = {}) {
       this.loading = true
       this.error = null
       try {
-        const response = await curationsAPI.getCurations({
-          ...this.filters,
-          ...params,
-          skip: (this.pagination.page - 1) * this.pagination.per_page,
-          limit: this.pagination.per_page
-        })
+        const response = apiData<{ curations?: CurationRecord[]; total?: number }>(
+          await curationsAPI.getCurations({
+            ...this.filters,
+            ...params,
+            skip: (this.pagination.page - 1) * this.pagination.per_page,
+            limit: this.pagination.per_page
+          })
+        )
 
         this.curations = response.curations || []
         this.pagination.total = response.total || 0
@@ -74,7 +114,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return response
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -84,11 +124,11 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Fetch single curation by ID
      */
-    async fetchCurationById(id) {
+    async fetchCurationById(id: string) {
       this.loading = true
       this.error = null
       try {
-        const curation = await curationsAPI.getCuration(id)
+        const curation = apiData<CurationRecord>(await curationsAPI.getCuration(id))
         this.currentCuration = curation
 
         // Update in list if exists
@@ -99,7 +139,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return curation
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -109,16 +149,16 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Create new curation
      */
-    async createCuration(data) {
+    async createCuration(data: Parameters<typeof curationsAPI.createCuration>[0]) {
       this.loading = true
       this.error = null
       try {
-        const newCuration = await curationsAPI.createCuration(data)
+        const newCuration = apiData<CurationRecord>(await curationsAPI.createCuration(data))
         this.curations.unshift(newCuration)
         this.pagination.total += 1
         return newCuration
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -129,11 +169,11 @@ export const useCurationsStore = defineStore('curations', {
      * Update curation with optimistic locking
      * Handles 409 Conflict by setting isConflict error
      */
-    async updateCuration(id, data) {
+    async updateCuration(id: string, data: Schema<'CurationUpdate'>) {
       this.loading = true
       this.error = null
       try {
-        const updated = await curationsAPI.updateCuration(id, data)
+        const updated = apiData<CurationRecord>(await curationsAPI.updateCuration(id, data))
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
@@ -149,17 +189,18 @@ export const useCurationsStore = defineStore('curations', {
         return updated
       } catch (error) {
         // Handle 409 Conflict specially
-        if (error.response?.status === 409) {
-          const conflictData = error.response.data
+        const apiError = toApiError(error)
+        if (apiError.response?.status === 409) {
+          const conflictData = apiError.response.data ?? {}
           this.error = {
             message: 'Another user has modified this curation. Please refresh and try again.',
             isConflict: true,
-            currentVersion: conflictData.current_lock_version,
-            yourVersion: conflictData.your_lock_version,
-            currentState: conflictData.current_state
+            currentVersion: conflictData.current_lock_version as number | undefined,
+            yourVersion: conflictData.your_lock_version as number | undefined,
+            currentState: conflictData.current_state as string | undefined
           }
         } else {
-          this.error = { message: error.message }
+          this.error = { message: apiError.message }
         }
         throw error
       } finally {
@@ -171,10 +212,10 @@ export const useCurationsStore = defineStore('curations', {
      * Save curation as draft (auto-save)
      * Does NOT set loading state for background operation
      */
-    async saveDraft(id, data) {
+    async saveDraft(id: string, data: Schema<'CurationDraftSave'>) {
       this.error = null
       try {
-        const updated = await curationsAPI.saveDraft(id, data)
+        const updated = apiData<CurationRecord>(await curationsAPI.saveDraft(id, data))
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
@@ -190,7 +231,7 @@ export const useCurationsStore = defineStore('curations', {
         return updated
       } catch (error) {
         // Don't throw for auto-save failures, just log
-        this.error = { message: error.message, isAutoSave: true }
+        this.error = { message: toApiError(error).message, isAutoSave: true }
         return null
       }
     },
@@ -198,11 +239,11 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Submit curation for review
      */
-    async submitCuration(id, data = {}) {
+    async submitCuration(id: string, data: Partial<Schema<'CurationSubmit'>> = {}) {
       this.loading = true
       this.error = null
       try {
-        const submitted = await curationsAPI.submitCuration(id, data)
+        const submitted = apiData<CurationRecord>(await curationsAPI.submitCuration(id, data))
 
         // Update in list
         const index = this.curations.findIndex(c => c.id === id)
@@ -217,13 +258,14 @@ export const useCurationsStore = defineStore('curations', {
 
         return submitted
       } catch (error) {
-        if (error.response?.status === 409) {
+        const apiError = toApiError(error)
+        if (apiError.response?.status === 409) {
           this.error = {
             message: 'Curation was modified. Please refresh and try again.',
             isConflict: true
           }
         } else {
-          this.error = { message: error.message }
+          this.error = { message: apiError.message }
         }
         throw error
       } finally {
@@ -234,7 +276,7 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Delete (archive) curation
      */
-    async deleteCuration(id) {
+    async deleteCuration(id: string) {
       this.loading = true
       this.error = null
       try {
@@ -251,7 +293,7 @@ export const useCurationsStore = defineStore('curations', {
 
         return true
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -261,14 +303,14 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Calculate score for curation
      */
-    async calculateScore(id) {
+    async calculateScore(id: string) {
       this.loading = true
       this.error = null
       try {
         const scoreResult = await curationsAPI.calculateScore(id)
         return scoreResult
       } catch (error) {
-        this.error = { message: error.message }
+        this.error = { message: toApiError(error).message }
         throw error
       } finally {
         this.loading = false
@@ -278,7 +320,7 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Update filters and refetch
      */
-    updateFilters(newFilters) {
+    updateFilters(newFilters: Partial<CurationsFilters>) {
       this.filters = { ...this.filters, ...newFilters }
       this.pagination.page = 1 // Reset to first page
     },
@@ -286,14 +328,14 @@ export const useCurationsStore = defineStore('curations', {
     /**
      * Set current page and refetch
      */
-    setPage(page) {
+    setPage(page: number) {
       this.pagination.page = page
     },
 
     /**
      * Set current curation
      */
-    setCurrentCuration(curation) {
+    setCurrentCuration(curation: CurationRecord | null) {
       this.currentCuration = curation
     },
 

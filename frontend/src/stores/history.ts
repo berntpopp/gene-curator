@@ -18,13 +18,26 @@
 import { defineStore } from 'pinia'
 import { logService } from '@/services/logService'
 
+/** One undoable change: the state before and after the action (deep-cloned). */
+export interface HistoryEntry {
+  action: string
+  previousState: unknown
+  newState: unknown
+  timestamp: number
+}
+
+export interface HistoryContext {
+  past: HistoryEntry[]
+  future: HistoryEntry[]
+}
+
 export const useHistoryStore = defineStore('history', {
   state: () => ({
     /**
      * Map of context -> { past: [], future: [] }
      * Allows multiple independent undo/redo stacks
      */
-    contexts: new Map(),
+    contexts: new Map<string, HistoryContext>(),
 
     /**
      * Maximum history entries per context
@@ -41,9 +54,9 @@ export const useHistoryStore = defineStore('history', {
      */
     canUndo:
       state =>
-      (context = 'default') => {
+      (context: string = 'default') => {
         const history = state.contexts.get(context)
-        return history && history.past.length > 0
+        return history !== undefined && history.past.length > 0
       },
 
     /**
@@ -53,9 +66,9 @@ export const useHistoryStore = defineStore('history', {
      */
     canRedo:
       state =>
-      (context = 'default') => {
+      (context: string = 'default') => {
         const history = state.contexts.get(context)
-        return history && history.future.length > 0
+        return history !== undefined && history.future.length > 0
       },
 
     /**
@@ -65,7 +78,7 @@ export const useHistoryStore = defineStore('history', {
      */
     getHistorySize:
       state =>
-      (context = 'default') => {
+      (context: string = 'default') => {
         const history = state.contexts.get(context)
         return history ? history.past.length : 0
       },
@@ -84,7 +97,7 @@ export const useHistoryStore = defineStore('history', {
      * Initialize a new context if it doesn't exist
      * @param {string} context - Context identifier
      */
-    initContext(context) {
+    initContext(context: string) {
       if (!this.contexts.has(context)) {
         this.contexts.set(context, {
           past: [],
@@ -103,12 +116,13 @@ export const useHistoryStore = defineStore('history', {
      * @param {*} previousState - State before the action
      * @param {*} newState - State after the action
      */
-    pushState(context, action, previousState, newState) {
+    pushState(context: string, action: string, previousState: unknown, newState: unknown) {
       this.initContext(context)
       const history = this.contexts.get(context)
+      if (!history) return
 
       // Create deep clones to prevent mutation issues
-      const entry = {
+      const entry: HistoryEntry = {
         action,
         previousState: JSON.parse(JSON.stringify(previousState)),
         newState: JSON.parse(JSON.stringify(newState)),
@@ -140,7 +154,7 @@ export const useHistoryStore = defineStore('history', {
      * @param {string} context - Context identifier
      * @returns {*} Previous state, or null if nothing to undo
      */
-    undo(context = 'default') {
+    undo(context: string = 'default'): unknown {
       const history = this.contexts.get(context)
 
       if (!history || history.past.length === 0) {
@@ -149,6 +163,7 @@ export const useHistoryStore = defineStore('history', {
       }
 
       const entry = history.past.pop()
+      if (!entry) return null
       history.future.push(entry)
 
       logService.info('Undo action', {
@@ -167,7 +182,7 @@ export const useHistoryStore = defineStore('history', {
      * @param {string} context - Context identifier
      * @returns {*} New state, or null if nothing to redo
      */
-    redo(context = 'default') {
+    redo(context: string = 'default'): unknown {
       const history = this.contexts.get(context)
 
       if (!history || history.future.length === 0) {
@@ -176,6 +191,7 @@ export const useHistoryStore = defineStore('history', {
       }
 
       const entry = history.future.pop()
+      if (!entry) return null
       history.past.push(entry)
 
       logService.info('Redo action', {
@@ -193,7 +209,7 @@ export const useHistoryStore = defineStore('history', {
      *
      * @param {string} context - Context identifier
      */
-    clearHistory(context = 'default') {
+    clearHistory(context: string = 'default') {
       this.contexts.delete(context)
       logService.debug('History cleared', { context })
     },
@@ -212,7 +228,7 @@ export const useHistoryStore = defineStore('history', {
      * @param {string} context - Context identifier
      * @returns {Object} State summary
      */
-    getStateSummary(context = 'default') {
+    getStateSummary(context: string = 'default') {
       const history = this.contexts.get(context)
 
       if (!history) {

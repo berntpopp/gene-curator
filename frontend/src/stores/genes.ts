@@ -1,8 +1,43 @@
 import { defineStore } from 'pinia'
 import { genesAPI } from '@/api'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+/** Gene row in the store: API schema plus the scope-assignment list the table filters on. */
+export interface GeneRecord extends Schema<'GeneWithAssignments'> {
+  assignments?: Array<{ scope_id: string }>
+}
+
+export interface GeneSearchParams {
+  query: string
+  scope_id: string | null
+  assignment_status: string | null
+  curation_status: string | null
+  sort_by: string
+  sort_order: 'asc' | 'desc'
+}
+
+interface GenesPagination {
+  page: number
+  per_page: number
+  total: number
+  pages: number
+}
+
+interface GenesState {
+  genes: GeneRecord[]
+  currentGene: GeneRecord | null
+  searchResults: GeneRecord[]
+  geneAssignments: Record<string, Schema<'GeneScopeAssignment'>[]>
+  geneCurationProgress: Record<string, Schema<'GeneCurationProgress'>>
+  loading: boolean
+  error: string | null
+  pagination: GenesPagination
+  searchParams: GeneSearchParams
+}
 
 export const useGenesStore = defineStore('genes', {
-  state: () => ({
+  state: (): GenesState => ({
     genes: [],
     currentGene: null,
     searchResults: [],
@@ -27,21 +62,21 @@ export const useGenesStore = defineStore('genes', {
   }),
 
   getters: {
-    getGeneById: state => id => {
+    getGeneById: state => (id: string) => {
       return state.genes.find(gene => gene.id === id)
     },
 
-    getGenesByScope: state => scopeId => {
+    getGenesByScope: state => (scopeId: string) => {
       return state.genes.filter(gene =>
         gene.assignments?.some(assignment => assignment.scope_id === scopeId)
       )
     },
 
-    getGeneAssignments: state => geneId => {
+    getGeneAssignments: state => (geneId: string) => {
       return state.geneAssignments[geneId] || []
     },
 
-    getGeneCurationProgress: state => geneId => {
+    getGeneCurationProgress: state => (geneId: string) => {
       return state.geneCurationProgress[geneId] || {}
     },
 
@@ -51,16 +86,23 @@ export const useGenesStore = defineStore('genes', {
   },
 
   actions: {
-    async fetchGenes(params = {}) {
+    async fetchGenes(params: Partial<GeneSearchParams> = {}) {
       this.loading = true
       this.error = null
       try {
-        const response = await genesAPI.getGenes({
-          ...this.searchParams,
-          ...params
-        })
+        const response = apiData<
+          { genes?: GeneRecord[]; data?: GeneRecord[]; pagination?: GenesPagination } & Record<
+            string,
+            unknown
+          >
+        >(
+          await genesAPI.getGenes({
+            ...this.searchParams,
+            ...params
+          })
+        )
 
-        this.genes = response.genes || response.data || response
+        this.genes = response.genes || response.data || (response as unknown as GeneRecord[])
 
         if (response.pagination) {
           this.pagination = response.pagination
@@ -68,18 +110,18 @@ export const useGenesStore = defineStore('genes', {
 
         return response
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async fetchGeneById(id) {
+    async fetchGeneById(id: string) {
       this.loading = true
       this.error = null
       try {
-        const gene = await genesAPI.getGeneById(id)
+        const gene = apiData<GeneRecord>(await genesAPI.getGeneById(id))
         this.currentGene = gene
 
         // Update the gene in the list if it exists
@@ -92,33 +134,33 @@ export const useGenesStore = defineStore('genes', {
 
         return gene
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async createGene(geneData) {
+    async createGene(geneData: Schema<'GeneCreate'>) {
       this.loading = true
       this.error = null
       try {
-        const newGene = await genesAPI.createGene(geneData)
+        const newGene = apiData<GeneRecord>(await genesAPI.createGene(geneData))
         this.genes.push(newGene)
         return newGene
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async updateGene(id, geneData) {
+    async updateGene(id: string, geneData: Schema<'GeneUpdate'>) {
       this.loading = true
       this.error = null
       try {
-        const updatedGene = await genesAPI.updateGene(id, geneData)
+        const updatedGene = apiData<GeneRecord>(await genesAPI.updateGene(id, geneData))
         const index = this.genes.findIndex(g => g.id === id)
         if (index !== -1) {
           this.genes[index] = updatedGene
@@ -128,14 +170,14 @@ export const useGenesStore = defineStore('genes', {
         }
         return updatedGene
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async deleteGene(id) {
+    async deleteGene(id: string) {
       this.loading = true
       this.error = null
       try {
@@ -146,55 +188,62 @@ export const useGenesStore = defineStore('genes', {
         }
         return true
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    async fetchGeneAssignments(id) {
+    async fetchGeneAssignments(id: string) {
       try {
-        const assignments = await genesAPI.getGeneAssignments(id)
+        const assignments = apiData<Schema<'GeneScopeAssignment'>[]>(
+          await genesAPI.getGeneAssignments(id)
+        )
         this.geneAssignments[id] = assignments
         return assignments
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async fetchGeneCurationProgress(id) {
+    async fetchGeneCurationProgress(id: string) {
       try {
-        const progress = await genesAPI.getGeneCurationProgress(id)
+        const progress = apiData<Schema<'GeneCurationProgress'>>(
+          await genesAPI.getGeneCurationProgress(id)
+        )
         this.geneCurationProgress[id] = progress
         return progress
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },
 
-    async searchGenes(searchParams) {
+    async searchGenes(searchParams: Record<string, unknown>) {
       this.loading = true
       this.error = null
       try {
-        const response = await genesAPI.searchGenes(searchParams)
-        this.searchResults = response.genes || response.data || response
+        const response = apiData<
+          { genes?: GeneRecord[]; data?: GeneRecord[] } & Record<string, unknown>
+        >(await genesAPI.searchGenes(searchParams))
+        this.searchResults =
+          response.genes || response.data || (response as unknown as GeneRecord[])
         return response
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       } finally {
         this.loading = false
       }
     },
 
-    updateSearchParams(params) {
+    updateSearchParams(params: Partial<GeneSearchParams>) {
       this.searchParams = { ...this.searchParams, ...params }
     },
 
-    setCurrentGene(gene) {
+    setCurrentGene(gene: GeneRecord | null) {
       this.currentGene = gene
     },
 
@@ -208,10 +257,10 @@ export const useGenesStore = defineStore('genes', {
 
     async fetchStatistics() {
       try {
-        const stats = await genesAPI.getStatistics()
+        const stats = apiData<Schema<'GeneStatistics'>>(await genesAPI.getStatistics())
         return stats
       } catch (error) {
-        this.error = error.message
+        this.error = toApiError(error).message ?? null
         throw error
       }
     },

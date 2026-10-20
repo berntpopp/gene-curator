@@ -25,19 +25,30 @@ import { ref, computed } from 'vue'
 import { scopeService } from '@/services/scopeService'
 import { logService } from '@/services/logService'
 import { useAuthStore } from '@/stores/auth'
+import { toApiError, apiData } from './apiError'
+import type { Schema } from '@/types/api'
+
+export type ScopeRecord = Schema<'ScopeListItem'>
+export type ScopeMember = Schema<'ScopeMembershipResponse'>
+
+/** Scope statistics; `total_genes` is read by the log line but is not declared by the API schema. */
+export type ScopeStatisticsRecord = Schema<'ScopeStatistics'> & { total_genes?: number }
+
+/** Invitation payload; the invite form may also pass an email for users without an account. */
+type InviteMemberData = Parameters<typeof scopeService.inviteMember>[1] & { email?: string }
 
 export const useScopesStore = defineStore('scopes', () => {
   // ============================================
   // STATE
   // ============================================
 
-  const scopes = ref([])
-  const currentScope = ref(null)
-  const currentUserRole = ref(null)
-  const scopeUsers = ref({}) // Map of scopeId -> users array
-  const scopeStatistics = ref({}) // Map of scopeId -> statistics
+  const scopes = ref<ScopeRecord[]>([])
+  const currentScope = ref<ScopeRecord | null>(null)
+  const currentUserRole = ref<string | null>(null)
+  const scopeUsers = ref<Record<string, ScopeMember[]>>({}) // Map of scopeId -> users array
+  const scopeStatistics = ref<Record<string, ScopeStatisticsRecord>>({}) // Map of scopeId -> statistics
   const loading = ref(false)
-  const error = ref(null)
+  const error = ref<string | null>(null)
 
   // ============================================
   // GETTERS
@@ -52,49 +63,49 @@ export const useScopesStore = defineStore('scopes', () => {
   const activeScopesCount = computed(() => scopes.value.filter(s => s.is_active).length)
 
   const getScopeById = computed(() => {
-    return id => scopes.value.find(s => s.id === id)
+    return (id: string) => scopes.value.find(s => s.id === id)
   })
 
   const getScopesByInstitution = computed(() => {
-    return institution => scopes.value.filter(s => s.institution === institution)
+    return (institution: string) => scopes.value.filter(s => s.institution === institution)
   })
 
   const getScopeUsers = computed(() => {
-    return scopeId => scopeUsers.value[scopeId] || []
+    return (scopeId: string) => scopeUsers.value[scopeId] || []
   })
 
   const getScopeStatistics = computed(() => {
-    return scopeId => scopeStatistics.value[scopeId] || null
+    return (scopeId: string) => scopeStatistics.value[scopeId] || null
   })
 
   // ============================================
   // ACTIONS
   // ============================================
 
-  async function fetchUserScopes(params = {}) {
+  async function fetchUserScopes(params: Record<string, unknown> = {}) {
     loading.value = true
     error.value = null
 
     try {
-      const data = await scopeService.fetchScopes(params)
+      const data = apiData<ScopeRecord[]>(await scopeService.fetchScopes(params))
       scopes.value = data
       logService.info('Scopes fetched successfully', { count: scopes.value.length })
       return data
     } catch (err) {
-      error.value = err.message
-      logService.error('Failed to fetch scopes', { error: err.message })
+      error.value = toApiError(err).message ?? null
+      logService.error('Failed to fetch scopes', { error: toApiError(err).message })
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchScope(scopeId) {
+  async function fetchScope(scopeId: string) {
     loading.value = true
     error.value = null
 
     try {
-      const scope = await scopeService.fetchScope(scopeId)
+      const scope = apiData<ScopeRecord>(await scopeService.fetchScope(scopeId))
       currentScope.value = scope
 
       // Update in list if exists
@@ -108,20 +119,27 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope fetched', { scope_id: scopeId, name: scope.name })
       return scope
     } catch (err) {
-      error.value = err.message
-      logService.error('Failed to fetch scope', { scope_id: scopeId, error: err.message })
+      error.value = toApiError(err).message ?? null
+      logService.error('Failed to fetch scope', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function createScope(scopeData) {
+  async function createScope(scopeData: Schema<'ScopeCreate'>) {
     loading.value = true
     error.value = null
 
     try {
-      const newScope = await scopeService.createScope(scopeData)
+      const newScope = apiData<ScopeRecord>(
+        await scopeService.createScope(
+          apiData<Parameters<typeof scopeService.createScope>[0]>(scopeData)
+        )
+      )
       scopes.value.push(newScope)
       currentScope.value = newScope
       currentUserRole.value = 'admin' // Creator is automatically admin
@@ -129,20 +147,23 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope created', { scope_id: newScope.id, name: newScope.name })
       return newScope
     } catch (err) {
-      error.value = err.message
-      logService.error('Failed to create scope', { name: scopeData.name, error: err.message })
+      error.value = toApiError(err).message ?? null
+      logService.error('Failed to create scope', {
+        name: scopeData.name,
+        error: toApiError(err).message
+      })
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function updateScope(scopeId, scopeData) {
+  async function updateScope(scopeId: string, scopeData: Schema<'ScopeUpdate'>) {
     loading.value = true
     error.value = null
 
     try {
-      const updatedScope = await scopeService.updateScope(scopeId, scopeData)
+      const updatedScope = apiData<ScopeRecord>(await scopeService.updateScope(scopeId, scopeData))
 
       // Update in list
       const index = scopes.value.findIndex(s => s.id === scopeId)
@@ -158,15 +179,18 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope updated', { scope_id: scopeId, changes: Object.keys(scopeData) })
       return updatedScope
     } catch (err) {
-      error.value = err.message
-      logService.error('Failed to update scope', { scope_id: scopeId, error: err.message })
+      error.value = toApiError(err).message ?? null
+      logService.error('Failed to update scope', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function deleteScope(scopeId) {
+  async function deleteScope(scopeId: string) {
     loading.value = true
     error.value = null
 
@@ -189,15 +213,18 @@ export const useScopesStore = defineStore('scopes', () => {
       logService.info('Scope deleted', { scope_id: scopeId })
       return true
     } catch (err) {
-      error.value = err.message
-      logService.error('Failed to delete scope', { scope_id: scopeId, error: err.message })
+      error.value = toApiError(err).message ?? null
+      logService.error('Failed to delete scope', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     } finally {
       loading.value = false
     }
   }
 
-  async function fetchUserRole(scopeId) {
+  async function fetchUserRole(scopeId: string): Promise<string | null> {
     try {
       const authStore = useAuthStore()
       const currentUserId = authStore.user?.id
@@ -215,7 +242,7 @@ export const useScopesStore = defineStore('scopes', () => {
       }
 
       // For non-admin users, check scope membership
-      const members = await scopeService.fetchMembers(scopeId)
+      const members = apiData<ScopeMember[]>(await scopeService.fetchMembers(scopeId))
       const membership = members.find(m => m.user_id === currentUserId)
       currentUserRole.value = membership?.role || null
 
@@ -223,26 +250,32 @@ export const useScopesStore = defineStore('scopes', () => {
       return currentUserRole.value
     } catch (err) {
       currentUserRole.value = null
-      logService.error('Failed to fetch user role', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to fetch user role', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  async function fetchMembers(scopeId) {
+  async function fetchMembers(scopeId: string) {
     try {
-      const members = await scopeService.fetchMembers(scopeId)
+      const members = apiData<ScopeMember[]>(await scopeService.fetchMembers(scopeId))
       scopeUsers.value[scopeId] = members
       logService.debug('Scope members fetched', { scope_id: scopeId, count: members.length })
       return members
     } catch (err) {
-      logService.error('Failed to fetch members', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to fetch members', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  async function fetchStatistics(scopeId) {
+  async function fetchStatistics(scopeId: string) {
     try {
-      const stats = await scopeService.fetchStatistics(scopeId)
+      const stats = apiData<ScopeStatisticsRecord>(await scopeService.fetchStatistics(scopeId))
       scopeStatistics.value[scopeId] = stats
       logService.debug('Scope statistics fetched', {
         scope_id: scopeId,
@@ -250,12 +283,15 @@ export const useScopesStore = defineStore('scopes', () => {
       })
       return stats
     } catch (err) {
-      logService.error('Failed to fetch statistics', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to fetch statistics', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  async function inviteMember(scopeId, invitationData) {
+  async function inviteMember(scopeId: string, invitationData: InviteMemberData) {
     try {
       const result = await scopeService.inviteMember(scopeId, invitationData)
 
@@ -269,32 +305,39 @@ export const useScopesStore = defineStore('scopes', () => {
       })
       return result
     } catch (err) {
-      logService.error('Failed to invite member', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to invite member', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  async function updateMemberRole(scopeId, userId, newRole) {
+  async function updateMemberRole(scopeId: string, userId: string, newRole: string) {
     try {
       const result = await scopeService.updateMemberRole(scopeId, userId, newRole)
 
       // Update in cached users list
-      if (scopeUsers.value[scopeId]) {
-        const memberIndex = scopeUsers.value[scopeId].findIndex(m => m.user_id === userId)
-        if (memberIndex !== -1) {
-          scopeUsers.value[scopeId][memberIndex].role = newRole
+      const members = scopeUsers.value[scopeId]
+      if (members) {
+        const member = members.find(m => m.user_id === userId)
+        if (member) {
+          member.role = newRole as ScopeMember['role']
         }
       }
 
       logService.info('Member role updated', { scope_id: scopeId, user_id: userId, role: newRole })
       return result
     } catch (err) {
-      logService.error('Failed to update member role', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to update member role', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  async function removeMember(scopeId, userId) {
+  async function removeMember(scopeId: string, userId: string) {
     try {
       await scopeService.removeMember(scopeId, userId)
 
@@ -305,12 +348,15 @@ export const useScopesStore = defineStore('scopes', () => {
 
       logService.info('Member removed', { scope_id: scopeId, user_id: userId })
     } catch (err) {
-      logService.error('Failed to remove member', { scope_id: scopeId, error: err.message })
+      logService.error('Failed to remove member', {
+        scope_id: scopeId,
+        error: toApiError(err).message
+      })
       throw err
     }
   }
 
-  function setCurrentScope(scope) {
+  function setCurrentScope(scope: ScopeRecord | null) {
     currentScope.value = scope
     logService.debug('Current scope set', { scope_id: scope?.id, name: scope?.name })
   }

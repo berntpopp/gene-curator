@@ -7,6 +7,7 @@
  */
 
 import { defineStore } from 'pinia'
+import { toApiError } from './apiError'
 import { logService } from '@/services/logService'
 
 // Storage keys for localStorage persistence
@@ -17,12 +18,19 @@ const DISCLAIMER_VERSION_KEY = 'geneCuratorDisclaimerVersion'
 // Current disclaimer version - increment when disclaimer content changes significantly
 const CURRENT_DISCLAIMER_VERSION = '1.0.0'
 
+interface DisclaimerState {
+  isAcknowledged: boolean
+  acknowledgmentTimestamp: number | null
+  disclaimerVersion: string | null
+  showManually: boolean // Flag to trigger manual display of disclaimer
+}
+
 export const useDisclaimerStore = defineStore('disclaimer', {
-  state: () => ({
+  state: (): DisclaimerState => ({
     isAcknowledged: false,
     acknowledgmentTimestamp: null,
     disclaimerVersion: null,
-    showManually: false // Flag to trigger manual display of disclaimer
+    showManually: false
   }),
 
   getters: {
@@ -30,7 +38,7 @@ export const useDisclaimerStore = defineStore('disclaimer', {
      * Get the formatted acknowledgment date
      * @returns {string} Formatted date string (e.g., "Jan 15, 2025") or empty string
      */
-    formattedAcknowledgmentDate: state => {
+    formattedAcknowledgmentDate: (state): string => {
       if (!state.acknowledgmentTimestamp) {
         return ''
       }
@@ -45,7 +53,9 @@ export const useDisclaimerStore = defineStore('disclaimer', {
           minute: '2-digit'
         })
       } catch (error) {
-        logService.error('Error formatting acknowledgment date', { error: error.message })
+        logService.error('Error formatting acknowledgment date', {
+          error: toApiError(error).message
+        })
         return ''
       }
     },
@@ -97,8 +107,8 @@ export const useDisclaimerStore = defineStore('disclaimer', {
         }
       } catch (error) {
         logService.error('Error loading disclaimer status from localStorage', {
-          error: error.message,
-          stack: error.stack
+          error: toApiError(error).message,
+          stack: toApiError(error).stack
         })
         // Default to not acknowledged if there's an error
         this.isAcknowledged = false
@@ -129,8 +139,8 @@ export const useDisclaimerStore = defineStore('disclaimer', {
         })
       } catch (error) {
         logService.error('Error saving disclaimer acknowledgment', {
-          error: error.message,
-          stack: error.stack
+          error: toApiError(error).message,
+          stack: toApiError(error).stack
         })
       }
     },
@@ -152,8 +162,8 @@ export const useDisclaimerStore = defineStore('disclaimer', {
         logService.info('Disclaimer acknowledgment reset')
       } catch (error) {
         logService.error('Error resetting disclaimer acknowledgment', {
-          error: error.message,
-          stack: error.stack
+          error: toApiError(error).message,
+          stack: toApiError(error).stack
         })
       }
     },

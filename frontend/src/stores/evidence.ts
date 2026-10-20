@@ -1,12 +1,23 @@
 import { defineStore } from 'pinia'
+import { toApiError, apiData } from './apiError'
 import { evidenceAPI } from '@/api/evidence'
 import { logService } from '@/services/logService'
+import type { Schema } from '@/types/api'
+
+/** Evidence item (keyed by id in the store). */
+export type EvidenceRecord = Schema<'EvidenceItem'>
+
+interface EvidenceState {
+  evidence: Map<string, EvidenceRecord>
+  loading: boolean
+  error: string | null
+}
 
 /**
  * Evidence store for managing ClinGen SOP v11 evidence items
  */
 export const useEvidenceStore = defineStore('evidence', {
-  state: () => ({
+  state: (): EvidenceState => ({
     evidence: new Map(),
     loading: false,
     error: null
@@ -16,7 +27,7 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Get all evidence items for a curation, sorted by creation date (newest first)
      */
-    getEvidenceByCuration: state => curationId => {
+    getEvidenceByCuration: state => (curationId: string) => {
       return Array.from(state.evidence.values())
         .filter(item => item.curation_id === curationId)
         .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
@@ -25,7 +36,7 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Get evidence items by category for a curation
      */
-    getEvidenceByCategory: state => (curationId, category) => {
+    getEvidenceByCategory: state => (curationId: string, category: string) => {
       return Array.from(state.evidence.values()).filter(
         item => item.curation_id === curationId && item.evidence_category === category
       )
@@ -34,7 +45,7 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Count genetic evidence items for a curation
      */
-    geneticEvidenceCount: state => curationId => {
+    geneticEvidenceCount: state => (curationId: string) => {
       return Array.from(state.evidence.values()).filter(
         item => item.curation_id === curationId && item.evidence_type === 'genetic'
       ).length
@@ -43,7 +54,7 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Count experimental evidence items for a curation
      */
-    experimentalEvidenceCount: state => curationId => {
+    experimentalEvidenceCount: state => (curationId: string) => {
       return Array.from(state.evidence.values()).filter(
         item => item.curation_id === curationId && item.evidence_type === 'experimental'
       ).length
@@ -54,18 +65,21 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Fetch all evidence items for a curation
      */
-    async fetchEvidenceForCuration(curationId) {
+    async fetchEvidenceForCuration(curationId: string) {
       this.loading = true
       this.error = null
 
       try {
-        const items = await evidenceAPI.getEvidenceItems(curationId)
+        const items = apiData<EvidenceRecord[]>(await evidenceAPI.getEvidenceItems(curationId))
         items.forEach(item => this.evidence.set(item.id, item))
         logService.info('Evidence items fetched', { curationId, count: items.length })
         return items
       } catch (error) {
-        this.error = error.message || 'Failed to fetch evidence'
-        logService.error('Failed to fetch evidence', { curationId, error: error.message })
+        this.error = toApiError(error).message || 'Failed to fetch evidence'
+        logService.error('Failed to fetch evidence', {
+          curationId,
+          error: toApiError(error).message
+        })
         throw error
       } finally {
         this.loading = false
@@ -75,18 +89,23 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Create new evidence item
      */
-    async createEvidence(curationId, data) {
+    async createEvidence(curationId: string, data: Schema<'EvidenceItemCreate'>) {
       this.loading = true
       this.error = null
 
       try {
-        const created = await evidenceAPI.createEvidenceItem(curationId, data)
+        const created = apiData<EvidenceRecord>(
+          await evidenceAPI.createEvidenceItem(curationId, data)
+        )
         this.evidence.set(created.id, created)
         logService.info('Evidence item created', { curationId, itemId: created.id })
         return created
       } catch (error) {
-        this.error = error.message || 'Failed to create evidence'
-        logService.error('Failed to create evidence', { curationId, error: error.message })
+        this.error = toApiError(error).message || 'Failed to create evidence'
+        logService.error('Failed to create evidence', {
+          curationId,
+          error: toApiError(error).message
+        })
         throw error
       } finally {
         this.loading = false
@@ -96,18 +115,24 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Update evidence item
      */
-    async updateEvidence(curationId, itemId, data) {
+    async updateEvidence(curationId: string, itemId: string, data: Schema<'EvidenceItemUpdate'>) {
       this.loading = true
       this.error = null
 
       try {
-        const updated = await evidenceAPI.updateEvidenceItem(curationId, itemId, data)
+        const updated = apiData<EvidenceRecord>(
+          await evidenceAPI.updateEvidenceItem(curationId, itemId, data)
+        )
         this.evidence.set(updated.id, updated)
         logService.info('Evidence item updated', { curationId, itemId })
         return updated
       } catch (error) {
-        this.error = error.message || 'Failed to update evidence'
-        logService.error('Failed to update evidence', { curationId, itemId, error: error.message })
+        this.error = toApiError(error).message || 'Failed to update evidence'
+        logService.error('Failed to update evidence', {
+          curationId,
+          itemId,
+          error: toApiError(error).message
+        })
         throw error
       } finally {
         this.loading = false
@@ -117,7 +142,7 @@ export const useEvidenceStore = defineStore('evidence', {
     /**
      * Delete evidence item (soft delete)
      */
-    async deleteEvidence(curationId, itemId) {
+    async deleteEvidence(curationId: string, itemId: string) {
       this.loading = true
       this.error = null
 
@@ -126,8 +151,12 @@ export const useEvidenceStore = defineStore('evidence', {
         this.evidence.delete(itemId)
         logService.info('Evidence item deleted', { curationId, itemId })
       } catch (error) {
-        this.error = error.message || 'Failed to delete evidence'
-        logService.error('Failed to delete evidence', { curationId, itemId, error: error.message })
+        this.error = toApiError(error).message || 'Failed to delete evidence'
+        logService.error('Failed to delete evidence', {
+          curationId,
+          itemId,
+          error: toApiError(error).message
+        })
         throw error
       } finally {
         this.loading = false
