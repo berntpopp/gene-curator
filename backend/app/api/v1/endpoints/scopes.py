@@ -35,7 +35,6 @@ from app.schemas.scope import (
     ScopeUpdate,
     ScopeWithStats,
 )
-from app.schemas.scope_membership import ScopeMembershipCreate
 
 logger = get_logger(__name__)
 
@@ -94,21 +93,10 @@ def create_scope(
         creator_id=str(current_user.id),
     )
 
-    # Automatically create scope membership with admin role
-    membership_data = ScopeMembershipCreate(
-        user_id=current_user.id,
-        email=None,
-        team_id=None,
-        role=ScopeRole.ADMIN,
-        notes="Creator and initial scope administrator",
-    )
-
+    # Automatically create accepted scope membership with admin role
     try:
-        membership = scope_membership_crud.create_invitation(
-            db,
-            scope_id=scope.id,
-            invited_by_id=current_user.id,
-            obj_in=membership_data,
+        membership = scope_membership_crud.create_owner_membership(
+            db, scope_id=scope.id, owner_id=current_user.id
         )
 
         logger.info(

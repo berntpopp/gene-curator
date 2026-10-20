@@ -207,6 +207,29 @@ class ScopeMembershipCRUD(
 
         return membership
 
+    def create_owner_membership(
+        self, db: Session, *, scope_id: UUID, owner_id: UUID
+    ) -> ScopeMembership:
+        """
+        Make a scope's creator its active admin (no invitation to accept).
+
+        Invitations are always pending (accepted_at NULL grants no access), so
+        the creator's own membership must be accepted immediately.
+        """
+        membership = self.create_invitation(
+            db,
+            scope_id=scope_id,
+            invited_by_id=owner_id,
+            obj_in=ScopeMembershipCreate(
+                user_id=owner_id,
+                email=None,
+                team_id=None,
+                role=ScopeRole.ADMIN,
+                notes="Creator and initial scope administrator",
+            ),
+        )
+        return self.accept_invitation(db, membership_id=membership.id, user_id=owner_id)
+
     def list_members(
         self,
         db: Session,
