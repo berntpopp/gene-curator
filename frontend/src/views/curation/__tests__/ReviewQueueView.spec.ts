@@ -110,6 +110,7 @@ describe('ReviewQueueView', () => {
       status: 'submitted',
       disease_name: 'ADPKD',
       curator_name: 'Alice',
+      created_by: 'alice',
       updated_at: '2024-05-02T00:00:00Z'
     }
 
@@ -141,6 +142,61 @@ describe('ReviewQueueView', () => {
         .findAllComponents({ name: 'VBtn' })
         .find(b => b.attributes('data-test') === 'open-precuration')
       expect(open?.props('to')).toBe('/scopes/sc1/precurations/p1')
+    })
+
+    it('hides precurations created by the current user (4-eyes)', async () => {
+      useAuthStore().user = { id: 'me' } as never
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [
+          { ...pre, id: 'mine', gene_symbol: 'MINE1', created_by: 'me' },
+          { ...pre, id: 'theirs', gene_symbol: 'THEIRS1', created_by: 'other' }
+        ],
+        total: 2
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      expect(wrapper.text()).toContain('THEIRS1')
+      expect(wrapper.text()).not.toContain('MINE1')
+    })
+
+    it('fetches every page of submitted precurations', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockImplementation((async (params: {
+        skip: number
+      }) => ({
+        precurations: [{ ...pre, id: `p${params.skip}`, gene_symbol: `G${params.skip}` }],
+        total: 120
+      })) as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      expect(precurationsAPI.getPrecurations).toHaveBeenCalledTimes(3)
+      expect(wrapper.text()).toContain('G100')
+    })
+
+    it('keeps the request-changes dialog open and shows the API error inline', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      vi.mocked(precurationsAPI.rejectPrecuration).mockRejectedValue({
+        response: { data: { detail: 'Not allowed' } }
+      })
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      const vm = wrapper.vm as unknown as {
+        rejectReason: string
+        rejectError: string | null
+        showReject: boolean
+        openReject: (i: unknown) => void
+        confirmReject: () => Promise<void>
+      }
+      vm.openReject({ id: 'p1', gene_symbol: 'PKD1' })
+      vm.rejectReason = 'x'
+      await vm.confirmReject()
+      expect(vm.rejectError).toBe('Not allowed')
+      expect(vm.showReject).toBe(true)
     })
 
     it('approves a precuration and removes it from the queue', async () => {

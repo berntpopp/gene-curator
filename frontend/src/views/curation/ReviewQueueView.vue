@@ -209,6 +209,7 @@
       <v-card title="Request changes">
         <v-card-text>
           <v-textarea v-model="rejectReason" label="Feedback for the curator" rows="3" />
+          <v-alert v-if="rejectError" type="error" variant="tonal">{{ rejectError }}</v-alert>
         </v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -278,6 +279,7 @@
   const busyId = ref<string | null>(null)
   const showReject = ref(false)
   const rejectReason = ref('')
+  const rejectError = ref<string | null>(null)
   const rejectTarget = ref<ReviewItem | null>(null)
 
   // Sort options
@@ -388,10 +390,20 @@
       curations.value = curations.value.filter(c => c.created_by !== userId)
 
       // Submitted precurations are reviewed here too (they gate curation, #231)
-      await precurationStore.fetchPrecurations({ status: 'submitted' })
+      // Walk every page so the queue is never silently capped
+      const submitted: Schema<'PrecurationSummary'>[] = []
+      let pages = 1
+      for (let page = 1; page <= pages; page++) {
+        precurationStore.pagination.page = page
+        await precurationStore.fetchPrecurations({ status: 'submitted' })
+        submitted.push(...precurationStore.precurations)
+        pages = precurationStore.pagination.pages
+      }
+      precurationStore.pagination.page = 1
       curations.value.push(
-        ...precurationStore.precurations
-          .filter(p => p.status === 'submitted')
+        ...submitted
+          // Your own precuration is never yours to approve (4-eyes)
+          .filter(p => p.status === 'submitted' && p.created_by !== userId)
           .map((p): ReviewItem => ({
             kind: 'precuration',
             id: p.id,
@@ -442,6 +454,7 @@
   function openReject(item: ReviewItem) {
     rejectTarget.value = item
     rejectReason.value = ''
+    rejectError.value = null
     showReject.value = true
   }
 
@@ -454,7 +467,7 @@
       showReject.value = false
       notificationStore.addToast('Changes requested', 'success')
     } catch (error) {
-      notificationStore.addToast(`Failed to request changes: ${errorText(error)}`, 'error')
+      rejectError.value = errorText(error)
     }
   }
 

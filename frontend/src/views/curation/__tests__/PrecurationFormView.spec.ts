@@ -18,6 +18,7 @@ vi.mock('vue-router', () => ({
 }))
 
 import { genesAPI, scopesAPI, schemasAPI } from '@/api'
+import { useAuthStore } from '@/stores/auth'
 import { precurationsAPI } from '@/api/precurations'
 import PrecurationFormView from '@/views/curation/PrecurationFormView.vue'
 
@@ -58,25 +59,34 @@ describe('PrecurationFormView', () => {
   })
 
   it.each([
-    ['draft', false],
-    ['submitted', true]
-  ])('opens an existing %s precuration by id (readonly=%s)', async (status, readonly) => {
-    route.params = { scopeId: 'sc1', precurationId: 'p1' }
-    vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
-      id: 'p1',
-      gene_id: 'g7',
-      status
-    } as never)
-    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
-    const wrapper = mount(PrecurationFormView, {
-      global: { stubs: { SchemaDrivenPrecurationForm: true } }
-    })
-    await flushPromises()
-    expect(genesAPI.getGeneById).toHaveBeenCalledWith('g7')
-    const form = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' })
-    expect(form.props('precurationId')).toBe('p1')
-    expect(form.props('readonly')).toBe(readonly)
-  })
+    ['draft', 'me', 'sc1', false],
+    ['rejected', 'me', 'sc1', false],
+    ['submitted', 'me', 'sc1', true],
+    ['draft', 'other', 'sc1', true],
+    ['draft', 'me', 'sc2', true]
+  ])(
+    'opens a %s precuration by %s in %s (readonly=%s)',
+    async (status, createdBy, precScope, readonly) => {
+      useAuthStore().user = { id: 'me' } as never
+      route.params = { scopeId: 'sc1', precurationId: 'p1' }
+      vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+        id: 'p1',
+        gene_id: 'g7',
+        status,
+        created_by: createdBy,
+        scope_id: precScope
+      } as never)
+      vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+      const wrapper = mount(PrecurationFormView, {
+        global: { stubs: { SchemaDrivenPrecurationForm: true } }
+      })
+      await flushPromises()
+      expect(genesAPI.getGeneById).toHaveBeenCalledWith('g7')
+      const form = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' })
+      expect(form.props('precurationId')).toBe('p1')
+      expect(form.props('readonly')).toBe(readonly)
+    }
+  )
 
   it('shows an error when the precuration cannot be loaded', async () => {
     route.params = { scopeId: 'sc1', precurationId: 'p1' }

@@ -107,6 +107,7 @@
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import { usePrecurationsStore } from '@/stores/precurations'
+  import { useAuthStore } from '@/stores/auth'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
 
   interface ScopeRecord {
@@ -133,6 +134,7 @@
   const notificationsStore = useNotificationsStore()
   const logger = useLogger()
   const precurationsStore = usePrecurationsStore()
+  const authStore = useAuthStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -246,8 +248,12 @@
       if (precurationId.value) {
         const precuration = await precurationsStore.fetchPrecurationById(precurationId.value)
         loadedGeneId.value = precuration.gene_id
-        // Only drafts are editable; a submitted or approved precuration opens read-only
-        readonly.value = precuration.status !== 'draft'
+        // Editable only by its author, in this scope, while draft or sent back (rejected)
+        const mine = precuration.created_by === (authStore.user as { id?: string } | null)?.id
+        readonly.value =
+          !mine ||
+          precuration.scope_id !== scopeId.value ||
+          !['draft', 'rejected'].includes(precuration.status)
       }
 
       if (geneId.value) {
