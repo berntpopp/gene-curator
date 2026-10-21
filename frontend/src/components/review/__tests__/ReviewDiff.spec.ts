@@ -182,6 +182,16 @@ describe('ReviewDiff', () => {
   })
 })
 
+describe('ReviewDiff curation switch', () => {
+  it('reloads when the curation id changes', async () => {
+    const w = await mountDiff()
+    api.getDiff.mockClear()
+    await w.setProps({ curationId: 'other' })
+    await flushPromises()
+    expect(api.getDiff).toHaveBeenCalledWith('other')
+  })
+})
+
 describe('ReviewDiff baseline wording', () => {
   it('does not say "your" review to a curator', async () => {
     const w = await mountDiff({ me: 'alice', reviewer: false })

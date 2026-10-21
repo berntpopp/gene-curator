@@ -81,4 +81,36 @@ describe('review store', () => {
     const s = useReviewStore()
     expect(await s.fetchMyPending()).toEqual(new Set(['c1', 'c2']))
   })
+
+  it('drops the previous review when a load starts and after a failed load', async () => {
+    api.getDiff.mockResolvedValue({ baseline: null, items: [{ path: 'a' }] } as never)
+    api.list.mockResolvedValue([comment({})] as never)
+    const s = useReviewStore()
+    await s.load('A')
+    expect(s.ready('A')).toBe(true)
+
+    api.getDiff.mockRejectedValue({ response: { status: 500 } })
+    await s.load('A')
+    expect(s.diff).toBeNull()
+    expect(s.comments).toEqual([])
+    expect(s.ready('A')).toBe(false)
+  })
+
+  it('is not ready for a different curation than the one loaded', async () => {
+    api.getDiff.mockResolvedValue({ baseline: null, items: [] } as never)
+    api.list.mockResolvedValue([])
+    const s = useReviewStore()
+    await s.load('A')
+    expect(s.ready('B')).toBe(false)
+    let release!: () => void
+    api.getDiff.mockReturnValue(
+      new Promise(r => (release = () => r({ baseline: null, items: [] } as never)))
+    )
+    const pending = s.load('B')
+    expect(s.diff).toBeNull() // A's diff is gone while B loads
+    expect(s.ready('A')).toBe(false)
+    release()
+    await pending
+    expect(s.ready('B')).toBe(true)
+  })
 })

@@ -117,16 +117,17 @@ describe('approveBlockers', () => {
 
 describe('queryTodos', () => {
   it('turns open queries into a to-do list for the curator', () => {
-    const text = queryTodos([
+    const text = queryTodos('alice', [
       c({ item_path: 'g.a[1]', body: 'Check gnomAD' }),
       c({ item_path: 'g.a[1]', body: 'resolved one', status: 'resolved' }),
       c({ item_path: 'summary', body: 'Explain' }),
-      c({ item_path: 'g.b[2]', kind: 'accepted' })
+      c({ item_path: 'g.b[2]', kind: 'accepted' }),
+      c({ item_path: 'g.a[1]', body: 'Added the segregation data', author_id: 'alice' })
     ])
     expect(text).toBe('- G › A [1]: Check gnomAD\n- Summary: Explain')
   })
   it('is empty without open queries', () => {
-    expect(queryTodos([])).toBe('')
+    expect(queryTodos('alice', [])).toBe('')
   })
 })
 

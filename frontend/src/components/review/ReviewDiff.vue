@@ -83,7 +83,7 @@
    * reviewers Accept/Query per item. Curators see the queries and can reply and resolve; only
    * `reviewer` shows Accept/Query (the curation's creator never gets them).
    */
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import { formatDate } from '@/utils/format'
   import { useReviewStore } from '@/stores/review'
   import { errorMessage } from '@/stores/apiError'
@@ -150,10 +150,15 @@
 
   const send = (key: string, body: string) => run(() => review.query(key, body))
 
-  onMounted(async () => {
-    await review.load(props.curationId)
-    loaded.value = true
-  })
+  watch(
+    () => props.curationId,
+    async id => {
+      loaded.value = false
+      await review.load(id)
+      loaded.value = true
+    },
+    { immediate: true }
+  )
 </script>
 
 <style scoped>

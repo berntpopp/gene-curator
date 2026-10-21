@@ -13,22 +13,31 @@ export const useReviewStore = defineStore('review', () => {
   const comments = ref<Comment[]>([])
   const loading = ref(false)
   const error = ref<string | null>(null)
+  /** The curation whose review loaded completely; null while loading or after a failure. */
+  const loadedFor = ref<string | null>(null)
 
   async function load(id: string) {
     curationId.value = id
     loading.value = true
     error.value = null
+    // Never keep another curation's (or a failed load's) items: approval rules read them
+    diff.value = null
+    comments.value = []
+    loadedFor.value = null
     try {
       ;[diff.value, comments.value] = await Promise.all([
         reviewCommentsAPI.getDiff(id),
         reviewCommentsAPI.list(id)
       ])
+      loadedFor.value = id
     } catch (e) {
       error.value = errorMessage(e, 'Could not load the review')
     } finally {
       loading.value = false
     }
   }
+
+  const ready = (id: string) => loadedFor.value === id
 
   const replace = (c: Comment) => {
     const i = comments.value.findIndex(x => x.id === c.id)
@@ -73,6 +82,7 @@ export const useReviewStore = defineStore('review', () => {
     comments,
     loading,
     error,
+    ready,
     load,
     accept,
     query,

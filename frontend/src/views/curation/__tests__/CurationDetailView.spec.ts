@@ -214,10 +214,35 @@ describe('CurationDetailView', () => {
     const { useReviewStore } = await import('@/stores/review')
     const wrapper = await load({ can_review: true, created_by: 'alice' })
     useReviewStore().comments = [
-      { id: 'q', kind: 'query', status: 'open', item_path: 'summary', body: 'Explain' }
+      {
+        id: 'q',
+        kind: 'query',
+        status: 'open',
+        item_path: 'summary',
+        body: 'Explain',
+        author_id: 'bob'
+      },
+      {
+        id: 'r',
+        kind: 'query',
+        status: 'open',
+        item_path: 'summary',
+        body: 'My reply',
+        author_id: 'alice'
+      }
     ] as never
     await flushPromises()
     expect(wrapper.findComponent(RequestChangesDialog).props('todos')).toBe('- Summary: Explain')
+  })
+
+  it('blocks approval while the review has not loaded (failed load)', async () => {
+    const { reviewCommentsAPI } = await import('@/api/reviewComments')
+    vi.mocked(reviewCommentsAPI.getDiff).mockRejectedValueOnce({ response: { status: 500 } })
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    const blockers = wrapper.findComponent(ApproveChecklistDialog).props('blockers')
+    expect(blockers).toHaveLength(1)
+    expect(blockers[0]!.label).toContain('not loaded')
   })
 
   it('shows a curator the queries after changes were requested (draft)', async () => {

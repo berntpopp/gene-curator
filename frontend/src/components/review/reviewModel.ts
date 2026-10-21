@@ -83,10 +83,10 @@ export function approveBlockers(groups: DiffGroup[], comments: Comment[], me: st
   })
 }
 
-/** Open queries as a to-do list for "Request changes". */
-export function queryTodos(comments: Comment[]): string {
+/** Open reviewer queries as a to-do list for "Request changes" (the curator's own replies are not to-dos). */
+export function queryTodos(creatorId: string, comments: Comment[]): string {
   return comments
-    .filter(c => c.kind === 'query' && c.status === 'open')
+    .filter(c => c.kind === 'query' && c.status === 'open' && c.author_id !== creatorId)
     .map(c => `- ${itemLabel(c.item_path)}: ${c.body}`)
     .join('\n')
 }
