@@ -118,6 +118,21 @@ describe('useValidationStore', () => {
       expect(store.error).toBe('malformed')
     })
 
+    it('a second generateJsonSchema for the same id does not call the API', async () => {
+      const store = useValidationStore()
+      api.generateJsonSchema.mockClear()
+      api.generateJsonSchema.mockResolvedValue({ ...jsonSchema(), json_schema: { type: 'object' } })
+
+      const [a, b] = await Promise.all([
+        store.generateJsonSchema('dup'),
+        store.generateJsonSchema('dup')
+      ])
+      await store.generateJsonSchema('dup')
+
+      expect(api.generateJsonSchema).toHaveBeenCalledTimes(1)
+      expect(a).toBe(b)
+    })
+
     it('generateJsonSchema caches the schema by id', async () => {
       const store = useValidationStore()
       api.generateJsonSchema.mockResolvedValue({

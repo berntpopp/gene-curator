@@ -227,8 +227,5 @@
   // Initialize
   onMounted(() => {
     scopesStore.fetchUserScopes().catch(() => showError('Failed to load your scopes'))
-    if (currentUser.value) {
-      loadUserProfile()
-    }
   })
 </script>
