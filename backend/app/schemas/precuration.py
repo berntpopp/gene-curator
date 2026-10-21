@@ -107,6 +107,7 @@ class PrecurationInDBBase(BaseModel):
 
     version_number: int
     lock_version: int
+    methodology_version_id: UUID | None = None
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 

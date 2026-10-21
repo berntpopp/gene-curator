@@ -85,6 +85,9 @@ class CurationInDBBase(CurationBase):
     # Optimistic locking
     lock_version: int
 
+    # Methodology version pinned at creation (None only without the 042 trigger, e.g. SQLite)
+    methodology_version_id: UUID | None = None
+
     # Timestamps
     created_at: datetime
     updated_at: datetime
@@ -175,6 +178,7 @@ class CurationDetail(CurationInDBBase):
             "computed_verdict": curation.computed_verdict,
             "computed_summary": curation.computed_summary,
             "lock_version": curation.lock_version,
+            "methodology_version_id": curation.methodology_version_id,
             "created_at": curation.created_at,
             "updated_at": curation.updated_at,
             "submitted_at": curation.submitted_at,

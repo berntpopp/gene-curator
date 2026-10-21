@@ -4,6 +4,7 @@ from app.models.curation import ActiveCuration, CurationNew, PrecurationNew, Rev
 from app.models.evidence import EvidenceItem, Publication
 from app.models.genes import Gene, GeneScopeAssignment, GeneSummary
 from app.models.identity import SchemaMigration, Scope, ScopeMembership, UserNew
+from app.models.methodology import MethodologyVersion
 from app.models.model_enums import (
     CurationStatus,
     NotificationType,
@@ -25,6 +26,7 @@ __all__ = [
     "Gene",
     "GeneScopeAssignment",
     "GeneSummary",
+    "MethodologyVersion",
     "NotificationNew",
     "NotificationType",
     "PrecurationNew",

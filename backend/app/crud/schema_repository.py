@@ -5,6 +5,7 @@ CRUD operations for schema repository management.
 import hashlib
 import json
 from collections.abc import Sequence
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -19,6 +20,7 @@ from app.models import (
     PrecurationNew,
     WorkflowPair,
 )
+from app.models.methodology import MethodologyVersion
 from app.schemas.schema_repository import (
     CurationSchemaCreate,
     CurationSchemaUpdate,
@@ -45,6 +47,16 @@ def _schema_content_hash(schema_data: dict[str, Any]) -> str:
     return hashlib.sha256(
         json.dumps(definition, sort_keys=True, default=str).encode()
     ).hexdigest()
+
+
+# Same keys as methodology_snapshot() in database/sql/042_methodology_versions.sql
+SNAPSHOT_KEYS = (
+    "field_definitions",
+    "validation_rules",
+    "scoring_configuration",
+    "workflow_states",
+    "ui_configuration",
+)
 
 
 class CRUDCurationSchema(
@@ -112,6 +124,43 @@ class CRUDCurationSchema(
         db.commit()
         db.refresh(db_obj)
         return db_obj
+
+    def list_versions(
+        self, db: Session, *, schema_id: UUID
+    ) -> Sequence[MethodologyVersion]:
+        """Methodology versions of a schema, newest first."""
+        return db.scalars(
+            select(MethodologyVersion)
+            .where(MethodologyVersion.schema_id == schema_id)
+            .order_by(MethodologyVersion.version.desc())
+        ).all()
+
+    def publish_version(
+        self, db: Session, *, schema: CurationSchema, user_id: UUID
+    ) -> MethodologyVersion:
+        """Publish the schema's current content as its next, immutable version."""
+        # Lock the schema row so concurrent publishes serialize on the next number
+        db.execute(
+            select(CurationSchema.id)
+            .where(CurationSchema.id == schema.id)
+            .with_for_update()
+        )
+        latest = db.scalar(
+            select(func.max(MethodologyVersion.version)).where(
+                MethodologyVersion.schema_id == schema.id
+            )
+        )
+        version = MethodologyVersion(
+            schema_id=schema.id,
+            version=(latest or 0) + 1,
+            snapshot={key: getattr(schema, key) for key in SNAPSHOT_KEYS},
+            published_at=datetime.now(UTC),
+            created_by=user_id,
+        )
+        db.add(version)
+        db.commit()
+        db.refresh(version)
+        return version
 
     def is_schema_in_use(self, db: Session, *, schema_id: UUID) -> bool:
         """Check if schema is currently in use by workflow pairs or curations."""
