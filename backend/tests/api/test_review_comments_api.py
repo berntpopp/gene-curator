@@ -16,6 +16,7 @@ from app.core.security import create_access_token, get_password_hash
 from app.models.models import (
     AuditLogNew,
     CurationNew,
+    Review,
     Scope,
     ScopeMembership,
     UserNew,
@@ -257,7 +258,12 @@ def test_comment_cannot_be_read_through_another_curation(
 
 
 def _snapshot(
-    db: Session, curation: CurationNew, data: dict, status: str, when
+    db: Session,
+    curation: CurationNew,
+    data: dict,
+    status: str,
+    when: datetime,
+    previous: str = "draft",
 ) -> None:
     db.add(
         AuditLogNew(
@@ -268,7 +274,7 @@ def _snapshot(
             scope_id=curation.scope_id,
             operation="UPDATE",
             changes={"evidence_data": data},
-            previous_status="draft",
+            previous_status=previous,
             new_status=status,
             timestamp=when,
         )
@@ -276,7 +282,60 @@ def _snapshot(
     db.commit()
 
 
-def test_diff_compares_current_evidence_with_the_last_submission_snapshot(
+def _decision(
+    db: Session, curation: CurationNew, reviewer: UserNew, when: datetime
+) -> None:
+    db.add(
+        Review(
+            curation_id=curation.id,
+            reviewer_id=reviewer.id,
+            status="needs_revision",
+            reviewed_at=when,
+        )
+    )
+    db.commit()
+
+
+def _diff(client: TestClient, user: UserNew, curation: CurationNew) -> dict:
+    response = client.get(f"/api/v1/curations/{curation.id}/diff", headers=_auth(user))
+    assert response.status_code == 200, response.text
+    return response.json()
+
+
+def test_resubmission_diff_shows_only_what_changed_since_the_last_review(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """submit -> review decision -> curator edits one item -> resubmit."""
+    now = datetime.now(UTC)
+    v1 = {"cases": [{"id": "a", "score": 1}, {"id": "b", "score": 2}], "summary": "s"}
+    v2 = {"cases": [{"id": "a", "score": 1}, {"id": "b", "score": 4}], "summary": "s"}
+    _snapshot(db_session, test_curation, v1, "submitted", now - timedelta(days=5))
+    _decision(db_session, test_curation, reviewer, now - timedelta(days=4))
+    _snapshot(db_session, test_curation, v1, "draft", now - timedelta(days=3))
+    _snapshot(db_session, test_curation, v2, "draft", now - timedelta(days=2), "draft")
+    _snapshot(
+        db_session, test_curation, v2, "submitted", now - timedelta(days=1), "draft"
+    )
+    test_curation.evidence_data = (
+        v2  # the row after the resubmission, as the trigger stores it
+    )
+    db_session.commit()
+
+    body = _diff(client, reviewer, test_curation)
+
+    assert [(i["path"], i["before"], i["after"]) for i in body["items"]] == [
+        ("cases[b].score", 2, 4)
+    ]
+    assert body["baseline"]["source"] == "review"
+    assert body["baseline"]["as_of"].startswith(
+        (now - timedelta(days=4)).date().isoformat()
+    )
+
+
+def test_without_a_decision_the_baseline_is_the_previous_submission(
     client: TestClient,
     db_session: Session,
     reviewer: UserNew,
@@ -293,33 +352,112 @@ def test_diff_compares_current_evidence_with_the_last_submission_snapshot(
     _snapshot(
         db_session,
         test_curation,
-        {"score": 2, "old": 1},
+        {"score": 3},
+        "draft",
+        now - timedelta(days=1.5),
+        "submitted",
+    )
+    _snapshot(
+        db_session,
+        test_curation,
+        {"score": 3, "new": "x"},
         "submitted",
         now - timedelta(days=1),
+        "draft",
     )
-    _snapshot(db_session, test_curation, {"score": 9}, "draft", now)  # not a submission
     test_curation.evidence_data = {"score": 3, "new": "x"}
     db_session.commit()
 
-    response = client.get(
-        f"/api/v1/curations/{test_curation.id}/diff", headers=_auth(reviewer)
-    )
-    assert response.status_code == 200
-    body = response.json()
-    assert body["baseline"] is not None
+    body = _diff(client, reviewer, test_curation)
+
     got = {i["path"]: i for i in body["items"]}
-    assert got["score"]["before"] == 2 and got["score"]["after"] == 3
+    assert set(got) == {"score", "old", "new"}
     assert got["old"]["change"] == "removed"
-    assert got["new"]["change"] == "added"
+    assert body["baseline"]["source"] == "previous_submission"
 
 
-def test_diff_without_a_submission_has_no_baseline(
+def test_a_first_submission_shows_every_item_as_added(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    _snapshot(
+        db_session,
+        test_curation,
+        {"a": 1, "b": {"c": 2}},
+        "submitted",
+        datetime.now(UTC),
+    )
+    test_curation.evidence_data = {"a": 1, "b": {"c": 2}}
+    db_session.commit()
+    body = _diff(client, reviewer, test_curation)
+    assert body["baseline"] is None
+    assert {(i["path"], i["change"]) for i in body["items"]} == {
+        ("a", "added"),
+        ("b", "added"),
+    }
+
+
+def test_diff_ignores_edits_made_while_already_submitted_when_finding_submissions(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    now = datetime.now(UTC)
+    _snapshot(
+        db_session, test_curation, {"score": 1}, "submitted", now - timedelta(days=2)
+    )
+    _snapshot(
+        db_session,
+        test_curation,
+        {"score": 2},
+        "submitted",
+        now - timedelta(days=1),
+        "submitted",
+    )
+    test_curation.evidence_data = {"score": 2}
+    db_session.commit()
+    # one real submission only, so there is no earlier version a reviewer could have seen
+    assert _diff(client, reviewer, test_curation)["baseline"] is None
+
+
+def test_never_submitted_curation_lists_everything_as_added(
     client: TestClient, reviewer: UserNew, test_curation: CurationNew
 ) -> None:
-    body = client.get(
-        f"/api/v1/curations/{test_curation.id}/diff", headers=_auth(reviewer)
-    ).json()
-    assert body == {"baseline": None, "items": []}
+    body = _diff(client, reviewer, test_curation)
+    assert body["baseline"] is None
+    assert [i["path"] for i in body["items"]] == ["status"]
+
+
+def test_reviewer_marks_an_item_accepted_and_only_reviewers_may(
+    client: TestClient,
+    reviewer: UserNew,
+    test_user_curator: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    ok = client.post(
+        _url(test_curation),
+        json={"item_path": "cases[b]", "kind": "accepted"},
+        headers=_auth(reviewer),
+    )
+    assert ok.status_code == 201, ok.text
+    assert ok.json()["kind"] == "accepted"
+    assert ok.json()["body"] == "Accepted"
+    # a curator's reply is a query-kind comment; marking an item accepted is the reviewer's call
+    denied = client.post(
+        _url(test_curation),
+        json={"item_path": "cases[b]", "kind": "accepted"},
+        headers=_auth(test_user_curator),
+    )
+    assert denied.status_code == 403
+    reply = client.post(
+        _url(test_curation),
+        json={"item_path": "cases[b]", "body": "Fixed"},
+        headers=_auth(test_user_curator),
+    )
+    assert reply.json()["kind"] == "query"
 
 
 def test_diff_is_for_scope_members_only(

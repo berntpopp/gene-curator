@@ -5,6 +5,7 @@ curation's own curator, EDIT to write). The database enforces the same rules wit
 has no platform-admin bypass; a write it refuses becomes a 403 here.
 """
 
+from datetime import datetime
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -89,7 +90,10 @@ def create_review_comment(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> ReviewItemComment:
     curation = _curation(db, curation_id)
-    _require_writer(db, current_user, curation)
+    if payload.kind == "accepted":
+        require(db, current_user, curation.scope_id, REVIEW)  # a decision, not a reply
+    else:
+        _require_writer(db, current_user, curation)
     if payload.review_id is not None:
         review = db.get(Review, payload.review_id)
         if review is None or review.curation_id != curation_id:
@@ -131,6 +135,57 @@ def update_review_comment(
     return comment
 
 
+def _submissions(db: Session, curation_id: UUID) -> list[AuditLogNew]:
+    """Audit rows of status transitions into submitted/in_review, newest first (an edit made while
+    already submitted is not a submission)."""
+    return list(
+        db.scalars(
+            select(AuditLogNew)
+            .where(
+                AuditLogNew.entity_type == "curations",
+                AuditLogNew.entity_id == curation_id,
+                AuditLogNew.new_status.in_(("submitted", "in_review")),
+                or_(
+                    AuditLogNew.previous_status.is_(None),
+                    AuditLogNew.previous_status != AuditLogNew.new_status,
+                ),
+            )
+            .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
+        )
+    )
+
+
+def _baseline(
+    db: Session, curation_id: UUID
+) -> tuple[AuditLogNew, str, datetime] | None:
+    """The version the reviewer last saw. The audit trigger stores the row after each update, so
+    the last submission equals the current evidence; the useful baseline is the state at the last
+    completed review decision, else the submission before the latest one."""
+    decided = db.scalars(
+        select(Review.reviewed_at)
+        .where(Review.curation_id == curation_id, Review.reviewed_at.isnot(None))
+        .order_by(Review.reviewed_at.desc())
+        .limit(1)
+    ).first()
+    if decided is not None:
+        row = db.scalars(
+            select(AuditLogNew)
+            .where(
+                AuditLogNew.entity_type == "curations",
+                AuditLogNew.entity_id == curation_id,
+                AuditLogNew.timestamp <= decided,
+            )
+            .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
+            .limit(1)
+        ).first()
+        if row is not None:
+            return row, "review", decided
+    submissions = _submissions(db, curation_id)
+    if len(submissions) >= 2:
+        return submissions[1], "previous_submission", submissions[1].timestamp
+    return None
+
+
 @router.get("/{curation_id}/diff", response_model=CurationDiff)
 @api_endpoint()
 def curation_diff(
@@ -138,33 +193,18 @@ def curation_diff(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDiff:
-    """Current evidence versus the audit-log snapshot taken at the last submission."""
+    """Current evidence versus the version the reviewer last saw (none yet: all items added)."""
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
-    submission = db.scalars(
-        select(AuditLogNew)
-        .where(
-            AuditLogNew.entity_type == "curations",
-            AuditLogNew.entity_id == curation_id,
-            AuditLogNew.new_status.in_(("submitted", "in_review")),
-            # a status transition, not a later edit made while already submitted
-            or_(
-                AuditLogNew.previous_status.is_(None),
-                AuditLogNew.previous_status != AuditLogNew.new_status,
-            ),
-        )
-        .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
-        .limit(1)
-    ).first()
-    if submission is None:
-        return CurationDiff(baseline=None, items=[])
-    snapshot = (submission.changes or {}).get("evidence_data") or {}
+    current = curation.evidence_data or {}
+    found = _baseline(db, curation_id)
+    if found is None:
+        return CurationDiff(baseline=None, items=diff_evidence({}, current))
+    row, source, as_of = found
+    snapshot = (row.changes or {}).get("evidence_data") or {}
     return CurationDiff.model_validate(
         {
-            "baseline": {
-                "audit_id": submission.id,
-                "submitted_at": submission.timestamp,
-            },
-            "items": diff_evidence(snapshot, curation.evidence_data or {}),
+            "baseline": {"audit_id": row.id, "as_of": as_of, "source": source},
+            "items": diff_evidence(snapshot, current),
         }
     )

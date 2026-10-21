@@ -163,6 +163,10 @@ def world() -> Generator[World, None, None]:
             ([str(w.curation), str(w.curation_off)],),
         )
         cur.execute(
+            "DELETE FROM reviews WHERE curation_id = ANY(%s::uuid[])",
+            ([str(w.curation), str(w.curation_off)],),
+        )
+        cur.execute(
             "DELETE FROM curations WHERE id = ANY(%s::uuid[])",
             ([str(w.curation), str(w.curation_off)],),
         )
@@ -414,23 +418,77 @@ def test_api_comment_round_trip_under_rls(client: TestClient, world: World) -> N
     assert resolved.status_code == 200, resolved.text
 
 
-def test_diff_after_real_submit_and_edit_transitions(
+def _step(sql: str, *params: object) -> None:
+    """One committed transaction per step, so the audit trigger stamps distinct times."""
+    conn = _owner()
+    conn.autocommit = True
+    with conn, conn.cursor() as cur:
+        cur.execute(sql, params)
+    conn.close()
+
+
+def test_diff_after_a_real_submit_review_edit_resubmit_flow(
     client: TestClient, world: World
 ) -> None:
-    """Submit then edit through plain UPDATEs; the audit trigger writes the snapshot."""
-    with _owner() as conn, conn.cursor() as cur:
-        cur.execute(
-            "UPDATE curations SET status = 'submitted', evidence_data = %s WHERE id = %s",
-            (json.dumps({"score": 2, "keep": 1}), str(world.curation)),
-        )
-        cur.execute(
-            "UPDATE curations SET evidence_data = %s WHERE id = %s",
-            (json.dumps({"score": 5, "keep": 1, "extra": "y"}), str(world.curation)),
-        )
+    """Plain UPDATEs fire the audit trigger; only the item edited after the review shows up."""
+    cur_id = str(world.curation)
+    v1 = {"cases": [{"id": "a", "score": 1}, {"id": "b", "score": 2}], "summary": "s"}
+    v2 = {"cases": [{"id": "a", "score": 1}, {"id": "b", "score": 4}], "summary": "s"}
+    update = "UPDATE curations SET status = %s, evidence_data = %s WHERE id = %s"
+    _step(update, "submitted", json.dumps(v1), cur_id)
+    _step(
+        "INSERT INTO reviews (curation_id, reviewer_id, status, reviewed_at) "
+        "VALUES (%s, %s, 'needs_revision', clock_timestamp())",
+        cur_id,
+        str(world.reviewer),
+    )
+    _step(update, "draft", json.dumps(v1), cur_id)  # sent back
+    _step(update, "draft", json.dumps(v2), cur_id)  # curator edits one item
+    _step(update, "submitted", json.dumps(v2), cur_id)  # resubmits
+
     body = client.get(
         f"/api/v1/curations/{world.curation}/diff", headers=_auth(world.reviewer)
     ).json()
-    got = {i["path"]: i for i in body["items"]}
-    assert got["score"]["before"] == 2 and got["score"]["after"] == 5
-    assert got["extra"]["change"] == "added"
-    assert "keep" not in got
+
+    assert [(i["path"], i["before"], i["after"]) for i in body["items"]] == [
+        ("cases[b].score", 2, 4)
+    ]
+    assert body["baseline"]["source"] == "review"
+
+
+def test_first_submission_diff_lists_every_item_as_added(
+    client: TestClient, world: World
+) -> None:
+    _step(
+        "UPDATE curations SET status = 'submitted', evidence_data = %s WHERE id = %s",
+        json.dumps({"x": 1}),
+        str(world.curation),
+    )
+    body = client.get(
+        f"/api/v1/curations/{world.curation}/diff", headers=_auth(world.reviewer)
+    ).json()
+    assert body["baseline"] is None
+    assert [(i["path"], i["change"]) for i in body["items"]] == [("x", "added")]
+
+
+def test_accepted_items_are_reviewer_only_under_rls(world: World, db: Session) -> None:
+    def insert(user: UUID) -> bool:
+        as_user(db, user)
+        try:
+            with db.begin_nested():
+                db.execute(
+                    text(
+                        "INSERT INTO review_item_comments "
+                        "(curation_id, item_path, body, author_id, kind) "
+                        "VALUES (:c, 'cases[a]', 'Accepted', :a, 'accepted')"
+                    ),
+                    {"c": str(world.curation), "a": str(user)},
+                )
+            return True
+        except DBAPIError:
+            return False
+
+    assert insert(world.reviewer) is True
+    assert insert(world.scope_admin) is True
+    assert insert(world.curator) is False  # may reply with a query, never accept
+    assert insert(world.viewer) is False

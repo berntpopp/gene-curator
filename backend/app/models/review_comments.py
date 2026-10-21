@@ -18,6 +18,7 @@ class ReviewItemComment(Base):
     __tablename__ = "review_item_comments"
     __table_args__ = (
         CheckConstraint("status IN ('open', 'resolved')"),
+        CheckConstraint("kind IN ('query', 'accepted')"),
         Index("idx_review_item_comments_curation", "curation_id", "created_at"),
     )
 
@@ -38,6 +39,7 @@ class ReviewItemComment(Base):
         compatible_uuid(), ForeignKey("users.id"), nullable=False
     )
     status: Mapped[str] = mapped_column(String(10), nullable=False, default="open")
+    kind: Mapped[str] = mapped_column(String(10), nullable=False, default="query")
     created_at: Mapped[dt] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

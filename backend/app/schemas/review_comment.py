@@ -7,6 +7,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 CommentStatus = Literal["open", "resolved"]
+CommentKind = Literal["query", "accepted"]
 
 
 def _no_nul(value: str) -> str:
@@ -17,10 +18,21 @@ def _no_nul(value: str) -> str:
 
 class ReviewCommentCreate(BaseModel):
     item_path: str = Field(..., min_length=1, max_length=500)
-    body: str = Field(..., min_length=1, max_length=5000)
+    body: str | None = Field(None, min_length=1, max_length=5000)
     review_id: UUID | None = None
+    kind: CommentKind = "query"
 
-    _clean = field_validator("item_path", "body")(_no_nul)
+    _clean = field_validator("item_path", "body")(
+        lambda v: v if v is None else _no_nul(v)
+    )
+
+    @model_validator(mode="after")
+    def _body_unless_accepting(self) -> "ReviewCommentCreate":
+        if self.body is None:
+            if self.kind != "accepted":
+                raise ValueError("body is required")
+            self.body = "Accepted"
+        return self
 
 
 class ReviewCommentUpdate(BaseModel):
@@ -46,6 +58,7 @@ class ReviewComment(BaseModel):
     body: str
     author_id: UUID
     status: CommentStatus
+    kind: CommentKind
     created_at: datetime
     updated_at: datetime
 
@@ -58,12 +71,15 @@ class DiffItem(BaseModel):
 
 
 class DiffBaseline(BaseModel):
+    """The version the reviewer last saw: as of their last review decision, else the earlier submission."""
+
     audit_id: int
-    submitted_at: datetime
+    as_of: datetime
+    source: Literal["review", "previous_submission"]
 
 
 class CurationDiff(BaseModel):
-    """Current evidence versus its snapshot at the last submission (baseline null: never submitted)."""
+    """Current evidence versus the baseline; with no baseline every item is reported as added."""
 
     baseline: DiffBaseline | None
     items: list[DiffItem]
