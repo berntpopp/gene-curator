@@ -80,6 +80,8 @@ const customDarkTheme: ThemeDefinition = {
 const vuetify = createVuetify({
   components,
   directives,
+  // Vuetify 4 lowered the defaults; keep v3 breakpoints so layouts do not shift.
+  display: { thresholds: { md: 960, lg: 1280, xl: 1920, xxl: 2560 } },
   theme: {
     defaultTheme: savedTheme === 'light' ? 'light' : 'dark',
     themes: {

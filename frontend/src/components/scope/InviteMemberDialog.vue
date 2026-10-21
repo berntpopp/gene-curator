@@ -116,17 +116,17 @@
             <template #item="{ item, props: itemProps }">
               <v-list-item v-bind="itemProps" :title="undefined">
                 <template #prepend>
-                  <v-icon :icon="item.raw.icon" :color="item.raw.color" />
+                  <v-icon :icon="item.icon" :color="item.color" />
                 </template>
-                <v-list-item-title>{{ item.raw.title }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.raw.description }}</v-list-item-subtitle>
+                <v-list-item-title>{{ item.title }}</v-list-item-title>
+                <v-list-item-subtitle>{{ item.description }}</v-list-item-subtitle>
               </v-list-item>
             </template>
 
             <template #selection="{ item }">
-              <v-chip :color="item.raw.color" variant="tonal" size="small">
-                <v-icon start :icon="item.raw.icon" size="small" />
-                {{ item.raw.title }}
+              <v-chip :color="item.color" variant="tonal" size="small">
+                <v-icon start :icon="item.icon" size="small" />
+                {{ item.title }}
               </v-chip>
             </template>
           </v-select>

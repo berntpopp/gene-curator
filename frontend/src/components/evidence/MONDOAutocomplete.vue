@@ -22,7 +22,7 @@
     <template #item="{ item, props: itemProps }">
       <v-list-item
         v-bind="itemProps"
-        :subtitle="item.raw.definition || 'No definition available'"
+        :subtitle="item.definition || 'No definition available'"
         class="py-2"
       >
         <template #prepend>
@@ -30,16 +30,16 @@
         </template>
         <template #title>
           <div class="d-flex align-center">
-            <span class="font-weight-medium">{{ item.raw.label }}</span>
+            <span class="font-weight-medium">{{ item.label }}</span>
             <v-chip size="x-small" color="info" variant="tonal" class="ml-2">
-              {{ item.raw.mondo_id }}
+              {{ item.mondo_id }}
             </v-chip>
           </div>
         </template>
         <template #append>
-          <div v-if="item.raw.xrefs && item.raw.xrefs.length > 0" class="d-flex ga-1">
+          <div v-if="item.xrefs && item.xrefs.length > 0" class="d-flex ga-1">
             <v-chip
-              v-for="xref in item.raw.xrefs.slice(0, 2)"
+              v-for="xref in item.xrefs.slice(0, 2)"
               :key="xref"
               size="x-small"
               variant="outlined"
@@ -54,9 +54,9 @@
     <template #selection="{ item }">
       <v-chip color="primary" variant="tonal" size="small">
         <v-icon start size="small">mdi-database</v-icon>
-        {{ item.raw.mondo_id }}
+        {{ item.mondo_id }}
       </v-chip>
-      <span class="ml-2">{{ item.raw.label }}</span>
+      <span class="ml-2">{{ item.label }}</span>
     </template>
 
     <template #no-data>

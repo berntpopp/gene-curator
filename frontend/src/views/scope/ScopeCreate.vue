@@ -227,8 +227,8 @@
           >
             <template #item="{ item, props }">
               <v-list-item v-bind="props" :title="undefined">
-                <v-list-item-title>{{ item.raw.name || item.raw.email }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.raw.email }}</v-list-item-subtitle>
+                <v-list-item-title>{{ item.name || item.email }}</v-list-item-title>
+                <v-list-item-subtitle>{{ item.email }}</v-list-item-subtitle>
               </v-list-item>
             </template>
           </v-autocomplete>
@@ -238,7 +238,7 @@
             <template #item="{ item, props }">
               <v-list-item v-bind="props">
                 <template #prepend>
-                  <v-icon :icon="getRoleIcon(item.value)" :color="getRoleColor(item.value)" />
+                  <v-icon :icon="getRoleIcon(item)" :color="getRoleColor(item)" />
                 </template>
               </v-list-item>
             </template>

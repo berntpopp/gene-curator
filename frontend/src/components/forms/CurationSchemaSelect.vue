@@ -21,10 +21,10 @@
       >
         <template #item="{ props: itemProps, item }">
           <v-list-item v-bind="itemProps">
-            <template #subtitle> {{ item.raw.schema_type }} | v{{ item.raw.version }} </template>
+            <template #subtitle> {{ item.schema_type }} | v{{ item.version }} </template>
             <template #append>
               <v-chip size="x-small" color="info" variant="flat">
-                {{ getFieldCount(item.raw) }} fields
+                {{ getFieldCount(item) }} fields
               </v-chip>
             </template>
           </v-list-item>
