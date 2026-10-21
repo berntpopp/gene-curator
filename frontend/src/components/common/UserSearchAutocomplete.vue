@@ -44,8 +44,8 @@
     @update:search="onSearchUpdate"
   >
     <!-- Custom item template -->
-    <template #item="{ item, props }">
-      <v-list-item v-bind="props" :title="undefined" :subtitle="undefined">
+    <template #item="{ item, props: itemProps }">
+      <v-list-item v-bind="itemProps" :title="undefined" :subtitle="undefined">
         <template #prepend>
           <v-avatar size="36" color="primary">
             <span class="text-body-small font-weight-bold">
