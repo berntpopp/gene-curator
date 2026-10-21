@@ -64,6 +64,10 @@ describe('FooterBar', () => {
     )
   })
 
+  it('does not grow inside the flex-column main (v-footer defaults to flex: 1 1 auto)', () => {
+    expect(mountFooter().get('footer').classes()).toContain('flex-grow-0')
+  })
+
   it('opens the disclaimer from its button', async () => {
     mountFooter()
 

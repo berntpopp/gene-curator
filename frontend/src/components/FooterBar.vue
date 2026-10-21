@@ -1,5 +1,5 @@
 <template>
-  <v-footer color="surface" class="footer-bar">
+  <v-footer color="surface" class="footer-bar flex-grow-0">
     <v-container class="py-1">
       <v-row align="center" justify="center" dense>
         <v-col cols="12" md="6" class="text-center text-md-left">

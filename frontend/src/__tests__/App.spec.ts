@@ -128,6 +128,15 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('pins the footer to the bottom: main is a flex column whose content grows', async () => {
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
+    await flushPromises()
+
+    const main = wrapper.get('#main-content')
+    expect(main.classes()).toEqual(expect.arrayContaining(['d-flex', 'flex-column']))
+    expect(main.get('.v-container').classes()).toContain('flex-grow-1')
+  })
+
   it('initialises auth and disclaimer stores on mount', async () => {
     const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
