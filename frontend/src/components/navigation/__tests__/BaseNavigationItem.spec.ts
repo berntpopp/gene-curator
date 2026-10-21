@@ -147,7 +147,7 @@ describe('BaseNavigationItem', () => {
     })
   })
 
-  describe('External Links', () => {
+  describe('External links', () => {
     it('should render as anchor when "href" prop is provided', () => {
       const wrapper = mount(BaseNavigationItem, {
         props: {

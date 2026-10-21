@@ -143,7 +143,7 @@ describe('ScopeSettings', () => {
 
     expect(vm.canEditSettings).toBe(false)
     expect(wrapper.text()).toContain('Only scope administrators can modify these settings.')
-    expect(wrapper.findAll('button').some(b => b.text().includes('Save Settings'))).toBe(false)
+    expect(wrapper.findAll('button').some(b => b.text().includes('Save settings'))).toBe(false)
   })
 
   it('lets a scope admin edit settings even though the application role is user', async () => {

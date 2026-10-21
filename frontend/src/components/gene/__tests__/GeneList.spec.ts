@@ -186,7 +186,7 @@ describe('GeneList', () => {
       scopeState.currentUserRole = 'curator'
       const wrapper = await mountList()
 
-      expect(wrapper.text()).toContain('Add Genes')
+      expect(wrapper.text()).toContain('Add genes')
       expect(wrapper.text()).toContain('Assign to Curator')
     })
 
@@ -195,7 +195,7 @@ describe('GeneList', () => {
         scopeState.currentUserRole = role
         const wrapper = await mountList()
 
-        expect(wrapper.text()).not.toContain('Add Genes')
+        expect(wrapper.text()).not.toContain('Add genes')
         expect(wrapper.text()).not.toContain('Assign to Curator')
       }
     })
@@ -271,7 +271,7 @@ describe('GeneList', () => {
       const wrapper = await mountList()
 
       expect(wrapper.text()).toContain('No genes assigned')
-      expect(wrapper.text()).toContain('Assign Genes')
+      expect(wrapper.text()).toContain('Assign genes')
     })
   })
 

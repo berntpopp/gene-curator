@@ -193,11 +193,11 @@ describe('PMIDInput', () => {
     expect(wrapper.find('a[href="https://pubmed.ncbi.nlm.nih.gov/123/"]').exists()).toBe(true)
     expect(wrapper.find('a[href="https://doi.org/10.1000/xyz"]').exists()).toBe(true)
 
-    const hide = wrapper.findAll('button').find(b => b.text().includes('Hide Details'))
+    const hide = wrapper.findAll('button').find(b => b.text().includes('Hide details'))
     await hide?.trigger('click')
     expect(wrapper.text()).not.toContain('Nature Genetics')
 
-    const show = wrapper.findAll('button').find(b => b.text().includes('Show Details'))
+    const show = wrapper.findAll('button').find(b => b.text().includes('Show details'))
     await show?.trigger('click')
     expect(wrapper.text()).toContain('Nature Genetics')
   })

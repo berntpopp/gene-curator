@@ -18,7 +18,7 @@
             <v-alert-title>Failed to Load Gene</v-alert-title>
             {{ loadError }}
             <template #append>
-              <v-btn variant="outlined" @click="handleCancel">Go Back</v-btn>
+              <v-btn variant="outlined" @click="handleCancel">Go back</v-btn>
             </template>
           </v-alert>
         </v-col>

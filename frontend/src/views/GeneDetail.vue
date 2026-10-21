@@ -44,7 +44,7 @@
         >
           Retry
         </v-btn>
-        <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="error"> Back to Genes </v-btn>
+        <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="error"> Back to genes </v-btn>
       </template>
     </v-alert>
 
@@ -88,7 +88,7 @@
           <v-card class="mb-4">
             <v-card-title class="d-flex align-center">
               <v-icon start size="20">mdi-information</v-icon>
-              Basic Information
+              Basic information
             </v-card-title>
             <v-card-text>
               <v-row dense>
@@ -124,7 +124,7 @@
           <v-card class="mb-4">
             <v-card-title class="d-flex align-center">
               <v-icon start size="20">mdi-map-marker</v-icon>
-              Genomic Location
+              Genomic location
             </v-card-title>
             <v-card-text>
               <v-row dense>
@@ -148,7 +148,7 @@
           <v-card class="mb-4">
             <v-card-title class="d-flex align-center">
               <v-icon start size="20">mdi-tag-multiple</v-icon>
-              Alternative Names
+              Alternative names
             </v-card-title>
             <v-card-text>
               <template v-if="hasAliases">
@@ -195,7 +195,7 @@
           <v-card class="mb-4">
             <v-card-title class="d-flex align-center">
               <v-icon start size="20">mdi-link-variant</v-icon>
-              External Links
+              External links
             </v-card-title>
             <v-card-text>
               <v-btn
@@ -221,7 +221,7 @@
           <v-card>
             <v-card-title class="d-flex align-center">
               <v-icon start size="20">mdi-database</v-icon>
-              Database Record
+              Database record
             </v-card-title>
             <v-card-text>
               <div class="mb-3">

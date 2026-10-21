@@ -154,11 +154,11 @@ describe('DynamicForm flow', () => {
 
   it('enables saving a draft only after a change and emits the data', async () => {
     const wrapper = mountForm()
-    expect(buttonWithText(wrapper, 'Save Draft').attributes('disabled')).toBeDefined()
+    expect(buttonWithText(wrapper, 'Save draft').attributes('disabled')).toBeDefined()
 
     fieldStub(wrapper, 'name').vm.$emit('update:model-value', 'Grace')
     await flushPromises()
-    await buttonWithText(wrapper, 'Save Draft').trigger('click')
+    await buttonWithText(wrapper, 'Save draft').trigger('click')
 
     expect(wrapper.emitted('save-draft')![0]).toEqual([{ name: 'Grace' }])
     expect(wrapper.emitted('update:modelValue')!.at(-1)).toEqual([{ name: 'Grace' }])

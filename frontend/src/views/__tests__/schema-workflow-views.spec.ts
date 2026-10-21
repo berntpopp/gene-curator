@@ -152,7 +152,7 @@ describe('WorkflowManagement', () => {
     call(vm, 'viewWorkflow', pair)
     await nextTick()
     expect(vm.viewWorkflowDialog).toBe(true)
-    expect(document.body.textContent).toContain('Workflow Details')
+    expect(document.body.textContent).toContain('Workflow details')
   })
 
   it('saves edits to a workflow and closes the dialog', async () => {
@@ -263,10 +263,8 @@ describe('WorkflowManagement', () => {
     vi.unstubAllGlobals()
   })
 
-  it('maps stage types to colours and icons and lacks the removed stage-edit placeholder', async () => {
+  it('maps stage types to icons and lacks the removed stage-edit placeholder', async () => {
     const { vm } = await mountView()
-    expect(call(vm, 'getStageColor', 'review')).toBe('purple')
-    expect(call(vm, 'getStageColor', 'other')).toBe('grey')
     expect(call(vm, 'getStageIcon', 'entry')).toBe('mdi-file-document-plus')
     expect(call(vm, 'getStageIcon', 'other')).toBe('mdi-circle')
     expect(call(vm, 'getSchemaName', null, 'curation')).toBe('—')
@@ -500,7 +498,7 @@ describe('SchemaEditor', () => {
     await flushPromises()
     vmOf(wrapper).isEditing = true
     await nextTick()
-    expect(wrapper.text()).toContain('Scoring Configuration')
+    expect(wrapper.text()).toContain('Scoring configuration')
   })
 
   it('goes back to the schema list, not browser history', async () => {

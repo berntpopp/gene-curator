@@ -10,7 +10,7 @@
     <v-row>
       <v-col cols="12" md="6">
         <v-card>
-          <v-card-title>Scope Information</v-card-title>
+          <v-card-title>Scope information</v-card-title>
           <v-card-text>
             <v-list density="compact">
               <v-list-item>

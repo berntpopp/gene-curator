@@ -47,7 +47,7 @@
         <v-card>
           <v-card-title class="text-h6">
             <v-icon start>mdi-lock</v-icon>
-            Change Password
+            Change password
           </v-card-title>
           <v-card-text>
             <v-form ref="passwordForm" v-model="passwordFormValid" @submit.prevent="changePassword">
@@ -94,7 +94,7 @@
               color="primary"
               @click="changePassword"
             >
-              Change Password
+              Change password
             </v-btn>
           </v-card-actions>
         </v-card>

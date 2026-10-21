@@ -95,7 +95,7 @@ describe('CurationSchemaSelect', () => {
         }
       })
 
-      expect(wrapper.text()).toContain('Select Curation Methodology')
+      expect(wrapper.text()).toContain('Select curation methodology')
     })
 
     it('should render schema selection dropdown', () => {

@@ -36,7 +36,7 @@ describe('ClinGenCurationForm', () => {
     const score = wrapper.findComponent(ScoreSummary)
     expect(score.props('totalScore')).toBe(0)
     expect(score.props('classification')).toBe('No Known Disease Relationship')
-    expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeDefined()
+    expect(findButton(wrapper, 'Submit for review').attributes('disabled')).toBeDefined()
   })
 
   it('scores legacy {points} dict evidence from initialData', async () => {
@@ -54,7 +54,7 @@ describe('ClinGenCurationForm', () => {
     const score = wrapper.findComponent(ScoreSummary)
     expect(score.props('totalScore')).toBeCloseTo(1.5)
     expect(score.props('classification')).toBe('Limited')
-    expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeUndefined()
+    expect(findButton(wrapper, 'Submit for review').attributes('disabled')).toBeUndefined()
   })
 
   describe('replication over time', () => {
@@ -121,7 +121,7 @@ describe('ClinGenCurationForm', () => {
 
   it('emits save-draft with the current evidence when Save Draft is clicked', async () => {
     wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: withCaseLevel } })
-    await findButton(wrapper, 'Save Draft').trigger('click')
+    await findButton(wrapper, 'Save draft').trigger('click')
     const emitted = wrapper.emitted('save-draft')?.[0]?.[0] as ClinGenEvidenceData
     expect(
       emitted.genetic_evidence.case_level?.autosomal_dominant_or_x_linked?.predicted_or_proven_null
@@ -156,14 +156,14 @@ describe('ClinGenCurationForm', () => {
 
   it('shows parent-driven saving state and the saved time instead of local flags', async () => {
     wrapper = mount(ClinGenCurationForm, { props: { gene, saving: true, lastSaved: Date.now() } })
-    expect(findButton(wrapper, 'Save Draft').classes()).toContain('v-btn--loading')
+    expect(findButton(wrapper, 'Save draft').classes()).toContain('v-btn--loading')
     expect(wrapper.text()).toContain('Saved ')
   })
 
   it('does not advertise undo or quick actions', () => {
     wrapper = mount(ClinGenCurationForm, { props: { gene } })
     expect(wrapper.text()).not.toContain('Undo')
-    expect(wrapper.text()).not.toContain('Quick Actions')
+    expect(wrapper.text()).not.toContain('Quick actions')
   })
 
   it('saves a draft on Ctrl+S and prevents the browser default', async () => {
@@ -199,8 +199,8 @@ describe('ClinGenCurationForm', () => {
     wrapper = mount(ClinGenCurationForm, {
       props: { gene, readonly: true, initialData: withCaseLevel }
     })
-    expect(findButton(wrapper, 'Save Draft').attributes('disabled')).toBeDefined()
-    expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeDefined()
+    expect(findButton(wrapper, 'Save draft').attributes('disabled')).toBeDefined()
+    expect(findButton(wrapper, 'Submit for review').attributes('disabled')).toBeDefined()
   })
 
   it('emits cancel from the Cancel button', async () => {

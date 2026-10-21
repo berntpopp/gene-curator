@@ -2,7 +2,7 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-file-document-outline</v-icon>
-      Select Curation Methodology
+      Select curation methodology
     </v-card-title>
 
     <v-card-text>

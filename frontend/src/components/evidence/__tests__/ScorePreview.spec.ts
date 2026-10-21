@@ -77,10 +77,10 @@ describe('ScorePreview', () => {
 
   it('shows the scorecard action only when requested and emits view-full-score', async () => {
     const withoutLink = mount(ScorePreview)
-    expect(withoutLink.text()).not.toContain('View Full Scorecard')
+    expect(withoutLink.text()).not.toContain('View full scorecard')
 
     const wrapper = mount(ScorePreview, { props: { showFullScoreLink: true } })
-    const button = wrapper.findAll('button').find(b => b.text().includes('View Full Scorecard'))
+    const button = wrapper.findAll('button').find(b => b.text().includes('View full scorecard'))
     expect(button).toBeDefined()
     await button?.trigger('click')
 

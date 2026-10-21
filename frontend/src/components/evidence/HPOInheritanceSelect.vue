@@ -22,7 +22,7 @@
       </v-list-subheader>
       <v-list-item v-else v-bind="itemProps" :subtitle="item.definition ?? undefined" class="py-2">
         <template #prepend>
-          <v-icon :color="item.category === 'mendelian' ? 'primary' : 'secondary'" size="small">
+          <v-icon :color="item.category === 'mendelian' ? 'primary' : 'default'" size="small">
             mdi-family-tree
           </v-icon>
         </template>
@@ -311,6 +311,6 @@
 <style scoped>
   /* Ensure proper chip styling */
   :deep(.v-chip) {
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-mono);
   }
 </style>

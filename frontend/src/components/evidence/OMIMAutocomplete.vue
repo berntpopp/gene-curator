@@ -454,6 +454,6 @@
 <style scoped>
   /* Ensure proper chip styling */
   :deep(.v-chip) {
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-mono);
   }
 </style>

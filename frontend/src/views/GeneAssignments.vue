@@ -9,7 +9,7 @@
       <v-btn variant="outlined" class="mr-2" to="/review-queue">Review queue</v-btn>
       <v-btn color="primary" variant="flat" to="/scopes">
         <v-icon start>mdi-plus</v-icon>
-        New Assignment
+        New assignment
       </v-btn>
     </div>
 

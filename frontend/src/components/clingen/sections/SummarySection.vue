@@ -1,11 +1,11 @@
 <template>
   <div class="summary-section">
     <!-- Classification Overview -->
-    <v-card class="mb-4" variant="tonal" :color="classificationColor">
+    <v-card class="mb-4" variant="outlined">
       <v-card-text>
         <v-row align="center">
           <v-col cols="12" md="6">
-            <div class="text-h4 font-weight-bold">{{ classification }}</div>
+            <ClassificationMark :classification="classification" class="text-h5 font-weight-bold" />
             <div class="text-body-2 mt-1">Gene-Disease Validity Classification</div>
           </v-col>
           <v-col cols="12" md="6" class="text-md-right">
@@ -34,12 +34,12 @@
     <v-card class="mb-4" variant="outlined">
       <v-card-title class="text-subtitle-1">
         <v-icon start size="small">mdi-table</v-icon>
-        Evidence Score Summary
+        Evidence score summary
       </v-card-title>
       <v-card-text class="pa-0">
         <v-table density="compact">
           <thead>
-            <tr class="bg-grey-lighten-4">
+            <tr class="bg-surface-variant">
               <th class="text-left">Evidence Type</th>
               <th class="text-center">Points (default)</th>
               <th class="text-center">Range</th>
@@ -58,7 +58,7 @@
 
             <!-- Case-Level -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Case-Level Data</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">Case-Level Data</td>
             </tr>
             <tr>
               <td class="pl-8">Variant detected - proband (AD/XL): Predicted null</td>
@@ -86,7 +86,9 @@
 
             <!-- Segregation -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Segregation Evidence</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">
+                Segregation Evidence
+              </td>
             </tr>
             <tr>
               <td class="pl-8">Segregation (LOD score-based)</td>
@@ -98,7 +100,7 @@
 
             <!-- Case-Control -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Case-Control Data</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">Case-Control Data</td>
             </tr>
             <tr>
               <td class="pl-8">Single Variant Analysis</td>
@@ -115,7 +117,7 @@
 
             <!-- Experimental Evidence Section -->
             <tr class="section-header">
-              <td colspan="5" class="font-weight-bold bg-secondary text-white">
+              <td colspan="5" class="font-weight-bold bg-surface-variant">
                 <v-icon size="small" color="white" class="mr-2">mdi-flask</v-icon>
                 Experimental Evidence (Max 6)
               </td>
@@ -123,7 +125,7 @@
 
             <!-- Function -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Function</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">Function</td>
             </tr>
             <tr>
               <td class="pl-8">Biochemical Function</td>
@@ -145,7 +147,7 @@
 
             <!-- Functional Alteration -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">
+              <td colspan="5" class="font-weight-medium bg-surface-variant">
                 Functional Alteration
               </td>
             </tr>
@@ -163,7 +165,7 @@
 
             <!-- Models -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Models</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">Models</td>
             </tr>
             <tr>
               <td class="pl-8">Non-human Model Organism</td>
@@ -179,7 +181,7 @@
 
             <!-- Rescue -->
             <tr class="category-header">
-              <td colspan="5" class="font-weight-medium bg-grey-lighten-3">Rescue</td>
+              <td colspan="5" class="font-weight-medium bg-surface-variant">Rescue</td>
             </tr>
             <tr>
               <td class="pl-8">Human</td>
@@ -220,7 +222,7 @@
     <v-card variant="outlined">
       <v-card-title class="text-subtitle-1">
         <v-icon start size="small">mdi-text</v-icon>
-        Evidence Summary
+        Evidence summary
       </v-card-title>
       <v-card-text>
         <v-textarea
@@ -241,6 +243,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * SummarySection
    *
@@ -248,7 +251,7 @@
    * Matches ClinGen Gene Validity Summary page structure.
    */
 
-  import { ref, computed, watch } from 'vue'
+  import { ref, watch } from 'vue'
 
   const props = withDefaults(
     defineProps<{
@@ -277,21 +280,6 @@
       summaryText.value = newVal
     }
   )
-
-  const colorMap: Record<string, string> = {
-    definitive: 'success',
-    strong: 'info',
-    moderate: 'warning',
-    limited: 'grey',
-    disputed: 'error',
-    refuted: 'error',
-    'no known disease relationship': 'grey'
-  }
-
-  const classificationColor = computed(() => {
-    const classification = props.classification?.toLowerCase() || ''
-    return colorMap[classification] || 'grey'
-  })
 </script>
 
 <style scoped>

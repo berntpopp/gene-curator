@@ -23,8 +23,8 @@ describe('FormActions', () => {
       const wrapper = mount(FormActions)
 
       expect(wrapper.text()).toContain('Cancel')
-      expect(wrapper.text()).toContain('Save Draft')
-      expect(wrapper.text()).toContain('Submit for Review')
+      expect(wrapper.text()).toContain('Save draft')
+      expect(wrapper.text()).toContain('Submit for review')
     })
 
     it('should render undo/redo buttons', () => {

@@ -9,8 +9,8 @@
           >.
         </p>
         <div class="d-flex justify-center align-center ga-4">
-          <v-btn :to="{ name: 'Home' }" color="primary"> Go Home </v-btn>
-          <v-btn :to="{ name: 'GeneCatalogue' }" variant="text"> Gene Catalogue </v-btn>
+          <v-btn :to="{ name: 'Home' }" color="primary"> Go home </v-btn>
+          <v-btn :to="{ name: 'GeneCatalogue' }" variant="text"> Gene catalogue </v-btn>
         </div>
       </v-col>
     </v-row>

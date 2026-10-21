@@ -47,8 +47,8 @@ describe('CurationDetailView', () => {
 
   it.each([
     [{ contradictory_evidence: [{ pmid: '1' }] }, 'Disputed'],
-    [{ replicated_over_time: true }, 'No Known Disease Relationship'],
-    [{}, 'No Known Disease Relationship']
+    [{ replicated_over_time: true }, 'No known disease relationship'],
+    [{}, 'No known disease relationship']
   ])('classifies evidence %j as %s', async (extra, label) => {
     vi.mocked(curationsAPI.getCuration).mockResolvedValue({
       id: 'c1',
@@ -110,7 +110,7 @@ describe('CurationDetailView', () => {
   it('puts Delete after a divider, below the review actions (#242)', async () => {
     const wrapper = await load({ can_review: true, can_delete: true })
     const html = wrapper.html()
-    expect(html.indexOf('Request Changes')).toBeLessThan(html.indexOf('data-test="delete"'))
+    expect(html.indexOf('Request changes')).toBeLessThan(html.indexOf('data-test="delete"'))
     expect(wrapper.find('.workflow-actions .v-divider').exists()).toBe(true)
   })
 

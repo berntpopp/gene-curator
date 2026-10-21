@@ -14,7 +14,7 @@
     <v-card variant="outlined">
       <v-card-title class="text-subtitle-1">
         <v-icon start size="small">mdi-hospital-box</v-icon>
-        Disease Entity
+        Disease entity
       </v-card-title>
       <v-card-text>
         <v-row>
@@ -39,8 +39,8 @@
             >
               <template #append-inner>
                 <v-btn
-                  aria-label="Open in Monarch"
                   v-if="mondoId"
+                  aria-label="Open in Monarch"
                   icon
                   size="x-small"
                   variant="text"
@@ -106,7 +106,6 @@
                 v-for="rationale in rationaleChoices"
                 :key="rationale"
                 size="small"
-                color="secondary"
                 variant="tonal"
               >
                 {{ getRationaleLabel(rationale) }}
@@ -139,7 +138,7 @@
             </div>
             <v-table density="compact">
               <thead>
-                <tr class="bg-success-lighten-5">
+                <tr class="bg-surface-variant">
                   <th>MIM Number</th>
                   <th>Name</th>
                   <th>Inheritance</th>
@@ -174,7 +173,7 @@
             </div>
             <v-table density="compact">
               <thead>
-                <tr class="bg-warning-lighten-5">
+                <tr class="bg-surface-variant">
                   <th>MIM Number</th>
                   <th>Name</th>
                   <th>Inheritance</th>

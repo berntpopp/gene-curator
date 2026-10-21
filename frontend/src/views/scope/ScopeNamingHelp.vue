@@ -2,7 +2,7 @@
   <v-card class="mt-4">
     <v-card-title>
       <v-icon start>mdi-help-circle</v-icon>
-      Scope Naming Guidelines
+      Scope naming guidelines
     </v-card-title>
     <v-card-text>
       <v-list density="compact">

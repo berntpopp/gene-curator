@@ -49,7 +49,7 @@
         <v-col cols="12" lg="8">
           <!-- Basic Information -->
           <v-card class="mb-6">
-            <v-card-title>Basic Information</v-card-title>
+            <v-card-title>Basic information</v-card-title>
             <v-card-text>
               <v-form ref="basicForm">
                 <v-row>
@@ -123,7 +123,7 @@
           <v-card class="mb-6">
             <v-card-title class="d-flex align-center">
               <v-icon start>mdi-code-json</v-icon>
-              Field Definitions
+              Field definitions
             </v-card-title>
             <v-card-text>
               <div v-if="!isEditing" class="mb-4">
@@ -150,7 +150,7 @@
           <v-card v-if="schema.scoring_configuration || isEditing">
             <v-card-title class="d-flex align-center">
               <v-icon start>mdi-calculator</v-icon>
-              Scoring Configuration
+              Scoring configuration
             </v-card-title>
             <v-card-text>
               <div v-if="!isEditing">
@@ -200,22 +200,22 @@
                   @click="validateSchema"
                 >
                   <v-icon start>mdi-check-decagram</v-icon>
-                  Validate Schema
+                  Validate schema
                 </v-btn>
 
-                <v-btn color="secondary" variant="outlined" block @click="exportSchema">
+                <v-btn variant="outlined" block @click="exportSchema">
                   <v-icon start>mdi-download</v-icon>
-                  Export Schema
+                  Export schema
                 </v-btn>
 
                 <v-btn color="warning" variant="outlined" block @click="duplicateSchema">
                   <v-icon start>mdi-content-copy</v-icon>
-                  Duplicate Schema
+                  Duplicate schema
                 </v-btn>
 
                 <v-btn color="error" variant="outlined" block @click="deleteSchema">
                   <v-icon start>mdi-delete</v-icon>
-                  Delete Schema
+                  Delete schema
                 </v-btn>
               </div>
             </v-card-text>
@@ -438,7 +438,7 @@
     border-radius: 4px;
     padding: 16px;
     overflow-x: auto;
-    font-family: 'Courier New', monospace;
+    font-family: var(--font-mono);
     font-size: 14px;
   }
 

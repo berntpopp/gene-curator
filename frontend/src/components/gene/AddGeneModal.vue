@@ -53,11 +53,11 @@
         <v-tabs v-model="mode" class="mb-4" color="primary">
           <v-tab value="single">
             <v-icon start>mdi-magnify</v-icon>
-            Search Gene
+            Search gene
           </v-tab>
           <v-tab value="bulk">
             <v-icon start>mdi-file-upload</v-icon>
-            Bulk Import
+            Bulk import
           </v-tab>
         </v-tabs>
 
@@ -221,7 +221,7 @@
                   @click="validateBulkGenes"
                 >
                   <v-icon start>mdi-check-all</v-icon>
-                  Validate Genes
+                  Validate genes
                 </v-btn>
                 <v-spacer />
                 <v-switch
@@ -290,12 +290,7 @@
                           </v-btn>
                           <v-menu v-if="(result.alternatives?.length ?? 0) > 0">
                             <template #activator="{ props: menuProps }">
-                              <v-btn
-                                v-bind="menuProps"
-                                size="x-small"
-                                variant="outlined"
-                                color="secondary"
-                              >
+                              <v-btn v-bind="menuProps" size="x-small" variant="outlined">
                                 <v-icon size="small">mdi-chevron-down</v-icon>
                                 Others
                               </v-btn>
@@ -605,19 +600,7 @@
   .validation-results-list {
     max-height: 250px;
     overflow-y: auto;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 4px;
-  }
-
-  .bg-success-lighten-5 {
-    background-color: rgba(var(--v-theme-success), 0.05);
-  }
-
-  .bg-warning-lighten-5 {
-    background-color: rgba(var(--v-theme-warning), 0.05);
-  }
-
-  .bg-error-lighten-5 {
-    background-color: rgba(var(--v-theme-error), 0.05);
   }
 </style>

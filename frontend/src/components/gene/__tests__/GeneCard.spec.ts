@@ -53,7 +53,7 @@ describe('GeneCard', () => {
   it('offers Start Precuration when none exists', async () => {
     const wrapper = mount(GeneCard, { props: { gene: gene(), workflow: workflow() } })
 
-    const start = wrapper.findAll('button').find(b => b.text().includes('Start Precuration'))
+    const start = wrapper.findAll('button').find(b => b.text().includes('Start precuration'))
     expect(start).toBeDefined()
     await start!.trigger('click')
     expect(wrapper.emitted('start-precuration')?.[0]).toEqual([gene()])
@@ -64,7 +64,7 @@ describe('GeneCard', () => {
       props: { gene: gene(), workflow: workflow({ hasPrecuration: () => true }) }
     })
 
-    const button = wrapper.findAll('button').find(b => b.text().includes('Complete Precuration'))
+    const button = wrapper.findAll('button').find(b => b.text().includes('Complete precuration'))
     await button!.trigger('click')
     expect(wrapper.emitted('complete-precuration')).toHaveLength(1)
   })
@@ -77,7 +77,7 @@ describe('GeneCard', () => {
       }
     })
 
-    const button = wrapper.findAll('button').find(b => b.text().includes('Start Curation'))
+    const button = wrapper.findAll('button').find(b => b.text().includes('Start curation'))
     await button!.trigger('click')
     expect(wrapper.emitted('start-curation')).toHaveLength(1)
   })
@@ -108,7 +108,7 @@ describe('GeneCard', () => {
       props: { gene: gene(), workflow: workflow(), startBlockedReason: 'No methodology' }
     })
 
-    const start = wrapper.findAll('button').find(b => b.text().includes('Start Precuration'))
+    const start = wrapper.findAll('button').find(b => b.text().includes('Start precuration'))
     expect(start?.attributes('disabled')).toBeDefined()
   })
 })

@@ -9,10 +9,10 @@
   >
     <div class="drawer-container">
       <!-- Toolbar -->
-      <v-toolbar color="primary" dark density="compact" class="drawer-header">
+      <v-toolbar color="primary" density="compact" class="drawer-header">
         <v-toolbar-title class="text-subtitle-1">
           <v-icon start>mdi-text-box-search-outline</v-icon>
-          Application Logs
+          Application logs
           <v-chip
             v-if="logStore.logCount > 0"
             size="x-small"
@@ -474,11 +474,11 @@
 
   .log-entry:hover {
     transform: translateX(-2px);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 2px 8px rgba(var(--v-theme-on-surface), 0.15);
   }
 
   .log-message {
-    font-family: 'Roboto Mono', 'Monaco', 'Menlo', monospace;
+    font-family: var(--font-mono);
     line-height: 1.4;
     word-break: break-word;
   }
@@ -488,7 +488,7 @@
     line-height: 1.3;
     max-height: 200px;
     overflow-y: auto;
-    background: rgba(0, 0, 0, 0.02);
+    background: rgba(var(--v-theme-on-surface), 0.04);
     border-radius: 4px;
     padding: 8px;
     margin: 0;

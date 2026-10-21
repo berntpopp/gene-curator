@@ -48,7 +48,7 @@
           @click="$emit('save-draft')"
         >
           <v-icon start>mdi-content-save</v-icon>
-          Save Draft
+          Save draft
         </v-btn>
       </template>
       <span>Save Draft (Ctrl+S)</span>
@@ -66,7 +66,7 @@
           @click="$emit('submit')"
         >
           <v-icon start>mdi-check-circle</v-icon>
-          Submit for Review
+          Submit for review
         </v-btn>
       </template>
       <span>Submit for Review (Ctrl+Enter)</span>

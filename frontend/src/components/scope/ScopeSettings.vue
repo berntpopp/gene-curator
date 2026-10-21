@@ -10,7 +10,7 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-cog</v-icon>
-      Scope Settings
+      Scope settings
     </v-card-title>
 
     <v-card-text>
@@ -18,7 +18,7 @@
       <v-card variant="outlined" class="mb-4">
         <v-card-title class="text-subtitle-1">
           <v-icon start size="small">mdi-sitemap</v-icon>
-          Workflow Configuration
+          Workflow configuration
         </v-card-title>
         <v-card-text>
           <v-alert
@@ -71,7 +71,7 @@
                 </v-card>
               </v-col>
               <v-col cols="12" md="6">
-                <v-card variant="tonal" color="secondary">
+                <v-card variant="tonal">
                   <v-card-text class="py-2">
                     <div class="text-caption text-medium-emphasis">Curation Schema</div>
                     <div class="text-body-2 font-weight-medium">
@@ -89,7 +89,7 @@
       <v-card variant="outlined" class="mb-4">
         <v-card-title class="text-subtitle-1">
           <v-icon start size="small">mdi-information</v-icon>
-          Basic Information
+          Basic information
         </v-card-title>
         <v-card-text>
           <v-text-field
@@ -126,7 +126,7 @@
       <div v-if="canEditSettings" class="d-flex justify-end">
         <v-btn color="primary" :loading="saving" :disabled="!isDirty" @click="saveSettings">
           <v-icon start>mdi-content-save</v-icon>
-          Save Settings
+          Save settings
         </v-btn>
       </div>
 
@@ -142,7 +142,7 @@
       <v-card v-if="canDeleteScope" variant="outlined" class="mt-4" color="error">
         <v-card-title class="text-subtitle-1">
           <v-icon start size="small" color="error">mdi-alert-octagon</v-icon>
-          Danger Zone
+          Danger zone
         </v-card-title>
         <v-card-text>
           <p class="text-body-2 mb-3">Deleting this scope is permanent and cannot be undone.</p>
@@ -165,7 +165,7 @@
 
           <v-btn color="error" variant="outlined" :loading="deleting" @click="openDeleteDialog">
             <v-icon start>mdi-delete</v-icon>
-            Delete Scope
+            Delete scope
           </v-btn>
         </v-card-text>
       </v-card>
@@ -176,7 +176,7 @@
       <v-card>
         <v-card-title class="text-error">
           <v-icon start color="error">mdi-alert</v-icon>
-          Delete Scope
+          Delete scope
         </v-card-title>
         <v-card-text>
           <p class="mb-3">

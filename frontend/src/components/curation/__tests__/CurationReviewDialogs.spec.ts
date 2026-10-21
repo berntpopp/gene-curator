@@ -51,10 +51,10 @@ describe('CurationReviewDialogs', () => {
   it('requires feedback before requesting changes and says why', async () => {
     await mountIt({ approveOpen: false, rejectOpen: true })
     expect(document.body.textContent).toContain('Feedback is required')
-    expect(button('Request Changes')?.disabled).toBe(true)
+    expect(button('Request changes')?.disabled).toBe(true)
     vm().rejectComment = 'Fix PMID'
     await flushPromises()
-    button('Request Changes')?.click()
+    button('Request changes')?.click()
     expect(wrapper.emitted('reject')?.[0]).toEqual(['Fix PMID'])
   })
 })

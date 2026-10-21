@@ -3,7 +3,7 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start color="success">mdi-check-circle</v-icon>
-        Approve Curation
+        Approve curation
       </v-card-title>
       <v-card-text>
         <v-alert type="info" variant="tonal" class="mb-4">
@@ -58,7 +58,7 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start color="warning">mdi-undo</v-icon>
-        Request Changes
+        Request changes
       </v-card-title>
       <v-card-text>
         <v-alert type="warning" variant="tonal" class="mb-4">
@@ -92,7 +92,7 @@
           :disabled="!rejectComment"
           @click="emit('reject', rejectComment)"
         >
-          Request Changes
+          Request changes
         </v-btn>
       </v-card-actions>
     </v-card>

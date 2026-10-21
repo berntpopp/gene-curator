@@ -347,7 +347,7 @@ describe('GeneAssignmentManager', () => {
       const viewButton = wrapper.findAll('.row-stub')[1]!.findAll('button')[2]!
       await viewButton.trigger('click')
 
-      expect(wrapper.text()).toContain('Assignment Details')
+      expect(wrapper.text()).toContain('Assignment details')
       expect(wrapper.text()).toContain('PKD1')
       expect(wrapper.text()).toContain('Unassigned')
       expect(wrapper.text()).toContain('HGNC:9008')

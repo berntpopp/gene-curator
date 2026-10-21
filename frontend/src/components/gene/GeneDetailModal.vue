@@ -184,15 +184,9 @@
           <v-icon start>mdi-open-in-new</v-icon>
           HGNC
         </v-btn>
-        <v-btn
-          v-if="props.geneId"
-          variant="text"
-          color="secondary"
-          :to="`/genes/${props.geneId}`"
-          @click="close"
-        >
+        <v-btn v-if="props.geneId" variant="text" :to="`/genes/${props.geneId}`" @click="close">
           <v-icon start>mdi-arrow-right</v-icon>
-          Full Details
+          Full details
         </v-btn>
         <v-spacer />
         <v-btn variant="text" @click="close">Close</v-btn>

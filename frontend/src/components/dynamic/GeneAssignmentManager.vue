@@ -2,7 +2,7 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-account-group</v-icon>
-      Gene Assignment Management
+      Gene assignment management
     </v-card-title>
 
     <v-alert v-if="loadError" type="error" variant="tonal" class="mx-4">
@@ -160,7 +160,7 @@
     <!-- Bulk Assignment Dialog -->
     <v-dialog v-model="bulkAssignDialog" max-width="600">
       <v-card>
-        <v-card-title>Bulk Assignment</v-card-title>
+        <v-card-title>Bulk assignment</v-card-title>
         <v-card-text>
           <v-select
             v-model="bulkAssignee"
@@ -210,7 +210,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-pencil</v-icon>
-          Edit Assignment
+          Edit assignment
         </v-card-title>
         <v-card-text>
           <v-form ref="editForm">
@@ -239,7 +239,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-eye</v-icon>
-          Assignment Details
+          Assignment details
         </v-card-title>
         <v-card-text v-if="selectedAssignment">
           <v-list>
@@ -287,7 +287,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-account-plus</v-icon>
-          Reassign Gene
+          Reassign gene
         </v-card-title>
         <v-card-text>
           <div class="text-body-2 mb-4">

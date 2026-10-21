@@ -62,7 +62,7 @@
         @click="emit('start-precuration', gene)"
       >
         <v-icon start>mdi-clipboard-text</v-icon>
-        Start Precuration
+        Start precuration
       </v-btn>
       <v-btn
         v-else-if="hasPrecuration(gene) && !isPrecurationApproved(gene)"
@@ -73,7 +73,7 @@
         @click="emit('complete-precuration', gene)"
       >
         <v-icon start>mdi-clipboard-check</v-icon>
-        Complete Precuration
+        Complete precuration
       </v-btn>
       <v-btn
         v-else-if="isPrecurationApproved(gene)"
@@ -84,7 +84,7 @@
         @click="emit('start-curation', gene)"
       >
         <v-icon start>mdi-pencil</v-icon>
-        Start Curation
+        Start curation
       </v-btn>
     </v-card-actions>
   </v-card>

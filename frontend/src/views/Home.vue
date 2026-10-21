@@ -23,12 +23,11 @@
               size="large"
               prepend-icon="mdi-dna"
             >
-              Browse Genes
+              Browse genes
             </v-btn>
             <v-btn
               v-if="!authStore.isAuthenticated"
               :to="{ name: 'Login' }"
-              color="secondary"
               size="large"
               prepend-icon="mdi-login"
             >
@@ -157,7 +156,7 @@
       description:
         'Three-tier architecture with PostgreSQL, FastAPI, and Vue 3 for performance and scalability',
       icon: 'mdi-layers-outline',
-      color: 'purple'
+      color: 'primary'
     }
   ]
 
@@ -207,7 +206,7 @@
     background: linear-gradient(
       135deg,
       rgb(var(--v-theme-primary)) 0%,
-      rgb(var(--v-theme-secondary)) 100%
+      rgb(var(--v-theme-primary)) 100%
     );
     color: white;
     min-height: 400px;
@@ -223,6 +222,6 @@
 
   .v-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 8px 25px rgba(var(--v-theme-on-surface), 0.15);
   }
 </style>

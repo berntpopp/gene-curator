@@ -27,7 +27,7 @@
             </v-tab>
             <v-tab value="genetic">
               <v-icon start>mdi-dna</v-icon>
-              Genetic Evidence
+              Genetic evidence
               <v-chip
                 v-if="scores.genetic > 0"
                 size="small"
@@ -40,7 +40,7 @@
             </v-tab>
             <v-tab value="experimental">
               <v-icon start>mdi-flask</v-icon>
-              Experimental Evidence
+              Experimental evidence
               <v-chip
                 v-if="scores.experimental > 0"
                 size="small"
@@ -131,14 +131,13 @@
               Saved {{ savedTime }}
             </v-chip>
             <v-btn
-              color="secondary"
               variant="outlined"
               :loading="saving"
               :disabled="readonly"
               @click="handleSaveDraft"
             >
               <v-icon start>mdi-content-save</v-icon>
-              Save Draft
+              Save draft
             </v-btn>
             <v-btn
               color="primary"
@@ -147,7 +146,7 @@
               @click="requestSubmit"
             >
               <v-icon start>mdi-check</v-icon>
-              Submit for Review
+              Submit for review
             </v-btn>
           </v-card-actions>
           <div
@@ -185,7 +184,7 @@
 
     <v-dialog v-model="showSubmitDialog" max-width="500">
       <v-card>
-        <v-card-title>Submit for Review</v-card-title>
+        <v-card-title>Submit for review</v-card-title>
         <v-card-text>
           Submit this curation for <strong>{{ gene?.symbol }}</strong> for review? It is locked for
           editing until the review is complete.
@@ -456,9 +455,9 @@
 
   kbd {
     padding: 2px 6px;
-    background: rgba(0, 0, 0, 0.1);
+    background: rgba(var(--v-theme-on-surface), 0.1);
     border-radius: 4px;
-    font-family: monospace;
+    font-family: var(--font-mono);
     font-size: 0.85em;
   }
 </style>

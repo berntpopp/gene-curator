@@ -77,7 +77,7 @@
               <div class="text-center">
                 <p class="text-body-2 mb-2">Don't have an account?</p>
                 <v-btn :to="{ name: 'Register' }" variant="text" color="primary">
-                  Create Account
+                  Create account
                 </v-btn>
               </div>
             </v-form>
@@ -88,7 +88,7 @@
         <v-card v-if="isDevelopment" class="mt-4 pa-4" variant="tonal" color="info">
           <v-card-title class="text-subtitle-1">
             <v-icon start>mdi-dev-to</v-icon>
-            Development Quick Login
+            Development quick login
           </v-card-title>
           <v-card-text>
             <div class="d-flex flex-column ga-2">

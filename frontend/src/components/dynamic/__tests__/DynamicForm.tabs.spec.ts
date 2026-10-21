@@ -225,7 +225,7 @@ describe('DynamicForm Tab Rendering', () => {
       const schema = createTabSchema([
         {
           id: 'genetic',
-          name: 'Genetic Evidence',
+          name: 'Genetic evidence',
           icon: 'mdi-dna',
           sections: [{ name: 'Case Level', fields: ['case_count'] }]
         },
@@ -242,7 +242,7 @@ describe('DynamicForm Tab Rendering', () => {
       const wrapper = mountComponent()
       await wrapper.vm.$nextTick()
 
-      expect(wrapper.text()).toContain('Genetic Evidence')
+      expect(wrapper.text()).toContain('Genetic evidence')
       expect(wrapper.text()).toContain('Experimental Data')
     })
 

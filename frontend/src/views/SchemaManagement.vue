@@ -75,7 +75,7 @@
         </template>
 
         <template #item.type="{ item }">
-          <v-chip :color="getTypeColor(item.type)" size="small" variant="outlined">
+          <v-chip size="small" variant="outlined">
             {{ formatType(item.type) }}
           </v-chip>
         </template>
@@ -124,7 +124,7 @@
     <!-- Create Schema Dialog -->
     <v-dialog v-model="createSchemaDialog" max-width="600">
       <v-card>
-        <v-card-title>Create New {{ TERMINOLOGY.TEMPLATE }}</v-card-title>
+        <v-card-title>Create new {{ TERMINOLOGY.TEMPLATE }}</v-card-title>
         <v-card-text>
           <v-form ref="createForm">
             <v-text-field
@@ -182,12 +182,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import { errorMessage } from '@/stores/apiError'
-  import {
-    transformSchemas,
-    type TransformedSchema,
-    formatType,
-    getTypeColor
-  } from '@/utils/schemaTransformer'
+  import { transformSchemas, type TransformedSchema, formatType } from '@/utils/schemaTransformer'
   import { curationStatusColor } from '@/config/status'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores

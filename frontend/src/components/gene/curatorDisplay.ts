@@ -15,7 +15,7 @@ export function toCuratorOption(member: Schema<'ScopeMembershipResponse'>): Cura
   }
 }
 
-const AVATAR_COLORS = ['primary', 'secondary', 'success', 'info', 'warning', 'error']
+const AVATAR_COLORS = ['primary', 'success', 'info', 'warning', 'error']
 
 /** Avatar colour derived from a stable hash of the email. */
 export function getAvatarColor(email: string | null | undefined): string {

@@ -197,7 +197,7 @@
           @click="handleSubmit"
         >
           <v-icon start>mdi-content-save</v-icon>
-          Save Changes
+          Save changes
         </v-btn>
       </v-card-actions>
     </v-card>
