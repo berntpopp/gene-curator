@@ -44,6 +44,7 @@ describe('geneDisplay', () => {
     it('maps high, medium and low priorities', () => {
       expect(getPriorityColor('high')).toBe('error')
       expect(getPriorityColor('medium')).toBe('warning')
+      expect(getPriorityColor('low')).toBe('success')
       expect(getPriorityIcon('high')).toBe('mdi-flag')
       expect(getPriorityIcon('low')).toBe('mdi-flag-outline')
       expect(getPriorityLabel('medium')).toBe('Medium')

@@ -13,15 +13,7 @@ export const priorityOptions: SelectOption[] = [
   { title: 'High', value: 'high' }
 ]
 
-const PRIORITY_COLORS: Record<string, string> = {
-  low: 'green',
-  medium: 'orange',
-  high: 'red'
-}
-
-export function getPriorityColor(priority: string | null | undefined): string {
-  return PRIORITY_COLORS[priority ?? ''] ?? 'grey'
-}
+export { getPriorityColor } from '@/components/gene/geneDisplay'
 
 /** Capitalise the first letter of a priority */
 export function formatPriority(priority: string): string {

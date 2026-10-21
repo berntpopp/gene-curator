@@ -33,13 +33,13 @@ export function getStatusLabel(status: string): string {
   return labels[status] || status
 }
 
-export function getPriorityColor(priority: string): string {
+export function getPriorityColor(priority: string | null | undefined): string {
   const colors: Record<string, string> = {
     high: 'error',
     medium: 'warning',
-    low: 'grey'
+    low: 'success'
   }
-  return colors[priority] || 'grey'
+  return colors[priority ?? ''] ?? 'grey'
 }
 
 export function getPriorityIcon(priority: string): string {
