@@ -163,16 +163,20 @@ def get_gene(
     *,
     db: Session = Depends(get_db),
     gene_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew | None = Depends(deps.get_current_user_optional),
 ) -> GeneWithAssignments:
     """
-    Get gene by ID with assignment information.
+    Get gene by ID. Genes are public reference data; assignment information
+    (scopes, curators) is only included for signed-in users.
     """
     gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
+
+    if current_user is None:
+        return GeneWithAssignments(**gene.__dict__)
 
     # Get assignment status
     assignment_status = gene_crud.get_gene_assignment_status(db, gene_id=gene_id)
