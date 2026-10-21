@@ -48,6 +48,56 @@ describe('ClinGenCurationForm', () => {
     expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeUndefined()
   })
 
+  describe('replication over time', () => {
+    const strong: Partial<ClinGenEvidenceData> = {
+      genetic_evidence: {
+        case_level: {
+          autosomal_dominant_or_x_linked: {
+            predicted_or_proven_null: [{ proband_counted_points: 12 }],
+            other_variant_type: []
+          }
+        }
+      }
+    }
+
+    it('classifies Strong as Definitive when replicated, and stays Strong otherwise', async () => {
+      wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: strong } })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Strong')
+
+      await wrapper.setProps({ initialData: { ...strong, replicated_over_time: true } })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Definitive')
+    })
+
+    it('stays Disputed with contradictory evidence even when replicated', async () => {
+      wrapper = mount(ClinGenCurationForm, {
+        props: {
+          gene,
+          initialData: {
+            ...strong,
+            replicated_over_time: true,
+            contradictory_evidence: [{ label: 'Lab study' }]
+          }
+        }
+      })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Disputed')
+    })
+
+    it('stores the toggle in the emitted data and is disabled when read-only', async () => {
+      wrapper = mount(ClinGenCurationForm, { props: { gene } })
+      wrapper.findComponent({ name: 'VCheckbox' }).vm.$emit('update:modelValue', true)
+      await flushPromises()
+      const emitted = wrapper.emitted('update:model-value')?.[0]?.[0] as ClinGenEvidenceData
+      expect(emitted.replicated_over_time).toBe(true)
+
+      wrapper.unmount()
+      wrapper = mount(ClinGenCurationForm, { props: { gene, readonly: true } })
+      expect(wrapper.findComponent({ name: 'VCheckbox' }).props('disabled')).toBe(true)
+    })
+  })
+
   it('reports Disputed when contradictory evidence is present, regardless of score', async () => {
     wrapper = mount(ClinGenCurationForm, {
       props: {

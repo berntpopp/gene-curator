@@ -65,6 +65,14 @@
             <v-window v-model="activeTab">
               <!-- Summary Tab -->
               <v-window-item value="summary">
+                <v-checkbox
+                  :model-value="!!evidenceData.replicated_over_time"
+                  :disabled="readonly"
+                  density="compact"
+                  hide-details
+                  label="Replicated over time (≥2 independent publications, >3 years)"
+                  @update:model-value="updateReplicated"
+                />
                 <SummarySection
                   :evidence-summary="evidenceData.evidence_summary"
                   :genetic-score="scores.genetic"
@@ -312,7 +320,11 @@
 
   // Classification based on score
   const currentClassification = computed(() =>
-    classifyScore(scores.value.total, hasContradictoryEvidence.value)
+    classifyScore(
+      scores.value.total,
+      hasContradictoryEvidence.value,
+      !!evidenceData.value.replicated_over_time
+    )
   )
 
   const canSubmit = computed(() => {
@@ -345,6 +357,11 @@
 
   function handleContradictoryUpdate(data: EvidenceItem[]) {
     evidenceData.value.contradictory_evidence = data
+    emitUpdate()
+  }
+
+  function updateReplicated(value: boolean | null) {
+    evidenceData.value.replicated_over_time = !!value
     emitUpdate()
   }
 
