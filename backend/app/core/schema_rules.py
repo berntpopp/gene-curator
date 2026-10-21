@@ -5,7 +5,7 @@ from typing import Any
 from app.core.schema_validation_result import SchemaValidationResult
 
 # One copy of the condition semantics (equals / in, True is not 1), shared with submit
-from app.crud.precuration_required import _condition_holds
+from app.crud.precuration_required import condition_holds
 
 
 def resolve_named_rules(schema_definition: dict[str, Any]) -> Any:
@@ -41,7 +41,7 @@ def _resolve(fields: Any, rules: dict[str, Any]) -> Any:
 
 def is_visible(config: dict[str, Any], data: dict[str, Any]) -> bool:
     """False when the field's `visible_when` / `show_when` condition does not hold."""
-    return _condition_holds(config.get("visible_when", config.get("show_when")), data)
+    return condition_holds(config.get("visible_when", config.get("show_when")), data)
 
 
 # Rule keys the seeded schemas store as lists/maps of fields rather than one rule config
@@ -61,7 +61,7 @@ def apply_field_list_rules(
     ]
     for name, cond in _as(dict, rules.get("conditional_required")).items():
         when = _as(dict, cond.get("when") if isinstance(cond, dict) else None)
-        if when and _condition_holds(when, data):
+        if when and condition_holds(when, data):
             required.append(name)
     for name in required:
         if (
@@ -289,27 +289,37 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
                 out.append(("error", f"{cat_path}[{j}].combine", msg))
             types_path = f"{cat_path}[{j}].types"
             for k, item in _items(_as(list, cat.get("types")), types_path, out):
-                out += _need(item, f"{types_path}[{k}]", {"path": str})
-                rng = item.get("range")
-                if rng is not None and not (
-                    isinstance(rng, list)
-                    and len(rng) == 2
-                    and all(_is_number(x) for x in rng)
-                    and rng[0] <= rng[1]
-                ):
-                    msg = "range must be [min, max] numbers with min <= max"
-                    out.append(("error", f"{types_path}[{k}].range", msg))
+                out += _check_type(item, f"{types_path}[{k}]")
     overrides = _as(list, model.get("overrides"))
     for i, override in _items(overrides, f"{path}.overrides", out):
         out += _need(override, f"{path}.overrides[{i}]", {"when": str, "class": str})
     bands = _items(_as(list, model.get("bands")), f"{path}.bands", out)
     for i, band in bands:
         out += _need(band, f"{path}.bands[{i}]", {"class": str})
+        out += _optional(band, f"{path}.bands[{i}]", ("requires",))
     lows: list[Any] = [band["min"] for _, band in bands if "min" in band]
     # first match wins, so thresholds must not increase down the list
     if not all(_is_number(low) for low in lows) or lows != sorted(lows, reverse=True):
         msg = "Band min must be numeric and must not increase (first match wins)"
         out.append(("error", f"{path}.bands", msg))
+    return out
+
+
+def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
+    """One item type: `path` required; optional settings typed; range an ordered pair."""
+    out = _need(item, path, {"path": str})
+    out += _optional(item, path, ("rule", "points_key"))
+    if "default" in item and not _is_number(item["default"]):
+        out.append(("error", f"{path}.default", "default must be a number"))
+    rng = item.get("range")
+    if rng is not None and not (
+        isinstance(rng, list)
+        and len(rng) == 2
+        and all(_is_number(x) for x in rng)
+        and rng[0] <= rng[1]
+    ):
+        msg = "range must be [min, max] numbers with min <= max"
+        out.append(("error", f"{path}.range", msg))
     return out
 
 
@@ -319,6 +329,17 @@ def _need(node: dict[str, Any], path: str, keys: dict[str, type]) -> list[Diagno
         ("error", f"{path}.{key}", f"'{key}' is required and must be a {kind.__name__}")
         for key, kind in keys.items()
         if not isinstance(node.get(key), kind)
+    ]
+
+
+def _optional(
+    node: dict[str, Any], path: str, keys: tuple[str, ...]
+) -> list[Diagnostic]:
+    """An error per optional key that is present but not a string."""
+    return [
+        ("error", f"{path}.{key}", f"'{key}' must be a str")
+        for key in keys
+        if key in node and not isinstance(node[key], str)
     ]
 
 

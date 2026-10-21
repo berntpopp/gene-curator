@@ -211,6 +211,17 @@ class TestPointModel:
             ".sections[0].categories[1].key"
         ]
 
+    def test_optional_settings_are_type_checked(self) -> None:
+        item = {"path": "p", "rule": ["case_row"], "points_key": 1, "default": "abc"}
+        sections = self.section(types=[item])
+        bands = [{"class": "strong", "min": 12, "requires": ["replicated"]}]
+        assert self.scoring(sections=sections, bands=bands) == [
+            ".sections[0].categories[0].types[0].rule",
+            ".sections[0].categories[0].types[0].points_key",
+            ".sections[0].categories[0].types[0].default",
+            ".bands[0].requires",
+        ]
+
     @pytest.mark.parametrize("rng", [[3, 0], [0], ["0", 1], "0..3"])
     def test_type_range_must_be_ordered_pair(self, rng: Any) -> None:
         sections = self.section(combine="avg", types=[{"path": "p", "range": rng}])
