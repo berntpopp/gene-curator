@@ -26,3 +26,26 @@ def test_legacy_summary_dicts_and_stray_strings_do_not_crash():
     }
     result = ClinGenEngine().calculate_scores(evidence, {})
     assert result.scores["experimental_evidence_total"] == 1.5
+
+
+def test_warnings_tolerate_strings_and_dicts():
+    r = ClinGenEngine().calculate_scores(
+        {
+            "genetic_evidence": ["junk", {"evidence_category": "segregation"}],
+            "experimental_evidence": [],
+        },
+        {},
+    )
+    assert r.warnings
+    r = ClinGenEngine().calculate_scores(
+        {
+            "genetic_evidence": {
+                "case_level": {
+                    "autosomal_recessive": {"other_variant_type": {"points": 1}}
+                },
+                "segregation": {"points": 1},
+            }
+        },
+        {},
+    )
+    assert r.warnings

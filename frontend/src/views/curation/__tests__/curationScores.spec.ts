@@ -119,3 +119,14 @@ describe('classifyScores flags', () => {
     expect(classifyScores(12, 12, true, true)).toBe('Disputed')
   })
 })
+
+describe('legacy {points} dict shapes', () => {
+  it('computeScores does not throw and counts a dict as one item', () => {
+    const s = computeScores({
+      genetic_evidence: { segregation: { points: 2 } as never },
+      experimental_evidence: { models: { non_human_model_organism: { points: 0.5 } as never } }
+    })
+    expect(s.segregation).toBe(2)
+    expect(s.models).toBe(0.5)
+  })
+})

@@ -1,4 +1,4 @@
-import { caseControlScore, classifyScore } from '@/components/clingen/scoring'
+import { asRows, caseControlScore, classifyScore } from '@/components/clingen/scoring'
 
 // ClinGen SOP v11 score calculation for the curation detail view (pure, no Vue)
 
@@ -61,8 +61,8 @@ export interface EvidenceScores {
   total: number
 }
 
-const sum = (items: Points[] | null | undefined, key: keyof Points = 'points'): number =>
-  (items ?? []).reduce((acc, v) => acc + (v[key] || 0), 0)
+const sum = (items: unknown, key: keyof Points = 'points'): number =>
+  (asRows(items) as Points[]).reduce((acc, v) => acc + (v[key] || 0), 0)
 
 /** Genetic evidence is capped at 12 points, experimental at 6 (SOP v11). */
 export function computeScores(evidence: EvidenceData | null | undefined): EvidenceScores {

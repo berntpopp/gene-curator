@@ -3,6 +3,7 @@ import {
   calculateExperimentalScore,
   calculateGeneticScore,
   classifyScore,
+  normalizeLegacy,
   sumPoints,
   sumProbandPoints
 } from '../scoring'
@@ -148,4 +149,17 @@ describe('classifyScore', () => {
 
 it('applies category caps before the genetic total', () => {
   expect(calculateGeneticScore({ segregation: [{ points: 20 }] }).total).toBe(3)
+})
+
+describe('legacy {points} dicts', () => {
+  it('sums a dict as one item and ignores other shapes', () => {
+    expect(sumPoints({ count: 1, points: 0.5 })).toBe(0.5)
+    expect(sumPoints('junk')).toBe(0)
+    expect(sumProbandPoints([{ proband_counted_points: 1 }, 'x'])).toBe(1)
+  })
+
+  it('normalizeLegacy rewrites dicts to lists, leaves lists alone', () => {
+    const out = normalizeLegacy({ a: { b: { points: 1 } }, c: [{ points: 2 }], d: 1 })
+    expect(out).toEqual({ a: { b: [{ points: 1 }] }, c: [{ points: 2 }], d: 1 })
+  })
 })

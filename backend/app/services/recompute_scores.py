@@ -1,5 +1,7 @@
 """One-off, idempotent backfill: recompute persisted scores for every curation."""
 
+from typing import Any
+
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -9,6 +11,27 @@ from app.models.models import CurationNew, UserNew, UserRoleNew
 from app.scoring.clingen import ClinGenEngine
 
 logger = get_logger(__name__)
+
+
+_TOP = {"genetic_evidence", "experimental_evidence", "contradictory_evidence"}
+_TOP |= {"replicated_over_time", "evidence_summary"}
+_GENETIC = {"case_level", "segregation", "case_control"}
+_EXPERIMENTAL = {"function", "functional_alteration", "models", "rescue"}
+
+
+def _has_unscored_keys(evidence: Any) -> bool:
+    """True when non-empty evidence holds keys the engine does not score."""
+    if not isinstance(evidence, dict):
+        return bool(evidence)
+    if set(evidence) - _TOP:
+        return True
+    for key, known in (
+        ("genetic_evidence", _GENETIC),
+        ("experimental_evidence", _EXPERIMENTAL),
+    ):
+        if isinstance(evidence.get(key), dict) and set(evidence[key]) - known:
+            return True
+    return False
 
 
 def recompute_all_scores(db: Session) -> int:
@@ -21,9 +44,17 @@ def recompute_all_scores(db: Session) -> int:
     if db.get_bind().dialect.name == "postgresql":
         set_rls_context(db, admin)
     engine = ClinGenEngine()
-    curations = db.execute(select(CurationNew.id, CurationNew.evidence_data)).all()
+    cols = (CurationNew.id, CurationNew.evidence_data, CurationNew.computed_scores)
+    curations = db.execute(select(*cols, CurationNew.computed_verdict)).all()
+    updated = unchanged = 0
+    skipped: list[str] = []
     failed = 0
-    for curation_id, evidence in curations:
+    for curation_id, evidence, old_scores, old_verdict in curations:
+        if _has_unscored_keys(evidence):
+            skipped.append(
+                str(curation_id)
+            )  # never overwrite with an unjustified verdict
+            continue
         try:
             result = engine.calculate_scores(evidence or {}, {})
         except Exception:  # one bad legacy row must not abort the backfill
@@ -32,11 +63,16 @@ def recompute_all_scores(db: Session) -> int:
                 "Score recompute failed", curation_id=str(curation_id), exc_info=True
             )
             continue
+        scores = {**result.scores, **result.evidence_breakdown}
+        if (old_scores, old_verdict) == (scores, result.verdict):
+            unchanged += 1
+            continue
+        updated += 1
         db.execute(
             update(CurationNew)
             .where(CurationNew.id == curation_id)
             .values(
-                computed_scores={**result.scores, **result.evidence_breakdown},
+                computed_scores=scores,
                 computed_verdict=result.verdict,
                 computed_summary=result.verdict_rationale,
                 updated_at=CurationNew.updated_at,  # keep: a backfill is not an edit
@@ -44,13 +80,18 @@ def recompute_all_scores(db: Session) -> int:
         )
     db.commit()
     logger.info(
-        "Recomputed curation scores", count=len(curations) - failed, failed=failed
+        "Recomputed curation scores",
+        updated=updated,
+        unchanged=unchanged,
+        skipped=len(skipped),
+        skipped_ids=skipped,
+        failed=failed,
     )
     if failed:
         raise RuntimeError(
             f"{failed} of {len(curations)} curations failed to recompute"
         )
-    return len(curations)
+    return updated + unchanged
 
 
 if __name__ == "__main__":  # pragma: no cover

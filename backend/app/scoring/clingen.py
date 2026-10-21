@@ -1053,7 +1053,7 @@ class ClinGenEngine(ScoringEngine):
         # Legacy flat list format
         case_level_items = [
             item
-            for item in genetic_evidence
+            for item in rows(genetic_evidence)
             if item.get("evidence_category") == "case_level"
         ]
         if len(case_level_items) < 2:
@@ -1065,7 +1065,7 @@ class ClinGenEngine(ScoringEngine):
         # Check for LOD scores in segregation evidence
         segregation_items = [
             item
-            for item in genetic_evidence
+            for item in rows(genetic_evidence)
             if item.get("evidence_category") == "segregation"
         ]
         for seg_item in segregation_items:
@@ -1093,8 +1093,8 @@ class ClinGenEngine(ScoringEngine):
             ]:
                 inh_data = case_level_data.get(inheritance_type, {})
                 if isinstance(inh_data, dict):
-                    null_items = inh_data.get("predicted_or_proven_null", [])
-                    other_items = inh_data.get("other_variant_type", [])
+                    null_items = rows(inh_data.get("predicted_or_proven_null"))
+                    other_items = rows(inh_data.get("other_variant_type"))
                     case_level_count += len(null_items) + len(other_items)
 
         if case_level_count < 2:
@@ -1104,7 +1104,7 @@ class ClinGenEngine(ScoringEngine):
             )
 
         # Check segregation evidence
-        segregation_items = genetic_evidence.get("segregation", [])
+        segregation_items = rows(genetic_evidence.get("segregation"))
         if isinstance(segregation_items, list):
             for seg_item in segregation_items:
                 has_score = (

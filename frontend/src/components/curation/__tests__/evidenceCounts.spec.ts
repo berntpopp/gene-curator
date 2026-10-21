@@ -20,3 +20,9 @@ describe('evidenceCountsText', () => {
     )
   })
 })
+
+it('counts a legacy {points} dict as one item', () => {
+  expect(
+    evidenceCountsText({ experimental_evidence: { models: { count: 1, points: 0.5 } } })
+  ).toContain('Experimental: 1 item')
+})
