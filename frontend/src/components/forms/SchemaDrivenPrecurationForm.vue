@@ -188,6 +188,8 @@
       }
     }
   )
+  // The local copy is older than the server's: never offer it back after the reload
+  watch(conflict, isConflict => isConflict && clearRecovery())
 
   // Undo/Redo
   const {
