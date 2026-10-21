@@ -8,13 +8,14 @@ import {
   getStatusColor,
   getStatusLabel
 } from '../geneDisplay'
+import { CURATION_STATUS } from '@/config/status'
 
 describe('geneDisplay', () => {
   describe('calculateProgress', () => {
     it.each([
       ['assigned', 0],
       ['in_progress', 25],
-      ['under_review', 75],
+      ['in_review', 75],
       ['completed', 100]
     ])('maps status %s to %i percent', (status, expected) => {
       expect(calculateProgress({ status })).toBe(expected)
@@ -31,7 +32,15 @@ describe('geneDisplay', () => {
     it('colours and labels known statuses', () => {
       expect(getStatusColor('completed')).toBe('success')
       expect(getStatusColor('in_progress')).toBe('warning')
-      expect(getStatusLabel('under_review')).toBe('Under Review')
+      expect(getStatusLabel('in_review')).toBe('In review')
+      expect(getStatusColor('in_review')).toBe('warning')
+    })
+
+    it('labels and colours every real CurationStatus like the shared status map', () => {
+      for (const [value, { label, color }] of Object.entries(CURATION_STATUS)) {
+        expect(getStatusLabel(value)).toBe(label)
+        expect(getStatusColor(value)).toBe(color)
+      }
     })
 
     it("reads 'Unassigned' for an assigned status without a curator", () => {
