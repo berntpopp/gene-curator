@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { h } from 'vue'
 import { mount } from '@vue/test-utils'
 import DataTable from '../DataTable.vue'
 
@@ -34,7 +35,7 @@ describe('DataTable', () => {
   it('applies density as a class and toggles it', async () => {
     const w = mountTable({ density: 'compact' })
     expect(w.find('.data-table').classes()).toContain('data-table--compact')
-    await w.find('[data-testid="density-toggle"]').trigger('click')
+    await w.find('[data-testid="density-comfortable"]').trigger('click')
     expect(w.emitted('update:density')?.at(-1)).toEqual(['comfortable'])
   })
 
@@ -67,7 +68,7 @@ describe('DataTable', () => {
       filters: { status: 'active' }
     })
     expect(w.find('[data-testid="filter-status"]').text()).toContain('Active')
-    await w.find('[data-testid="filter-status-clear"]').trigger('click')
+    await w.find('[data-testid="filter-status"] .v-chip__close').trigger('click')
     expect(w.emitted('update:filters')?.at(-1)).toEqual([{}])
   })
 
@@ -104,5 +105,44 @@ describe('DataTable', () => {
     expect(w.emitted('update:sortBy')?.at(-1)).toEqual([[{ key: 'symbol', order: 'asc' }]])
     await w.find('button[aria-label*="Next page"]').trigger('click')
     expect(w.emitted('update:page')?.at(-1)).toEqual([2])
+  })
+
+  it('renders a multi-select chip and toggles values', async () => {
+    const w = mountTable({
+      filterDefs: [
+        {
+          key: 'cls',
+          label: 'Classification',
+          multiple: true,
+          options: [
+            { value: 'd', title: 'Definitive' },
+            { value: 's', title: 'Strong' }
+          ]
+        }
+      ],
+      filters: { cls: ['d', 's'] }
+    })
+    expect(w.find('[data-testid="filter-cls"]').text()).toContain(
+      'Classification: Definitive, Strong'
+    )
+    await w.find('[data-testid="filter-cls"]').trigger('click')
+    await new Promise(r => setTimeout(r, 50))
+    ;(document.body.querySelector('.v-list-item') as HTMLElement).click()
+    expect(w.emitted('update:filters')?.at(-1)).toEqual([{ cls: ['s'] }])
+    ;(document.body.querySelector('.v-list-item') as HTMLElement).click()
+    w.unmount()
+  })
+
+  it('renders the toolbar actions slot and typed item slots', () => {
+    const w = mount(DataTable, {
+      props: { headers, items, itemsLength: 2 },
+      slots: {
+        'toolbar-actions': '<button data-testid="export">Export</button>',
+        'item.symbol': (p: { item: Record<string, unknown> }) =>
+          h('b', { class: 'sym' }, String(p.item.symbol))
+      }
+    })
+    expect(w.find('[data-testid="export"]').exists()).toBe(true)
+    expect(w.findAll('b.sym').map(b => b.text())).toEqual(['PKD1', 'HNF1B'])
   })
 })

@@ -1,24 +1,27 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { createApp } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { useTableUrlState } from '../useTableUrlState'
 
-async function setup(url = '/t') {
+async function setup(
+  url = '/t',
+  opts: Parameters<typeof useTableUrlState>[0] = { filterKeys: ['status', 'scope'] },
+  count = 1
+) {
   const router = createRouter({
     history: createMemoryHistory(),
     routes: [{ path: '/t', component: { template: '<div/>' } }]
   })
   await router.push(url)
-  const state = router.currentRoute.value
-  void state
-  let api!: ReturnType<typeof useTableUrlState>
-  const app = (await import('vue')).createApp({
+  const apis: ReturnType<typeof useTableUrlState>[] = []
+  const app = createApp({
     setup() {
-      api = useTableUrlState({ filterKeys: ['status', 'scope'] })
+      for (let i = 0; i < count; i++) apis.push(useTableUrlState(i === 0 ? opts : { prefix: 'b' }))
       return () => null
     }
   })
   app.use(router).mount(document.createElement('div'))
-  return { router, api }
+  return { router, api: apis[0]!, apis }
 }
 
 describe('useTableUrlState', () => {
@@ -46,8 +49,7 @@ describe('useTableUrlState', () => {
   it('writes changes to the URL, omits defaults and resets the page', async () => {
     const { api, router } = await setup('/t?page=4')
     api.search.value = 'abc'
-    await router.isReady()
-    await new Promise(r => setTimeout(r))
+    await new Promise(r => setTimeout(r, 350))
     expect(router.currentRoute.value.query).toEqual({ q: 'abc' })
     api.page.value = 2
     api.filters.value = { status: 'active', scope: '' }
@@ -67,8 +69,64 @@ describe('useTableUrlState', () => {
     })
     api.sortBy.value = []
     api.search.value = ''
-    await new Promise(r => setTimeout(r))
+    await new Promise(r => setTimeout(r, 350))
     expect(router.currentRoute.value.query.sort).toBeUndefined()
     expect(router.currentRoute.value.query.q).toBeUndefined()
   })
+
+  it('debounces the search write', async () => {
+    vi.useFakeTimers()
+    const { api, router } = await setup()
+    api.search.value = 'a'
+    api.search.value = 'ab'
+    expect(api.search.value).toBe('ab')
+    await vi.advanceTimersByTimeAsync(299)
+    expect(router.currentRoute.value.query.q).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(10)
+    expect(router.currentRoute.value.query.q).toBe('ab')
+  })
+
+  it('clamps size to the offered options and page to a safe integer', async () => {
+    for (const url of [
+      '/t?size=100000&page=1e20',
+      '/t?size=7&page=0',
+      '/t?size=%F0%9F%90%88&page=%E2%80%AE',
+      '/t?size=25.5&page=-3'
+    ]) {
+      const { api } = await setup(url)
+      expect(api.itemsPerPage.value).toBe(25)
+      expect(api.page.value).toBe(1)
+    }
+    expect((await setup('/t?size=100')).api.itemsPerPage.value).toBe(100)
+  })
+
+  it('rejects filter keys that clash with reserved keys', async () => {
+    await expect(setup('/t', { filterKeys: ['page'] })).rejects.toThrow(/reserved/)
+  })
+
+  it('keeps two prefixed instances on one route apart', async () => {
+    const { apis, router } = await setup('/t', { prefix: 'a', filterKeys: ['status'] }, 2)
+    apis[0]!.page.value = 3
+    apis[1]!.page.value = 2
+    apis[0]!.filters.value = { status: 'x' }
+    await new Promise(r => setTimeout(r))
+    expect(router.currentRoute.value.query).toEqual({ 'a.status': 'x', 'b.page': '2' })
+    apis[1]!.sortBy.value = [{ key: 'k', order: 'desc' }]
+    await new Promise(r => setTimeout(r))
+    expect(router.currentRoute.value.query).toMatchObject({ 'a.status': 'x', 'b.sort': 'k' })
+    expect(apis[0]!.page.value).toBe(1)
+  })
+
+  it('reads and writes multi-select filters as repeated keys', async () => {
+    const { api, router } = await setup('/t?cls=a&cls=b', {
+      filterKeys: ['cls'],
+      multiKeys: ['cls']
+    })
+    expect(api.filters.value).toEqual({ cls: ['a', 'b'] })
+    api.filters.value = { cls: ['c'] }
+    await new Promise(r => setTimeout(r))
+    expect(router.currentRoute.value.query.cls).toEqual(['c'])
+  })
+
+  afterEach(() => vi.useRealTimers())
 })

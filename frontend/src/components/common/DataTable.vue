@@ -19,22 +19,14 @@
             <v-chip
               v-bind="menu"
               :data-testid="`filter-${f.key}`"
-              :color="filters[f.key] ? 'secondary' : undefined"
-              :variant="filters[f.key] ? 'tonal' : 'outlined'"
-              :closable="false"
+              :color="isActive(f) ? 'secondary' : undefined"
+              :variant="isActive(f) ? 'tonal' : 'outlined'"
+              :closable="isActive(f)"
+              close-label="Clear filter"
               size="small"
+              @click:close="setFilter(f, undefined)"
             >
-              {{ f.label
-              }}<template v-if="filters[f.key]">: {{ optionTitle(f, filters[f.key]) }}</template>
-              <v-icon
-                v-if="filters[f.key]"
-                :data-testid="`filter-${f.key}-clear`"
-                size="small"
-                end
-                aria-label="Clear filter"
-                @click.stop="setFilter(f.key, undefined)"
-                >mdi-close</v-icon
-              >
+              {{ f.label }}<template v-if="isActive(f)">: {{ activeTitles(f) }}</template>
             </v-chip>
           </template>
           <v-list density="compact">
@@ -42,23 +34,27 @@
               v-for="o in f.options"
               :key="o.value"
               :title="o.title"
-              :active="filters[f.key] === o.value"
-              @click="setFilter(f.key, o.value)"
+              :active="selected(f).includes(o.value)"
+              @click="pick(f, o.value)"
             />
           </v-list>
         </v-menu>
       </div>
       <v-spacer />
-      <v-btn
-        data-testid="density-toggle"
-        variant="text"
-        size="small"
-        :aria-label="`Switch to ${density === 'compact' ? 'comfortable' : 'compact'} rows`"
-        :prepend-icon="density === 'compact' ? 'mdi-view-list' : 'mdi-view-grid'"
-        @click="emit('update:density', density === 'compact' ? 'comfortable' : 'compact')"
+      <v-btn-toggle
+        :model-value="density"
+        mandatory
+        density="compact"
+        variant="outlined"
+        divided
+        aria-label="Row density"
+        @update:model-value="emit('update:density', $event)"
       >
-        {{ density === 'compact' ? 'Compact' : 'Comfortable' }}
-      </v-btn>
+        <v-btn value="compact" size="small" data-testid="density-compact">Compact</v-btn>
+        <v-btn value="comfortable" size="small" data-testid="density-comfortable"
+          >Comfortable</v-btn
+        >
+      </v-btn-toggle>
       <v-menu :close-on-content-click="false">
         <template #activator="{ props: menu }">
           <v-btn
@@ -83,6 +79,7 @@
           </v-list-item>
         </v-list>
       </v-menu>
+      <slot name="toolbar-actions" />
     </div>
 
     <v-alert
@@ -117,10 +114,10 @@
       @update:items-per-page="emit('update:itemsPerPage', $event)"
       @update:sort-by="emit('update:sortBy', $event)"
     >
-      <template v-for="(_, name) in $slots" #[name]="slotProps" :key="name">
-        <slot :name="name" v-bind="slotProps ?? {}" />
+      <template v-for="name in itemSlots" #[name]="slotProps" :key="name">
+        <slot :name="name as `item.${string}`" v-bind="slotProps" />
       </template>
-      <template v-if="!$slots['no-data']" #no-data>
+      <template v-if="!slots['no-data']" #no-data>
         <div data-testid="table-empty" class="data-table__empty">
           {{ emptyText }}
         </div>
@@ -129,9 +126,9 @@
   </div>
 </template>
 
-<script setup lang="ts">
-  import { computed, ref } from 'vue'
-  import type { Density, SortItem } from '@/composables/useTableUrlState'
+<script setup lang="ts" generic="T extends Record<string, unknown>">
+  import { computed, ref, useSlots } from 'vue'
+  import type { Density, FilterValue, SortItem } from '@/composables/useTableUrlState'
 
   interface Header {
     title: string
@@ -142,19 +139,21 @@
     key: string
     label: string
     options: { value: string; title: string }[]
+    /** Multi-select: the filter value is a string[]. */
+    multiple?: boolean
   }
 
   const props = withDefaults(
     defineProps<{
       headers: Header[]
-      items: Record<string, unknown>[]
+      items: T[]
       /** Server total, not the length of the current page. */
       itemsLength: number
       loading?: boolean
       error?: string | null
       search?: string
       filterDefs?: FilterDef[]
-      filters?: Record<string, string>
+      filters?: Record<string, FilterValue>
       page?: number
       itemsPerPage?: number
       sortBy?: SortItem[]
@@ -177,7 +176,7 @@
 
   const emit = defineEmits<{
     'update:search': [string]
-    'update:filters': [Record<string, string>]
+    'update:filters': [Record<string, FilterValue>]
     'update:page': [number]
     'update:itemsPerPage': [number]
     'update:sortBy': [SortItem[]]
@@ -194,15 +193,38 @@
     hidden.value = next
   }
 
-  function setFilter(key: string, value: string | undefined) {
+  const selected = (f: FilterDef): string[] => [props.filters[f.key] ?? []].flat()
+  const isActive = (f: FilterDef) => selected(f).length > 0
+  const activeTitles = (f: FilterDef) =>
+    selected(f)
+      .map(v => f.options.find(o => o.value === v)?.title ?? v)
+      .join(', ')
+
+  function setFilter(f: FilterDef, value: FilterValue | undefined) {
     const next = { ...props.filters }
-    if (value) next[key] = value
-    else delete next[key]
+    if (value?.length) next[f.key] = value
+    else delete next[f.key]
     emit('update:filters', next)
   }
 
-  const optionTitle = (f: FilterDef, v: string | undefined) =>
-    f.options.find(o => o.value === v)?.title ?? v
+  function pick(f: FilterDef, value: string) {
+    if (!f.multiple) return setFilter(f, value)
+    const cur = selected(f)
+    setFilter(f, cur.includes(value) ? cur.filter(v => v !== value) : [...cur, value])
+  }
+
+  defineSlots<
+    {
+      [K in `item.${string}`]?: (p: { item: T; value: unknown }) => unknown
+    } & {
+      'toolbar-actions'?: () => unknown
+      'no-data'?: () => unknown
+    }
+  >()
+  const slots = useSlots()
+  const itemSlots = computed(() =>
+    Object.keys(slots).filter(n => n.startsWith('item.') || n === 'no-data')
+  )
 </script>
 
 <style scoped>
