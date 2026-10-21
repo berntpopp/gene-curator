@@ -23,7 +23,7 @@
     >
       <template #toolbar-actions>
         <ScopePicker
-          :scopes="store.availableScopes"
+          :scopes="store.allScopes"
           :model-value="shownIds"
           :mine="mineIds"
           @update:model-value="setScopes"
@@ -43,7 +43,7 @@
             v-if="c"
             :to="`/scopes/${s.id}/curations/${c.curation_id}`"
             class="cell-link"
-            :aria-label="`Open ${item.approved_symbol} curation in ${s.display_name}`"
+            :aria-label="cellLabel(c, item.approved_symbol, s.display_name)"
           >
             <span v-if="c.in_progress" class="text-medium-emphasis">
               {{ curationStatusLabel(c.status) }}
@@ -74,6 +74,7 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import ScopePicker from '@/components/catalogue/ScopePicker.vue'
   import { useTableUrlState } from '@/composables/useTableUrlState'
+  import { getClassification } from '@/config/classification'
   import { curationStatusLabel } from '@/config/status'
   import { useAuthStore } from '@/stores/auth'
   import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
@@ -81,6 +82,7 @@
   import type { Schema } from '@/types/api'
 
   type Row = Schema<'MatrixRow'>
+  type Cell = Schema<'MatrixCell'>
 
   const AGREEMENT_LABELS: Record<string, string> = {
     agree: 'Agree',
@@ -110,7 +112,10 @@
   // The URL wins over the saved default view, so a shared link shows the same columns.
   const shownIds = computed(() => {
     const urlScopes = filters.value.scopes
-    return Array.isArray(urlScopes) && urlScopes.length ? urlScopes : store.defaultShownIds
+    // Unknown ids and more than the endpoint accepts would only earn a 422.
+    const known = new Set(store.allScopes.map(s => s.id))
+    const valid = Array.isArray(urlScopes) ? urlScopes.filter(id => known.has(id)).slice(0, 50) : []
+    return valid.length ? valid : store.defaultShownIds
   })
   const mineIds = computed(() => scopesStore.userScopes.filter(s => s.user_role).map(s => s.id))
 
@@ -119,6 +124,15 @@
     ...store.scopes.map(s => ({ title: s.display_name, key: `scope:${s.id}`, sortable: false })),
     { title: 'Agreement', key: 'agreement', sortable: false }
   ])
+
+  // The accessible name starts with the visible text (WCAG 2.5.3 Label in Name).
+  function cellLabel(c: Cell, symbol: string, scope: string) {
+    const visible = c.in_progress
+      ? curationStatusLabel(c.status)
+      : getClassification(c.classification).label
+    const score = !c.in_progress && c.total_score != null ? ` ${c.total_score.toFixed(1)}` : ''
+    return `${visible}${score}, open ${symbol} curation in ${scope}`
+  }
 
   const cellOf = (row: Row, scopeId: string) => row.cells?.find(c => c.scope_id === scopeId)
 
@@ -151,6 +165,15 @@
       ready.value
     ],
     () => ready.value && load()
+  )
+
+  watch(
+    () => scopesStore.userScopes,
+    list =>
+      store.setMemberScopes(
+        list.filter(s => s.user_role).map(s => ({ id: s.id, display_name: s.display_name }))
+      ),
+    { immediate: true }
   )
 
   // Authentication settles after mount (/me), so follow it instead of reading it once.

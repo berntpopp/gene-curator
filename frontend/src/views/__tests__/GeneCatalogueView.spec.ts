@@ -6,8 +6,16 @@ import { createRouter, createMemoryHistory } from 'vue-router'
 const api = vi.hoisted(() => ({ getMatrix: vi.fn(), getScopes: vi.fn() }))
 vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
 const scopesApi = vi.hoisted(() => ({ fetchUserScopes: vi.fn() }))
+const userScopes = vi.hoisted(() => ({
+  list: [] as { id: string; display_name: string; user_role?: string }[]
+}))
 vi.mock('@/stores/scopes', () => ({
-  useScopesStore: () => ({ userScopes: [], fetchUserScopes: scopesApi.fetchUserScopes })
+  useScopesStore: () => ({
+    get userScopes() {
+      return userScopes.list
+    },
+    fetchUserScopes: scopesApi.fetchUserScopes
+  })
 }))
 
 import { useAuthStore } from '@/stores/auth'
@@ -76,6 +84,7 @@ describe('GeneCatalogueView', () => {
     localStorage.clear()
     api.getScopes.mockReset().mockResolvedValue(scopes)
     api.getMatrix.mockReset().mockResolvedValue(response)
+    userScopes.list = []
     scopesApi.fetchUserScopes.mockReset().mockResolvedValue([])
   })
 
@@ -116,7 +125,9 @@ describe('GeneCatalogueView', () => {
   it('names every cell link and marks disagreeing rows', async () => {
     const { wrapper } = await mountView()
     const link = wrapper.find('tbody tr a[href*="/scopes/s1/curations/c-s1"]')
-    expect(link.attributes('aria-label')).toBe('Open PKD1 curation in Kidney genetics')
+    expect(link.attributes('aria-label')).toBe(
+      'Definitive 14.5, open PKD1 curation in Kidney genetics'
+    )
     expect(wrapper.findAll('a').every(a => a.text() || a.attributes('aria-label'))).toBe(true)
     expect(wrapper.findAll('.agreement--disagree')).toHaveLength(1)
     expect(wrapper.find('.agreement--disagree').text()).toBe('Disagree')
@@ -169,5 +180,33 @@ describe('GeneCatalogueView', () => {
     useAuthStore().isAuthenticated = true
     await flushPromises()
     expect(scopesApi.fetchUserScopes).toHaveBeenCalledTimes(1)
+  })
+
+  it('drops unknown scope ids and caps the URL scopes at 50', async () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({
+      id: `m${i}`,
+      name: `m${i}`,
+      display_name: `M${i}`,
+      is_public: true
+    }))
+    api.getScopes.mockResolvedValue(many)
+    const query = ['bogus', ...many.map(s => s.id)].map(id => `scopes=${id}`).join('&')
+    await mountView(`/genes?${query}`)
+    const ids = api.getMatrix.mock.calls.at(-1)![0].scope_ids
+    expect(ids).toHaveLength(50)
+    expect(ids).not.toContain('bogus')
+    api.getMatrix.mockClear()
+    await mountView('/genes?scopes=bogus')
+    expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(many.slice(0, 5).map(s => s.id))
+  })
+
+  it("lists the member's private scopes in the picker count", async () => {
+    userScopes.list = [{ id: 'priv', display_name: 'Private panel', user_role: 'curator' }]
+    scopesApi.fetchUserScopes.mockResolvedValue([])
+    const { wrapper } = await mountView()
+    useAuthStore().isAuthenticated = true
+    await flushPromises()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('[data-testid="scope-picker"]').text()).toBe('Scopes shown: 3 of 3')
   })
 })

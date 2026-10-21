@@ -45,7 +45,9 @@
             :label="s.display_name"
             density="compact"
             hide-details
-            :disabled="!modelValue.includes(s.id) && modelValue.length >= MAX"
+            :disabled="
+              modelValue.includes(s.id) ? modelValue.length <= 1 : modelValue.length >= MAX
+            "
             @update:model-value="toggle(s.id)"
           />
         </v-list-item>

@@ -34,6 +34,8 @@ export interface MatrixFetch {
 
 export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
   const availableScopes = ref<Schema<'ScopeFilterOption'>[]>([])
+  /** Scopes the signed-in user belongs to; private or in-progress-only ones are not in the public list. */
+  const memberScopes = ref<{ id: string; display_name: string }[]>([])
   const saved = ref<string[] | null>(readSaved())
   const scopes = ref<Schema<'MatrixScope'>[]>([])
   const rows = ref<Schema<'MatrixRow'>[]>([])
@@ -41,8 +43,20 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
 
+  const allScopes = computed(() => {
+    const byId = new Map<string, { id: string; display_name: string }>()
+    for (const s of [...availableScopes.value, ...memberScopes.value]) {
+      if (!byId.has(s.id)) byId.set(s.id, { id: s.id, display_name: s.display_name })
+    }
+    return [...byId.values()]
+  })
+
+  function setMemberScopes(list: { id: string; display_name: string }[]) {
+    memberScopes.value = list
+  }
+
   const defaultShownIds = computed(() => {
-    const ids = availableScopes.value.map(s => s.id)
+    const ids = allScopes.value.map(s => s.id)
     const keep = saved.value?.filter(id => ids.includes(id))
     return keep?.length ? keep : ids.slice(0, DEFAULT_COLUMNS)
   })
@@ -65,7 +79,10 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
     }
   }
 
+  // Only the latest request may write state; an older, slower response is dropped.
+  let latest = 0
   async function fetch(q: MatrixFetch) {
+    const mine = ++latest
     error.value = null
     if (!q.scopeIds.length) {
       scopes.value = rows.value = []
@@ -82,21 +99,25 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
         limit: q.size,
         sort_order: q.desc ? 'desc' : 'asc'
       })
+      if (mine !== latest) return
       scopes.value = data.scopes
       rows.value = data.rows
       total.value = data.total
     } catch (err) {
+      if (mine !== latest) return
       scopes.value = rows.value = []
       total.value = 0
       error.value = errorMessage(err, 'Could not load the catalogue')
       logService.error('Failed to load catalogue matrix', { error: error.value })
     } finally {
-      loading.value = false
+      if (mine === latest) loading.value = false
     }
   }
 
   return {
     availableScopes,
+    allScopes,
+    setMemberScopes,
     scopes,
     rows,
     total,

@@ -63,4 +63,12 @@ describe('ScopePicker', () => {
     expect(body().querySelector('[data-testid="preset-mine"]')).toBeNull()
     bare.unmount()
   })
+
+  it('keeps the last shown scope checked and disabled', async () => {
+    const w = mountPicker({ modelValue: ['s4'] })
+    await open(w)
+    const box = body().querySelector('[data-testid="scope-s4"] input') as HTMLInputElement
+    expect(box.disabled).toBe(true)
+    w.unmount()
+  })
 })

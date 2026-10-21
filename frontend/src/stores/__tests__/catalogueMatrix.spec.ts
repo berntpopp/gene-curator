@@ -99,4 +99,31 @@ describe('catalogueMatrix store', () => {
     await store.loadScopes()
     expect(store.error).toBe('down')
   })
+
+  it('merges public scopes with the member scopes, without duplicates', async () => {
+    api.getScopes.mockResolvedValue(scopes)
+    const store = useCatalogueMatrixStore()
+    await store.loadScopes()
+    store.setMemberScopes([
+      { id: 'b', display_name: 'B again' },
+      { id: 'p', display_name: 'Private' }
+    ])
+    expect(store.allScopes.map(s => s.id)).toEqual(['a', 'b', 'c', 'p'])
+    expect(store.allScopes.find(s => s.id === 'b')!.display_name).toBe('B')
+  })
+
+  it('ignores a response that is not the latest request', async () => {
+    let first!: (v: unknown) => void
+    api.getMatrix
+      .mockImplementationOnce(() => new Promise(r => (first = r)))
+      .mockResolvedValueOnce({ scopes: [], rows: [{ gene_id: 'new' }], total: 1 })
+    const store = useCatalogueMatrixStore()
+    const slow = store.fetch({ scopeIds: ['a'], page: 1, size: 25 })
+    await store.fetch({ scopeIds: ['a'], search: 'x', page: 1, size: 25 })
+    first({ scopes: [], rows: [{ gene_id: 'old' }], total: 9 })
+    await slow
+    expect(store.rows).toEqual([{ gene_id: 'new' }])
+    expect(store.total).toBe(1)
+    expect(store.loading).toBe(false)
+  })
 })
