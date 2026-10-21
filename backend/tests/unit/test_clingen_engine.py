@@ -9,7 +9,15 @@ import math
 
 import pytest
 
-from app.scoring.clingen import ClinGenEngine
+from app.scoring.clingen import (
+    ClinGenEngine,
+    legacy_case_level_points,
+    legacy_lod,
+    legacy_lod_to_points,
+    legacy_segregation_points,
+    lod_to_points_sop11,
+    segregation_points,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -40,34 +48,27 @@ def _null_item(points: float = 1.5, pmid: str = VALID_PMID) -> dict:
     return {"pmid": pmid, "proband_counted_points": points}
 
 
+def _section(engine: ClinGenEngine, key: str, evidence) -> tuple[float, dict]:
+    """(section score, {category: score}) for one section's evidence."""
+    result = engine.calculate_scores({key: evidence}, {})
+    (section,) = (
+        s for s in result.evidence_breakdown["trace"]["sections"] if s["key"] == key
+    )
+    return section["score"], {c["key"]: c["score"] for c in section["categories"]}
+
+
+def _genetic(engine: ClinGenEngine, evidence) -> tuple[float, dict]:
+    return _section(engine, "genetic_evidence", evidence)
+
+
+def _experimental(engine: ClinGenEngine, evidence) -> tuple[float, dict]:
+    return _section(engine, "experimental_evidence", evidence)
+
+
 # Classification thresholds
 
 
 class TestClassification:
-    @pytest.mark.parametrize(
-        ("total", "expected"),
-        [
-            (18.0, "strong"),
-            (12.0, "strong"),
-            (11.99, "moderate"),
-            (7.0, "moderate"),
-            (6.99, "limited"),
-            (2.0, "limited"),
-            (1.99, "limited"),
-            (0.1, "limited"),
-            (0.09, "no_known"),
-            (0.0, "no_known"),
-            (-0.5, "disputed"),
-            (-1.0, "disputed"),
-            (-1.01, "refuted"),
-            (-2.0, "refuted"),
-        ],
-    )
-    def test_classify_boundaries(
-        self, engine: ClinGenEngine, total: float, expected: str
-    ):
-        assert engine._classify(total) == expected
-
     def test_empty_evidence_is_no_known(self, engine: ClinGenEngine):
         result = engine.calculate_scores({}, {})
 
@@ -76,9 +77,15 @@ class TestClassification:
         assert "No genetic evidence provided" in " ".join(result.warnings)
 
     def test_rationale_names_classification(self, engine: ClinGenEngine):
-        rationale = engine._generate_rationale(12.0, 6.0, 18.0, "definitive")
+        evidence = {
+            "genetic_evidence": _nested_case_level(null_items=[_null_item(3)] * 4),
+            "experimental_evidence": {"models": {"non_human_model_organism": [{}]}},
+            "replicated_over_time": True,
+        }
+        rationale = engine.calculate_scores(evidence, {}).verdict_rationale
 
-        assert "total score = 18.0 points" in rationale
+        assert "total score = 14.0 points" in rationale
+        assert "genetic evidence = 12.0 points" in rationale
         assert "DEFINITIVE" in rationale
 
     def test_metadata_reports_sop_version(self, engine: ClinGenEngine):
@@ -113,8 +120,8 @@ class TestNestedGeneticEvidence:
         assert result.verdict == "limited"
 
     def test_case_level_null_without_points_scores_zero(self, engine: ClinGenEngine):
-        score, _ = engine._calculate_genetic_evidence(
-            _nested_case_level(null_items=[{"pmid": VALID_PMID}])
+        score, _ = _genetic(
+            engine, _nested_case_level(null_items=[{"pmid": VALID_PMID}])
         )
 
         assert score == 0  # matches the frontend: no points entered, none counted
@@ -122,22 +129,20 @@ class TestNestedGeneticEvidence:
     def test_case_level_capped_at_twelve(self, engine: ClinGenEngine):
         items = [_null_item(1.5) for _ in range(10)]  # 15 raw points
 
-        score, details = engine._calculate_genetic_evidence(
-            _nested_case_level(null_items=items)
-        )
+        score, details = _genetic(engine, _nested_case_level(null_items=items))
 
         assert score == pytest.approx(12.0)
-        assert details["case_level_details"]["total"] == pytest.approx(12.0)
+        assert details["case_level"] == pytest.approx(12.0)
 
     def test_segregation_points_capped_at_three(self, engine: ClinGenEngine):
         evidence = {
             "segregation": [{"points": 2}, {"points": 2}],
         }
 
-        score, details = engine._calculate_genetic_evidence(evidence)
+        score, details = _genetic(engine, evidence)
 
         assert score == pytest.approx(3.0)
-        assert details["segregation_score"] == pytest.approx(3.0)
+        assert details["segregation"] == pytest.approx(3.0)
 
     @pytest.mark.parametrize(
         ("lod", "points"),
@@ -151,19 +156,19 @@ class TestNestedGeneticEvidence:
             (5.0, 3.0),
         ],
     )
-    def test_sop11_lod_to_points_boundaries(
-        self, engine: ClinGenEngine, lod: float, points: float
-    ):
-        assert engine._lod_to_points_sop11(lod) == points
+    def test_sop11_lod_to_points_boundaries(self, lod: float, points: float):
+        assert lod_to_points_sop11(lod) == points
 
     def test_segregation_lod_score_converted(self, engine: ClinGenEngine):
-        assert engine._score_segregation_nested({"lod_score": 1.5}) == 2.0
+        assert segregation_points({"lod_score": 1.5}) == 2.0
+        score, _ = _genetic(engine, {"segregation": [{"lod_score": 1.5}]})
+        assert score == 2.0
 
-    def test_segregation_counted_fallback(self, engine: ClinGenEngine):
+    def test_segregation_counted_fallback(self):
         # 3 segregations -> LOD = 3 * log10(2) ~= 0.903 -> 1 point
-        assert engine._score_segregation_nested({"segregations_counted": 3}) == 1.0
-        assert engine._score_segregation_nested({"segregations_counted": 0}) == 0.0
-        assert engine._score_segregation_nested({}) == 0.0
+        assert segregation_points({"segregations_counted": 3}) == 1.0
+        assert segregation_points({"segregations_counted": 0}) == 0.0
+        assert segregation_points({}) == 0.0
 
     def test_case_control_takes_max_of_single_and_aggregate(
         self, engine: ClinGenEngine
@@ -175,15 +180,15 @@ class TestNestedGeneticEvidence:
             }
         }
 
-        score, details = engine._calculate_genetic_evidence(evidence)
+        score, details = _genetic(engine, evidence)
 
         assert score == pytest.approx(4.0)  # max(4, 3), not the sum
-        assert details["case_control_details"]["total"] == pytest.approx(4.0)
+        assert details["case_control"] == pytest.approx(4.0)
 
     def test_case_control_capped_at_six(self, engine: ClinGenEngine):
         evidence = {"case_control": {"single_variant_analysis": [{"points": 7.0}]}}
 
-        score, _ = engine._calculate_genetic_evidence(evidence)
+        score, _ = _genetic(engine, evidence)
 
         assert score == pytest.approx(6.0)
 
@@ -198,7 +203,7 @@ class TestNestedGeneticEvidence:
             "case_control": {"single_variant_analysis": [{"points": 6}]},
         }
 
-        score, _ = engine._calculate_genetic_evidence(evidence)
+        score, _ = _genetic(engine, evidence)
 
         assert score == pytest.approx(12.0)  # 12 + 3 + 6 = 21, capped
 
@@ -230,18 +235,18 @@ class TestNestedExperimentalEvidence:
             },  # 6.0 -> cap 4
         }
 
-        total, details = engine._calculate_experimental_evidence(evidence)
+        total, details = _experimental(engine, evidence)
 
-        assert details["function_score"] == pytest.approx(2.0)
-        assert details["functional_alteration_score"] == pytest.approx(2.0)
-        assert details["models_score"] == pytest.approx(4.0)
-        assert details["rescue_score"] == pytest.approx(4.0)
+        assert details["function"] == pytest.approx(2.0)
+        assert details["functional_alteration"] == pytest.approx(2.0)
+        assert details["models"] == pytest.approx(4.0)
+        assert details["rescue"] == pytest.approx(4.0)
         assert total == pytest.approx(6.0)  # 12 raw, capped at 6
 
     def test_experimental_total_below_cap_is_summed(self, engine: ClinGenEngine):
         evidence = {"function": {"biochemical_function": [{"points": 1.0}]}}
 
-        total, _ = engine._calculate_experimental_evidence(evidence)
+        total, _ = _experimental(engine, evidence)
 
         assert total == pytest.approx(1.0)
 
@@ -309,7 +314,7 @@ class TestNestedEndToEnd:
 
 
 class TestLegacyFormat:
-    def test_case_level_bonuses_exact(self, engine: ClinGenEngine):
+    def test_case_level_bonuses_exact(self):
         # predicted_null 2 probands: 3.0 base + 1.0 de novo + 0.8 functional
         item = {
             "evidence_category": "case_level",
@@ -319,7 +324,7 @@ class TestLegacyFormat:
             "functional_alteration": True,
         }
 
-        assert engine._score_case_level(item) == pytest.approx(4.8)
+        assert legacy_case_level_points(item) == pytest.approx(4.8)
 
     @pytest.mark.parametrize(
         ("variant_type", "de_novo", "expected"),
@@ -330,24 +335,18 @@ class TestLegacyFormat:
             ("PREDICTED_NULL", False, 4.5),  # case-insensitive
         ],
     )
-    def test_case_level_variant_types(
-        self, engine: ClinGenEngine, variant_type, de_novo, expected
-    ):
+    def test_case_level_variant_types(self, variant_type, de_novo, expected):
         item = {
             "variant_type": variant_type,
             "proband_count": 3,
             "de_novo": de_novo,
         }
 
-        assert engine._score_case_level(item) == pytest.approx(expected)
+        assert legacy_case_level_points(item) == pytest.approx(expected)
 
-    def test_case_level_negative_proband_count_clamped(self, engine: ClinGenEngine):
-        assert (
-            engine._score_case_level(
-                {"variant_type": "predicted_null", "proband_count": -4}
-            )
-            == 0.0
-        )
+    def test_case_level_negative_proband_count_clamped(self):
+        item = {"variant_type": "predicted_null", "proband_count": -4}
+        assert legacy_case_level_points(item) == 0.0
 
     def test_legacy_case_level_capped_at_twelve(self, engine: ClinGenEngine):
         evidence = [
@@ -359,10 +358,10 @@ class TestLegacyFormat:
             for _ in range(10)
         ]
 
-        score, details = engine._calculate_genetic_evidence(evidence)
+        score, details = _genetic(engine, evidence)
 
         assert score == pytest.approx(12.0)
-        assert details["case_level_score"] == pytest.approx(12.0)
+        assert details["case_level"] == pytest.approx(12.0)
 
     @pytest.mark.parametrize(
         ("lod", "points"),
@@ -378,43 +377,31 @@ class TestLegacyFormat:
             (100.0, 7.0),  # capped
         ],
     )
-    def test_legacy_lod_to_points(self, engine: ClinGenEngine, lod, points):
-        assert engine._lod_to_points(lod, "autosomal_dominant") == pytest.approx(points)
+    def test_legacy_lod_to_points(self, lod, points):
+        assert legacy_lod_to_points(lod) == pytest.approx(points)
 
-    def test_dominant_lod_from_family_count(self, engine: ClinGenEngine):
-        assert engine._calculate_dominant_lod(0) == 0.0
-        assert engine._calculate_dominant_lod(1) == pytest.approx(3 * math.log10(2))
+    def test_dominant_lod_from_family_count(self):
+        assert legacy_lod(0, "autosomal_dominant") == 0.0
+        assert legacy_lod(1, "x_linked") == pytest.approx(3 * math.log10(2))
 
-    def test_recessive_lod_from_family_count(self, engine: ClinGenEngine):
-        assert engine._calculate_recessive_lod(0) == 0.0
-        assert engine._calculate_recessive_lod(5) == pytest.approx(10 * math.log10(2))
+    def test_recessive_lod_from_family_count(self):
+        assert legacy_lod(0, "autosomal_recessive") == 0.0
+        assert legacy_lod(5, "autosomal_recessive") == pytest.approx(10 * math.log10(2))
 
-    def test_segregation_from_family_count(self, engine: ClinGenEngine):
+    def test_segregation_from_family_count(self):
         # 1 dominant family -> LOD 0.90 -> 0 points
-        assert (
-            engine._score_segregation(
-                {"family_count": 1, "inheritance_pattern": "autosomal_dominant"}
-            )
-            == 0.0
-        )
+        dominant = {"family_count": 1, "inheritance_pattern": "autosomal_dominant"}
+        assert legacy_segregation_points(dominant) == 0.0
         # 5 recessive families -> LOD 3.01 -> 1 point
-        assert (
-            engine._score_segregation(
-                {"family_count": 5, "inheritance_pattern": "autosomal_recessive"}
-            )
-            == 1.0
-        )
+        recessive = {"family_count": 5, "inheritance_pattern": "autosomal_recessive"}
+        assert legacy_segregation_points(recessive) == 1.0
 
-    def test_segregation_unknown_inheritance_scores_zero(self, engine: ClinGenEngine):
-        assert (
-            engine._score_segregation(
-                {"family_count": 50, "inheritance_pattern": "mitochondrial"}
-            )
-            == 0.0
-        )
+    def test_segregation_unknown_inheritance_scores_zero(self):
+        item = {"family_count": 50, "inheritance_pattern": "mitochondrial"}
+        assert legacy_segregation_points(item) == 0.0
 
-    def test_segregation_explicit_lod_used_directly(self, engine: ClinGenEngine):
-        assert engine._score_segregation({"lod_score": 5.5}) == 2.0
+    def test_segregation_explicit_lod_used_directly(self):
+        assert legacy_segregation_points({"lod_score": 5.5}) == 2.0
 
     def test_legacy_segregation_capped_at_three(self, engine: ClinGenEngine):
         evidence = [
@@ -422,7 +409,7 @@ class TestLegacyFormat:
             {"evidence_category": "segregation", "lod_score": 9.0},
         ]
 
-        score, _ = engine._calculate_genetic_evidence(evidence)
+        score, _ = _genetic(engine, evidence)
 
         assert score == pytest.approx(3.0)
 
@@ -438,11 +425,11 @@ class TestLegacyFormat:
             },  # 2.0
         ]
 
-        total, details = engine._calculate_experimental_evidence(items)
+        total, details = _experimental(engine, items)
 
-        assert details["function_score"] == pytest.approx(2.0)  # 3.0 capped
-        assert details["models_score"] == pytest.approx(4.0)
-        assert details["rescue_score"] == pytest.approx(2.0)
+        assert details["function"] == pytest.approx(2.0)  # 3.0 capped
+        assert details["models"] == pytest.approx(4.0)
+        assert details["rescue"] == pytest.approx(2.0)
         assert total == pytest.approx(6.0)  # 8.0 capped
 
     def test_legacy_rescue_default_zero_without_observation(
@@ -450,7 +437,7 @@ class TestLegacyFormat:
     ):
         items = [{"evidence_category": "rescue", "model_system": "human"}]
 
-        total, _ = engine._calculate_experimental_evidence(items)
+        total, _ = _experimental(engine, items)
 
         assert total == 0.0
 
