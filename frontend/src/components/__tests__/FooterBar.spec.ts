@@ -73,6 +73,12 @@ describe('FooterBar', () => {
     expect(logger.debug).toHaveBeenCalledWith('Disclaimer button clicked in footer')
   })
 
+  it('keeps the visible label in the disclaimer button accessible name (WCAG 2.5.3)', () => {
+    mountFooter()
+
+    expect(buttonWith('Disclaimer')?.attributes('aria-label')).toMatch(/^Disclaimer/)
+  })
+
   it('hides the Logs button from non-admins outside dev builds', () => {
     vi.stubEnv('DEV', false)
     mountFooter()
