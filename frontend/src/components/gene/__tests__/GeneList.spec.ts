@@ -199,6 +199,16 @@ describe('GeneList', () => {
       expect(wrapper.text()).toContain('Add genes')
     })
 
+    it('explains who can add genes to those who cannot, and only to them', async () => {
+      scopeState.currentUserRole = 'admin'
+      expect((await mountList()).find('[data-testid=no-assign-note]').exists()).toBe(false)
+      for (const role of ['curator', 'reviewer', 'viewer']) {
+        scopeState.currentUserRole = role
+        const note = (await mountList()).find('[data-testid=no-assign-note]')
+        expect(note.text()).toBe('Only scope admins can add or assign genes.')
+      }
+    })
+
     it('hides the add and assign buttons for curators, reviewers and viewers', async () => {
       for (const role of ['curator', 'viewer', 'reviewer']) {
         scopeState.currentUserRole = role

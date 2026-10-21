@@ -10,6 +10,14 @@
       <template v-else>Ask a scope admin to choose one.</template>
     </v-alert>
 
+    <p
+      v-if="!canReassign"
+      class="text-body-small text-medium-emphasis mb-2"
+      data-testid="no-assign-note"
+    >
+      Only scope admins can add or assign genes.
+    </p>
+
     <div class="gene-layout">
       <div class="gene-layout__main">
         <ScopeStageStrip

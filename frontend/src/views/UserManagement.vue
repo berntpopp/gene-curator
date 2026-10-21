@@ -4,7 +4,7 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <div>
-            <h1 class="text-headline-large font-weight-bold">User Management</h1>
+            <h1 class="page-title text-headline-large font-weight-bold">User Management</h1>
             <p class="text-body-large text-medium-emphasis mt-1">
               Manage user accounts, roles, and permissions
             </p>

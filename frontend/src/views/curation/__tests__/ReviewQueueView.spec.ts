@@ -70,7 +70,7 @@ describe('ReviewQueueView', () => {
     expect(precurationsAPI.getPrecurations).toHaveBeenCalledWith(
       expect.objectContaining({ pending_review: true })
     )
-    expect(wrapper.text()).toContain('All caught up!')
+    expect(wrapper.text()).toContain('No reviews waiting')
   })
 
   it('shows the scope display name instead of the machine name', async () => {

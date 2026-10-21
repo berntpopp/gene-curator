@@ -114,6 +114,20 @@ describe('App', () => {
     wrapper.unmount()
   })
 
+  it('marks the app has-phone-header only while the phone header renders', async () => {
+    display.mdAndUp = ref(false)
+    const auth = reactive({ initialize: authInitialize, isAuthenticated: false })
+    vi.mocked(useAuthStore).mockReturnValue(auth as never)
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
+    await flushPromises()
+    expect(wrapper.classes()).not.toContain('has-phone-header') // guest phone keeps view titles
+    auth.isAuthenticated = true
+    await flushPromises()
+    expect(wrapper.classes()).toContain('has-phone-header')
+    display.mdAndUp = ref(true)
+    wrapper.unmount()
+  })
+
   it('initialises auth and disclaimer stores on mount', async () => {
     const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
     await flushPromises()
