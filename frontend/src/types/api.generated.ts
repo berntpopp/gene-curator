@@ -1831,30 +1831,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/genes/": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Genes
-         * @description Retrieve genes with filtering and pagination.
-         */
-        get: operations["get_genes_api_v1_genes__get"];
-        put?: never;
-        /**
-         * Create Gene
-         * @description Create a gene from its HGNC id (scope curators/admins, platform admins); data comes from HGNC.
-         */
-        post: operations["create_gene_api_v1_genes__post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/genes/search/count": {
         parameters: {
             query?: never;
@@ -1889,6 +1865,70 @@ export interface paths {
         get: operations["search_genes_api_v1_genes_search_get"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genes/hgnc/{hgnc_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Gene By Hgnc Id
+         * @description Get gene by HGNC ID.
+         */
+        get: operations["get_gene_by_hgnc_id_api_v1_genes_hgnc__hgnc_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genes/symbol/{symbol}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Genes By Symbol
+         * @description Get genes by symbol (partial match).
+         */
+        get: operations["get_genes_by_symbol_api_v1_genes_symbol__symbol__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genes/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Genes
+         * @description Retrieve genes with filtering and pagination.
+         */
+        get: operations["get_genes_api_v1_genes__get"];
+        put?: never;
+        /**
+         * Create Gene
+         * @description Create a gene from its HGNC id (scope curators/admins, platform admins); data comes from HGNC.
+         */
+        post: operations["create_gene_api_v1_genes__post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2039,46 +2079,6 @@ export interface paths {
          * @description Validate gene information against external sources.
          */
         post: operations["validate_gene_api_v1_genes__gene_id__validate_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/genes/hgnc/{hgnc_id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Gene By Hgnc Id
-         * @description Get gene by HGNC ID.
-         */
-        get: operations["get_gene_by_hgnc_id_api_v1_genes_hgnc__hgnc_id__get"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/genes/symbol/{symbol}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Genes By Symbol
-         * @description Get genes by symbol (partial match).
-         */
-        get: operations["get_genes_by_symbol_api_v1_genes_symbol__symbol__get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -12543,83 +12543,6 @@ export interface operations {
             };
         };
     };
-    get_genes_api_v1_genes__get: {
-        parameters: {
-            query?: {
-                /** @description Number of records to skip */
-                skip?: number;
-                /** @description Maximum number of records */
-                limit?: number;
-                /** @description Filter by scope */
-                scope_id?: string | null;
-                /** @description Only show assigned genes */
-                assigned_only?: boolean;
-                /** @description Filter by active work status */
-                has_active_work?: boolean | null;
-                /** @description Field to sort by */
-                sort_by?: string;
-                /** @description Sort order */
-                sort_order?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GeneListResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    create_gene_api_v1_genes__post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GeneCreate"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Gene"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     count_search_genes_api_v1_genes_search_count_get: {
         parameters: {
             query?: {
@@ -12687,6 +12610,145 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeneSummary"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gene_by_hgnc_id_api_v1_genes_hgnc__hgnc_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                hgnc_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Gene"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_genes_by_symbol_api_v1_genes_symbol__symbol__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                symbol: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Gene"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_genes_api_v1_genes__get: {
+        parameters: {
+            query?: {
+                /** @description Number of records to skip */
+                skip?: number;
+                /** @description Maximum number of records */
+                limit?: number;
+                /** @description Filter by scope */
+                scope_id?: string | null;
+                /** @description Only show assigned genes */
+                assigned_only?: boolean;
+                /** @description Filter by active work status */
+                has_active_work?: boolean | null;
+                /** @description Field to sort by */
+                sort_by?: string;
+                /** @description Sort order */
+                sort_order?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_gene_api_v1_genes__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Gene"];
                 };
             };
             /** @description Validation Error */
@@ -12983,68 +13045,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeneValidationResult"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_gene_by_hgnc_id_api_v1_genes_hgnc__hgnc_id__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                hgnc_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Gene"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    get_genes_by_symbol_api_v1_genes_symbol__symbol__get: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                symbol: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Gene"][];
                 };
             };
             /** @description Validation Error */
