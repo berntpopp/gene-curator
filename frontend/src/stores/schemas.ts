@@ -6,6 +6,10 @@ import type { Schema } from '@/types/api'
 type CurationSchemaRecord = Schema<'CurationSchema'>
 type WorkflowPairRecord = Schema<'WorkflowPair'>
 
+/** 1.0.0 -> 1.0.1; a version without a numeric last part gets ".1" appended. */
+const bumpPatch = (version: string) =>
+  /\.\d+$/.test(version) ? version.replace(/\d+$/, n => String(Number(n) + 1)) : `${version}.1`
+
 interface SchemasState {
   schemas: CurationSchemaRecord[]
   workflowPairs: WorkflowPairRecord[]
@@ -158,14 +162,14 @@ export const useSchemasStore = defineStore('schemas', {
     },
 
     /**
-     * Create a copy of a schema under the name "<name> (copy)" (client-side: fetch, then create;
-     * the backend has no duplicate endpoint).
+     * Create an inactive copy with the patch version bumped (client-side: fetch, then create;
+     * the backend has no duplicate endpoint). The admin activates it after editing.
      */
     async duplicateSchema(id: string) {
       const source = await schemasAPI.getSchemaById(id)
       const payload: Schema<'CurationSchemaCreate'> = {
-        name: `${source.name} (copy)`,
-        version: source.version,
+        name: source.name,
+        version: bumpPatch(source.version),
         schema_type: source.schema_type,
         institution: source.institution,
         description: source.description,
@@ -174,7 +178,7 @@ export const useSchemasStore = defineStore('schemas', {
         workflow_states: source.workflow_states,
         ui_configuration: source.ui_configuration,
         scoring_configuration: source.scoring_configuration,
-        is_active: source.is_active,
+        is_active: false,
         use_dynamic_form: source.use_dynamic_form
       }
       return this.createSchema(payload)

@@ -13,7 +13,7 @@
           icon="mdi-arrow-left"
           variant="text"
           class="mr-4"
-          @click="$router.back()"
+          @click="router.push({ name: 'SchemaManagement' })"
         />
         <div>
           <h1 class="text-h4 font-weight-bold">
@@ -34,6 +34,7 @@
             color="success"
             variant="flat"
             :loading="saving"
+            :disabled="!isValidJson || !!scoringError"
             @click="saveSchema"
           >
             <v-icon start>mdi-content-save</v-icon>
@@ -101,6 +102,23 @@
             </v-card-text>
           </v-card>
 
+          <v-alert
+            v-if="validation"
+            :type="validation.is_valid ? 'success' : 'error'"
+            variant="tonal"
+            class="mb-6"
+            closable
+            @click:close="validation = null"
+          >
+            <div v-if="validation.is_valid">Schema is valid</div>
+            <ul v-if="validation.errors?.length" class="ps-4">
+              <li v-for="e in validation.errors" :key="e">{{ e }}</li>
+            </ul>
+            <ul v-if="validation.warnings?.length" class="ps-4">
+              <li v-for="w in validation.warnings" :key="w">Warning: {{ w }}</li>
+            </ul>
+          </v-alert>
+
           <!-- JSON Schema Definition -->
           <v-card class="mb-6">
             <v-card-title class="d-flex align-center">
@@ -117,7 +135,7 @@
                 label="Field Definitions (JSON)"
                 variant="outlined"
                 rows="20"
-                font-family="monospace"
+                class="json-input"
                 :error="!isValidJson"
                 :error-messages="jsonError ? [jsonError] : []"
                 @input="validateJson"
@@ -129,7 +147,7 @@
           </v-card>
 
           <!-- Scoring Configuration -->
-          <v-card v-if="schema.scoring_configuration">
+          <v-card v-if="schema.scoring_configuration || isEditing">
             <v-card-title class="d-flex align-center">
               <v-icon start>mdi-calculator</v-icon>
               Scoring Configuration
@@ -144,7 +162,8 @@
                 label="Scoring Configuration"
                 variant="outlined"
                 rows="10"
-                font-family="monospace"
+                class="json-input"
+                :error-messages="scoringError ? [scoringError] : []"
                 @input="validateScoringConfig"
               />
             </v-card-text>
@@ -160,10 +179,6 @@
               <div class="d-flex justify-space-between mb-2">
                 <span>Total Fields:</span>
                 <span class="font-weight-medium">{{ getFieldCount() }}</span>
-              </div>
-              <div class="d-flex justify-space-between mb-2">
-                <span>Required Fields:</span>
-                <span class="font-weight-medium">{{ getRequiredFieldCount() }}</span>
               </div>
               <div class="d-flex justify-space-between">
                 <span>Last Modified:</span>
@@ -225,15 +240,17 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
+  import { errorMessage } from '@/stores/apiError'
+  import { showError } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
 
-  // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
     message?: string
     stack?: string
   }
 
   type SchemaDetail = Schema<'CurationSchema'>
+  type ValidationResult = Schema<'SchemaValidationResult'>
 
   const route = useRoute()
   const router = useRouter()
@@ -250,6 +267,8 @@
   const scoringConfigText = ref('')
   const isValidJson = ref(true)
   const jsonError = ref('')
+  const scoringError = ref('')
+  const validation = ref<ValidationResult | null>(null)
   const basicForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   const schemaId = computed(() => String(route.params.id))
@@ -264,13 +283,11 @@
   }
 
   const formatDate = (dateString: string | null | undefined) => {
-    return new Date(dateString as string).toLocaleDateString()
+    return dateString ? new Date(dateString).toLocaleDateString() : '—'
   }
 
   const fieldDefinitions = () => Object.values(schema.value?.field_definitions ?? {})
   const getFieldCount = () => fieldDefinitions().length
-  const getRequiredFieldCount = () =>
-    fieldDefinitions().filter(f => (f as { required?: boolean } | null)?.required === true).length
 
   // Seed the edit buffer and JSON editors from a loaded schema
   const resetEditor = (source: SchemaDetail) => {
@@ -299,17 +316,17 @@
 
   const validateScoringConfig = () => {
     try {
-      JSON.parse(scoringConfigText.value)
+      if (scoringConfigText.value.trim()) JSON.parse(scoringConfigText.value)
+      scoringError.value = ''
     } catch (e) {
-      const err = e as Error
-      logger.error('Invalid scoring config JSON:', { error: err.message, stack: err.stack })
+      scoringError.value = (e as Error).message
     }
   }
 
   const saveSchema = async () => {
     if (!basicForm.value) return
     const { valid } = await basicForm.value.validate()
-    if (!valid || !isValidJson.value) return
+    if (!valid || !isValidJson.value || scoringError.value) return
 
     saving.value = true
     try {
@@ -319,9 +336,11 @@
         scoring_configuration: scoringConfigText.value ? JSON.parse(scoringConfigText.value) : null
       })
       isEditing.value = false
+      validation.value = null
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to save schema:', { error: err.message, stack: err.stack })
+      showError(errorMessage(error, 'Failed to save schema'))
     } finally {
       saving.value = false
     }
@@ -337,10 +356,11 @@
     validating.value = true
     try {
       const result = await schemasStore.validateSchema(schemaId.value)
-      logger.info('Schema validation result:', result)
+      validation.value = result
     } catch (error) {
       const err = error as ApiError
       logger.error('Schema validation failed:', { error: err.message, stack: err.stack })
+      showError(errorMessage(error, 'Schema validation failed'))
     } finally {
       validating.value = false
     }
@@ -365,6 +385,7 @@
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to duplicate schema:', { error: err.message, stack: err.stack })
+      showError(errorMessage(error, 'Failed to duplicate schema'))
     }
   }
 
@@ -377,6 +398,7 @@
       } catch (error) {
         const err = error as ApiError
         logger.error('Failed to delete schema:', { error: err.message, stack: err.stack })
+        showError(errorMessage(error, 'Failed to delete schema'))
       }
     }
   }
@@ -421,6 +443,10 @@
     overflow-x: auto;
     font-family: 'Courier New', monospace;
     font-size: 14px;
+  }
+
+  .json-input :deep(textarea) {
+    font-family: monospace;
   }
 
   .d-grid {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import ClinGenCurationForm from '../ClinGenCurationForm.vue'
 import ScoreSummary from '../ScoreSummary.vue'
@@ -48,6 +48,56 @@ describe('ClinGenCurationForm', () => {
     expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeUndefined()
   })
 
+  describe('replication over time', () => {
+    const strong: Partial<ClinGenEvidenceData> = {
+      genetic_evidence: {
+        case_level: {
+          autosomal_dominant_or_x_linked: {
+            predicted_or_proven_null: [{ proband_counted_points: 12 }],
+            other_variant_type: []
+          }
+        }
+      }
+    }
+
+    it('classifies Strong as Definitive when replicated, and stays Strong otherwise', async () => {
+      wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: strong } })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Strong')
+
+      await wrapper.setProps({ initialData: { ...strong, replicated_over_time: true } })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Definitive')
+    })
+
+    it('stays Disputed with contradictory evidence even when replicated', async () => {
+      wrapper = mount(ClinGenCurationForm, {
+        props: {
+          gene,
+          initialData: {
+            ...strong,
+            replicated_over_time: true,
+            contradictory_evidence: [{ label: 'Lab study' }]
+          }
+        }
+      })
+      await flushPromises()
+      expect(wrapper.findComponent(ScoreSummary).props('classification')).toBe('Disputed')
+    })
+
+    it('stores the toggle in the emitted data and is disabled when read-only', async () => {
+      wrapper = mount(ClinGenCurationForm, { props: { gene } })
+      wrapper.findComponent({ name: 'VCheckbox' }).vm.$emit('update:modelValue', true)
+      await flushPromises()
+      const emitted = wrapper.emitted('update:model-value')?.[0]?.[0] as ClinGenEvidenceData
+      expect(emitted.replicated_over_time).toBe(true)
+
+      wrapper.unmount()
+      wrapper = mount(ClinGenCurationForm, { props: { gene, readonly: true } })
+      expect(wrapper.findComponent({ name: 'VCheckbox' }).props('disabled')).toBe(true)
+    })
+  })
+
   it('reports Disputed when contradictory evidence is present, regardless of score', async () => {
     wrapper = mount(ClinGenCurationForm, {
       props: {
@@ -69,15 +119,42 @@ describe('ClinGenCurationForm', () => {
     ).toEqual([{ proband_counted_points: 1.5 }])
   })
 
-  it('emits submit only from a submittable form, via Ctrl+Enter', async () => {
-    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+  it('asks for confirmation before emitting submit, also via Ctrl+Enter', async () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene }, attachTo: document.body })
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
-    expect(wrapper.emitted('submit')).toBeUndefined()
+    await flushPromises()
+    expect(document.body.textContent).not.toContain('Submit this curation')
 
     await wrapper.setProps({ initialData: withCaseLevel })
     await flushPromises()
     document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    await flushPromises()
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(document.body.textContent).toContain('Submit this curation')
+
+    const confirm = [...document.body.querySelectorAll('button')].find(
+      b => b.textContent?.trim() === 'Submit'
+    )
+    confirm?.click()
+    await flushPromises()
     expect(wrapper.emitted('submit')).toHaveLength(1)
+  })
+
+  it('explains why Submit for Review is disabled', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    expect(wrapper.text()).toContain('Add at least one scored evidence item')
+  })
+
+  it('shows parent-driven saving state and the saved time instead of local flags', async () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene, saving: true, lastSaved: Date.now() } })
+    expect(findButton(wrapper, 'Save Draft').classes()).toContain('v-btn--loading')
+    expect(wrapper.text()).toContain('Saved ')
+  })
+
+  it('does not advertise undo or quick actions', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    expect(wrapper.text()).not.toContain('Undo')
+    expect(wrapper.text()).not.toContain('Quick Actions')
   })
 
   it('saves a draft on Ctrl+S and prevents the browser default', async () => {
@@ -86,6 +163,27 @@ describe('ClinGenCurationForm', () => {
     document.dispatchEvent(event)
     expect(event.defaultPrevented).toBe(true)
     expect(wrapper.emitted('save-draft')).toHaveLength(1)
+  })
+
+  it('blurs the focused cell before saving so its last edit is committed', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    const input = document.createElement('input')
+    document.body.appendChild(input)
+    input.focus()
+    const blur = vi.spyOn(input, 'blur')
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    expect(blur).toHaveBeenCalled()
+    input.remove()
+  })
+
+  it('ignores Ctrl+S and Ctrl+Enter when read-only', () => {
+    wrapper = mount(ClinGenCurationForm, {
+      props: { gene, readonly: true, initialData: withCaseLevel }
+    })
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    expect(wrapper.emitted('save-draft')).toBeUndefined()
+    expect(wrapper.emitted('submit')).toBeUndefined()
   })
 
   it('disables saving and submitting in read-only mode', () => {

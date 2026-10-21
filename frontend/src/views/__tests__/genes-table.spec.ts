@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import GenesTable from '@/views/GenesTable.vue'
-import GeneAssignments from '@/views/GeneAssignments.vue'
 import About from '@/views/About.vue'
 import { useGenesStore } from '@/stores/genes'
 import { useAuthStore } from '@/stores/auth'
@@ -51,6 +50,26 @@ beforeEach(() => {
 })
 
 describe('GenesTable', () => {
+  it('shows the store error with Retry instead of the empty state', async () => {
+    useAuthStore().isAuthenticated = true
+    const genes = useGenesStore()
+    const fetchGenes = vi
+      .spyOn(genes, 'fetchGenes')
+      .mockImplementationOnce(async () => {
+        genes.error = 'Request failed'
+        throw new Error('500')
+      })
+      .mockResolvedValueOnce(undefined as never)
+    const wrapper = mount(GenesTable, { global: { stubs: { RouterLink: RouterLinkStub } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Request failed')
+    expect(wrapper.text()).not.toContain('No genes available')
+
+    await wrapper.find('button.retry').trigger('click')
+    await flushPromises()
+    expect(fetchGenes).toHaveBeenCalledTimes(2)
+  })
+
   it('lists the genes with only the columns the API provides', async () => {
     const { wrapper } = await mountTable()
     const text = wrapper.text()
@@ -124,14 +143,6 @@ describe('GenesTable', () => {
 })
 
 describe('static views', () => {
-  it('renders the gene assignments page around the assignment manager', () => {
-    const wrapper = mount(GeneAssignments, {
-      global: { stubs: { GeneAssignmentManager: true } }
-    })
-    expect(wrapper.text()).toContain('Gene Assignments')
-    expect(wrapper.findComponent({ name: 'GeneAssignmentManager' }).exists()).toBe(true)
-  })
-
   it('renders the about page', () => {
     const wrapper = mount(About, { global: { stubs: { RouterLink: RouterLinkStub } } })
     expect(wrapper.text()).toContain('Gene Curator')

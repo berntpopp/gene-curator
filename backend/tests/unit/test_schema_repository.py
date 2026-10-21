@@ -286,7 +286,7 @@ class TestCurationSchemaStructure:
                 },
                 "workflow_states": GOOD_STATES,
                 "ui_configuration": {"sections": []},
-                "scoring_configuration": {"engine": "clingen"},
+                "scoring_configuration": {"engine": "clingen_sop_v11"},
                 "validation_rules": {"r": {}},
             }
         )

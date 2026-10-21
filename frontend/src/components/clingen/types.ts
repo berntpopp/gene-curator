@@ -49,6 +49,7 @@ export interface ClinGenEvidenceData {
   genetic_evidence: GeneticEvidence
   experimental_evidence: ExperimentalEvidence
   contradictory_evidence: EvidenceItem[]
+  replicated_over_time?: boolean
 }
 
 export interface EvidenceColumn {

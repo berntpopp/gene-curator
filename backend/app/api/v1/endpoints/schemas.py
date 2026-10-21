@@ -28,6 +28,15 @@ from app.scoring.registry import scoring_registry
 router = APIRouter()
 
 
+def _require_active_schemas(db: Session, *schema_ids: UUID | None) -> None:
+    for schema_id in schema_ids:
+        schema = schema_crud.get(db, id=schema_id) if schema_id else None
+        if schema and not schema.is_active:
+            raise HTTPException(
+                status_code=400, detail=f"Schema '{schema.name}' is inactive"
+            )
+
+
 # ========================================
 # CURATION SCHEMAS ENDPOINTS
 # ========================================
@@ -62,13 +71,11 @@ def create_curation_schema(
     *,
     db: Session = Depends(get_db),
     schema_in: CurationSchemaCreate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(deps.get_current_admin_user),
 ) -> CurationSchema:
     """
-    Create new curation schema. Available to all authenticated users.
+    Create new curation schema. Requires platform admin.
     """
-    # All authenticated users can create schemas
-
     # Check if schema name/version already exists
     existing_schema = schema_crud.get_by_name_and_version(
         db, name=schema_in.name, version=schema_in.version
@@ -115,19 +122,14 @@ def update_curation_schema(
     db: Session = Depends(get_db),
     schema_id: UUID,
     schema_in: CurationSchemaUpdate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(deps.get_current_admin_user),
 ) -> CurationSchema:
     """
-    Update curation schema. Available to schema creator or admins.
+    Update curation schema. Requires platform admin.
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
-
-    # All authenticated users can update schemas they created, admins can update any
-    # Only creator or admin can update
-    if schema.created_by != current_user.id and current_user.role not in ["admin"]:
-        raise HTTPException(status_code=403, detail="Can only update own schemas")
 
     schema = schema_crud.update(db, db_obj=schema, obj_in=schema_in)
     return schema  # type: ignore[return-value]
@@ -242,13 +244,11 @@ def create_workflow_pair(
     *,
     db: Session = Depends(get_db),
     workflow_pair_in: WorkflowPairCreate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(deps.get_current_admin_user),
 ) -> WorkflowPair:
     """
-    Create new workflow pair. Available to all authenticated users.
+    Create new workflow pair. Requires platform admin.
     """
-    # All authenticated users can create workflow pairs
-
     # Check if workflow pair name/version already exists
     existing_pair = workflow_pair_crud.get_by_name_and_version(
         db, name=workflow_pair_in.name, version=workflow_pair_in.version
@@ -281,6 +281,8 @@ def create_workflow_pair(
             detail="Curation schema must be of type 'curation' or 'combined'",
         )
 
+    _require_active_schemas(db, precuration_schema.id, curation_schema.id)
+
     workflow_pair = workflow_pair_crud.create_with_owner(
         db, obj_in=workflow_pair_in, owner_id=current_user.id
     )
@@ -310,24 +312,20 @@ def update_workflow_pair(
     db: Session = Depends(get_db),
     workflow_pair_id: UUID,
     workflow_pair_in: WorkflowPairUpdate,
-    current_user: UserNew = Depends(deps.get_current_active_user),
+    current_user: UserNew = Depends(deps.get_current_admin_user),
 ) -> WorkflowPair:
     """
-    Update workflow pair. Requires curator or admin privileges.
+    Update workflow pair. Requires platform admin.
     """
     workflow_pair = workflow_pair_crud.get(db, id=workflow_pair_id)
     if not workflow_pair:
         raise HTTPException(status_code=404, detail="Workflow pair not found")
 
-    # All authenticated users can update workflow pairs they created, admins can update any
-    # Only creator or admin can update
-    if workflow_pair.created_by != current_user.id and current_user.role not in [
-        "admin"
-    ]:
-        raise HTTPException(
-            status_code=403, detail="Can only update own workflow pairs"
-        )
-
+    _require_active_schemas(
+        db,
+        workflow_pair_in.precuration_schema_id,
+        workflow_pair_in.curation_schema_id,
+    )
     workflow_pair = workflow_pair_crud.update(
         db, db_obj=workflow_pair, obj_in=workflow_pair_in
     )

@@ -107,6 +107,35 @@ describe('WorkflowManagement', () => {
     expect(wrapper.text()).toContain('Active')
   })
 
+  it('loads inactive pairs and schemas too', async () => {
+    const schemas = useSchemasStore()
+    const fetchSchemas = vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
+    const fetchPairs = vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
+    vi.spyOn(useWorkflowStore(), 'fetchWorkflowAnalytics').mockResolvedValue(null as never)
+    vi.spyOn(useWorkflowStore(), 'fetchPeerReviewers').mockResolvedValue(null as never)
+    mount(WorkflowManagement, opts())
+    await flushPromises()
+    expect(fetchSchemas).toHaveBeenCalledWith({ active_only: false })
+    expect(fetchPairs).toHaveBeenCalledWith({ active_only: false })
+  })
+
+  it('offers only active schemas in the create-pair dropdowns', async () => {
+    const { schemas, vm } = await mountView()
+    schemas.schemas = [
+      { id: 'a', name: 'A', schema_type: 'curation', is_active: true },
+      { id: 'b', name: 'B', schema_type: 'curation', is_active: false }
+    ] as never
+    await nextTick()
+    expect((vm.curationSchemas as { id: string }[]).map(x => x.id)).toEqual(['a'])
+  })
+
+  it('shows an inactive pair as Inactive', async () => {
+    const { wrapper, schemas } = await mountView()
+    schemas.workflowPairs = [{ ...pair, is_active: false }] as never
+    await flushPromises()
+    expect(wrapper.text()).toContain('Inactive')
+  })
+
   it('reports a load failure', async () => {
     const schemas = useSchemasStore()
     vi.spyOn(schemas, 'fetchSchemas').mockRejectedValue(new Error('down'))
@@ -263,12 +292,26 @@ describe('SchemaManagement', () => {
     await nextTick()
     expect(wrapper.text()).not.toContain('ClinGen curation')
     vm.selectedType = 'curation'
-    vm.selectedStatus = 'deprecated'
+    vm.selectedStatus = 'inactive'
     await nextTick()
     expect(wrapper.text()).not.toContain('ClinGen curation')
     vm.selectedStatus = 'active'
     await nextTick()
     expect(wrapper.text()).toContain('ClinGen curation')
+  })
+
+  it('loads inactive schemas too and marks them inactive, filterable and reactivatable', async () => {
+    const schemas = useSchemasStore()
+    const fetch = vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
+    schemas.schemas = [{ ...curationSchema, id: 's2', name: 'Retired', is_active: false }] as never
+    const wrapper = mount(SchemaManagement, opts())
+    await flushPromises()
+    expect(fetch).toHaveBeenCalledWith({ active_only: false })
+    expect(wrapper.text()).toContain('Retired')
+    expect(wrapper.text()).toContain('Inactive')
+    vmOf(wrapper).selectedStatus = 'active'
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Retired')
   })
 
   it('opens the editor for a schema and reports navigation failures', async () => {
@@ -291,11 +334,13 @@ describe('SchemaManagement', () => {
     expect(showSuccess).toHaveBeenCalledWith('Schema "ClinGen curation" duplicated successfully')
   })
 
-  it('reports a failed duplicate', async () => {
+  it('reports a failed duplicate with the backend reason', async () => {
     const { vm, schemas } = await mountView()
-    vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue(new Error('dup'))
+    vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue({
+      response: { data: { detail: 'Schema with this name and version already exists' } }
+    })
     await call(vm, 'duplicateSchema', row)
-    expect(showError).toHaveBeenCalledWith('Failed to duplicate schema')
+    expect(showError).toHaveBeenCalledWith('Schema with this name and version already exists')
   })
 
   it('reports a failed delete', async () => {
@@ -306,7 +351,7 @@ describe('SchemaManagement', () => {
       vi.fn(() => true)
     )
     await call(vm, 'deleteSchema', row)
-    expect(showError).toHaveBeenCalledWith('Failed to delete schema')
+    expect(showError).toHaveBeenCalledWith('in use')
     vi.unstubAllGlobals()
   })
 
@@ -323,9 +368,13 @@ describe('SchemaManagement', () => {
       description: 'd',
       version: '1.0.0',
       schema_type: 'curation',
-      field_definitions: {},
-      workflow_states: {},
-      ui_configuration: {},
+      field_definitions: { example_field: { type: 'string', title: 'Example field' } },
+      workflow_states: {
+        states: [{ name: 'draft' }, { name: 'submitted' }],
+        transitions: { draft: ['submitted'], submitted: [] },
+        initial_state: 'draft'
+      },
+      ui_configuration: { sections: [] },
       is_active: false,
       use_dynamic_form: true
     })
@@ -346,7 +395,7 @@ describe('SchemaManagement', () => {
     vm.newSchema = { name: 'Fresh', description: '', type: 'curation', version: '1.0.0' }
     await flushPromises()
     await call(vm, 'createSchema')
-    expect(showError).toHaveBeenCalledWith('Failed to create schema')
+    expect(showError).toHaveBeenCalledWith('bad')
   })
 
   it('formats dates and tolerates a missing one', async () => {
@@ -372,13 +421,12 @@ describe('SchemaEditor', () => {
     return { wrapper, schemas, vm: vmOf(wrapper) }
   }
 
-  it('shows the real schema fields and counts the required ones', async () => {
+  it('shows the real schema fields and their count', async () => {
     const { wrapper } = await mountView()
     expect(wrapper.text()).toContain('curation schema v2.0.0')
     expect(wrapper.text()).toContain('"max": 12')
     const stats = wrapper.text().replace(/\s+/g, ' ')
     expect(stats).toContain('Total Fields:2')
-    expect(stats).toContain('Required Fields:1')
   })
 
   it('saves edited JSON and metadata, then leaves edit mode', async () => {
@@ -419,19 +467,66 @@ describe('SchemaEditor', () => {
     expect(vm.isValidJson).toBe(true)
   })
 
-  it('logs a failed save and a malformed scoring configuration', async () => {
+  it('shows the backend reason when a save fails', async () => {
     const { vm, schemas } = await mountView()
-    vi.spyOn(schemas, 'updateSchema').mockRejectedValue(new Error('conflict'))
+    vi.spyOn(schemas, 'updateSchema').mockRejectedValue({
+      response: { data: { detail: 'Not enough permissions' } }
+    })
     vm.isEditing = true
     await nextTick()
     await call(vm, 'saveSchema')
-    expect(logger.error).toHaveBeenCalledWith(
-      'Failed to save schema:',
-      expect.objectContaining({ error: 'conflict' })
-    )
+    expect(showError).toHaveBeenCalledWith('Not enough permissions')
+    expect(vm.isEditing).toBe(true)
+  })
+
+  it('blocks save while the scoring JSON is invalid and says why', async () => {
+    const { wrapper, vm, schemas } = await mountView()
+    const update = vi.spyOn(schemas, 'updateSchema').mockResolvedValue(undefined as never)
+    vm.isEditing = true
+    await nextTick()
     vm.scoringConfigText = '{bad'
     call(vm, 'validateScoringConfig')
-    expect(logger.error).toHaveBeenCalledWith('Invalid scoring config JSON:', expect.anything())
+    await nextTick()
+    expect(vm.scoringError).not.toBe('')
+    expect(wrapper.text()).toContain(String(vm.scoringError))
+    await call(vm, 'saveSchema')
+    expect(update).not.toHaveBeenCalled()
+    vm.scoringConfigText = '{"max": 1}'
+    call(vm, 'validateScoringConfig')
+    expect(vm.scoringError).toBe('')
+  })
+
+  it('shows scoring even when the schema has none, so it can be added', async () => {
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue({
+      ...curationSchema,
+      scoring_configuration: null
+    } as never)
+    const wrapper = mount(SchemaEditor, opts())
+    await flushPromises()
+    vmOf(wrapper).isEditing = true
+    await nextTick()
+    expect(wrapper.text()).toContain('Scoring Configuration')
+  })
+
+  it('goes back to the schema list, not browser history', async () => {
+    const { wrapper } = await mountView()
+    await wrapper.find('[aria-label="Go back"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaManagement' })
+  })
+
+  it('shows no 1/1/1970 and no required-fields count', async () => {
+    const schemas = useSchemasStore()
+    vi.spyOn(schemas, 'fetchSchemaById').mockResolvedValue({
+      ...curationSchema,
+      updated_at: null
+    } as never)
+    const wrapper = mount(SchemaEditor, opts())
+    await flushPromises()
+    const text = wrapper.text()
+    expect(text).not.toContain('1970')
+    expect(text).not.toContain('Required Fields')
+    expect(text.replace(/\s+/g, ' ')).toContain('Last Modified:—')
   })
 
   it('restores the original values on cancel', async () => {
@@ -445,20 +540,30 @@ describe('SchemaEditor', () => {
     expect(String(vm.jsonSchemaText)).toContain('"a"')
   })
 
-  it('validates the schema through the schemas store', async () => {
-    const { vm, schemas } = await mountView()
-    const validate = vi
-      .spyOn(schemas, 'validateSchema')
-      .mockResolvedValue({ is_valid: true } as never)
+  it('shows the validation errors and warnings inline, and Valid when clean', async () => {
+    const { wrapper, vm, schemas } = await mountView()
+    const validate = vi.spyOn(schemas, 'validateSchema').mockResolvedValue({
+      is_valid: false,
+      errors: ['Missing required field: x'],
+      warnings: ['No engine']
+    } as never)
     await call(vm, 'validateSchema')
+    await flushPromises()
     expect(validate).toHaveBeenCalledWith('s1')
-    expect(logger.info).toHaveBeenCalledWith('Schema validation result:', { is_valid: true })
-    validate.mockRejectedValueOnce(new Error('x'))
+    expect(wrapper.text()).toContain('Missing required field: x')
+    expect(wrapper.text()).toContain('No engine')
+    validate.mockResolvedValue({ is_valid: true, errors: [], warnings: [] } as never)
     await call(vm, 'validateSchema')
-    expect(logger.error).toHaveBeenCalledWith(
-      'Schema validation failed:',
-      expect.objectContaining({ error: 'x' })
-    )
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Missing required field: x')
+    expect(wrapper.text()).toContain('Schema is valid')
+  })
+
+  it('reports a failed validation request', async () => {
+    const { vm, schemas } = await mountView()
+    vi.spyOn(schemas, 'validateSchema').mockRejectedValue(new Error('x'))
+    await call(vm, 'validateSchema')
+    expect(showError).toHaveBeenCalledWith('x')
   })
 
   it('exports the schema as a JSON download', async () => {
@@ -475,17 +580,14 @@ describe('SchemaEditor', () => {
     click.mockRestore()
   })
 
-  it('duplicates the schema and opens the copy, or logs a failure', async () => {
+  it('duplicates the schema and opens the copy, or shows the reason', async () => {
     const { vm, schemas } = await mountView()
     const create = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's9' } as never)
     await call(vm, 'duplicateSchema')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 's9' } })
     create.mockRejectedValueOnce(new Error('dup'))
     await call(vm, 'duplicateSchema')
-    expect(logger.error).toHaveBeenCalledWith(
-      'Failed to duplicate schema:',
-      expect.objectContaining({ error: 'dup' })
-    )
+    expect(showError).toHaveBeenCalledWith('dup')
   })
 
   it('deletes after confirmation and returns to the list', async () => {
@@ -506,10 +608,7 @@ describe('SchemaEditor', () => {
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaManagement' })
     del.mockRejectedValueOnce(new Error('in use'))
     await call(vm, 'deleteSchema')
-    expect(logger.error).toHaveBeenCalledWith(
-      'Failed to delete schema:',
-      expect.objectContaining({ error: 'in use' })
-    )
+    expect(showError).toHaveBeenCalledWith('in use')
     vi.unstubAllGlobals()
   })
 })

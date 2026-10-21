@@ -33,14 +33,18 @@ describe('EvidenceDataTable', () => {
     expect(wrapper.find('button').exists()).toBe(false)
   })
 
-  it('emits update:items with the edited row merged into a copy of the list', async () => {
+  it('commits a text cell on change, not per keystroke', async () => {
     const items = [
       { label: 'P1', points: 1 },
       { label: 'P2', points: 2 }
     ]
     const wrapper = mount(EvidenceDataTable, { props: { items, columns } })
-    wrapper.findAllComponents({ name: 'VTextField' })[0]?.vm.$emit('update:modelValue', 'Renamed')
+    const input = wrapper.findAll('input')[0]!
+    input.element.value = 'Renamed'
+    await input.trigger('input')
+    expect(wrapper.emitted('update:items')).toBeUndefined()
 
+    await input.trigger('change')
     const emitted = wrapper.emitted('update:items')?.[0]?.[0] as typeof items
     expect(emitted[0]).toEqual({ label: 'Renamed', points: 1 })
     expect(emitted[1]).toEqual({ label: 'P2', points: 2 })
@@ -48,13 +52,46 @@ describe('EvidenceDataTable', () => {
     expect(items[0]).toEqual({ label: 'P1', points: 1 })
   })
 
-  it('coerces number-field input with parseFloat, falling back to zero', () => {
+  it('commits number-field input as a number on change', async () => {
     const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
-    const numberField = wrapper
-      .findAllComponents({ name: 'VTextField' })
-      .find(f => f.props('type') === 'number')
-    numberField?.vm.$emit('update:modelValue', 'abc')
-    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 0 }])
+    const input = wrapper.find<HTMLInputElement>('input[type="number"]')
+    input.element.value = '2.5'
+    await input.trigger('change')
+    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 2.5 }])
+  })
+
+  it('labels every cell input with column and row', () => {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ label: 'P1' }, { label: 'P2' }], columns }
+    })
+    const labels = wrapper
+      .findAll('tbody tr')[1]!
+      .findAll('input')
+      .map(i => i.attributes('aria-label'))
+    expect(labels).toEqual(['Label, row 2', 'PMID, row 2', 'Points, row 2'])
+  })
+
+  it('shows an inline error for a non-numeric PMID and an out-of-range points value', async () => {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ pmid: 'abc-not-a-pmid', points: 9 }], columns },
+      attachTo: document.body
+    })
+    const fields = wrapper.findAllComponents({ name: 'VTextField' })
+    // Rules run on input; trigger validation explicitly
+    for (const f of fields)
+      await (f.vm as unknown as { validate: () => Promise<unknown> }).validate()
+    await wrapper.vm.$nextTick()
+    expect(wrapper.text()).toContain('PMID must be digits only')
+    expect(wrapper.text()).toContain('Enter a number from 0 to 3')
+    wrapper.unmount()
+  })
+
+  it('keeps an out-of-range number instead of coercing it to zero', async () => {
+    const wrapper = mount(EvidenceDataTable, { props: { items: [{ points: 1 }], columns } })
+    const input = wrapper.find<HTMLInputElement>('input[type="number"]')
+    input.element.value = '9'
+    await input.trigger('change')
+    expect(wrapper.emitted('update:items')?.[0]?.[0]).toEqual([{ points: 9 }])
   })
 
   it('emits remove with the row index when the delete button is pressed', async () => {

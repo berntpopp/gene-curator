@@ -20,6 +20,13 @@
 
     <v-row>
       <v-col cols="12">
+        <v-alert v-if="isActive && !loading" type="info" variant="tonal" class="mb-4">
+          This curation is active and read-only. Re-curation starts from the curation page.
+          <template #append>
+            <v-btn variant="text" @click="openDetail">Open curation</v-btn>
+          </template>
+        </v-alert>
+
         <!-- Loading State -->
         <v-skeleton-loader v-if="loading" type="card" />
 
@@ -38,7 +45,8 @@
           :workflow-pair-id="resolvedWorkflowPairId"
           :curation-id="curationId"
           :scope-id="scopeId"
-          :gene-id="geneId"
+          :gene-id="effectiveGeneId"
+          :readonly="isActive"
           :gene="formGene"
           @submit="handleSubmit"
           @cancel="handleCancel"
@@ -96,6 +104,8 @@
     curation_schema_id?: string | null
     workflow_pair_id?: string | null
     lock_version?: number | null
+    gene_id?: string | null
+    workflow_stage?: string | null
   }
 
   interface ScopeRecord {
@@ -136,6 +146,10 @@
     () => (route.params.geneId as string) || (route.query.gene_id as string) || undefined
   )
 
+  const effectiveGeneId = computed<RouteId>(
+    () => geneId.value ?? curation.value?.gene_id ?? undefined
+  )
+
   // State
   const loading = ref(true)
   const selectedSchemaId = ref<string | undefined>(undefined)
@@ -145,6 +159,15 @@
   const formGene = computed(() => (gene.value ? { symbol: gene.value.approved_symbol } : undefined))
   const scope = ref<ScopeRecord | null>(null)
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
+
+  const isActive = computed(() => curation.value?.workflow_stage === 'active')
+
+  function openDetail() {
+    router.push({
+      name: 'curation-detail',
+      params: { scopeId: scopeId.value, curationId: curationId.value }
+    })
+  }
 
   // Determine if edit mode
   const isEdit = computed(() => !!curationId.value)
@@ -262,10 +285,11 @@
       }
 
       // Load gene info if available
-      if (geneId.value) {
+      if (effectiveGeneId.value) {
         gene.value =
-          ((await genesStore.fetchGeneById(geneId.value)) as { approved_symbol?: string } | null) ??
-          undefined
+          ((await genesStore.fetchGeneById(effectiveGeneId.value)) as {
+            approved_symbol?: string
+          } | null) ?? undefined
       }
 
       // Check precuration status for new curations (not edits)

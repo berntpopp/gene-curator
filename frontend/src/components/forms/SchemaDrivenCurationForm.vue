@@ -2,13 +2,16 @@
   <ErrorBoundary @error="handleFormError">
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
-      v-if="!useDynamicForm && !loadingSchema"
+      v-if="useDynamicForm === false && !loadingSchema"
       :curation-id="curationId ?? undefined"
       :gene="gene as Record<string, unknown>"
       :precuration-data="precurationData"
       :initial-data="evidenceData"
       :readonly="readonly"
       :status="curationStatus"
+      :saving="savingDraft"
+      :submitting="submitting"
+      :last-saved="savedAt"
       @submit="handleClinGenSubmit"
       @save-draft="handleClinGenSaveDraft"
       @cancel="handleCancel"
@@ -16,7 +19,7 @@
     />
 
     <!-- Generic schema-driven form for non-ClinGen schemas -->
-    <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <v-form v-else-if="useDynamicForm" @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
         <!-- Header: Kept inline per KISS principle -->
         <v-card-title class="d-flex align-center">
@@ -43,6 +46,7 @@
                 :initial-data="evidenceData"
                 :title="schema?.name || 'Curation Form'"
                 :readonly="readonly"
+                hide-actions
                 @update:model-value="handleEvidenceChange"
                 @validation-change="handleValidationChange"
                 @submit="handleSubmit"
@@ -70,6 +74,7 @@
 
         <!-- Actions: Extracted for reuse with PrecurationForm -->
         <FormActions
+          v-if="!readonly"
           :can-undo="canUndo"
           :can-redo="canRedo"
           :can-submit="canSubmit"
@@ -84,11 +89,14 @@
       </v-card>
     </v-form>
 
+    <!-- Schema not resolved yet: do not paint the generic layout first -->
+    <v-skeleton-loader v-else type="article" />
+
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
       v-model="showRecoveryDialog"
-      :recovery-data="recoveryData"
-      @restore="restoreRecovery"
+      :timestamp="recoveryTimestamp"
+      @restore="handleRestore"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -181,6 +189,7 @@
   const loadingSchema = ref(false)
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
+  const savedAt = ref<number | null>(null) // set by a successful server save
 
   // ClinGen-specific state
   const precurationData = ref<EvidenceData>({})
@@ -193,12 +202,13 @@
 
   // Determine form component based on feature flag
   const useDynamicForm = computed(() => {
+    if (!schema.value) return undefined
     // Feature flag takes precedence
     if (schema.value?.use_dynamic_form !== undefined) {
       return schema.value.use_dynamic_form
     }
     // Fallback: non-ClinGen schemas always use DynamicForm
-    const schemaName = schema.value?.name?.toLowerCase() || ''
+    const schemaName = schema.value.name?.toLowerCase() || ''
     return !schemaName.includes('clingen') && !schemaName.includes('sop')
   })
 
@@ -221,9 +231,20 @@
     saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
-  const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
-    formRecovery
-  const recoveryData = formRecovery.recoveryData
+  const {
+    showRecoveryDialog,
+    lastSaved,
+    restoreRecovery: restoreInPlace,
+    discardRecovery,
+    clearRecovery
+  } = formRecovery
+  const recoveryTimestamp = formRecovery.recoveryTimestamp
+
+  // restore mutates evidenceData in place; a new reference lets reference watchers (ClinGen form) see it
+  function handleRestore() {
+    restoreInPlace()
+    evidenceData.value = { ...evidenceData.value }
+  }
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -282,7 +303,10 @@
     canSubmit: () => canSubmit.value,
     clearRecovery,
     clearHistory,
-    onSaved: () => emit('saved'),
+    onSaved: () => {
+      savedAt.value = Date.now()
+      emit('saved')
+    },
     onSubmit: () => emit('submit')
   })
 
@@ -317,6 +341,7 @@
    * Keyboard shortcuts - migrated from CurationForm
    */
   function handleKeydown(event: KeyboardEvent) {
+    if (props.readonly && event.key !== 'Escape') return
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {

@@ -22,8 +22,9 @@
             v-else-if="schemaId"
             :schema-id="schemaId"
             :initial-data="evidenceData"
-            :title="schema?.name || 'Precuration Form'"
+            :title="''"
             :readonly="readonly"
+            hide-actions
             @update:model-value="handleEvidenceChange"
             @validation-change="handleValidationChange"
             @submit="handleSubmit"
@@ -59,7 +60,7 @@
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
       v-model="showRecoveryDialog"
-      :recovery-data="recoveryData"
+      :timestamp="recoveryTimestamp"
       @restore="restoreRecovery"
       @discard="discardRecovery"
     />
@@ -100,9 +101,9 @@
   import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { errorMessage } from '@/stores/apiError'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
-  import type { Schema } from '@/types/api'
   import type { ApiErrorLike } from './types'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
@@ -147,12 +148,8 @@
   const loadingSchema = ref(false)
   const savingDraft = ref(false)
   const submitting = ref(false)
+  const createdId = ref<string | null>(null)
   const isValid = ref(true) // Updated via validation-change event
-
-  // Schema data
-  const schema = computed<Schema<'CurationSchema'> | undefined>(() =>
-    schemasStore.getSchemaById(props.schemaId)
-  )
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
@@ -161,7 +158,7 @@
 
   const {
     showRecoveryDialog,
-    recoveryData,
+    recoveryTimestamp,
     lastSaved,
     restoreRecovery,
     discardRecovery,
@@ -289,9 +286,10 @@
   async function handleSaveDraft() {
     savingDraft.value = true
     try {
-      if (props.precurationId) {
+      const existingId = props.precurationId ?? createdId.value
+      if (existingId) {
         // Update existing precuration draft
-        const updated = await precurationsStore.saveDraft(props.precurationId, evidenceData.value)
+        const updated = await precurationsStore.saveDraft(existingId, evidenceData.value)
         if (updated) emit('saved')
       } else {
         // Create new precuration as draft
@@ -318,13 +316,16 @@
 
     submitting.value = true
     try {
-      if (props.precurationId) {
-        await precurationsStore.submitForReview(props.precurationId)
-      } else {
-        // Create and submit
-        const created = await precurationsStore.createPrecuration(createPayload())
-        await precurationsStore.submitForReview(created.id)
+      // Keep the created id so a retry submits the same record, not a new draft
+      let id = props.precurationId ?? createdId.value
+      if (!id) {
+        id = (await precurationsStore.createPrecuration(createPayload())).id
+        createdId.value = id
+      } else if (!props.precurationId) {
+        // Retry after a failed submit: persist the edits made since
+        await precurationsStore.saveDraft(id, evidenceData.value)
       }
+      await precurationsStore.submitForReview(id)
 
       notificationsStore.addToast('Precuration submitted for review', 'success')
       clearRecovery()
@@ -332,7 +333,7 @@
       emit('submit')
     } catch (error) {
       logger.error('Failed to submit precuration', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to submit precuration', 'error')
+      notificationsStore.addToast(errorMessage(error, 'Failed to submit precuration'), 'error')
     } finally {
       submitting.value = false
     }

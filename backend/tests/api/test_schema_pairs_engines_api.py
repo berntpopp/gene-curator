@@ -35,7 +35,7 @@ class TestWorkflowPairs:
         self,
         client: TestClient,
         schema_pair,
-        curator_token: str,
+        admin_token: str,
     ):
         precur, cur = schema_pair
 
@@ -47,11 +47,48 @@ class TestWorkflowPairs:
                 "precuration_schema_id": str(precur.id),
                 "curation_schema_id": str(cur.id),
             },
-            headers=auth(curator_token),
+            headers=auth(admin_token),
         )
 
         assert response.status_code == 200, response.text
         assert response.json()["name"] == "clingen"
+
+    def test_non_admin_cannot_create_or_update_pair(
+        self,
+        client: TestClient,
+        db_session: Session,
+        schema_pair,
+        curator_token: str,
+        viewer_token: str,
+        test_user_curator: UserNew,
+    ):
+        """#212 decision: workflow pairs are platform-admin only, like schemas."""
+        precur, cur = schema_pair
+        pair = insert_pair(
+            db_session, precur, cur, name="owned", created_by=test_user_curator.id
+        )
+        body = {
+            "name": "x",
+            "version": "1.0",
+            "precuration_schema_id": str(precur.id),
+            "curation_schema_id": str(cur.id),
+        }
+
+        for token in (viewer_token, curator_token):
+            assert (
+                client.post(
+                    f"{BASE}/workflow-pairs", json=body, headers=auth(token)
+                ).status_code
+                == 403
+            )
+            assert (
+                client.put(
+                    f"{BASE}/workflow-pairs/{pair.id}",
+                    json={"description": "x"},
+                    headers=auth(token),
+                ).status_code
+                == 403
+            )
 
     def test_create_rejects_wrong_schema_types(
         self, client: TestClient, db_session: Session, admin_token: str
@@ -72,6 +109,34 @@ class TestWorkflowPairs:
 
         assert response.status_code == 400
         assert "Precuration schema must be" in response.json()["detail"]
+
+    def test_create_and_update_reject_inactive_schemas(
+        self, client: TestClient, db_session: Session, schema_pair, admin_token: str
+    ):
+        precur, cur = schema_pair
+        off = insert_schema(
+            db_session, name="Off", schema_type="curation", is_active=False
+        )
+        pair = insert_pair(db_session, precur, cur, name="live")
+        body = {
+            "name": "n",
+            "version": "1.0",
+            "precuration_schema_id": str(precur.id),
+            "curation_schema_id": str(off.id),
+        }
+
+        created = client.post(
+            f"{BASE}/workflow-pairs", json=body, headers=auth(admin_token)
+        )
+        updated = client.put(
+            f"{BASE}/workflow-pairs/{pair.id}",
+            json={"curation_schema_id": str(off.id)},
+            headers=auth(admin_token),
+        )
+
+        assert created.status_code == 400
+        assert "inactive" in created.json()["detail"]
+        assert updated.status_code == 400
 
     def test_create_rejects_missing_schema(
         self, client: TestClient, schema_pair, admin_token: str
@@ -138,31 +203,20 @@ class TestWorkflowPairs:
         assert single.json()["id"] == str(pair.id)
         assert missing.status_code == 404
 
-    def test_update_permissions(
-        self,
-        client: TestClient,
-        db_session: Session,
-        schema_pair,
-        curator_token: str,
-        other_token: str,
-        test_user_curator: UserNew,
+    def test_update_by_admin(
+        self, client: TestClient, db_session: Session, schema_pair, admin_token: str
     ):
         precur, cur = schema_pair
-        pair = insert_pair(
-            db_session, precur, cur, name="owned", created_by=test_user_curator.id
-        )
-        url = f"{BASE}/workflow-pairs/{pair.id}"
+        pair = insert_pair(db_session, precur, cur, name="owned")
 
-        forbidden = client.put(
-            url, json={"description": "x"}, headers=auth(other_token)
-        )
-        allowed = client.put(
-            url, json={"description": "mine"}, headers=auth(curator_token)
+        response = client.put(
+            f"{BASE}/workflow-pairs/{pair.id}",
+            json={"description": "mine"},
+            headers=auth(admin_token),
         )
 
-        assert forbidden.status_code == 403
-        assert allowed.status_code == 200
-        assert allowed.json()["description"] == "mine"
+        assert response.status_code == 200
+        assert response.json()["description"] == "mine"
 
     def test_delete_requires_admin(
         self,

@@ -626,7 +626,7 @@ export interface paths {
         put?: never;
         /**
          * Create Curation Schema
-         * @description Create new curation schema. Available to all authenticated users.
+         * @description Create new curation schema. Requires platform admin.
          */
         post: operations["create_curation_schema_api_v1_schemas_curation_schemas_post"];
         delete?: never;
@@ -649,7 +649,7 @@ export interface paths {
         get: operations["get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get"];
         /**
          * Update Curation Schema
-         * @description Update curation schema. Available to schema creator or admins.
+         * @description Update curation schema. Requires platform admin.
          */
         put: operations["update_curation_schema_api_v1_schemas_curation_schemas__schema_id__put"];
         post?: never;
@@ -718,7 +718,7 @@ export interface paths {
         put?: never;
         /**
          * Create Workflow Pair
-         * @description Create new workflow pair. Available to all authenticated users.
+         * @description Create new workflow pair. Requires platform admin.
          */
         post: operations["create_workflow_pair_api_v1_schemas_workflow_pairs_post"];
         delete?: never;
@@ -741,7 +741,7 @@ export interface paths {
         get: operations["get_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__get"];
         /**
          * Update Workflow Pair
-         * @description Update workflow pair. Requires curator or admin privileges.
+         * @description Update workflow pair. Requires platform admin.
          */
         put: operations["update_workflow_pair_api_v1_schemas_workflow_pairs__workflow_pair_id__put"];
         post?: never;
@@ -1651,6 +1651,8 @@ export interface paths {
          * Create Precuration
          * @description Create a new precuration.
          *     Requires curator or admin access to the target scope.
+         *     Idempotent per creator: an open draft for the same gene and scope is returned
+         *     (200) instead of inserting another, so a retry after a lost response is safe.
          */
         post: operations["create_precuration_api_v1_precurations__post"];
         delete?: never;

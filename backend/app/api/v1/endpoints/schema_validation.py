@@ -205,6 +205,8 @@ def get_json_schema_for_schema(
         schema_definition = {
             "field_definitions": schema.field_definitions,
             "validation_rules": schema.validation_rules,
+            "ui_configuration": schema.ui_configuration,
+            "scoring_configuration": schema.scoring_configuration,
         }
         json_schema = schema_validator.generate_json_schema(schema_definition)
 

@@ -4,7 +4,7 @@
       <!-- Main form content -->
       <v-col cols="12" :lg="showScoring ? 8 : 12">
         <v-card>
-          <v-card-title class="d-flex align-center">
+          <v-card-title v-if="title" class="d-flex align-center">
             <v-icon start>mdi-form-select</v-icon>
             {{ title }}
           </v-card-title>
@@ -61,6 +61,13 @@
 
             <!-- Flat Fallback -->
             <div v-else-if="jsonSchema && jsonSchema.properties">
+              <v-alert
+                v-if="Object.keys(jsonSchema.properties).length === 0"
+                type="info"
+                variant="tonal"
+              >
+                This schema defines no fields
+              </v-alert>
               <v-row>
                 <v-col
                   v-for="(field, fieldName) in jsonSchema.properties"
@@ -141,7 +148,7 @@
             </v-alert>
           </v-card-text>
 
-          <v-card-actions>
+          <v-card-actions v-if="!readonly && !hideActions">
             <v-spacer />
             <v-btn
               color="secondary"
@@ -213,11 +220,14 @@
       title?: string
       initialData?: FormData
       readonly?: boolean
+      /** The parent renders its own Save/Submit row */
+      hideActions?: boolean
     }>(),
     {
       title: 'Dynamic Form',
       initialData: () => ({}),
-      readonly: false
+      readonly: false,
+      hideActions: false
     }
   )
 

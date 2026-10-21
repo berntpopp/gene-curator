@@ -166,7 +166,8 @@ describe('useCurationSubmission', () => {
   describe('ClinGen handlers', () => {
     const clingen: EvidenceData = { evidence_items: [] }
 
-    it('updates then submits an existing curation at the next lock version', async () => {
+    it('updates then submits an existing curation at the lock version the update returned', async () => {
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 7 })
       const { api, s } = setup('cur-1')
 
       await api.handleClinGenSubmit(clingen)
@@ -175,7 +176,7 @@ describe('useCurationSubmission', () => {
         evidence_data: clingen,
         lock_version: 3
       })
-      expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 4 })
+      expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 7 })
       expect(s.onSubmit).toHaveBeenCalled()
     })
 

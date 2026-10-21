@@ -1,41 +1,16 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="600" persistent>
+  <v-dialog :model-value="modelValue" max-width="480" persistent>
     <v-card>
-      <v-card-title class="d-flex align-center bg-warning">
-        <v-icon size="large" class="mr-2"> mdi-restore-alert </v-icon>
-        Recover Unsaved Work?
-      </v-card-title>
+      <v-card-title>Restore unsaved changes?</v-card-title>
 
-      <v-card-text class="pt-4">
-        <v-alert type="info" variant="tonal" class="mb-4">
-          <v-alert-title>Recovery Data Found</v-alert-title>
-          We found unsaved changes from {{ formatTimestamp(timestamp) }}. Would you like to restore
-          them?
-        </v-alert>
-
-        <div class="text-body-2 text-grey-darken-1">
-          Your browser may have crashed or you navigated away without saving. Click
-          <strong>"Restore My Work"</strong> to continue where you left off, or
-          <strong>"Discard"</strong> to start fresh.
-        </div>
-
-        <v-alert type="warning" variant="text" density="compact" class="mt-4">
-          <v-icon start size="small">mdi-information</v-icon>
-          This will overwrite any current form data
-        </v-alert>
+      <v-card-text>
+        Restore unsaved changes{{ when ? ` from ${when}` : '' }}? This replaces the current form.
       </v-card-text>
 
       <v-card-actions>
-        <v-btn variant="text" @click="$emit('discard')"> Discard </v-btn>
         <v-spacer />
-        <v-btn
-          color="primary"
-          variant="elevated"
-          prepend-icon="mdi-restore"
-          @click="$emit('restore')"
-        >
-          Restore My Work
-        </v-btn>
+        <v-btn variant="text" @click="$emit('discard')">Discard</v-btn>
+        <v-btn color="primary" variant="flat" @click="$emit('restore')">Restore</v-btn>
       </v-card-actions>
     </v-card>
   </v-dialog>
@@ -54,7 +29,9 @@
    * - Accessible: ARIA labels, keyboard navigation
    */
 
-  defineProps<{
+  import { computed } from 'vue'
+
+  const props = defineProps<{
     modelValue: boolean
     /** ISO timestamp string */
     timestamp?: string | null
@@ -65,11 +42,13 @@
     discard: []
   }>()
 
+  const when = computed(() => formatTimestamp(props.timestamp))
+
   /**
    * Format timestamp to human-readable relative time
    */
   function formatTimestamp(ts: string | null | undefined): string {
-    if (!ts) return 'recently'
+    if (!ts) return ''
 
     const date = new Date(ts)
     const now = new Date()
@@ -98,15 +77,3 @@
     return date.toLocaleDateString()
   }
 </script>
-
-<style scoped>
-  /* Ensure proper spacing and readability */
-  .v-card-title {
-    font-size: 1.25rem;
-    font-weight: 500;
-  }
-
-  .text-body-2 {
-    line-height: 1.5;
-  }
-</style>

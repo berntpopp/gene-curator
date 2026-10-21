@@ -39,7 +39,10 @@
           <v-row>
             <v-col cols="12" sm="6" md="3">
               <div class="text-caption text-medium-emphasis">Gene</div>
-              <router-link :to="`/genes/${assignment.gene_id}`" class="text-body-1">
+              <router-link
+                :to="`/genes/${assignment.gene_id}`"
+                class="text-body-1 text-primary text-decoration-none"
+              >
                 {{ assignment.gene_symbol }}
               </router-link>
               <div class="text-body-2">{{ assignment.gene_hgnc_id }}</div>
@@ -55,6 +58,8 @@
             <v-col cols="12" sm="6" md="3">
               <div class="text-caption text-medium-emphasis">Due date</div>
               <div class="text-body-1">{{ formatDate(assignment.due_date) }}</div>
+              <div class="text-caption text-medium-emphasis mt-2">Assigned</div>
+              <div class="text-body-1">{{ formatDate(assignment.assigned_at) }}</div>
             </v-col>
           </v-row>
           <p v-if="assignment.assignment_notes" class="mt-4 mb-0">
@@ -62,12 +67,10 @@
           </p>
         </v-card-text>
         <v-card-actions>
-          <v-btn color="primary" variant="flat" :to="workflowRoute('gene-precuration-create')">
-            Start precuration
-          </v-btn>
-          <v-btn variant="outlined" :to="workflowRoute('gene-curation-create')">
-            Start curation
-          </v-btn>
+          <v-btn color="primary" variant="flat" :to="action.to">{{ action.label }}</v-btn>
+          <span v-if="action.stage" class="text-body-2 text-medium-emphasis ml-2">
+            Stage: {{ action.stage }}
+          </span>
         </v-card-actions>
       </v-card>
     </template>
@@ -78,6 +81,13 @@
   import { computed, onMounted, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useAssignmentsStore } from '@/stores/assignments'
+  import { precurationsAPI, curationsAPI } from '@/api'
+  import {
+    shouldReplaceCuration,
+    shouldReplacePrecuration,
+    type CurationStatus,
+    type PrecurationStatus
+  } from '@/components/gene/useGeneWorkflowStatus'
   import type { Schema } from '@/types/api'
 
   type Assignment = Schema<'GeneScopeAssignmentWithDetails'>
@@ -92,10 +102,46 @@
   const assignmentId = computed(() => String(route.params.id))
 
   // Precuration and curation live on the scope's gene routes; this page links into them
-  const workflowRoute = (name: string) => ({
-    name,
-    params: { scopeId: assignment.value?.scope_id, geneId: assignment.value?.gene_id }
+  const precuration = ref<PrecurationStatus | null>(null)
+  const curation = ref<CurationStatus | null>(null)
+
+  // One primary action: the furthest workflow step that already exists for this gene and scope
+  const action = computed(() => {
+    const params = { scopeId: assignment.value?.scope_id, geneId: assignment.value?.gene_id }
+    if (curation.value) {
+      return {
+        label: 'Open curation',
+        to: {
+          name: 'curation-detail',
+          params: { scopeId: params.scopeId, curationId: curation.value.id }
+        },
+        stage: curation.value.workflow_stage ?? curation.value.status
+      }
+    }
+    if (precuration.value) {
+      return {
+        label: 'Continue precuration',
+        to: { name: 'scope-dashboard', params: { scopeId: params.scopeId, tab: 'genes' } },
+        stage: precuration.value.workflow_stage ?? precuration.value.status
+      }
+    }
+    return {
+      label: 'Start precuration',
+      to: { name: 'gene-precuration-create', params },
+      stage: ''
+    }
   })
+
+  /** Latest record for the gene, using the same precedence as the gene list. */
+  function best(
+    records: CurationStatus[],
+    replace: (a: CurationStatus, b: CurationStatus) => boolean
+  ): CurationStatus | null {
+    return records.reduce<CurationStatus | null>(
+      (acc, r) => (!acc || replace(acc, r) ? r : acc),
+      null
+    )
+  }
 
   const formatDate = (value?: string | null) =>
     value ? new Date(value).toLocaleDateString() : 'No due date'
@@ -105,6 +151,13 @@
     error.value = null
     try {
       assignment.value = await assignmentsStore.fetchAssignmentById(assignmentId.value)
+      const query = { scope_id: assignment.value.scope_id, gene_id: assignment.value.gene_id }
+      const [pre, cur] = (await Promise.all([
+        precurationsAPI.getPrecurations(query),
+        curationsAPI.getCurations(query)
+      ])) as [{ precurations?: PrecurationStatus[] }, { curations?: CurationStatus[] }]
+      precuration.value = best(pre.precurations ?? [], shouldReplacePrecuration)
+      curation.value = best(cur.curations ?? [], shouldReplaceCuration)
     } catch {
       error.value = 'Failed to load assignment'
     } finally {

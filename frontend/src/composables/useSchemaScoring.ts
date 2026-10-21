@@ -43,16 +43,19 @@ export function useSchemaScoring(
   scoringConfiguration: { readonly value: ScoringConfiguration | null | undefined }
 ): UseSchemaScoringReturn {
   /**
-   * Calculate total score by summing all score_calculations values
+   * The backend's `total_score` is the source of truth (#157); until every engine
+   * returns it, sum the category entries and skip section totals (`*_total`).
    */
   const totalScore = computed<number>(() => {
-    if (!scoreCalculations.value) return 0
+    const calc = scoreCalculations.value
+    if (!calc) return 0
+    if (typeof calc.total_score === 'number') return calc.total_score
 
-    // Sum all numeric values in score_calculations
-    return Object.values(scoreCalculations.value).reduce<number>((sum, value) => {
-      const numValue = typeof value === 'number' ? value : 0
-      return sum + numValue
-    }, 0)
+    return Object.entries(calc).reduce<number>(
+      (sum, [key, value]) =>
+        typeof value === 'number' && !key.endsWith('_total') ? sum + value : sum,
+      0
+    )
   })
 
   /**
