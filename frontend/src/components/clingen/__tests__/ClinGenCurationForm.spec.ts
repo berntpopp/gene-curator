@@ -39,6 +39,15 @@ describe('ClinGenCurationForm', () => {
     expect(findButton(wrapper, 'Submit for Review').attributes('disabled')).toBeDefined()
   })
 
+  it('scores legacy {points} dict evidence from initialData', async () => {
+    const legacy = {
+      experimental_evidence: { models: { non_human_model_organism: { points: 0.5 } } }
+    }
+    wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: legacy as never } })
+    await flushPromises()
+    expect(wrapper.findComponent(ScoreSummary).props('totalScore')).toBeCloseTo(0.5)
+  })
+
   it('scores initial genetic evidence and enables submit', async () => {
     wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: withCaseLevel } })
     await flushPromises()

@@ -20,6 +20,7 @@ from typing import Any, Final
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
+from .evidence_items import rows
 
 logger = get_logger(__name__)
 
@@ -115,7 +116,6 @@ class ClinGenEngine(ScoringEngine):
             experimental_items=len(experimental_evidence),
         )
 
-        # Calculate genetic evidence score (max 12 points)
         genetic_score, genetic_details = self._calculate_genetic_evidence(
             genetic_evidence
         )
@@ -230,7 +230,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
         # --- Segregation Evidence ---
-        segregation_items = evidence_data.get("segregation", [])
+        segregation_items = rows(evidence_data.get("segregation"))
         if isinstance(segregation_items, list):
             for item in segregation_items:
                 score = self._score_segregation_nested(item)
@@ -241,13 +241,13 @@ class ClinGenEngine(ScoringEngine):
         case_control_data = evidence_data.get("case_control", {})
         if isinstance(case_control_data, dict):
             # Single variant analysis
-            single_items = case_control_data.get("single_variant_analysis", [])
+            single_items = rows(case_control_data.get("single_variant_analysis"))
             single_score = sum(
                 float(item.get("points", 0) or 0) for item in single_items
             )
 
             # Aggregate variant analysis
-            aggregate_items = case_control_data.get("aggregate_variant_analysis", [])
+            aggregate_items = rows(case_control_data.get("aggregate_variant_analysis"))
             aggregate_score = sum(
                 float(item.get("points", 0) or 0) for item in aggregate_items
             )
@@ -307,7 +307,7 @@ class ClinGenEngine(ScoringEngine):
         other_items: list[dict[str, Any]] = []
 
         # Predicted/proven null variants
-        null_variants = inheritance_data.get("predicted_or_proven_null", [])
+        null_variants = rows(inheritance_data.get("predicted_or_proven_null"))
         for item in null_variants:
             # Use proband_counted_points from the item (already scored by user)
             points = float(item.get("proband_counted_points", 1.5) or 0)
@@ -315,7 +315,7 @@ class ClinGenEngine(ScoringEngine):
             null_items.append({**item, "computed_score": points})
 
         # Other variant types
-        other_variants = inheritance_data.get("other_variant_type", [])
+        other_variants = rows(inheritance_data.get("other_variant_type"))
         for item in other_variants:
             points = float(item.get("proband_counted_points", 0.1) or 0)
             other_score += points
@@ -416,7 +416,7 @@ class ClinGenEngine(ScoringEngine):
         segregation_items = []
         case_control_items = []
 
-        for item in evidence_items:
+        for item in rows(evidence_items):
             category = item.get("evidence_category", "")
 
             if category == "case_level":
@@ -697,7 +697,7 @@ class ClinGenEngine(ScoringEngine):
         function_data = evidence_data.get("function", {})
         if isinstance(function_data, dict):
             # Biochemical function (0.5-2 pts per item)
-            biochem_items = function_data.get("biochemical_function", [])
+            biochem_items = rows(function_data.get("biochemical_function"))
             biochem_score = sum(
                 float(item.get("points", 0.5) or 0) for item in biochem_items
             )
@@ -707,7 +707,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Protein interaction (0.5-2 pts per item)
-            protein_items = function_data.get("protein_interaction", [])
+            protein_items = rows(function_data.get("protein_interaction"))
             protein_score = sum(
                 float(item.get("points", 0.5) or 0) for item in protein_items
             )
@@ -717,7 +717,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Expression (0.5-2 pts per item)
-            expression_items = function_data.get("expression", [])
+            expression_items = rows(function_data.get("expression"))
             expression_score = sum(
                 float(item.get("points", 0.5) or 0) for item in expression_items
             )
@@ -735,7 +735,7 @@ class ClinGenEngine(ScoringEngine):
         fa_data = evidence_data.get("functional_alteration", {})
         if isinstance(fa_data, dict):
             # Patient cells (1-2 pts per item)
-            patient_items = fa_data.get("patient_cells", [])
+            patient_items = rows(fa_data.get("patient_cells"))
             patient_score = sum(
                 float(item.get("points", 1.0) or 0) for item in patient_items
             )
@@ -745,7 +745,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Non-patient cells (0.5-1 pts per item)
-            non_patient_items = fa_data.get("non_patient_cells", [])
+            non_patient_items = rows(fa_data.get("non_patient_cells"))
             non_patient_score = sum(
                 float(item.get("points", 0.5) or 0) for item in non_patient_items
             )
@@ -763,7 +763,7 @@ class ClinGenEngine(ScoringEngine):
         models_data = evidence_data.get("models", {})
         if isinstance(models_data, dict):
             # Non-human model organism (2-4 pts per item)
-            organism_items = models_data.get("non_human_model_organism", [])
+            organism_items = rows(models_data.get("non_human_model_organism"))
             organism_score = sum(
                 float(item.get("points", 2.0) or 0) for item in organism_items
             )
@@ -773,7 +773,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Cell culture model (1-2 pts per item)
-            cell_items = models_data.get("cell_culture_model", [])
+            cell_items = rows(models_data.get("cell_culture_model"))
             cell_score = sum(float(item.get("points", 1.0) or 0) for item in cell_items)
             models_details["cell_culture_model"] = {
                 "items": cell_items,
@@ -789,14 +789,14 @@ class ClinGenEngine(ScoringEngine):
         rescue_data = evidence_data.get("rescue", {})
         if isinstance(rescue_data, dict):
             # Human rescue (2-4 pts)
-            human_items = rescue_data.get("human", [])
+            human_items = rows(rescue_data.get("human"))
             human_score = sum(
                 float(item.get("points", 2.0) or 0) for item in human_items
             )
             rescue_details["human"] = {"items": human_items, "score": human_score}
 
             # Non-human organism rescue (2-4 pts)
-            organism_rescue_items = rescue_data.get("non_human_model_organism", [])
+            organism_rescue_items = rows(rescue_data.get("non_human_model_organism"))
             organism_rescue_score = sum(
                 float(item.get("points", 2.0) or 0) for item in organism_rescue_items
             )
@@ -806,7 +806,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Cell culture rescue (1-2 pts)
-            cell_rescue_items = rescue_data.get("cell_culture", [])
+            cell_rescue_items = rows(rescue_data.get("cell_culture"))
             cell_rescue_score = sum(
                 float(item.get("points", 1.0) or 0) for item in cell_rescue_items
             )
@@ -816,7 +816,7 @@ class ClinGenEngine(ScoringEngine):
             }
 
             # Patient cells rescue (1-2 pts)
-            patient_rescue_items = rescue_data.get("patient_cells", [])
+            patient_rescue_items = rows(rescue_data.get("patient_cells"))
             patient_rescue_score = sum(
                 float(item.get("points", 1.0) or 0) for item in patient_rescue_items
             )
@@ -874,7 +874,7 @@ class ClinGenEngine(ScoringEngine):
         models_items = []
         rescue_items = []
 
-        for item in evidence_items:
+        for item in rows(evidence_items):
             category = item.get("evidence_category", "")
             model_system = item.get("model_system", "").lower()
             rescue_observed = item.get("rescue_observed", False)
@@ -1053,7 +1053,7 @@ class ClinGenEngine(ScoringEngine):
         # Legacy flat list format
         case_level_items = [
             item
-            for item in genetic_evidence
+            for item in rows(genetic_evidence)
             if item.get("evidence_category") == "case_level"
         ]
         if len(case_level_items) < 2:
@@ -1065,7 +1065,7 @@ class ClinGenEngine(ScoringEngine):
         # Check for LOD scores in segregation evidence
         segregation_items = [
             item
-            for item in genetic_evidence
+            for item in rows(genetic_evidence)
             if item.get("evidence_category") == "segregation"
         ]
         for seg_item in segregation_items:
@@ -1093,8 +1093,8 @@ class ClinGenEngine(ScoringEngine):
             ]:
                 inh_data = case_level_data.get(inheritance_type, {})
                 if isinstance(inh_data, dict):
-                    null_items = inh_data.get("predicted_or_proven_null", [])
-                    other_items = inh_data.get("other_variant_type", [])
+                    null_items = rows(inh_data.get("predicted_or_proven_null"))
+                    other_items = rows(inh_data.get("other_variant_type"))
                     case_level_count += len(null_items) + len(other_items)
 
         if case_level_count < 2:
@@ -1104,7 +1104,7 @@ class ClinGenEngine(ScoringEngine):
             )
 
         # Check segregation evidence
-        segregation_items = genetic_evidence.get("segregation", [])
+        segregation_items = rows(genetic_evidence.get("segregation"))
         if isinstance(segregation_items, list):
             for seg_item in segregation_items:
                 has_score = (
