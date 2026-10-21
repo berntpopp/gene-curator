@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { h } from 'vue'
+import { defineComponent, h, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DataTable from '../DataTable.vue'
 
@@ -144,5 +144,24 @@ describe('DataTable', () => {
     })
     expect(w.find('[data-testid="export"]').exists()).toBe(true)
     expect(w.findAll('b.sym').map(b => b.text())).toEqual(['PKD1', 'HNF1B'])
+  })
+
+  it('renders item slots that appear after mount (columns that arrive with data)', async () => {
+    const extra = ref<string[]>([])
+    const Host = defineComponent({
+      setup: () => () =>
+        h(
+          DataTable,
+          { headers: [...headers, { title: 'Late', key: 'late' }], items, itemsLength: 2 },
+          Object.fromEntries(
+            extra.value.map(k => [`item.${k}`, () => h('i', { class: 'late' }, 'cell')])
+          )
+        )
+    })
+    const w = mount(Host)
+    expect(w.findAll('i.late')).toHaveLength(0)
+    extra.value = ['late']
+    await w.vm.$nextTick()
+    expect(w.findAll('i.late')).toHaveLength(2)
   })
 })

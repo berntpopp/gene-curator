@@ -1,7 +1,6 @@
 import { curationsAPI } from '../curations'
 import { precurationsAPI } from '../precurations'
 import { externalValidationAPI } from '../externalValidation'
-import { geneCatalogueAPI } from '../geneCatalogue'
 import { geneSummaryAPI } from '../geneSummary'
 import { invitationsApi } from '../invitations'
 import { notificationsAPI } from '../notifications'
@@ -203,32 +202,6 @@ export const clinicalRows: Row[] = [
     run: () => externalValidationAPI.fetchHGNCGene('HGNC:1100'),
     method: 'get',
     args: ['/external-validation/hgnc/fetch/HGNC:1100']
-  },
-
-  // gene catalogue
-  {
-    name: 'geneCatalogue.getCatalogue',
-    run: () => geneCatalogueAPI.getCatalogue({ limit: 20 }),
-    method: 'get',
-    args: ['/gene-catalogue/', { params: { limit: 20 } }]
-  },
-  {
-    name: 'geneCatalogue.getAvailableClassifications',
-    run: () => geneCatalogueAPI.getAvailableClassifications(),
-    method: 'get',
-    args: ['/gene-catalogue/filters/classifications']
-  },
-  {
-    name: 'geneCatalogue.getAvailableDiseases defaults to 50',
-    run: () => geneCatalogueAPI.getAvailableDiseases(),
-    method: 'get',
-    args: ['/gene-catalogue/filters/diseases', { params: { limit: 50 } }]
-  },
-  {
-    name: 'geneCatalogue.getAvailableScopes',
-    run: () => geneCatalogueAPI.getAvailableScopes(),
-    method: 'get',
-    args: ['/gene-catalogue/filters/scopes']
   },
 
   // gene summary
