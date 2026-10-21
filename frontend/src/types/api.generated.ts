@@ -2618,13 +2618,14 @@ export interface paths {
          * Get Gene Curating Scopes
          * @description Get list of scopes curating this gene
          *
-         *     Returns scopes with active curations for the gene, filtered by user permissions.
-         *     Public scopes are always visible; private scopes only if user is a member.
+         *     Public active scopes are visible to everyone, private ones to accepted members; platform
+         *     admins get no bypass. Non-members count only active curations; members also see
+         *     in-progress work (curation/review stage) in their own scopes.
          *
          *     Args:
          *         db: Database session
          *         gene_id: UUID of the gene
-         *         current_user: Current user (optional, for filtering private scopes)
+         *         current_user: Current user (optional)
          *
          *     Returns:
          *         List of scope information with curation counts
@@ -13493,11 +13494,11 @@ export interface operations {
                 skip?: number;
                 /** @description Maximum records to return */
                 limit?: number;
-                /** @description Search gene symbol, HGNC ID, or aliases */
+                /** @description Search gene symbol, HGNC ID, or aliases (literal text) */
                 search?: string | null;
                 /** @description Filter by classification (definitive, strong, etc.) */
                 classification?: string | null;
-                /** @description Search/filter by disease name */
+                /** @description Disease name (literal text) */
                 disease?: string | null;
                 /** @description Filter by specific scope */
                 scope_id?: string | null;
