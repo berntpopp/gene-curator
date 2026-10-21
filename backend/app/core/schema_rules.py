@@ -236,26 +236,8 @@ def _check_scoring(scoring: Any) -> list[Diagnostic]:
         if scoring_registry.get_engine(str(scoring["engine"])) is None:
             msg = f"Unknown scoring engine: {scoring['engine']}"
             out.append(("error", f"{path}.engine", msg))
-    # ponytail: assumes point_model {categories: {key: {cap}}, bands: [{min}]}; align with W4E
-    model = scoring.get("point_model")
-    if isinstance(model, dict):
-        categories = model.get("categories") or {}
-        items = (
-            categories.items()
-            if isinstance(categories, dict)
-            else enumerate(categories)
-        )
-        for key, cat in items:
-            if not (isinstance(cat, dict) and _is_number(cat.get("cap"))):
-                cap_path = f"{path}.point_model.categories.{key}.cap"
-                out.append(("error", cap_path, f"Category '{key}' needs a numeric cap"))
-        lows: list[Any] = [
-            b.get("min") if isinstance(b, dict) else None
-            for b in model.get("bands") or []
-        ]
-        if not all(_is_number(low) for low in lows) or lows != sorted(lows):
-            msg = "Bands need a numeric min and must be ordered by it"
-            out.append(("error", f"{path}.point_model.bands", msg))
+    if isinstance(scoring.get("point_model"), dict):
+        out += _check_point_model(scoring["point_model"], f"{path}.point_model")
     return out
 
 
@@ -274,4 +256,59 @@ def _check_rules(rules: Any, names: set[str]) -> list[Diagnostic]:
         if name not in names:
             path = f"validation_rules.custom_validators[{i}].field"
             out.append(("error", path, f"Unknown field in custom_validators: {name}"))
+    return out
+
+
+def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
+    """The W4E interpreter shape: sections > categories > types, bands first match wins."""
+    out: list[Diagnostic] = []
+    if "total_cap" in model and not _is_number(model["total_cap"]):
+        out.append(("error", f"{path}.total_cap", "total_cap must be a number"))
+    sections = _as(list, model.get("sections"))
+    out += _check_nodes(sections, f"{path}.sections", "Section")
+    for i, section in _dicts(sections):
+        cats = _as(list, section.get("categories"))
+        cat_path = f"{path}.sections[{i}].categories"
+        out += _check_nodes(cats, cat_path, "Category")
+        for j, cat in _dicts(cats):
+            if cat.get("combine", "sum") not in ("sum", "max"):
+                msg = "combine must be 'sum' or 'max'"
+                out.append(("error", f"{cat_path}[{j}].combine", msg))
+            for k, item in _dicts(_as(list, cat.get("types"))):
+                rng = item.get("range")
+                if rng is not None and not (
+                    isinstance(rng, list)
+                    and len(rng) == 2
+                    and all(_is_number(x) for x in rng)
+                    and rng[0] <= rng[1]
+                ):
+                    msg = "range must be [min, max] numbers with min <= max"
+                    out.append(("error", f"{cat_path}[{j}].types[{k}].range", msg))
+    bands = [b for b in _as(list, model.get("bands")) if isinstance(b, dict)]
+    lows: list[Any] = [b["min"] for b in bands if "min" in b]
+    # first match wins, so thresholds must not increase down the list
+    if not all(_is_number(low) for low in lows) or lows != sorted(lows, reverse=True):
+        msg = "Band min must be numeric and must not increase (first match wins)"
+        out.append(("error", f"{path}.bands", msg))
+    return out
+
+
+def _dicts(items: list[Any]) -> list[tuple[int, dict[str, Any]]]:
+    """(index, item) for the dict items; the index keeps JSON paths exact."""
+    return [(i, item) for i, item in enumerate(items) if isinstance(item, dict)]
+
+
+def _check_nodes(nodes: list[Any], path: str, kind: str) -> list[Diagnostic]:
+    """Numeric cap where present; keys unique."""
+    out: list[Diagnostic] = []
+    seen: set[str] = set()
+    for i, node in _dicts(nodes):
+        if "cap" in node and not _is_number(node["cap"]):
+            out.append(("error", f"{path}[{i}].cap", f"{kind} cap must be a number"))
+        key = str(node.get("key"))
+        if key in seen:
+            out.append(
+                ("error", f"{path}[{i}].key", f"Duplicate {kind.lower()} key: {key}")
+            )
+        seen.add(key)
     return out

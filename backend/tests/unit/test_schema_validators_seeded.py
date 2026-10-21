@@ -1,6 +1,6 @@
 """#207/#269: seeded schema formats are accepted; cheap static checks name a JSON path."""
 
-from typing import Any
+from typing import Any, ClassVar
 
 import pytest
 
@@ -122,26 +122,68 @@ class TestEvidenceTable:
 
 
 class TestPointModel:
-    def scoring(self, model: dict[str, Any]) -> list[str]:
-        cfg = {"engine": "clingen_sop_v11", "point_model": model}
+    """W4E interpreter shape: sections > categories > types; bands first match wins."""
+
+    MODEL: ClassVar[dict[str, Any]] = {
+        "total_cap": 18,
+        "sections": [
+            {
+                "key": "genetic",
+                "cap": 12,
+                "categories": [
+                    {
+                        "key": "proband",
+                        "cap": 12,
+                        "combine": "sum",
+                        "types": [{"path": "p", "default": 1.5, "range": [0, 3]}],
+                    },
+                    {"key": "segregation", "combine": "max", "types": []},
+                ],
+            },
+            {"key": "experimental", "cap": 6.0, "categories": []},
+        ],
+        # as templates/clingen_sop_v11.json orders them
+        "bands": [
+            {"class": "definitive", "min": 12, "requires": "replicated_over_time"},
+            {"class": "strong", "min": 12},
+            {"class": "moderate", "min": 7},
+            {"class": "limited", "min": 0.1},
+            {"class": "refuted"},
+        ],
+    }
+
+    def scoring(self, **changes: Any) -> list[str]:
+        cfg = {"engine": "clingen_sop_v11", "point_model": {**self.MODEL, **changes}}
         return [p for p, _ in errors(scoring_configuration=cfg)]
 
     def test_valid_point_model(self) -> None:
-        model = {
-            "categories": {"proband": {"cap": 12}, "function": {"cap": 2.0}},
-            "bands": [{"name": "limited", "min": 1}, {"name": "moderate", "min": 7}],
-        }
-        assert self.scoring(model) == []
+        assert self.scoring() == []
 
-    def test_category_cap_must_be_numeric(self) -> None:
-        model = {"categories": [{"cap": "12"}, {"label": "x"}]}
-        assert self.scoring(model) == [
-            "scoring_configuration.point_model.categories.0.cap",
-            "scoring_configuration.point_model.categories.1.cap",
+    def test_caps_must_be_numeric_and_keys_unique(self) -> None:
+        sections = [
+            {"key": "a", "cap": "12", "categories": [{"key": "c"}, {"key": "c"}]},
+            "junk",
+            {"key": "a", "cap": True},
+        ]
+        assert self.scoring(total_cap="18", sections=sections) == [
+            "scoring_configuration.point_model.total_cap",
+            "scoring_configuration.point_model.sections[0].cap",
+            "scoring_configuration.point_model.sections[2].cap",
+            "scoring_configuration.point_model.sections[2].key",
+            "scoring_configuration.point_model.sections[0].categories[1].key",
         ]
 
-    @pytest.mark.parametrize("bands", [[{"min": 7}, {"min": 1}], [{"min": "1"}], ["x"]])
-    def test_bands_must_be_ordered_numbers(self, bands: list[Any]) -> None:
-        assert self.scoring({"bands": bands}) == [
-            "scoring_configuration.point_model.bands"
+    @pytest.mark.parametrize("rng", [[3, 0], [0], ["0", 1], "0..3"])
+    def test_type_range_must_be_ordered_pair(self, rng: Any) -> None:
+        cat = {"key": "c", "combine": "avg", "types": [{"path": "p", "range": rng}]}
+        assert self.scoring(sections=[{"key": "s", "categories": [cat]}]) == [
+            "scoring_configuration.point_model.sections[0].categories[0].combine",
+            "scoring_configuration.point_model.sections[0].categories[0].types[0].range",
         ]
+
+    @pytest.mark.parametrize(
+        "bands",
+        [[{"min": 1}, {"min": 7}], [{"min": "1"}], [{"class": "x", "min": None}]],
+    )
+    def test_bands_must_not_increase(self, bands: list[Any]) -> None:
+        assert self.scoring(bands=bands) == ["scoring_configuration.point_model.bands"]
