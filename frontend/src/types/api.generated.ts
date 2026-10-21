@@ -1794,6 +1794,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/genes/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Resolve symbols, previous symbols, aliases and HGNC IDs, preserving input order.
+         */
+        post: operations["resolve_api_v1_genes_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/genes/": {
         parameters: {
             query?: never;
@@ -4813,6 +4833,20 @@ export interface components {
             /** Total Errors */
             total_errors: number;
         };
+        /** GeneCandidate */
+        GeneCandidate: {
+            /** Hgnc Id */
+            hgnc_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Name */
+            name?: string | null;
+            /**
+             * Gene Id
+             * @description Local gene row, null if only in HGNC
+             */
+            gene_id?: string | null;
+        };
         /**
          * GeneCatalogueEntry
          * @description Single gene entry in the catalogue with aggregated curation information.
@@ -5077,6 +5111,49 @@ export interface components {
             warnings: string[];
             /** Errors */
             errors: string[];
+        };
+        /** GeneResolveCounts */
+        GeneResolveCounts: {
+            /** Resolved */
+            resolved: number;
+            /** Ambiguous */
+            ambiguous: number;
+            /** Not Found */
+            not_found: number;
+        };
+        /** GeneResolveItem */
+        GeneResolveItem: {
+            /** Input */
+            input: string;
+            /** Index */
+            index: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "resolved" | "ambiguous" | "not_found";
+            /** Match Type */
+            match_type?: ("symbol" | "previous_symbol" | "alias" | "hgnc_id") | null;
+            /** Source */
+            source?: ("local" | "hgnc") | null;
+            /** Candidates */
+            candidates?: components["schemas"]["GeneCandidate"][];
+            /**
+             * Duplicate Of
+             * @description Index of the first input that resolved to the same gene
+             */
+            duplicate_of?: number | null;
+        };
+        /** GeneResolveRequest */
+        GeneResolveRequest: {
+            /** Symbols */
+            symbols: string[];
+        };
+        /** GeneResolveResponse */
+        GeneResolveResponse: {
+            /** Items */
+            items: components["schemas"]["GeneResolveItem"][];
+            counts: components["schemas"]["GeneResolveCounts"];
         };
         /**
          * GeneScopeAssignment
@@ -12050,6 +12127,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_api_v1_genes_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneResolveResponse"];
                 };
             };
             /** @description Validation Error */
