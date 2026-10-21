@@ -208,6 +208,7 @@ const routes: RouteRecordRaw[] = [
       showInMainMenu: true,
       icon: 'mdi-dna',
       label: TERMINOLOGY.GENE_CATALOG,
+      tabLabel: 'Genes',
       order: 4
     }
   },

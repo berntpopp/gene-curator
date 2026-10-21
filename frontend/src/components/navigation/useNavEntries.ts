@@ -1,0 +1,59 @@
+import { computed } from 'vue'
+import { useRouter, type RouteRecordNormalized } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
+import { useReviewBadge } from './useReviewBadge'
+
+interface RailMeta {
+  icon?: string
+  label?: string
+  tabLabel?: string
+  order?: number
+  requiresAuth?: boolean
+  requiresGuest?: boolean
+  requiredRoles?: string[]
+  showInMainMenu?: boolean
+  showInDropdown?: string
+}
+
+/**
+ * Route-driven nav entries shared by the side rail and the phone bottom tabs:
+ * `showInMainMenu` for primary destinations, `showInDropdown: 'curationSetup'` for admin.
+ * Also starts review-count polling, so mount one nav at a time.
+ */
+export function useNavEntries() {
+  const router = useRouter()
+  const authStore = useAuthStore()
+  const { isAuthenticated } = storeToRefs(authStore)
+  const pendingReviewCount = useReviewBadge()
+  // While a stored token is still being verified, show neither guest nor user entries
+  const authReady = computed(() => !authStore.token || !!authStore.user)
+
+  const allowed = (m: RailMeta) =>
+    authReady.value &&
+    !(m.requiresAuth && !isAuthenticated.value) &&
+    !(m.requiresGuest && isAuthenticated.value) &&
+    (!m.requiredRoles || authStore.hasAnyRole(m.requiredRoles))
+
+  const entries = (pick: (m: RailMeta) => boolean) =>
+    router
+      .getRoutes()
+      .filter(r => pick(r.meta as RailMeta) && allowed(r.meta as RailMeta))
+      .sort((a, b) => ((a.meta as RailMeta).order ?? 999) - ((b.meta as RailMeta).order ?? 999))
+      .map((r: RouteRecordNormalized) => ({
+        name: r.name,
+        to: { name: r.name },
+        icon: (r.meta as RailMeta).icon,
+        label: (r.meta as RailMeta).label ?? '',
+        tabLabel: (r.meta as RailMeta).tabLabel ?? (r.meta as RailMeta).label ?? '',
+        badge:
+          r.name === 'review-queue' && pendingReviewCount.value > 0
+            ? pendingReviewCount.value
+            : null
+      }))
+
+  const primary = computed(() => entries(m => m.showInMainMenu === true))
+  const admin = computed(() => entries(m => m.showInDropdown === 'curationSetup'))
+
+  return { primary, admin, isAuthenticated, authReady }
+}

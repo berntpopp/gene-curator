@@ -14,9 +14,6 @@ import AppBar from '../AppBar.vue'
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 
-vi.mock('@/components/navigation/MainNavigation.vue', () => ({
-  default: defineComponent({ name: 'MainNavigation', render: () => h('nav') })
-}))
 vi.mock('@/components/navigation/UserMenu.vue', () => ({
   default: defineComponent({ name: 'UserMenu', render: () => h('div') })
 }))
@@ -48,6 +45,8 @@ function mountAppBar() {
   return wrapper
 }
 
+const genesLink = () => !!wrapper?.text().includes('Gene Catalogue')
+
 describe('AppBar', () => {
   beforeEach(() => {
     pinia = createPinia()
@@ -77,7 +76,18 @@ describe('AppBar', () => {
     expect(wrapper?.find('.v-img').attributes('alt') ?? '').toBe('')
   })
 
-  it('hides version and user menu below md but keeps the theme toggle (#325)', () => {
+  it('lets guests reach Genes and sign in, at any width', () => {
+    mountAppBar()
+
+    expect(genesLink()).toBe(true)
+    expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(true)
+  })
+
+  it('hides version and user menu below md when signed in (bottom tabs own it) but keeps the theme toggle (#325)', () => {
+    const auth = useAuthStore()
+    auth.token = 't'
+    auth.isAuthenticated = true
+    auth.user = { email: 'a@b.c', role: 'user' } as never
     display.mdAndUp = ref(false)
     mountAppBar()
 
@@ -94,7 +104,7 @@ describe('AppBar', () => {
     auth.user = null
     mountAppBar()
 
-    expect(wrapper?.find('nav').exists()).toBe(false)
+    expect(genesLink()).toBe(false)
     expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
   })
 })

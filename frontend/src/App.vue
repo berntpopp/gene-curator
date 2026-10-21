@@ -3,6 +3,7 @@
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
     <SideRail v-if="mdAndUp && authStore.isAuthenticated" />
     <AppBar v-else />
+    <BottomTabs v-if="!mdAndUp" />
 
     <v-main id="main-content" tabindex="-1">
       <v-container fluid>
@@ -42,6 +43,7 @@
   import { useLogger } from '@/composables/useLogger'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { useDisplay } from 'vuetify'
+  import BottomTabs from '@/components/navigation/BottomTabs.vue'
   import SideRail from '@/components/navigation/SideRail.vue'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
