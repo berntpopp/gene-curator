@@ -93,13 +93,13 @@ def test_validate_transition_unknown_user(
 
 
 def test_role_requirements_cover_backwards_transitions(engine: WorkflowEngine) -> None:
-    permissive = ["curator", "admin", "scope_admin"]
+    permissive = ["curator", "admin"]
     assert engine._get_role_requirements(S.REVIEW, S.CURATION) == [
         *permissive,
         "reviewer",
     ]
     assert engine._get_role_requirements(S.CURATION, S.PRECURATION) == permissive
-    assert engine._get_role_requirements(S.ACTIVE, S.REVIEW) == ["admin", "scope_admin"]
+    assert engine._get_role_requirements(S.ACTIVE, S.REVIEW) == ["admin"]
     # Unmapped pairs fall back to admin-only
     assert engine._get_role_requirements(S.ENTRY, S.ACTIVE) == ["admin"]
 

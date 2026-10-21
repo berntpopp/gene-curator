@@ -304,3 +304,16 @@ class TestEnumIntegration:
             assert (role.can_review()) == (role in permission_matrix["review"])
             assert (role.can_manage_scope()) == (role in permission_matrix["manage"])
             assert (role.can_invite_members()) == (role in permission_matrix["invite"])
+
+
+def test_no_non_enum_scope_role_literals_in_app() -> None:
+    """'scope_admin' is not a scope_role enum value; querying it 500s on Postgres."""
+    from pathlib import Path
+
+    root = Path(__file__).parents[2] / "app"
+    bad = [
+        str(p)
+        for p in root.rglob("*.py")
+        if '"scope_admin"' in p.read_text() or "'scope_admin'" in p.read_text()
+    ]
+    assert bad == []

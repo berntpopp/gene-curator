@@ -673,7 +673,7 @@ class WorkflowEngine:
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
     ) -> list[str]:
         """Get required user roles for a transition."""
-        curator_roles = ["curator", "admin", "scope_admin"]
+        curator_roles = ["curator", "admin"]
         review_roles = [*curator_roles, "reviewer"]
         role_matrix = {
             (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): curator_roles,
@@ -686,7 +686,7 @@ class WorkflowEngine:
             (WorkflowStage.CURATION, WorkflowStage.PRECURATION): curator_roles,
             (WorkflowStage.REVIEW, WorkflowStage.PRECURATION): ["reviewer", "admin"],
             (WorkflowStage.REVIEW, WorkflowStage.CURATION): review_roles,
-            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): ["admin", "scope_admin"],
+            (WorkflowStage.ACTIVE, WorkflowStage.REVIEW): ["admin"],
         }
 
         return role_matrix.get((current_stage, target_stage), ["admin"])
@@ -1168,7 +1168,7 @@ class WorkflowEngine:
         from app.models.models import Review, ReviewStatus, ScopeMembership
 
         # Eligible roles within a scope for reviewing
-        eligible_scope_roles = ["admin", "curator", "reviewer", "scope_admin"]
+        eligible_scope_roles = ["admin", "curator", "reviewer"]
 
         # Base query for active users
         query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712

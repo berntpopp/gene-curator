@@ -38,7 +38,7 @@ from app.schemas.gene_assignment import (
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
-_ADMINS = ["admin", "scope_admin"]
+_ADMINS = ["admin"]
 
 
 # ========================================
