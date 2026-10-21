@@ -460,7 +460,7 @@ describe('GeneList', () => {
       await internals(wrapper).completePrecuration({ gene_id: 'g-1' })
 
       expect(completePrecuration).toHaveBeenCalledWith('p-1')
-      expect(addToast).toHaveBeenCalledWith('Precuration completed successfully', 'success')
+      expect(addToast).toHaveBeenCalledWith('Precuration submitted for review', 'success')
       expect(getPrecurations).toHaveBeenCalledTimes(1)
     })
 

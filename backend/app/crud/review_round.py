@@ -21,6 +21,7 @@ from app.models import (
     Review,
     ReviewStatus,
     ScopeMembership,
+    WorkflowStage,
 )
 
 _submitted_at = (
@@ -162,3 +163,52 @@ def has_pending_review(db: Session, curation_id: UUID, reviewer_id: UUID) -> boo
         )
         is not None
     )
+
+
+_DECISIONS = {
+    WorkflowStage.ACTIVE: (ReviewStatus.APPROVED, "approve"),
+    WorkflowStage.CURATION: (ReviewStatus.NEEDS_REVISION, "request_changes"),
+}
+
+
+def record_review_decision(
+    db: Session,
+    curation: CurationNew,
+    reviewer_id: UUID,
+    target: WorkflowStage,
+    notes: str | None,
+) -> None:
+    """Store a review -> active/curation transition as the reviewer's decision with its notes.
+
+    Call while the round is still open. Fills the reviewer's pending review of the round, else adds
+    one; a same decision already submitted this round (auto-activation) is kept as it is.
+    """
+    if target not in _DECISIONS:
+        return
+    status, recommendation = _DECISIONS[target]
+    review = db.scalars(
+        select(Review)
+        .where(
+            Review.curation_id == curation.id,
+            Review.reviewer_id == reviewer_id,
+            in_current_round,
+            Review.status.in_((ReviewStatus.PENDING, status)),
+        )
+        .order_by(Review.status == status)  # a pending one first
+    ).first()
+    if review is not None and review.status == status:
+        return
+    if review is None:
+        review = Review(
+            curation_id=curation.id,
+            reviewer_id=reviewer_id,
+            assigned_by=reviewer_id,
+            created_by=reviewer_id,
+        )
+        db.add(review)
+    review.status = status
+    review.recommendation = recommendation
+    review.comments = notes
+    review.reviewed_at = func.now()  # DB clock, like audit timestamps
+    review.updated_by = reviewer_id
+    db.flush()

@@ -12,11 +12,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import VIEW, require
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.crud.review_round import in_current_round
 from app.crud.workflow_engine import workflow_engine
-from app.models import UserNew
+from app.models import CurationNew, Review, ReviewStatus, UserNew, WorkflowStage
 from app.schemas.workflow_engine import (
     BulkWorkflowTransitionRequest,
     BulkWorkflowTransitionResult,
@@ -26,6 +27,7 @@ from app.schemas.workflow_engine import (
     PeerReviewResult,
     PeerReviewSubmission,
     WorkflowAnalytics,
+    WorkflowAuditEntry,
     WorkflowAuditTrail,
     WorkflowConfiguration,
     WorkflowDashboard,
@@ -392,24 +394,54 @@ def get_workflow_audit_trail(
     item_id: UUID,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowAuditTrail:
-    """
-    Get complete workflow audit trail for an item.
-    """
-    # All authenticated users can view audit trails for items in their scopes
-    # RLS policies handle scope-based access
-
-    # Basic audit trail structure (would need full implementation)
-    audit_trail = WorkflowAuditTrail(
+    """Review history of a curation: its latest submission and every review decision with the
+    reviewer's notes (other items, and unknown ones, have an empty trail)."""
+    curation = db.get(CurationNew, item_id) if item_type == "curation" else None
+    entries: list[WorkflowAuditEntry] = []
+    if curation is not None:
+        require(db, current_user, curation.scope_id, VIEW)
+        if curation.submitted_at and curation.submitted_by:
+            entries.append(
+                WorkflowAuditEntry(
+                    id=curation.id,
+                    item_id=item_id,
+                    item_type=item_type,
+                    from_stage=WorkflowStage.CURATION,
+                    to_stage=WorkflowStage.REVIEW,
+                    executed_by=curation.submitted_by,
+                    executed_at=curation.submitted_at,
+                    notes=None,
+                    metadata={},
+                )
+            )
+        entries += [
+            WorkflowAuditEntry(
+                id=r.id,
+                item_id=item_id,
+                item_type=item_type,
+                from_stage=WorkflowStage.REVIEW,
+                to_stage=WorkflowStage.ACTIVE
+                if r.status == ReviewStatus.APPROVED
+                else WorkflowStage.CURATION,
+                executed_by=r.reviewer_id,
+                executed_by_name=r.reviewer.name or r.reviewer.email,
+                executed_at=r.reviewed_at,
+                notes=r.comments,
+                metadata={"decision": r.recommendation},
+            )
+            for r in db.scalars(select(Review).where(Review.curation_id == item_id))
+            if r.reviewed_at is not None
+        ]
+        entries.sort(key=lambda e: e.executed_at)
+    return WorkflowAuditTrail(
         item_id=item_id,
         item_type=item_type,
-        entries=[],  # Would query audit log
-        total_transitions=0,
+        entries=entries,
+        total_transitions=len(entries),
         total_time_hours=None,
         created_at=datetime.now(UTC),
         completed_at=None,
     )
-
-    return audit_trail
 
 
 # ========================================

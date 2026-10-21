@@ -6,6 +6,9 @@ import type { Schema } from '@/types/api'
 export interface ReviewFeedback {
   /** Notes of the request-changes that sent the curation back (null once it was resubmitted). */
   note: string | null
+  /** Who sent it back, and when (with the note). */
+  noteBy: string | null
+  noteAt: string | null
   /** The reviewers' open queries (the curator's own replies excluded). */
   queries: Schema<'ReviewComment'>[]
   any: boolean
@@ -24,14 +27,21 @@ export const useReviewFeedbackStore = defineStore('reviewFeedback', () => {
             c => c.kind === 'query' && c.status === 'open' && c.author_id !== me
           )
         : []
-    let note: string | null = null
+    let sentBack: Schema<'WorkflowAuditEntry'> | undefined
     if (history.status === 'fulfilled') {
       const latest = [...history.value.entries].sort((a, b) =>
         b.executed_at.localeCompare(a.executed_at)
       )[0]
-      if (latest?.from_stage === 'review' && latest.to_stage === 'curation') note = latest.notes
+      if (latest?.from_stage === 'review' && latest.to_stage === 'curation') sentBack = latest
     }
-    return { note, queries, any: !!note || queries.length > 0 }
+    const note = sentBack?.notes ?? null
+    return {
+      note,
+      noteBy: (note && sentBack?.executed_by_name) || null,
+      noteAt: (note && sentBack?.executed_at) || null,
+      queries,
+      any: !!note || queries.length > 0
+    }
   }
 
   return { fetch }

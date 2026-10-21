@@ -27,7 +27,7 @@
         <template #prepend>
           <v-icon>mdi-clipboard-check</v-icon>
         </template>
-        <v-list-item-title>Complete Precuration</v-list-item-title>
+        <v-list-item-title>Submit Precuration for Review</v-list-item-title>
       </v-list-item>
       <v-list-item v-if="hasCuration(gene)" @click="emit('view-curation', gene)">
         <template #prepend>

@@ -83,11 +83,7 @@ export const precurationsAPI = {
   },
 
   /**
-   * Complete precuration (mark as ready for curation without peer review)
-   *
-   * This is a simplified workflow path that skips peer review.
-   * Use when precuration doesn't require 4-eyes principle validation.
-   * After completion, curation can begin immediately.
+   * Submit precuration for review at its current version (no approval without a reviewer, D1)
    *
    * @param id - Precuration UUID
    */

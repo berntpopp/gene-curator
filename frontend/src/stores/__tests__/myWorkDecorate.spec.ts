@@ -88,6 +88,8 @@ describe('My work decoration', () => {
   it('relabels a draft curation that has reviewer feedback', async () => {
     vi.spyOn(useReviewFeedbackStore(), 'fetch').mockResolvedValue({
       note: 'Fix',
+      noteBy: null,
+      noteAt: null,
       queries: [],
       any: true
     })
@@ -97,7 +99,7 @@ describe('My work decoration', () => {
 
   it('keeps the label without feedback, or when the feedback lookup fails', async () => {
     const fetch = vi.spyOn(useReviewFeedbackStore(), 'fetch')
-    fetch.mockResolvedValueOnce({ note: null, queries: [], any: false })
+    fetch.mockResolvedValueOnce({ note: null, noteBy: null, noteAt: null, queries: [], any: false })
     expect((await load([item({})]))[0]!.verb).toBe('Continue curation draft')
     fetch.mockRejectedValueOnce(new Error('x'))
     expect((await load([item({})]))[0]!.verb).toBe('Continue curation draft')
@@ -106,7 +108,11 @@ describe('My work decoration', () => {
   it('renders the list before the feedback labels resolve', async () => {
     let release!: () => void
     vi.spyOn(useReviewFeedbackStore(), 'fetch').mockImplementation(
-      () => new Promise(r => (release = () => r({ note: 'Fix', queries: [], any: true })))
+      () =>
+        new Promise(
+          r =>
+            (release = () => r({ note: 'Fix', noteBy: null, noteAt: null, queries: [], any: true }))
+        )
     )
     vi.mocked(myWorkApi.getMyWork).mockResolvedValue({ items: [item({})], counts: {} } as never)
     const store = useMyWorkStore()
@@ -125,7 +131,7 @@ describe('My work decoration', () => {
       peak = Math.max(peak, ++running)
       await new Promise(r => setTimeout(r, 1))
       running--
-      return { note: null, queries: [], any: false }
+      return { note: null, noteBy: null, noteAt: null, queries: [], any: false }
     })
     await load(Array.from({ length: 10 }, (_, i) => item({ item_id: `c${i}` })))
     await vi.waitFor(() => expect(running).toBe(0))
@@ -135,7 +141,11 @@ describe('My work decoration', () => {
   it('ignores labels that arrive after a newer load replaced the list', async () => {
     let release!: () => void
     vi.spyOn(useReviewFeedbackStore(), 'fetch').mockImplementation(
-      () => new Promise(r => (release = () => r({ note: 'Fix', queries: [], any: true })))
+      () =>
+        new Promise(
+          r =>
+            (release = () => r({ note: 'Fix', noteBy: null, noteAt: null, queries: [], any: true }))
+        )
     )
     vi.mocked(myWorkApi.getMyWork).mockResolvedValue({ items: [item({})], counts: {} } as never)
     const store = useMyWorkStore()

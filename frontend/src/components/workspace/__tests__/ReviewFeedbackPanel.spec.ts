@@ -5,7 +5,15 @@ import ReviewFeedbackPanel from '../ReviewFeedbackPanel.vue'
 import { useReviewFeedbackStore } from '@/stores/reviewFeedback'
 
 const mountPanel = async (
-  fb: { note: string | null; queries: unknown[]; any: boolean } | Error
+  fb:
+    | {
+        note: string | null
+        noteBy?: string | null
+        noteAt?: string | null
+        queries: unknown[]
+        any: boolean
+      }
+    | Error
 ) => {
   setActivePinia(createPinia())
   const fetch = vi.spyOn(useReviewFeedbackStore(), 'fetch')
@@ -39,6 +47,19 @@ describe('ReviewFeedbackPanel', () => {
     )
     expect(w.find('[data-testid=feedback-query]').text()).toContain('Explain 2.0 points')
     expect(w.findComponent(RouterLinkStub).props('to')).toBe('/scopes/s1/curations/c1')
+  })
+
+  it('says who requested the changes and when', async () => {
+    const { w } = await mountPanel({
+      note: 'Fix it',
+      noteBy: 'Bob Jones',
+      noteAt: '2026-10-20T10:00:00Z',
+      queries: [],
+      any: true
+    })
+    const by = w.find('[data-testid=feedback-by]').text()
+    expect(by).toContain('Bob Jones')
+    expect(by).toContain('2026')
   })
 
   it('renders nothing without feedback or when it cannot be loaded', async () => {
