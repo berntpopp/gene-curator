@@ -12,7 +12,7 @@
           />
           <h1 class="text-headline-small mb-1">Sign in to Gene Curator</h1>
           <p class="text-body-medium text-medium-emphasis">
-            Gene-disease curation for scoped teams.
+            Gene-disease validity curation with second-curator review.
           </p>
         </div>
 
@@ -83,8 +83,10 @@
 
         <div class="text-center text-body-medium mt-4">
           <p class="mb-1">
-            No account? Ask your scope admin for an invitation, then
-            <router-link :to="{ name: 'Register' }">create an account</router-link>.
+            No account?
+            <router-link :to="{ name: 'Register' }"
+              >Ask your scope admin for an invitation</router-link
+            >
           </p>
           <p>
             Just looking?
