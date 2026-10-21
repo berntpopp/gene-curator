@@ -5,6 +5,8 @@ because they use jsonb/array operators that SQLite cannot run.
 """
 
 import hashlib
+from typing import ClassVar
+from unittest.mock import patch
 from uuid import UUID, uuid4
 
 import pytest
@@ -12,10 +14,30 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.models import Gene, GeneScopeAssignment, Scope, UserNew
+from app.schemas.validation import HGNCGeneSearchResult
 
 pytestmark = pytest.mark.unit
 
 BASE = "/api/v1/genes"
+
+
+class _FakeHGNC:
+    """Echo a deterministic record for any id; the real service is never called."""
+
+    SYMBOLS: ClassVar[dict[str, str]] = {"HGNC:2001": "NEWG", "HGNC:1100": "BRCA1"}
+
+    async def fetch_gene_by_id(self, hgnc_id: str) -> HGNCGeneSearchResult:
+        symbol = self.SYMBOLS.get(hgnc_id, f"G{hgnc_id[5:]}")
+        return HGNCGeneSearchResult(hgnc_id=hgnc_id, symbol=symbol, chromosome="1")
+
+    async def close(self) -> None:
+        return None
+
+
+@pytest.fixture(autouse=True)
+def _hgnc():
+    with patch("app.services.gene_verification.HGNCValidator", _FakeHGNC):
+        yield
 
 
 @pytest.fixture

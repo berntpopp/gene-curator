@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.capabilities import CREATE_GENE, require_anywhere
 from app.core.constants import (
     DEFAULT_GENE_SORT_FIELD,
     DEFAULT_SEARCH_LIMIT,
@@ -41,6 +42,7 @@ from app.schemas.gene import (
     GeneWithAssignments,
     ScopeGeneListResponse,
 )
+from app.services.gene_verification import verified_gene, verify_rows
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -144,10 +146,10 @@ def create_gene(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Gene:
     """
-    Create new gene. Available to all authenticated users.
+    Create a gene from its HGNC id (scope curators/admins, platform admins); data comes from HGNC.
     """
-    # All authenticated users can create genes
-    # RLS policies handle scope-based access control
+    require_anywhere(db, current_user, CREATE_GENE)
+    gene_in = verified_gene(gene_in)
 
     try:
         gene = gene_crud.create_with_owner(db, obj_in=gene_in, owner_id=current_user.id)
@@ -418,17 +420,19 @@ def bulk_create_genes(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> GeneBulkCreateResponse:
     """
-    Bulk create genes. Available to all authenticated users.
+    Bulk create genes from HGNC ids; every row is re-read from HGNC (`validate_hgnc` is ignored).
     """
-    # All authenticated users can bulk create genes
-    # RLS policies handle scope-based access control
-
+    require_anywhere(db, current_user, CREATE_GENE)
+    rows, unverified = verify_rows(bulk_request.genes)
     result = gene_crud.bulk_create(
         db,
-        genes_data=bulk_request.genes,
+        genes_data=rows,
         owner_id=current_user.id,
         skip_duplicates=bulk_request.skip_duplicates,
     )
+    result["errors"] += unverified
+    for key in ("total_errors", "total_processed"):
+        result[key] += len(unverified)
 
     return GeneBulkCreateResponse(**result)
 
