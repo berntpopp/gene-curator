@@ -10,6 +10,7 @@ References:
 """
 
 import math
+import re
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
@@ -17,10 +18,14 @@ from typing import Any
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
-from .evidence_items import case_row_has_content, rows
+from .evidence_items import case_row_has_content, has_content, rows
 from .point_model import ItemRule, point_model, score, template
 
 logger = get_logger(__name__)
+
+# Row keys that are not entered evidence: row id, the PMID itself, preset case-row points
+# ponytail: a row whose only entry is points (no other field) is not flagged for its PMID
+_NOT_EVIDENCE_KEYS = {"id", "pmid", "proband_counted_points"}
 
 ENGINE_NAME = "clingen_sop_v11"
 
@@ -246,13 +251,8 @@ class ClinGenEngine(ScoringEngine):
         # Check genetic evidence
         warnings.extend(self._check_genetic_evidence_warnings(genetic_evidence))
 
-        # Check experimental evidence
-        if not self._has_experimental_evidence(experimental_evidence):
-            warnings.append(
-                "No experimental evidence provided - may limit classification strength"
-            )
+        # No "no/too few evidence" hints: in-progress work, and the score panel shows it
 
-        # Check PMIDs
         missing_pmid_count = self._count_missing_pmids(
             genetic_evidence, experimental_evidence
         )
@@ -272,29 +272,11 @@ class ClinGenEngine(ScoringEngine):
         """
         warnings = []
 
-        if not genetic_evidence:
-            warnings.append(
-                "No genetic evidence provided - at least one item recommended"
-            )
-            return warnings
-
         # Handle nested format (SOP v11)
         if isinstance(genetic_evidence, dict):
             return self._check_genetic_evidence_warnings_nested(genetic_evidence)
 
-        # Legacy flat list format
-        case_level_items = [
-            item
-            for item in rows(genetic_evidence)
-            if item.get("evidence_category") == "case_level"
-        ]
-        if len(case_level_items) < 2:
-            warnings.append(
-                f"Only {len(case_level_items)} case-level evidence item(s) - "
-                "consider adding more for stronger support"
-            )
-
-        # Check for LOD scores in segregation evidence
+        # Legacy flat list format: segregation needs a LOD score or family count
         segregation_items = [
             item
             for item in rows(genetic_evidence)
@@ -315,26 +297,6 @@ class ClinGenEngine(ScoringEngine):
         """Check nested genetic evidence for warnings."""
         warnings = []
 
-        # Count case-level evidence items
-        case_level_count = 0
-        case_level_data = genetic_evidence.get("case_level", {})
-        if isinstance(case_level_data, dict):
-            for inheritance_type in [
-                "autosomal_dominant_or_x_linked",
-                "autosomal_recessive",
-            ]:
-                inh_data = case_level_data.get(inheritance_type, {})
-                if isinstance(inh_data, dict):
-                    null_items = rows(inh_data.get("predicted_or_proven_null"))
-                    other_items = rows(inh_data.get("other_variant_type"))
-                    case_level_count += len(null_items) + len(other_items)
-
-        if case_level_count < 2:
-            warnings.append(
-                f"Only {case_level_count} case-level evidence item(s) - "
-                "consider adding more for stronger support"
-            )
-
         # Check segregation evidence
         segregation_items = rows(genetic_evidence.get("segregation"))
         if isinstance(segregation_items, list):
@@ -353,22 +315,6 @@ class ClinGenEngine(ScoringEngine):
 
         return warnings
 
-    def _has_experimental_evidence(
-        self, experimental_evidence: list[dict[str, Any]] | dict[str, Any]
-    ) -> bool:
-        """Check if any experimental evidence exists."""
-        if isinstance(experimental_evidence, list):
-            return len(experimental_evidence) > 0
-
-        if isinstance(experimental_evidence, dict):
-            for category in ["function", "functional_alteration", "models", "rescue"]:
-                cat_data = experimental_evidence.get(category, {})
-                if isinstance(cat_data, dict):
-                    for items in cat_data.values():
-                        if isinstance(items, list) and len(items) > 0:
-                            return True
-        return False
-
     def _count_missing_pmids(
         self,
         genetic_evidence: list[dict[str, Any]],
@@ -380,7 +326,18 @@ class ClinGenEngine(ScoringEngine):
             *self._iter_evidence_items(genetic_evidence),
             *self._iter_evidence_items(experimental_evidence),
         ]
-        return sum(1 for item in items if not self._is_valid_pmid(item.get("pmid", "")))
+        return sum(1 for item in items if self._lacks_valid_pmid(item))
+
+    def _lacks_valid_pmid(self, item: dict[str, Any]) -> bool:
+        """A filled-in but invalid PMID, or a row with other content but no PMID.
+
+        A freshly added row (only its id and preset points) is not flagged yet.
+        """
+        pmid = str(item.get("pmid") or "").strip()
+        if pmid:
+            return not self._is_valid_pmid(pmid)
+        rest = {k: v for k, v in item.items() if k not in _NOT_EVIDENCE_KEYS}
+        return has_content(rest)
 
     @classmethod
     def _iter_evidence_items(cls, node: Any) -> Iterator[dict[str, Any]]:
@@ -394,9 +351,8 @@ class ClinGenEngine(ScoringEngine):
                 yield from cls._iter_evidence_items(child)
 
     def _is_valid_pmid(self, pmid: Any) -> bool:
-        """Check if a PMID is valid."""
-        pmid_str = str(pmid)
-        return pmid_str.isdigit() and len(pmid_str) >= 7
+        """PMID as the forms accept it (pmid_format): optional "PMID:" prefix, 1-9 digits."""
+        return re.fullmatch(r"(PMID:?\s*)?\d{1,9}", str(pmid).strip()) is not None
 
     def validate_evidence(  # noqa: C901
         self, evidence_data: dict[str, Any], schema_config: dict[str, Any]

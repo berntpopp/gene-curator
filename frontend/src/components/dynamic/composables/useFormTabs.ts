@@ -102,10 +102,8 @@ export function useFormTabs({
     if (!scoreCalcs) return null
 
     // Check for direct mapping with _score suffix
-    const scoreKey = `${tab.id}_score`
-    if (scoreCalcs[scoreKey] !== undefined) {
-      return scoreCalcs[scoreKey]
-    }
+    const direct = scoreCalcs[`${tab.id}_score`]
+    if (typeof direct === 'number') return direct
 
     // Check for special cases
     const specialMappings: Record<string, string> = {
@@ -114,12 +112,9 @@ export function useFormTabs({
       clinical: 'clinical_evidence_score'
     }
 
-    const specialKey = specialMappings[tab.id]
-    if (specialKey && scoreCalcs[specialKey] !== undefined) {
-      return scoreCalcs[specialKey]
-    }
-
-    return null
+    const special = specialMappings[tab.id]
+    const value = special ? scoreCalcs[special] : undefined
+    return typeof value === 'number' ? value : null
   }
 
   /**

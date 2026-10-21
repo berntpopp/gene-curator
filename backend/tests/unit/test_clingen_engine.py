@@ -74,7 +74,7 @@ class TestClassification:
 
         assert result.total_score == 0.0
         assert result.verdict == "no_known"
-        assert "No genetic evidence provided" in " ".join(result.warnings)
+        assert result.warnings == []  # empty in-progress work is not a warning
 
     def test_rationale_names_classification(self, engine: ClinGenEngine):
         evidence = {
@@ -279,28 +279,37 @@ class TestNestedEndToEnd:
     def test_nested_warnings_count_invalid_pmids(self, engine: ClinGenEngine):
         evidence = {
             "genetic_evidence": _nested_case_level(
-                null_items=[_null_item(pmid="123"), _null_item(pmid=VALID_PMID)]
+                null_items=[
+                    _null_item(pmid="abc"),
+                    _null_item(pmid=VALID_PMID),
+                    _null_item(pmid="PMID: 12345"),
+                ]
             ),
             "experimental_evidence": {},
         }
 
         result = engine.calculate_scores(evidence, {})
 
-        assert "1 evidence item(s) with invalid or missing PMID" in result.warnings
-        assert any("No experimental evidence" in w for w in result.warnings)
+        assert result.warnings == ["1 evidence item(s) with invalid or missing PMID"]
 
-    def test_nested_case_level_warning_when_fewer_than_two(self, engine: ClinGenEngine):
+    def test_only_filled_rows_without_pmid_count(self, engine: ClinGenEngine):
+        fresh = {"id": "r1", "pmid": "", "proband_counted_points": 1.5, "notes": None}
+        filled = {"id": "r2", "pmid": None, "proband_label": "Proband 1"}
+        evidence = {
+            "genetic_evidence": _nested_case_level(null_items=[fresh, filled]),
+        }
+
+        result = engine.calculate_scores(evidence, {})
+
+        assert result.warnings == ["1 evidence item(s) with invalid or missing PMID"]
+
+    def test_few_items_without_experimental_do_not_warn(self, engine: ClinGenEngine):
         evidence = {
             "genetic_evidence": _nested_case_level(null_items=[_null_item()]),
             "experimental_evidence": {},
         }
 
-        result = engine.calculate_scores(evidence, {})
-
-        assert (
-            "Only 1 case-level evidence item(s) - consider adding more for stronger support"
-            in result.warnings
-        )
+        assert engine.calculate_scores(evidence, {}).warnings == []
 
     def test_nested_segregation_missing_score_warning(self, engine: ClinGenEngine):
         evidence = {

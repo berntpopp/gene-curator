@@ -32,6 +32,8 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 
 import DynamicForm from '../DynamicForm.vue'
+import type { FormValidationResult } from '../types'
+import { scoreSnapshot } from '@/components/forms/scorePreview'
 
 const stubs = {
   'v-form': {
@@ -347,6 +349,22 @@ describe('DynamicForm flow', () => {
     const wrapper = mountForm()
 
     expect(wrapper.emitted('validation-change')![0]).toEqual([{ is_valid: true }])
+  })
+
+  it('passes the live verdict and trace through, so the score panel can render', () => {
+    const trace = { sections: [{ key: 'genetic_evidence', score: 2 }] }
+    store.result = {
+      is_valid: true,
+      score_calculations: { total_score: 2, verdict: 'limited', trace }
+    }
+    const wrapper = mountForm()
+
+    const [result] = wrapper.emitted('validation-change')![0] as [FormValidationResult]
+    expect(result.score_calculations).toEqual({ total_score: 2, verdict: 'limited', trace })
+    expect(scoreSnapshot(result.score_calculations, false)).toMatchObject({
+      total: 2,
+      classification: 'limited'
+    })
   })
 })
 
