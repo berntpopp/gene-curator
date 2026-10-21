@@ -1,12 +1,27 @@
 <template>
   <div v-if="selected.length" class="bulk-bar" role="toolbar" aria-label="Bulk actions">
     <strong>{{ selected.length }} selected</strong>
-    <v-btn size="small" variant="outlined" data-testid="bulk-assign" @click="emit('assign')">
+    <v-btn
+      size="small"
+      variant="outlined"
+      data-testid="bulk-assign"
+      :disabled="busy || !assignable"
+      @click="emit('assign')"
+    >
       Assign curator
     </v-btn>
+    <span v-if="skipped" class="text-body-small" data-testid="bulk-skipped">
+      {{ skipped }} already {{ skipped === 1 ? 'has' : 'have' }} a curator
+    </span>
     <v-menu>
       <template #activator="{ props: menu }">
-        <v-btn v-bind="menu" size="small" variant="outlined" data-testid="bulk-priority">
+        <v-btn
+          v-bind="menu"
+          size="small"
+          variant="outlined"
+          data-testid="bulk-priority"
+          :disabled="busy"
+        >
           Set priority
         </v-btn>
       </template>
@@ -20,46 +35,25 @@
         />
       </v-list>
     </v-menu>
-    <v-menu :close-on-content-click="false">
-      <template #activator="{ props: menu }">
-        <v-btn v-bind="menu" size="small" variant="outlined" data-testid="bulk-due">
-          Set due date
-        </v-btn>
-      </template>
-      <v-card class="pa-3">
-        <v-text-field
-          v-model="dueDate"
-          type="date"
-          label="Due date"
-          density="compact"
-          variant="outlined"
-          hide-details
-        />
-        <v-btn
-          class="mt-2"
-          size="small"
-          color="primary"
-          variant="flat"
-          :disabled="!dueDate"
-          data-testid="bulk-due-apply"
-          @click="apply({ due_date: new Date(dueDate).toISOString() }, 'Due date set')"
-        >
-          Apply
-        </v-btn>
-      </v-card>
-    </v-menu>
     <v-spacer />
-    <v-btn size="small" variant="text" data-testid="bulk-clear" @click="emit('clear')">Clear</v-btn>
+    <v-btn
+      size="small"
+      variant="text"
+      data-testid="bulk-clear"
+      :disabled="busy"
+      @click="emit('clear')"
+      >Clear</v-btn
+    >
   </div>
 </template>
 
 <script setup lang="ts">
   /**
    * Actions for the selected genes. Assigning a curator opens the assign dialog (one
-   * POST /gene-assignments/bulk); priority and due date have no bulk endpoint, so each selected
-   * assignment is updated in turn.
+   * POST /gene-assignments/bulk); priority has no bulk endpoint, so selected assignments are
+   * updated in batches of five. Due date is not offered: the list carries no due date to show.
    */
-  import { ref } from 'vue'
+  import { computed, ref } from 'vue'
   import { useAssignmentsStore } from '@/stores/assignments'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
@@ -69,27 +63,45 @@
   import type { GeneRow } from './types'
 
   const props = defineProps<{ selected: GeneRow[] }>()
-  const emit = defineEmits<{ assign: []; clear: []; changed: [] }>()
+  const emit = defineEmits<{ assign: []; clear: []; changed: [failedGeneIds: string[]] }>()
 
   const assignments = useAssignmentsStore()
   const notifications = useNotificationsStore()
   const logger = useLogger()
-  const dueDate = ref('')
+  const busy = ref(false)
+  const BATCH = 5
+
+  const assignable = computed(() => props.selected.filter(g => !g.curator_id).length)
+  const skipped = computed(() => props.selected.length - assignable.value)
 
   async function apply(update: Schema<'GeneScopeAssignmentUpdate'>, message: string) {
-    const results = await Promise.allSettled(
-      props.selected.map(g => assignments.updateAssignment(g.assignment_id, update))
+    if (busy.value) return
+    busy.value = true
+    const failed: GeneRow[] = []
+    try {
+      const genes = [...props.selected]
+      for (let i = 0; i < genes.length; i += BATCH) {
+        const batch = genes.slice(i, i + BATCH)
+        const results = await Promise.allSettled(
+          batch.map(g => assignments.updateAssignment(g.assignment_id, update))
+        )
+        results.forEach((r, j) => r.status === 'rejected' && failed.push(batch[j]!))
+      }
+      if (failed.length) logger.error('Bulk update failed', { failed: failed.length })
+      const total = genes.length
+      notifications.addToast(
+        failed.length
+          ? `${message} for ${total - failed.length} of ${pluralize(total, 'gene')}. Failed: ${failed.map(g => g.gene_symbol).join(', ')}`
+          : `${message} for ${pluralize(total, 'gene')}`,
+        failed.length ? 'error' : 'success'
+      )
+    } finally {
+      busy.value = false
+    }
+    emit(
+      'changed',
+      failed.map(g => g.gene_id)
     )
-    const failed = results.filter(r => r.status === 'rejected').length
-    if (failed) logger.error('Bulk update failed', { failed, total: results.length })
-    notifications.addToast(
-      failed
-        ? `${message} for ${results.length - failed} of ${pluralize(results.length, 'gene')}; ${failed} failed`
-        : `${message} for ${pluralize(results.length, 'gene')}`,
-      failed ? 'error' : 'success'
-    )
-    dueDate.value = ''
-    emit('changed')
   }
 </script>
 

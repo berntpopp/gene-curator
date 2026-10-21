@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
 import GeneDetailModal from '../GeneDetailModal.vue'
 import { externalValidationAPI, genesAPI } from '@/api'
 
@@ -35,6 +36,7 @@ const dialogStub = {
 }
 
 function mountModal(props: Record<string, unknown> = {}) {
+  setActivePinia(createPinia())
   return mount(GeneDetailModal, {
     props: { modelValue: true, hgncId: 'HGNC:1100', geneSymbol: 'BRCA1', ...props },
     global: {

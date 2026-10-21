@@ -21,9 +21,9 @@
       v-if="canReassign"
       class="mb-3"
       :selected="selectedRows"
-      @assign="openAssignModal(selectedIds)"
+      @assign="openAssignModal(selectedRows.filter(r => !r.curator_id).map(r => r.gene_id))"
       @clear="selectedIds = []"
-      @changed="refresh"
+      @changed="onBulkChanged"
     />
 
     <DataTable
@@ -305,6 +305,12 @@
         }
       : undefined
   })
+
+  /** After a bulk run only the genes that failed stay selected. */
+  function onBulkChanged(failedGeneIds: string[]) {
+    refresh()
+    selectedIds.value = failedGeneIds
+  }
 
   /** Reload after a change and let the parent refresh its statistics. */
   function refresh() {

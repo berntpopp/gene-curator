@@ -138,7 +138,7 @@ describe('GeneList', () => {
     it('loads the scope assignments and maps them for display', async () => {
       const wrapper = await mountList()
 
-      expect(getAssignments).toHaveBeenCalledWith('scope-1')
+      expect(getAssignments).toHaveBeenCalledWith('scope-1', { limit: 1000 })
       const genes = internals(wrapper).filteredGenes
       expect(genes.map(g => g.gene_id)).toEqual(['g-1', 'g-2'])
       expect(wrapper.text()).toContain('BRCA1')
@@ -288,6 +288,38 @@ describe('GeneList', () => {
       wrapper.findComponent({ name: 'ScopeStageStrip' }).vm.$emit('update:modelValue', undefined)
       await flushPromises()
       expect(replace).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('large scopes and bulk results', () => {
+    it('loads and counts more than the default page of 100 assignments', async () => {
+      const many = Array.from({ length: 250 }, (_, i) => ({
+        ...assignments[1]!,
+        id: `a-${i}`,
+        gene_id: `g-${i}`
+      }))
+      getAssignments.mockResolvedValue(many as never)
+      const vm = internals(await mountList())
+      expect(getAssignments).toHaveBeenCalledWith('scope-1', { limit: 1000 })
+      expect(vm.filteredGenes).toHaveLength(250)
+      expect(vm.stageCounts.unassigned).toBe(250)
+    })
+
+    it('keeps only the failed genes selected after a bulk run', async () => {
+      const wrapper = await mountList()
+      ;(internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds = ['g-1', 'g-2']
+      wrapper.findComponent({ name: 'GeneBulkBar' }).vm.$emit('changed', ['g-2'])
+      await flushPromises()
+      expect((internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds).toEqual([
+        'g-2'
+      ])
+    })
+
+    it('offers only genes without a curator to the assign dialog', async () => {
+      const wrapper = await mountList()
+      ;(internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds = ['g-1', 'g-2']
+      wrapper.findComponent({ name: 'GeneBulkBar' }).vm.$emit('assign')
+      expect(internals(wrapper).preSelectedGeneIds).toEqual(['g-2'])
     })
   })
 

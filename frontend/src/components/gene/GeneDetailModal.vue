@@ -228,7 +228,8 @@
    */
 
   import { ref, computed, watch } from 'vue'
-  import { externalValidationAPI, genesAPI } from '@/api'
+  import { externalValidationAPI } from '@/api'
+  import { useGenesStore } from '@/stores/genes'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
@@ -264,7 +265,8 @@
 
   // State
   const revalidating = ref(false)
-  const validation = ref<Awaited<ReturnType<typeof genesAPI.validateGene>> | null>(null)
+  const genesStore = useGenesStore()
+  const validation = ref<Awaited<ReturnType<typeof genesStore.validateGene>> | null>(null)
   const geneData = ref<HgncGene | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -333,7 +335,7 @@
     revalidating.value = true
     validation.value = null
     try {
-      validation.value = await genesAPI.validateGene(props.geneId)
+      validation.value = await genesStore.validateGene(props.geneId)
       logger.info('Gene revalidated', {
         gene_id: props.geneId,
         is_valid: validation.value.is_valid

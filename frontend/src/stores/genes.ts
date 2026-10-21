@@ -136,6 +136,11 @@ export const useGenesStore = defineStore('genes', {
       }
     },
 
+    /** Check a stored gene annotation against HGNC. Callers handle errors; nothing is cached. */
+    validateGene(id: string) {
+      return genesAPI.validateGene(id)
+    },
+
     async fetchGeneById(id: string) {
       this.loading = true
       this.error = null

@@ -97,7 +97,8 @@ export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatu
   async function fetchGenes() {
     loading.value = true
     try {
-      assignments.value = await assignmentsAPI.getAssignmentsByScope(scopeId())
+      // ponytail: one request of up to 1000 rows (the backend maximum); page through above that
+      assignments.value = await assignmentsAPI.getAssignmentsByScope(scopeId(), { limit: 1000 })
       await Promise.all([workflow.fetchPrecurationStatuses(), workflow.fetchCurationStatuses()])
       logger.debug('Genes loaded', { count: assignments.value.length, scope_id: scopeId() })
     } catch (error) {
