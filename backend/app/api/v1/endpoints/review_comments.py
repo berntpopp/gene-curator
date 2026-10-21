@@ -199,7 +199,9 @@ def curation_diff(
     current = curation.evidence_data or {}
     found = _baseline(db, curation_id)
     if found is None:
-        return CurationDiff(baseline=None, items=diff_evidence({}, current))
+        return CurationDiff.model_validate(
+            {"baseline": None, "items": diff_evidence({}, current)}
+        )
     row, source, as_of = found
     snapshot = (row.changes or {}).get("evidence_data") or {}
     return CurationDiff.model_validate(
