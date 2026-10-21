@@ -87,9 +87,7 @@
     >
       <p class="text-body-large mb-2">
         {{
-          searchQuery || selectedScope || mineOnly
-            ? 'No matching curations'
-            : 'No reviews waiting'
+          searchQuery || selectedScope || mineOnly ? 'No matching curations' : 'No reviews waiting'
         }}
       </p>
       <v-btn v-if="searchQuery || selectedScope || mineOnly" variant="text" @click="clearFilters">
