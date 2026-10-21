@@ -1,204 +1,164 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { setActivePinia, createPinia } from 'pinia'
+import { createPinia, setActivePinia } from 'pinia'
+import { createRouter, createMemoryHistory } from 'vue-router'
 
-vi.mock('@/api/geneCatalogue', () => ({
-  geneCatalogueAPI: {
-    getCatalogue: vi.fn(),
-    getAvailableClassifications: vi.fn(),
-    getAvailableDiseases: vi.fn(),
-    getAvailableScopes: vi.fn()
-  }
+const api = vi.hoisted(() => ({ getMatrix: vi.fn(), getScopes: vi.fn() }))
+vi.mock('@/api/catalogueMatrix', () => ({ catalogueMatrixAPI: api }))
+const scopesApi = vi.hoisted(() => ({ fetchUserScopes: vi.fn() }))
+vi.mock('@/stores/scopes', () => ({
+  useScopesStore: () => ({ userScopes: [], fetchUserScopes: scopesApi.fetchUserScopes })
 }))
 
-const push = vi.hoisted(() => vi.fn())
-vi.mock('vue-router', () => ({
-  useRouter: () => ({ push })
-}))
+import GeneCatalogueView from '../GeneCatalogueView.vue'
 
-import { geneCatalogueAPI } from '@/api/geneCatalogue'
-import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
-import GeneCatalogueView from '@/views/GeneCatalogueView.vue'
-import { vmOf } from './vm'
+const scopes = [
+  { id: 's1', name: 'kidney', display_name: 'Kidney genetics', is_public: true },
+  { id: 's2', name: 'cilia', display_name: 'Ciliopathies', is_public: true }
+]
+const cell = (scope: string, over: Record<string, unknown> = {}) => ({
+  scope_id: scope,
+  curation_id: `c-${scope}`,
+  classification: 'Definitive',
+  stage: 'active',
+  status: 'active',
+  total_score: 14.5,
+  in_progress: false,
+  ...over
+})
+const row = (symbol: string, agreement: string, cells: unknown[]) => ({
+  gene_id: `g-${symbol}`,
+  hgnc_id: 'HGNC:1',
+  approved_symbol: symbol,
+  agreement,
+  cells
+})
+const response = {
+  scopes,
+  total: 87,
+  skip: 0,
+  limit: 25,
+  has_next: true,
+  has_prev: false,
+  rows: [
+    row('PKD1', 'disagree', [cell('s1'), cell('s2', { classification: 'Disputed' })]),
+    row('NAA10', 'single', [cell('s1', { classification: null, total_score: null })]),
+    row('HNF1B', 'agree', [
+      cell('s1', { in_progress: true, status: 'in_review', stage: 'review', classification: null })
+    ])
+  ]
+}
 
-const entry = {
-  gene_id: 'g1',
-  hgnc_id: 'HGNC:1100',
-  approved_symbol: 'BRCA1',
-  chromosome: '17',
-  location: '17q21',
-  total_curations: 2,
-  scope_count: 1,
-  classifications: { definitive: 1 },
-  diseases: ['Breast cancer'],
-  scope_curations: [{ scope_id: 's1', total_score: 12 }]
+async function mountView(url = '/genes') {
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: [
+      { path: '/genes', component: GeneCatalogueView },
+      { path: '/genes/:id', component: { template: '<div/>' } },
+      { path: '/scopes/:scopeId/curations/:curationId', component: { template: '<div/>' } }
+    ]
+  })
+  await router.push(url)
+  const wrapper = mount(GeneCatalogueView, {
+    global: { plugins: [router] },
+    attachTo: document.body
+  })
+  await flushPromises()
+  await new Promise(r => setTimeout(r))
+  await flushPromises()
+  return { wrapper, router }
 }
 
 describe('GeneCatalogueView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockReset()
-    vi.mocked(geneCatalogueAPI.getAvailableClassifications).mockResolvedValue([] as never)
-    vi.mocked(geneCatalogueAPI.getAvailableDiseases).mockResolvedValue([] as never)
-    vi.mocked(geneCatalogueAPI.getAvailableScopes).mockResolvedValue([] as never)
+    localStorage.clear()
+    api.getScopes.mockReset().mockResolvedValue(scopes)
+    api.getMatrix.mockReset().mockResolvedValue(response)
+    scopesApi.fetchUserScopes.mockReset().mockResolvedValue([])
   })
 
-  it('loads the catalogue and filter options on mount', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
-    mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(geneCatalogueAPI.getCatalogue).toHaveBeenCalled()
-    expect(geneCatalogueAPI.getAvailableScopes).toHaveBeenCalled()
-  })
-
-  it('shows em dashes in the summary tiles until the summary has loaded', async () => {
-    let release!: (v: never) => void
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockReturnValue(
-      new Promise(r => (release = r as never))
-    )
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    const tiles = () => wrapper.findAll('.text-headline-small.font-weight-bold').map(t => t.text())
-    expect(tiles()).toEqual(['—', '—', '—'])
-    release({
-      entries: [],
-      total: 0,
-      summary: { total_genes_curated: 3, total_curations: 3, total_scopes: 2 }
-    } as never)
-    await flushPromises()
-    expect(tiles()).toEqual(['3', '3', '2'])
-  })
-
-  it('shows the no-data message when there are no curated genes', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(wrapper.text()).toContain('No curated genes found')
-    expect(wrapper.text()).toContain('No genes have active curations yet')
-  })
-
-  it('renders catalogue rows from the store', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
-      entries: [entry],
-      total: 1
-    } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(useGeneCatalogueStore().entries).toHaveLength(1)
-    expect(wrapper.text()).toContain('BRCA1')
-  })
-
-  it('shows the band when the chromosome is missing and a dash when both are', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
-      entries: [
-        { ...entry, gene_id: 'g2', approved_symbol: 'PKD2', chromosome: null, location: '4q22.1' },
-        { ...entry, gene_id: 'g3', approved_symbol: 'NOLOC', chromosome: null, location: null }
-      ],
-      total: 2
-    } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(wrapper.text()).toContain('4q22.1')
-    expect(wrapper.text()).not.toContain('Unknown')
-  })
-
-  it('shows the store error instead of an empty page when the API fails', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockRejectedValue(new Error('boom'))
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(wrapper.find('[data-testid="catalogue-error"]').exists()).toBe(true)
-  })
-
-  it('navigates to the registered scope-dashboard route', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    const vm = wrapper.vm as unknown as { navigateToScope: (c: { scope_id: string }) => void }
-    vm.navigateToScope({ scope_id: 's1' })
-    expect(push).toHaveBeenCalledWith({ name: 'scope-dashboard', params: { scopeId: 's1' } })
-  })
-
-  it('builds scope filter options from the API id and display_name', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
-    vi.mocked(geneCatalogueAPI.getAvailableScopes).mockResolvedValue([
-      { id: 's1', name: 'kidney', display_name: 'Kidney Genetics' }
-    ] as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(vmOf(wrapper).scopeOptions).toEqual([{ title: 'Kidney Genetics', value: 's1' }])
-  })
-
-  it('has one footer, shows the server total and truncates a single long disease', async () => {
-    const long = 'D'.repeat(120)
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
-      entries: [{ ...entry, diseases: [long] }],
-      total: 600
-    } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    expect(wrapper.findAll('.v-data-table-footer')).toHaveLength(1)
-    expect(wrapper.text()).toContain('of 600')
-    expect(wrapper.find(`.disease-cell[title="${long}"]`).exists()).toBe(true)
-  })
-
-  it('passes table page and sort to the store and refetches', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
-      entries: [entry],
-      total: 600
-    } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    const handle = vmOf(wrapper).handleOptions as (o: unknown) => Promise<void>
-    await handle({ page: 3, sortBy: [{ key: 'total_curations', order: 'desc' }] })
-    const store = useGeneCatalogueStore()
-    expect(store.filters.sortBy).toBe('total_curations')
-    expect(store.filters.sortOrder).toBe('desc')
-    expect(geneCatalogueAPI.getCatalogue).toHaveBeenLastCalledWith(
-      expect.objectContaining({ skip: 40, sort_by: 'total_curations', sort_order: 'desc' })
-    )
-  })
-
-  it('a filter change fetches exactly once, even from page 3', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
-      entries: [entry],
-      total: 600
-    } as never)
-    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
-    await flushPromises()
-    await (vmOf(wrapper).handleOptions as (o: unknown) => Promise<void>)({
-      page: 3,
-      sortBy: []
+  it('fetches the default scopes and shows the server total', async () => {
+    const { wrapper } = await mountView()
+    expect(api.getMatrix.mock.calls[0]![0]).toMatchObject({
+      scope_ids: ['s1', 's2'],
+      skip: 0,
+      limit: 25
     })
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockClear()
-    vmOf(wrapper).selectedScope = 's1'
-    await (vmOf(wrapper).handleFilterChange as () => Promise<void>)()
-    await flushPromises()
-    expect(geneCatalogueAPI.getCatalogue).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('1-25 of 87')
+    expect(wrapper.find('[data-testid="scope-picker"]').text()).toBe('Scopes shown: 2 of 2')
   })
 
-  it('opens the quick info dialog for a gene and navigates from it', async () => {
-    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
-    const wrapper = mount(GeneCatalogueView, {
-      global: {
-        stubs: {
-          RouterLink: true,
-          VDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
-        }
-      }
+  it('renders one column per scope with classification marks and honest empty cells', async () => {
+    const { wrapper } = await mountView()
+    const heads = wrapper.findAll('thead th').map(h => h.text())
+    expect(heads).toEqual(['Gene', 'Kidney genetics', 'Ciliopathies', 'Agreement'])
+    const rows = wrapper.findAll('tbody tr')
+    expect(rows[0]!.text()).toContain('Definitive')
+    expect(rows[0]!.text()).toContain('Disputed')
+    expect(rows[0]!.text()).toContain('14.5')
+    expect(rows[1]!.text()).toContain('Not classified')
+    expect(rows[1]!.text()).not.toContain('Pending')
+    expect(rows[1]!.text()).toContain('not in scope')
+    expect(rows[2]!.text()).toContain('In review')
+  })
+
+  it('keeps scores neutral and drops the old quick-view, tiles and per-row icons', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.find('.text-success').exists()).toBe(false)
+    expect(wrapper.find('.v-avatar').exists()).toBe(false)
+    expect(wrapper.find('.mdi-virus').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="quick-view"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Curated Genes')
+  })
+
+  it('names every cell link and marks disagreeing rows', async () => {
+    const { wrapper } = await mountView()
+    const link = wrapper.find('tbody tr a[href*="/scopes/s1/curations/c-s1"]')
+    expect(link.attributes('aria-label')).toBe('Open PKD1 curation in Kidney genetics')
+    expect(wrapper.findAll('a').every(a => a.text() || a.attributes('aria-label'))).toBe(true)
+    expect(wrapper.findAll('.agreement--disagree')).toHaveLength(1)
+    expect(wrapper.find('.agreement--disagree').text()).toBe('Disagree')
+  })
+
+  it('restores filters and scopes from the URL', async () => {
+    const { wrapper } = await mountView('/genes?agreement=disagree&scopes=s2&q=pkd&page=2&size=50')
+    expect(api.getMatrix.mock.calls.at(-1)![0]).toMatchObject({
+      scope_ids: ['s2'],
+      agreement: 'disagree',
+      search: 'pkd',
+      skip: 50,
+      limit: 50
     })
+    expect(wrapper.find('[data-testid="filter-agreement"]').text()).toContain('Disagree')
+  })
+
+  it('uses the saved default view when the URL names no scopes', async () => {
+    localStorage.setItem('catalogue.shownScopes', JSON.stringify(['s2']))
+    await mountView()
+    expect(api.getMatrix.mock.calls[0]![0].scope_ids).toEqual(['s2'])
+  })
+
+  it('writes a scope change to the URL and saves it as the default', async () => {
+    const { wrapper, router } = await mountView()
+    await wrapper.find('[data-testid="scope-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r, 50))
+    ;(document.body.querySelector('[data-testid="scope-s2"] input') as HTMLInputElement).click()
+    await new Promise(r => setTimeout(r, 20))
     await flushPromises()
-    const vm = vmOf(wrapper)
-    ;(vm.showQuickInfo as (e: unknown) => void)({
-      ...entry,
-      scope_curations: [
-        { scope_id: 's1', scope_name: 'Kidney', classification: 'definitive', is_public: true }
-      ]
-    })
+    expect(router.currentRoute.value.query.scopes).toEqual(['s1'])
+    expect(JSON.parse(localStorage.getItem('catalogue.shownScopes')!)).toEqual(['s1'])
+    expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(['s1'])
+  })
+
+  it('shows the error with retry, not the empty state', async () => {
+    api.getMatrix.mockRejectedValue({ response: { data: { detail: 'Server down' } } })
+    const { wrapper } = await mountView()
+    expect(wrapper.find('[data-testid="table-error"]').text()).toContain('Server down')
+    expect(wrapper.find('[data-testid="table-empty"]').exists()).toBe(false)
+    api.getMatrix.mockResolvedValue(response)
+    await wrapper.find('[data-testid="table-retry"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('HGNC:1100')
-    expect(wrapper.text()).toContain('Associated Diseases (1)')
-    const view = wrapper.findAll('button').find(b => b.text().includes('View'))
-    await view?.trigger('click')
-    expect(push).toHaveBeenCalledWith({ name: 'GeneDetail', params: { id: 'g1' } })
+    expect(wrapper.find('[data-testid="table-error"]').exists()).toBe(false)
   })
 })
