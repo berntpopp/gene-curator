@@ -1,0 +1,1823 @@
+{
+  "ui_configuration": {
+    "layout": {
+      "tabs": [
+        {
+          "id": "summary",
+          "icon": "mdi-file-document-outline",
+          "name": "Summary",
+          "sections": [
+            {
+              "name": "Classification Summary",
+              "fields": ["evidence_summary", "replicated_over_time"]
+            },
+            {
+              "name": "Score Summary",
+              "component": "ScoreSummary"
+            }
+          ]
+        },
+        {
+          "id": "genetic",
+          "icon": "mdi-dna",
+          "name": "Genetic Evidence",
+          "sections": [
+            {
+              "name": "Case-Level Data - AD/X-linked",
+              "fields": ["genetic_evidence.case_level.autosomal_dominant_or_x_linked"],
+              "collapsible": true
+            },
+            {
+              "name": "Case-Level Data - Autosomal Recessive",
+              "fields": ["genetic_evidence.case_level.autosomal_recessive"],
+              "collapsed": true,
+              "collapsible": true
+            },
+            {
+              "name": "Segregation Evidence",
+              "fields": ["genetic_evidence.segregation"],
+              "collapsible": true
+            },
+            {
+              "name": "Case-Control Data",
+              "fields": ["genetic_evidence.case_control"],
+              "collapsed": true,
+              "collapsible": true
+            }
+          ],
+          "show_score_badge": true
+        },
+        {
+          "id": "experimental",
+          "icon": "mdi-flask",
+          "name": "Experimental Evidence",
+          "sections": [
+            {
+              "name": "Function",
+              "fields": ["experimental_evidence.function"],
+              "help_text": "Biochemical function, protein interaction, and expression (max 2 pts)",
+              "collapsible": true
+            },
+            {
+              "name": "Functional Alteration",
+              "fields": ["experimental_evidence.functional_alteration"],
+              "collapsed": true,
+              "help_text": "Patient cells and non-patient cells (max 2 pts)",
+              "collapsible": true
+            },
+            {
+              "name": "Models",
+              "fields": ["experimental_evidence.models"],
+              "collapsed": true,
+              "help_text": "Non-human model organisms and cell culture (Models & Rescue: max 4 pts combined)",
+              "collapsible": true
+            },
+            {
+              "name": "Rescue",
+              "fields": ["experimental_evidence.rescue"],
+              "collapsed": true,
+              "help_text": "Rescue experiments (Models & Rescue: max 4 pts combined)",
+              "collapsible": true
+            }
+          ],
+          "show_score_badge": true
+        },
+        {
+          "id": "contradictory",
+          "icon": "mdi-alert-circle-outline",
+          "name": "Contradictory",
+          "sections": [
+            {
+              "name": "Contradictory Evidence",
+              "fields": ["contradictory_evidence"]
+            }
+          ]
+        },
+        {
+          "id": "lumping",
+          "icon": "mdi-call-split",
+          "name": "Lumping & Splitting",
+          "readonly": true,
+          "sections": [
+            {
+              "name": "Disease Entity",
+              "component": "LumpingSplittingSection",
+              "help_text": "Disease entity definition from approved precuration (read-only)"
+            }
+          ]
+        }
+      ],
+      "type": "tabs"
+    },
+    "components": {
+      "ScoreSummary": {
+        "sticky": true,
+        "show_breakdown": true,
+        "show_classification": true
+      },
+      "EvidenceTable": {
+        "features": ["inline_edit", "bulk_import", "pmid_lookup", "sorting", "filtering"],
+        "expandable_rows": true,
+        "pmid_auto_fetch": true,
+        "show_row_scores": true,
+        "show_score_status": true
+      },
+      "LumpingSplittingSection": {
+        "readonly": true,
+        "show_precuration_link": true
+      }
+    },
+    "quick_actions": [
+      {
+        "icon": "mdi-plus",
+        "label": "Add Case-Level Evidence",
+        "target": "genetic_evidence.case_level"
+      },
+      {
+        "icon": "mdi-plus",
+        "label": "Add Experimental Evidence",
+        "target": "experimental_evidence"
+      }
+    ],
+    "keyboard_shortcuts": {
+      "undo": "Ctrl+Z",
+      "submit": "Ctrl+Enter",
+      "save_draft": "Ctrl+S"
+    }
+  },
+  "field_definitions": {
+    "evidence_summary": {
+      "type": "string",
+      "help_text": "Summarize the overall evidence supporting the gene-disease relationship",
+      "description": "Free-text summary of the evidence and classification rationale",
+      "ui_component": "RichTextEditor"
+    },
+    "genetic_evidence": {
+      "type": "object",
+      "label": "Genetic Evidence",
+      "properties": {
+        "case_level": {
+          "type": "object",
+          "label": "Case-Level Data",
+          "order": 1,
+          "properties": {
+            "autosomal_recessive": {
+              "type": "object",
+              "label": "Autosomal Recessive",
+              "order": 2,
+              "properties": {
+                "other_variant_type": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 5,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "variant_1": {
+                        "type": "string",
+                        "label": "Variant 1",
+                        "order": 3
+                      },
+                      "variant_2": {
+                        "type": "string",
+                        "label": "Variant 2",
+                        "order": 4
+                      },
+                      "explanation": {
+                        "type": "string",
+                        "label": "Explanation",
+                        "order": 8
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          },
+                          {
+                            "label": "Contradicts",
+                            "value": "contradicts"
+                          }
+                        ]
+                      },
+                      "variant_type": {
+                        "type": "select",
+                        "label": "Type",
+                        "order": 2,
+                        "default": "null_and_other",
+                        "options": [
+                          {
+                            "label": "Null + Other",
+                            "value": "null_and_other"
+                          },
+                          {
+                            "label": "Two other variants",
+                            "value": "two_other"
+                          },
+                          {
+                            "label": "Homozygous other",
+                            "value": "homozygous_other"
+                          }
+                        ]
+                      },
+                      "proband_label": {
+                        "type": "string",
+                        "label": "Proband",
+                        "order": 1
+                      },
+                      "proband_counted_points": {
+                        "max": 1.5,
+                        "min": 0,
+                        "step": 0.1,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 0.1,
+                        "max_value": 1.5,
+                        "min_value": 0
+                      }
+                    }
+                  },
+                  "label": "Other Variant Type",
+                  "order": 2,
+                  "description": "Biallelic other variant types (default 0.1, 0-1.5 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "predicted_or_proven_null": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 5,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "variant_1": {
+                        "type": "string",
+                        "label": "Variant 1",
+                        "order": 3
+                      },
+                      "variant_2": {
+                        "type": "string",
+                        "label": "Variant 2",
+                        "order": 4
+                      },
+                      "explanation": {
+                        "type": "string",
+                        "label": "Explanation",
+                        "order": 8
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 6,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          },
+                          {
+                            "label": "Contradicts",
+                            "value": "contradicts"
+                          }
+                        ]
+                      },
+                      "variant_type": {
+                        "type": "select",
+                        "label": "Type",
+                        "order": 2,
+                        "default": "two_null",
+                        "options": [
+                          {
+                            "label": "Two null variants",
+                            "value": "two_null"
+                          },
+                          {
+                            "label": "Homozygous null",
+                            "value": "null_and_null"
+                          }
+                        ]
+                      },
+                      "proband_label": {
+                        "type": "string",
+                        "label": "Proband",
+                        "order": 1
+                      },
+                      "proband_counted_points": {
+                        "max": 3,
+                        "min": 0,
+                        "step": 0.1,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 7,
+                        "default": 1.5,
+                        "max_value": 3,
+                        "min_value": 0
+                      }
+                    }
+                  },
+                  "label": "Predicted or Proven Null",
+                  "order": 1,
+                  "description": "Biallelic predicted or proven null variants (default 1.5, 0-3 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Evidence for autosomal recessive inheritance"
+            },
+            "autosomal_dominant_or_x_linked": {
+              "type": "object",
+              "label": "Autosomal Dominant or X-linked",
+              "order": 1,
+              "properties": {
+                "other_variant_type": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 4,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "variant": {
+                        "type": "string",
+                        "label": "Variant (HGVS)",
+                        "order": 3
+                      },
+                      "explanation": {
+                        "type": "string",
+                        "label": "Explanation",
+                        "order": 7
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 5,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          },
+                          {
+                            "label": "Contradicts",
+                            "value": "contradicts"
+                          }
+                        ]
+                      },
+                      "variant_type": {
+                        "type": "select",
+                        "label": "Type",
+                        "order": 2,
+                        "default": "missense",
+                        "options": [
+                          {
+                            "label": "Missense",
+                            "value": "missense"
+                          },
+                          {
+                            "label": "In-frame indel",
+                            "value": "in_frame_indel"
+                          },
+                          {
+                            "label": "Cryptic splice",
+                            "value": "cryptic_splice"
+                          },
+                          {
+                            "label": "Synonymous",
+                            "value": "synonymous"
+                          },
+                          {
+                            "label": "5' UTR",
+                            "value": "5_utr"
+                          },
+                          {
+                            "label": "3' UTR",
+                            "value": "3_utr"
+                          },
+                          {
+                            "label": "Intronic",
+                            "value": "intronic"
+                          },
+                          {
+                            "label": "Other",
+                            "value": "other"
+                          }
+                        ]
+                      },
+                      "proband_label": {
+                        "type": "string",
+                        "label": "Proband",
+                        "order": 1
+                      },
+                      "proband_counted_points": {
+                        "max": 1.5,
+                        "min": 0,
+                        "step": 0.1,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 6,
+                        "default": 0.1,
+                        "max_value": 1.5,
+                        "min_value": 0
+                      }
+                    }
+                  },
+                  "label": "Other Variant Type",
+                  "order": 2,
+                  "description": "Other variant types (default 0.1, 0-1.5 points)",
+                  "ui_component": "EvidenceTable"
+                },
+                "predicted_or_proven_null": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "pmid": {
+                        "type": "string",
+                        "label": "PMID",
+                        "order": 4,
+                        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                        "validation": "pmid_format",
+                        "pattern_message": "PMID must be digits only"
+                      },
+                      "variant": {
+                        "type": "string",
+                        "label": "Variant (HGVS)",
+                        "order": 3
+                      },
+                      "explanation": {
+                        "type": "string",
+                        "label": "Explanation",
+                        "order": 7
+                      },
+                      "score_status": {
+                        "type": "select",
+                        "label": "Status",
+                        "order": 5,
+                        "default": "score",
+                        "options": [
+                          {
+                            "label": "Score",
+                            "value": "score"
+                          },
+                          {
+                            "label": "Review",
+                            "value": "review"
+                          },
+                          {
+                            "label": "Contradicts",
+                            "value": "contradicts"
+                          }
+                        ]
+                      },
+                      "variant_type": {
+                        "type": "select",
+                        "label": "Type",
+                        "order": 2,
+                        "default": "nonsense",
+                        "options": [
+                          {
+                            "label": "Nonsense",
+                            "value": "nonsense"
+                          },
+                          {
+                            "label": "Frameshift",
+                            "value": "frameshift"
+                          },
+                          {
+                            "label": "Splice (+/-1,2)",
+                            "value": "canonical_splice"
+                          },
+                          {
+                            "label": "Init codon",
+                            "value": "initiation_codon"
+                          },
+                          {
+                            "label": "Single exon del",
+                            "value": "single_exon_deletion"
+                          },
+                          {
+                            "label": "Multi-exon del",
+                            "value": "multi_exon_deletion"
+                          },
+                          {
+                            "label": "Whole gene del",
+                            "value": "whole_gene_deletion"
+                          }
+                        ]
+                      },
+                      "proband_label": {
+                        "type": "string",
+                        "label": "Proband",
+                        "order": 1
+                      },
+                      "proband_counted_points": {
+                        "max": 3,
+                        "min": 0,
+                        "step": 0.1,
+                        "type": "number",
+                        "label": "Points",
+                        "order": 6,
+                        "default": 1.5,
+                        "max_value": 3,
+                        "min_value": 0
+                      }
+                    }
+                  },
+                  "label": "Predicted or Proven Null",
+                  "order": 1,
+                  "description": "Predicted or proven null variants (default 1.5, 0-3 points)",
+                  "ui_component": "EvidenceTable"
+                }
+              },
+              "description": "Evidence for AD or X-linked inheritance"
+            }
+          },
+          "description": "Case-level variant evidence by inheritance pattern and variant type"
+        },
+        "segregation": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pmid": {
+                "type": "string",
+                "label": "PMID",
+                "order": 2,
+                "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                "validation": "pmid_format",
+                "pattern_message": "PMID must be digits only"
+              },
+              "points": {
+                "max": 3,
+                "min": 0,
+                "step": 0.1,
+                "type": "number",
+                "label": "Points",
+                "order": 5,
+                "default": 0,
+                "max_value": 3,
+                "min_value": 0
+              },
+              "lod_score": {
+                "min": 0,
+                "step": 0.1,
+                "type": "number",
+                "label": "LOD Score",
+                "order": 3,
+                "default": 0,
+                "min_value": 0
+              },
+              "explanation": {
+                "type": "string",
+                "label": "Explanation",
+                "order": 6
+              },
+              "family_label": {
+                "type": "string",
+                "label": "Family",
+                "order": 1
+              },
+              "segregations_counted": {
+                "min": 0,
+                "type": "number",
+                "label": "Seg. Counted",
+                "order": 4,
+                "default": 0,
+                "min_value": 0
+              }
+            }
+          },
+          "label": "Segregation",
+          "order": 2,
+          "description": "Segregation evidence (max 3 points)",
+          "ui_component": "EvidenceTable"
+        },
+        "case_control": {
+          "type": "object",
+          "label": "Case-Control Data",
+          "order": 3,
+          "properties": {
+            "single_variant_analysis": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "points": {
+                    "max": 6,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 10,
+                    "default": 0,
+                    "max_value": 6,
+                    "min_value": 0
+                  },
+                  "p_value": {
+                    "max": 1,
+                    "min": 0,
+                    "type": "number",
+                    "label": "P-value",
+                    "order": 9,
+                    "default": 1,
+                    "max_value": 1,
+                    "min_value": 0
+                  },
+                  "variant": {
+                    "type": "string",
+                    "label": "Variant",
+                    "order": 3
+                  },
+                  "odds_ratio": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "OR",
+                    "order": 8,
+                    "default": 0,
+                    "min_value": 0
+                  },
+                  "cases_total": {
+                    "min": 1,
+                    "type": "number",
+                    "label": "Cases",
+                    "order": 5,
+                    "default": 1,
+                    "min_value": 1
+                  },
+                  "study_label": {
+                    "type": "string",
+                    "label": "Study",
+                    "order": 1
+                  },
+                  "controls_total": {
+                    "min": 1,
+                    "type": "number",
+                    "label": "Ctrl",
+                    "order": 7,
+                    "default": 1,
+                    "min_value": 1
+                  },
+                  "cases_with_variant": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "Cases+",
+                    "order": 4,
+                    "default": 0,
+                    "min_value": 0
+                  },
+                  "controls_with_variant": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "Ctrl+",
+                    "order": 6,
+                    "default": 0,
+                    "min_value": 0
+                  }
+                }
+              },
+              "label": "Single Variant Analysis",
+              "order": 1,
+              "description": "Single variant analysis (0-6 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "aggregate_variant_analysis": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "points": {
+                    "max": 6,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 9,
+                    "default": 0,
+                    "max_value": 6,
+                    "min_value": 0
+                  },
+                  "p_value": {
+                    "max": 1,
+                    "min": 0,
+                    "type": "number",
+                    "label": "P-value",
+                    "order": 8,
+                    "default": 1,
+                    "max_value": 1,
+                    "min_value": 0
+                  },
+                  "cases_total": {
+                    "min": 1,
+                    "type": "number",
+                    "label": "Cases",
+                    "order": 5,
+                    "default": 1,
+                    "min_value": 1
+                  },
+                  "study_label": {
+                    "type": "string",
+                    "label": "Study",
+                    "order": 1
+                  },
+                  "analysis_type": {
+                    "type": "select",
+                    "label": "Analysis",
+                    "order": 3,
+                    "default": "burden",
+                    "options": [
+                      {
+                        "label": "Burden test",
+                        "value": "burden"
+                      },
+                      {
+                        "label": "Collapsing",
+                        "value": "collapsing"
+                      },
+                      {
+                        "label": "SKAT",
+                        "value": "skat"
+                      },
+                      {
+                        "label": "SKAT-O",
+                        "value": "skat_o"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "controls_total": {
+                    "min": 1,
+                    "type": "number",
+                    "label": "Ctrl",
+                    "order": 7,
+                    "default": 1,
+                    "min_value": 1
+                  },
+                  "cases_with_variants": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "Cases+",
+                    "order": 4,
+                    "default": 0,
+                    "min_value": 0
+                  },
+                  "controls_with_variants": {
+                    "min": 0,
+                    "type": "number",
+                    "label": "Ctrl+",
+                    "order": 6,
+                    "default": 0,
+                    "min_value": 0
+                  }
+                }
+              },
+              "label": "Aggregate Variant Analysis",
+              "order": 2,
+              "description": "Aggregate variant analysis (0-6 points)",
+              "ui_component": "EvidenceTable"
+            }
+          },
+          "description": "Case-control studies (max 6 points)"
+        }
+      },
+      "description": "Genetic evidence supporting the gene-disease relationship (max 12 points)"
+    },
+    "entity_definition": {
+      "type": "object",
+      "readonly": true,
+      "properties": {
+        "mondo_id": {
+          "type": "string",
+          "readonly": true,
+          "required": true,
+          "help_text": "Inherited from precuration",
+          "validation": "mondo_id_format"
+        },
+        "disease_name": {
+          "type": "string",
+          "readonly": true,
+          "required": true,
+          "help_text": "Inherited from precuration"
+        },
+        "mode_of_inheritance": {
+          "type": "string",
+          "readonly": true,
+          "required": true,
+          "help_text": "Inherited from precuration"
+        }
+      },
+      "description": "Gene-disease relationship entity (inherited from approved precuration)"
+    },
+    "replicated_over_time": {
+      "type": "boolean",
+      "label": "Replicated over time (\u22652 independent publications, >3 years)",
+      "default": false
+    },
+    "experimental_evidence": {
+      "type": "object",
+      "label": "Experimental Evidence",
+      "properties": {
+        "models": {
+          "type": "object",
+          "label": "Models",
+          "order": 3,
+          "properties": {
+            "cell_culture_model": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 1,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "cell_type": {
+                    "type": "select",
+                    "label": "Cell Type",
+                    "order": 3,
+                    "default": "ipsc",
+                    "options": [
+                      {
+                        "label": "iPSC-derived",
+                        "value": "ipsc"
+                      },
+                      {
+                        "label": "Organoid",
+                        "value": "organoid"
+                      },
+                      {
+                        "label": "Primary cells",
+                        "value": "primary"
+                      },
+                      {
+                        "label": "Cell line",
+                        "value": "cell_line"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "modification": {
+                    "type": "string",
+                    "label": "Modification",
+                    "order": 4
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "phenotype_observed": {
+                    "type": "string",
+                    "label": "Phenotype",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Cell Culture Model",
+              "order": 2,
+              "description": "Cell culture model recapitulates the phenotype (default 1, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "non_human_model_organism": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 4,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 8,
+                    "default": 2,
+                    "max_value": 4,
+                    "min_value": 0
+                  },
+                  "organism": {
+                    "type": "select",
+                    "label": "Organism",
+                    "order": 3,
+                    "default": "mouse",
+                    "options": [
+                      {
+                        "label": "Mouse",
+                        "value": "mouse"
+                      },
+                      {
+                        "label": "Rat",
+                        "value": "rat"
+                      },
+                      {
+                        "label": "Zebrafish",
+                        "value": "zebrafish"
+                      },
+                      {
+                        "label": "Drosophila",
+                        "value": "drosophila"
+                      },
+                      {
+                        "label": "C. elegans",
+                        "value": "c_elegans"
+                      },
+                      {
+                        "label": "Xenopus",
+                        "value": "xenopus"
+                      },
+                      {
+                        "label": "Yeast",
+                        "value": "yeast"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "model_type": {
+                    "type": "select",
+                    "label": "Type",
+                    "order": 4,
+                    "default": "knockout",
+                    "options": [
+                      {
+                        "label": "Knockout",
+                        "value": "knockout"
+                      },
+                      {
+                        "label": "Knockin",
+                        "value": "knockin"
+                      },
+                      {
+                        "label": "Transgenic",
+                        "value": "transgenic"
+                      },
+                      {
+                        "label": "Morpholino",
+                        "value": "morpholino"
+                      },
+                      {
+                        "label": "CRISPR",
+                        "value": "crispr"
+                      },
+                      {
+                        "label": "Other",
+                        "value": "other"
+                      }
+                    ]
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 7,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "phenotype_observed": {
+                    "type": "string",
+                    "label": "Phenotype",
+                    "order": 5
+                  },
+                  "human_phenotype_match": {
+                    "type": "string",
+                    "label": "Human Match",
+                    "order": 6
+                  }
+                }
+              },
+              "label": "Non-human Model Organism",
+              "order": 1,
+              "description": "Non-human model organism recapitulates the phenotype (default 2, 0-4 points)",
+              "ui_component": "EvidenceTable"
+            }
+          },
+          "description": "Models; one Models & Rescue category with rescue (max 4 points combined)"
+        },
+        "rescue": {
+          "type": "object",
+          "label": "Rescue",
+          "order": 4,
+          "properties": {
+            "human": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 4,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 2,
+                    "max_value": 4,
+                    "min_value": 0
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "rescue_extent": {
+                    "type": "string",
+                    "label": "Rescue Extent",
+                    "order": 5
+                  },
+                  "rescue_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 3
+                  },
+                  "phenotype_rescued": {
+                    "type": "string",
+                    "label": "Phenotype Rescued",
+                    "order": 4
+                  }
+                }
+              },
+              "label": "Rescue in Human",
+              "order": 1,
+              "description": "Rescue in human (default 2, 0-4 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "cell_culture": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 1,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "cell_type": {
+                    "type": "string",
+                    "label": "Cell Type",
+                    "order": 3
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "rescue_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 4
+                  },
+                  "phenotype_rescued": {
+                    "type": "string",
+                    "label": "Phenotype Rescued",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Rescue in Cell Culture Model",
+              "order": 3,
+              "description": "Rescue in cell culture model (default 1, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "patient_cells": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 1,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "cell_type": {
+                    "type": "string",
+                    "label": "Cell Type",
+                    "order": 3
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "rescue_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 4
+                  },
+                  "phenotype_rescued": {
+                    "type": "string",
+                    "label": "Phenotype Rescued",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Rescue in Patient Cells",
+              "order": 4,
+              "description": "Rescue in patient cells (default 1, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "non_human_model_organism": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 4,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 2,
+                    "max_value": 4,
+                    "min_value": 0
+                  },
+                  "organism": {
+                    "type": "string",
+                    "label": "Organism",
+                    "order": 3
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "rescue_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 4
+                  },
+                  "phenotype_rescued": {
+                    "type": "string",
+                    "label": "Phenotype Rescued",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Rescue in Non-human Model Organism",
+              "order": 2,
+              "description": "Rescue in non-human model organism (default 2, 0-4 points)",
+              "ui_component": "EvidenceTable"
+            }
+          },
+          "description": "Rescue; one Models & Rescue category with models (max 4 points combined)"
+        },
+        "function": {
+          "type": "object",
+          "label": "Function",
+          "order": 1,
+          "properties": {
+            "expression": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 0.5,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "tissue_organ": {
+                    "type": "string",
+                    "label": "Tissue/Organ",
+                    "order": 3
+                  },
+                  "expression_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 4
+                  },
+                  "disease_tissue_relevance": {
+                    "type": "string",
+                    "label": "Relevance",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Expression",
+              "order": 3,
+              "description": "Gene is expressed in tissues relevant to the disease (default 0.5, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "protein_interaction": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 7,
+                    "default": 0.5,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 6,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "disease_relevance": {
+                    "type": "string",
+                    "label": "Disease Relevance",
+                    "order": 5
+                  },
+                  "interaction_method": {
+                    "type": "string",
+                    "label": "Method",
+                    "order": 4
+                  },
+                  "interacting_protein": {
+                    "type": "string",
+                    "label": "Interacting Protein",
+                    "order": 3
+                  }
+                }
+              },
+              "label": "Protein Interaction",
+              "order": 2,
+              "description": "Gene product interacts with proteins implicated in the disease (default 0.5, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "biochemical_function": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 6,
+                    "default": 0.5,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "explanation": {
+                    "type": "string",
+                    "label": "Explanation",
+                    "order": 7
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 5,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "gene_function_description": {
+                    "type": "string",
+                    "label": "Function Description",
+                    "order": 3
+                  },
+                  "disease_mechanism_relevance": {
+                    "type": "string",
+                    "label": "Disease Relevance",
+                    "order": 4
+                  }
+                }
+              },
+              "label": "Biochemical Function",
+              "order": 1,
+              "description": "Gene product performs a biochemical function shared with other known disease genes (default 0.5, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            }
+          },
+          "description": "Function (max 2 points)"
+        },
+        "functional_alteration": {
+          "type": "object",
+          "label": "Functional Alteration",
+          "order": 2,
+          "properties": {
+            "patient_cells": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 2,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 8,
+                    "default": 1,
+                    "max_value": 2,
+                    "min_value": 0
+                  },
+                  "cell_type": {
+                    "type": "string",
+                    "label": "Cell Type",
+                    "order": 3
+                  },
+                  "assay_method": {
+                    "type": "string",
+                    "label": "Assay",
+                    "order": 6
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 7,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "variant_tested": {
+                    "type": "string",
+                    "label": "Variant",
+                    "order": 4
+                  },
+                  "functional_effect": {
+                    "type": "string",
+                    "label": "Effect",
+                    "order": 5
+                  }
+                }
+              },
+              "label": "Patient Cells",
+              "order": 1,
+              "description": "Functional alteration in patient cells (default 1, 0-2 points)",
+              "ui_component": "EvidenceTable"
+            },
+            "non_patient_cells": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pmid": {
+                    "type": "string",
+                    "label": "PMID",
+                    "order": 2,
+                    "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+                    "validation": "pmid_format",
+                    "pattern_message": "PMID must be digits only"
+                  },
+                  "label": {
+                    "type": "string",
+                    "label": "Label",
+                    "order": 1
+                  },
+                  "points": {
+                    "max": 1,
+                    "min": 0,
+                    "step": 0.5,
+                    "type": "number",
+                    "label": "Points",
+                    "order": 8,
+                    "default": 0.5,
+                    "max_value": 1,
+                    "min_value": 0
+                  },
+                  "cell_line": {
+                    "type": "string",
+                    "label": "Cell Line",
+                    "order": 3
+                  },
+                  "assay_method": {
+                    "type": "string",
+                    "label": "Assay",
+                    "order": 6
+                  },
+                  "score_status": {
+                    "type": "select",
+                    "label": "Status",
+                    "order": 7,
+                    "default": "score",
+                    "options": [
+                      {
+                        "label": "Score",
+                        "value": "score"
+                      },
+                      {
+                        "label": "Review",
+                        "value": "review"
+                      }
+                    ]
+                  },
+                  "functional_effect": {
+                    "type": "string",
+                    "label": "Effect",
+                    "order": 5
+                  },
+                  "variant_engineered": {
+                    "type": "string",
+                    "label": "Variant",
+                    "order": 4
+                  }
+                }
+              },
+              "label": "Non-patient Cells",
+              "order": 2,
+              "description": "Functional alteration in non-patient cells (default 0.5, 0-1 points)",
+              "ui_component": "EvidenceTable"
+            }
+          },
+          "description": "Functional alteration (max 2 points)"
+        }
+      },
+      "description": "Experimental evidence supporting the gene-disease relationship (max 6 points)"
+    },
+    "contradictory_evidence": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "pmid": {
+            "type": "string",
+            "label": "PMID",
+            "order": 2,
+            "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+            "validation": "pmid_format",
+            "pattern_message": "PMID must be digits only"
+          },
+          "label": {
+            "type": "string",
+            "label": "Label",
+            "order": 1
+          },
+          "impact": {
+            "type": "select",
+            "label": "Impact",
+            "order": 5,
+            "default": "note",
+            "options": [
+              {
+                "label": "Disputed",
+                "value": "disputed"
+              },
+              {
+                "label": "Note only",
+                "value": "note"
+              },
+              {
+                "label": "Review needed",
+                "value": "requires_review"
+              }
+            ]
+          },
+          "description": {
+            "type": "string",
+            "label": "Description",
+            "order": 4
+          },
+          "evidence_type": {
+            "type": "select",
+            "label": "Type",
+            "order": 3,
+            "default": "population",
+            "options": [
+              {
+                "label": "Population/control data",
+                "value": "population"
+              },
+              {
+                "label": "Non-segregation",
+                "value": "segregation"
+              },
+              {
+                "label": "Contradictory functional data",
+                "value": "functional"
+              },
+              {
+                "label": "Phenotype mismatch",
+                "value": "phenotype"
+              },
+              {
+                "label": "Other",
+                "value": "other"
+              }
+            ]
+          }
+        }
+      },
+      "label": "Contradictory Evidence",
+      "description": "Evidence that contradicts the gene-disease relationship (may result in Disputed)",
+      "ui_component": "EvidenceTable"
+    }
+  },
+  "scoring_configuration": {
+    "engine": "clingen_sop_v11"
+  }
+}

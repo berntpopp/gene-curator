@@ -79,6 +79,13 @@ describe('useValidationStore', () => {
       })
       expect(result).toEqual(response(true))
       expect(store.validationResults.custom).toEqual(response(true))
+
+      await store.validateEvidence({ score: 1 }, 'schema-1', 'custom', 'v1')
+      expect(api.validateEvidence).toHaveBeenLastCalledWith({
+        evidence_data: { score: 1 },
+        schema_id: 'schema-1',
+        methodology_version_id: 'v1'
+      })
       expect(store.loading).toBe(false)
     })
 

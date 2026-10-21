@@ -273,9 +273,10 @@
                 </v-card-title>
                 <v-card-text>
                   <CurationEvidenceReadonly
-                    v-if="isClinGenSchema"
+                    v-if="isClinGenSchema && curationSchemaId"
                     :evidence="evidence"
-                    :moi="curation.mode_of_inheritance ?? undefined"
+                    :schema-id="curationSchemaId"
+                    :version-id="curation.methodology_version_id"
                   />
                   <DynamicForm
                     v-else-if="curationSchemaId"
@@ -405,7 +406,6 @@
   import { approveBlockers, groupDiff, queryTodos } from '@/components/review/reviewModel'
   import { useReviewStore } from '@/stores/review'
   import { useScopesStore } from '@/stores/scopes'
-  import type { ClinGenEvidenceData } from '@/components/clingen/types'
   import { useCurationClassification, type ScoredCuration } from './useCurationClassification'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
@@ -414,6 +414,7 @@
     status: string
     gene_id?: string
     workflow_pair_id?: string
+    methodology_version_id?: string | null
     evidence_data?: Record<string, unknown> | null
     gene_symbol?: string | null
     hgnc_id?: string | null
@@ -459,9 +460,7 @@
   const deleting = ref(false)
   const curationSchemaId = ref<string | null>(null)
 
-  const evidence = computed(
-    () => (curation.value?.evidence_data ?? {}) as Partial<ClinGenEvidenceData>
-  )
+  const evidence = computed(() => (curation.value?.evidence_data ?? {}) as Record<string, unknown>)
   // ClinGen schemas (by scoring engine) get the read-only evidence view
   const isClinGenSchema = ref(false)
   const schemaFields = ref<Record<string, unknown> | null>(null)

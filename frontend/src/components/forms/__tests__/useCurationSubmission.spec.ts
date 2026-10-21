@@ -90,24 +90,20 @@ describe('useCurationSubmission', () => {
       expect(s.lockVersion.value).toBe(3)
     })
 
-    it.each(['handleSaveDraft', 'handleClinGenSaveDraft'] as const)(
-      'a double Ctrl+S sends one request, not a second one with the same version (%s)',
-      async name => {
-        let finish: (v: unknown) => void = () => {}
-        curationsStore.saveDraft.mockReturnValue(new Promise(r => (finish = r)))
-        const { api } = setup('cur-1')
+    it('a double Ctrl+S sends one request, not a second one with the same version', async () => {
+      let finish: (v: unknown) => void = () => {}
+      curationsStore.saveDraft.mockReturnValue(new Promise(r => (finish = r)))
+      const { api } = setup('cur-1')
 
-        const save = api[name] as (data?: EvidenceData) => Promise<boolean>
-        const first = save({ a: 1 })
-        const second = await save({ a: 1 })
-        finish({ lock_version: 4 })
-        await first
+      const first = api.handleSaveDraft()
+      const second = await api.handleSaveDraft()
+      finish({ lock_version: 4 })
+      await first
 
-        expect(second).toBe(false)
-        expect(curationsStore.saveDraft).toHaveBeenCalledTimes(1)
-        expect(api.conflict.value).toBe(false)
-      }
-    )
+      expect(second).toBe(false)
+      expect(curationsStore.saveDraft).toHaveBeenCalledTimes(1)
+      expect(api.conflict.value).toBe(false)
+    })
 
     it('does not save once a conflict is flagged', async () => {
       curationsStore.saveDraft.mockResolvedValue(null)
@@ -161,6 +157,7 @@ describe('useCurationSubmission', () => {
     })
 
     it('shows the API detail when submit fails', async () => {
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4 })
       curationsStore.submitCuration.mockRejectedValue({
         response: { data: { detail: 'Curation is not in draft' } }
       })
@@ -211,12 +208,17 @@ describe('useCurationSubmission', () => {
       expect(curationsStore.submitCuration).not.toHaveBeenCalled()
     })
 
-    it('submits an existing curation with its lock version', async () => {
+    it('saves the evidence, then submits at the version the save returned', async () => {
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4 })
       const { api, s } = setup('cur-1')
 
       await api.handleSubmit()
 
-      expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 3 })
+      expect(curationsStore.updateCuration).toHaveBeenCalledWith('cur-1', {
+        evidence_data: { a: 1 },
+        lock_version: 3
+      })
+      expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 4 })
       expect(addToast).toHaveBeenCalledWith('Curation submitted for review', 'success')
       expect(s.clearRecovery).toHaveBeenCalled()
       expect(s.clearHistory).toHaveBeenCalled()
@@ -233,6 +235,7 @@ describe('useCurationSubmission', () => {
     })
 
     it('reports failures without emitting submit', async () => {
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4 })
       curationsStore.submitCuration.mockRejectedValue({ message: 'locked' })
       const { api, s } = setup('cur-1')
 
@@ -252,8 +255,8 @@ describe('useCurationSubmission', () => {
       await api.handleSaveDraft()
       expect(s.lockVersion.value).toBe(0)
       s.lockVersion.value = 3
-      await api.handleClinGenSaveDraft({})
-      expect(s.lockVersion.value).toBe(0)
+      await setup().api.handleSaveDraft()
+      expect(s.lockVersion.value).toBe(3)
     })
 
     it('creates and submits at the version the create returned', async () => {
@@ -262,8 +265,6 @@ describe('useCurationSubmission', () => {
       await first.api.handleSubmit()
       expect(curationsStore.submitCuration).toHaveBeenCalledWith('n', { lock_version: 2 })
       expect(first.s.onSubmit).toHaveBeenCalledWith('n')
-      await setup().api.handleClinGenSubmit({})
-      expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('n', { lock_version: 2 })
     })
 
     it('takes the version a submit returned', async () => {
@@ -272,35 +273,32 @@ describe('useCurationSubmission', () => {
       const a = setup('cur-1')
       await a.api.handleSubmit()
       expect(a.s.lockVersion.value).toBe(9)
-      const b = setup('cur-1')
-      await b.api.handleClinGenSubmit({})
-      expect(b.s.lockVersion.value).toBe(9)
     })
 
-    it.each(['handleSubmit', 'handleClinGenSubmit'] as const)(
-      'shows the conflict, not a generic error, when submit hits a 409 (%s)',
-      async name => {
-        const err = { response: { status: 409, data: { detail: { error: 'Concurrent' } } } }
-        curationsStore.submitCuration.mockRejectedValue(err)
-        curationsStore.updateCuration.mockRejectedValue(err)
-        curationsStore.error = { message: 'Curation was modified.', isConflict: true }
-        const { api } = setup('cur-1')
-        await (api[name] as (d?: EvidenceData) => Promise<void>)({})
-        expect(api.conflict.value).toBe(true)
-        expect(addToast).toHaveBeenCalledWith('Curation was modified.', 'error')
-        curationsStore.error = null
-      }
-    )
+    it.each([
+      ['the save', 'updateCuration'],
+      ['the submit', 'submitCuration']
+    ] as const)('shows the conflict, not a generic error, when %s hits a 409', async (_, call) => {
+      const err = { response: { status: 409, data: { detail: { error: 'Concurrent' } } } }
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4 })
+      curationsStore[call].mockRejectedValue(err)
+      curationsStore.error = { message: 'Curation was modified.', isConflict: true }
+      const { api } = setup('cur-1')
+      await api.handleSubmit()
+      expect(api.conflict.value).toBe(true)
+      expect(addToast).toHaveBeenCalledWith('Curation was modified.', 'error')
+      curationsStore.error = null
+    })
   })
 
-  describe('ClinGen handlers', () => {
-    const clingen: EvidenceData = { evidence_items: [] }
+  describe('save then submit', () => {
+    const clingen: EvidenceData = { a: 1 }
 
     it('updates then submits an existing curation at the lock version the update returned', async () => {
       curationsStore.updateCuration.mockResolvedValue({ lock_version: 7 })
       const { api, s } = setup('cur-1')
 
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
 
       expect(curationsStore.updateCuration).toHaveBeenCalledWith('cur-1', {
         evidence_data: clingen,
@@ -317,13 +315,13 @@ describe('useCurationSubmission', () => {
       })
       const { api, s } = setup('cur-1')
 
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
 
       expect(s.lockVersion.value).toBe(4)
       expect(addToast).toHaveBeenCalledWith('Not a curator in this scope', 'error')
 
       curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 5 })
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
       expect(curationsStore.updateCuration).toHaveBeenLastCalledWith('cur-1', {
         evidence_data: clingen,
         lock_version: 4
@@ -337,9 +335,9 @@ describe('useCurationSubmission', () => {
       })
       const { api, s } = setup()
 
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
       curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 1 })
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
 
       expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
       expect(curationsStore.updateCuration).toHaveBeenCalledWith('new-cg', {
@@ -377,8 +375,7 @@ describe('useCurationSubmission', () => {
       curationsStore.saveDraft.mockResolvedValue({ lock_version: 1 })
       const { api } = setup()
 
-      await api.handleClinGenSubmit(clingen)
-      await api.handleClinGenSaveDraft(clingen)
+      await api.handleSubmit()
       await api.handleSaveDraft()
 
       expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
@@ -386,17 +383,13 @@ describe('useCurationSubmission', () => {
         evidence_data: clingen,
         lock_version: 0
       })
-      expect(curationsStore.saveDraft).toHaveBeenLastCalledWith('new-cg', {
-        evidence_data: { a: 1 },
-        lock_version: 1
-      })
     })
 
-    it('creates and submits a new ClinGen curation', async () => {
+    it('creates and submits a new curation with its evidence', async () => {
       curationsStore.createCuration.mockResolvedValue({ id: 'new-cg' })
       const { api, s } = setup()
 
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
 
       expect(curationsStore.createCuration).toHaveBeenCalledWith(
         expect.objectContaining({ evidence_data: clingen })
@@ -405,72 +398,29 @@ describe('useCurationSubmission', () => {
       expect(s.onSubmit).toHaveBeenCalled()
     })
 
-    it('reports ClinGen submit failures', async () => {
+    it('reports a failed save before submit', async () => {
       curationsStore.updateCuration.mockRejectedValue({ message: 'boom' })
       const { api, s } = setup('cur-1')
 
-      await api.handleClinGenSubmit(clingen)
+      await api.handleSubmit()
 
-      expect(logger.error).toHaveBeenCalledWith('Failed to submit ClinGen curation', {
+      expect(logger.error).toHaveBeenCalledWith('Failed to submit curation', {
         error: 'boom'
       })
       expect(s.onSubmit).not.toHaveBeenCalled()
       expect(api.submitting.value).toBe(false)
     })
-
-    it('saves a ClinGen draft for an existing curation', async () => {
-      curationsStore.saveDraft.mockResolvedValue({ lock_version: 8 })
-      const { api, s } = setup('cur-1')
-
-      await api.handleClinGenSaveDraft(clingen)
-
-      expect(curationsStore.saveDraft).toHaveBeenCalledWith('cur-1', {
-        evidence_data: clingen,
-        lock_version: 3
-      })
-      expect(s.lockVersion.value).toBe(8)
-      expect(s.onSaved).toHaveBeenCalled()
-      expect(api.savingDraft.value).toBe(false)
-    })
-
-    it('creates a ClinGen draft and navigates to the editor when new', async () => {
-      curationsStore.createCuration.mockResolvedValue({ id: 'new-cg' })
-      const { api } = setup()
-
-      await api.handleClinGenSaveDraft(clingen)
-
-      expect(replace).toHaveBeenCalledWith({
-        name: 'curation-edit',
-        params: { scopeId: 'scope-1', curationId: 'new-cg' }
-      })
-      expect(addToast).toHaveBeenCalledWith('Draft saved', 'success')
-    })
-
-    it('reports ClinGen draft failures', async () => {
-      curationsStore.saveDraft.mockRejectedValue({ message: 'nope' })
-      const { api } = setup('cur-1')
-
-      await api.handleClinGenSaveDraft(clingen)
-
-      expect(logger.error).toHaveBeenCalledWith('Failed to save ClinGen draft', { error: 'nope' })
-      expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
-    })
   })
 
   describe('save result for the workspace frame', () => {
-    const clingen: EvidenceData = { evidence_items: [] }
     it('resolves true on success, also for a first save, and reports it as saved', async () => {
       curationsStore.saveDraft.mockResolvedValue({ lock_version: 4 })
       curationsStore.createCuration.mockResolvedValue({ id: 'n' })
       const existing = setup('cur-1')
       expect(await existing.api.handleSaveDraft()).toBe(true)
-      expect(await existing.api.handleClinGenSaveDraft(clingen)).toBe(true)
       const fresh = setup()
       expect(await fresh.api.handleSaveDraft()).toBe(true)
       expect(fresh.s.onSaved).toHaveBeenCalled()
-      const freshClinGen = setup()
-      expect(await freshClinGen.api.handleClinGenSaveDraft(clingen)).toBe(true)
-      expect(freshClinGen.s.onSaved).toHaveBeenCalled()
     })
 
     it('resolves false when the save is refused or throws', async () => {
@@ -478,7 +428,6 @@ describe('useCurationSubmission', () => {
       const { api } = setup('cur-1')
       expect(await api.handleSaveDraft()).toBe(false)
       expect(await api.handleSaveDraft()).toBe(false)
-      expect(await api.handleClinGenSaveDraft(clingen)).toBe(false)
     })
   })
 })

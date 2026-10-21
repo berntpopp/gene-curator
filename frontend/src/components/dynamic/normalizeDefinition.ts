@@ -14,6 +14,7 @@ import type {
 /** Seed vocabulary on top of FieldSchema (`label`, `help_text`, `options`, `item_schema`, ...) */
 interface RawField extends Omit<FieldSchema, 'properties' | 'items' | 'columns'> {
   id?: string
+  order?: number
   help_text?: string
   readonly?: boolean
   min?: number
@@ -60,8 +61,13 @@ const PATTERNS: Record<string, string> = {
   mondo_id_format: '^MONDO:\\d{6,9}$'
 }
 
+// jsonb does not keep key order: an `order` on fields restores it (fields without one keep their place)
 const mapFields = (fields: Record<string, RawField>) =>
-  Object.fromEntries(Object.entries(fields).map(([key, raw]) => [key, normalizeField(raw)]))
+  Object.fromEntries(
+    Object.entries(fields)
+      .sort(([, a], [, b]) => (a.order ?? Infinity) - (b.order ?? Infinity))
+      .map(([key, raw]) => [key, normalizeField(raw)])
+  )
 
 export function normalizeField(raw: RawField): FieldSchema {
   const { properties, items, item_schema, columns, options, ...rest } = raw
@@ -76,6 +82,8 @@ export function normalizeField(raw: RawField): FieldSchema {
     minLength: raw.minLength ?? raw.min_length,
     maxLength: raw.maxLength ?? raw.max_length,
     pattern: raw.pattern ?? PATTERNS[raw.validation ?? ''],
+    // PMID cells get the Europe PMC lookup
+    format: raw.format ?? (raw.validation === 'pmid_format' ? 'pmid' : undefined),
     component: raw.component ?? SOURCE_COMPONENTS[raw.external_source ?? ''],
     visible_when: raw.visible_when ?? raw.show_when
   }
@@ -86,7 +94,7 @@ export function normalizeField(raw: RawField): FieldSchema {
   if (properties) field.properties = mapFields(properties)
   if (raw.type === 'evidence_table' || raw.ui_component === 'EvidenceTable') {
     field.type = 'evidence_table'
-    field.columns = mapFields(columns ?? item_schema ?? {})
+    field.columns = mapFields(columns ?? item_schema ?? items?.properties ?? {})
   } else if (item_schema ?? items?.properties) {
     field.items = { properties: mapFields(item_schema ?? items?.properties ?? {}) }
   }
@@ -127,8 +135,10 @@ export function normalizeDefinition(definition: Record<string, unknown>): JsonSc
       }))
     : layout.tabs?.map(tab => ({
         ...tab,
-        // Component-only sections (ScoreSummary, LumpingSplittingSection) have no fields to render
-        sections: (tab.sections ?? []).filter((s: Partial<SectionConfig>) => s.fields?.length)
+        // Component-only sections (ScoreSummary, LumpingSplittingSection) render via a slot
+        sections: (tab.sections ?? []).flatMap((s: Partial<SectionConfig>) =>
+          s.fields?.length || s.component ? [{ ...s, fields: s.fields ?? [] } as SectionConfig] : []
+        )
       }))
 
   return {

@@ -87,8 +87,14 @@ describe('normalizeDefinition', () => {
       columns: { lod_score: { minimum: 0, maximum: 5, step: 0.1 } }
     })
     expect(p.refs!.items!.properties!.pmid!.minLength).toBe(1)
-    // component-only sections have no fields to render
-    expect(doc.ui_configuration!.layout!.tabs!.map(t => t.sections.length)).toEqual([1, 0])
+    // component-only sections are kept (rendered through the form's slot) with no fields
+    const tabs = doc.ui_configuration!.layout!.tabs!
+    expect(tabs.map(t => t.sections.length)).toEqual([2, 1])
+    expect(tabs[1]!.sections[0]).toEqual({
+      name: 'Lumping',
+      component: 'LumpingSplittingSection',
+      fields: []
+    })
     expect(doc.scoring_configuration).toEqual({ engine: 'clingen' })
   })
 
@@ -133,5 +139,30 @@ describe('conditions', () => {
     expect(resolveField({ type: 'string', required_when: { moi: 'AD' } }, data)!.required).toBe(
       false
     )
+  })
+
+  it('orders columns and nested properties by `order` (jsonb does not keep key order)', () => {
+    const doc = normalizeDefinition({
+      field_definitions: {
+        group: {
+          type: 'object',
+          properties: { b: { type: 'text', order: 2 }, a: { type: 'text', order: 1 } }
+        },
+        rows: {
+          type: 'array',
+          ui_component: 'EvidenceTable',
+          items: {
+            properties: {
+              pmid: { type: 'string', order: 2, validation: 'pmid_format' },
+              label: { type: 'string', order: 1 },
+              note: { type: 'string' }
+            }
+          }
+        }
+      }
+    })
+    expect(Object.keys(doc.properties!.group!.properties!)).toEqual(['a', 'b'])
+    expect(Object.keys(doc.properties!.rows!.columns!)).toEqual(['label', 'pmid', 'note'])
+    expect(doc.properties!.rows!.columns!.pmid!.format).toBe('pmid')
   })
 })

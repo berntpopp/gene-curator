@@ -177,7 +177,8 @@ describe('DynamicForm flow', () => {
     expect(store.validateEvidence).toHaveBeenCalledWith(
       { name: 'Ada', age: 36 },
       'schema-1',
-      'form'
+      'form',
+      undefined
     )
     expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Ada', age: 36 }])
   })

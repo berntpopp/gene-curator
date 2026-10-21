@@ -156,28 +156,14 @@ describe('submitting a new curation and the leave guard', () => {
     expect(confirm).not.toHaveBeenCalled()
   })
 
-  it.each(['handleSubmit', 'handleClinGenSubmit'] as const)(
-    '%s of a new curation ends on the detail page when the view is keyed by URL',
-    async method => {
-      curationsStore.submitCuration.mockResolvedValue({ lock_version: 1 })
-      await setup(View, true)
+  it('submit of a new curation ends on the detail page when the view is keyed by URL', async () => {
+    curationsStore.submitCuration.mockResolvedValue({ lock_version: 1 })
+    await setup(View, true)
 
-      await api[method]({ disease: 'x' })
-      await flushPromises()
-
-      expect(confirm).not.toHaveBeenCalled()
-      expect(routerRef.currentRoute.value.fullPath).toBe('/scopes/s1/curations/c-new')
-    }
-  )
-
-  it('ClinGen submit of a new curation never prompts', async () => {
-    curationsStore.submitCuration.mockRejectedValueOnce(new Error('422'))
-    await setup()
-
-    await api.handleClinGenSubmit({ disease: 'x' })
+    await api.handleSubmit()
     await flushPromises()
 
     expect(confirm).not.toHaveBeenCalled()
-    expect(routerRef.currentRoute.value.fullPath).toBe('/scopes/s1/curations/c-new/edit')
+    expect(routerRef.currentRoute.value.fullPath).toBe('/scopes/s1/curations/c-new')
   })
 })

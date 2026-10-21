@@ -61,6 +61,16 @@ export const schemasAPI = {
   },
 
   /**
+   * One published methodology version (the snapshot a record is pinned to)
+   */
+  async getMethodologyVersion(id: string): Promise<Schema<'MethodologyVersion'>> {
+    const response = await apiClient.get<Schema<'MethodologyVersion'>>(
+      `/schemas/methodology-versions/${id}`
+    )
+    return response.data
+  },
+
+  /**
    * Derive a new inactive schema from a published version (records provenance)
    */
   async deriveSchema(

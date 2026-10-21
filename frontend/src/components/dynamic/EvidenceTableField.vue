@@ -42,7 +42,20 @@
               @update:model-value="(v: unknown) => onInput(row, index, col, v)"
               @change="(e: Event) => col.cell.lazy && onChange(row, index, col, e)"
               @keydown.escape="delete drafts[draftKey(row, index, col.key)]"
+              @blur="(e: Event) => col.pmid && onPmidBlur(row, index, e)"
             />
+            <template v-if="col.pmid && row[col.key]">
+              <PubmedLinkButton :pmid="row[col.key]" />
+              <span
+                v-for="r in [lookup.resultOf(row[col.key])]"
+                :key="r?.status"
+                :class="['pmid-note', { 'pmid-note--error': r?.status === 'notfound' }]"
+                :title="r?.title"
+                :role="r?.status === 'notfound' ? 'alert' : undefined"
+              >
+                {{ pmidNote(r) }}
+              </span>
+            </template>
           </td>
           <td v-if="!disabled">
             <v-btn
@@ -80,8 +93,20 @@
    * `evidence_table` field: one row per evidence item, columns are fields rendered with the
    * registry's compact cell editors. Text cells commit on change (blur/Enter), never per keystroke.
    */
-  import { computed, nextTick, reactive, ref } from 'vue'
+  import {
+    computed,
+    getCurrentInstance,
+    inject,
+    nextTick,
+    onBeforeUnmount,
+    reactive,
+    ref,
+    watch
+  } from 'vue'
   import { generateUUID } from '@/utils/uuidPolyfill'
+  import { usePmidLookup, type PmidResult } from '@/composables/usePmidLookup'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
+  import PubmedLinkButton from './PubmedLinkButton.vue'
   import { cellFor, emptyValue } from './componentRegistry'
   import { rulesFor } from './composables/useValidationRules'
   import { humanize } from './fieldLabels'
@@ -100,20 +125,66 @@
 
   const emit = defineEmits<{ 'update:model-value': [rows: Row[]] }>()
 
-  const rows = computed<Row[]>(() => (Array.isArray(props.modelValue) ? props.modelValue : []))
+  // Legacy rows stored a single item object instead of a list: show it as one row
+  const rows = computed<Row[]>(() => {
+    const value = props.modelValue
+    if (Array.isArray(value)) return value
+    return value && typeof value === 'object' ? [value as Row] : []
+  })
   const columns = computed(() =>
     Object.entries(props.fieldSchema.columns ?? {}).map(([key, schema]) => ({
       key,
       schema,
       label: schema.title || humanize(key),
       cell: cellFor(schema),
-      rules: rulesFor(schema)
+      rules: rulesFor(schema),
+      pmid: schema.format === 'pmid'
     }))
   )
 
   // Row ids keep review diffs and comments anchored when rows are removed
   const rowKey = (row: Row, index: number) =>
     typeof row.id === 'string' || typeof row.id === 'number' ? row.id : index
+
+  // PMID cells: Europe PMC lookup on blur; an unknown PMID blocks saving (the workspace frame says so)
+  const lookup = usePmidLookup()
+  const frame = inject(WORKSPACE_FRAME, null)
+  const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
+  const unknownPmids = computed(() =>
+    rows.value
+      .flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
+      .filter(p => lookup.statusOf(p) === 'notfound')
+      .map(p => String(p).trim())
+  )
+  watch(
+    unknownPmids,
+    list =>
+      frame?.setBlocker(
+        blockerId,
+        list.length ? `PMID ${list.join(', ')} not found in Europe PMC` : null
+      ),
+    { immediate: true }
+  )
+  onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
+  // Removing a row cancels its own lookup
+  watch(
+    () => rows.value.map(rowKey),
+    (keys, before) => {
+      const live = new Set(keys)
+      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+    }
+  )
+
+  function onPmidBlur(row: Row, index: number, event: Event) {
+    if (!props.disabled) lookup.check(rowKey(row, index), (event.target as HTMLInputElement).value)
+  }
+
+  const PMID_NOTES: Partial<Record<string, string>> = {
+    notfound: 'PMID not found in Europe PMC',
+    loading: 'Looking up…'
+  }
+  const pmidNote = (r: PmidResult | undefined) =>
+    r?.status === 'found' ? r.citation : PMID_NOTES[r?.status ?? '']
 
   function inputValue(schema: FieldSchema, event: Event): unknown {
     const raw = (event.target as HTMLInputElement).value
@@ -192,6 +263,16 @@
   .evidence-table-field :deep(td:focus-within) {
     outline: 2px solid rgb(var(--v-theme-primary));
     outline-offset: -2px;
+  }
+
+  .pmid-note {
+    display: block;
+    font-size: 0.75rem;
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+
+  .pmid-note--error {
+    color: rgb(var(--v-theme-error));
   }
 
   .evidence-table-field :deep(th) {

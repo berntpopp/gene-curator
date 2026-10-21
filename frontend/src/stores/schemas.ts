@@ -180,6 +180,17 @@ export const useSchemasStore = defineStore('schemas', {
       return derived
     },
 
+    /**
+     * The definition a record renders and validates with: its pinned version, or for a new
+     * record the schema's latest (what the backend pins on create).
+     */
+    async fetchPinnedVersion(versionId: string | null | undefined, schemaId: string) {
+      if (versionId) return await schemasAPI.getMethodologyVersion(versionId)
+      const [latest] = await schemasAPI.getVersions(schemaId)
+      if (!latest) throw new Error('Schema has no published version')
+      return latest
+    },
+
     async fetchWorkflowPairs(params: Record<string, unknown> = {}) {
       this.loading = true
       this.error = null

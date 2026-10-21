@@ -54,14 +54,17 @@ export const useValidationStore = defineStore('validation', {
     async validateEvidence(
       evidenceData: Record<string, unknown>,
       schemaId: string,
-      key: string = 'default'
+      key: string = 'default',
+      methodologyVersionId?: string
     ) {
       this.loading = true
       this.error = null
       try {
         const validationData = {
           evidence_data: evidenceData,
-          schema_id: schemaId
+          schema_id: schemaId,
+          // Validate against the version the form renders (a pinned record's, not the latest)
+          ...(methodologyVersionId && { methodology_version_id: methodologyVersionId })
         }
         const result = await validationAPI.validateEvidence(validationData)
 

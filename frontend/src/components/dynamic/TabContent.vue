@@ -18,6 +18,9 @@
             {{ section.help_text }}
           </div>
 
+          <!-- Component-only section (e.g. ScoreSummary): the form that knows its data renders it -->
+          <slot v-if="section.component" name="section" :section="section" />
+
           <v-row>
             <v-col
               v-for="{ fieldPath, fieldSchema } in shownFields(section)"

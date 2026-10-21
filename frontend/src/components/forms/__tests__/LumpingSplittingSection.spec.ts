@@ -1,36 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
-import SummarySection from '../SummarySection.vue'
 import LumpingSplittingSection from '../LumpingSplittingSection.vue'
-
-describe('SummarySection', () => {
-  it('shows classification and score totals with one and two decimals', () => {
-    const wrapper = mount(SummarySection, {
-      props: {
-        classification: 'Moderate',
-        geneticScore: 2.5,
-        experimentalScore: 1,
-        totalScore: 3.5
-      }
-    })
-    expect(wrapper.text()).toContain('Moderate')
-    expect(wrapper.text()).toContain('2.5')
-    expect(wrapper.text()).toContain('3.5')
-    expect(wrapper.text()).toContain('3.50')
-  })
-
-  it('emits update:evidence-summary when the narrative changes', async () => {
-    const wrapper = mount(SummarySection, { props: { evidenceSummary: 'start' } })
-    wrapper.findComponent({ name: 'VTextarea' }).vm.$emit('update:modelValue', 'New narrative')
-    expect(wrapper.emitted('update:evidence-summary')?.[0]).toEqual(['New narrative'])
-  })
-
-  it('follows external updates to evidenceSummary', async () => {
-    const wrapper = mount(SummarySection, { props: { evidenceSummary: 'first' } })
-    await wrapper.setProps({ evidenceSummary: 'second' })
-    expect(wrapper.findComponent({ name: 'VTextarea' }).props('modelValue')).toBe('second')
-  })
-})
 
 describe('LumpingSplittingSection', () => {
   it('falls back to the nested lumping_splitting block and labels the curation type', () => {

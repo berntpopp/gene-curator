@@ -156,12 +156,12 @@
   /**
    * ScoreSummary
    *
-   * Displays live scoring summary in sidebar with breakdown by category.
+   * Displays the backend score preview with breakdown by category.
    * Matches ClinGen Gene Validity scoring framework structure.
    */
 
   import { computed } from 'vue'
-  import type { ExperimentalBreakdown, GeneticBreakdown } from './scoring'
+  import type { ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
 
   const props = withDefaults(
     defineProps<{
@@ -170,12 +170,8 @@
       totalScore?: number
       classification?: string
       hasContradictory?: boolean
-      geneticBreakdown?: Partial<
-        Pick<GeneticBreakdown, 'caseLevel' | 'segregation' | 'caseControl'>
-      >
-      experimentalBreakdown?: Partial<
-        Pick<ExperimentalBreakdown, 'function' | 'functionalAlteration' | 'models' | 'rescue'>
-      >
+      geneticBreakdown?: Partial<NonNullable<ScoreSnapshot['geneticBreakdown']>>
+      experimentalBreakdown?: Partial<NonNullable<ScoreSnapshot['experimentalBreakdown']>>
     }>(),
     {
       geneticScore: 0,

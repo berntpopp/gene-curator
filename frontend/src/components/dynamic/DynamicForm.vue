@@ -53,7 +53,11 @@
                       :readonly="readonly"
                       @update:field="handleTabFieldUpdate"
                       @clear-backend-error="clearFieldBackendError"
-                    />
+                    >
+                      <template #section="slotProps">
+                        <slot name="section" v-bind="slotProps" />
+                      </template>
+                    </TabContent>
                   </KeepAlive>
                 </v-window-item>
               </v-window>
@@ -216,6 +220,10 @@
       schemaId: string
       /** Raw methodology config (version snapshot); rendered instead of the generated JSON schema */
       definition?: Record<string, unknown>
+      /** Pinned methodology version: validate against it, not the schema's latest */
+      methodologyVersionId?: string
+      /** The parent shows the score (e.g. the workspace's backend preview) */
+      hideScoring?: boolean
       title?: string
       initialData?: FormData
       readonly?: boolean
@@ -227,7 +235,9 @@
       initialData: () => ({}),
       readonly: false,
       hideActions: false,
-      definition: undefined
+      definition: undefined,
+      methodologyVersionId: undefined,
+      hideScoring: false
     }
   )
 
@@ -292,7 +302,7 @@
   } = useFormTabs({ jsonSchema, validationResult, backendErrors, activeTab })
 
   const showScoring = computed(() => {
-    return jsonSchema.value?.scoring_configuration?.engine != null
+    return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
   })
 
   // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
@@ -332,7 +342,12 @@
   const validateForm = async () => {
     validating.value = true
     try {
-      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      const result = await validationStore.validateEvidence(
+        formData.value,
+        props.schemaId,
+        'form',
+        props.methodologyVersionId
+      )
       handleBackendValidation(result ? toFormValidation(result) : undefined)
     } catch (err) {
       logger.error('Form validation error:', errorDetails(err))
