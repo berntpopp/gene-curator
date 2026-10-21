@@ -128,6 +128,7 @@ describe('GenesTable', () => {
     const genes = useGenesStore()
     const fetchGenes = vi.spyOn(genes, 'fetchGenes').mockImplementation(async () => {
       genes.genes = [{ id: 'g1', approved_symbol: 'PKD1', hgnc_id: 'HGNC:1' }] as never
+      genes.pagination.total = 1
       return undefined as never
     })
     const wrapper = mount(GenesTable, opts())
