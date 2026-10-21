@@ -1,6 +1,6 @@
 # Files over 650 lines: allowance may only go down (scripts/check_file_size.py)
 726 backend/app/api/v1/endpoints/gene_assignments.py
-963 backend/app/core/schema_validator.py
+962 backend/app/core/schema_validator.py
 982 backend/app/crud/workflow_engine.py
 697 backend/tests/api/test_curations.py
 807 backend/tests/api/test_precurations.py

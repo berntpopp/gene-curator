@@ -170,9 +170,7 @@ class TestNestedGeneticEvidence:
         assert segregation_points({"segregations_counted": 0}) == 0.0
         assert segregation_points({}) == 0.0
 
-    def test_case_control_takes_max_of_single_and_aggregate(
-        self, engine: ClinGenEngine
-    ):
+    def test_case_control_sums_single_and_aggregate(self, engine: ClinGenEngine):
         evidence = {
             "case_control": {
                 "single_variant_analysis": [{"points": 2.0}, {"points": 2.0}],
@@ -182,15 +180,21 @@ class TestNestedGeneticEvidence:
 
         score, details = _genetic(engine, evidence)
 
-        assert score == pytest.approx(4.0)  # max(4, 3), not the sum
-        assert details["case_control"] == pytest.approx(4.0)
+        # SOP v11 (owner decision): the analyses are summed, category max 12
+        assert score == pytest.approx(7.0)
+        assert details["case_control"] == pytest.approx(7.0)
 
-    def test_case_control_capped_at_six(self, engine: ClinGenEngine):
-        evidence = {"case_control": {"single_variant_analysis": [{"points": 7.0}]}}
+    def test_case_control_capped_at_twelve(self, engine: ClinGenEngine):
+        evidence = {
+            "case_control": {
+                "single_variant_analysis": [{"points": 6.0}, {"points": 6.0}],
+                "aggregate_variant_analysis": [{"points": 1.0}],
+            }
+        }
 
         score, _ = _genetic(engine, evidence)
 
-        assert score == pytest.approx(6.0)
+        assert score == pytest.approx(12.0)
 
     def test_genetic_total_capped_at_twelve(self, engine: ClinGenEngine):
         evidence = {
@@ -226,22 +230,21 @@ class TestNestedExperimentalEvidence:
             "models": {
                 "non_human_model_organism": [{}],  # default 2.0
                 "cell_culture_model": [{"points": 3.0}],
-            },  # 5.0 -> cap 4
+            },  # 5.0
             "rescue": {
                 "human": [{}],  # 2.0
                 "non_human_model_organism": [{}],  # 2.0
                 "cell_culture": [{}],  # 1.0
                 "patient_cells": [{}],  # 1.0
-            },  # 6.0 -> cap 4
+            },  # 6.0; SOP v11: Models & Rescue is one category, 11.0 -> cap 4
         }
 
         total, details = _experimental(engine, evidence)
 
         assert details["function"] == pytest.approx(2.0)
         assert details["functional_alteration"] == pytest.approx(2.0)
-        assert details["models"] == pytest.approx(4.0)
-        assert details["rescue"] == pytest.approx(4.0)
-        assert total == pytest.approx(6.0)  # 12 raw, capped at 6
+        assert details["models_and_rescue"] == pytest.approx(4.0)
+        assert total == pytest.approx(6.0)  # 8 raw, capped at 6
 
     def test_experimental_total_below_cap_is_summed(self, engine: ClinGenEngine):
         evidence = {"function": {"biochemical_function": [{"points": 1.0}]}}
@@ -428,9 +431,8 @@ class TestLegacyFormat:
         total, details = _experimental(engine, items)
 
         assert details["function"] == pytest.approx(2.0)  # 3.0 capped
-        assert details["models"] == pytest.approx(4.0)
-        assert details["rescue"] == pytest.approx(2.0)
-        assert total == pytest.approx(6.0)  # 8.0 capped
+        assert details["models_and_rescue"] == pytest.approx(4.0)  # 4 + 2, one cap
+        assert total == pytest.approx(6.0)
 
     def test_legacy_rescue_default_zero_without_observation(
         self, engine: ClinGenEngine

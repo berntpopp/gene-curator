@@ -13,7 +13,7 @@ class SchemaValidationResult:
         self.warnings: list[dict[str, Any]] = []
         self.field_validations: dict[str, dict[str, Any]] = {}
         self.business_rule_violations: list[dict[str, Any]] = []
-        self.score_calculations: dict[str, float] = {}
+        self.score_calculations: dict[str, Any] = {}
         self.completeness_score: float = 0.0
         self.required_fields_missing: list[str] = []
         self.suggested_improvements: list[str] = []

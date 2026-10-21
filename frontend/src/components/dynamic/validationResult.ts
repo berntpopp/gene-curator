@@ -20,7 +20,14 @@ export function toFormValidation(raw: Partial<Schema<'ValidationResponse'>>): Fo
   if (raw.is_valid !== undefined) result.is_valid = raw.is_valid
   if (raw.errors) result.errors = toMessages(raw.errors)
   if (raw.warnings) result.warnings = toMessages(raw.warnings)
-  if (raw.score_calculations) result.score_calculations = raw.score_calculations
+  if (raw.score_calculations) {
+    // Numeric scores only; verdict and trace (live score) are read by the forms that need them
+    result.score_calculations = Object.fromEntries(
+      Object.entries(raw.score_calculations).filter(
+        (entry): entry is [string, number] => typeof entry[1] === 'number'
+      )
+    )
+  }
   if (raw.field_validations) {
     result.field_validations = {}
     for (const [field, validation] of Object.entries(raw.field_validations)) {

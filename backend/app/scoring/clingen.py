@@ -130,8 +130,9 @@ _LEGACY_CATEGORY = {
     "expression": "function",
     "protein_function": "function",
     "function": "function",
-    "models": "models",
-    "rescue": "rescue",
+    # SOP v11: Models & Rescue is one category
+    "models": "models_and_rescue",
+    "rescue": "models_and_rescue",
 }
 _LEGACY_SECTION: dict[str, dict[str, Callable[[dict[str, Any]], float]]] = {
     "genetic_evidence": {
@@ -141,7 +142,7 @@ _LEGACY_SECTION: dict[str, dict[str, Callable[[dict[str, Any]], float]]] = {
         "case_control": lambda item: float(item.get("computed_score") or 0),
     },
     "experimental_evidence": dict.fromkeys(
-        ["function", "models", "rescue"], _legacy_experimental_points
+        ["function", "models_and_rescue"], _legacy_experimental_points
     ),
 }
 

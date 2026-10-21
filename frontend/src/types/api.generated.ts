@@ -9070,7 +9070,7 @@ export interface components {
             }[];
             /** Score Calculations */
             score_calculations: {
-                [key: string]: number;
+                [key: string]: unknown;
             };
             /** Completeness Score */
             completeness_score: number;
