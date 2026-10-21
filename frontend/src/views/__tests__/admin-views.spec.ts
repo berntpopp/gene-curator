@@ -22,12 +22,13 @@ import { authApi } from '@/api/auth'
 const confirmMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
 
-const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
+const { routerPush, routeState, logger, showError, showSuccess, showSnackbar } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
   logger: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
   showError: vi.fn(),
-  showSuccess: vi.fn()
+  showSuccess: vi.fn(),
+  showSnackbar: vi.fn()
 }))
 
 vi.mock('vue-router', async importOriginal => ({
@@ -39,6 +40,7 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/composables/useNotifications', () => ({
   showError,
   showSuccess,
+  showSnackbar,
   showInfo: vi.fn(),
   showWarning: vi.fn()
 }))
@@ -167,7 +169,7 @@ describe('UserManagement', () => {
     users.fetchUsers.mockRejectedValueOnce(new Error('down'))
     mount(UserManagement, opts())
     await flushPromises()
-    expect(document.body.textContent).toContain('Failed to load user data')
+    expect(showSnackbar).toHaveBeenCalledWith('Failed to load user data', 'error')
   })
 
   it('shows the store error as a snackbar and clears it', async () => {
@@ -175,7 +177,7 @@ describe('UserManagement', () => {
     await flushPromises()
     users.error = 'Quota exceeded'
     await flushPromises()
-    expect(document.body.textContent).toContain('Quota exceeded')
+    expect(showSnackbar).toHaveBeenCalledWith('Quota exceeded', 'error')
     wrapper.unmount()
   })
 
@@ -235,7 +237,7 @@ describe('UserManagement', () => {
     const vm = vmOf(wrapper)
     call(vm, 'resetPassword', alice)
     await call(vm, 'performResetPassword', 'longpassword')
-    expect(document.body.textContent).toContain('Failed to update password')
+    expect(showSnackbar).toHaveBeenCalledWith('Failed to update password', 'error')
     wrapper.unmount()
   })
 
@@ -267,7 +269,7 @@ describe('UserManagement', () => {
     expect(users.createUser).toHaveBeenCalledWith(
       expect.objectContaining({ email: 'bob@example.org' })
     )
-    expect(document.body.textContent).toContain('User created successfully')
+    expect(showSnackbar).toHaveBeenCalledWith('User created successfully', 'success')
   })
 
   it('opens the details dialog and loads the user activity', async () => {

@@ -103,23 +103,16 @@
         <div class="text-body-2">No pending invitations</div>
       </div>
     </v-card-text>
-
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
-      <template #actions>
-        <v-btn color="white" variant="text" @click="showSnackbar = false">Close</v-btn>
-      </template>
-    </v-snackbar>
   </v-card>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, reactive } from 'vue'
+  import { computed, onMounted, reactive } from 'vue'
   import { useInvitationsStore } from '@/stores/invitations'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
+  import { showSnackbar } from '@/composables/useNotifications'
 
   type Invitation = Schema<'PendingInvitationResponse'>
 
@@ -140,9 +133,6 @@
   // ============================================
 
   const actionLoading = reactive<Record<string, 'accept' | 'decline' | undefined>>({}) // Track loading state per invitation
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
 
   // ============================================
   // COMPUTED
@@ -181,9 +171,7 @@
    * Show notification
    */
   const showNotification = (message: string, color = 'success') => {
-    snackbarMessage.value = message
-    snackbarColor.value = color
-    showSnackbar.value = true
+    showSnackbar(message, color)
   }
 
   /**

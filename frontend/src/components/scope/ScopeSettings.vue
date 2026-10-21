@@ -225,14 +225,6 @@
         </v-btn>
       </template></BaseDialog
     >
-
-    <!-- Success/Error Snackbar -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
-      <template #actions>
-        <v-btn variant="text" @click="showSnackbar = false">Close</v-btn>
-      </template>
-    </v-snackbar>
   </v-card>
 </template>
 
@@ -246,6 +238,7 @@
   import { logService } from '@/services/logService'
   import { useWorkflowPairs } from './useWorkflowPairs'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { showError, showSuccess } from '@/composables/useNotifications'
 
   /** Scope fields this panel reads and edits */
   interface SettingsScope {
@@ -297,11 +290,6 @@
     institution: '',
     is_public: false
   })
-
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
 
   const {
     workflowPairs,
@@ -399,18 +387,6 @@
     } finally {
       deleting.value = false
     }
-  }
-
-  function showSuccess(message: string) {
-    snackbarMessage.value = message
-    snackbarColor.value = 'success'
-    showSnackbar.value = true
-  }
-
-  function showError(message: string) {
-    snackbarMessage.value = message
-    snackbarColor.value = 'error'
-    showSnackbar.value = true
   }
 
   function initializeFromScope() {

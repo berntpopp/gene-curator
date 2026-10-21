@@ -25,6 +25,7 @@ vi.mock('@/stores/invitations', async () => {
 })
 
 import { useInvitationsStore } from '@/stores/invitations'
+import { snackbarState } from '@/composables/useNotifications'
 
 interface TestInvitationsStore {
   invitations: unknown[]
@@ -36,8 +37,6 @@ interface TestInvitationsStore {
 }
 
 interface PendingVm {
-  snackbarMessage: string
-  snackbarColor: string
   refreshInvitations: () => Promise<void>
   formatExpiryTime: (expiresAt: string) => string
 }
@@ -143,8 +142,8 @@ describe('PendingInvitations', () => {
     await flushPromises()
 
     expect(store.acceptInvitation).toHaveBeenCalledWith('inv-1', 'scope-1')
-    expect(vmOf(w).snackbarMessage).toBe('Joined Pathways Team as curator')
-    expect(vmOf(w).snackbarColor).toBe('success')
+    expect(snackbarState.message).toBe('Joined Pathways Team as curator')
+    expect(snackbarState.color).toBe('success')
   })
 
   it('reports a failed accept', async () => {
@@ -155,8 +154,8 @@ describe('PendingInvitations', () => {
     await buttonWith(w, 'Accept')?.trigger('click')
     await flushPromises()
 
-    expect(vmOf(w).snackbarMessage).toBe('Failed to accept invitation')
-    expect(vmOf(w).snackbarColor).toBe('error')
+    expect(snackbarState.message).toBe('Failed to accept invitation')
+    expect(snackbarState.color).toBe('error')
   })
 
   it('declines an invitation and reports the result', async () => {
@@ -167,7 +166,7 @@ describe('PendingInvitations', () => {
     await flushPromises()
 
     expect(store.declineInvitation).toHaveBeenCalledWith('inv-1')
-    expect(vmOf(w).snackbarMessage).toBe('Invitation declined')
+    expect(snackbarState.message).toBe('Invitation declined')
   })
 
   it('reports a failed decline', async () => {
@@ -178,8 +177,8 @@ describe('PendingInvitations', () => {
     await buttonWith(w, 'Decline')?.trigger('click')
     await flushPromises()
 
-    expect(vmOf(w).snackbarMessage).toBe('Failed to decline invitation')
-    expect(vmOf(w).snackbarColor).toBe('error')
+    expect(snackbarState.message).toBe('Failed to decline invitation')
+    expect(snackbarState.color).toBe('error')
   })
 
   it('refreshes forcibly and reports a failed refresh', async () => {
@@ -193,8 +192,8 @@ describe('PendingInvitations', () => {
     store.fetchPendingInvitations.mockRejectedValueOnce(new Error('down'))
     await vm.refreshInvitations()
 
-    expect(vm.snackbarMessage).toBe('Failed to refresh invitations')
-    expect(vm.snackbarColor).toBe('error')
+    expect(snackbarState.message).toBe('Failed to refresh invitations')
+    expect(snackbarState.color).toBe('error')
   })
 
   it.each([

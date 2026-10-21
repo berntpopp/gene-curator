@@ -246,14 +246,6 @@
         </v-btn>
       </template></BaseDialog
     >
-
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
-      <template #actions>
-        <v-btn color="white" variant="text" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
   </v-container>
 </template>
 
@@ -267,6 +259,7 @@
   import { usersApi } from '@/api/users'
   import { useWorkflowPairs } from '@/components/scope/useWorkflowPairs'
   import ScopeNamingHelp from './ScopeNamingHelp.vue'
+  import { showError, showSnackbar } from '@/composables/useNotifications'
   import { getInitials, displayNameRules } from './ScopeCreate.utils'
   import BaseDialog from '@/components/BaseDialog.vue'
   import type {
@@ -326,20 +319,11 @@
     default_workflow_pair_id: null
   })
 
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
-
   const {
     workflowPairs,
     loading: loadingWorkflowPairs,
     loadWorkflowPairs
-  } = useWorkflowPairs(message => {
-    snackbarMessage.value = message
-    snackbarColor.value = 'error'
-    showSnackbar.value = true
-  })
+  } = useWorkflowPairs(message => showError(message))
 
   // Initial members
   const showAddMemberDialog = ref(false)
@@ -514,9 +498,7 @@
    * Show notification snackbar
    */
   const showNotification = (message: string, color = 'success') => {
-    snackbarMessage.value = message
-    snackbarColor.value = color
-    showSnackbar.value = true
+    showSnackbar(message, color)
   }
 
   // ============================================

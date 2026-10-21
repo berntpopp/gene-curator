@@ -261,14 +261,6 @@
         </v-btn>
       </template></BaseDialog
     >
-
-    <!-- Snackbar for messages -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="4000">
-      {{ snackbar.message }}
-      <template #actions>
-        <v-btn variant="text" @click="snackbar.show = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
   </v-container>
 </template>
 
@@ -280,6 +272,7 @@
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
   import { formatDate, formatDateTime } from '@/utils/format'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { showSnackbar } from '@/composables/useNotifications'
   import {
     getRoleColor,
     getRoleIcon,
@@ -332,13 +325,6 @@
   const resetDialog = ref(false)
   const resetTarget = ref<UserRecord | null>(null)
   const userForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
-
-  // Snackbar
-  const snackbar = ref({
-    show: false,
-    message: '',
-    color: 'success'
-  })
 
   // Form data
   const userFormData = ref<{
@@ -522,14 +508,6 @@
       resetDialog.value = false
     } catch (error) {
       showSnackbar('Failed to update password', 'error')
-    }
-  }
-
-  function showSnackbar(message: string, color = 'success') {
-    snackbar.value = {
-      show: true,
-      message,
-      color
     }
   }
 

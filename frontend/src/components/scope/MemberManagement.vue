@@ -160,14 +160,6 @@
         <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
       </template></BaseDialog
     >
-
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
-      <template #actions>
-        <v-btn color="white" variant="text" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
   </v-card>
 </template>
 
@@ -182,6 +174,7 @@
   import { scopeService } from '@/services/scopeService'
   import type { Schema } from '@/types/api'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { showSnackbar } from '@/composables/useNotifications'
 
   type ScopeMember = Schema<'ScopeMembershipResponse'>
   type ScopeRole = Schema<'ScopeRole'>
@@ -224,11 +217,6 @@
   const removing = ref(false)
 
   const memberToRemove = ref<ScopeMember | null>(null)
-
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
 
   /**
    * Existing member IDs (for excluding from search)
@@ -382,9 +370,7 @@
    * Show notification snackbar
    */
   const showNotification = (message: string, color = 'success') => {
-    snackbarMessage.value = message
-    snackbarColor.value = color
-    showSnackbar.value = true
+    showSnackbar(message, color)
   }
 
   // ============================================
