@@ -214,12 +214,21 @@ def test_reviewer_approves_and_activates_curation(
     assert active.activated_by == reviewer.id
 
 
+def test_transition_request_accepts_notes_up_to_the_shared_limit(
+    client: TestClient, curator: UserNew, curation_in_curation: CurationNew
+) -> None:
+    from app.schemas.workflow_engine import WorkflowTransitionRequest
+
+    request = WorkflowTransitionRequest(target_stage="review", notes="x" * 2000)
+    assert request.notes is not None and len(request.notes) == 2000
+
+
 def test_transition_request_rejects_overlong_notes(
     client: TestClient, curator: UserNew, curation_in_curation: CurationNew
 ) -> None:
     response = client.post(
         f"{BASE}/curation/{curation_in_curation.id}/transition",
-        json={"target_stage": "review", "notes": "x" * 1001},
+        json={"target_stage": "review", "notes": "x" * 2001},
         headers=auth_headers(curator),
     )
 

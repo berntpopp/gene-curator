@@ -94,6 +94,12 @@ describe('RequestChangesDialog', () => {
     expect(w.emitted('reject')![0]).toEqual(['Please fix'])
   })
 
+  it('limits the feedback to the API maximum and shows a counter', async () => {
+    const w = mount(RequestChangesDialog, opts(props))
+    expect(w.find('textarea').attributes('maxlength')).toBe('2000')
+    expect(w.text()).toContain('/ 2000')
+  })
+
   it('refills when reopened with new queries and cancels', async () => {
     const w = mount(RequestChangesDialog, opts({ ...props, modelValue: false }))
     await w.setProps({ todos: '- X: y', modelValue: true })

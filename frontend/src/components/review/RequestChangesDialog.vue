@@ -16,6 +16,8 @@
       rows="5"
       auto-grow
       variant="outlined"
+      :maxlength="REVIEW_TEXT_MAX"
+      :counter="REVIEW_TEXT_MAX"
     />
     <v-alert v-if="error" type="error" variant="tonal" density="compact">{{ error }}</v-alert>
     <template #actions>
@@ -40,6 +42,7 @@
   /** Request changes; the feedback starts as the reviewer's open queries (the curator's to-do list). */
   import { ref, watch } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { REVIEW_TEXT_MAX } from './reviewModel'
 
   const props = defineProps<{
     modelValue: boolean

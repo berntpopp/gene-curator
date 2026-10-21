@@ -6,6 +6,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+# One limit for a query and for the request-changes feedback built from the open queries.
+REVIEW_TEXT_MAX = 2000
 CommentStatus = Literal["open", "resolved"]
 CommentKind = Literal["query", "accepted"]
 
@@ -18,7 +20,7 @@ def _no_nul(value: str) -> str:
 
 class ReviewCommentCreate(BaseModel):
     item_path: str = Field(..., min_length=1, max_length=500)
-    body: str | None = Field(None, min_length=1, max_length=5000)
+    body: str | None = Field(None, min_length=1, max_length=REVIEW_TEXT_MAX)
     review_id: UUID | None = None
     kind: CommentKind = "query"
 
@@ -36,7 +38,7 @@ class ReviewCommentCreate(BaseModel):
 
 
 class ReviewCommentUpdate(BaseModel):
-    body: str | None = Field(None, min_length=1, max_length=5000)
+    body: str | None = Field(None, min_length=1, max_length=REVIEW_TEXT_MAX)
     status: CommentStatus | None = None
 
     _clean = field_validator("body")(lambda v: v if v is None else _no_nul(v))

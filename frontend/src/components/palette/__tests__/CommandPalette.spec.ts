@@ -218,6 +218,13 @@ describe('CommandPalette', () => {
     expect(q('[role="alert"]')!.textContent).toContain('Search failed')
   })
 
+  it('shows only the error, never also "No results", when the search failed', async () => {
+    vi.mocked(searchAPI.search).mockRejectedValueOnce({ response: { status: 422 } })
+    await type('a\u0000b')
+    expect(q('[role="alert"]')!.textContent).toContain('Search failed')
+    expect(document.body.textContent).not.toContain('No results for')
+  })
+
   it('shows the shortcut list for "?"', async () => {
     useSearchStore().close()
     await flushPromises()
