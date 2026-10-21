@@ -50,6 +50,12 @@
       ]
     },
     {
+      id: 'clingen-classification',
+      question: 'How does the ClinGen SOP v11 classification work?',
+      answer:
+        'The evidence score sets the classification. Limited is 1 to 6 points, Moderate 7 to 11 points and Strong 12 to 18 points. Definitive requires Strong-level points plus replication over time, with no contradictory evidence. Contradictory evidence gives Disputed.'
+    },
+    {
       id: 'get-access',
       question: 'How do I get access?',
       answer:
@@ -71,13 +77,13 @@
       id: 'precurate-gene',
       question: 'How do I precurate a gene?',
       answer:
-        'Open your scope and find the gene assigned to you, then choose Start Precuration. Fill in the precuration form and save it as a draft, or submit it when it is complete.'
+        'Open your scope and find the gene assigned to you, then choose Start Precuration. Fill in the precuration form and save it as a draft, or submit it when it is complete. A reviewer must approve the precuration before Start Curation becomes available.'
     },
     {
       id: 'review-workflow',
       question: 'How does the review workflow work?',
       answer:
-        'A curation is submitted for review. A reviewer in the same scope then approves it, requests changes, or rejects it. Approval makes the curation active. The person who created a curation cannot review it, so a second person must approve it.'
+        'Submitted precurations and curations wait in the Review Queue (/review-queue), which is in the main menu and shows a count of items to review. A reviewer in the same scope approves the item, requests changes, or rejects it. Approval makes a curation active. The person who created an item cannot review it, so a second person must approve it.'
     },
     {
       id: 'requested-changes',
@@ -95,7 +101,7 @@
       id: 'assignments',
       question: 'Where are gene assignments managed?',
       answer:
-        'The Assignments page (/assignments) lists assigned genes. From there you can view an assignment, edit its priority, due date and notes, and reassign a gene to another curator in the scope.'
+        'My Work (/assignments) lists only the genes assigned to you. The All assignments table is for platform admins and scope admins. There you can edit an assignment, which changes its priority only, or reassign a gene to another curator in the scope.'
     },
     {
       id: 'notifications',

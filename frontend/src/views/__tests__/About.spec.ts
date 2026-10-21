@@ -7,6 +7,7 @@ describe('About view', () => {
     const wrapper = mount(About)
     expect(wrapper.find('h1').text()).toBe('Gene Curator')
     expect(wrapper.text()).toContain('Supported methodologies')
+    expect(wrapper.text()).toContain('/admin/schemas')
     expect(wrapper.text()).not.toContain('Vue.js')
     expect(wrapper.text()).not.toContain('architectural')
   })

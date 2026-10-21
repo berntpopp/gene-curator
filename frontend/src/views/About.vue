@@ -27,10 +27,14 @@
 
           <section class="mb-6">
             <h2 class="text-h5 mb-3">Supported methodologies</h2>
+            <p class="text-body-1 mb-4">
+              Platform admins create curation schemas under Templates (/admin/schemas). A scope
+              chooses its methodology by picking a workflow pair.
+            </p>
             <ul class="text-body-1 ml-6">
               <li>ClinGen gene-disease validity curation (SOP v11)</li>
               <li>GenCC classification</li>
-              <li>Custom schemas defined by a scope</li>
+              <li>Custom schemas created by platform admins</li>
             </ul>
           </section>
 
