@@ -146,7 +146,8 @@
   const rowKey = (row: Row, index: number) =>
     typeof row.id === 'string' || typeof row.id === 'number' ? row.id : index
 
-  // PMID cells: Europe PMC lookup on blur; an unknown PMID blocks saving (the workspace frame says so)
+  // PMID cells: Europe PMC lookup on blur; an unknown PMID blocks submitting, not saving a draft
+  // (the workspace frame disables Submit and lists the reason under "Before you submit")
   const lookup = usePmidLookup()
   const frame = inject(WORKSPACE_FRAME, null)
   const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
@@ -161,7 +162,10 @@
     list =>
       frame?.setBlocker(
         blockerId,
-        list.length ? `PMID ${list.join(', ')} not found in Europe PMC` : null
+        list.length
+          ? `Fix ${list.length} unknown PMID${list.length > 1 ? 's' : ''} before submitting: ` +
+              `PMID ${list.join(', ')} not found in Europe PMC`
+          : null
       ),
     { immediate: true }
   )
