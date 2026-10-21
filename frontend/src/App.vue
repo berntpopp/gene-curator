@@ -22,6 +22,7 @@
     />
 
     <ConfirmDialog />
+    <CommandPalette />
 
     <!-- Log Viewer Component -->
     <LogViewer v-if="logStore.isViewerVisible" />
@@ -49,6 +50,7 @@
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
   import ConfirmDialog from '@/components/ConfirmDialog.vue'
+  import CommandPalette from '@/components/palette/CommandPalette.vue'
   import LogViewer from '@/components/logging/LogViewer.vue'
   import DisclaimerDialog from '@/components/DisclaimerDialog.vue'
 
