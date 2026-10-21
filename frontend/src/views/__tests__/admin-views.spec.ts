@@ -1,5 +1,5 @@
 /**
- * Behaviour tests for the admin views: ScopeSelection, UserManagement (with its details dialog),
+ * Behaviour tests for the admin views: UserManagement (with its details dialog),
  * UserProfile and WorkflowManagement.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -7,7 +7,6 @@ import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { call, vmOf } from './vm'
 import { reactive } from 'vue'
-import ScopeSelection from '@/views/ScopeSelection.vue'
 import UserManagement from '@/views/UserManagement.vue'
 import UserProfile from '@/views/UserProfile.vue'
 import WorkflowManagement from '@/views/WorkflowManagement.vue'
@@ -19,8 +18,6 @@ import {
   initials
 } from '@/views/user-management/userManagementHelpers'
 import { useAuthStore } from '@/stores/auth'
-import { useGenesStore } from '@/stores/genes'
-import { useAssignmentsStore } from '@/stores/assignments'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
 import { useUsersStore } from '@/stores/users'
@@ -85,105 +82,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   pinia = createPinia()
   setActivePinia(pinia)
-})
-
-describe('ScopeSelection', () => {
-  const mountView = () => mount(ScopeSelection, opts({ ScopeSelector: true, SchemaSelector: true }))
-
-  it('starts at step one with the assignment form disabled', () => {
-    const wrapper = mountView()
-    expect(wrapper.text()).toContain('Select Scope')
-  })
-
-  it('searches genes only for queries of at least two characters', async () => {
-    const genes = useGenesStore()
-    const search = vi
-      .spyOn(genes, 'searchGenes')
-      .mockResolvedValue([{ id: 'g1', approved_symbol: 'BRCA1' }] as never)
-    const wrapper = mountView()
-    const vm = vmOf(wrapper)
-
-    await call(vm, 'searchGenes', 'B')
-    expect(search).not.toHaveBeenCalled()
-
-    await call(vm, 'searchGenes', 'BR')
-    expect(search).toHaveBeenCalledWith(expect.objectContaining({ query: 'BR', limit: 20 }))
-    expect(vm.availableGenes).toEqual([{ id: 'g1', approved_symbol: 'BRCA1' }])
-  })
-
-  it('clears gene results and logs when the gene search fails', async () => {
-    vi.spyOn(useGenesStore(), 'searchGenes').mockRejectedValue(new Error('timeout'))
-    const wrapper = mountView()
-    const vm = vmOf(wrapper)
-    await call(vm, 'searchGenes', 'BRCA')
-    expect(vm.availableGenes).toEqual([])
-    expect(logger.error).toHaveBeenCalledWith(
-      'Gene search failed:',
-      expect.objectContaining({ error: 'timeout' })
-    )
-  })
-
-  it('creates an assignment from the selections and opens it', async () => {
-    const assignments = useAssignmentsStore()
-    const createAssignment = vi.fn(async () => ({ id: 'a-9' }))
-    Object.assign(assignments, { createAssignment })
-    const wrapper = mountView()
-    const vm = vmOf(wrapper)
-    vm.selectedScope = { id: 'scope-1' }
-    vm.selectedSchemas = {
-      workflowPair: { id: 'wp' },
-      precurationSchema: { id: 'pre' },
-      curationSchema: { id: 'cur' }
-    }
-    vm.selectedGene = { id: 'g1', approved_symbol: 'PKD1' }
-    vm.assignmentPriority = 'high'
-    vm.assignmentNotes = 'urgent'
-
-    await call(vm, 'createAssignment')
-    expect(createAssignment).toHaveBeenCalledWith({
-      gene_id: 'g1',
-      scope_id: 'scope-1',
-      priority_level: 'high',
-      assignment_notes: 'urgent'
-    })
-    expect(routerPush).toHaveBeenCalledWith({ name: 'AssignmentDetail', params: { id: 'a-9' } })
-  })
-
-  it('logs and stays put when creating the assignment fails', async () => {
-    const assignments = useAssignmentsStore()
-    Object.assign(assignments, { createAssignment: vi.fn().mockRejectedValue(new Error('no')) })
-    const vm = vmOf(mountView())
-    vm.selectedScope = { id: 'scope-1' }
-    vm.selectedSchemas = { workflowPair: null, precurationSchema: null, curationSchema: null }
-    vm.selectedGene = { id: 'g1' }
-    await call(vm, 'createAssignment')
-    expect(logger.error).toHaveBeenCalledWith(
-      'Failed to create assignment:',
-      expect.objectContaining({ error: 'no' })
-    )
-    expect(routerPush).not.toHaveBeenCalled()
-  })
-
-  it('advances through the steps when a scope and schemas are chosen', async () => {
-    const wrapper = mountView()
-    const vm = vmOf(wrapper)
-    call(vm, 'handleScopeSelected', { id: 'scope-1' })
-    expect(vm.currentStep).toBe(2)
-    call(vm, 'handleSchemasSelected', {
-      workflowPair: null,
-      precurationSchema: null,
-      curationSchema: null
-    })
-    expect(vm.currentStep).toBe(3)
-  })
-
-  it('does nothing when the selections are incomplete', async () => {
-    const assignments = useAssignmentsStore()
-    const createAssignment = vi.fn()
-    Object.assign(assignments, { createAssignment })
-    await call(vmOf(mountView()), 'createAssignment')
-    expect(createAssignment).not.toHaveBeenCalled()
-  })
 })
 
 describe('UserManagement', () => {

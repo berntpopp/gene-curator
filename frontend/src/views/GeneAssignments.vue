@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="flat" to="/scope-selection" size="large">
+      <v-btn color="primary" variant="flat" to="/scopes" size="large">
         <v-icon start>mdi-plus</v-icon>
         New Assignment
       </v-btn>

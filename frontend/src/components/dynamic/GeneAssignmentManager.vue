@@ -114,7 +114,7 @@
         </template>
 
         <template #item.scope_name="{ item }">
-          <v-chip size="small" color="info" variant="outlined">
+          <v-chip size="small" color="info" variant="outlined" :to="`/scopes/${item.scope_id}`">
             {{ item.scope_name }}
           </v-chip>
         </template>

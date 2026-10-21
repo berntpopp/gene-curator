@@ -23,7 +23,6 @@ const Home = () => import('@/views/Home.vue')
 const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
 const Dashboard = () => import('@/views/Dashboard.vue')
-const ScopeSelection = () => import('@/views/ScopeSelection.vue')
 const ScopeList = () => import('@/views/scope/ScopeList.vue')
 const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
 const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
@@ -32,7 +31,6 @@ const GenesTable = () => import('@/views/GenesTable.vue')
 const GeneDetail = () => import('@/views/GeneDetail.vue')
 const GeneAssignments = () => import('@/views/GeneAssignments.vue')
 const AssignmentDetail = () => import('@/views/AssignmentDetail.vue')
-const CreateAssignment = () => import('@/views/CreateAssignment.vue')
 const SchemaManagement = () => import('@/views/SchemaManagement.vue')
 const SchemaEditor = () => import('@/views/SchemaEditor.vue')
 const WorkflowManagement = () => import('@/views/WorkflowManagement.vue')
@@ -88,15 +86,6 @@ const routes: RouteRecordRaw[] = [
       icon: 'mdi-view-dashboard',
       label: 'Dashboard',
       order: 1
-    }
-  },
-  {
-    path: '/scope-selection',
-    name: 'ScopeSelection',
-    component: ScopeSelection,
-    meta: {
-      title: 'Select Clinical Scope',
-      requiresAuth: true
     }
   },
   {
@@ -251,15 +240,6 @@ const routes: RouteRecordRaw[] = [
       icon: 'mdi-clipboard-list',
       label: 'My Work',
       order: 1
-    }
-  },
-  {
-    path: '/assignments/create',
-    name: 'CreateAssignment',
-    component: CreateAssignment,
-    meta: {
-      title: 'Create Assignment',
-      requiresAuth: true
     }
   },
   {

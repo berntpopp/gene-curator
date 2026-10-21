@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="flat" to="/scope-selection" size="large">
+      <v-btn color="primary" variant="flat" to="/scopes" size="large">
         <v-icon start>mdi-plus</v-icon>
         Start New Curation
       </v-btn>
@@ -60,7 +60,7 @@
           </v-card-title>
           <v-card-text>
             <div class="d-grid ga-2">
-              <v-btn color="primary" variant="outlined" block to="/scope-selection">
+              <v-btn color="primary" variant="outlined" block to="/scopes">
                 <v-icon start>mdi-plus</v-icon>
                 New Curation
               </v-btn>

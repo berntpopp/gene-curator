@@ -69,4 +69,12 @@ describe('Dashboard view', () => {
     expect(wrapper.find('.v-progress-circular').exists()).toBe(false)
     expect(wrapper.text()).toContain('No scopes assigned')
   })
+
+  it('sends New Curation actions to the scopes list, not the removed wizard', () => {
+    const targets = mountView()
+      .findAllComponents({ name: 'VBtn' })
+      .map(b => b.props('to'))
+    expect(targets).toContain('/scopes')
+    expect(targets).not.toContain('/scope-selection')
+  })
 })
