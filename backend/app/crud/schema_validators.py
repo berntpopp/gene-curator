@@ -403,11 +403,10 @@ class ScoringConfigurationValidator(SchemaValidator):
         else:
             from app.scoring.registry import scoring_registry
 
-            # Warning, not error: seed 014 names the unregistered engine "clingen"
             if scoring_registry.get_engine(str(scoring_config["engine"])) is None:
                 messages.append(
                     ValidationMessage(
-                        severity="warning",
+                        severity="error",
                         message=f"Unknown scoring engine: {scoring_config['engine']}",
                         field_path="scoring_configuration.engine",
                     )

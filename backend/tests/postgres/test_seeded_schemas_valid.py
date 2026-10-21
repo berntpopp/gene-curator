@@ -23,3 +23,20 @@ def test_seeded_schemas_are_valid(db: Session) -> None:
         assert errors == [], f"{row['name']}: {errors}"
         checked += 1
     assert checked >= 4
+
+
+def test_active_schemas_use_registered_scoring_engines(db: Session) -> None:
+    from app.scoring.registry import scoring_registry
+
+    rows = db.execute(
+        text(
+            "SELECT name, version, scoring_configuration->>'engine' AS engine "
+            "FROM curation_schemas WHERE is_active AND scoring_configuration IS NOT NULL"
+        )
+    ).mappings()
+    bad = [
+        (r["name"], r["version"], r["engine"])
+        for r in rows
+        if scoring_registry.get_engine(r["engine"] or "") is None
+    ]
+    assert bad == []

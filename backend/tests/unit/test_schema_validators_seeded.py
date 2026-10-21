@@ -64,11 +64,11 @@ class TestStricterSeededFormats:
         assert validator.validate({"workflow_states": {"draft": 5}})
         assert validator.validate({"workflow_states": {"transitions": {"a": ["b"]}}})
 
-    def test_unknown_scoring_engine_is_reported(self) -> None:
+    def test_unknown_scoring_engine_is_an_error(self) -> None:
         validator = ScoringConfigurationValidator()
 
         found = validator.validate({"scoring_configuration": {"engine": "nope"}})
-        assert [m.severity for m in found] == ["warning"]
+        assert [m.severity for m in found] == ["error"]
         assert (
             validator.validate({"scoring_configuration": {"engine": "clingen_sop_v11"}})
             == []
