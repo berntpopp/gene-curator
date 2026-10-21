@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 const VIEWS = [
   'MyWork',
   'GeneAssignments',
+  'FAQ',
+  'NotFound',
   'GenesTable',
   'GeneCatalogueView',
   'UserManagement',
@@ -31,6 +33,13 @@ describe('page title on phones', () => {
 
   it('hides .page-title visually below md', () => {
     const css = Object.values(app)[0]!
-    expect(css).toMatch(/@media \(max-width: 959\.98px\)\s*\{\s*\.page-title/)
+    expect(css).toMatch(/@media \(max-width: 959\.98px\)\s*\{\s*\.has-phone-header \.page-title/)
+  })
+
+  it('is fully visually hidden, not just clipped', () => {
+    const css = Object.values(app)[0]!
+    for (const rule of ['clip-path: inset(50%)', 'margin: -1px', 'padding: 0', 'border: 0']) {
+      expect(css).toContain(rule)
+    }
   })
 })
