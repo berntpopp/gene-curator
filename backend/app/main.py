@@ -5,10 +5,13 @@ Enhanced with YAML-based configuration and constants for better maintainability.
 """
 
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.engine import make_url
 
 from app.api.v1.api import api_router
 from app.core.api_config import get_cors_config, get_feature_flags
@@ -28,11 +31,27 @@ logger = get_logger(__name__)
 # Load feature flags
 feature_flags = get_feature_flags()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    logger.info(
+        "Starting Gene Curator API...",
+        environment=settings.ENVIRONMENT,
+        database_url=make_url(settings.DATABASE_URL).render_as_string(
+            hide_password=True
+        ),
+        clingen_sop_version=settings.CLINGEN_SOP_VERSION,
+    )
+    yield
+    logger.info("Shutting down Gene Curator API...")
+
+
 # Create FastAPI application with configurable documentation URLs
 app = FastAPI(
     title=APP_NAME,
     description=APP_DESCRIPTION,
     version=APP_VERSION,
+    lifespan=lifespan,
     docs_url=(
         "/docs"
         if settings.ENVIRONMENT == "development"
@@ -125,10 +144,16 @@ async def health_check() -> dict[str, str | float]:
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Global exception caught", error=exc)
     # ServerErrorMiddleware sits outside CORSMiddleware, so add the headers here
-    headers: dict[str, str] = {}
+    rid = getattr(request.state, "request_id", None)
+    headers: dict[str, str] = {"X-Request-ID": rid} if rid else {}
     origin = request.headers.get("origin")
     if origin and origin in cors_config.allow_origins:
-        headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Vary"] = "Origin"
+        if cors_config.expose_headers:
+            headers["Access-Control-Expose-Headers"] = ", ".join(
+                cors_config.expose_headers
+            )
         if cors_config.allow_credentials:
             headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
@@ -137,26 +162,9 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         content={
             "detail": "Internal server error",
             "type": "internal_error",
-            "request_id": id(request),
+            "request_id": rid,
         },
     )
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event() -> None:
-    logger.info(
-        "Starting Gene Curator API...",
-        environment=settings.ENVIRONMENT,
-        database_url=settings.DATABASE_URL,
-        clingen_sop_version=settings.CLINGEN_SOP_VERSION,
-    )
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    logger.info("Shutting down Gene Curator API...")
 
 
 if __name__ == "__main__":
