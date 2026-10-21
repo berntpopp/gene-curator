@@ -95,3 +95,59 @@ def test_malformed_list_rules_are_skipped(rules: dict[str, Any]) -> None:
     schema = {"field_definitions": FIELDS, "validation_rules": rules}
     result = SchemaValidator().validate_evidence_data({"mondo_id": "x"}, schema)
     assert result.is_valid
+
+
+# The lumping/splitting section as 016_seed_precuration_schema.sql seeds it
+LUMPING = {
+    "sections": [
+        {
+            "id": "lumping_splitting",
+            "fields": [
+                {
+                    "id": "lumping_splitting_applicable",
+                    "type": "boolean",
+                    "required": True,
+                },
+                {
+                    "id": "lumping_splitting_decision",
+                    "type": "select",
+                    "required": True,
+                    "show_when": {"lumping_splitting_applicable": True},
+                    "options": [{"value": "LUMP"}, {"value": "SPLIT"}],
+                },
+                {
+                    "id": "lumping_splitting_rationale",
+                    "type": "textarea",
+                    "required": True,
+                    "visible_when": {"lumping_splitting_applicable": [True]},
+                },
+            ],
+        }
+    ]
+}
+
+
+def test_hidden_required_fields_are_not_missing() -> None:
+    result = SchemaValidator().validate_evidence_data(
+        {"lumping_splitting_applicable": False}, {"field_definitions": LUMPING}
+    )
+    assert result.required_fields_missing == []
+    assert result.is_valid
+
+
+def test_visible_required_fields_are_missing() -> None:
+    result = SchemaValidator().validate_evidence_data(
+        {"lumping_splitting_applicable": True}, {"field_definitions": LUMPING}
+    )
+    assert result.required_fields_missing == [
+        "lumping_splitting_decision",
+        "lumping_splitting_rationale",
+    ]
+
+
+def test_hidden_field_values_are_still_validated() -> None:
+    data = {"lumping_splitting_applicable": False, "lumping_splitting_decision": "X"}
+    result = SchemaValidator().validate_evidence_data(
+        data, {"field_definitions": LUMPING}
+    )
+    assert [e["field"] for e in result.errors] == ["lumping_splitting_decision"]

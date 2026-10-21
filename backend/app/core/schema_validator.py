@@ -11,6 +11,7 @@ from app.core.enum_options import enum_option, flatten_sections
 from app.core.schema_rules import (
     apply_field_list_rules,
     check_schema_definition,
+    is_visible,
     resolve_named_rules,
 )
 from app.core.schema_validation_result import SchemaValidationResult
@@ -153,9 +154,12 @@ class SchemaValidator:
         for field_name, field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
 
-            # Check if required field is missing
-            if field_config.get("required", False) and (
-                field_value is None or field_value == ""
+            # Required unless hidden by its condition (a hidden value is still checked)
+            required = field_config.get("required", False)
+            if (
+                required
+                and field_value in (None, "")
+                and is_visible(field_config, evidence_data)
             ):
                 result.add_error(field_name, "Required field is missing", "required")
                 result.required_fields_missing.append(field_name)

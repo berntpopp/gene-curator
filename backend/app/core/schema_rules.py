@@ -36,6 +36,29 @@ def _resolve(fields: Any, rules: dict[str, Any]) -> Any:
     return out
 
 
+def condition_holds(condition: dict[str, Any], data: dict[str, Any]) -> bool:
+    """Every entry holds: a list means "one of", anything else "equals" (W4F conditions.ts)."""
+
+    def value_at(path: str) -> Any:
+        value: Any = data
+        for key in path.split("."):
+            value = value.get(key) if isinstance(value, dict) else None
+        return value
+
+    return all(
+        value_at(path) in expected
+        if isinstance(expected, list)
+        else value_at(path) == expected
+        for path, expected in condition.items()
+    )
+
+
+def is_visible(config: dict[str, Any], data: dict[str, Any]) -> bool:
+    """False when the field's `visible_when` / `show_when` condition does not hold."""
+    condition = config.get("visible_when", config.get("show_when"))
+    return not isinstance(condition, dict) or condition_holds(condition, data)
+
+
 # Rule keys the seeded schemas store as lists/maps of fields rather than one rule config
 FIELD_LIST_RULES = ("required_fields", "conditional_required", "custom_validators")
 
