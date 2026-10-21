@@ -1646,8 +1646,6 @@ class NotificationNew(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     message: Mapped[str] = mapped_column(Text, nullable=False)
     link: Mapped[str | None] = mapped_column(String(500))
-
-    # Status
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Metadata
@@ -1662,3 +1660,5 @@ class NotificationNew(Base):
         Index("idx_notifications_user_unread", "user_id", "is_read"),
         Index("idx_notifications_created", "created_at"),
     )
+    # No INSERT..RETURNING: RLS would require the sender to read the recipient's row
+    __mapper_args__ = {"eager_defaults": False}  # noqa: RUF012

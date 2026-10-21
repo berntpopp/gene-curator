@@ -9,10 +9,10 @@ from collections.abc import Generator
 from typing import Annotated, Any, ClassVar
 from uuid import UUID as PyUUID  # noqa: N811
 
-from sqlalchemy import String, create_engine
+from sqlalchemy import Connection, String, create_engine, event, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-from sqlalchemy.orm import DeclarativeBase, Session, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Session, SessionTransaction, mapped_column
 
 from app.core.config import settings
 
@@ -48,6 +48,35 @@ AsyncSessionLocal = async_sessionmaker(
     autocommit=False,
     autoflush=False,
 )
+
+
+# ============================================================================
+# Row-level security context
+# ============================================================================
+
+RLS_USER_KEY = "rls_user_id"
+
+
+def apply_rls_user(connection: Connection, user_id: str) -> None:
+    """Set app.current_user_id for the current transaction only (set_config(..., true)).
+
+    Transaction-local, so a pooled connection never carries one request's user into
+    the next; `_reapply_rls_user` restores it after every commit within a session.
+    """
+    if connection.dialect.name == "postgresql":
+        connection.execute(
+            text("SELECT set_config('app.current_user_id', :uid, true)"),
+            {"uid": user_id},
+        )
+
+
+@event.listens_for(Session, "after_begin")
+def _reapply_rls_user(
+    session: Session, transaction: SessionTransaction, connection: Connection
+) -> None:
+    user_id = session.info.get(RLS_USER_KEY)
+    if user_id:
+        apply_rls_user(connection, user_id)
 
 
 # ============================================================================

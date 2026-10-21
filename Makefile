@@ -94,7 +94,7 @@ db-migrate: ## Apply pending SQL files once (optional FILE=database/sql/NNN_x.sq
 			sed -E '/^(BEGIN|COMMIT);[[:space:]]*$$/d' "$$file"; \
 			printf "\nINSERT INTO schema_migrations (filename) VALUES ('%s') ON CONFLICT DO NOTHING;\n\\\\endif\n" "$$name"; \
 		done; \
-	} | docker exec -i $(POSTGRES_CONTAINER) psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
+	} | docker exec -i -e APP_DB_PASSWORD $(POSTGRES_CONTAINER) psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
 db-shell: ## Open psql in the dev DB
 	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
@@ -131,7 +131,7 @@ test: ## Backend tests (SQLite)
 	cd backend && uv run pytest
 
 test-postgres: ## Backend RLS/scope tests on a throwaway Postgres built from database/sql
-	scripts/test-postgres.sh -q tests ../database/sql/test_migrations.py
+	scripts/test-postgres.sh -q tests ../database/sql/test_migrations.py ../database/sql/test_application_role.py
 
 test-frontend: ## Frontend unit tests
 	cd frontend && npx vitest run

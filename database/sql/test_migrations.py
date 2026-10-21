@@ -1,4 +1,4 @@
-"""Real PostgreSQL checks; run with DATABASE_URL pointing at a throwaway owner DB.
+"""Real PostgreSQL checks; run with OWNER_DATABASE_URL pointing at a throwaway owner DB.
 
 cd backend && uv run pytest ../database/sql/test_migrations.py -m postgres
 """
@@ -24,12 +24,12 @@ def test_runner_applies_once_and_rolls_back_failed_file(tmp_path: Path) -> None:
     env = {
         **os.environ,
         "PATH": f"{tmp_path}:{os.environ['PATH']}",
-        "MIGRATION_TEST_URL": os.environ["DATABASE_URL"],
+        "MIGRATION_TEST_URL": os.environ["OWNER_DATABASE_URL"],
     }
     # initdb only records the baseline; files between 027 and 030 are recorded by the first run.
     subprocess.run(["/usr/bin/make", "db-migrate"], cwd=ROOT, env=env, check=True)
     with (
-        psycopg2.connect(os.environ["DATABASE_URL"]) as connection,
+        psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as connection,
         connection.cursor() as cursor,
     ):
         cursor.execute(
@@ -40,7 +40,7 @@ def test_runner_applies_once_and_rolls_back_failed_file(tmp_path: Path) -> None:
     for _ in range(2):
         subprocess.run(["/usr/bin/make", "db-migrate"], cwd=ROOT, env=env, check=True)
     with (
-        psycopg2.connect(os.environ["DATABASE_URL"]) as connection,
+        psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as connection,
         connection.cursor() as cursor,
     ):
         cursor.execute(
@@ -71,7 +71,7 @@ def test_runner_applies_once_and_rolls_back_failed_file(tmp_path: Path) -> None:
     )
     assert result.returncode != 0
     with (
-        psycopg2.connect(os.environ["DATABASE_URL"]) as connection,
+        psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as connection,
         connection.cursor() as cursor,
     ):
         cursor.execute("SELECT to_regclass('migration_rollback_probe')")

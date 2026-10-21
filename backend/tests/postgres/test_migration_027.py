@@ -1,34 +1,14 @@
 """Migration 027: partial unique index, log retention function, default log partition."""
 
-from collections.abc import Generator
 from datetime import date, timedelta
 
 import pytest
-from sqlalchemy import create_engine, text
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.crud.schema_repository import schema_crud
 
 pytestmark = pytest.mark.postgres
-
-
-@pytest.fixture
-def owner_session() -> Generator[Session, None, None]:
-    """Table-owner connection (DDL allowed); everything is rolled back."""
-    engine = create_engine(
-        settings.DATABASE_URL.replace("postgresql://", "postgresql+psycopg2://", 1)
-    )
-    connection = engine.connect()
-    transaction = connection.begin()
-    session = Session(bind=connection)
-    try:
-        yield session
-    finally:
-        session.close()
-        transaction.rollback()
-        connection.close()
-        engine.dispose()
 
 
 def _partitions(session: Session) -> set[str]:

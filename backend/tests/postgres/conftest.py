@@ -4,8 +4,8 @@ Pytest configuration and shared fixtures for Gene Curator tests.
 Provides database session fixtures with proper transaction isolation using
 SQLAlchemy 2.0's join_transaction_mode="create_savepoint" pattern. This allows
 tests to call commit() freely while maintaining complete isolation and automatic
-rollback. FORCE ROW LEVEL SECURITY on tables ensures RLS policies apply even to
-superuser connections.
+rollback. Connections use DATABASE_URL = app_user (no superuser, no BYPASSRLS),
+so RLS policies apply exactly as in production.
 
 Key Features (SQLAlchemy 2.0 Pattern):
 - Automatic savepoint management via join_transaction_mode="create_savepoint"
@@ -16,6 +16,7 @@ Key Features (SQLAlchemy 2.0 Pattern):
 - RLS policies enforced via FORCE ROW LEVEL SECURITY
 """
 
+import os
 from collections.abc import Generator
 
 import pytest
@@ -30,7 +31,7 @@ def db() -> Generator[Session, None, None]:
     Provide a database session with proper nested transaction support.
 
     Uses SQLAlchemy 2.0's join_transaction_mode="create_savepoint" pattern for
-    clean transaction management in tests. Uses test_user (non-BYPASSRLS) to
+    clean transaction management in tests. Uses app_user (non-BYPASSRLS) to
     ensure RLS policies are properly enforced.
 
     Benefits:
@@ -38,10 +39,10 @@ def db() -> Generator[Session, None, None]:
     2. SET LOCAL variables persist throughout the test (not cleared by commit)
     3. All changes are rolled back at the end of the test
     4. Complete test isolation with no data pollution
-    5. RLS policies properly enforced (test_user lacks BYPASSRLS privilege)
+    5. RLS policies properly enforced (app_user lacks BYPASSRLS privilege)
 
     Technical Details (SQLAlchemy 2.0 Pattern):
-    - Uses test_user (no BYPASSRLS privilege)
+    - Uses app_user (no BYPASSRLS privilege)
     - FORCE RLS + non-BYPASSRLS user = RLS fully enforced
     - Outer transaction: Never committed, always rolled back
     - join_transaction_mode="create_savepoint": Automatic savepoint management
@@ -55,13 +56,13 @@ def db() -> Generator[Session, None, None]:
     Yields:
         Session: SQLAlchemy database session with nested transaction support
     """
-    # Create engine using test_user (no BYPASSRLS privilege)
+    # Create engine using app_user (no BYPASSRLS privilege)
     # This ensures RLS policies are properly enforced in tests
     from sqlalchemy import create_engine
 
     test_db_url = settings.DATABASE_URL.replace(
-        "dev_user:dev_password", "test_user:test_password"
-    ).replace("postgresql://", "postgresql+psycopg2://", 1)
+        "postgresql://", "postgresql+psycopg2://", 1
+    )
     test_engine = create_engine(test_db_url, pool_pre_ping=True)
 
     # Create a connection from the test engine
@@ -88,6 +89,28 @@ def db() -> Generator[Session, None, None]:
 
         # Dispose of the test engine
         test_engine.dispose()
+
+
+@pytest.fixture
+def owner_session() -> Generator[Session, None, None]:
+    """Table-owner connection (OWNER_DATABASE_URL, DDL allowed); everything is rolled back."""
+    from sqlalchemy import create_engine
+
+    engine = create_engine(
+        os.environ["OWNER_DATABASE_URL"].replace(
+            "postgresql://", "postgresql+psycopg2://", 1
+        )
+    )
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = Session(bind=connection)
+    try:
+        yield session
+    finally:
+        session.close()
+        transaction.rollback()
+        connection.close()
+        engine.dispose()
 
 
 @pytest.fixture

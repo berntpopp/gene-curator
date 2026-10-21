@@ -157,41 +157,41 @@ COMMENT ON FUNCTION can_review_in_scope(UUID) IS 'Check if user can review in gi
 -- =============================================================================
 
 -- IMPORTANT: FORCE ROW LEVEL SECURITY
--- FORCE ROW LEVEL SECURITY prevents superusers and table owners from bypassing
--- RLS policies. This is CRITICAL for multi-tenant security. Without FORCE,
--- a superuser could accidentally or maliciously access all tenant data.
+-- FORCE ROW LEVEL SECURITY subjects table owners to RLS; superusers and roles
+-- with BYPASSRLS still bypass every policy. Runtime connections therefore use
+-- app_user (migration 031), which has neither privilege.
 
 -- Enable RLS on Core Tables
 
 -- Scopes: Multi-tenant isolation for curation scopes
 ALTER TABLE scopes ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scopes FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE scopes FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Scope Memberships: User-scope relationships with roles
 ALTER TABLE scope_memberships ENABLE ROW LEVEL SECURITY;
-ALTER TABLE scope_memberships FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE scope_memberships FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Gene Scope Assignments: Gene assignments within scopes
 ALTER TABLE gene_scope_assignments ENABLE ROW LEVEL SECURITY;
-ALTER TABLE gene_scope_assignments FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE gene_scope_assignments FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Enable RLS on Curation Workflow Tables
 
 -- Precurations: Pre-curation work within scopes
 ALTER TABLE precurations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE precurations FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE precurations FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Curations: Curation work within scopes
 ALTER TABLE curations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE curations FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE curations FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Reviews: Review workflow within scopes
 ALTER TABLE reviews ENABLE ROW LEVEL SECURITY;
-ALTER TABLE reviews FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE reviews FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- Active Curations: Active curations within scopes
 ALTER TABLE active_curations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE active_curations FORCE ROW LEVEL SECURITY;  -- Prevents superuser bypass
+ALTER TABLE active_curations FORCE ROW LEVEL SECURITY;  -- Enforces RLS for table owners
 
 -- =============================================================================
 -- PART 3: RLS POLICIES (from 006_rls_policies.sql)

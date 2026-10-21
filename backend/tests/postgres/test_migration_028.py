@@ -11,7 +11,6 @@ from app.crud.curation import curation_crud
 from app.models.models import CurationNew, Gene, Scope, UserNew, WorkflowPair
 from app.schemas.curation import CurationUpdate
 from app.scoring.clingen import ClinGenEngine
-from tests.postgres.test_migration_027 import owner_session as owner_session
 
 pytestmark = pytest.mark.postgres
 
