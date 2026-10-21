@@ -438,6 +438,11 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         # Validate can be approved
         if db_obj.status not in [CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW]:
             raise ValueError("Precuration must be submitted or in review to approve")
+        allowed = workflow_engine.transitions_for(db, db_obj)
+        if WorkflowStage.CURATION not in allowed.get(db_obj.workflow_stage, []):
+            raise ValueError(
+                f"Invalid transition from {db_obj.workflow_stage.value} to curation"
+            )
 
         # Update precuration status
         db_obj.status = CurationStatus.APPROVED

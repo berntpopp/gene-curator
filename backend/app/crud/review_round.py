@@ -231,6 +231,7 @@ def record_review_decision(
             reviewer_id=reviewer_id,
             assigned_by=reviewer_id,
             created_by=reviewer_id,
+            assigned_at=datetime.now(UTC),  # same clock as submitted_at (round start)
         )
         db.add(review)
     review.status = status

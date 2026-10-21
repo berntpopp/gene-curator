@@ -297,3 +297,72 @@ def test_precuration_submit_reads_pinned_validation_rules(
             submit_data=PrecurationSubmit(lock_version=pre.lock_version),
             user_id=creator.id,
         )
+
+
+@pytest.mark.parametrize(
+    ("states", "approved"),
+    [
+        (SEEDED_PRECURATION_STATES, True),
+        ({"review": {"allowed_transitions": ["precuration"]}}, False),
+    ],
+)
+def test_precuration_approve_follows_the_pinned_snapshot(
+    db_session: Session,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+    states: Any,
+    approved: bool,
+) -> None:
+    from app.crud.precuration import precuration_crud
+
+    pre = make_precuration(
+        db_session,
+        scope=scope,
+        gene=make_gene(db_session),
+        creator=creator,
+        stage=S.REVIEW,
+    )
+    pre.status = CurationStatus.SUBMITTED
+    _pin(db_session, pre, states)
+    if approved:
+        precuration_crud.approve_and_create_curation(
+            db_session, db_obj=pre, approver_id=reviewer.id, create_curation=False
+        )
+    else:
+        with pytest.raises(ValueError, match="from review to curation"):
+            precuration_crud.approve_and_create_curation(
+                db_session, db_obj=pre, approver_id=reviewer.id
+            )
+    db_session.refresh(pre)
+    assert pre.status == (
+        CurationStatus.APPROVED if approved else CurationStatus.SUBMITTED
+    )
+
+
+def test_two_rounds_count_only_approvals_of_the_current_round(
+    db_session: Session,
+    engine: WorkflowEngine,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+    two_reviewer_curation: CurationNew,
+) -> None:
+    curation = two_reviewer_curation
+    bob, carol = reviewer, _second_reviewer(db_session, scope)
+    dave = _second_reviewer(db_session, scope)
+    engine.execute_transition(db_session, curation.id, "curation", S.ACTIVE, bob.id)
+    engine.execute_transition(
+        db_session, curation.id, "curation", S.CURATION, carol.id, notes="fix"
+    )
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    # bob's approval belongs to the first round
+    engine.execute_transition(db_session, curation.id, "curation", S.ACTIVE, carol.id)
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (
+        S.REVIEW,
+        CurationStatus.IN_REVIEW,
+    )
+    engine.execute_transition(db_session, curation.id, "curation", S.ACTIVE, dave.id)
+    db_session.refresh(curation)
+    assert curation.status == CurationStatus.ACTIVE

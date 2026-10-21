@@ -19,23 +19,44 @@ def _is_empty(value: Any) -> bool:
     )
 
 
-def _required_paths(defs: Any, prefix: str = "") -> list[str]:
-    """Required field paths from a flat/nested definition dict or a `sections` list."""
+def _fields(defs: Any, prefix: str = "") -> list[tuple[str, dict[str, Any]]]:
+    """(dotted path, config) of every field in a flat/nested definition dict or `sections`."""
     if not isinstance(defs, dict):
         return []
-    found: list[str] = []
+    found: list[tuple[str, dict[str, Any]]] = []
     for section in defs.get("sections") or []:
         for field in section.get("fields", []) if isinstance(section, dict) else []:
-            if isinstance(field, dict) and field.get("required") is True:
-                found.append(f"{prefix}{field.get('id')}")
+            if isinstance(field, dict):
+                found.append((f"{prefix}{field.get('id')}", field))
     for name, config in defs.items():
         if name == "sections" or not isinstance(config, dict):
             continue
-        if config.get("required") is True:
-            found.append(f"{prefix}{name}")
-        elif config.get("type") == "object":
-            found += _required_paths(config.get("properties"), f"{prefix}{name}.")
+        found.append((f"{prefix}{name}", config))
+        if config.get("required") is not True and config.get("type") == "object":
+            found += _fields(config.get("properties"), f"{prefix}{name}.")
     return found
+
+
+def _value_at(data: Any, path: str) -> Any:
+    for key in path.split("."):
+        data = data.get(key) if isinstance(data, dict) else None
+    return data
+
+
+def _same(a: Any, b: Any) -> bool:
+    return bool(a == b and isinstance(a, bool) == isinstance(b, bool))
+
+
+def _condition_holds(condition: Any, data: Any) -> bool:
+    """`{path: value}` equals, `{path: [values]}` in; every entry must hold (frontend
+    conditions.ts). Anything that is not a dict is no condition."""
+    if not isinstance(condition, dict):
+        return True
+    for path, expected in condition.items():
+        options = expected if isinstance(expected, list) else [expected]
+        if not any(_same(_value_at(data, path), option) for option in options):
+            return False
+    return True
 
 
 def missing_required_fields(
@@ -44,18 +65,22 @@ def missing_required_fields(
     """Dotted paths of required fields empty in ``data``.
 
     Required = ``required: true`` in flat/nested definitions or ``sections[].fields[]``,
-    plus ``validation_rules.required_fields``. Mirrored by the frontend requiredFields.ts.
+    plus ``validation_rules.required_fields``; a field hidden by its ``visible_when`` /
+    ``show_when`` condition is not required. Mirrored by the frontend requiredFields.ts.
     """
-    paths = _required_paths(field_definitions)
+    fields = _fields(field_definitions)
+    paths = [path for path, config in fields if config.get("required") is True]
     listed = (
         (validation_rules or {}).get("required_fields") if validation_rules else None
     )
     paths += [p for p in listed or [] if p not in paths]
-    missing = []
-    for path in dict.fromkeys(paths):
-        value: Any = data
-        for key in path.split("."):
-            value = value.get(key) if isinstance(value, dict) else None
-        if _is_empty(value):
-            missing.append(path)
-    return missing
+    shown_when = {
+        path: config.get("visible_when", config.get("show_when"))
+        for path, config in fields
+    }
+    return [
+        path
+        for path in dict.fromkeys(paths)
+        if _condition_holds(shown_when.get(path), data)
+        and _is_empty(_value_at(data, path))
+    ]

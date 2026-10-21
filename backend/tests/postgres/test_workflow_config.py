@@ -214,6 +214,22 @@ def test_two_reviewers_activate_and_the_author_never_counts(
     assert _row(w.cur)[:2] == ("active", "active")
 
 
+def test_approvals_of_an_earlier_round_do_not_count(client: TestClient, w: W) -> None:
+    assert _submit(client, w, w.cur).status_code == 200
+    assert _approve(client, w, w.bob).status_code == 200
+    back = client.post(
+        f"/api/v1/workflow/curation/{w.cur}/transition",
+        json={"target_stage": "curation", "notes": "fix"},
+        headers=_h(w.carol),
+    )
+    assert back.status_code == 200, back.text
+    assert _submit(client, w, w.cur).status_code == 200
+    assert _approve(client, w, w.carol).json()["to_stage"] == "review"
+    assert _row(w.cur)[:2] == ("review", "in_review")
+    assert _approve(client, w, w.bob).json()["to_stage"] == "active"
+    assert _row(w.cur)[:2] == ("active", "active")
+
+
 def test_reject_returns_a_draft_without_the_trigger(client: TestClient, w: W) -> None:
     assert _submit(client, w, w.cur).status_code == 200
     a = client.post(
