@@ -4,7 +4,7 @@ Handles workflow transitions, peer reviews, and workflow monitoring.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -337,19 +337,14 @@ def get_workflow_dashboard(
     )
 
     # Personal workload
-    my_assignments_query = select(GeneScopeAssignment).where(
+    my_assignments_stmt = select(func.count(GeneScopeAssignment.id)).where(
         GeneScopeAssignment.assigned_curator_id == current_user.id
     )
     if scope_id:
-        my_assignments_query = my_assignments_query.where(
+        my_assignments_stmt = my_assignments_stmt.where(
             GeneScopeAssignment.scope_id == scope_id
         )
-
-    my_assignments_count = db.execute(
-        select(func.count(GeneScopeAssignment.id)).select_from(
-            my_assignments_query.subquery()
-        )
-    ).scalar()
+    my_assignments_count = db.execute(my_assignments_stmt).scalar()
 
     # My pending reviews
     my_pending_reviews = db.execute(
@@ -406,7 +401,7 @@ def get_workflow_audit_trail(
         entries=[],  # Would query audit log
         total_transitions=0,
         total_time_hours=None,
-        created_at=datetime.utcnow(),
+        created_at=datetime.now(UTC),
         completed_at=None,
     )
 
