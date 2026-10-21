@@ -3,7 +3,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSearchStore } from '@/stores/search'
 import { TERMINOLOGY } from '@/config/terminology'
-import { navEntries } from './navEntries'
+import { useNavEntries } from '@/components/navigation/useNavEntries'
 
 export interface ShortcutInfo {
   keys: string[]
@@ -29,6 +29,7 @@ const isTyping = (t: EventTarget | null) => {
 /** Global keyboard shortcuts. Call once (App-level); the listener goes away with the scope. */
 export function useShortcuts() {
   const router = useRouter()
+  const { primary } = useNavEntries()
   const auth = useAuthStore()
   const search = useSearchStore()
   let gAt = 0
@@ -55,10 +56,10 @@ export function useShortcuts() {
       gAt = Date.now()
     } else if (e.key.toLowerCase() === 'w' && Date.now() - gAt < SEQUENCE_MS) {
       gAt = 0
-      const myWork = navEntries(router, auth).find(
-        e => e.meta.label?.toLowerCase() === TERMINOLOGY.MY_WORK.toLowerCase()
+      const myWork = primary.value.find(
+        e => e.label.toLowerCase() === TERMINOLOGY.MY_WORK.toLowerCase()
       )
-      if (myWork) void router.push({ name: myWork.name })
+      if (myWork) void router.push(myWork.to)
     }
   }
 

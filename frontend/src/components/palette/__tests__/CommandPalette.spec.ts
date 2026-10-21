@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth'
 vi.mock('@/api/search', () => ({ searchAPI: { search: vi.fn() } }))
 
 const push = vi.fn()
+vi.mock('@/components/navigation/useReviewBadge', () => ({ useReviewBadge: () => ({ value: 0 }) }))
 const routes = [
   {
     name: 'Dashboard',

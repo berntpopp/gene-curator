@@ -91,10 +91,9 @@
    */
   import { computed, nextTick, ref, watch } from 'vue'
   import { useRouter, type RouteLocationRaw } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth'
   import { useSearchStore } from '@/stores/search'
   import { SHORTCUTS, useShortcuts } from '@/composables/useShortcuts'
-  import { navEntries } from '@/composables/navEntries'
+  import { useNavEntries } from '@/components/navigation/useNavEntries'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
 
   interface Item {
@@ -110,7 +109,6 @@
   const optionId = (i: number) => `palette-option-${i}`
 
   const router = useRouter()
-  const auth = useAuthStore()
   const search = useSearchStore()
   useShortcuts()
 
@@ -118,7 +116,11 @@
   const active = ref(0)
   let returnTo: HTMLElement | null = null
 
-  const commands = computed(() => navEntries(router, auth, search.query.trim()))
+  const { primary, admin } = useNavEntries()
+  const commands = computed(() => {
+    const text = search.query.trim().toLowerCase()
+    return [...primary.value, ...admin.value].filter(e => e.label.toLowerCase().includes(text))
+  })
 
   const groups = computed(() => {
     let index = 0
@@ -160,9 +162,9 @@
       'Go to',
       commands.value.map(c => ({
         key: `n-${String(c.name)}`,
-        title: c.meta.label ?? '',
+        title: c.label,
         subtitle: '',
-        to: { name: c.name }
+        to: c.to
       }))
     )
     return out
