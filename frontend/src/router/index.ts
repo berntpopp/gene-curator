@@ -256,7 +256,12 @@ const routes: RouteRecordRaw[] = [
     component: GeneAssignments,
     meta: {
       title: 'Assignments',
-      requiresAuth: true
+      requiresAuth: true,
+      // No requiredRoles: scope admins (application role 'user') use this page too
+      showInDropdown: 'curationSetup',
+      icon: 'mdi-clipboard-list',
+      label: 'Assignments',
+      order: 5
     }
   },
   {

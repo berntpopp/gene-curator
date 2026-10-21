@@ -49,14 +49,13 @@
           v-for="row in g.rows"
           :key="row.item_id + row.kind"
           data-test="work-row"
-          class="work-row d-flex flex-wrap align-center ga-3 px-4"
+          class="work-row px-4"
           :class="{ 'work-row--active': row === active }"
           :aria-current="row === active ? 'true' : undefined"
         >
           <span class="font-mono work-gene">{{ row.gene_symbol }}</span>
-          <span class="text-medium-emphasis">{{ row.scope_name }}</span>
-          <v-spacer />
-          <span class="font-mono text-medium-emphasis text-body-small">
+          <span class="work-scope text-medium-emphasis">{{ row.scope_name }}</span>
+          <span class="work-date font-mono text-medium-emphasis text-body-small">
             {{ formatDate(row.updated_at) }}
           </span>
           <v-btn :to="row.link" size="small" variant="outlined" color="primary">{{
@@ -65,7 +64,7 @@
         </div>
       </template>
     </v-card>
-    <p class="text-body-small text-medium-emphasis mt-3">
+    <p class="d-none d-md-block text-body-small text-medium-emphasis mt-3">
       Press <kbd>J</kbd> <kbd>K</kbd> to move, <kbd>Enter</kbd> to open.
     </p>
   </v-container>
@@ -81,8 +80,8 @@
 
   const TABS: { value: WorkTab; label: string }[] = [
     { value: 'needs_you', label: 'Needs you' },
-    { value: 'waiting', label: 'Waiting on others' },
-    { value: 'done', label: 'Done this week' }
+    { value: 'waiting', label: 'Waiting' },
+    { value: 'done', label: 'Done' }
   ]
   const EMPTY_TEXT: Record<WorkTab, string> = {
     needs_you: 'Nothing needs you right now.',
@@ -116,7 +115,7 @@
     const typing =
       e.target instanceof Element &&
       e.target.closest('input, textarea, select, a, button, [contenteditable]')
-    if (typing || e.metaKey || e.ctrlKey) return
+    if (typing || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return
     const last = visible.value.length - 1
     if (e.key === 'j') cursor.value = Math.min(cursor.value + 1, last)
     else if (e.key === 'k') cursor.value = Math.max(cursor.value - 1, 0)
@@ -140,16 +139,40 @@
     background: rgb(var(--v-theme-background));
     border-bottom: 1px solid rgb(var(--v-theme-outline-variant, var(--v-theme-on-surface)));
   }
+  /* Two-line card on phones (gene + date, scope + action), one line from sm up */
   .work-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-areas: 'gene date' 'scope verb';
+    align-items: center;
+    gap: 4px 12px;
+    padding-block: 8px;
     min-height: 44px;
     border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
   }
   .work-row--active {
     box-shadow: inset 3px 0 0 rgb(var(--v-theme-secondary));
   }
+  @media (min-width: 600px) {
+    .work-row {
+      grid-template-columns: 96px 1fr auto auto;
+      grid-template-areas: 'gene scope date verb';
+    }
+  }
   .work-gene {
+    grid-area: gene;
     min-width: 72px;
     font-weight: 600;
+  }
+  .work-scope {
+    grid-area: scope;
+  }
+  .work-date {
+    grid-area: date;
+    text-align: right;
+  }
+  .work-verb {
+    grid-area: verb;
   }
   .work-empty {
     padding: 32px 0;

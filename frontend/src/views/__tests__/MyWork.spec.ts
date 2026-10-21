@@ -91,6 +91,34 @@ describe('MyWork view', () => {
     w.unmount()
   })
 
+  it('ignores J when the key event is already handled or carries Alt', async () => {
+    const w = mountView([
+      item({}),
+      item({ item_id: 'i2', link: '/second' }),
+      item({ item_id: 'i3', link: '/third' })
+    ])
+    await flushPromises()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', altKey: true }))
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', cancelable: true }))
+    const handled = new KeyboardEvent('keydown', { key: 'j', cancelable: true })
+    window.addEventListener('keydown', e => e.preventDefault(), { once: true, capture: true })
+    window.dispatchEvent(handled)
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }))
+    expect(push).toHaveBeenCalledWith('/second') // only the unhandled J moved
+    w.unmount()
+  })
+
+  it('uses short pill labels on the tabs and hides the keyboard hint below md', async () => {
+    const w = mountView([item({})])
+    await flushPromises()
+    expect(w.findAll('[role="tab"]').map(t => t.text())).toEqual([
+      'Needs you 2',
+      'Waiting 1',
+      'Done 0'
+    ])
+    expect(w.find('kbd').element.parentElement!.classList).toContain('d-none')
+  })
+
   it('ignores shortcuts typed into the filter field', async () => {
     const w = mountView([item({})])
     await flushPromises()

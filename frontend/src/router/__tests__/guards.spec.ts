@@ -95,6 +95,13 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('MyWork')
   })
 
+  it('lists All assignments in the admin section', () => {
+    expect(router.getRoutes().find(r => r.name === 'GeneAssignments')?.meta).toMatchObject({
+      showInDropdown: 'curationSetup',
+      label: 'Assignments'
+    })
+  })
+
   it('keeps /dashboard working as a redirect to My work', async () => {
     useFakeAuth({ isAuthenticated: true })
 
