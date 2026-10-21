@@ -12,6 +12,7 @@
       :readonly="readonly"
       :show-submit="frame.hasSubmit.value"
       :can-submit="frame.canSubmit.value"
+      :blockers="frame.blockers.value"
       :saving="frame.state.value === 'saving'"
       @save="frame.save()"
       @submit="frame.submit()"
