@@ -105,7 +105,7 @@ describe('PasteGenesDialog', () => {
     const w = await resolved()
     expect(w.find('[data-testid=add]').text()).toContain('Add 2 genes to scope')
 
-    w.findComponent('[data-testid=choose-3]').vm.$emit('update:modelValue', 'HGNC:3')
+    w.findAllComponents({ name: 'VSelect' })[0]!.vm.$emit('update:modelValue', 'HGNC:3')
     await flushPromises()
     expect(w.find('[data-testid=add]').text()).toContain('Add 3 genes to scope')
 
