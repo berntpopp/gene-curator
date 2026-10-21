@@ -245,9 +245,9 @@ def update_gene_assignment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # Updating requires at least curator role in the scope
-    if not ScopePermissionService.can_edit_gene_assignment(
-        db, current_user, assignment.scope_id
+    # Editing an assignment is a scope-admin action, like reassigning
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"

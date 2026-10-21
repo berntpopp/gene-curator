@@ -135,8 +135,7 @@
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-body-small text-medium-emphasis mt-2">
-                {{ stat(completedGenes) }} of {{ stat(scopeStats?.total_genes_assigned) }} genes
-                curated
+                {{ stat(completedGenes) }} of {{ genesLabel }} curated
               </div>
             </v-card-text>
           </v-card>
@@ -253,6 +252,7 @@
 <script setup lang="ts">
   import { EMPTY } from '@/utils/format'
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
+  import { pluralize } from '@/utils/pluralize'
   import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
@@ -299,6 +299,11 @@
   const scopeStats = ref<ScopeStats | undefined>(undefined)
   // Em dash until statistics arrive, never a fake 0
   const stat = (n: number | null | undefined) => (scopeStats.value ? (n ?? 0) : EMPTY)
+  const genesLabel = computed(() =>
+    scopeStats.value
+      ? pluralize(scopeStats.value.total_genes_assigned ?? 0, 'gene')
+      : `${EMPTY} genes`
+  )
 
   // ============================================
   // COMPUTED PROPERTIES

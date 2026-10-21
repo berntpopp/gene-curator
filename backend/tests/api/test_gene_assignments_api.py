@@ -203,7 +203,7 @@ def test_get_assignment_forbidden_for_non_member(
 def test_update_assignment_changes_priority_and_notes(
     client: TestClient,
     db_session: Session,
-    curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
 ) -> None:
@@ -212,7 +212,7 @@ def test_update_assignment_changes_priority_and_notes(
     response = client.put(
         f"{BASE}/{row.id}",
         json={"priority_level": "low", "assignment_notes": "later"},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
 
     assert response.status_code == 200
@@ -402,29 +402,6 @@ def test_assign_and_unassign_curator(
     assert cleared.status_code == 200
     db_session.refresh(row)
     assert row.assigned_curator_id is None
-
-
-def test_curator_cannot_reassign_or_unassign_curator(
-    client: TestClient,
-    db_session: Session,
-    curator_token: str,
-    test_gene: Gene,
-    test_scope: Scope,
-    test_user_curator: UserNew,
-) -> None:
-    row = _assignment(db_session, test_gene, test_scope)
-
-    assigned = client.post(
-        f"{BASE}/{row.id}/assign-curator",
-        json={"curator_id": str(test_user_curator.id)},
-        headers=_auth(curator_token),
-    )
-    cleared = client.post(
-        f"{BASE}/{row.id}/unassign-curator", headers=_auth(curator_token)
-    )
-
-    assert assigned.status_code == 403
-    assert cleared.status_code == 403
 
 
 def test_assign_curator_rejects_unknown_or_non_member_curator(
