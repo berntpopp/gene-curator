@@ -18,11 +18,13 @@ from app.models import CurationNew, CurationStatus, Review, ReviewStatus
 _submitted_at = (
     select(CurationNew.submitted_at)
     .where(CurationNew.id == Review.curation_id)
+    .correlate(Review)
     .scalar_subquery()
 )
 _in_review = (
     select(CurationNew.status)
     .where(CurationNew.id == Review.curation_id)
+    .correlate(Review)
     .scalar_subquery()
     == CurationStatus.IN_REVIEW
 )

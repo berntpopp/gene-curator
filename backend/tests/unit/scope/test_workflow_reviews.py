@@ -6,6 +6,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.review_round import reassign_earlier_reviewers
 from app.crud.workflow_engine import WorkflowEngine
 from app.models.models import (
     CurationNew,
@@ -478,3 +479,10 @@ def test_pending_status_filter_ignores_stale_reviews(
         headers=auth_headers(b),
     )
     assert r.json() == []  # B's review belongs to the closed round
+
+
+def test_reassign_without_a_submission_is_a_noop(
+    db_session: Session, creator: UserNew, scope: Scope
+) -> None:
+    curation = _review_setup(db_session, creator, scope)
+    assert reassign_earlier_reviewers(db_session, curation, creator.id) == []
