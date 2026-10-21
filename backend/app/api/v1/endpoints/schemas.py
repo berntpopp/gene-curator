@@ -14,10 +14,12 @@ from app.core import deps
 from app.core.database import get_db
 from app.crud.schema_repository import schema_crud, workflow_pair_crud
 from app.models import UserNew
+from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
     CurationSchemaUpdate,
+    MethodologyDerive,
     MethodologyVersion,
     SchemaValidationResult,
     WorkflowPair,
@@ -124,9 +126,9 @@ def list_methodology_versions(
     *,
     db: Session = Depends(get_db),
     schema_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Sequence[MethodologyVersion]:
-    """List a schema's methodology versions, newest first. Requires platform admin."""
+    """List a schema's methodology versions, newest first."""
     if not schema_crud.get(db, id=schema_id):
         raise HTTPException(status_code=404, detail="Schema not found")
     return schema_crud.list_versions(db, schema_id=schema_id)  # type: ignore[return-value]
@@ -152,6 +154,41 @@ def publish_methodology_version(
         raise HTTPException(status_code=404, detail="Schema not found")
     return schema_crud.publish_version(  # type: ignore[return-value]
         db, schema=schema, user_id=current_user.id
+    )
+
+
+@router.post(
+    "/curation-schemas/{schema_id}/versions/{version_id}/derive",
+    response_model=CurationSchema,
+    status_code=201,
+)
+def derive_methodology(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    version_id: UUID,
+    derive_in: MethodologyDerive,
+    current_user: UserNew = Depends(deps.get_current_admin_user),
+) -> CurationSchema:
+    """Create an inactive schema from a published version. Requires platform admin.
+
+    The new schema's v1 records the version it was derived from.
+    """
+    source = db.get(MethodologyVersionModel, version_id)
+    if not source or source.schema_id != schema_id:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    if schema_crud.get_by_name_and_version(
+        db, name=derive_in.name, version=derive_in.version
+    ):
+        raise HTTPException(
+            status_code=400, detail="Schema with this name and version already exists"
+        )
+    return schema_crud.derive(  # type: ignore[return-value]
+        db,
+        source=source,
+        name=derive_in.name,
+        version=derive_in.version,
+        user_id=current_user.id,
     )
 
 
@@ -252,6 +289,20 @@ def get_compatible_scoring_engines(
     )
 
     return compatible_engines
+
+
+@router.get("/methodology-versions/{version_id}", response_model=MethodologyVersion)
+def get_methodology_version(
+    *,
+    db: Session = Depends(get_db),
+    version_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_active_user),
+) -> MethodologyVersion:
+    """Get one methodology version (forms render the version a curation is pinned to)."""
+    version = db.get(MethodologyVersionModel, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    return version  # type: ignore[return-value]
 
 
 # ========================================

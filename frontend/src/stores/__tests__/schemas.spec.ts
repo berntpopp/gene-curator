@@ -13,6 +13,8 @@ vi.mock('@/api', () => ({
     updateSchema: vi.fn(),
     deleteSchema: vi.fn(),
     validateCurationSchema: vi.fn(),
+    getVersions: vi.fn(),
+    deriveSchema: vi.fn(),
     getWorkflowPairs: vi.fn(),
     createWorkflowPair: vi.fn(),
     updateWorkflowPair: vi.fn(),
@@ -217,19 +219,18 @@ describe('useSchemasStore', () => {
   })
 
   describe('duplicateSchema', () => {
-    it('creates an inactive copy with a bumped patch version and the original name', async () => {
+    const version = (id: string) => ({ id }) as Schema<'MethodologyVersion'>
+
+    it('derives from the latest published version with a bumped patch version', async () => {
       const store = useSchemasStore()
-      api.getSchemaById.mockResolvedValue(
-        schema('a', { name: 'orig', version: '1.0.0', is_active: true, schema_hash: 'h' })
-      )
-      api.createSchema.mockResolvedValue(schema('b', { name: 'orig' }))
+      api.getSchemaById.mockResolvedValue(schema('a', { name: 'orig', version: '1.0.0' }))
+      api.getVersions.mockResolvedValue([version('v2'), version('v1')])
+      api.deriveSchema.mockResolvedValue(schema('b', { name: 'orig', is_active: false }))
 
       const copy = await store.duplicateSchema('a')
 
-      const sent = api.createSchema.mock.calls[0]?.[0]
-      expect(sent).toMatchObject({ name: 'orig', version: '1.0.1', is_active: false })
-      expect(sent).not.toHaveProperty('id')
-      expect(sent).not.toHaveProperty('schema_hash')
+      expect(api.deriveSchema).toHaveBeenCalledWith('a', 'v2', { name: 'orig', version: '1.0.1' })
+      expect(api.createSchema).not.toHaveBeenCalled()
       expect(copy.id).toBe('b')
       expect(store.schemas.map(s => s.id)).toEqual(['b'])
     })
@@ -237,11 +238,21 @@ describe('useSchemasStore', () => {
     it('appends .1 when the version has no numeric patch', async () => {
       const store = useSchemasStore()
       api.getSchemaById.mockResolvedValue(schema('a', { version: '11.0-beta' }))
-      api.createSchema.mockResolvedValue(schema('b'))
+      api.getVersions.mockResolvedValue([version('v1')])
+      api.deriveSchema.mockResolvedValue(schema('b'))
 
       await store.duplicateSchema('a')
 
-      expect(api.createSchema.mock.calls[0]?.[0]).toMatchObject({ version: '11.0-beta.1' })
+      expect(api.deriveSchema.mock.calls[0]?.[2]).toEqual({ name: 'a', version: '11.0-beta.1' })
+    })
+
+    it('refuses a schema without a published version', async () => {
+      const store = useSchemasStore()
+      api.getSchemaById.mockResolvedValue(schema('a', { version: '1' }))
+      api.getVersions.mockResolvedValue([])
+
+      await expect(store.duplicateSchema('a')).rejects.toThrow('no published version')
+      expect(api.deriveSchema).not.toHaveBeenCalled()
     })
   })
 

@@ -100,6 +100,13 @@ class MethodologyVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MethodologyDerive(BaseModel):
+    """Name and version of the inactive schema derived from a methodology version."""
+
+    name: str = Field(..., min_length=1, max_length=100)
+    version: str = Field(..., min_length=1, max_length=20)
+
+
 # Workflow Pair Schemas
 class WorkflowPairBase(BaseModel):
     """Base schema for workflow pairs."""
