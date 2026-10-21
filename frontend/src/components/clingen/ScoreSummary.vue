@@ -234,7 +234,10 @@
     align-items: center;
     margin: 0 auto;
     border: 4px solid currentColor;
-    transition: all 0.3s ease;
+    transition:
+      border-color,
+      color,
+      background-color 0.3s ease;
   }
 
   .score-value {

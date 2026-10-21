@@ -23,6 +23,7 @@
       </v-card-title>
 
       <v-data-table
+        style="min-height: 400px"
         :headers="workflowHeaders"
         :items="workflowPairs"
         :loading="loading"

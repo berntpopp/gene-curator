@@ -257,7 +257,7 @@
   }
 
   :deep(.v-progress-linear) {
-    transition: all 0.3s ease;
+    transition: width 0.3s ease;
   }
 
   /* Compact mode */
