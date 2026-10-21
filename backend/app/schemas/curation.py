@@ -112,6 +112,24 @@ class Curation(CurationInDBBase):
     pass
 
 
+_DISEASE_KEYS = ("disease_name", "mondo_id", "mode_of_inheritance")
+
+
+def disease_fields(
+    evidence: dict[str, Any] | None, precuration: dict[str, Any] | None
+) -> dict[str, Any]:
+    """Disease fields from the flat or nested (`entity_definition.*`) shape; evidence wins."""
+
+    def pick(source: dict[str, Any] | None, key: str) -> Any:
+        source = source or {}
+        nested = source.get("entity_definition")
+        return source.get(key) or (
+            nested.get(key) if isinstance(nested, dict) else None
+        )
+
+    return {k: pick(evidence, k) or pick(precuration, k) for k in _DISEASE_KEYS}
+
+
 class CurationDetail(CurationInDBBase):
     """Detailed curation response with expanded relations."""
 
@@ -189,13 +207,7 @@ class CurationDetail(CurationInDBBase):
             precuration_data = curation.precuration.evidence_data or {}
 
         # Priority: evidence_data > precuration_data
-        data["disease_name"] = evidence.get("disease_name") or precuration_data.get(
-            "disease_name"
-        )
-        data["mondo_id"] = evidence.get("mondo_id") or precuration_data.get("mondo_id")
-        data["mode_of_inheritance"] = evidence.get(
-            "mode_of_inheritance"
-        ) or precuration_data.get("mode_of_inheritance")
+        data.update(disease_fields(evidence, precuration_data))
 
         # Include computed scores as calculated_score for frontend
         if curation.computed_scores:

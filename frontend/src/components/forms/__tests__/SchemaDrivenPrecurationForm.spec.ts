@@ -397,6 +397,36 @@ describe('SchemaDrivenPrecurationForm', () => {
       expect(precurationsStore.saveDraft).toHaveBeenCalled()
     })
 
+    it('saves on Ctrl+S pressed with focus inside a text field', async () => {
+      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+      const wrapper = mount(SchemaDrivenPrecurationForm, {
+        props: { schemaId: 'schema-1', scopeId: 'scope-1', precurationId: 'p-1' },
+        attachTo: document.body,
+        global: {
+          stubs: {
+            ...stubs,
+            DynamicForm: { template: '<form><input id="field" type="text" /></form>' }
+          }
+        }
+      })
+      await flushPromises()
+
+      const input = wrapper.find('#field')
+      ;(input.element as HTMLInputElement).focus()
+      const event = new KeyboardEvent('keydown', {
+        key: 's',
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true
+      })
+      input.element.dispatchEvent(event)
+      await flushPromises()
+
+      expect(precurationsStore.saveDraft).toHaveBeenCalled()
+      expect(event.defaultPrevented).toBe(true)
+      wrapper.unmount()
+    })
+
     it('drops a recovery snapshot equal to the loaded draft', async () => {
       precurationsStore.fetchPrecurationById.mockResolvedValue({
         evidence_data: { a: 1 },

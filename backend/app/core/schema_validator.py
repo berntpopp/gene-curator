@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+from app.core.schema_rules import resolve_named_rules
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
 
@@ -67,7 +68,7 @@ class SchemaValidator:
         result = SchemaValidationResult()
 
         # Extract schema components
-        field_definitions = schema_definition.get("field_definitions", {})
+        field_definitions = resolve_named_rules(schema_definition)
         validation_rules = schema_definition.get("validation_rules", {})
         scoring_config = schema_definition.get("scoring_configuration", {})
         business_rules = schema_definition.get("business_rules", [])
@@ -226,10 +227,9 @@ class SchemaValidator:
                 field_name, f"Text must not exceed {max_length} characters", "length"
             )
 
-        # Pattern validation
         pattern = config.get("pattern")
-        if pattern:
-            result.check_pattern(field_name, pattern, value)
+        if pattern and not result.check_pattern(field_name, pattern, value, config):
+            return  # a format error makes the "more detail" hint noise
 
         # Content quality checks
         if config.get("quality_checks", True):
