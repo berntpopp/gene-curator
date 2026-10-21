@@ -1,16 +1,13 @@
 /**
- * Behaviour tests for the data views: GeneSummaryView, GenesTable, SchemaManagement, SchemaEditor.
+ * Behaviour tests for the data views: GenesTable, SchemaManagement, SchemaEditor.
  * Stores are real Pinia stores; their actions are stubbed with vi.spyOn.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
-import { useRoute } from 'vue-router'
-import GeneSummaryView from '@/views/GeneSummaryView.vue'
 import GenesTable from '@/views/GenesTable.vue'
 import SchemaManagement from '@/views/SchemaManagement.vue'
 import SchemaEditor from '@/views/SchemaEditor.vue'
-import { useGeneSummaryStore } from '@/stores/geneSummary'
 import { useGenesStore } from '@/stores/genes'
 import { useAuthStore } from '@/stores/auth'
 import { useSchemasStore } from '@/stores/schemas'
@@ -53,76 +50,6 @@ beforeEach(() => {
   vi.clearAllMocks()
   pinia = createPinia()
   setActivePinia(pinia)
-})
-
-describe('GeneSummaryView', () => {
-  beforeEach(() => {
-    routeState.params = { geneId: 'gene-1' }
-  })
-
-  it('shows a summary with scope count, consensus and conflict warning', async () => {
-    const summaries = useGeneSummaryStore()
-    vi.spyOn(summaries, 'fetchPublicSummary').mockResolvedValue(undefined as never)
-    summaries.publicSummaries.set('gene-1', {
-      gene_id: 'gene-1',
-      public_scopes_count: 2,
-      consensus_classification: 'Definitive',
-      has_conflicts: true,
-      classification_summary: { Definitive: 1, Limited: 1 },
-      scope_summaries: [],
-      last_updated: '2026-01-02T10:00:00Z'
-    })
-    vi.spyOn(useGenesStore(), 'fetchGeneById').mockResolvedValue({
-      approved_symbol: 'HNF1B'
-    } as never)
-
-    const wrapper = mount(GeneSummaryView, opts())
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Gene Summary: HNF1B')
-    expect(wrapper.text()).toContain('Scopes Curating')
-    expect(wrapper.text()).toContain('Definitive')
-    expect(wrapper.text()).toContain('Conflicting Classifications')
-  })
-
-  it('reloads the summary when the route gene changes', async () => {
-    const fetchSummary = vi
-      .spyOn(useGeneSummaryStore(), 'fetchPublicSummary')
-      .mockResolvedValue(undefined as never)
-    vi.spyOn(useGenesStore(), 'fetchGeneById').mockResolvedValue({ approved_symbol: 'X' } as never)
-    mount(GeneSummaryView, opts())
-    await flushPromises()
-    expect(fetchSummary).toHaveBeenLastCalledWith('gene-1')
-
-    useRoute().params = { geneId: 'gene-2' }
-    await flushPromises()
-    expect(fetchSummary).toHaveBeenLastCalledWith('gene-2')
-  })
-
-  it('shows the loading indicator while the summary is being fetched', () => {
-    vi.spyOn(useGeneSummaryStore(), 'fetchPublicSummary').mockReturnValue(new Promise(() => {}))
-    const wrapper = mount(GeneSummaryView, opts())
-    expect(wrapper.find('.v-progress-linear').exists()).toBe(true)
-  })
-
-  it('shows the error message when the summary fails to load', async () => {
-    vi.spyOn(useGeneSummaryStore(), 'fetchPublicSummary').mockRejectedValue(
-      new Error('Server down')
-    )
-    const wrapper = mount(GeneSummaryView, opts())
-    await flushPromises()
-    expect(wrapper.text()).toContain('Server down')
-    expect(logger.error).toHaveBeenCalled()
-  })
-
-  it('shows the no-curations message when there is no summary', async () => {
-    vi.spyOn(useGeneSummaryStore(), 'fetchPublicSummary').mockResolvedValue(undefined as never)
-    vi.spyOn(useGenesStore(), 'fetchGeneById').mockRejectedValue(new Error('not found'))
-    const wrapper = mount(GeneSummaryView, opts())
-    await flushPromises()
-    expect(wrapper.text()).toContain('No Curations Found')
-    expect(logger.warn).toHaveBeenCalled()
-  })
 })
 
 describe('GenesTable', () => {

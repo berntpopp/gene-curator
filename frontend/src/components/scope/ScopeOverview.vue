@@ -6,67 +6,21 @@
 
 <template>
   <div>
-    <!-- Scope Information -->
     <v-row>
       <v-col cols="12" md="6">
         <v-card>
           <v-card-title>Scope information</v-card-title>
           <v-card-text>
-            <v-list density="compact">
-              <v-list-item>
-                <template #prepend>
-                  <v-icon>mdi-identifier</v-icon>
-                </template>
-                <v-list-item-title>Name</v-list-item-title>
-                <v-list-item-subtitle>{{ scope.name }}</v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon>mdi-format-title</v-icon>
-                </template>
-                <v-list-item-title>Display Name</v-list-item-title>
-                <v-list-item-subtitle>{{ scope.display_name }}</v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item v-if="scope.description">
-                <template #prepend>
-                  <v-icon>mdi-text</v-icon>
-                </template>
-                <v-list-item-title>Description</v-list-item-title>
-                <v-list-item-subtitle>{{ scope.description }}</v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item v-if="scope.institution">
-                <template #prepend>
-                  <v-icon>mdi-hospital-building</v-icon>
-                </template>
-                <v-list-item-title>Institution</v-list-item-title>
-                <v-list-item-subtitle>{{ scope.institution }}</v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon>{{ scope.is_public ? 'mdi-earth' : 'mdi-lock' }}</v-icon>
-                </template>
-                <v-list-item-title>Visibility</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ scope.is_public ? 'Public' : 'Private' }}
-                </v-list-item-subtitle>
-              </v-list-item>
-
-              <v-list-item>
-                <template #prepend>
-                  <v-icon :color="scope.is_active ? 'success' : 'error'">
-                    {{ scope.is_active ? 'mdi-check-circle' : 'mdi-pause-circle' }}
-                  </v-icon>
-                </template>
-                <v-list-item-title>Status</v-list-item-title>
-                <v-list-item-subtitle>
-                  {{ scope.is_active ? 'Active' : 'Inactive' }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </v-list>
+            <dl class="scope-facts">
+              <dt>Methodology</dt>
+              <dd>{{ methodology || EMPTY }}</dd>
+              <dt>Scope admins</dt>
+              <dd>{{ admins?.length ? admins.join(', ') : EMPTY }}</dd>
+              <template v-if="scope.institution">
+                <dt>Institution</dt>
+                <dd>{{ scope.institution }}</dd>
+              </template>
+            </dl>
           </v-card-text>
         </v-card>
       </v-col>
@@ -96,14 +50,11 @@
 </template>
 
 <script setup lang="ts">
+  import { EMPTY } from '@/utils/format'
+
   /** Scope fields shown in the information card */
   interface ScopeInfo {
-    name: string
-    display_name: string
-    description?: string | null
     institution?: string | null
-    is_public: boolean
-    is_active: boolean
   }
 
   /** Activity counters (the dashboard tiles show the totals) */
@@ -115,11 +66,25 @@
   defineProps<{
     scope: ScopeInfo
     statistics?: ScopeStatisticsView | null
+    /** Name of the scope's workflow pair. */
+    methodology?: string | null
+    /** Names of the scope admins. */
+    admins?: string[]
   }>()
 </script>
 
 <style scoped>
-  .v-list-item {
-    margin-bottom: 8px;
+  .scope-facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 8px 24px;
+  }
+
+  .scope-facts dt {
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+
+  .scope-facts dd {
+    margin: 0;
   }
 </style>

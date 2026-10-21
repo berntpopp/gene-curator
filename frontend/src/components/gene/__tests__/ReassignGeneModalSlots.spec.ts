@@ -25,9 +25,9 @@ const gene = {
   curator_name: 'Ada',
   priority: 'medium',
   assignment_notes: '',
-  status: 'assigned',
+  stage: 'precuration',
   due_date: null,
-  progress: 0
+  updated_at: '2026-10-20T00:00:00Z'
 } as GeneRow
 
 const dialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }

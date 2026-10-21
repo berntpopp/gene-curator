@@ -1,16 +1,10 @@
 <!--
-  GeneDetail View
+  GeneDetail View: the gene as a case file.
 
-  Full page view displaying comprehensive HGNC gene information.
-  Fetches fresh data from HGNC API via backend proxy.
-
-  **Features**:
-  - Displays all available HGNC gene fields
-  - Organized into logical sections matching GeneDetailModal design
-  - Loading state while fetching
-  - Error handling for failed fetches
-  - External link to HGNC website
-  - Shows local database metadata (created/updated dates)
+  Header (symbol, HGNC name, links to external resources), an agreement banner and one assertion
+  row per scope (classification, disease, MOI, stage, score, link to the curation), then the HGNC
+  record. The summary comes from the gene summary endpoints (full for signed-in users, public
+  otherwise); the HGNC lookup never blocks the page.
 
   @example
   // Route: /genes/:id
@@ -48,316 +42,235 @@
       </template>
     </v-alert>
 
-    <!-- Gene Information -->
+    <!-- Case file -->
     <template v-else-if="localGene">
-      <!-- Header -->
-      <div class="d-flex align-center mb-6">
-        <v-btn
-          aria-label="Back to genes"
-          :to="{ name: 'GeneCatalogue' }"
-          icon="mdi-arrow-left"
-          variant="text"
-          class="mr-3"
-        />
-        <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
-        <div class="flex-grow-1">
-          <div class="d-flex align-center">
-            <h1 class="text-headline-large font-weight-bold">
-              {{ hgncData?.symbol || localGene.approved_symbol }}
-            </h1>
-            <v-chip
-              v-if="hgncData?.status"
-              :color="hgncData.status === 'Approved' ? 'success' : 'grey'"
-              size="small"
-              variant="tonal"
-              class="ml-3"
-            >
-              {{ hgncData.status }}
-            </v-chip>
-          </div>
-          <p class="text-body-large text-medium-emphasis mt-1">
-            {{ hgncData?.name || 'Loading gene details from HGNC...' }}
-          </p>
+      <header class="mb-5">
+        <div class="d-flex align-center mb-1">
+          <v-btn
+            aria-label="Back"
+            icon="mdi-arrow-left"
+            variant="text"
+            size="small"
+            class="mr-2"
+            @click="goBack"
+          />
+          <h1 class="text-headline-large font-weight-bold mono">
+            {{ hgncData?.symbol || localGene.approved_symbol }}
+          </h1>
+          <v-chip
+            v-if="hgncData?.status && hgncData.status !== 'Approved'"
+            size="small"
+            variant="outlined"
+            class="ml-3"
+          >
+            {{ hgncData.status }}
+          </v-chip>
         </div>
-      </div>
+        <p class="text-body-medium text-medium-emphasis mb-2">
+          <template v-if="hgncData?.name">{{ hgncData.name }} &middot; </template>
+          <span class="mono">{{ hgncData?.hgnc_id || localGene.hgnc_id }}</span>
+          <template v-if="band">
+            &middot; <span class="mono">{{ band }}</span></template
+          >
+        </p>
+        <nav aria-label="External resources" class="d-flex flex-wrap ga-4">
+          <a
+            v-for="link in links"
+            :key="link.label"
+            :href="link.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="ext-link"
+          >
+            {{ link.label }}
+          </a>
+        </nav>
+      </header>
 
-      <v-row>
-        <!-- Main Content -->
-        <v-col cols="12" lg="8">
-          <!-- Basic Information Section -->
-          <v-card class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon start size="20">mdi-information</v-icon>
-              Basic information
-            </v-card-title>
-            <v-card-text>
-              <v-row dense>
-                <v-col cols="6" sm="4">
-                  <div class="text-body-small text-medium-emphasis">HGNC ID</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.hgnc_id || localGene.hgnc_id }}
-                  </div>
-                </v-col>
-                <v-col cols="6" sm="4">
-                  <div class="text-body-small text-medium-emphasis">Symbol</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.symbol || localGene.approved_symbol }}
-                  </div>
-                </v-col>
-                <v-col cols="12" sm="4">
-                  <div class="text-body-small text-medium-emphasis">Locus Type</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.locus_type || '—' }}
-                  </div>
-                </v-col>
-                <v-col cols="12" class="mt-2">
-                  <div class="text-body-small text-medium-emphasis">Full Name</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.name || '—' }}
-                  </div>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
+      <v-progress-linear v-if="summaryLoading" indeterminate color="primary" class="mb-4" />
+      <v-alert v-else-if="summaryError" type="error" variant="tonal" density="compact" class="mb-4">
+        {{ summaryError }}
+        <template #append>
+          <v-btn variant="text" size="small" @click="loadSummary(localGene.id)">Retry</v-btn>
+        </template>
+      </v-alert>
+      <template v-else-if="scopes.length">
+        <AgreementBanner
+          class="mb-4"
+          :scope-count="activeCount"
+          :has-conflicts="summary?.has_conflicts ?? false"
+          :consensus="summary?.consensus_classification"
+          :classifications="summary?.classification_summary ?? {}"
+        />
+        <GeneAssertions class="mb-4" :scopes="scopes" :linked="auth.isAuthenticated" />
+      </template>
+      <section v-else class="empty mb-4" aria-label="Curations">
+        <h2 class="section-title">No curations yet</h2>
+        <p class="text-body-medium text-medium-emphasis">
+          {{
+            auth.isAuthenticated
+              ? 'No scope you can see has curated this gene.'
+              : 'No public scope has curated this gene.'
+          }}
+        </p>
+      </section>
 
-          <!-- Location Section -->
-          <v-card class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon start size="20">mdi-map-marker</v-icon>
-              Genomic location
-            </v-card-title>
-            <v-card-text>
-              <v-row dense>
-                <v-col cols="6">
-                  <div class="text-body-small text-medium-emphasis">Chromosome</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.chromosome || localGene.chromosome || '—' }}
-                  </div>
-                </v-col>
-                <v-col cols="6">
-                  <div class="text-body-small text-medium-emphasis">Cytogenetic Band</div>
-                  <div class="font-weight-medium">
-                    {{ hgncData?.location || localGene.location || '—' }}
-                  </div>
-                </v-col>
-              </v-row>
-            </v-card-text>
-          </v-card>
-
-          <!-- Aliases Section -->
-          <v-card class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon start size="20">mdi-tag-multiple</v-icon>
-              Alternative names
-            </v-card-title>
-            <v-card-text>
-              <template v-if="hasAliases">
-                <v-row dense>
-                  <v-col v-if="aliasSymbols?.length" cols="12" sm="6">
-                    <div class="text-body-small text-medium-emphasis mb-2">Alias Symbols</div>
-                    <div class="d-flex flex-wrap ga-1">
-                      <v-chip
-                        v-for="alias in aliasSymbols"
-                        :key="alias"
-                        size="small"
-                        variant="outlined"
-                      >
-                        {{ alias }}
-                      </v-chip>
-                    </div>
-                  </v-col>
-                  <v-col v-if="previousSymbols?.length" cols="12" sm="6">
-                    <div class="text-body-small text-medium-emphasis mb-2">Previous Symbols</div>
-                    <div class="d-flex flex-wrap ga-1">
-                      <v-chip
-                        v-for="prev in previousSymbols"
-                        :key="prev"
-                        size="small"
-                        variant="outlined"
-                        color="grey"
-                      >
-                        {{ prev }}
-                      </v-chip>
-                    </div>
-                  </v-col>
-                </v-row>
-              </template>
-              <div v-else class="text-body-medium text-medium-emphasis">
-                No alias or previous symbols recorded.
-              </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-
-        <!-- Sidebar -->
-        <v-col cols="12" lg="4">
-          <!-- External Links -->
-          <v-card class="mb-4">
-            <v-card-title class="d-flex align-center">
-              <v-icon start size="20">mdi-link-variant</v-icon>
-              External links
-            </v-card-title>
-            <v-card-text>
-              <v-btn
-                v-if="hgncUrl"
-                :href="hgncUrl"
-                target="_blank"
-                rel="noopener noreferrer"
-                variant="outlined"
-                color="primary"
-                block
-                class="mb-2"
-              >
-                <v-icon start>mdi-open-in-new</v-icon>
-                View on HGNC
-              </v-btn>
-              <div v-else class="text-body-medium text-medium-emphasis text-center py-2">
-                No external links available
-              </div>
-            </v-card-text>
-          </v-card>
-
-          <!-- Database Metadata -->
-          <v-card>
-            <v-card-title class="d-flex align-center">
-              <v-icon start size="20">mdi-database</v-icon>
-              Database record
-            </v-card-title>
-            <v-card-text>
-              <div class="mb-3">
-                <div class="text-body-small text-medium-emphasis">Record ID</div>
-                <div class="font-weight-medium text-truncate" :title="localGene.id">
-                  {{ localGene.id }}
-                </div>
-              </div>
-              <div class="mb-3">
-                <div class="text-body-small text-medium-emphasis">Created</div>
-                <div class="font-weight-medium">
-                  {{ formatDateTime(localGene.created_at) }}
-                </div>
-              </div>
-              <div>
-                <div class="text-body-small text-medium-emphasis">Last Updated</div>
-                <div class="font-weight-medium">
-                  {{ formatDateTime(localGene.updated_at) }}
-                </div>
-              </div>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
+      <section class="record" aria-labelledby="record-title">
+        <h2 id="record-title" class="section-title mb-3">Gene record</h2>
+        <dl class="record__grid">
+          <div v-for="row in recordRows" :key="row.label">
+            <dt>{{ row.label }}</dt>
+            <dd :class="{ mono: row.mono }">{{ row.value }}</dd>
+          </div>
+        </dl>
+        <p v-if="auth.isAdmin" class="text-body-small text-medium-emphasis mt-3">
+          <span class="mono">{{ localGene.id }}</span> &middot; updated
+          {{ formatDateTime(localGene.updated_at) }}
+        </p>
+      </section>
     </template>
   </v-container>
 </template>
 
 <script setup lang="ts">
-  import { formatDateTime } from '@/utils/format'
-  /**
-   * GeneDetail View
-   *
-   * Displays comprehensive gene information fetched from HGNC API,
-   * combined with local database metadata.
-   */
-
   import { ref, computed, watch } from 'vue'
-  import { useRoute } from 'vue-router'
+  import { useRoute, useRouter } from 'vue-router'
+  import AgreementBanner from '@/components/gene/casefile/AgreementBanner.vue'
+  import GeneAssertions from '@/components/gene/casefile/GeneAssertions.vue'
+  import { geneExternalLinks } from '@/components/gene/casefile/externalLinks'
   import { useGenesStore } from '@/stores/genes'
+  import { useGeneSummaryStore } from '@/stores/geneSummary'
+  import { useAuthStore } from '@/stores/auth'
   import { externalValidationAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
+  import { EMPTY, formatDateTime } from '@/utils/format'
   import type { Schema } from '@/types/api'
 
   type Gene = Schema<'Gene'>
   type HgncGene = Schema<'HGNCGeneSearchResult'>
 
   const route = useRoute()
+  const router = useRouter()
   const genesStore = useGenesStore()
+  const summaryStore = useGeneSummaryStore()
+  const auth = useAuthStore()
   const logger = useLogger()
 
-  // State
   const loading = ref(true)
   const error = ref<string | null>(null)
   const notFound = ref(false)
   const hgncData = ref<HgncGene | null>(null)
+  const summary = ref<Schema<'GeneSummaryFull'> | Schema<'GeneSummaryPublic'> | null>(null)
+  const summaryLoading = ref(false)
+  const summaryError = ref<string | null>(null)
 
-  // Local gene data from database (store is JS, so its currentGene is typed null)
-  const localGene = computed(() => genesStore.currentGene as Gene | null)
+  // Own copy, not store.currentGene: a stale response must not overwrite what is shown
+  const localGene = ref<Gene | null>(null)
 
-  // Computed properties for aliases (prefer HGNC data, fallback to local)
-  const aliasSymbols = computed<string[]>(() => {
-    return hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
+  const aliasSymbols = computed<string[]>(
+    () => hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
+  )
+  const previousSymbols = computed<string[]>(
+    () => hgncData.value?.previous_symbols || localGene.value?.previous_symbols || []
+  )
+  const band = computed(() => hgncData.value?.location || localGene.value?.location || '')
+  const scopes = computed(() => summary.value?.scope_summaries ?? [])
+  // classification_summary counts active rows only; scopes also holds in-progress rows
+  const activeCount = computed(() =>
+    Object.values(summary.value?.classification_summary ?? {}).reduce((a, b) => a + b, 0)
+  )
+
+  const links = computed(() =>
+    geneExternalLinks(
+      hgncData.value?.symbol || localGene.value?.approved_symbol,
+      hgncData.value?.hgnc_id || localGene.value?.hgnc_id
+    )
+  )
+
+  const recordRows = computed(() => {
+    const g = localGene.value
+    const list = (xs: string[]) => (xs.length ? xs.join(', ') : EMPTY)
+    return [
+      { label: 'HGNC ID', value: hgncData.value?.hgnc_id || g?.hgnc_id || EMPTY, mono: true },
+      { label: 'Locus type', value: hgncData.value?.locus_type || EMPTY, mono: false },
+      {
+        label: 'Chromosome',
+        value: hgncData.value?.chromosome || g?.chromosome || EMPTY,
+        mono: true
+      },
+      { label: 'Cytogenetic band', value: band.value || EMPTY, mono: true },
+      { label: 'Alias symbols', value: list(aliasSymbols.value), mono: true },
+      { label: 'Previous symbols', value: list(previousSymbols.value), mono: true }
+    ]
   })
 
-  const previousSymbols = computed<string[]>(() => {
-    return hgncData.value?.previous_symbols || localGene.value?.previous_symbols || []
-  })
+  function goBack() {
+    if (window.history.state?.back) router.back()
+    else router.push({ name: 'GeneCatalogue' })
+  }
 
-  const hasAliases = computed(() => {
-    return aliasSymbols.value?.length > 0 || previousSymbols.value?.length > 0
-  })
+  // Bumped per gene load so a slow response for a previous gene is dropped
+  let loadSeq = 0
 
-  // HGNC external URL
-  const hgncUrl = computed<string>(() => {
-    const hgncId = hgncData.value?.hgnc_id || localGene.value?.hgnc_id
-    if (!hgncId) return ''
-    const numericId = hgncId.replace('HGNC:', '')
-    return `https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:${numericId}`
-  })
-
-  /**
-   * Fetch HGNC data for the gene
-   */
+  /** HGNC enriches the page; it never blocks it, and a failure keeps the local data. */
   async function fetchHgncData(hgncId: string | null | undefined): Promise<void> {
     if (!hgncId) return
-
+    const mine = loadSeq
     try {
       const response = await externalValidationAPI.fetchHGNCGene(hgncId)
-
-      if (response.results.length > 0) {
-        hgncData.value = response.results[0] ?? null
-        logger.debug('HGNC data fetched', {
-          hgnc_id: hgncId,
-          symbol: hgncData.value?.symbol
-        })
-      }
+      if (mine !== loadSeq) return
+      hgncData.value = response.results[0] ?? null
     } catch (e) {
       logger.warn('Failed to fetch HGNC data, using local data', {
         hgnc_id: hgncId,
         error: (e as Error).message
       })
-      // Don't set error - we can still show local data
+    }
+  }
+
+  async function loadSummary(geneId: string) {
+    const mine = loadSeq
+    summaryLoading.value = true
+    summaryError.value = null
+    try {
+      const result = await summaryStore.loadSummary(geneId, auth.isAuthenticated)
+      if (mine === loadSeq) summary.value = result
+    } catch (e) {
+      if (mine !== loadSeq) return
+      summary.value = null
+      summaryError.value = 'Could not load the curations for this gene.'
+      logger.error('Failed to load gene summary', { gene_id: geneId, error: (e as Error).message })
+    } finally {
+      if (mine === loadSeq) summaryLoading.value = false
     }
   }
 
   async function loadGene(geneId: string) {
+    const mine = ++loadSeq
     try {
       loading.value = true
       error.value = null
       notFound.value = false
       hgncData.value = null
+      summary.value = null
 
       const gene = await genesStore.fetchGeneById(geneId)
-
-      // Fetch HGNC data for enhanced information
-      if (gene.hgnc_id) {
-        await fetchHgncData(gene.hgnc_id)
-      }
-
-      logger.info('Gene details loaded', {
-        gene_id: geneId,
-        symbol: gene.approved_symbol
-      })
+      if (mine !== loadSeq) return
+      localGene.value = gene as Gene
+      loading.value = false
+      void fetchHgncData(gene.hgnc_id)
+      void loadSummary(gene.id)
+      logger.info('Gene details loaded', { gene_id: geneId, symbol: gene.approved_symbol })
     } catch (err) {
+      if (mine !== loadSeq) return
       const e = err as Error
-      logger.error('Failed to load gene details', {
-        error: e.message,
-        stack: e.stack
-      })
+      logger.error('Failed to load gene details', { error: e.message, stack: e.stack })
       // A malformed id is rejected as 400/422: to the user that is also "not found"
       const status = (err as { response?: { status?: number } }).response?.status
       notFound.value = status === 404 || status === 400 || status === 422
       error.value = 'Failed to load gene details'
     } finally {
-      loading.value = false
+      if (mine === loadSeq) loading.value = false
     }
   }
 
@@ -365,4 +278,45 @@
   watch(() => route.params.id as string, loadGene, { immediate: true })
 </script>
 
-<style scoped></style>
+<style scoped>
+  .ext-link {
+    color: rgb(var(--v-theme-info));
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    font-size: 13px;
+  }
+
+  .empty,
+  .record {
+    background: rgb(var(--v-theme-surface));
+    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    border-radius: 8px;
+    padding: 16px;
+  }
+
+  .section-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
+  }
+
+  .record__grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px 24px;
+    margin: 0;
+  }
+
+  .record__grid dt {
+    font-size: 12px;
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  .record__grid dd {
+    margin: 0;
+    font-size: 13px;
+    line-height: 18px;
+    overflow-wrap: anywhere;
+  }
+</style>

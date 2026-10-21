@@ -42,7 +42,6 @@ const About = () => import('@/views/About.vue')
 const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
 const NotFound = () => import('@/views/NotFound.vue')
-const GeneSummaryView = () => import('@/views/GeneSummaryView.vue')
 const CurationFormView = () => import('@/views/curation/CurationFormView.vue')
 const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue')
 const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
@@ -241,14 +240,9 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    // Old cross-scope summary URL: the gene page now carries it
     path: '/genes/:geneId/summary',
-    name: 'GeneSummary',
-    component: GeneSummaryView,
-    props: true,
-    meta: {
-      title: 'Gene Summary',
-      requiresAuth: false
-    }
+    redirect: to => ({ name: 'GeneDetail', params: { id: String(to.params.geneId) } })
   },
   {
     path: '/assignments',
