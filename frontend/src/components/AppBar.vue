@@ -23,15 +23,17 @@
 
     <v-spacer />
 
-    <!-- Main Navigation -->
-    <!-- While a stored token is still being verified, show neither guest nor user nav -->
-    <MainNavigation v-if="authReady" />
+    <!-- Signed-in users navigate with the side rail or bottom tabs; guests get Genes and Sign in.
+         While a stored token is still being verified, show neither. -->
+    <template v-if="authReady && !authStore.isAuthenticated">
+      <v-btn to="/genes" variant="text">{{ TERMINOLOGY.GENE_CATALOG }}</v-btn>
+    </template>
 
     <!-- Theme toggle stays reachable at every width -->
     <ThemeToggle class="ml-2" />
 
     <!-- User Menu -->
-    <UserMenu v-if="mdAndUp && authReady" />
+    <UserMenu v-if="authReady && !authStore.isAuthenticated" />
   </v-app-bar>
 </template>
 
@@ -39,22 +41,17 @@
   /**
    * AppBar Component (Refactored)
    *
-   * Main application navigation bar with auto-generated menus.
+   * Top bar for guests (any width) and signed-in phones (rail/bottom tabs carry navigation).
    *
    * Features:
    * - Logo and branding
-   * - Auto-generated main navigation (route-driven)
-   * - Auto-generated user menu (route-driven)
+   * - Genes link and sign-in for guests
    * - Theme toggle
    * - Version display
    *
    * Architecture:
-   * - Uses MainNavigation component for main menu
-   * - Uses UserMenu component for user dropdown
-   * - Single source of truth: Router metadata
-   * - Zero hard-coded menu items
+   * - Uses UserMenu for sign-in
    *
-   * @see src/components/navigation/MainNavigation.vue
    * @see src/components/navigation/UserMenu.vue
    * @see src/router/index.js (menu metadata)
    */
@@ -62,7 +59,7 @@
   import { ref, computed } from 'vue'
   import { useDisplay } from 'vuetify'
   import { useAuthStore } from '@/stores/auth'
-  import MainNavigation from '@/components/navigation/MainNavigation.vue'
+  import { TERMINOLOGY } from '@/config/terminology'
   import ThemeToggle from '@/components/navigation/ThemeToggle.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
 

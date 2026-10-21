@@ -9129,7 +9129,7 @@ export interface components {
          * WorkflowStage
          * @enum {string}
          */
-        WorkflowStage: "entry" | "precuration" | "curation" | "review" | "active";
+        WorkflowStage: "entry" | "precuration" | "curation" | "review" | "active" | "archived";
         /**
          * WorkflowStateInfo
          * @description Current workflow state information.

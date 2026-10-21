@@ -227,6 +227,7 @@ class ScopePermissionService:
         if curation.created_by == user.id and curation.workflow_stage.value not in [
             "review",
             "active",
+            "archived",
         ]:
             logger.debug(
                 "Creator can edit own curation",
@@ -251,7 +252,7 @@ class ScopePermissionService:
         if (
             scope_member
             and scope_member.role == ScopeRole.ADMIN.value
-            and curation.workflow_stage.value not in ["review", "active"]
+            and curation.workflow_stage.value not in ["review", "active", "archived"]
         ):
             logger.debug(
                 "Scope admin can edit curation",

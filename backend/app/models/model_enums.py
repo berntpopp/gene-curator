@@ -21,6 +21,7 @@ class WorkflowStage(str, enum.Enum):
     CURATION = "curation"
     REVIEW = "review"
     ACTIVE = "active"
+    ARCHIVED = "archived"  # terminal: superseded or deleted
 
 
 class NotificationType(str, enum.Enum):

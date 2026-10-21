@@ -3,6 +3,7 @@
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
     <SideRail v-if="mdAndUp && authStore.isAuthenticated" />
     <AppBar v-else />
+    <BottomTabs v-if="!mdAndUp" />
 
     <v-main id="main-content" tabindex="-1">
       <v-container fluid>
@@ -21,6 +22,7 @@
     />
 
     <ConfirmDialog />
+    <CommandPalette />
 
     <!-- Log Viewer Component -->
     <LogViewer v-if="logStore.isViewerVisible" />
@@ -42,11 +44,13 @@
   import { useLogger } from '@/composables/useLogger'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { useDisplay } from 'vuetify'
+  import BottomTabs from '@/components/navigation/BottomTabs.vue'
   import SideRail from '@/components/navigation/SideRail.vue'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
   import ConfirmDialog from '@/components/ConfirmDialog.vue'
+  import CommandPalette from '@/components/palette/CommandPalette.vue'
   import LogViewer from '@/components/logging/LogViewer.vue'
   import DisclaimerDialog from '@/components/DisclaimerDialog.vue'
 
