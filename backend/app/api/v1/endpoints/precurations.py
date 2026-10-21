@@ -18,7 +18,7 @@ from app.core.constants import (
     PRECURATIONS_DEFAULT_LIMIT,
     PRECURATIONS_MAX_LIMIT,
 )
-from app.core.database import get_db
+from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
@@ -448,13 +448,10 @@ def approve_precuration(
             approver_id=current_user.id,
             create_curation=True,
         )
-    except (StaleDataError, DBAPIError):
-        # RLS denied the UPDATE/INSERT (zero rows matched) or the reviewer guard refused it
+    except (StaleDataError, DBAPIError) as e:
         db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Not authorized to approve this precuration",
-        ) from None
+        raise_if_rls_denied(e, "Not authorized to approve this precuration")
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

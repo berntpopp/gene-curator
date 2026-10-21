@@ -7,12 +7,12 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core.database import raise_if_rls_denied
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
 from app.crud.review_round import (
@@ -267,13 +267,10 @@ class WorkflowEngine:
             )
             db.commit()
             return transition
-        except (StaleDataError, DBAPIError):
-            # RLS turned the UPDATE into zero rows (or the guard trigger refused it)
+        except (StaleDataError, DBAPIError) as e:
             db.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Not authorized to move this item",
-            ) from None
+            raise_if_rls_denied(e, "Not authorized to move this item")
+            raise
         except Exception:
             db.rollback()
             raise

@@ -9,6 +9,7 @@ from collections.abc import Generator
 from typing import Annotated, Any, ClassVar
 from uuid import UUID as PyUUID  # noqa: N811
 
+from fastapi import HTTPException, status
 from sqlalchemy import Connection, String, create_engine, event, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
@@ -172,3 +173,12 @@ async def get_async_db() -> AsyncSession:  # type: ignore[misc]
             logger.error("Async database error", error=e)
             await session.rollback()
             raise
+
+
+def raise_if_rls_denied(error: Exception, detail: str) -> None:
+    """Turn an RLS denial into 403: an UPDATE filtered to zero rows (StaleDataError) or
+    insufficient_privilege (42501, a WITH CHECK or guard trigger). Other errors fall through."""
+    if getattr(getattr(error, "orig", None), "pgcode", "42501") == "42501":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=detail
+        ) from None

@@ -32,7 +32,7 @@ class W:
     bob: UUID = field(default_factory=uuid4)  # reviewer
     carol: UUID = field(default_factory=uuid4)  # viewer
     dave: UUID = field(default_factory=uuid4)  # curator, not the author
-    erin: UUID = field(default_factory=uuid4)  # reviewer who authored the second set
+    frank: UUID = field(default_factory=uuid4)  # not a member of the scope
     gene: UUID = field(default_factory=uuid4)
     gene2: UUID = field(default_factory=uuid4)
     pre: UUID = field(default_factory=uuid4)  # alice's submitted precuration
@@ -55,6 +55,7 @@ def w() -> Generator[W, None, None]:
             (x.bob, "bob"),
             (x.carol, "carol"),
             (x.dave, "dave"),
+            (x.frank, "frank"),
         ):
             cur.execute(
                 "INSERT INTO users (id, email, hashed_password, name, role) "
@@ -99,7 +100,7 @@ def w() -> Generator[W, None, None]:
             (str(x.cur), str(x.gene), str(x.scope), str(pair), str(x.alice)),
         )
     yield x
-    users = [str(u) for u in (x.alice, x.bob, x.carol, x.dave)]
+    users = [str(u) for u in (x.alice, x.bob, x.carol, x.dave, x.frank)]
     with _owner() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM scopes WHERE id = %s", (str(x.scope),))
         cur.execute(
@@ -164,8 +165,9 @@ def test_reviewer_requests_changes_on_a_curation(client: TestClient, w: W) -> No
     )
 
 
-@pytest.mark.parametrize("who", ["carol", "dave"])
-def test_viewer_and_curator_cannot_approve_precurations(
+# alice: the curator who wrote it (D1); carol: viewer; dave: another curator
+@pytest.mark.parametrize("who", ["alice", "carol", "dave"])
+def test_only_another_reviewer_approves_precurations(
     client: TestClient, w: W, who: str
 ) -> None:
     r = client.post(
@@ -188,6 +190,31 @@ def test_viewer_and_curator_cannot_send_work_back_from_review(
         headers=_h(getattr(w, who)),
     )
     assert r.status_code in (400, 403), r.text
+    assert (
+        _owner_scalar(
+            "SELECT workflow_stage::text FROM curations WHERE id = %s", str(w.cur)
+        )
+        == "review"
+    )
+
+
+def test_non_member_is_denied_not_a_500(client: TestClient, w: W) -> None:
+    """Private scope: RLS hides the work (404, like every hidden row). Public scope: the
+    outsider can read it but not review it (403)."""
+    approve = f"/api/v1/precurations/{w.pre}/approve"
+    move = f"/api/v1/workflow/curation/{w.cur}/transition"
+    body = {"target_stage": "curation"}
+    assert client.post(approve, headers=_h(w.frank)).status_code == 404
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE scopes SET is_public = true WHERE id = %s", (str(w.scope),))
+    r = client.post(approve, headers=_h(w.frank))
+    assert r.status_code == 403, r.text
+    r = client.post(move, json=body, headers=_h(w.frank))
+    assert r.status_code in (400, 403), r.text
+    assert (
+        _owner_scalar("SELECT status::text FROM precurations WHERE id = %s", str(w.pre))
+        == "submitted"
+    )
     assert (
         _owner_scalar(
             "SELECT workflow_stage::text FROM curations WHERE id = %s", str(w.cur)

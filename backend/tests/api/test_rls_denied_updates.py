@@ -5,6 +5,7 @@ from unittest.mock import patch
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
@@ -13,6 +14,11 @@ from app.models.models import CurationStatus, PrecurationNew, Scope, WorkflowSta
 from tests.api.scopes.factories import auth_headers, make_member, make_user
 
 pytestmark = pytest.mark.unit
+
+
+class _PgError(Exception):
+    def __init__(self, pgcode: str) -> None:
+        self.pgcode = pgcode
 
 
 @pytest.fixture(autouse=True)
@@ -42,10 +48,30 @@ def test_precuration_approve_maps_denied_update_to_403(
             headers=auth_headers(reviewer),
         )
     assert r.status_code == 403, r.text
+    with (
+        patch(
+            "app.api.v1.endpoints.precurations.precuration_crud.approve_and_create_curation",
+            side_effect=DBAPIError("UPDATE", {}, _PgError("23505")),
+        ),
+        pytest.raises(DBAPIError),
+    ):
+        client.post(
+            f"/api/v1/precurations/{test_precuration.id}/approve",
+            headers=auth_headers(reviewer),
+        )
 
 
-def test_engine_transition_maps_denied_update_to_403(
-    db_session: Session, test_curation
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (StaleDataError("0 rows matched"), HTTPException),
+        (DBAPIError("UPDATE", {}, _PgError("42501")), HTTPException),
+        # anything but insufficient_privilege is a real failure, not a 403
+        (DBAPIError("UPDATE", {}, _PgError("23505")), DBAPIError),
+    ],
+)
+def test_engine_transition_maps_only_denials_to_403(
+    db_session: Session, test_curation, error: Exception, expected: type
 ):
     engine = WorkflowEngine()
     user = make_user(db_session)
@@ -55,12 +81,11 @@ def test_engine_transition_maps_denied_update_to_403(
     test_curation.workflow_stage = WorkflowStage.REVIEW
     db_session.commit()
     with (
-        patch.object(
-            db_session, "commit", side_effect=StaleDataError("0 rows matched")
-        ),
-        pytest.raises(HTTPException) as error,
+        patch.object(db_session, "commit", side_effect=error),
+        pytest.raises(expected) as raised,
     ):
         engine.execute_transition(
             db_session, test_curation.id, "curation", WorkflowStage.CURATION, user.id
         )
-    assert error.value.status_code == 403
+    if expected is HTTPException:
+        assert raised.value.status_code == 403
