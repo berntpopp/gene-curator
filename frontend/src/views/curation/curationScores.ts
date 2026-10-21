@@ -80,7 +80,10 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
     // Traces from before #420 kept models and rescue apart
     modelsAndRescue:
       category('experimental_evidence', 'models_and_rescue') ||
-      category('experimental_evidence', 'models') + category('experimental_evidence', 'rescue'),
+      Math.min(
+        category('experimental_evidence', 'models') + category('experimental_evidence', 'rescue'),
+        4 // SOP v11 cap of the shared category
+      ),
     experimental: num(stored?.experimental_evidence_total),
     total: num(stored?.total_score),
     caps: { genetic: cap('genetic_evidence'), experimental: cap('experimental_evidence') },

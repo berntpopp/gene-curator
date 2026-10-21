@@ -91,4 +91,19 @@ describe('storedScores', () => {
     // 7 raw points under a cap of 4: the capped category, not a per-kind split
     expect(s.modelsAndRescue).toBe(4)
   })
+
+  it('caps a legacy trace with separate models and rescue at 4', () => {
+    const s = storedScores({
+      trace: {
+        sections: [
+          {
+            key: 'experimental_evidence',
+            score: 6,
+            categories: [ct('models', 4), ct('rescue', 2)]
+          }
+        ]
+      }
+    })
+    expect(s.modelsAndRescue).toBe(4)
+  })
 })

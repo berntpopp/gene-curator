@@ -351,10 +351,12 @@
         'form',
         props.methodologyVersionId
       )
-      if (result === null) return // a newer validation was started: its reply wins
+      if (result === null) return null // a newer validation was started: its reply wins
       handleBackendValidation(result ? toFormValidation(result) : undefined)
+      return result
     } catch (err) {
       logger.error('Form validation error:', errorDetails(err))
+      return null
     } finally {
       validating.value = false
     }
@@ -476,6 +478,8 @@
   }
 
   const handleSubmit = async () => {
+    // Submit's own validation must be the newest: a pending debounced one would drop its reply
+    clearTimeout(validateTimer)
     submitting.value = true
     try {
       // Validate using v-form ref (VALD-06)
@@ -493,10 +497,10 @@
         return
       }
 
-      // Also check backend validation
-      await validateForm()
+      // Also check backend validation; no reply (failed or superseded) is not valid yet
+      const result = await validateForm()
 
-      if (validationResult.value?.is_valid !== false) {
+      if (result && result.is_valid !== false) {
         emit('submit', formData.value)
       }
     } catch (err) {

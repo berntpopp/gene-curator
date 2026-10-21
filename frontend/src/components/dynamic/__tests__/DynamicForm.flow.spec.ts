@@ -168,6 +168,7 @@ describe('DynamicForm flow', () => {
   })
 
   it('emits submit with the form data when validation passes', async () => {
+    store.validateEvidence.mockResolvedValue({ is_valid: true })
     const wrapper = mountForm()
     fieldStub(wrapper, 'age').vm.$emit('update:model-value', 36)
     await flushPromises()
@@ -182,6 +183,38 @@ describe('DynamicForm flow', () => {
       undefined
     )
     expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Ada', age: 36 }])
+  })
+
+  it('validates the latest edit on submit, never an older result (submit within the debounce)', async () => {
+    vi.useFakeTimers()
+    try {
+      store.validateEvidence.mockResolvedValue({ is_valid: true })
+      const wrapper = mountForm()
+      await vi.advanceTimersByTimeAsync(600)
+      // The newest edit is invalid; submit comes before its debounced validation runs
+      store.validateEvidence.mockResolvedValue({ is_valid: false, errors: [{ message: 'x' }] })
+      fieldStub(wrapper, 'age').vm.$emit('update:model-value', -1)
+      await wrapper.find('form').trigger('submit')
+      await vi.advanceTimersByTimeAsync(600)
+
+      expect(store.validateEvidence).toHaveBeenLastCalledWith(
+        { name: 'Ada', age: -1 },
+        'schema-1',
+        'form',
+        undefined
+      )
+      expect(wrapper.emitted('submit')).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('does not submit without a validation reply', async () => {
+    store.validateEvidence.mockResolvedValue(null)
+    const wrapper = mountForm()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.emitted('submit')).toBeUndefined()
   })
 
   it('does not submit when the form fails local validation', async () => {
