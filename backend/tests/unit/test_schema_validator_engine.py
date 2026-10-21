@@ -42,6 +42,41 @@ class TestFieldDispatch:
         assert result.is_valid is True
         assert result.errors == []
 
+    @pytest.mark.parametrize(
+        ("ftype", "value"),
+        [
+            ("external_reference", "MONDO:0004975"),
+            ("textarea", "x"),
+            ("evidence_table", [{"a": "b"}]),
+        ],
+    )
+    def test_seeded_field_types_do_not_warn(self, validator, ftype, value):
+        result = _run(validator, {"x": value}, {"x": {"type": ftype}})
+
+        assert result.warnings == []
+
+    @pytest.mark.parametrize(
+        ("ftype", "value", "message"),
+        [
+            ("integer", "abc", "Value must be a number"),
+            ("enum", "z", "Value must be one of: a"),
+            ("textarea", 5, "Value must be a string"),
+        ],
+    )
+    def test_seeded_aliases_are_validated(self, validator, ftype, value, message):
+        config = {"type": ftype, "options": [{"value": "a"}]}
+        result = _run(validator, {"x": value}, {"x": config})
+
+        assert _messages(result) == [message]
+
+    @pytest.mark.parametrize("value", [None, ""])
+    def test_optional_empty_enum_is_valid(self, validator, value):
+        config = {"type": "enum", "options": [{"value": "a"}]}
+        result = _run(validator, {"x": value}, {"x": config})
+
+        assert result.is_valid is True
+        assert result.errors == []
+
     def test_unknown_field_type_warns(self, validator: SchemaValidator):
         result = _run(validator, {"x": 1}, {"x": {"type": "colour"}})
 
@@ -92,22 +127,15 @@ class TestTextField:
         assert result.is_valid is False
         assert "Schema has an invalid regex pattern" in _messages(result)
 
-    def test_whitespace_and_brevity_warnings(self, validator: SchemaValidator):
-        result = _run(validator, {"f": " two words "}, {"f": {"type": "text"}})
+    def test_whitespace_warns_but_short_text_does_not(self, validator: SchemaValidator):
+        result = _run(
+            validator,
+            {"f": " two words ", "g": "Male"},
+            {"f": {"type": "text"}, "g": {"type": "text"}},
+        )
 
         assert result.is_valid is True
-        warnings = _messages(result, "warnings")
-        assert "Text has leading/trailing whitespace" in warnings
-        assert "Consider providing more detailed description" in warnings
-
-    def test_id_fields_get_no_brevity_hint(self, validator: SchemaValidator):
-        result = _run(
-            validator, {"mondo_id": "MONDO:0004975"}, {"mondo_id": {"type": "text"}}
-        )
-
-        assert "Consider providing more detailed description" not in _messages(
-            result, "warnings"
-        )
+        assert _messages(result, "warnings") == ["Text has leading/trailing whitespace"]
 
     def test_quality_checks_can_be_disabled(self, validator: SchemaValidator):
         result = _run(

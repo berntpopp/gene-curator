@@ -6,8 +6,9 @@
     <AppBar v-else />
     <BottomTabs v-if="!mdAndUp" />
 
-    <v-main id="main-content" tabindex="-1">
-      <v-container fluid>
+    <!-- Flex column: the content grows, so the footer sits at the bottom on short pages -->
+    <v-main id="main-content" tabindex="-1" class="d-flex flex-column">
+      <v-container fluid class="flex-grow-1">
         <ErrorBoundary :key="$route.fullPath">
           <router-view />
         </ErrorBoundary>

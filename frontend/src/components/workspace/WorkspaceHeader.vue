@@ -17,6 +17,9 @@
       </div>
 
       <div class="ws-actions">
+        <span v-if="showSubmit && blockers?.length" data-testid="ws-blockers" class="text-error">
+          {{ blockers.join('; ') }}
+        </span>
         <SaveState v-if="state" :state="state" :saved-at="savedAt" @retry="emit('retry')" />
         <!-- No save state: the page has no draft here (precuration shell), so no actions -->
         <template v-if="state">
@@ -64,6 +67,8 @@
     readonly: boolean
     showSubmit: boolean
     canSubmit: boolean
+    /** Why Submit is blocked (e.g. an unknown PMID), shown beside the buttons. */
+    blockers?: string[]
     saving: boolean
   }>()
   const emit = defineEmits<{ save: []; submit: []; retry: [] }>()

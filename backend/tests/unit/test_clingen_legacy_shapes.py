@@ -48,4 +48,4 @@ def test_warnings_tolerate_strings_and_dicts():
         },
         {},
     )
-    assert r.warnings
+    assert r.warnings == []  # odd shapes neither crash nor produce noise

@@ -69,7 +69,8 @@ export interface FormValidationResult {
   errors?: FieldValidationMessage[]
   warnings?: FieldValidationMessage[]
   field_validations?: Record<string, FieldValidation>
-  score_calculations?: Record<string, number>
+  /** Numeric scores plus the live verdict and trace (scorePreview.ts) */
+  score_calculations?: Record<string, unknown>
 }
 
 export interface SectionConfig {
