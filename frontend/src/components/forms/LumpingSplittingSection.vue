@@ -244,8 +244,8 @@
    */
 
   import { computed } from 'vue'
-  import PubmedLinkChip from '../PubmedLinkChip.vue'
-  import type { PrecurationData } from '../types'
+  import PubmedLinkChip from './PubmedLinkChip.vue'
+  import type { PrecurationData } from './types'
 
   const props = withDefaults(
     defineProps<{

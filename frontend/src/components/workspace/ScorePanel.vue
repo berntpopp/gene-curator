@@ -103,8 +103,7 @@
       { label: 'Genetic', value: props.score.genetic, max: 12, sum: true },
       { label: 'Function', value: e?.function ?? 0, max: 2 },
       { label: 'Functional alteration', value: e?.functionalAlteration ?? 0, max: 2 },
-      { label: 'Models', value: e?.models ?? 0, max: 4 },
-      { label: 'Rescue', value: e?.rescue ?? 0, max: 4 },
+      { label: 'Models & rescue', value: e?.modelsAndRescue ?? 0, max: 4 },
       { label: 'Experimental', value: props.score.experimental, max: 6, sum: true }
     ]
   })

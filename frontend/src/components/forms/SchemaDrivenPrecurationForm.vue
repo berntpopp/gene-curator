@@ -19,9 +19,12 @@
         <v-card-text>
           <v-skeleton-loader v-if="loadingSchema" type="article" />
 
+          <!-- Rendered and validated from the version the precuration is pinned to -->
           <DynamicForm
-            v-else-if="schemaId"
+            v-else-if="version"
             :schema-id="schemaId"
+            :definition="version.snapshot"
+            :methodology-version-id="version.id"
             :initial-data="evidenceData"
             :title="''"
             :readonly="readonly"
@@ -100,7 +103,6 @@
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { usePrecurationsStore } from '@/stores/precurations'
-  import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { apiDetail } from './apiDetail'
@@ -114,6 +116,7 @@
   import SaveState from '@/components/workspace/SaveState.vue'
   import FormActions from '@/components/forms/FormActions.vue'
   import { useConfirm } from '@/composables/useConfirm'
+  import type { Schema } from '@/types/api'
 
   type EvidenceData = Record<string, unknown>
 
@@ -144,7 +147,6 @@
   const router = useRouter()
   const schemasStore = useSchemasStore()
   const precurationsStore = usePrecurationsStore()
-  const validationStore = useValidationStore()
   const notificationsStore = useNotificationsStore()
 
   // Form state
@@ -158,6 +160,8 @@
   const createdId = ref<string | null>(null)
   const savedAt = ref<number | null>(null) // last successful server save
   const isValid = ref(true) // Updated via validation-change event
+  const version = ref<Schema<'MethodologyVersion'> | null>(null)
+  const pinnedVersionId = ref<string | null>(null) // the loaded precuration's
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
@@ -336,11 +340,11 @@
   async function handleSubmit() {
     if (!canSubmit.value || conflict.value) return
 
-    const schema = schemasStore.getSchemaById(props.schemaId)
+    const snapshot = version.value?.snapshot
     const missing = missingRequiredLabels(
-      schema?.field_definitions,
+      snapshot?.field_definitions,
       evidenceData.value,
-      schema?.validation_rules
+      snapshot?.validation_rules
     )
     if (missing.length > 0) {
       notificationsStore.addToast(`Required before submitting: ${missing.join(', ')}`, 'error')
@@ -420,6 +424,7 @@
       const precuration = await precurationsStore.fetchPrecurationById(props.precurationId)
       if (precuration) {
         evidenceData.value = precuration.evidence_data
+        pinnedVersionId.value = precuration.methodology_version_id ?? null
         isDraft.value = precuration.status === 'draft'
         dropIfSaved(precuration.evidence_data)
       }
@@ -430,15 +435,14 @@
   }
 
   /**
-   * Load schema
+   * Load the version the precuration renders with (the schema's latest for a new one)
    */
   async function loadSchema() {
     if (!props.schemaId) return
 
     loadingSchema.value = true
     try {
-      await schemasStore.fetchSchemaById(props.schemaId)
-      await validationStore.generateJsonSchema(props.schemaId)
+      version.value = await schemasStore.fetchPinnedVersion(pinnedVersionId.value, props.schemaId)
     } catch (error) {
       logger.error('Failed to load schema', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load precuration schema', 'error')
@@ -448,8 +452,8 @@
   }
 
   onMounted(async () => {
-    await loadSchema()
     await loadPrecuration()
+    await loadSchema()
     recoveryReady.value = true
     logger.debug('SchemaDrivenPrecurationForm mounted', {
       schemaId: props.schemaId,

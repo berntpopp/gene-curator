@@ -14,6 +14,7 @@ vi.mock('@/api', () => ({
     deleteSchema: vi.fn(),
     validateCurationSchema: vi.fn(),
     getVersions: vi.fn(),
+    getMethodologyVersion: vi.fn(),
     deriveSchema: vi.fn(),
     getWorkflowPairs: vi.fn(),
     createWorkflowPair: vi.fn(),
@@ -253,6 +254,27 @@ describe('useSchemasStore', () => {
 
       await expect(store.duplicateSchema('a')).rejects.toThrow('no published version')
       expect(api.deriveSchema).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('fetchPinnedVersion', () => {
+    const version = (id: string) => ({ id }) as Schema<'MethodologyVersion'>
+
+    it('reads the pinned version, else the latest of the schema', async () => {
+      const store = useSchemasStore()
+      api.getMethodologyVersion.mockResolvedValue(version('v1'))
+      api.getVersions.mockResolvedValue([version('v3'), version('v2')])
+
+      expect((await store.fetchPinnedVersion('v1', 'a')).id).toBe('v1')
+      expect((await store.fetchPinnedVersion(null, 'a')).id).toBe('v3')
+      expect(api.getVersions).toHaveBeenCalledWith('a')
+    })
+
+    it('refuses a schema without a published version', async () => {
+      api.getVersions.mockResolvedValue([])
+      await expect(useSchemasStore().fetchPinnedVersion(null, 'a')).rejects.toThrow(
+        'no published version'
+      )
     })
   })
 

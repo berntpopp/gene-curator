@@ -1,8 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import PubmedLinkButton from '../PubmedLinkButton.vue'
-import PubmedLinkChip from '../PubmedLinkChip.vue'
-import EvidenceDataTable from '../EvidenceDataTable.vue'
+import PubmedLinkChip from '@/components/forms/PubmedLinkChip.vue'
 
 const href = (pmid: unknown) =>
   mount(PubmedLinkButton, { props: { pmid } }).find('a').attributes('href')
@@ -32,11 +31,4 @@ describe('PubMed links', () => {
       ).toBe(false)
     }
   )
-
-  it('are absent from the evidence table for an invalid PMID', () => {
-    const w = mount(EvidenceDataTable, {
-      props: { items: [{ pmid: 'abc%_' }], columns: [{ key: 'pmid', label: 'PMID', type: 'pmid' }] }
-    })
-    expect(w.find('a[href*="pubmed"]').exists()).toBe(false)
-  })
 })

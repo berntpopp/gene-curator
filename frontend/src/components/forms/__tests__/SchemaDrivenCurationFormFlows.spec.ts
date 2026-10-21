@@ -15,17 +15,15 @@ const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
   lastSaved: null as null | { value: string | null }
 }))
-const schemaState = vi.hoisted(() => ({
-  useDynamicForm: true as boolean | undefined,
-  loaded: true
-}))
+const PINNED = { id: 'v1', snapshot: { scoring_configuration: { engine: 'clingen_sop_v11' } } }
 const curationsStore = vi.hoisted(() => ({
   currentCuration: null as unknown,
   fetchCurationById: vi.fn(),
   saveDraft: vi.fn(),
   createCuration: vi.fn(),
   submitCuration: vi.fn(),
-  updateCuration: vi.fn()
+  updateCuration: vi.fn(),
+  calculateScore: vi.fn()
 }))
 const precurationsStore = vi.hoisted(() => ({
   precurations: [] as unknown[],
@@ -34,7 +32,8 @@ const precurationsStore = vi.hoisted(() => ({
 }))
 const schemasStore = vi.hoisted(() => ({
   getWorkflowPairById: vi.fn(),
-  fetchSchemaById: vi.fn()
+  fetchSchemaById: vi.fn(),
+  fetchPinnedVersion: vi.fn()
 }))
 const utils = vi.hoisted(() => ({
   isLegacyFormat: vi.fn(),
@@ -45,19 +44,14 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) =>
-      schemaState.loaded
-        ? { id, name: 'Panel schema', use_dynamic_form: schemaState.useDynamicForm }
-        : undefined,
+    getSchemaById: (id: string) => ({ id, name: 'Panel schema' }),
     getWorkflowPairById: schemasStore.getWorkflowPairById,
-    fetchSchemaById: schemasStore.fetchSchemaById
+    fetchSchemaById: schemasStore.fetchSchemaById,
+    fetchPinnedVersion: schemasStore.fetchPinnedVersion
   })
 }))
 vi.mock('@/stores/curations', () => ({ useCurationsStore: () => curationsStore }))
 vi.mock('@/stores/precurations', () => ({ usePrecurationsStore: () => precurationsStore }))
-vi.mock('@/stores/validation', () => ({
-  useValidationStore: () => ({ generateJsonSchema: vi.fn() })
-}))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/utils/evidenceDataMigration', () => ({
   isLegacyFormat: utils.isLegacyFormat,
@@ -108,10 +102,29 @@ function internals(wrapper: { vm: unknown }): SchemaCurationVm {
 
 const stubs = {
   ErrorBoundary: { name: 'ErrorBoundary', template: '<div><slot /></div>' },
-  ClinGenCurationForm: true,
-  DynamicForm: true,
+  // Renders the form's component sections like the real one does
+  DynamicForm: {
+    name: 'DynamicForm',
+    props: {
+      definition: Object,
+      methodologyVersionId: String,
+      initialData: Object,
+      hideScoring: Boolean
+    },
+    template:
+      '<div><slot name="section" :section="{ component: \'ScoreSummary\' }" /><slot name="section" :section="{ component: \'LumpingSplittingSection\' }" /></div>'
+  },
+  ScoreSummary: {
+    name: 'ScoreSummary',
+    props: ['totalScore', 'classification'],
+    template: '<i />'
+  },
+  LumpingSplittingSection: {
+    name: 'LumpingSplittingSection',
+    props: ['precurationData'],
+    template: '<i />'
+  },
   FormActions: true,
-  ScorePreview: true,
   FormRecoveryDialog: true
 }
 
@@ -127,27 +140,12 @@ async function mountForm(props: Record<string, unknown> = {}) {
 describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    schemaState.useDynamicForm = true
+    schemasStore.fetchPinnedVersion.mockResolvedValue(PINNED)
     curationsStore.currentCuration = null
     precurationsStore.precurations = []
     recovery.lastSaved!.value = null
     utils.isLegacyFormat.mockReturnValue(false)
     confirmMock.mockResolvedValue(true)
-  })
-
-  it('passes contradictory and replicated flags to the score preview', async () => {
-    const wrapper = await mountForm()
-    const preview = () => wrapper.findComponent({ name: 'ScorePreview' })
-    expect(preview().props('hasContradictory')).toBe(false)
-    expect(preview().props('replicatedOverTime')).toBe(false)
-
-    wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', {
-      replicated_over_time: true,
-      contradictory_evidence: [{ id: 1 }]
-    })
-    await flushPromises()
-    expect(preview().props('hasContradictory')).toBe(true)
-    expect(preview().props('replicatedOverTime')).toBe(true)
   })
 
   it('loads an existing curation, its linked precuration and lock version', async () => {
@@ -170,7 +168,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(vm.isDraft).toBe(false)
     expect(vm.curationStatus).toBe('submitted')
     expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('p-1')
-    expect(vm.precurationData).toEqual({ disease_name: 'Cancer' })
+    expect(vm.precurationData).toEqual({ disease_name: 'Cancer', id: undefined })
   })
 
   it('reuses the store curation when its id matches instead of refetching', async () => {
@@ -312,7 +310,10 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       scope_id: 'scope-1'
     })
     expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('p-2')
-    expect(internals(wrapper).precurationData).toEqual({ disease_name: 'Cancer' })
+    expect(internals(wrapper).precurationData).toEqual({ disease_name: 'Cancer', id: 'p-2' })
+    expect(
+      wrapper.findComponent({ name: 'LumpingSplittingSection' }).props('precurationData')
+    ).toEqual({ disease_name: 'Cancer', id: 'p-2' })
     expect(internals(wrapper).evidenceData).toEqual({})
   })
 
@@ -331,13 +332,12 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     )
   })
 
-  it('hands the ClinGen form a new data reference after Restore', async () => {
-    schemaState.useDynamicForm = false
+  it('hands the form a new data reference after Restore', async () => {
     const wrapper = await mountForm()
-    const before = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    const before = wrapper.findComponent({ name: 'DynamicForm' }).props('initialData')
     wrapper.findComponent({ name: 'FormRecoveryDialog' }).vm.$emit('restore')
     await flushPromises()
-    const after = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    const after = wrapper.findComponent({ name: 'DynamicForm' }).props('initialData')
     expect(after).not.toBe(before)
   })
 
@@ -349,62 +349,45 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(curationsStore.createCuration).not.toHaveBeenCalled()
   })
 
-  it('paints neither form until the schema has loaded', async () => {
-    schemaState.loaded = false
-    try {
-      const wrapper = await mountForm()
-      expect(wrapper.findComponent({ name: 'ClinGenCurationForm' }).exists()).toBe(false)
-      expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
-      expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
-    } finally {
-      schemaState.loaded = true
-    }
+  it('paints no form until the pinned version has loaded', async () => {
+    schemasStore.fetchPinnedVersion.mockReturnValue(new Promise(() => {}))
+    const wrapper = await mountForm()
+    expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
+    expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
   })
 
-  it('renders the ClinGen form for schemas that opt out of the dynamic form', async () => {
-    schemaState.useDynamicForm = false
-    curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, status: 'draft' })
-    curationsStore.updateCuration.mockResolvedValue({ lock_version: 1 })
-
-    const wrapper = await mountForm({ curationId: 'cur-1' })
-    const clingen = wrapper.findComponent({ name: 'ClinGenCurationForm' })
-    expect(clingen.exists()).toBe(true)
-
-    clingen.vm.$emit('submit', { evidence_items: [] })
-    await flushPromises()
-    expect(curationsStore.updateCuration).toHaveBeenCalledWith('cur-1', {
-      evidence_data: { evidence_items: [] },
-      lock_version: 0
+  it('renders an existing curation from the version it is pinned to', async () => {
+    curationsStore.fetchCurationById.mockResolvedValue({
+      evidence_data: {},
+      status: 'draft',
+      methodology_version_id: 'v-old'
     })
-    expect(wrapper.emitted('submit')).toHaveLength(1)
-  })
-
-  it('saves a ClinGen draft from the ClinGen form', async () => {
-    schemaState.useDynamicForm = false
-    curationsStore.saveDraft.mockResolvedValue({ lock_version: 2 })
     const wrapper = await mountForm({ curationId: 'cur-1' })
-
-    wrapper.findComponent({ name: 'ClinGenCurationForm' }).vm.$emit('save-draft', { a: 1 })
-    await flushPromises()
-
-    expect(curationsStore.saveDraft).toHaveBeenCalledWith('cur-1', {
-      evidence_data: { a: 1 },
-      lock_version: 0
+    expect(schemasStore.fetchPinnedVersion).toHaveBeenCalledWith('v-old', 'schema-1')
+    expect(wrapper.findComponent({ name: 'DynamicForm' }).props()).toMatchObject({
+      definition: PINNED.snapshot,
+      methodologyVersionId: 'v1',
+      hideScoring: true
     })
-    expect(wrapper.emitted('saved')).toHaveLength(1)
   })
 
-  it('tracks ClinGen evidence changes and cancels from the ClinGen form', async () => {
-    schemaState.useDynamicForm = false
-    const wrapper = await mountForm({ curationId: 'cur-1' })
-    const clingen = wrapper.findComponent({ name: 'ClinGenCurationForm' })
+  it("renders a new curation from the schema's latest version", async () => {
+    await mountForm()
+    expect(schemasStore.fetchPinnedVersion).toHaveBeenCalledWith(null, 'schema-1')
+  })
 
-    clingen.vm.$emit('update:modelValue', { b: 2 })
+  it('says so when no version can be loaded', async () => {
+    schemasStore.fetchPinnedVersion.mockRejectedValueOnce({ message: 'none' })
+    const wrapper = await mountForm()
+    expect(addToast).toHaveBeenCalledWith('Failed to load curation schema', 'error')
+    expect(wrapper.text()).toContain('No schema assigned')
+    schemasStore.fetchPinnedVersion.mockReset()
+  })
+
+  it('tracks evidence changes from the form', async () => {
+    const wrapper = await mountForm({ curationId: 'cur-1' })
+    wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', { b: 2 })
     expect(internals(wrapper).evidenceData).toEqual({ b: 2 })
-
-    clingen.vm.$emit('cancel')
-    await flushPromises()
-    expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
   it('logs form rendering errors from the error boundary', async () => {
@@ -458,16 +441,22 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
-  it('submits on Ctrl+Enter only when submission is allowed', async () => {
+  it('submits on Ctrl+Enter only when submission is allowed, after confirming', async () => {
     curationsStore.createCuration.mockResolvedValue({ id: 'new-c' })
     const wrapper = await mountForm({ readonly: true, geneId: 'g-1', workflowPairId: 'wp-1' })
     const vm = internals(wrapper)
+    vm.evidenceData = { a: 1 }
 
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
     await flushPromises()
     expect(curationsStore.createCuration).not.toHaveBeenCalled()
 
     await wrapper.setProps({ readonly: false })
+    confirmMock.mockResolvedValueOnce(false)
+    vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    await flushPromises()
+    expect(curationsStore.createCuration).not.toHaveBeenCalled()
+
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
     await flushPromises()
     expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
@@ -493,8 +482,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   })
 
   describe('workspace frame hook', () => {
-    async function mountFramed(dynamic: boolean) {
-      schemaState.useDynamicForm = dynamic
+    async function mountFramed() {
       const frame = createWorkspaceFrame()
       const wrapper = mount(SchemaDrivenCurationForm, {
         props: { schemaId: 'schema-1', scopeId: 'scope-1', curationId: 'cur-1' },
@@ -505,15 +493,13 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       return { wrapper, frame }
     }
 
-    it('reports edits as unsaved and saves the ClinGen draft through the frame', async () => {
+    it('reports edits as unsaved and saves the draft through the frame', async () => {
       curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, lock_version: 2 })
       curationsStore.saveDraft.mockResolvedValue({ lock_version: 3 })
-      const { wrapper, frame } = await mountFramed(false)
+      const { wrapper, frame } = await mountFramed()
       expect(frame.state.value).toBe('saved')
 
-      wrapper
-        .findComponent({ name: 'ClinGenCurationForm' })
-        .vm.$emit('update:model-value', { a: 1 })
+      wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', { a: 1 })
       await flushPromises()
       expect(frame.state.value).toBe('unsaved')
 
@@ -525,14 +511,116 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       expect(frame.state.value).toBe('saved')
     })
 
-    it('saves the generic form through the frame and reports a failed save', async () => {
+    it('reports a failed save through the frame', async () => {
       curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, lock_version: 2 })
       curationsStore.saveDraft.mockResolvedValue(undefined)
-      const { wrapper, frame } = await mountFramed(true)
+      const { wrapper, frame } = await mountFramed()
       wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', { b: 2 })
       await flushPromises()
       expect(await frame.save()).toBe(false)
       expect(frame.state.value).toBe('failed')
+    })
+
+    it('shows the live backend score from validate-evidence', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { contradictory_evidence: [{ description: 'x' }] },
+        lock_version: 2
+      })
+      const { wrapper, frame } = await mountFramed()
+      const form = wrapper.findComponent({ name: 'DynamicForm' })
+      form.vm.$emit('validation-change', { is_valid: true, score_calculations: { total_score: 1 } })
+      await flushPromises()
+      expect(frame.score.value).toBeNull() // no verdict yet: no panel
+
+      form.vm.$emit('validation-change', {
+        is_valid: true,
+        score_calculations: {
+          total_score: 8,
+          genetic_evidence_total: 6,
+          experimental_evidence_total: 2,
+          verdict: 'Moderate',
+          trace: {
+            sections: [{ key: 'genetic_evidence', categories: [{ key: 'segregation', score: 1 }] }]
+          }
+        }
+      })
+      await flushPromises()
+      expect(frame.score.value).toMatchObject({
+        total: 8,
+        classification: 'Moderate',
+        hasContradictory: true,
+        geneticBreakdown: { segregation: 1, caseLevel: 0 }
+      })
+      expect(wrapper.findComponent({ name: 'ScoreSummary' }).props('totalScore')).toBe(8)
+      expect(curationsStore.calculateScore).not.toHaveBeenCalled()
+    })
+
+    it('requires case-level or segregation evidence for a ClinGen definition', async () => {
+      schemasStore.fetchPinnedVersion.mockResolvedValue({
+        id: 'v1',
+        snapshot: { field_definitions: { genetic_evidence: { type: 'object' } } }
+      })
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { evidence_summary: 'x', genetic_evidence: { case_level: {} } },
+        lock_version: 2
+      })
+      const { wrapper, frame } = await mountFramed()
+      expect(frame.canSubmit.value).toBe(false)
+      expect(frame.submit()).toBe(false)
+
+      wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', {
+        genetic_evidence: { segregation: [{ pmid: '1', points: 1 }] }
+      })
+      await flushPromises()
+      expect(frame.canSubmit.value).toBe(true)
+    })
+
+    it('never submits while a save is in flight', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { a: 1 },
+        lock_version: 2
+      })
+      curationsStore.saveDraft.mockReturnValue(new Promise(() => {}))
+      const { wrapper, frame } = await mountFramed()
+      void frame.save()
+      await flushPromises()
+      internals(wrapper).handleKeydown(
+        new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true })
+      )
+      await flushPromises()
+      expect(confirmMock).not.toHaveBeenCalled()
+      expect(curationsStore.submitCuration).not.toHaveBeenCalled()
+    })
+
+    it('submits through the frame after confirming, saving the evidence first', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { a: 1 },
+        lock_version: 2
+      })
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 3 })
+      precurationsStore.fetchPrecurationById.mockResolvedValue({
+        id: 'p-1',
+        evidence_data: { disease_name: 'Alport', mode_of_inheritance: 'XL' }
+      })
+      curationsStore.currentCuration = { precuration_id: 'p-1' }
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { a: 1 },
+        lock_version: 2,
+        precuration_id: 'p-1'
+      })
+      const { wrapper, frame } = await mountFramed()
+      expect(frame.meta.value).toEqual({ disease: 'Alport', moi: 'XL' })
+      expect(wrapper.findComponent({ name: 'FormActions' }).exists()).toBe(false)
+      expect(frame.canSubmit.value).toBe(true)
+
+      expect(frame.submit()).toBe(true)
+      await flushPromises()
+      expect(confirmMock).toHaveBeenCalled()
+      expect(curationsStore.updateCuration).toHaveBeenCalledWith('cur-1', {
+        evidence_data: { a: 1 },
+        lock_version: 2
+      })
+      expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 3 })
     })
 
     it('works without a frame', async () => {

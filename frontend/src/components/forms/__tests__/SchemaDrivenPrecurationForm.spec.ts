@@ -25,12 +25,12 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) => ({
-      id,
-      name: 'Panel schema',
-      field_definitions: schemaFields.value
-    }),
-    fetchSchemaById: vi.fn()
+    getSchemaById: (id: string) => ({ id, name: 'Panel schema' }),
+    fetchPinnedVersion: (versionId: string | null) =>
+      Promise.resolve({
+        id: versionId ?? 'latest',
+        snapshot: { field_definitions: schemaFields.value }
+      })
   })
 }))
 vi.mock('@/stores/precurations', () => ({ usePrecurationsStore: () => precurationsStore }))
@@ -291,6 +291,17 @@ describe('SchemaDrivenPrecurationForm', () => {
 
     expect(internals(wrapper).evidenceData).toEqual({ panel: 'x' })
     expect(wrapper.text()).not.toContain('Draft')
+  })
+
+  it('renders and validates the version the precuration is pinned to', async () => {
+    precurationsStore.fetchPrecurationById.mockResolvedValue({
+      evidence_data: {},
+      status: 'draft',
+      methodology_version_id: 'v-old'
+    })
+    const wrapper = mountForm({ precurationId: 'p-1' })
+    await flushPromises()
+    expect(wrapper.html()).toContain('methodologyversionid="v-old"')
   })
 
   it('reports a failed precuration load', async () => {

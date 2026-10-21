@@ -27,13 +27,16 @@ export interface StoredScores {
 
 export interface EvidenceScores {
   caseLevel: { adxlNull: number; adxlOther: number; arNull: number; arOther: number }
+  /** Category scores after their caps */
+  caseLevelTotal: number
+  functionTotal: number
   segregation: number
   caseControl: number
   genetic: number
   function: { biochemical: number; proteinInteraction: number; expression: number }
   functionalAlteration: number
-  models: number
-  rescue: number
+  /** SOP v11 "Models & Rescue": one category, capped together */
+  modelsAndRescue: number
   experimental: number
   total: number
   /** Section caps of the pinned point model; null when uncapped or unknown (legacy rows). */
@@ -63,6 +66,8 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
       arNull: caseLevel('autosomal_recessive.predicted_or_proven_null'),
       arOther: caseLevel('autosomal_recessive.other_variant_type')
     },
+    caseLevelTotal: category('genetic_evidence', 'case_level'),
+    functionTotal: category('experimental_evidence', 'function'),
     segregation: category('genetic_evidence', 'segregation'),
     caseControl: category('genetic_evidence', 'case_control'),
     genetic: num(stored?.genetic_evidence_total),
@@ -72,8 +77,13 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
       expression: func('expression')
     },
     functionalAlteration: category('experimental_evidence', 'functional_alteration'),
-    models: category('experimental_evidence', 'models'),
-    rescue: category('experimental_evidence', 'rescue'),
+    // Traces from before #420 kept models and rescue apart
+    modelsAndRescue:
+      category('experimental_evidence', 'models_and_rescue') ||
+      Math.min(
+        category('experimental_evidence', 'models') + category('experimental_evidence', 'rescue'),
+        4 // SOP v11 cap of the shared category
+      ),
     experimental: num(stored?.experimental_evidence_total),
     total: num(stored?.total_score),
     caps: { genetic: cap('genetic_evidence'), experimental: cap('experimental_evidence') },

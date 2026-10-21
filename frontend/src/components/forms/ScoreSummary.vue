@@ -75,13 +75,10 @@
             <td class="text-right text-medium-emphasis">2</td>
           </tr>
           <tr>
-            <td class="pl-6">Models</td>
-            <td class="text-right">{{ experimentalBreakdown?.models?.toFixed(2) || '0.00' }}</td>
-            <td class="text-right text-medium-emphasis">4</td>
-          </tr>
-          <tr>
-            <td class="pl-6">Rescue</td>
-            <td class="text-right">{{ experimentalBreakdown?.rescue?.toFixed(2) || '0.00' }}</td>
+            <td class="pl-6">Models &amp; rescue</td>
+            <td class="text-right">
+              {{ experimentalBreakdown?.modelsAndRescue?.toFixed(2) || '0.00' }}
+            </td>
             <td class="text-right text-medium-emphasis">4</td>
           </tr>
           <tr class="subtotal-row">
@@ -156,12 +153,12 @@
   /**
    * ScoreSummary
    *
-   * Displays live scoring summary in sidebar with breakdown by category.
+   * Displays the backend score preview with breakdown by category.
    * Matches ClinGen Gene Validity scoring framework structure.
    */
 
   import { computed } from 'vue'
-  import type { ExperimentalBreakdown, GeneticBreakdown } from './scoring'
+  import type { ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
 
   const props = withDefaults(
     defineProps<{
@@ -170,12 +167,8 @@
       totalScore?: number
       classification?: string
       hasContradictory?: boolean
-      geneticBreakdown?: Partial<
-        Pick<GeneticBreakdown, 'caseLevel' | 'segregation' | 'caseControl'>
-      >
-      experimentalBreakdown?: Partial<
-        Pick<ExperimentalBreakdown, 'function' | 'functionalAlteration' | 'models' | 'rescue'>
-      >
+      geneticBreakdown?: Partial<NonNullable<ScoreSnapshot['geneticBreakdown']>>
+      experimentalBreakdown?: Partial<NonNullable<ScoreSnapshot['experimentalBreakdown']>>
     }>(),
     {
       geneticScore: 0,
@@ -191,8 +184,7 @@
       experimentalBreakdown: () => ({
         function: 0,
         functionalAlteration: 0,
-        models: 0,
-        rescue: 0
+        modelsAndRescue: 0
       })
     }
   )

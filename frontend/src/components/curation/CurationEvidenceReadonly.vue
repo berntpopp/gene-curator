@@ -1,39 +1,42 @@
 <template>
-  <div class="evidence-readonly">
-    <v-card variant="tonal" class="mb-4">
-      <v-card-title class="text-body-large">Evidence summary</v-card-title>
-      <v-card-text class="evidence-summary">
-        {{ evidence.evidence_summary || 'No evidence summary was written.' }}
-      </v-card-text>
-    </v-card>
-    <GeneticEvidenceSection :model-value="genetic" :moi="moi" readonly />
-    <ExperimentalEvidenceSection class="mt-4" :model-value="experimental" readonly />
-    <h3 class="text-body-large mt-4 mb-2">Contradictory evidence</h3>
-    <ContradictoryEvidenceSection :model-value="evidence.contradictory_evidence ?? []" readonly />
-  </div>
+  <v-alert v-if="failed" type="warning" variant="tonal">
+    The methodology this curation was recorded with could not be loaded.
+  </v-alert>
+  <v-skeleton-loader v-else-if="!version" type="article" />
+  <!-- Rendered read-only from the version the curation is pinned to -->
+  <DynamicForm
+    v-else
+    :schema-id="schemaId"
+    :definition="version.snapshot"
+    :methodology-version-id="version.id"
+    :initial-data="evidence"
+    title=""
+    readonly
+    hide-actions
+    hide-scoring
+  />
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
-  import GeneticEvidenceSection from '@/components/clingen/sections/GeneticEvidenceSection.vue'
-  import ExperimentalEvidenceSection from '@/components/clingen/sections/ExperimentalEvidenceSection.vue'
-  import ContradictoryEvidenceSection from '@/components/clingen/sections/ContradictoryEvidenceSection.vue'
-  import {
-    createEmptyExperimentalEvidence,
-    createEmptyGeneticEvidence
-  } from '@/components/clingen/evidenceDefaults'
-  import type { ClinGenEvidenceData } from '@/components/clingen/types'
+  import { onMounted, ref } from 'vue'
+  import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import { useSchemasStore } from '@/stores/schemas'
+  import type { Schema } from '@/types/api'
 
-  const props = defineProps<{ evidence: Partial<ClinGenEvidenceData>; moi?: string }>()
+  const props = defineProps<{
+    evidence: Record<string, unknown>
+    schemaId: string
+    versionId?: string | null
+  }>()
 
-  const genetic = computed(() => props.evidence.genetic_evidence ?? createEmptyGeneticEvidence())
-  const experimental = computed(
-    () => props.evidence.experimental_evidence ?? createEmptyExperimentalEvidence()
-  )
+  const version = ref<Schema<'MethodologyVersion'> | null>(null)
+  const failed = ref(false)
+
+  onMounted(async () => {
+    try {
+      version.value = await useSchemasStore().fetchPinnedVersion(props.versionId, props.schemaId)
+    } catch {
+      failed.value = true
+    }
+  })
 </script>
-
-<style scoped>
-  .evidence-summary {
-    white-space: pre-wrap;
-  }
-</style>

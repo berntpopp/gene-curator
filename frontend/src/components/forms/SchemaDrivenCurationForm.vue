@@ -3,102 +3,84 @@
     <!-- Schema and curation not loaded yet: one skeleton, no score card or verdict -->
     <v-skeleton-loader v-if="!ready" type="card" />
 
-    <!-- ClinGen-specific form for ClinGen SOP schemas -->
-    <ClinGenCurationForm
-      v-else-if="useDynamicForm === false && !loadingSchema"
-      :schema="schema"
-      :curation-id="curationId ?? undefined"
-      :gene="gene as Record<string, unknown>"
-      :precuration-data="precurationData"
-      :initial-data="evidenceData"
-      :readonly="readonly"
-      :status="curationStatus"
-      :saving="savingDraft"
-      :submitting="submitting"
-      :last-saved="savedAt"
-      @submit="handleClinGenSubmit"
-      @save-draft="handleClinGenSaveDraft"
-      @cancel="handleCancel"
-      @update:model-value="handleEvidenceChange"
-    />
-
-    <!-- Generic schema-driven form for non-ClinGen schemas -->
-    <v-form v-else-if="useDynamicForm" @submit.prevent="handleSubmit" @keydown="handleKeydown">
+    <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
       <v-card>
-        <!-- Header: Kept inline per KISS principle -->
-        <v-card-title class="d-flex align-center">
-          <span>{{ gene?.symbol }} - {{ schema?.name || 'Curation' }}</span>
-          <v-chip v-if="isDraft" color="warning" size="small" class="ml-2"> Draft </v-chip>
-          <v-spacer />
-          <v-chip v-if="savedAt" color="success" size="small" variant="outlined">
-            <v-icon start size="small">mdi-content-save</v-icon>
-            Saved {{ formatRelativeTime(savedAt) }}
-          </v-chip>
-        </v-card-title>
-
-        <v-divider />
+        <!-- Header and actions: the workspace frame has its own -->
+        <template v-if="!frame">
+          <v-card-title class="d-flex align-center">
+            <span>{{ gene?.symbol }} - {{ schema?.name || 'Curation' }}</span>
+            <v-chip v-if="isDraft" color="warning" size="small" class="ml-2"> Draft </v-chip>
+            <v-spacer />
+            <v-chip v-if="savedAt" color="success" size="small" variant="outlined">
+              <v-icon start size="small">mdi-content-save</v-icon>
+              Saved {{ formatRelativeTime(savedAt) }}
+            </v-chip>
+          </v-card-title>
+          <v-divider />
+        </template>
 
         <v-card-text>
-          <v-row>
-            <!-- Main: Dynamic Form -->
-            <v-col cols="12" lg="8">
-              <v-skeleton-loader v-if="loadingSchema" type="article" />
-
-              <DynamicForm
-                v-else-if="schemaId"
-                :schema-id="schemaId"
-                :initial-data="evidenceData"
-                :title="schema?.name || 'Curation Form'"
-                :readonly="readonly"
-                hide-actions
-                @update:model-value="handleEvidenceChange"
-                @validation-change="handleValidationChange"
-                @submit="handleSubmit"
-                @save-draft="handleSaveDraft"
+          <!-- Rendered and validated from the version the curation is pinned to -->
+          <DynamicForm
+            v-if="version"
+            :schema-id="schemaId"
+            :definition="version.snapshot"
+            :methodology-version-id="version.id"
+            :initial-data="evidenceData"
+            :title="schema?.name || 'Curation Form'"
+            :readonly="readonly"
+            hide-scoring
+            hide-actions
+            @update:model-value="handleEvidenceChange"
+            @validation-change="handleValidationChange"
+            @submit="requestSubmit"
+            @save-draft="handleSaveDraft"
+          >
+            <template #section="{ section }">
+              <ScoreSummary
+                v-if="section.component === 'ScoreSummary' && score"
+                :genetic-score="score.genetic"
+                :experimental-score="score.experimental"
+                :total-score="score.total"
+                :classification="score.classification"
+                :has-contradictory="score.hasContradictory"
+                :genetic-breakdown="score.geneticBreakdown"
+                :experimental-breakdown="score.experimentalBreakdown"
               />
+              <LumpingSplittingSection
+                v-else-if="section.component === 'LumpingSplittingSection'"
+                :precuration-data="precurationData"
+                readonly
+              />
+            </template>
+          </DynamicForm>
 
-              <v-alert v-else type="warning" variant="tonal">
-                <template #prepend>
-                  <v-icon>mdi-alert</v-icon>
-                </template>
-                No schema assigned to this curation. Please contact an administrator.
-              </v-alert>
-            </v-col>
-
-            <!-- Sidebar: Live Scoring -->
-            <v-col cols="12" lg="4">
-              <div class="sticky-sidebar">
-                <ScorePreview
-                  :evidence-items="scoreEvidenceItems"
-                  :has-contradictory="hasContradictory"
-                  :replicated-over-time="replicatedOverTime"
-                />
-              </div>
-            </v-col>
-          </v-row>
+          <v-alert v-else type="warning" variant="tonal">
+            <template #prepend>
+              <v-icon>mdi-alert</v-icon>
+            </template>
+            No schema assigned to this curation. Please contact an administrator.
+          </v-alert>
         </v-card-text>
 
-        <v-divider />
-
-        <!-- Actions: Extracted for reuse with PrecurationForm -->
-        <FormActions
-          v-if="!readonly"
-          :can-undo="canUndo"
-          :can-redo="canRedo"
-          :can-submit="canSubmit"
-          :saving="savingDraft"
-          :submitting="submitting"
-          @undo="undo"
-          @redo="redo"
-          @save-draft="handleSaveDraft"
-          @submit="handleSubmit"
-          @cancel="handleCancel"
-        />
+        <template v-if="!frame">
+          <v-divider />
+          <FormActions
+            v-if="!readonly"
+            :can-undo="canUndo"
+            :can-redo="canRedo"
+            :can-submit="canSubmit"
+            :saving="savingDraft"
+            :submitting="submitting"
+            @undo="undo"
+            @redo="redo"
+            @save-draft="handleSaveDraft"
+            @submit="requestSubmit"
+            @cancel="handleCancel"
+          />
+        </template>
       </v-card>
     </v-form>
-
-    <!-- Schema not resolved yet: do not paint the generic layout first -->
-    <v-skeleton-loader v-else type="article" />
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
@@ -114,11 +96,11 @@
   /**
    * SchemaDrivenCurationForm
    *
-   * Schema-agnostic curation form that renders fields dynamically based on
-   * the assigned curation schema. Replaces the hardcoded CurationForm.
+   * Schema-agnostic curation form: renders and validates the methodology version the curation
+   * is pinned to (the schema's latest for a new one); the score is the backend preview.
    *
    * Key Features:
-   * - Renders any schema (ClinGen, GenCC, custom)
+   * - Renders any schema (ClinGen, GenCC, custom) from config
    * - Integrates form recovery, undo/redo
    * - Keyboard shortcuts (Ctrl+S, Ctrl+Z, Ctrl+Enter, Esc)
    * - Event-driven validation (no defineExpose)
@@ -140,25 +122,24 @@
   import { useSchemasStore } from '@/stores/schemas'
   import { useCurationsStore } from '@/stores/curations'
   import { usePrecurationsStore } from '@/stores/precurations'
-  import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
   import type { Schema } from '@/types/api'
-  import type { ApiErrorLike } from './types'
+  import type { ApiErrorLike, PrecurationData } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
-  import { hasContent } from '@/components/clingen/hasContent'
+  import { hasContent } from './hasContent'
+  import { scoreSnapshot, type ScoreCalculations } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
-  import ScorePreview from '@/components/evidence/ScorePreview.vue'
   import FormActions from '@/components/forms/FormActions.vue'
-  import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
-  import type { ClinGenEvidenceData } from '@/components/clingen/types'
+  import ScoreSummary from './ScoreSummary.vue'
+  import LumpingSplittingSection from './LumpingSplittingSection.vue'
   import { useConfirm } from '@/composables/useConfirm'
-  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
+  import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
 
   type CurationSchema = Schema<'CurationSchema'>
 
@@ -195,20 +176,21 @@
   const schemasStore = useSchemasStore()
   const curationsStore = useCurationsStore()
   const precurationsStore = usePrecurationsStore()
-  const validationStore = useValidationStore()
   const notificationsStore = useNotificationsStore()
 
   // Form state
   const evidenceData = ref<EvidenceData>({})
   const isDraft = ref(true)
-  const loadingSchema = ref(false)
   const ready = ref(false) // schema and curation (and precuration) have been requested
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
   const savedAt = ref<number | null>(null) // set by a successful server save
 
-  // ClinGen-specific state
-  const precurationData = ref<EvidenceData>({})
+  const version = ref<Schema<'MethodologyVersion'> | null>(null)
+  const pinnedVersionId = ref<string | null>(null) // the loaded curation's
+  const score = ref<ScoreSnapshot | null>(null) // backend preview of the evidence on screen
+
+  const precurationData = ref<PrecurationData>({})
   const precurationId = ref<string | null>(null) // link for a new curation: the approved one
   const curationStatus = ref('draft')
 
@@ -217,31 +199,7 @@
     schemasStore.getSchemaById(props.schemaId)
   )
 
-  // Determine form component based on feature flag
-  const useDynamicForm = computed(() => {
-    if (!schema.value) return undefined
-    // Feature flag takes precedence
-    if (schema.value?.use_dynamic_form !== undefined) {
-      return schema.value.use_dynamic_form
-    }
-    // Fallback: non-ClinGen schemas always use DynamicForm
-    const schemaName = schema.value.name?.toLowerCase() || ''
-    return !schemaName.includes('clingen') && !schemaName.includes('sop')
-  })
-
-  // Evidence items for score preview (transform to expected format)
-  const scoreEvidenceItems = computed(() => {
-    // ScorePreview expects an array of evidence items
-    // Transform evidence_data to that format if needed
-    if (Array.isArray(evidenceData.value.evidence_items)) {
-      return evidenceData.value.evidence_items
-    }
-    return []
-  })
-
-  // Flags that change the classification (Disputed / Definitive), as in the backend
   const hasContradictory = computed(() => hasContent(evidenceData.value.contradictory_evidence))
-  const replicatedOverTime = computed(() => evidenceData.value.replicated_over_time === true)
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(
@@ -262,7 +220,7 @@
   const recoveryReady = ref(false) // offer recovery only after the saved curation is known
   const recoveryTimestamp = formRecovery.recoveryTimestamp
 
-  // restore mutates evidenceData in place; a new reference lets reference watchers (ClinGen form) see it
+  // restore mutates evidenceData in place; a new reference lets reference watchers see it
   function handleRestore() {
     restoreInPlace()
     evidenceData.value = { ...evidenceData.value }
@@ -303,55 +261,95 @@
     { deep: true }
   )
 
-  // Submit eligibility
-  const canSubmit = computed(() => isValid.value && !props.readonly)
+  // ClinGen SOP: case-level or segregation evidence before review (the server only checks that
+  // some evidence exists); applies to definitions with a genetic_evidence block
+  const needsGenetic = computed(
+    () =>
+      !!(version.value?.snapshot.field_definitions as Record<string, unknown> | undefined)
+        ?.genetic_evidence
+  )
+  const hasGenetic = computed(() => {
+    const ge = evidenceData.value.genetic_evidence as Record<string, unknown> | undefined
+    return hasContent(ge?.case_level) || hasContent(ge?.segregation)
+  })
+
+  // Submit eligibility: valid and something entered
+  const canSubmit = computed(
+    () =>
+      isValid.value &&
+      !props.readonly &&
+      hasContent(evidenceData.value) &&
+      (!needsGenetic.value || hasGenetic.value)
+  )
 
   // === Persistence (save draft / submit) ===
 
-  const {
-    savingDraft,
-    conflict,
-    submitting,
-    handleSaveDraft,
-    handleSubmit,
-    handleClinGenSubmit,
-    handleClinGenSaveDraft
-  } = useCurationSubmission({
-    curationId: () => props.curationId,
-    geneId: () => props.geneId,
-    scopeId: () => props.scopeId,
-    workflowPairId: () => props.workflowPairId,
-    precurationId: () => precurationId.value,
-    evidenceData,
-    lockVersion,
-    canSubmit: () => canSubmit.value,
-    clearRecovery,
-    clearHistory,
-    onSaved: () => {
-      savedAt.value = Date.now()
-      emit('saved')
-    },
-    onSubmit: id => emit('submit', id)
-  })
+  const { savingDraft, conflict, submitting, handleSaveDraft, handleSubmit } =
+    useCurationSubmission({
+      curationId: () => props.curationId,
+      geneId: () => props.geneId,
+      scopeId: () => props.scopeId,
+      workflowPairId: () => props.workflowPairId,
+      precurationId: () => precurationId.value,
+      evidenceData,
+      lockVersion,
+      canSubmit: () => canSubmit.value,
+      clearRecovery,
+      clearHistory,
+      onSaved: () => {
+        savedAt.value = Date.now()
+        emit('saved')
+      },
+      onSubmit: id => emit('submit', id)
+    })
 
-  // The workspace frame (when the shell provides one) shows save state and owns Ctrl+S.
-  inject(WORKSPACE_FRAME, null)?.attachForm({
+  // Cells commit on blur: let a focused cell's last edit land first
+  async function commitFocusedCell() {
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+    await nextTick()
+  }
+
+  // The workspace frame (when the shell provides one) shows save state, the score and the
+  // entity, and owns Ctrl+S and the Save/Submit buttons.
+  const frame = inject(WORKSPACE_FRAME, null)
+  frame?.attachForm({
     evidence: evidenceData,
     saving: savingDraft,
     savedAt,
     conflict,
     save: async () => {
-      // Cells commit on blur: let a focused cell's last edit land before saving
-      ;(document.activeElement as HTMLElement | null)?.blur?.()
-      await nextTick()
-      return useDynamicForm.value ? handleSaveDraft() : handleClinGenSaveDraft(evidenceData.value)
+      await commitFocusedCell()
+      return handleSaveDraft()
     }
   })
+  frame?.attachSubmit({ canSubmit, run: requestSubmit })
+  watch(score, s => frame?.setScore(s))
+  watch(
+    precurationData,
+    p =>
+      frame?.setMeta({
+        disease: p.disease_name ?? p.entity_definition?.disease_name ?? undefined,
+        moi: p.mode_of_inheritance ?? p.entity_definition?.mode_of_inheritance ?? undefined
+      }),
+    { immediate: true }
+  )
+
+  async function requestSubmit() {
+    // The frame adds its blockers (unknown PMIDs); never submit over a save in flight
+    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
+    await commitFocusedCell()
+    const ok = await confirm({
+      title: 'Submit for review',
+      text: `Submit this curation for ${props.gene?.symbol ?? 'this gene'} for review? It is locked for editing until the review is complete.`,
+      confirmText: 'Submit'
+    })
+    if (ok) await handleSubmit()
+  }
 
   /**
    * Handle evidence data changes from DynamicForm
    */
-  function handleEvidenceChange(newData: EvidenceData | ClinGenEvidenceData) {
+  function handleEvidenceChange(newData: EvidenceData) {
     evidenceData.value = { ...newData }
   }
 
@@ -359,8 +357,17 @@
    * Handle validation state changes from DynamicForm
    * Event-driven pattern instead of defineExpose
    */
-  function handleValidationChange(validationResult: { is_valid?: boolean } | null | undefined) {
+  function handleValidationChange(
+    validationResult: { is_valid?: boolean; score_calculations?: unknown } | null | undefined
+  ) {
     isValid.value = validationResult?.is_valid !== false
+    // Live score: validate-evidence (debounced per edit) scores with the pinned point model
+    if (validationResult?.score_calculations) {
+      score.value = scoreSnapshot(
+        validationResult.score_calculations as ScoreCalculations,
+        hasContradictory.value
+      )
+    }
   }
 
   /**
@@ -382,12 +389,12 @@
     if (props.readonly && event.key !== 'Escape') return
     const ctrl = event.ctrlKey || event.metaKey
 
-    if (ctrl && event.key === 's') {
+    if (ctrl && event.key === 's' && !frame) {
       event.preventDefault()
       handleSaveDraft()
     } else if (ctrl && event.key === 'Enter') {
       event.preventDefault()
-      if (canSubmit.value) handleSubmit()
+      requestSubmit()
     } else if (ctrl && event.key === 'z' && !event.shiftKey) {
       event.preventDefault()
       if (canUndo.value) undo()
@@ -448,7 +455,7 @@
         if (curation?.precuration_id) {
           const precuration = await precurationsStore.fetchPrecurationById(curation.precuration_id)
           if (precuration) {
-            precurationData.value = precuration.evidence_data
+            precurationData.value = { ...precuration.evidence_data, id: precuration.id }
             logger.debug('Loaded precuration data for existing curation', {
               precuration_id: curation.precuration_id
             })
@@ -475,7 +482,10 @@
           const fullPrecuration = await precurationsStore.fetchPrecurationById(
             approvedPrecuration.id
           )
-          precurationData.value = fullPrecuration?.evidence_data ?? {}
+          precurationData.value = {
+            ...(fullPrecuration?.evidence_data ?? {}),
+            id: approvedPrecuration.id
+          }
 
           logger.debug('Loaded precuration data for new curation', {
             precuration_id: approvedPrecuration.id,
@@ -528,11 +538,12 @@
         }
 
         dropIfSaved(evidenceData.value)
+        pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
         curationStatus.value = curation.status || 'draft'
 
-        // Load linked precuration data for ClinGen forms
+        // The linked precuration (disease entity, lumping and splitting)
         if (curation.precuration_id) {
           await loadPrecurationData()
         }
@@ -559,26 +570,23 @@
   }
 
   /**
-   * Load schema
+   * Load the schema (name) and the version the curation renders with
    */
   async function loadSchema() {
     if (!props.schemaId) return
 
-    loadingSchema.value = true
     try {
       await schemasStore.fetchSchemaById(props.schemaId)
-      await validationStore.generateJsonSchema(props.schemaId)
+      version.value = await schemasStore.fetchPinnedVersion(pinnedVersionId.value, props.schemaId)
     } catch (error) {
       logger.error('Failed to load schema', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast('Failed to load curation schema', 'error')
-    } finally {
-      loadingSchema.value = false
     }
   }
 
   onMounted(async () => {
-    await loadSchema()
     await loadCuration()
+    await loadSchema()
     await loadPrefill()
     // Also load precuration data for new curations
     if (!props.curationId && props.geneId) {
@@ -598,12 +606,3 @@
     logger.debug('SchemaDrivenCurationForm unmounted')
   })
 </script>
-
-<style scoped>
-  .sticky-sidebar {
-    position: sticky;
-    top: 80px;
-    max-height: calc(100vh - 100px);
-    overflow-y: auto;
-  }
-</style>

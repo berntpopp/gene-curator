@@ -79,6 +79,13 @@ describe('useValidationStore', () => {
       })
       expect(result).toEqual(response(true))
       expect(store.validationResults.custom).toEqual(response(true))
+
+      await store.validateEvidence({ score: 1 }, 'schema-1', 'custom', 'v1')
+      expect(api.validateEvidence).toHaveBeenLastCalledWith({
+        evidence_data: { score: 1 },
+        schema_id: 'schema-1',
+        methodology_version_id: 'v1'
+      })
       expect(store.loading).toBe(false)
     })
 
@@ -98,6 +105,36 @@ describe('useValidationStore', () => {
       await expect(store.validateEvidence({}, 's')).rejects.toThrow('bad schema')
       expect(store.error).toBe('bad schema')
       expect(store.loading).toBe(false)
+    })
+
+    it('keeps the newest reply when replies land out of order', async () => {
+      const store = useValidationStore()
+      const replies: Array<(r: Schema<'ValidationResponse'>) => void> = []
+      api.validateEvidence.mockImplementation(() => new Promise(r => replies.push(r)))
+
+      const older = store.validateEvidence({ v: 1 }, 's', 'form')
+      const newer = store.validateEvidence({ v: 2 }, 's', 'form')
+      replies[1]!(response(true))
+      await expect(newer).resolves.toEqual(response(true))
+      expect(store.loading).toBe(false)
+      replies[0]!(response(false))
+      await expect(older).resolves.toBeNull()
+
+      expect(store.validationResults.form).toEqual(response(true))
+    })
+
+    it('drops a reply that was in flight when the key was cleared', async () => {
+      const store = useValidationStore()
+      let reply: (r: unknown) => void = () => {}
+      api.validateEvidence.mockImplementation(() => new Promise((_, reject) => (reply = reject)))
+
+      const pending = store.validateEvidence({}, 's', 'form')
+      store.clearValidationResult('form')
+      reply(new Error('late'))
+
+      await expect(pending).resolves.toBeNull()
+      expect(store.error).toBeNull()
+      expect(store.validationResults.form).toBeUndefined()
     })
   })
 

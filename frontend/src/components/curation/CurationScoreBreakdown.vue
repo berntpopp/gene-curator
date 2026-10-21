@@ -75,12 +75,8 @@
                 <td class="text-right">{{ fmt(scores.functionalAlteration) }}</td>
               </tr>
               <tr>
-                <td>Models</td>
-                <td class="text-right">{{ fmt(scores.models) }}</td>
-              </tr>
-              <tr>
-                <td>Rescue</td>
-                <td class="text-right">{{ fmt(scores.rescue) }}</td>
+                <td>Models &amp; Rescue</td>
+                <td class="text-right">{{ fmt(scores.modelsAndRescue) }}</td>
               </tr>
             </tbody>
           </v-table>

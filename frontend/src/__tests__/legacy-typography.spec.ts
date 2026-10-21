@@ -3,12 +3,9 @@ import { describe, expect, it } from 'vitest'
 // Vuetify 4 removed the MD2 typography classes; they render unstyled.
 const LEGACY = /(?<![\w-])text-(h[1-6]|subtitle-[12]|body-[12]|caption|button|overline)(?![\w-])/
 
-// Dynamic builds (`text-${x}`, 'text-' + x) can hide old names; only these two colour sites are allowed.
+// Dynamic builds (`text-${x}`, 'text-' + x) can hide old names; only this colour site is allowed.
 const DYNAMIC = /text-\$\{|['"`]text-['"`]\s*\+/
-const DYNAMIC_ALLOWED = [
-  '/src/components/evidence/ScorePreview.vue',
-  '/src/components/dynamic/ScoreDisplay.vue'
-]
+const DYNAMIC_ALLOWED = ['/src/components/dynamic/ScoreDisplay.vue']
 
 const sources = import.meta.glob<string>('/src/**/*.{vue,ts,scss,css,snap}', {
   query: '?raw',

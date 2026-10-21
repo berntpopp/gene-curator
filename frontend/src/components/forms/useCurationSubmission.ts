@@ -3,7 +3,6 @@ import { useRouter } from 'vue-router'
 import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useLogger } from '@/composables/useLogger'
-import type { ClinGenEvidenceData } from '@/components/clingen/types'
 import { replaceKeepingChanges } from '@/components/workspace/useUnsavedGuard'
 import { apiDetail } from './apiDetail'
 import type { ApiErrorLike } from './types'
@@ -33,10 +32,7 @@ export interface CurationSubmissionOptions {
   onSubmit: (id: string) => void
 }
 
-/**
- * Save-draft and submit operations for SchemaDrivenCurationForm, both for the
- * generic DynamicForm path and for the ClinGen-specific form.
- */
+/** Save-draft and submit operations for SchemaDrivenCurationForm. */
 export function useCurationSubmission(options: CurationSubmissionOptions) {
   const {
     curationId,
@@ -173,9 +169,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     }
   }
 
-  /**
-   * Submit curation
-   */
+  /** Save the current evidence, then submit it (unsaved edits are never left behind). */
   async function handleSubmit() {
     if (!canSubmit()) return
 
@@ -184,11 +178,18 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     try {
       const id = existingId()
       if (id) {
+        // Update existing curation evidence and submit
+        const updated = (await curationsStore.updateCuration(id, {
+          evidence_data: { ...evidenceData.value },
+          lock_version: lockVersion.value
+        })) as CurationRecord
+        // The update bumped the version: keep it, so a retry after a refused submit is not stale
+        lockVersion.value = updated.lock_version as number
         submittedId = await submitAt(id, lockVersion.value)
       } else {
-        // Create and submit
+        // Create and submit new curation
         const created = (await curationsStore.createCuration(
-          createPayload(evidenceData.value)
+          createPayload({ ...evidenceData.value })
         )) as CurationRecord
         submittedId = await submitCreated(created)
       }
@@ -205,98 +206,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     }
   }
 
-  /**
-   * Handle ClinGen form submit
-   * Receives full evidence data from ClinGenCurationForm
-   */
-  async function handleClinGenSubmit(clingenEvidenceData: ClinGenEvidenceData | EvidenceData) {
-    submitting.value = true
-    let submittedId: string
-    try {
-      const id = existingId()
-      if (id) {
-        // Update existing curation evidence and submit
-        const updated = (await curationsStore.updateCuration(id, {
-          evidence_data: { ...clingenEvidenceData },
-          lock_version: lockVersion.value
-        })) as CurationRecord
-        // The update bumped the version: keep it, so a retry after a refused submit is not stale
-        lockVersion.value = updated.lock_version as number
-        submittedId = await submitAt(id, lockVersion.value)
-      } else {
-        // Create and submit new curation
-        const created = (await curationsStore.createCuration(
-          createPayload({ ...clingenEvidenceData })
-        )) as CurationRecord
-        submittedId = await submitCreated(created)
-      }
-
-      notificationsStore.addToast('Curation submitted for review', 'success')
-      clearRecovery()
-      options.onSubmit(submittedId)
-    } catch (error) {
-      logger.error('Failed to submit ClinGen curation', { error: (error as ApiErrorLike).message })
-      reportSubmitError(error)
-    } finally {
-      submitting.value = false
-    }
-  }
-
-  /**
-   * Handle ClinGen form save draft
-   */
-  async function handleClinGenSaveDraft(
-    clingenEvidenceData: ClinGenEvidenceData | EvidenceData
-  ): Promise<boolean> {
-    if (savingDraft.value || conflict.value) return false
-    savingDraft.value = true
-    try {
-      const id = existingId()
-      if (id) {
-        const updated = (await curationsStore.saveDraft(id, {
-          evidence_data: { ...clingenEvidenceData },
-          lock_version: lockVersion.value
-        })) as CurationRecord | undefined
-        if (!updated) {
-          // The store swallows save errors and returns nothing: surface them, no success toast
-          if (curationsStore.error?.isConflict) conflict.value = true
-          notificationsStore.addToast(
-            curationsStore.error?.message || 'Failed to save draft',
-            'error'
-          )
-          return false
-        }
-        lockVersion.value = updated.lock_version as number
-        options.onSaved()
-      } else {
-        // Create new curation as draft
-        const created = (await curationsStore.createCuration(
-          createPayload({ ...clingenEvidenceData })
-        )) as CurationRecord
-        lockVersion.value = created.lock_version ?? 0
-        options.onSaved()
-        await openCreated(created.id)
-      }
-
-      notificationsStore.addToast('Draft saved', 'success')
-      clearRecovery()
-      return true
-    } catch (error) {
-      logger.error('Failed to save ClinGen draft', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
-      return false
-    } finally {
-      savingDraft.value = false
-    }
-  }
-
   return {
     savingDraft,
     conflict,
     submitting,
     handleSaveDraft,
-    handleSubmit,
-    handleClinGenSubmit,
-    handleClinGenSaveDraft
+    handleSubmit
   }
 }

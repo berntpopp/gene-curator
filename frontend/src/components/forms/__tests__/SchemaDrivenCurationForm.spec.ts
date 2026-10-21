@@ -141,7 +141,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -163,7 +162,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -184,7 +182,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -209,7 +206,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -229,7 +225,6 @@ describe('SchemaDrivenCurationForm', () => {
           stubs: {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -255,7 +250,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -278,7 +272,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -299,7 +292,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -320,7 +312,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -343,7 +334,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -375,7 +365,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }
@@ -401,7 +390,6 @@ describe('SchemaDrivenCurationForm', () => {
             ErrorBoundary: true,
             FormRecoveryDialog: true,
             DynamicForm: true,
-            ScorePreview: true,
             FormActions: true
           }
         }

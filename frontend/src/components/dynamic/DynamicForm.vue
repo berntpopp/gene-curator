@@ -53,7 +53,11 @@
                       :readonly="readonly"
                       @update:field="handleTabFieldUpdate"
                       @clear-backend-error="clearFieldBackendError"
-                    />
+                    >
+                      <template #section="slotProps">
+                        <slot name="section" v-bind="slotProps" />
+                      </template>
+                    </TabContent>
                   </KeepAlive>
                 </v-window-item>
               </v-window>
@@ -183,7 +187,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch, nextTick } from 'vue'
+  import { ref, computed, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
@@ -216,6 +220,10 @@
       schemaId: string
       /** Raw methodology config (version snapshot); rendered instead of the generated JSON schema */
       definition?: Record<string, unknown>
+      /** Pinned methodology version: validate against it, not the schema's latest */
+      methodologyVersionId?: string
+      /** The parent shows the score (e.g. the workspace's backend preview) */
+      hideScoring?: boolean
       title?: string
       initialData?: FormData
       readonly?: boolean
@@ -227,7 +235,9 @@
       initialData: () => ({}),
       readonly: false,
       hideActions: false,
-      definition: undefined
+      definition: undefined,
+      methodologyVersionId: undefined,
+      hideScoring: false
     }
   )
 
@@ -248,9 +258,12 @@
   const backendErrors = ref<Record<string, string[]>>({}) // { fieldPath: [error messages] }
   const nonFieldErrors = ref<string[]>([]) // Errors not mapped to specific fields
 
-  // Debounce timers for the two update paths (one per path, as before)
-  let fieldUpdateTimer: ReturnType<typeof setTimeout> | undefined
-  let tabUpdateTimer: ReturnType<typeof setTimeout> | undefined
+  // One debounce for every change: a validation (and its live score) per pause in typing
+  let validateTimer: ReturnType<typeof setTimeout> | undefined
+  const scheduleValidate = () => {
+    clearTimeout(validateTimer)
+    validateTimer = setTimeout(validateForm, 500)
+  }
 
   // Spinner only for the initial schema load: validation toggles store.loading on every
   // keystroke and must never unmount the form.
@@ -292,7 +305,7 @@
   } = useFormTabs({ jsonSchema, validationResult, backendErrors, activeTab })
 
   const showScoring = computed(() => {
-    return jsonSchema.value?.scoring_configuration?.engine != null
+    return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
   })
 
   // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
@@ -332,10 +345,18 @@
   const validateForm = async () => {
     validating.value = true
     try {
-      const result = await validationStore.validateEvidence(formData.value, props.schemaId, 'form')
+      const result = await validationStore.validateEvidence(
+        formData.value,
+        props.schemaId,
+        'form',
+        props.methodologyVersionId
+      )
+      if (result === null) return null // a newer validation was started: its reply wins
       handleBackendValidation(result ? toFormValidation(result) : undefined)
+      return result
     } catch (err) {
       logger.error('Form validation error:', errorDetails(err))
+      return null
     } finally {
       validating.value = false
     }
@@ -345,11 +366,6 @@
     clearFieldBackendError(fieldName)
     userEdited = true
     formData.value[fieldName] = value
-    // Trigger validation debounced
-    clearTimeout(fieldUpdateTimer)
-    fieldUpdateTimer = setTimeout(() => {
-      validateForm()
-    }, 500)
   }
 
   /**
@@ -383,12 +399,6 @@
 
     // Emit update
     emit('update:modelValue', { ...formData.value })
-
-    // Trigger validation debounced
-    clearTimeout(tabUpdateTimer)
-    tabUpdateTimer = setTimeout(() => {
-      validateForm()
-    }, 500)
   }
 
   const validateField = async (fieldName: string, value: unknown) => {
@@ -485,10 +495,16 @@
         return
       }
 
-      // Also check backend validation
-      await validateForm()
+      // Also check backend validation; no reply (failed or superseded) is not valid yet
+      // Submit's own validation must be the newest: a pending debounced one would drop its reply
+      clearTimeout(validateTimer)
+      const result = await validateForm()
+      if (!result) {
+        nonFieldErrors.value = ['Could not validate the form. Please try again.']
+        return
+      }
 
-      if (validationResult.value?.is_valid !== false) {
+      if (result.is_valid !== false) {
         emit('submit', formData.value)
       }
     } catch (err) {
@@ -536,13 +552,11 @@
     { immediate: true }
   )
 
-  // Initial validation when form data changes
+  // Validate (debounced) whenever the form data changes
   watch(
     formData,
     () => {
-      if (Object.keys(formData.value).length > 0) {
-        validateForm()
-      }
+      if (Object.keys(formData.value).length > 0) scheduleValidate()
     },
     { deep: true }
   )
@@ -564,6 +578,13 @@
     },
     { immediate: true }
   )
+
+  // Results are kept per key: never show another record's score or validity
+  validationStore.clearValidationResult('form')
+  onBeforeUnmount(() => {
+    clearTimeout(validateTimer)
+    validationStore.clearValidationResult('form')
+  })
 
   onMounted(async () => {
     if (props.schemaId) {

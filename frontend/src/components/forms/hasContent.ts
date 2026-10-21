@@ -1,7 +1,7 @@
-// Defaults a new contradictory row is created with (ContradictoryEvidenceSection.vue); mirrors the backend
+// Defaults a new contradictory row is created with; mirrors the backend
 const ROW_DEFAULTS: Record<string, unknown> = { evidence_type: 'population', impact: 'note' }
 
-// Case-level row fields preset on a new row (GeneticEvidenceSection.vue); not entered evidence
+// Case-level row fields preset on a new row; not entered evidence
 const PRESET_KEYS = new Set(['variant_type', 'score_status'])
 
 /** True if the value holds anything entered; blank rows added to a list do not count (matches the backend engine). */
@@ -14,12 +14,4 @@ export function hasContent(value: unknown): boolean {
     )
   }
   return value !== null && value !== undefined && value !== false
-}
-
-/** Case-level row: points still at the new-row default (1.5 null, 0.1 other) are not entered evidence. */
-export function caseRowHasContent(item: unknown, defaultPoints: number): boolean {
-  const row = item as Record<string, unknown>
-  return hasContent(
-    row.proband_counted_points === defaultPoints ? { ...row, proband_counted_points: null } : row
-  )
 }

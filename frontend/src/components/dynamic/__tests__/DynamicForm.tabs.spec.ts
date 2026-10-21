@@ -29,13 +29,13 @@ vi.mock('@/composables/useLogger', () => ({
   useLogger: () => mockLogger
 }))
 
-// Mock validation store
 const mockValidationStore = {
   loading: false,
   error: null,
   generateJsonSchema: vi.fn(),
   validateEvidence: vi.fn(),
   validateField: vi.fn(),
+  clearValidationResult: vi.fn(),
   getJsonSchema: vi.fn(),
   getValidationResult: vi.fn()
 }

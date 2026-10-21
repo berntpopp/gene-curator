@@ -22,8 +22,9 @@ vi.mock('@/composables/useLogger', () => ({
 vi.mock('vue-router', () => ({ useRouter: () => ({ push: vi.fn(), replace: vi.fn() }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) => ({ id, name: 'Panel', use_dynamic_form: false }),
-    fetchSchemaById: () => h.schema
+    getSchemaById: (id: string) => ({ id, name: 'Panel' }),
+    fetchSchemaById: vi.fn(),
+    fetchPinnedVersion: () => h.schema
   })
 }))
 vi.mock('@/stores/curations', () => ({
@@ -36,9 +37,6 @@ vi.mock('@/stores/curations', () => ({
 }))
 vi.mock('@/stores/precurations', () => ({
   usePrecurationsStore: () => ({ fetchPrecurationById: () => h.precuration })
-}))
-vi.mock('@/stores/validation', () => ({
-  useValidationStore: () => ({ generateJsonSchema: vi.fn() })
 }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast: vi.fn() }) }))
 vi.mock('@/composables/useFormRecovery', () => ({
@@ -65,8 +63,8 @@ vi.mock('@/composables/useHistory', () => ({
 }))
 
 describe('SchemaDrivenCurationForm loading', () => {
-  it('shows only a skeleton until schema, curation and precuration have all loaded', async () => {
-    const schema = deferred<void>()
+  it('shows only a skeleton until curation, precuration and pinned version have all loaded', async () => {
+    const schema = deferred<unknown>()
     const curation = deferred<unknown>()
     const precuration = deferred<unknown>()
     h.schema = schema.promise
@@ -81,21 +79,14 @@ describe('SchemaDrivenCurationForm loading', () => {
       global: {
         stubs: {
           ErrorBoundary: { template: '<div><slot /></div>' },
-          ClinGenCurationForm: true,
           DynamicForm: true,
           FormActions: true,
-          ScorePreview: true,
           FormRecoveryDialog: true
         }
       }
     })
-    const form = () => wrapper.find('clin-gen-curation-form-stub').exists()
+    const form = () => wrapper.find('dynamic-form-stub').exists()
     const skeleton = () => wrapper.find('.v-skeleton-loader').exists()
-
-    schema.resolve()
-    await flushPromises()
-    expect(skeleton()).toBe(true)
-    expect(form()).toBe(false)
 
     store.currentCuration = loaded
     curation.resolve(loaded)
@@ -104,6 +95,11 @@ describe('SchemaDrivenCurationForm loading', () => {
     expect(form()).toBe(false)
 
     precuration.resolve({ evidence_data: {} })
+    await flushPromises()
+    expect(skeleton()).toBe(true)
+    expect(form()).toBe(false)
+
+    schema.resolve({ id: 'v1', snapshot: {} })
     await flushPromises()
     expect(skeleton()).toBe(false)
     expect(form()).toBe(true)

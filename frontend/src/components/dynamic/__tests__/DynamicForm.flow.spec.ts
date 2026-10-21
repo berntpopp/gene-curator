@@ -19,7 +19,8 @@ const store = vi.hoisted(() => ({
   getValidationResult: vi.fn(),
   generateJsonSchema: vi.fn(),
   validateEvidence: vi.fn(),
-  validateField: vi.fn()
+  validateField: vi.fn(),
+  clearValidationResult: vi.fn()
 }))
 
 vi.mock('@/stores', () => ({
@@ -167,6 +168,7 @@ describe('DynamicForm flow', () => {
   })
 
   it('emits submit with the form data when validation passes', async () => {
+    store.validateEvidence.mockResolvedValue({ is_valid: true })
     const wrapper = mountForm()
     fieldStub(wrapper, 'age').vm.$emit('update:model-value', 36)
     await flushPromises()
@@ -177,9 +179,50 @@ describe('DynamicForm flow', () => {
     expect(store.validateEvidence).toHaveBeenCalledWith(
       { name: 'Ada', age: 36 },
       'schema-1',
-      'form'
+      'form',
+      undefined
     )
     expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Ada', age: 36 }])
+  })
+
+  it('validates the latest edit on submit, never an older result (submit within the debounce)', async () => {
+    vi.useFakeTimers()
+    try {
+      store.validateEvidence.mockResolvedValue({ is_valid: true })
+      const wrapper = mountForm()
+      await vi.advanceTimersByTimeAsync(600)
+      // The newest edit is invalid; submit comes before its debounced validation runs
+      store.validateEvidence.mockResolvedValue({ is_valid: false, errors: [{ message: 'x' }] })
+      const before = store.validateEvidence.mock.calls.length
+      fieldStub(wrapper, 'age').vm.$emit('update:model-value', -1)
+      await wrapper.find('form').trigger('submit')
+      await vi.advanceTimersByTimeAsync(600)
+      // Only submit's own validation ran: the debounced one was cancelled
+      expect(store.validateEvidence.mock.calls.length).toBe(before + 1)
+
+      expect(store.validateEvidence).toHaveBeenLastCalledWith(
+        { name: 'Ada', age: -1 },
+        'schema-1',
+        'form',
+        undefined
+      )
+      expect(wrapper.emitted('submit')).toBeUndefined()
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it.each([
+    ['dropped', () => store.validateEvidence.mockResolvedValue(null)],
+    ['failed', () => store.validateEvidence.mockRejectedValue(new Error('down'))]
+  ])('tells the user and does not submit when the validation is %s', async (_, arrange) => {
+    arrange()
+    const wrapper = mountForm()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.emitted('submit')).toBeUndefined()
+    expect(wrapper.text()).toContain('Could not validate the form. Please try again.')
+    store.validateEvidence.mockReset()
   })
 
   it('does not submit when the form fails local validation', async () => {

@@ -49,13 +49,14 @@ describe('storedScores', () => {
     })
     expect(s).toEqual({
       caseLevel: { adxlNull: 3, adxlOther: 1, arNull: 1.5, arOther: 0.1 },
+      caseLevelTotal: 5.6,
+      functionTotal: 0.5,
       segregation: 2,
       caseControl: 1,
       genetic: 8.6,
       function: { biochemical: 0.5, proteinInteraction: 0.2, expression: 0.3 },
       functionalAlteration: 0.25,
-      models: 1,
-      rescue: 0.75,
+      modelsAndRescue: 1.75,
       experimental: 1,
       total: 9.6,
       caps: { genetic: 12, experimental: null },
@@ -68,5 +69,41 @@ describe('storedScores', () => {
     const legacy = storedScores({ total_score: 3 })
     expect(legacy.caseLevel.adxlNull).toBe(0)
     expect(legacy).toMatchObject({ traced: false, caps: { genetic: null, experimental: null } })
+  })
+
+  it('reads the one capped Models & Rescue category (#420)', () => {
+    const s = storedScores({
+      trace: {
+        sections: [
+          {
+            key: 'experimental_evidence',
+            score: 4,
+            categories: [
+              ct('models_and_rescue', 4, [
+                ['non_human_model_organism', 4],
+                ['human', 3]
+              ])
+            ]
+          }
+        ]
+      }
+    })
+    // 7 raw points under a cap of 4: the capped category, not a per-kind split
+    expect(s.modelsAndRescue).toBe(4)
+  })
+
+  it('caps a legacy trace with separate models and rescue at 4', () => {
+    const s = storedScores({
+      trace: {
+        sections: [
+          {
+            key: 'experimental_evidence',
+            score: 6,
+            categories: [ct('models', 4), ct('rescue', 2)]
+          }
+        ]
+      }
+    })
+    expect(s.modelsAndRescue).toBe(4)
   })
 })

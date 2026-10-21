@@ -18,4 +18,10 @@ describe('schemasAPI methodology versions', () => {
     await expect(schemasAPI.deriveSchema('s', 'v1', body)).resolves.toEqual({ id: 'new' })
     expect(client.post).toHaveBeenCalledWith('/schemas/curation-schemas/s/versions/v1/derive', body)
   })
+
+  it('reads one methodology version', async () => {
+    client.get.mockResolvedValue({ data: { id: 'v1' } })
+    await expect(schemasAPI.getMethodologyVersion('v1')).resolves.toEqual({ id: 'v1' })
+    expect(client.get).toHaveBeenCalledWith('/schemas/methodology-versions/v1')
+  })
 })
