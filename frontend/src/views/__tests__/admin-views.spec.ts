@@ -226,6 +226,47 @@ describe('UserManagement', () => {
     expect(wrapper.text()).toContain('Alice')
   })
 
+  it('falls back to zeros when statistics are empty', async () => {
+    users.paginatedUsers = []
+    users.statistics = {}
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    expect(wrapper.find('[data-test="user-summary"]').text()).toBe(
+      '0 users · 0 admins · 0 inactive'
+    )
+    wrapper.unmount()
+  })
+
+  it('disables destructive row actions and edit fields only for the own row', async () => {
+    useAuthStore().user = { id: 'u1' } as never
+    const inactive = { ...alice, id: 'u3', name: 'Dora', is_active: false }
+    users.paginatedUsers = [alice, inactive]
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    const actions = wrapper.findAll('button[aria-label="User actions"]')
+    const items = async (i: number) => {
+      await actions[i]!.trigger('click')
+      await flushPromises()
+      const lists = document.querySelectorAll('.v-overlay__content .v-list')
+      return [...lists[lists.length - 1]!.querySelectorAll('.v-list-item')]
+    }
+    const own = await items(0)
+    expect(own.find(e => e.textContent?.includes('Deactivate'))?.className).toContain('disabled')
+    expect(own.find(e => e.textContent?.includes('Delete User'))?.className).toContain('disabled')
+    const other = await items(1)
+    expect(other.some(e => e.textContent?.includes('Activate'))).toBe(true)
+    expect(other.find(e => e.textContent?.includes('Delete User'))?.className).not.toContain(
+      'disabled'
+    )
+
+    const vm = vmOf(wrapper)
+    call(vm, 'editUser', alice)
+    await flushPromises()
+    expect(document.querySelector('.v-select.v-input--disabled')).not.toBeNull()
+    expect(document.querySelector('.v-switch.v-input--disabled')).not.toBeNull()
+    wrapper.unmount()
+  })
+
   it('reports a load failure with a snackbar', async () => {
     users.fetchUsers.mockRejectedValueOnce(new Error('down'))
     mount(UserManagement, opts())
