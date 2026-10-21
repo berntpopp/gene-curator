@@ -107,6 +107,25 @@ describe('WorkflowManagement', () => {
     expect(wrapper.text()).toContain('Active')
   })
 
+  it('loads inactive pairs and schemas too', async () => {
+    const schemas = useSchemasStore()
+    const fetchSchemas = vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
+    const fetchPairs = vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
+    vi.spyOn(useWorkflowStore(), 'fetchWorkflowAnalytics').mockResolvedValue(null as never)
+    vi.spyOn(useWorkflowStore(), 'fetchPeerReviewers').mockResolvedValue(null as never)
+    mount(WorkflowManagement, opts())
+    await flushPromises()
+    expect(fetchSchemas).toHaveBeenCalledWith({ active_only: false })
+    expect(fetchPairs).toHaveBeenCalledWith({ active_only: false })
+  })
+
+  it('shows an inactive pair as Inactive', async () => {
+    const { wrapper, schemas } = await mountView()
+    schemas.workflowPairs = [{ ...pair, is_active: false }] as never
+    await flushPromises()
+    expect(wrapper.text()).toContain('Inactive')
+  })
+
   it('reports a load failure', async () => {
     const schemas = useSchemasStore()
     vi.spyOn(schemas, 'fetchSchemas').mockRejectedValue(new Error('down'))
@@ -263,12 +282,26 @@ describe('SchemaManagement', () => {
     await nextTick()
     expect(wrapper.text()).not.toContain('ClinGen curation')
     vm.selectedType = 'curation'
-    vm.selectedStatus = 'deprecated'
+    vm.selectedStatus = 'inactive'
     await nextTick()
     expect(wrapper.text()).not.toContain('ClinGen curation')
     vm.selectedStatus = 'active'
     await nextTick()
     expect(wrapper.text()).toContain('ClinGen curation')
+  })
+
+  it('loads inactive schemas too and marks them inactive, filterable and reactivatable', async () => {
+    const schemas = useSchemasStore()
+    const fetch = vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
+    schemas.schemas = [{ ...curationSchema, id: 's2', name: 'Retired', is_active: false }] as never
+    const wrapper = mount(SchemaManagement, opts())
+    await flushPromises()
+    expect(fetch).toHaveBeenCalledWith({ active_only: false })
+    expect(wrapper.text()).toContain('Retired')
+    expect(wrapper.text()).toContain('Inactive')
+    vmOf(wrapper).selectedStatus = 'active'
+    await nextTick()
+    expect(wrapper.text()).not.toContain('Retired')
   })
 
   it('opens the editor for a schema and reports navigation failures', async () => {

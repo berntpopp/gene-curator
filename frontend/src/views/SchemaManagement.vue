@@ -15,9 +15,14 @@
       </v-btn>
     </div>
 
-    <!-- Filters and Search -->
-    <v-card class="mb-6">
-      <v-card-text>
+    <!-- Schemas Table -->
+    <v-card>
+      <v-card-title>
+        <v-icon start>mdi-file-document-outline</v-icon>
+        Schemas ({{ filteredSchemas.length }})
+      </v-card-title>
+
+      <v-card-text class="pb-0">
         <v-row>
           <v-col cols="12" sm="6" md="4">
             <v-text-field
@@ -53,14 +58,6 @@
           </v-col>
         </v-row>
       </v-card-text>
-    </v-card>
-
-    <!-- Schemas Table -->
-    <v-card>
-      <v-card-title>
-        <v-icon start>mdi-file-document-outline</v-icon>
-        Schemas ({{ filteredSchemas.length }})
-      </v-card-title>
 
       <v-data-table
         :headers="tableHeaders"
@@ -83,14 +80,12 @@
         </template>
 
         <template #item.status="{ item }">
-          <v-chip :color="getStatusColor(item.status)" size="small" variant="flat">
-            {{ formatStatus(item.status) }}
+          <v-chip :color="curationStatusColor(item.status)" size="small" variant="flat">
+            {{ item.status === 'active' ? 'Active' : 'Inactive' }}
           </v-chip>
         </template>
 
-        <template #item.version="{ item }">
-          <v-chip size="small" color="info" variant="outlined"> v{{ item.version }} </v-chip>
-        </template>
+        <template #item.version="{ item }"> v{{ item.version }} </template>
 
         <template #item.created_at="{ item }">
           {{ formatDate(item.created_at) }}
@@ -188,10 +183,9 @@
     transformSchemas,
     type TransformedSchema,
     formatType,
-    formatStatus,
-    getTypeColor,
-    getStatusColor
+    getTypeColor
   } from '@/utils/schemaTransformer'
+  import { curationStatusColor } from '@/config/status'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -249,9 +243,8 @@
   ]
 
   const statusOptions = [
-    { title: 'Draft', value: 'draft' },
     { title: 'Active', value: 'active' },
-    { title: 'Deprecated', value: 'deprecated' }
+    { title: 'Inactive', value: 'inactive' }
   ]
 
   const tableHeaders = [
@@ -281,9 +274,6 @@
 
     return filtered
   })
-
-  // Note: getTypeColor, getStatusColor, formatType, formatStatus
-  // are now imported from @/utils/schemaTransformer (DRY principle)
 
   const formatDate = (dateString: string | null | undefined) => {
     return dateString ? new Date(dateString).toLocaleDateString() : ''
@@ -390,7 +380,7 @@
   onMounted(async () => {
     loading.value = true
     try {
-      await schemasStore.fetchSchemas()
+      await schemasStore.fetchSchemas({ active_only: false })
       logger.info('SchemaManagement mounted', { schemasCount: schemas.value.length })
     } catch (error) {
       const err = error as ApiError
@@ -401,12 +391,7 @@
         stack: err.stack
       })
 
-      // Check if 404 (endpoint doesn't exist yet)
-      if (err.response?.status === 404) {
-        showError('Schema management is not yet available. This feature is under development.')
-      } else {
-        showError('Failed to load schemas. Please refresh.')
-      }
+      showError('Failed to load schemas')
     } finally {
       loading.value = false
     }

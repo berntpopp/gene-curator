@@ -503,8 +503,8 @@
       // - workflowPairs and schemas are in schemasStore
       // - analytics and reviewers are in workflowStore
       await Promise.all([
-        schemasStore.fetchSchemas(),
-        schemasStore.fetchWorkflowPairs(),
+        schemasStore.fetchSchemas({ active_only: false }),
+        schemasStore.fetchWorkflowPairs({ active_only: false }),
         workflowStore.fetchWorkflowAnalytics().catch(() => null), // Non-critical
         workflowStore.fetchPeerReviewers().catch(() => null) // Non-critical
       ])
