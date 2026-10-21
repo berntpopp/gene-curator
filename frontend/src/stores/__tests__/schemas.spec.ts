@@ -203,21 +203,31 @@ describe('useSchemasStore', () => {
   })
 
   describe('duplicateSchema', () => {
-    it('creates a copy without server-managed fields under a "(copy)" name', async () => {
+    it('creates an inactive copy with a bumped patch version and the original name', async () => {
       const store = useSchemasStore()
       api.getSchemaById.mockResolvedValue(
-        schema('a', { name: 'orig', version: '1.0', is_active: true, schema_hash: 'h' })
+        schema('a', { name: 'orig', version: '1.0.0', is_active: true, schema_hash: 'h' })
       )
-      api.createSchema.mockResolvedValue(schema('b', { name: 'orig (copy)' }))
+      api.createSchema.mockResolvedValue(schema('b', { name: 'orig' }))
 
       const copy = await store.duplicateSchema('a')
 
       const sent = api.createSchema.mock.calls[0]?.[0]
-      expect(sent).toMatchObject({ name: 'orig (copy)', version: '1.0', is_active: true })
+      expect(sent).toMatchObject({ name: 'orig', version: '1.0.1', is_active: false })
       expect(sent).not.toHaveProperty('id')
       expect(sent).not.toHaveProperty('schema_hash')
       expect(copy.id).toBe('b')
       expect(store.schemas.map(s => s.id)).toEqual(['b'])
+    })
+
+    it('appends .1 when the version has no numeric patch', async () => {
+      const store = useSchemasStore()
+      api.getSchemaById.mockResolvedValue(schema('a', { version: '11.0-beta' }))
+      api.createSchema.mockResolvedValue(schema('b'))
+
+      await store.duplicateSchema('a')
+
+      expect(api.createSchema.mock.calls[0]?.[0]).toMatchObject({ version: '11.0-beta.1' })
     })
   })
 
