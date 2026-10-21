@@ -88,6 +88,20 @@ describe('GeneCatalogueView', () => {
     expect(wrapper.text()).toContain('BRCA1')
   })
 
+  it('shows the band when the chromosome is missing and a dash when both are', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
+      entries: [
+        { ...entry, gene_id: 'g2', approved_symbol: 'PKD2', chromosome: null, location: '4q22.1' },
+        { ...entry, gene_id: 'g3', approved_symbol: 'NOLOC', chromosome: null, location: null }
+      ],
+      total: 2
+    } as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('4q22.1')
+    expect(wrapper.text()).not.toContain('Unknown')
+  })
+
   it('shows the store error instead of an empty page when the API fails', async () => {
     vi.mocked(geneCatalogueAPI.getCatalogue).mockRejectedValue(new Error('boom'))
     const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })

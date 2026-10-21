@@ -10,7 +10,7 @@ const withCaseLevel: Partial<ClinGenEvidenceData> = {
   genetic_evidence: {
     case_level: {
       autosomal_dominant_or_x_linked: {
-        predicted_or_proven_null: [{ proband_counted_points: 1.5 }],
+        predicted_or_proven_null: [{ pmid: '1', proband_counted_points: 1.5 }],
         other_variant_type: []
       }
     }
@@ -62,7 +62,7 @@ describe('ClinGenCurationForm', () => {
       genetic_evidence: {
         case_level: {
           autosomal_dominant_or_x_linked: {
-            predicted_or_proven_null: [{ proband_counted_points: 12 }],
+            predicted_or_proven_null: [{ pmid: '1', proband_counted_points: 12 }],
             other_variant_type: []
           }
         }
@@ -125,7 +125,7 @@ describe('ClinGenCurationForm', () => {
     const emitted = wrapper.emitted('save-draft')?.[0]?.[0] as ClinGenEvidenceData
     expect(
       emitted.genetic_evidence.case_level?.autosomal_dominant_or_x_linked?.predicted_or_proven_null
-    ).toEqual([{ proband_counted_points: 1.5 }])
+    ).toEqual([{ pmid: '1', proband_counted_points: 1.5 }])
   })
 
   it('asks for confirmation before emitting submit, also via Ctrl+Enter', async () => {

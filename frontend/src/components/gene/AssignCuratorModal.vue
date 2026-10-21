@@ -214,7 +214,7 @@
             <span class="text-title-small">Assignment Preview</span>
           </div>
           <div class="text-body-medium">
-            <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
+            <strong>{{ pluralize(selectedGenes.length, 'gene') }}</strong> will be assigned to
             <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
             <span v-if="priority !== 'medium'">
               at <strong>{{ priority }}</strong> priority
@@ -242,6 +242,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted } from 'vue'
   import { assignmentsAPI } from '@/api'
+  import { pluralize } from '@/utils/pluralize'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
@@ -461,7 +462,7 @@
       const left = selectedGenes.value.length - result.total_created
       const who = selectedCurator.value.full_name || selectedCurator.value.email
       notificationStore.addToast(
-        `${result.total_created} gene(s) assigned to ${who}${left > 0 ? ` (${left} skipped)` : ''}`,
+        `${pluralize(result.total_created, 'gene')} assigned to ${who}${left > 0 ? ` (${left} skipped)` : ''}`,
         left > 0 ? 'warning' : 'success'
       )
 

@@ -63,6 +63,7 @@
               <v-select
                 :model-value="item.evidence_type"
                 :items="evidenceTypes"
+                aria-label="Evidence type"
                 item-title="label"
                 item-value="value"
                 density="compact"
@@ -87,6 +88,7 @@
               <v-select
                 :model-value="item.impact"
                 :items="impactOptions"
+                aria-label="Impact"
                 item-title="label"
                 item-value="value"
                 density="compact"

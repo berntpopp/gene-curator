@@ -270,13 +270,17 @@
   const adXlScore = computed(() => {
     const adXl = props.modelValue.case_level?.autosomal_dominant_or_x_linked
     return (
-      sumProbandPoints(adXl?.predicted_or_proven_null) + sumProbandPoints(adXl?.other_variant_type)
+      sumProbandPoints(adXl?.predicted_or_proven_null, 1.5) +
+      sumProbandPoints(adXl?.other_variant_type, 0.1)
     )
   })
 
   const arScore = computed(() => {
     const ar = props.modelValue.case_level?.autosomal_recessive
-    return sumProbandPoints(ar?.predicted_or_proven_null) + sumProbandPoints(ar?.other_variant_type)
+    return (
+      sumProbandPoints(ar?.predicted_or_proven_null, 1.5) +
+      sumProbandPoints(ar?.other_variant_type, 0.1)
+    )
   })
 
   const segregationScore = computed(() => Math.min(sumPoints(props.modelValue.segregation), 3))

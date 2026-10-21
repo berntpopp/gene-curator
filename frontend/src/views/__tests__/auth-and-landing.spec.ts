@@ -112,6 +112,18 @@ describe('Login', () => {
     expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
   })
 
+  it('validates only on blur or submit, not while typing', async () => {
+    const wrapper = mount(Login, mountOpts(pinia))
+    await wrapper.find('input[type="email"]').setValue('a')
+    await wrapper.find('input[type="email"]').setValue('')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Email is required')
+
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Email is required')
+  })
+
   it('honours a redirect query parameter', async () => {
     routeState.query = { redirect: '/genes' }
     const auth = useAuthStore()

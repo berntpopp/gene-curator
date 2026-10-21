@@ -63,3 +63,35 @@ class TestDefinitiveAndContradictory:
     def test_rationale_uses_sop_v11_ranges(self, engine: ClinGenEngine):
         text = engine._generate_rationale(1, 0, 1, "limited")
         assert "1-6 points" in text
+
+
+def test_fresh_empty_case_level_row_scores_nothing():
+    fresh = {
+        "variant_type": "nonsense",
+        "variant": "",
+        "pmid": "",
+        "score_status": "score",
+        "proband_counted_points": 1.5,
+    }
+    engine = ClinGenEngine()
+    score, _ = engine._score_case_level_nested(
+        {"predicted_or_proven_null": [fresh]}, "AR"
+    )
+    assert score == 0
+    filled = {**fresh, "pmid": "12345678"}
+    score, _ = engine._score_case_level_nested(
+        {"predicted_or_proven_null": [filled]}, "AR"
+    )
+    assert score == 1.5
+
+
+def test_changed_points_score_on_otherwise_blank_row_and_missing_points_are_zero():
+    engine = ClinGenEngine()
+    nulls = {"predicted_or_proven_null": [{"proband_counted_points": 1.75}]}
+    assert engine._score_case_level_nested(nulls, "AR")[0] == 1.75
+    other = {"other_variant_type": [{"proband_counted_points": 0.9}]}
+    assert engine._score_case_level_nested(other, "AR")[0] == 0.9
+    default = {"other_variant_type": [{"proband_counted_points": 0.1}]}
+    assert engine._score_case_level_nested(default, "AR")[0] == 0
+    no_points = {"predicted_or_proven_null": [{"pmid": "1"}]}  # frontend: 0
+    assert engine._score_case_level_nested(no_points, "AR")[0] == 0

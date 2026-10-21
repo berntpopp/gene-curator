@@ -102,7 +102,7 @@ describe('DynamicField field types', () => {
     expect(hasComponent(wrapper, 'VSelect')).toBe(true)
     expect(wrapper.findComponent({ name: 'VSelect' }).props('items')).toEqual([
       { title: 'Alpha', value: 'a' },
-      { title: 'b', value: 'b' }
+      { title: 'B', value: 'b' }
     ])
   })
 
@@ -110,8 +110,33 @@ describe('DynamicField field types', () => {
     const wrapper = mountField({ type: 'string', enum: ['x'] })
 
     expect(wrapper.findComponent({ name: 'VSelect' }).props('items')).toEqual([
-      { title: 'x', value: 'x' }
+      { title: 'X', value: 'x' }
     ])
+  })
+
+  it('humanizes the value of an enumOptions object that has no label', () => {
+    const wrapper = mountField({
+      type: 'string',
+      enum: ['unknown'],
+      enumOptions: [{ value: 'unknown' } as never]
+    })
+    expect(wrapper.findComponent({ name: 'VSelect' }).props('items')).toEqual([
+      { title: 'Unknown', value: 'unknown' }
+    ])
+  })
+
+  it('humanizes plain lowercase and slashed enum values', () => {
+    const wrapper = mountField({
+      type: 'string',
+      enum: ['mitochondrial', 'lump/split/undecided']
+    })
+
+    expect(
+      wrapper
+        .findComponent({ name: 'VSelect' })
+        .props('items')
+        .map((i: { title: string }) => i.title)
+    ).toEqual(['Mitochondrial', 'Lump/split/undecided'])
   })
 
   it('titles snake_case enum values readably and keeps the stored value', () => {

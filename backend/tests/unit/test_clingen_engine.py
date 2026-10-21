@@ -112,12 +112,12 @@ class TestNestedGeneticEvidence:
         assert result.scores["experimental_evidence_total"] == 0.0
         assert result.verdict == "limited"
 
-    def test_case_level_null_default_points(self, engine: ClinGenEngine):
+    def test_case_level_null_without_points_scores_zero(self, engine: ClinGenEngine):
         score, _ = engine._calculate_genetic_evidence(
             _nested_case_level(null_items=[{"pmid": VALID_PMID}])
         )
 
-        assert score == pytest.approx(1.5)
+        assert score == 0  # matches the frontend: no points entered, none counted
 
     def test_case_level_capped_at_twelve(self, engine: ClinGenEngine):
         items = [_null_item(1.5) for _ in range(10)]  # 15 raw points
