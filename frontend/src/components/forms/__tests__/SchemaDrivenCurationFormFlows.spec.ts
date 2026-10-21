@@ -211,7 +211,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     }
     curationsStore.fetchCurationById.mockResolvedValue({
       id: 'active-1',
-      precuration_id: 'pre-1',
+      precuration_id: 'stale-pre', // rejected since: create would refuse this link
       evidence_data: evidence,
       disease_name: 'Alport syndrome',
       mondo_id: 'MONDO:0018965',
@@ -220,6 +220,10 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       status: 'active'
     })
     curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
+    precurationsStore.precurations = [
+      { id: 'stale-pre', status: 'rejected' },
+      { id: 'pre-2', status: 'approved' }
+    ]
 
     const wrapper = await mountForm({
       geneId: 'g-1',
@@ -235,15 +239,41 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(vm.lockVersion).toBe(0)
     expect(vm.curationStatus).toBe('draft')
 
-    // The draft keeps the replaced curation's precuration link (#409)
+    // The draft links the currently approved precuration, never the source's stale one (#409)
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
     await flushPromises()
     expect(curationsStore.createCuration).toHaveBeenCalledWith({
       gene_id: 'g-1',
       scope_id: 'scope-1',
       workflow_pair_id: 'wp-1',
-      precuration_id: 'pre-1',
+      precuration_id: 'pre-2',
       evidence_data: evidence
+    })
+  })
+
+  it('creates a re-curation without a link when no precuration is approved', async () => {
+    curationsStore.fetchCurationById.mockResolvedValue({
+      id: 'active-1',
+      precuration_id: 'stale-pre',
+      evidence_data: { a: 1 },
+      status: 'active'
+    })
+    curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
+    precurationsStore.precurations = [{ id: 'stale-pre', status: 'rejected' }]
+
+    const wrapper = await mountForm({
+      geneId: 'g-1',
+      workflowPairId: 'wp-1',
+      prefillFrom: 'active-1'
+    })
+    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    await flushPromises()
+
+    expect(curationsStore.createCuration).toHaveBeenCalledWith({
+      gene_id: 'g-1',
+      scope_id: 'scope-1',
+      workflow_pair_id: 'wp-1',
+      evidence_data: { a: 1 }
     })
   })
 
