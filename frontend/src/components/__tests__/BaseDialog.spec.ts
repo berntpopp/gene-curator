@@ -36,6 +36,28 @@ describe('BaseDialog', () => {
     expect(document.activeElement).toBe(opener)
   })
 
+  it('returns focus to the menu activator when the opening menu item unmounts', async () => {
+    const activator = document.createElement('button')
+    activator.setAttribute('aria-haspopup', 'menu')
+    activator.setAttribute('aria-expanded', 'true')
+    const menu = document.createElement('div')
+    menu.className = 'v-menu'
+    const item = document.createElement('div')
+    item.tabIndex = 0
+    menu.appendChild(item)
+    document.body.append(activator, menu)
+    item.focus()
+    const wrapper = mountDialog()
+
+    await wrapper.setProps({ modelValue: true })
+    menu.remove() // v-menu items unmount once the menu closes
+    activator.setAttribute('aria-expanded', 'false')
+    await wrapper.setProps({ modelValue: false })
+    wrapper.findComponent(VDialog).vm.$emit('after-leave')
+
+    expect(document.activeElement).toBe(activator)
+  })
+
   it('emits cancel on Escape even when persistent', async () => {
     const wrapper = mountDialog({ modelValue: true, persistent: true })
 
