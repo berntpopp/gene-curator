@@ -4243,9 +4243,9 @@ export interface components {
             };
             /**
              * Lock Version
-             * @description Optional lock version
+             * @description Optimistic locking version (required)
              */
-            lock_version?: number | null;
+            lock_version: number;
         };
         /** CurationHit */
         CurationHit: {
@@ -7320,6 +7320,8 @@ export interface components {
             updated_by: string | null;
             /** Version Number */
             version_number: number;
+            /** Lock Version */
+            lock_version: number;
             /**
              * Curation Count
              * @description Number of linked curations
@@ -7345,6 +7347,25 @@ export interface components {
             curation_id: string | null;
             /** Message */
             message: string;
+        };
+        /**
+         * PrecurationConflictResponse
+         * @description 409 Conflict response for optimistic locking.
+         */
+        PrecurationConflictResponse: {
+            /**
+             * Error
+             * @default Concurrent modification detected
+             */
+            error: string;
+            /** Current Lock Version */
+            current_lock_version: number;
+            /** Current State */
+            current_state: {
+                [key: string]: unknown;
+            };
+            /** Your Lock Version */
+            your_lock_version: number;
         };
         /**
          * PrecurationCreate
@@ -7378,6 +7399,24 @@ export interface components {
             };
         };
         /**
+         * PrecurationDraftSave
+         * @description Schema for saving a precuration as draft.
+         */
+        PrecurationDraftSave: {
+            /**
+             * Evidence Data
+             * @description Draft evidence data
+             */
+            evidence_data: {
+                [key: string]: unknown;
+            };
+            /**
+             * Lock Version
+             * @description Optimistic locking version (required)
+             */
+            lock_version: number;
+        };
+        /**
          * PrecurationListResponse
          * @description Paginated list response.
          */
@@ -7401,6 +7440,11 @@ export interface components {
              * @description Submission notes
              */
             notes?: string | null;
+            /**
+             * Lock Version
+             * @description Optimistic locking version (required)
+             */
+            lock_version: number;
         };
         /**
          * PrecurationSummary
@@ -7463,6 +7507,11 @@ export interface components {
             evidence_data?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Lock Version
+             * @description Optimistic locking version (required)
+             */
+            lock_version: number;
         };
         /**
          * PublicationData
@@ -12243,6 +12292,15 @@ export interface operations {
                     "application/json": components["schemas"]["Curation"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationConflictResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -12592,6 +12650,15 @@ export interface operations {
                     "application/json": components["schemas"]["Precuration"];
                 };
             };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecurationConflictResponse"];
+                };
+            };
             /** @description Validation Error */
             422: {
                 headers: {
@@ -12643,9 +12710,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["PrecurationDraftSave"];
             };
         };
         responses: {
@@ -12656,6 +12721,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecurationConflictResponse"];
                 };
             };
             /** @description Validation Error */
@@ -12691,6 +12765,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecurationConflictResponse"];
                 };
             };
             /** @description Validation Error */

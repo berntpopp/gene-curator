@@ -12,6 +12,31 @@ function setup(save = vi.fn().mockResolvedValue(true)) {
   return { frame, evidence, saving, savedAt, save }
 }
 
+describe('workspace frame conflict', () => {
+  it('shows conflict, keeps the leave guard on, and stops saving over the newer version', async () => {
+    const save = vi.fn().mockResolvedValue(true)
+    const frame = createWorkspaceFrame()
+    const evidence = ref<Record<string, unknown>>({ a: 1 })
+    const conflict = ref(false)
+    frame.attachForm({
+      evidence,
+      saving: ref(false),
+      savedAt: ref<number | null>(null),
+      conflict,
+      save
+    })
+    frame.markClean()
+    evidence.value = { a: 2 }
+    conflict.value = true
+    await nextTick()
+
+    expect(frame.state.value).toBe('conflict')
+    expect(frame.dirty.value).toBe(true) // the unsaved-changes guard stays active
+    expect(await frame.save()).toBe(false)
+    expect(save).not.toHaveBeenCalled()
+  })
+})
+
 describe('workspace frame save state', () => {
   it('is saved until the evidence changes, then unsaved', async () => {
     const { frame, evidence } = setup()

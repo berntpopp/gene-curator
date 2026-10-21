@@ -23,11 +23,13 @@ from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_required import MissingRequiredFieldsError
-from app.models import CurationStatus, UserNew
+from app.models import CurationStatus, PrecurationNew, UserNew
 from app.schemas.precuration import (
     Precuration,
     PrecurationApprovalResult,
+    PrecurationConflictResponse,
     PrecurationCreate,
+    PrecurationDraftSave,
     PrecurationListResponse,
     PrecurationSubmit,
     PrecurationUpdate,
@@ -215,12 +217,30 @@ def create_precuration(
     return Precuration.model_validate(precuration)
 
 
+def _conflict(precuration: PrecurationNew, sent: int) -> HTTPException:
+    """409 carrying the current version and state (the failed UPDATE rolled back, so this reads
+    what the other tab saved)."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "error": "Concurrent modification detected",
+            "current_lock_version": precuration.lock_version,
+            "your_lock_version": sent,
+            "current_state": precuration.evidence_data,
+        },
+    )
+
+
 # ========================================
 # UPDATE ENDPOINT
 # ========================================
 
 
-@router.put("/{precuration_id}", response_model=Precuration)
+@router.put(
+    "/{precuration_id}",
+    response_model=Precuration,
+    responses={409: {"model": PrecurationConflictResponse}},
+)
 @api_endpoint()
 def update_precuration(
     precuration_id: UUID,
@@ -250,16 +270,17 @@ def update_precuration(
             detail="Only draft or rejected precurations can be edited",
         )
 
-    # Update evidence_data
-    if precuration_in.evidence_data is not None:
-        precuration.evidence_data = precuration_in.evidence_data
-        precuration.updated_by = current_user.id
+    updated = precuration_crud.update_with_lock(
+        db,
+        db_obj=precuration,
+        evidence_data=precuration_in.evidence_data,
+        lock_version=precuration_in.lock_version,
+        user_id=current_user.id,
+    )
+    if updated is None:
+        raise _conflict(precuration, precuration_in.lock_version)
 
-    db.add(precuration)
-    db.commit()
-    db.refresh(precuration)
-
-    return Precuration.model_validate(precuration)
+    return Precuration.model_validate(updated)
 
 
 # ========================================
@@ -267,11 +288,15 @@ def update_precuration(
 # ========================================
 
 
-@router.patch("/{precuration_id}/draft", response_model=Precuration)
+@router.patch(
+    "/{precuration_id}/draft",
+    response_model=Precuration,
+    responses={409: {"model": PrecurationConflictResponse}},
+)
 @api_endpoint()
 def save_draft(
     precuration_id: UUID,
-    draft_data: dict[str, Any],
+    draft_data: PrecurationDraftSave,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Precuration:
@@ -299,14 +324,21 @@ def save_draft(
     updated = precuration_crud.save_draft(
         db,
         db_obj=precuration,
-        evidence_data=draft_data.get("evidence_data", {}),
+        evidence_data=draft_data.evidence_data,
+        lock_version=draft_data.lock_version,
         user_id=current_user.id,
     )
+    if updated is None:
+        raise _conflict(precuration, draft_data.lock_version)
 
     return Precuration.model_validate(updated)
 
 
-@router.post("/{precuration_id}/submit", response_model=Precuration)
+@router.post(
+    "/{precuration_id}/submit",
+    response_model=Precuration,
+    responses={409: {"model": PrecurationConflictResponse}},
+)
 @api_endpoint()
 def submit_precuration(
     precuration_id: UUID,
@@ -352,6 +384,9 @@ def submit_precuration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+    if submitted is None:
+        raise _conflict(precuration, submit_in.lock_version)
 
     return Precuration.model_validate(submitted)
 

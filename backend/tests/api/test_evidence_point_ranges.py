@@ -99,7 +99,7 @@ def test_draft_save_is_not_validated(
     _engine(db_session, test_workflow_pair, "clingen_sop_v11")
     r = client.patch(
         f"/api/v1/curations/{test_curation.id}/draft",
-        json={"evidence_data": BAD},
+        json={"evidence_data": BAD, "lock_version": test_curation.lock_version},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert r.status_code == 200, r.text

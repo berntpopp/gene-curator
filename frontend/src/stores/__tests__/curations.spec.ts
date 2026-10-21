@@ -250,7 +250,7 @@ describe('useCurationsStore', () => {
       store.currentCuration = detail('c1')
       api.saveDraft.mockResolvedValue(saved('c1', { is_draft: false }))
 
-      const result = await store.saveDraft('c1', { evidence_data: {} })
+      const result = await store.saveDraft('c1', { evidence_data: {}, lock_version: 0 })
 
       expect(result).toMatchObject({ id: 'c1' })
       expect(store.curations[0]).toMatchObject({ is_draft: false })
@@ -262,8 +262,25 @@ describe('useCurationsStore', () => {
       const store = useCurationsStore()
       api.saveDraft.mockRejectedValue(new Error('offline'))
 
-      await expect(store.saveDraft('c1', { evidence_data: {} })).resolves.toBeNull()
+      await expect(
+        store.saveDraft('c1', { evidence_data: {}, lock_version: 0 })
+      ).resolves.toBeNull()
       expect(store.error).toEqual({ message: 'offline', isAutoSave: true })
+    })
+
+    it('flags a 409 as a conflict (another tab saved first), still returning null', async () => {
+      const store = useCurationsStore()
+      api.saveDraft.mockRejectedValue({
+        isAxiosError: true,
+        message: 'Request failed',
+        response: { status: 409, data: { current_lock_version: 5, your_lock_version: 4 } }
+      })
+
+      await expect(
+        store.saveDraft('c1', { evidence_data: {}, lock_version: 4 })
+      ).resolves.toBeNull()
+      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 5, yourVersion: 4 })
+      expect(store.isConflictError).toBe(true)
     })
   })
 

@@ -12,6 +12,7 @@ from app.crud.workflow_engine import WorkflowEngine
 from app.models import PrecurationNew, Scope, WorkflowStage
 from app.schemas.precuration import (
     PrecurationCreate,
+    PrecurationDraftSave,
     PrecurationSubmit,
     PrecurationUpdate,
 )
@@ -57,14 +58,20 @@ def test_precuration_write_roles_direct(
         if action == "update":
             endpoint = precurations.update_precuration
             kwargs["precuration_in"] = PrecurationUpdate(
-                evidence_data={"notes": "changed"}
+                evidence_data={"notes": "changed"},
+                lock_version=test_precuration.lock_version,
             )
         elif action == "draft":
             endpoint = precurations.save_draft
-            kwargs["draft_data"] = {"evidence_data": {"notes": "changed"}}
+            kwargs["draft_data"] = PrecurationDraftSave(
+                evidence_data={"notes": "changed"},
+                lock_version=test_precuration.lock_version,
+            )
         else:
             endpoint = precurations.submit_precuration
-            kwargs["submit_in"] = PrecurationSubmit()
+            kwargs["submit_in"] = PrecurationSubmit(
+                lock_version=test_precuration.lock_version
+            )
     if scope_role in ["curator", "admin", "platform_admin"]:
         result = endpoint(**kwargs)
         assert result.scope_id == scope.id

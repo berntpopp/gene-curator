@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import StageLine from '../StageLine.vue'
 import SaveState from '../SaveState.vue'
@@ -46,6 +46,20 @@ describe('SaveState', () => {
     expect(text('saving')).toBe('Saving…')
     expect(text('unsaved')).toBe('Unsaved changes')
     expect(text('failed')).toContain('Save failed')
+    expect(text('conflict')).toContain('Edited elsewhere')
+  })
+
+  it('conflict: warns that reloading discards local changes and reloads on click', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    const w = mount(SaveState, { props: { state: 'conflict', savedAt: null } })
+    expect(w.attributes('role')).toBe('alert')
+    expect(w.text()).toContain('lost')
+    expect(w.find('button').text()).toBe('Reload')
+    await w.find('button').trigger('click')
+    expect(reload).toHaveBeenCalledOnce()
+    expect(w.emitted('retry')).toBeUndefined() // retrying would only conflict again
+    vi.unstubAllGlobals()
   })
 
   it('is a polite live region and offers retry only after a failure', async () => {

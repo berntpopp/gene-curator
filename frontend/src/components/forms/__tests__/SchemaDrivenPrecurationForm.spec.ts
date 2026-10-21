@@ -14,7 +14,8 @@ const precurationsStore = vi.hoisted(() => ({
   fetchPrecurationById: vi.fn(),
   saveDraft: vi.fn(),
   createPrecuration: vi.fn(),
-  submitForReview: vi.fn()
+  submitForReview: vi.fn(),
+  error: null as { message?: string; isConflict?: boolean } | null
 }))
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
 const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn(), dropIfSaved: vi.fn() }))
@@ -95,6 +96,7 @@ function mountForm(props: Record<string, unknown> = {}) {
 
 describe('SchemaDrivenPrecurationForm', () => {
   beforeEach(() => {
+    precurationsStore.error = null
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
     schemaFields.value = undefined
@@ -139,6 +141,44 @@ describe('SchemaDrivenPrecurationForm', () => {
 
     expect(precurationsStore.saveDraft).toHaveBeenCalledWith('p-1', {})
     expect(wrapper.emitted('saved')).toHaveLength(1)
+  })
+
+  describe('conflict (another tab saved first)', () => {
+    const conflictError = {
+      message: 'Another user or tab has modified this precuration.',
+      isConflict: true
+    }
+
+    it('shows Edited elsewhere with Reload, and blocks further saves', async () => {
+      precurationsStore.saveDraft.mockResolvedValue(null)
+      precurationsStore.error = conflictError
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await internals(wrapper).handleSaveDraft()
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Edited elsewhere')
+      expect(wrapper.find('[role="alert"] button').text()).toBe('Reload')
+
+      precurationsStore.saveDraft.mockClear()
+      await internals(wrapper).handleSaveDraft()
+      await internals(wrapper).handleSubmit()
+      expect(precurationsStore.saveDraft).not.toHaveBeenCalled()
+      expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
+    })
+
+    it('shows it when the submit itself is refused as stale', async () => {
+      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+      precurationsStore.submitForReview.mockRejectedValue({ message: 'Request failed' })
+      precurationsStore.error = conflictError
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      internals(wrapper).handleEvidenceChange({ a: 1 })
+      internals(wrapper).handleValidationChange({ is_valid: true })
+      await internals(wrapper).handleSubmit()
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Edited elsewhere')
+      expect(addToast).not.toHaveBeenCalledWith('Precuration submitted for review', 'success')
+    })
   })
 
   it('reports a failed draft save', async () => {

@@ -1,10 +1,20 @@
 <template>
-  <span :class="['save-state', `save-state--${state}`]" role="status" aria-live="polite">
+  <span
+    :class="['save-state', `save-state--${state}`]"
+    :role="state === 'conflict' ? 'alert' : 'status'"
+    aria-live="polite"
+  >
     <v-icon v-if="state === 'saved'" size="14" aria-hidden="true">mdi-check</v-icon>
-    <v-icon v-else-if="state === 'failed'" size="14" aria-hidden="true">mdi-alert-circle</v-icon>
+    <v-icon v-else-if="state === 'failed' || state === 'conflict'" size="14" aria-hidden="true">
+      mdi-alert-circle
+    </v-icon>
     <template v-if="state === 'saved'">Saved{{ time ? ` ${time}` : '' }}</template>
     <template v-else-if="state === 'saving'">Saving…</template>
     <template v-else-if="state === 'unsaved'">Unsaved changes</template>
+    <template v-else-if="state === 'conflict'">
+      Edited elsewhere. Reload to get the newer version; your unsaved changes here will be lost.
+      <v-btn variant="text" size="x-small" class="ml-1" @click="reload">Reload</v-btn>
+    </template>
     <template v-else>
       Save failed
       <v-btn variant="text" size="x-small" class="ml-1" @click="emit('retry')">Retry</v-btn>
@@ -18,6 +28,8 @@
 
   const props = defineProps<{ state: SaveState; savedAt: number | null }>()
   const emit = defineEmits<{ retry: [] }>()
+  // The browser's leave prompt still asks first while there are unsaved changes
+  const reload = () => window.location.reload()
 
   const time = computed(() =>
     props.savedAt
@@ -47,7 +59,8 @@
     color: rgb(var(--v-theme-warning));
   }
 
-  .save-state--failed {
+  .save-state--failed,
+  .save-state--conflict {
     color: rgb(var(--v-theme-error));
     font-weight: 600;
   }

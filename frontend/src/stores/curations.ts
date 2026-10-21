@@ -268,8 +268,20 @@ export const useCurationsStore = defineStore('curations', {
 
         return updated
       } catch (error) {
-        // Don't throw for auto-save failures, just log
-        this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
+        const apiError = toApiError(error)
+        if (apiError.response?.status === 409) {
+          // Another tab saved first: never overwrite it; the workspace shows the conflict
+          const data = apiError.response.data ?? {}
+          this.error = {
+            message: 'Another user or tab has modified this curation. Reload to see their version.',
+            isConflict: true,
+            currentVersion: data.current_lock_version as number | undefined,
+            yourVersion: data.your_lock_version as number | undefined
+          }
+        } else {
+          // Don't throw for auto-save failures, just log
+          this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
+        }
         return null
       }
     },

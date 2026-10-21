@@ -58,9 +58,13 @@ export const precurationsAPI = {
   /**
    * Save precuration as draft
    * @param id - Precuration UUID
-   * @param data - Draft data
+   * @param data - Draft data with the lock_version this client loaded
+   * @throws {409} If lock_version doesn't match (another tab saved first)
    */
-  async saveDraft(id: string, data: Record<string, unknown>): Promise<Schema<'Precuration'>> {
+  async saveDraft(
+    id: string,
+    data: Schema<'PrecurationDraftSave'>
+  ): Promise<Schema<'Precuration'>> {
     const response = await apiClient.patch<Schema<'Precuration'>>(`/precurations/${id}/draft`, data)
     return response.data
   },
@@ -72,7 +76,7 @@ export const precurationsAPI = {
    */
   async submitPrecuration(
     id: string,
-    data: Schema<'PrecurationSubmit'> = {}
+    data: Schema<'PrecurationSubmit'>
   ): Promise<Schema<'Precuration'>> {
     const response = await apiClient.post<Schema<'Precuration'>>(`/precurations/${id}/submit`, data)
     return response.data
