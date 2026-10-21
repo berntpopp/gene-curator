@@ -106,6 +106,18 @@ describe('UserManagement', () => {
     last_login: null
   }
 
+  it('uses singular nouns for a count of one', async () => {
+    users.statistics = {
+      total_users: 1,
+      active_users: 1,
+      inactive_users: 0,
+      role_distribution: { admin: 1 }
+    }
+    const wrapper = mount(UserManagement, opts())
+    await flushPromises()
+    expect(wrapper.find('[data-test="user-summary"]').text()).toBe('1 user · 1 admin · 0 inactive')
+  })
+
   it('loads users and shows the statistics on mount', async () => {
     users.paginatedUsers = [alice]
     users.statistics = {
