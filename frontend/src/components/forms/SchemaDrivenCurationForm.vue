@@ -3,6 +3,7 @@
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
       v-if="useDynamicForm === false && !loadingSchema"
+      :schema="schema"
       :curation-id="curationId ?? undefined"
       :gene="gene as Record<string, unknown>"
       :precuration-data="precurationData"

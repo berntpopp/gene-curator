@@ -33,7 +33,7 @@
               chooses its methodology by picking a workflow pair.
             </p>
             <ul class="text-body-1 ml-6">
-              <li>ClinGen gene-disease validity curation (SOP v11)</li>
+              <li>ClinGen gene-disease validity curation</li>
               <li>GenCC classification</li>
               <li>Custom schemas created by platform admins</li>
             </ul>

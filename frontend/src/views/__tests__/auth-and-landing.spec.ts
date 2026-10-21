@@ -305,12 +305,12 @@ describe('Home', () => {
     )
   })
 
-  it('shows Login to guests and no admin link to anyone', async () => {
+  it('shows Sign in to guests and no admin link to anyone', async () => {
     vi.spyOn(useGenesStore(), 'fetchStatistics').mockResolvedValue({} as never)
     const wrapper = mount(Home, mountOpts(pinia))
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Login')
+    expect(wrapper.text()).toContain('Sign in')
     expect(wrapper.text()).not.toContain('Manage Genes')
     expect(wrapper.text()).not.toContain('Recent Activity')
   })

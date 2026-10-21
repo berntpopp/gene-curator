@@ -32,7 +32,7 @@
         <!-- Header -->
         <div class="d-flex align-center mb-4">
           <div>
-            <h1 class="text-h4 mb-1">Clinical Scopes</h1>
+            <h1 class="text-h4 mb-1">{{ TERMINOLOGY.SCOPES }}</h1>
             <div class="text-subtitle-1 text-medium-emphasis">
               Browse and manage curation scopes
             </div>
@@ -211,6 +211,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'

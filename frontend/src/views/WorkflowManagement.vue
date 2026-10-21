@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">Workflow Management</h1>
+        <h1 class="text-h4 font-weight-bold">{{ TERMINOLOGY.WORKFLOWS }}</h1>
         <p class="text-body-1 text-medium-emphasis mt-1">
           Manage workflow pairs and multi-stage curation pipelines
         </p>
@@ -11,7 +11,7 @@
       <v-spacer />
       <v-btn color="primary" variant="flat" size="large" @click="createWorkflowDialog = true">
         <v-icon start>mdi-plus</v-icon>
-        New Workflow Pair
+        New {{ TERMINOLOGY.WORKFLOW }}
       </v-btn>
     </div>
 
@@ -19,7 +19,7 @@
     <v-card class="mb-6">
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-sitemap-outline</v-icon>
-        Workflow Pairs ({{ workflowPairs.length }})
+        {{ TERMINOLOGY.WORKFLOWS }} ({{ workflowPairs.length }})
       </v-card-title>
 
       <v-data-table
@@ -238,12 +238,12 @@
     <!-- Create Workflow Dialog -->
     <v-dialog v-model="createWorkflowDialog" max-width="600">
       <v-card>
-        <v-card-title>Create New Workflow Pair</v-card-title>
+        <v-card-title>Create New {{ TERMINOLOGY.WORKFLOW }}</v-card-title>
         <v-card-text>
           <v-form ref="createForm">
             <v-text-field
               v-model="newWorkflow.name"
-              label="Workflow Pair Name"
+              label="Workflow Name"
               variant="outlined"
               :rules="[v => !!v || 'Name is required']"
               required
@@ -292,6 +292,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'

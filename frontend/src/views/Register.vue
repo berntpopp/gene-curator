@@ -91,7 +91,7 @@
 
               <div class="text-center">
                 <p class="text-body-2 mb-2">Already have an account?</p>
-                <v-btn :to="{ name: 'Login' }" variant="text" color="primary"> Sign In </v-btn>
+                <v-btn :to="{ name: 'Login' }" variant="text" color="primary"> Sign in </v-btn>
               </div>
             </v-form>
           </v-card-text>

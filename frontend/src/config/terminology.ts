@@ -19,19 +19,21 @@ export const TERMINOLOGY = {
   SCHEMA_MANAGEMENT: 'Schema Management', // Deprecated
 
   // Evidence Collection
+  TEMPLATE: 'Template',
   TEMPLATES: 'Templates',
   SCHEMAS: 'Schemas', // Deprecated - use TEMPLATES
   METHODOLOGIES: 'Methodologies', // Deprecated - use TEMPLATES
 
   // Workflow
+  WORKFLOW: 'Workflow',
   WORKFLOWS: 'Workflows',
   WORKFLOW_PAIRS: 'Workflow Pairs', // Deprecated - use WORKFLOWS
   METHODOLOGY_PAIRS: 'Methodology Pairs', // Deprecated - use WORKFLOWS
 
   // Gene Browser
-  GENE_CATALOG: 'Gene Catalog',
+  GENE_CATALOG: 'Gene Catalogue',
+  GENES: 'Genes',
   BROWSE: 'Browse', // Deprecated - too vague
-  GENES: 'Genes', // Deprecated - use GENE_CATALOG
 
   // Quality Control
   VALIDATION: 'Validation',
@@ -41,6 +43,7 @@ export const TERMINOLOGY = {
   // Organization
   CLINICAL_SCOPE: 'Clinical Scope',
   SCOPE: 'Scope', // Short form acceptable in context
+  SCOPES: 'Scopes',
   SPECIALTY: 'Specialty', // Deprecated - use CLINICAL_SCOPE
   DOMAIN: 'Domain', // Deprecated - use CLINICAL_SCOPE
 
@@ -67,7 +70,10 @@ export const TERMINOLOGY = {
 
   // Status
   PENDING: 'Pending',
-  COMPLETED: 'Completed'
+  COMPLETED: 'Completed',
+
+  // Auth
+  SIGN_IN: 'Sign in'
 }
 
 /**
@@ -96,7 +102,6 @@ export function isDeprecated(term: string): boolean {
     'WORKFLOW_PAIRS',
     'METHODOLOGY_PAIRS',
     'BROWSE',
-    'GENES',
     'QUALITY_CONTROL',
     'QC',
     'SPECIALTY',

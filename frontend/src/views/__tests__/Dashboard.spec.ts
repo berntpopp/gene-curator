@@ -52,14 +52,14 @@ describe('Dashboard view', () => {
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.text()).toContain('No scopes assigned')
-    expect(wrapper.text()).not.toContain('Schema Management')
+    expect(wrapper.text()).not.toContain('Templates')
   })
 
   it('shows the admin-only schema link for admins', async () => {
     useAuthStore().user = { name: 'Root', role: 'admin' } as never
     const wrapper = mountView()
     await flushPromises()
-    expect(wrapper.text()).toContain('Schema Management')
+    expect(wrapper.text()).toContain('Templates')
   })
 
   it('shows the store error with Retry instead of the empty state, and retries the load', async () => {

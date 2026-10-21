@@ -11,7 +11,7 @@
               aspect-ratio="1"
               class="mx-auto mb-4"
             />
-            <h1 class="text-h4">Sign in</h1>
+            <h1 class="text-h4">{{ TERMINOLOGY.SIGN_IN }}</h1>
           </v-card-title>
 
           <v-card-text>
@@ -133,6 +133,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()

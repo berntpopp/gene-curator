@@ -6,7 +6,7 @@
       :disease="diseaseEntity"
       :classification="currentClassification"
       :moi="modeOfInheritance"
-      :sop-version="sopVersion"
+      :schema="schema"
       :expert-panel="expertPanel"
       :curation-id="curationId"
       :status="status"
@@ -241,6 +241,7 @@
     defineProps<{
       curationId?: string | null
       gene: GeneInfo
+      schema?: { name: string; version: string } | null
       precurationData?: PrecurationData
       initialData?: Partial<ClinGenEvidenceData>
       readonly?: boolean
@@ -251,6 +252,7 @@
     }>(),
     {
       curationId: null,
+      schema: null,
       precurationData: () => ({}),
       initialData: () => ({}),
       readonly: false,
@@ -297,7 +299,6 @@
       'Unknown'
   )
 
-  const sopVersion = computed(() => 'SOP v11')
   const expertPanel = computed(() => props.precurationData?.expert_panel || 'Not specified')
 
   const hasContradictoryEvidence = computed(

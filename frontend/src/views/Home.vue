@@ -32,7 +32,7 @@
               size="large"
               prepend-icon="mdi-login"
             >
-              Login
+              {{ TERMINOLOGY.SIGN_IN }}
             </v-btn>
           </div>
         </v-col>
@@ -102,6 +102,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
@@ -177,7 +178,7 @@
         color: 'success'
       },
       {
-        title: 'Clinical Scopes',
+        title: TERMINOLOGY.SCOPES,
         value: statistics.value.total_scopes || 0,
         icon: 'mdi-folder-multiple',
         color: 'info'
