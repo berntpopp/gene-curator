@@ -6,6 +6,11 @@ import { useAuthStore } from '@/stores/auth'
 import { useLogStore } from '@/stores/logStore'
 import { useDisclaimerStore } from '@/stores/disclaimer'
 
+const display = vi.hoisted(() => ({ mdAndUp: { value: true } }))
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => display
+}))
 vi.mock('@/stores/auth', () => ({ useAuthStore: vi.fn() }))
 vi.mock('@/stores/logStore', () => ({ useLogStore: vi.fn() }))
 vi.mock('@/stores/disclaimer', () => ({ useDisclaimerStore: vi.fn() }))
@@ -28,6 +33,7 @@ interface DisclaimerState {
 
 const stubs = {
   AppBar: true,
+  SideRail: true,
   FooterBar: true,
   MessageSnackbar: true,
   LogViewer: true,
@@ -61,6 +67,21 @@ describe('App', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('shows the side rail only to signed-in users at md and up', async () => {
+    const auth = reactive({ initialize: authInitialize, isAuthenticated: false })
+    vi.mocked(useAuthStore).mockReturnValue(auth as never)
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(true)
+
+    auth.isAuthenticated = true
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(false)
+    wrapper.unmount()
   })
 
   it('initialises auth and disclaimer stores on mount', async () => {

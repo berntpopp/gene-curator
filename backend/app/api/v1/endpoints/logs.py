@@ -11,7 +11,7 @@ Enhanced with configuration management to eliminate hardcoded values.
 import csv
 import io
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -334,7 +334,7 @@ async def export_logs(
             content=json.dumps(log_dicts, indent=2, default=str),
             media_type="application/json",
             headers={
-                "Content-Disposition": f"attachment; filename=logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
+                "Content-Disposition": f"attachment; filename=logs_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.json"
             },
         )
 
@@ -384,7 +384,7 @@ async def export_logs(
             iter([output.getvalue()]),
             media_type="text/csv",
             headers={
-                "Content-Disposition": f"attachment; filename=logs_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.csv"
+                "Content-Disposition": f"attachment; filename=logs_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}.csv"
             },
         )
 

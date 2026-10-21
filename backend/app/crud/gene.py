@@ -373,7 +373,7 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         self, db: Session, *, scope_id: UUID | None = None
     ) -> dict[str, Any]:
         """Get gene database statistics with curation-focused metrics."""
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         from app.models import ActiveCuration, Scope
 
@@ -432,7 +432,7 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         total_scopes = db.execute(select(func.count(Scope.id))).scalar() or 0
 
         # Recent curations activated (last 30 days)
-        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        thirty_days_ago = datetime.now(UTC) - timedelta(days=30)
         recent_curations = (
             db.execute(
                 select(func.count(ActiveCuration.id)).where(
