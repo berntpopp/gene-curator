@@ -2,10 +2,9 @@
   InviteMemberDialog Component
 
   Reusable dialog for inviting members to a scope.
-  Supports both existing user search and email invitation (deferred).
+  Invites existing users via search.
 
   **Features**:
-  - Two tabs: "Existing User" (default) and "By Email" (deferred)
   - User autocomplete search
   - Role selection with icons
   - Form validation
@@ -38,71 +37,31 @@
       </v-card-title>
 
       <v-card-text>
-        <!-- Invitation Method Tabs -->
-        <v-tabs v-model="inviteTab" class="mb-4">
-          <v-tab value="existing">
-            <v-icon start>mdi-account-search</v-icon>
-            Existing User
-          </v-tab>
-          <v-tab value="email" disabled>
-            <v-icon start>mdi-email</v-icon>
-            By Email
-            <v-chip size="x-small" class="ml-2" color="warning">Coming Soon</v-chip>
-          </v-tab>
-        </v-tabs>
-
         <v-form ref="formRef" v-model="formValid">
-          <v-window v-model="inviteTab">
-            <!-- Existing User Tab -->
-            <v-window-item value="existing">
-              <UserSearchAutocomplete
-                v-model="selectedUser"
-                :scope-id="scopeId"
-                :exclude-user-ids="existingMemberIds"
-                label="Search for user"
-                placeholder="Type name, email, or institution..."
-              />
+          <UserSearchAutocomplete
+            v-model="selectedUser"
+            :scope-id="scopeId"
+            :exclude-user-ids="existingMemberIds"
+            label="Search for user"
+            placeholder="Type name, email, or institution..."
+          />
 
-              <!-- Selected User Preview -->
-              <v-alert
-                v-if="selectedUser"
-                type="info"
-                variant="tonal"
-                class="mt-3"
-                density="compact"
-              >
-                <div class="d-flex align-center">
-                  <v-avatar size="32" color="primary" class="mr-3">
-                    <span class="text-caption font-weight-bold">
-                      {{ getInitials(selectedUser.name) }}
-                    </span>
-                  </v-avatar>
-                  <div>
-                    <div class="font-weight-medium">
-                      {{ selectedUser.name || selectedUser.email }}
-                    </div>
-                    <div class="text-caption text-medium-emphasis">{{ selectedUser.email }}</div>
-                  </div>
+          <!-- Selected User Preview -->
+          <v-alert v-if="selectedUser" type="info" variant="tonal" class="mt-3" density="compact">
+            <div class="d-flex align-center">
+              <v-avatar size="32" color="primary" class="mr-3">
+                <span class="text-caption font-weight-bold">
+                  {{ getInitials(selectedUser.name) }}
+                </span>
+              </v-avatar>
+              <div>
+                <div class="font-weight-medium">
+                  {{ selectedUser.name || selectedUser.email }}
                 </div>
-              </v-alert>
-            </v-window-item>
-
-            <!-- Email Tab (deferred) -->
-            <v-window-item value="email">
-              <v-text-field
-                v-model="emailInvite"
-                label="Email Address"
-                type="email"
-                :rules="emailRules"
-                prepend-icon="mdi-email"
-                placeholder="user@example.com"
-                disabled
-              />
-              <v-alert type="info" variant="tonal" density="compact" class="mt-2">
-                Email invitations are coming soon. For now, please invite existing users.
-              </v-alert>
-            </v-window-item>
-          </v-window>
+                <div class="text-caption text-medium-emphasis">{{ selectedUser.email }}</div>
+              </div>
+            </div>
+          </v-alert>
 
           <!-- Role Selection -->
           <v-select
@@ -225,9 +184,7 @@
   const formRef = ref<{ reset: () => void } | null>(null)
   const formValid = ref(false)
   const submitting = ref(false)
-  const inviteTab = ref('existing')
   const selectedUser = ref<InviteCandidate | null>(null)
-  const emailInvite = ref('')
   const selectedRole = ref<Schema<'ScopeRole'>>('viewer')
   const notes = ref('')
 
@@ -271,21 +228,11 @@
     }
   ])
 
-  const canSubmit = computed(() => {
-    if (inviteTab.value === 'existing') {
-      return selectedUser.value && selectedRole.value
-    }
-    return false // Email tab is disabled
-  })
+  const canSubmit = computed(() => selectedUser.value && selectedRole.value)
 
   // ============================================
   // VALIDATION RULES
   // ============================================
-
-  const emailRules = [
-    (v: string) => !!v || 'Email is required',
-    (v: string) => /.+@.+\..+/.test(v) || 'Email must be valid'
-  ]
 
   const roleRules = [(v: string) => !!v || 'Role is required']
 
@@ -314,10 +261,8 @@
    */
   const resetForm = () => {
     selectedUser.value = null
-    emailInvite.value = ''
     selectedRole.value = 'viewer'
     notes.value = ''
-    inviteTab.value = 'existing'
     if (formRef.value) {
       formRef.value.reset()
     }
@@ -344,10 +289,8 @@
         role: selectedRole.value
       }
 
-      if (inviteTab.value === 'existing' && selectedUser.value) {
+      if (selectedUser.value) {
         invitationData.user_id = selectedUser.value.id
-      } else if (inviteTab.value === 'email') {
-        invitationData.email = emailInvite.value
       }
 
       if (notes.value) {
@@ -356,7 +299,6 @@
 
       logger.debug('Sending invitation', {
         scopeId: props.scopeId,
-        type: inviteTab.value,
         role: selectedRole.value
       })
 
@@ -372,7 +314,7 @@
       emit('invited', {
         ...result,
         userName: selectedUser.value?.name,
-        userEmail: selectedUser.value?.email || emailInvite.value
+        userEmail: selectedUser.value?.email
       })
 
       // Reset and close

@@ -21,7 +21,6 @@ interface InviteInternals {
   notes: string
   canSubmit: boolean
   roleOptions: { value: string; title: string }[]
-  emailRules: ((v: string) => true | string)[]
   notesRules: ((v: string) => true | string)[]
   getInitials: (name: string | null | undefined) => string
   handleSubmit: () => Promise<void>
@@ -131,12 +130,9 @@ describe('InviteMemberDialog', () => {
     expect(vm.getInitials(null)).toBe('?')
   })
 
-  it('validates email, role and notes length', () => {
+  it('validates the notes length', () => {
     const { vm } = mountDialog()
 
-    expect(vm.emailRules[0]?.('')).toBe('Email is required')
-    expect(vm.emailRules[1]?.('nope')).toBe('Email must be valid')
-    expect(vm.emailRules[1]?.('a@b.org')).toBe(true)
     expect(vm.notesRules[0]?.('x'.repeat(201))).toBe('Notes must be 200 characters or less')
     expect(vm.notesRules[0]?.('short')).toBe(true)
   })

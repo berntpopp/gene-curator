@@ -60,27 +60,9 @@
             <v-icon start>mdi-account-multiple-plus</v-icon>
             Bulk Assign ({{ selectedAssignments.length }})
           </v-btn>
-
-          <v-tooltip text="Coming soon" location="top">
-            <template #activator="{ props }">
-              <v-btn v-bind="props" color="secondary" variant="outlined" disabled>
-                <v-icon start>mdi-scale-balance</v-icon>
-                Rebalance Workload
-              </v-btn>
-            </template>
-          </v-tooltip>
         </div>
 
         <div class="d-flex ga-2">
-          <v-tooltip text="Coming soon" location="top">
-            <template #activator="{ props }">
-              <v-btn v-bind="props" variant="outlined" disabled>
-                <v-icon start>mdi-download</v-icon>
-                Export
-              </v-btn>
-            </template>
-          </v-tooltip>
-
           <v-btn variant="outlined" :loading="loading" @click="refreshAssignments">
             <v-icon start>mdi-refresh</v-icon>
             Refresh
