@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     external_validation,
     gene_assignments,
     gene_catalogue,
+    gene_catalogue_matrix,
     gene_resolve,
     gene_summaries,
     genes,
@@ -72,6 +73,11 @@ api_router.include_router(
 )
 
 # ClinGen SOP v11 endpoints
+api_router.include_router(
+    gene_catalogue_matrix.router,
+    prefix="/gene-catalogue",
+    tags=["gene-catalogue"],
+)
 api_router.include_router(evidence.router, tags=["evidence"])
 api_router.include_router(gene_summaries.router, tags=["gene-summaries"])
 api_router.include_router(
