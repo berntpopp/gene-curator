@@ -3,14 +3,14 @@
     <v-row>
       <v-col cols="12">
         <!-- Header -->
-        <div class="d-flex justify-space-between align-center mb-6">
+        <div class="d-flex flex-wrap justify-space-between align-center ga-2 mb-6">
           <div class="d-flex align-center">
             <v-btn aria-label="Go back" icon variant="text" class="mr-3" @click="goBack">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
             <h1 class="text-headline-large d-inline">{{ pageTitle }}</h1>
           </div>
-          <div class="d-flex ga-2">
+          <div class="d-flex flex-wrap ga-2">
             <v-btn
               v-if="canEdit"
               color="primary"

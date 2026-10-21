@@ -213,6 +213,13 @@ def create_precuration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+    except DBAPIError as e:  # require() lets platform admins through; RLS does not
+        db.rollback()
+        raise_if_rls_denied(
+            e,
+            "Creating precurations here needs an accepted curator membership in this scope",
+        )
+        raise
 
     return Precuration.model_validate(precuration)
 

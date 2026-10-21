@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models.models import Scope, ScopeMembership, UserNew
-from tests.api.scopes.factories import auth_headers, make_member, make_user
+from tests.api.scopes.factories import auth_headers, make_member, make_scope, make_user
 
 pytestmark = pytest.mark.unit
 
@@ -183,7 +183,7 @@ def test_accept_twice_is_rejected(
     assert response.json()["detail"] == "Invitation already accepted"
 
 
-def test_accept_unknown_invitation_returns_400(
+def test_accept_unknown_invitation_returns_404(
     client: TestClient, db_session: Session, owner: UserNew, scope_with_admin: Scope
 ) -> None:
     response = client.post(
@@ -192,8 +192,27 @@ def test_accept_unknown_invitation_returns_400(
         headers=auth_headers(make_user(db_session)),
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 404
     assert response.json()["detail"] == "Invitation not found"
+
+
+def test_accept_under_another_scope_is_404_and_accepts_nothing(
+    client: TestClient, db_session: Session, owner: UserNew, scope_with_admin: Scope
+) -> None:
+    invitee = make_user(db_session)
+    invitation = _invite(client, scope_with_admin, owner, invitee)
+    other = make_scope(db_session, created_by=owner.id)
+
+    response = client.post(
+        f"{BASE}/{other.id}/invitations/{invitation['id']}/accept",
+        json={},
+        headers=auth_headers(invitee),
+    )
+
+    assert response.status_code == 404
+    db_session.expire_all()
+    membership = db_session.get(ScopeMembership, invitation["id"])
+    assert membership is not None and membership.accepted_at is None
 
 
 def test_expired_invitation_cannot_be_accepted(

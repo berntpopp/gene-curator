@@ -450,7 +450,8 @@ export interface paths {
          *         Updated ScopeMembershipResponse
          *
          *     Raises:
-         *         HTTPException 400: Invitation not found, user mismatch, or already accepted
+         *         HTTPException 404: No such invitation in this scope
+         *         HTTPException 400: User mismatch, already accepted or expired
          */
         post: operations["accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post"];
         delete?: never;
