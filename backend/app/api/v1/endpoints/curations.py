@@ -33,6 +33,7 @@ from app.schemas.curation import (
     CurationSubmit,
     CurationUpdate,
 )
+from app.scoring.point_limits import point_range_errors
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -481,6 +482,12 @@ def submit_curation(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only the creator can submit for review",
+        )
+
+    if point_errors := point_range_errors(curation.evidence_data):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="; ".join(point_errors),
         )
 
     try:
