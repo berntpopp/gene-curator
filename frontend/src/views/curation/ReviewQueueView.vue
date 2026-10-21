@@ -131,7 +131,7 @@
                 <div class="d-flex align-center">
                   <v-chip color="warning" size="small" variant="flat">
                     <v-icon start size="small">mdi-clock-outline</v-icon>
-                    Awaiting Review
+                    {{ curationStatusLabel(curation.status) }}
                   </v-chip>
                 </div>
               </v-col>
@@ -236,6 +236,7 @@
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { curationStatusLabel } from '@/config/status'
   import { useLogger } from '@/composables/useLogger'
   import { useConfirm } from '@/composables/useConfirm'
   import { useNotificationsStore } from '@/stores/notifications'

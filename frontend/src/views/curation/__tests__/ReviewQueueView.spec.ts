@@ -272,3 +272,21 @@ describe('ReviewQueueView', () => {
     })
   })
 })
+
+describe('ReviewQueueView status label', () => {
+  it('uses the shared status label', async () => {
+    setActivePinia(createPinia())
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({})],
+      total: 1
+    } as never)
+    vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+      precurations: [],
+      total: 0
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    expect(wrapper.text()).toContain('In review')
+    expect(wrapper.text()).not.toContain('Awaiting Review')
+  })
+})

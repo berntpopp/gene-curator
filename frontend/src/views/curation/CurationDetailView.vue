@@ -363,6 +363,7 @@
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
+  import { humanize } from '@/components/dynamic/fieldLabels'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -471,13 +472,13 @@
   // Utility functions
   const formatInheritance = (moi: string): string => {
     const labels: Record<string, string> = {
-      AD: 'Autosomal Dominant',
-      AR: 'Autosomal Recessive',
-      XLD: 'X-linked Dominant',
-      XLR: 'X-linked Recessive',
+      AD: 'Autosomal dominant',
+      AR: 'Autosomal recessive',
+      XLD: 'X-linked dominant',
+      XLR: 'X-linked recessive',
       MT: 'Mitochondrial'
     }
-    return labels[moi] || moi.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    return labels[moi] || humanize(moi.toLowerCase())
   }
 
   // Actions

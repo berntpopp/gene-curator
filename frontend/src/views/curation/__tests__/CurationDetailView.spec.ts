@@ -121,7 +121,7 @@ describe('CurationDetailView', () => {
   it('titles the page with gene and disease and humanises snake_case inheritance (#242)', async () => {
     const wrapper = await load({ mode_of_inheritance: 'autosomal_recessive' })
     expect(wrapper.find('h1').text()).toBe('PKD1 – ADPKD')
-    expect(wrapper.text()).toContain('Autosomal Recessive')
+    expect(wrapper.text()).toContain('Autosomal recessive')
   })
 
   it.each([
