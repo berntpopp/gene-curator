@@ -32,6 +32,8 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 
 import DynamicForm from '../DynamicForm.vue'
+import type { FormValidationResult } from '../types'
+import { scoreSnapshot } from '@/components/forms/scorePreview'
 
 const stubs = {
   'v-form': {
@@ -348,6 +350,22 @@ describe('DynamicForm flow', () => {
 
     expect(wrapper.emitted('validation-change')![0]).toEqual([{ is_valid: true }])
   })
+
+  it('passes the live verdict and trace through, so the score panel can render', () => {
+    const trace = { sections: [{ key: 'genetic_evidence', score: 2 }] }
+    store.result = {
+      is_valid: true,
+      score_calculations: { total_score: 2, verdict: 'limited', trace }
+    }
+    const wrapper = mountForm()
+
+    const [result] = wrapper.emitted('validation-change')![0] as [FormValidationResult]
+    expect(result.score_calculations).toEqual({ total_score: 2, verdict: 'limited', trace })
+    expect(scoreSnapshot(result.score_calculations, false)).toMatchObject({
+      total: 2,
+      classification: 'limited'
+    })
+  })
 })
 
 describe('DynamicForm stays mounted and follows late initial data', () => {
@@ -415,13 +433,22 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     }
     store.result = {
       is_valid: false,
-      errors: [{ field: 'entity_definition.mode_of_inheritance', message: 'Required' }],
-      warnings: [{ field: 'entity_definition.disease_name', message: 'Short' }]
+      errors: [
+        { field: 'entity_definition.mode_of_inheritance', message: 'Required' },
+        { field: 'entity_definition.mode_of_inheritance', message: 'Must be AD or AR' }
+      ],
+      warnings: [
+        { field: 'entity_definition.disease_name', message: 'Short' },
+        { field: 'entity_definition.disease_name', message: 'Short' }
+      ]
     }
     const wrapper = mountForm()
 
+    expect(wrapper.findComponent({ name: 'ValidationWarnings' }).props('messages')).toEqual([
+      'Disease name: Short'
+    ])
     expect(wrapper.text()).toContain('Mode of inheritance: Required')
-    expect(wrapper.text()).toContain('Disease name: Short')
+    expect(wrapper.text()).toContain('Mode of inheritance: Must be AD or AR')
     expect(wrapper.text()).not.toContain('entity_definition')
   })
 })

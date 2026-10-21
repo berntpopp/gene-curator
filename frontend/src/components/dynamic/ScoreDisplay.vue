@@ -140,7 +140,7 @@
   const props = withDefaults(
     defineProps<{
       /** Score calculations from validation result: category name -> score value */
-      scoreCalculations?: Record<string, number>
+      scoreCalculations?: Record<string, unknown>
       /** Scoring configuration from schema (engine, thresholds, max_scores) */
       scoringConfiguration?: ScoringConfiguration
       /** Loading state (validation in progress) */
