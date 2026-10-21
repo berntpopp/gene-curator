@@ -1,5 +1,6 @@
 """POST /genes and /genes/bulk: who may create global gene rows, and from what data (#363)."""
 
+import asyncio
 from unittest.mock import patch
 
 import pytest
@@ -148,3 +149,80 @@ def test_bulk_verifies_every_row_and_reports_unverifiable_ones(
         "PKD1",
         "PKD2",
     ]
+
+
+# --- PUT /genes/{id} (#363 review) ---------------------------------------------
+
+
+@pytest.mark.parametrize("who", ROLES)
+def test_update_by_role(client, db_session, test_scope, who):
+    admin = _user(db_session, test_scope, "platform_admin")
+    gid = client.post(
+        "/api/v1/genes/", json=_row(), headers=auth_headers(admin)
+    ).json()["id"]
+    user = _user(db_session, test_scope, who)
+    response = client.put(
+        f"/api/v1/genes/{gid}",
+        json={"details": {"note": "x"}},
+        headers=auth_headers(user),
+    )
+    assert response.status_code == (200 if who in ALLOWED else 403), response.text
+
+
+def test_update_replaces_fabricated_reference_fields(client, db_session, test_scope):
+    user = _user(db_session, test_scope, "curator")
+    gid = client.post("/api/v1/genes/", json=_row(), headers=auth_headers(user)).json()[
+        "id"
+    ]
+    body = client.put(
+        f"/api/v1/genes/{gid}",
+        json={"approved_symbol": "EVIL", "location": "Xq99", "alias_symbols": ["FAKE"]},
+        headers=auth_headers(user),
+    ).json()
+    assert body["approved_symbol"] == "PKD1"
+    assert body["location"] == "16p13.3"
+    assert body["alias_symbols"] == ["PBP"]
+
+
+def test_update_to_unknown_hgnc_id_is_rejected(client, db_session, test_scope):
+    user = _user(db_session, test_scope, "curator")
+    gid = client.post("/api/v1/genes/", json=_row(), headers=auth_headers(user)).json()[
+        "id"
+    ]
+    response = client.put(
+        f"/api/v1/genes/{gid}",
+        json={"hgnc_id": "HGNC:99999999"},
+        headers=auth_headers(user),
+    )
+    assert response.status_code == 422
+
+
+# --- total HGNC budget -----------------------------------------------------------
+
+
+class SlowHGNC(FakeHGNC):
+    async def fetch_gene_by_id(self, hgnc_id: str):
+        if hgnc_id == "HGNC:9009":
+            await asyncio.sleep(5)
+        return RECORDS.get(hgnc_id)
+
+
+def test_slow_hgnc_rows_reported_as_timeout_errors(client, db_session, test_scope):
+    user = _user(db_session, test_scope, "curator")
+    with (
+        patch("app.services.gene_verification.HGNCValidator", SlowHGNC),
+        patch("app.services.gene_verification._BUDGET_S", 0.1),
+    ):
+        body = client.post(
+            "/api/v1/genes/bulk",
+            json={"genes": [_row(), _row("HGNC:9009", "PKD2")]},
+            headers=auth_headers(user),
+        ).json()
+        single = client.post(
+            "/api/v1/genes/", json=_row("HGNC:9009", "PKD2"), headers=auth_headers(user)
+        )
+    assert body["total_created"] == 1
+    assert body["errors"] == [
+        {"hgnc_id": "HGNC:9009", "error": "HGNC lookup timed out"}
+    ]
+    assert single.status_code == 504

@@ -1846,7 +1846,7 @@ export interface paths {
         put?: never;
         /**
          * Create Gene
-         * @description Create new gene. Available to all authenticated users.
+         * @description Create a gene from its HGNC id (scope curators/admins, platform admins); data comes from HGNC.
          */
         post: operations["create_gene_api_v1_genes__post"];
         delete?: never;
@@ -1930,7 +1930,8 @@ export interface paths {
         get: operations["get_gene_api_v1_genes__gene_id__get"];
         /**
          * Update Gene
-         * @description Update gene information. Available to all authenticated users.
+         * @description Update gene information (scope curators/admins, platform admins); HGNC-sourced fields
+         *     are re-read from HGNC, never taken from the client.
          */
         put: operations["update_gene_api_v1_genes__gene_id__put"];
         post?: never;
@@ -1995,7 +1996,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk Create Genes
-         * @description Bulk create genes. Available to all authenticated users.
+         * @description Bulk create genes from HGNC ids; every row is re-read from HGNC (`validate_hgnc` is ignored).
          */
         post: operations["bulk_create_genes_api_v1_genes_bulk_post"];
         delete?: never;

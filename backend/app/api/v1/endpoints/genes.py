@@ -42,7 +42,7 @@ from app.schemas.gene import (
     GeneWithAssignments,
     ScopeGeneListResponse,
 )
-from app.services.gene_verification import verified_gene, verify_rows
+from app.services.gene_verification import verified_gene, verified_update, verify_rows
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -149,7 +149,7 @@ def create_gene(
     Create a gene from its HGNC id (scope curators/admins, platform admins); data comes from HGNC.
     """
     require_anywhere(db, current_user, CREATE_GENE)
-    gene_in = verified_gene(gene_in)
+    gene_in = verified_gene(db, gene_in)
 
     try:
         gene = gene_crud.create_with_owner(db, obj_in=gene_in, owner_id=current_user.id)
@@ -287,16 +287,17 @@ def update_gene(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Gene:
     """
-    Update gene information. Available to all authenticated users.
+    Update gene information (scope curators/admins, platform admins); HGNC-sourced fields
+    are re-read from HGNC, never taken from the client.
     """
+    require_anywhere(db, current_user, CREATE_GENE)
     gene = gene_crud.get(db, id=gene_id)
     if not gene:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
-    # All authenticated users can update genes
-    # RLS policies handle scope-based access control
+    gene_in = verified_update(db, gene_in, gene.hgnc_id)
 
     try:
         gene = gene_crud.update_with_owner(
@@ -423,7 +424,7 @@ def bulk_create_genes(
     Bulk create genes from HGNC ids; every row is re-read from HGNC (`validate_hgnc` is ignored).
     """
     require_anywhere(db, current_user, CREATE_GENE)
-    rows, unverified = verify_rows(bulk_request.genes)
+    rows, unverified = verify_rows(db, bulk_request.genes)
     result = gene_crud.bulk_create(
         db,
         genes_data=rows,
@@ -433,7 +434,6 @@ def bulk_create_genes(
     result["errors"] += unverified
     for key in ("total_errors", "total_processed"):
         result[key] += len(unverified)
-
     return GeneBulkCreateResponse(**result)
 
 

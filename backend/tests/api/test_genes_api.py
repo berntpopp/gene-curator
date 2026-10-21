@@ -242,13 +242,12 @@ def test_update_gene_applies_changes(
 ) -> None:
     response = client.put(
         f"{BASE}/{test_gene.id}",
-        json={"location": "17q21.31-q21.32", "alias_symbols": ["X1"]},
+        json={"details": {"note": "x"}},
         headers=_auth(curator_token),
     )
 
     assert response.status_code == 200
-    assert response.json()["location"] == "17q21.31-q21.32"
-    assert response.json()["alias_symbols"] == ["X1"]
+    assert response.json()["details"] == {"note": "x"}
 
 
 def test_update_gene_hgnc_conflict_and_missing(
