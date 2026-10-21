@@ -24,6 +24,7 @@ from app.api.v1.endpoints import (
     schemas,
     scope_memberships,
     scopes,
+    search,
     users,
     workflow,
 )
@@ -58,6 +59,7 @@ api_router.include_router(
 
 # Core entity endpoints
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])
+api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
 
 # Gene Catalogue - read-only aggregation view
