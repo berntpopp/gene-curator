@@ -307,19 +307,14 @@ export const useWorkflowStore = defineStore('workflow', {
 
     async fetchPendingReviewCount() {
       try {
-        // Dynamic imports keep this store free of a static dependency cycle with auth/curations
+        // Dynamic import keeps this store free of a static dependency cycle with curations
         const { curationsAPI } = await import('@/api')
-        const { useAuthStore } = await import('@/stores/auth')
-        const authStore = useAuthStore()
-
         const response = await curationsAPI.getCurations({
           curation_status: 'in_review',
-          limit: 200
+          limit: 1,
+          exclude_own: true
         })
-
-        const userId = authStore.user?.id
-        const myReviews = (response.curations || []).filter(c => c.created_by !== userId)
-        this.pendingReviewCount = myReviews.length
+        this.pendingReviewCount = response.total
         return this.pendingReviewCount
       } catch {
         return 0

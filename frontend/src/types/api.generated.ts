@@ -11446,6 +11446,8 @@ export interface operations {
                 curation_status?: components["schemas"]["CurationStatus"] | null;
                 /** @description Filter by curator */
                 curator_id?: string | null;
+                /** @description Exclude the caller's curations */
+                exclude_own?: boolean;
             };
             header?: never;
             path?: never;

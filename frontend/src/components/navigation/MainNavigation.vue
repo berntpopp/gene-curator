@@ -164,7 +164,9 @@
   function startBadgeRefresh() {
     if (!badgeRefreshInterval) {
       refreshBadgeCount()
-      badgeRefreshInterval = setInterval(refreshBadgeCount, 60000)
+      badgeRefreshInterval = setInterval(() => {
+        if (document.visibilityState === 'visible') refreshBadgeCount()
+      }, 60000)
     }
   }
 

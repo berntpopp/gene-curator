@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWorkflowStore, WORKFLOW_STAGES } from '@/stores/workflow'
 import { workflowAPI, curationsAPI } from '@/api'
-import { useAuthStore } from '@/stores/auth'
 import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
@@ -286,20 +285,20 @@ describe('useWorkflowStore', () => {
   })
 
   describe('fetchPendingReviewCount', () => {
-    it('counts in-review curations not created by the current user', async () => {
+    it('uses the total of a one-row exclude_own request', async () => {
       const store = useWorkflowStore()
-      const auth = useAuthStore()
-      auth.user = { id: 'me' } as Schema<'UserResponse'>
       curations.getCurations.mockResolvedValue({
-        curations: [{ created_by: 'me' }, { created_by: 'other' }, { created_by: 'x' }]
+        curations: [{}],
+        total: 7
       } as Schema<'CurationListResponse'>)
 
-      await expect(store.fetchPendingReviewCount()).resolves.toBe(2)
+      await expect(store.fetchPendingReviewCount()).resolves.toBe(7)
       expect(curations.getCurations).toHaveBeenCalledWith({
         curation_status: 'in_review',
-        limit: 200
+        limit: 1,
+        exclude_own: true
       })
-      expect(store.pendingReviewCount).toBe(2)
+      expect(store.pendingReviewCount).toBe(7)
     })
 
     it('returns 0 when the request fails', async () => {

@@ -174,6 +174,7 @@ def list_curations(
         None, description="Filter by status"
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
+    exclude_own: bool = Query(False, description="Exclude the caller's curations"),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationListResponse:
     """
@@ -216,6 +217,7 @@ def list_curations(
         gene_id=gene_id,
         status=curation_status,
         curator_id=curator_id,
+        exclude_creator_id=current_user.id if exclude_own else None,
     )
 
     return CurationListResponse(
