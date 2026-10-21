@@ -43,6 +43,13 @@ describe('FAQ accuracy', () => {
     expect(text).toContain('Disputed')
   })
 
+  it('sends admins to the All assignments table, not "My Work (/assignments)"', async () => {
+    const wrapper = mount(FAQ)
+    for (const title of wrapper.findAll('.v-expansion-panel-title')) await title.trigger('click')
+    expect(wrapper.html()).not.toContain('My Work (/assignments)')
+    expect(wrapper.html()).toContain('My work lists only the genes assigned to you')
+  })
+
   it('describes assignment edits and approval accurately', async () => {
     const wrapper = mount(FAQ)
     for (const title of wrapper.findAll('.v-expansion-panel-title')) await title.trigger('click')
