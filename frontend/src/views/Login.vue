@@ -43,6 +43,7 @@
                 prepend-inner-icon="mdi-email"
                 variant="outlined"
                 :rules="emailRules"
+                validate-on="blur"
                 autocomplete="username"
                 autofocus
                 required
@@ -57,6 +58,7 @@
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 variant="outlined"
                 :rules="passwordRules"
+                validate-on="blur"
                 autocomplete="current-password"
                 required
                 class="mb-4"
