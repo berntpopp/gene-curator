@@ -1,7 +1,8 @@
 <template>
   <v-container fluid class="clingen-curation-form pa-0">
-    <!-- Header Section -->
+    <!-- Header Section (the workspace frame has its own) -->
     <CurationHeader
+      v-if="!frame"
       :gene="gene"
       :disease="diseaseEntity"
       :classification="currentClassification"
@@ -12,22 +13,18 @@
       :status="status"
     />
 
-    <v-divider class="my-4" />
+    <v-divider v-if="!frame" class="my-4" />
 
     <!-- Main Content with Sidebar -->
     <v-row>
       <!-- Main Form Area -->
-      <v-col cols="12" lg="9">
+      <v-col cols="12" :lg="frame ? 12 : 9">
         <v-card>
           <!-- Tab Navigation -->
-          <v-tabs v-model="activeTab" bg-color="primary" slider-color="white">
-            <v-tab value="summary">
-              <v-icon start>mdi-file-document-outline</v-icon>
-              Summary
-            </v-tab>
+          <v-tabs v-model="activeTab" bg-color="primary" slider-color="white" show-arrows>
+            <v-tab value="summary">Summary</v-tab>
             <v-tab value="genetic">
-              <v-icon start>mdi-dna</v-icon>
-              Genetic evidence
+              Genetic
               <v-chip
                 v-if="scores.genetic > 0"
                 size="small"
@@ -39,8 +36,7 @@
               </v-chip>
             </v-tab>
             <v-tab value="experimental">
-              <v-icon start>mdi-flask</v-icon>
-              Experimental evidence
+              Experimental
               <v-chip
                 v-if="scores.experimental > 0"
                 size="small"
@@ -51,14 +47,8 @@
                 {{ scores.experimental.toFixed(2) }}
               </v-chip>
             </v-tab>
-            <v-tab value="contradictory">
-              <v-icon start>mdi-alert-circle-outline</v-icon>
-              Contradictory
-            </v-tab>
-            <v-tab value="lumping">
-              <v-icon start>mdi-call-split</v-icon>
-              Lumping & Splitting
-            </v-tab>
+            <v-tab value="contradictory">Contradictory</v-tab>
+            <v-tab value="lumping">Lumping</v-tab>
           </v-tabs>
 
           <v-card-text class="pa-6">
@@ -118,9 +108,9 @@
             </v-window>
           </v-card-text>
 
-          <!-- Form Actions -->
-          <v-divider />
-          <v-card-actions class="pa-4 flex-wrap ga-2">
+          <!-- Form Actions (the workspace frame has them in its header) -->
+          <v-divider v-if="!frame" />
+          <v-card-actions v-if="!frame" class="pa-4 flex-wrap ga-2">
             <v-btn variant="outlined" @click="handleCancel">
               <v-icon start>mdi-close</v-icon>
               Cancel
@@ -150,7 +140,7 @@
             </v-btn>
           </v-card-actions>
           <div
-            v-if="!canSubmit && !readonly"
+            v-if="!frame && !canSubmit && !readonly"
             class="text-body-small text-medium-emphasis px-4 pb-3 text-end"
           >
             Add at least one scored evidence item to submit
@@ -158,8 +148,8 @@
         </v-card>
       </v-col>
 
-      <!-- Score Sidebar -->
-      <v-col cols="12" lg="3">
+      <!-- Score Sidebar (the frame's score panel replaces it) -->
+      <v-col v-if="!frame" cols="12" lg="3">
         <div class="sticky-sidebar">
           <ScoreSummary
             :genetic-score="scores.genetic"
@@ -208,7 +198,7 @@
    * - Lumping & Splitting (read-only from precuration)
    */
 
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, inject, watch, onMounted, onBeforeUnmount } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import CurationHeader from './CurationHeader.vue'
   import SummarySection from './sections/SummarySection.vue'
@@ -222,6 +212,7 @@
   import { normalizeLegacy } from './scoring'
   import { calculateExperimentalScore, calculateGeneticScore, classifyScore } from './scoring'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import type {
     ClinGenEvidenceData,
     DiseaseInfo,
@@ -341,6 +332,35 @@
     return hasGenetic && !props.readonly
   })
 
+  // Inside the workspace frame: it shows the score, the entity and the save/submit actions.
+  const frame = inject(WORKSPACE_FRAME, null)
+  if (frame) {
+    frame.attachSubmit({ canSubmit, run: requestSubmit })
+    watch(
+      [scores, currentClassification, hasContradictoryEvidence],
+      () =>
+        frame.setScore({
+          genetic: scores.value.genetic,
+          experimental: scores.value.experimental,
+          total: scores.value.total,
+          classification: currentClassification.value,
+          hasContradictory: hasContradictoryEvidence.value,
+          geneticBreakdown: scores.value.geneticBreakdown,
+          experimentalBreakdown: scores.value.experimentalBreakdown
+        }),
+      { immediate: true }
+    )
+    watch(
+      [diseaseEntity, modeOfInheritance],
+      () =>
+        frame.setMeta({
+          disease: diseaseEntity.value.name ?? undefined,
+          moi: modeOfInheritance.value
+        }),
+      { immediate: true }
+    )
+  }
+
   // Event handlers
   function handleGeneticUpdate(data: GeneticEvidence) {
     evidenceData.value.genetic_evidence = data
@@ -400,7 +420,7 @@
     if (props.readonly) return
     const ctrl = event.ctrlKey || event.metaKey
 
-    if (ctrl && event.key === 's') {
+    if (ctrl && event.key === 's' && !frame) {
       event.preventDefault()
       handleSaveDraft()
     } else if (ctrl && event.key === 'Enter') {

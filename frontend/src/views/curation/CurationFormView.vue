@@ -1,32 +1,32 @@
 <template>
-  <v-container>
-    <v-row>
-      <v-col cols="12">
-        <!-- Header -->
-        <div class="d-flex align-center mb-6">
-          <v-btn
-            icon="mdi-arrow-left"
-            variant="text"
-            class="mr-3"
-            aria-label="Go back"
-            @click="handleCancel"
-          />
-          <h1 class="text-headline-large">
-            {{ isEdit ? 'Edit Curation' : 'New Curation' }}
-          </h1>
-        </div>
-      </v-col>
-    </v-row>
+  <v-container fluid class="workspace">
+    <WorkspaceHeader
+      :crumbs="crumbs"
+      :title="gene?.approved_symbol || (isEdit ? 'Curation' : 'New curation')"
+      :subtitle="frame.meta.value.disease"
+      :moi="frame.meta.value.moi"
+      :stage="curation?.workflow_stage ?? 'curation'"
+      :archived="curation?.status === 'archived'"
+      :state="frame.state.value"
+      :saved-at="frame.savedAt.value"
+      :readonly="isActive"
+      :show-submit="frame.hasSubmit.value"
+      :can-submit="frame.canSubmit.value"
+      :saving="frame.state.value === 'saving'"
+      @save="frame.save()"
+      @submit="frame.submit()"
+      @retry="frame.save()"
+    />
 
-    <v-row>
-      <v-col cols="12">
-        <v-alert v-if="isActive && !loading" type="info" variant="tonal" class="mb-4">
-          This curation is active and read-only. Re-curation starts from the curation page.
-          <template #append>
-            <v-btn variant="text" @click="openDetail">Open curation</v-btn>
-          </template>
-        </v-alert>
+    <v-alert v-if="isActive && !loading" type="info" variant="tonal" class="mb-4">
+      This curation is active and read-only. Re-curation starts from the curation page.
+      <template #append>
+        <v-btn variant="text" @click="openDetail">Open curation</v-btn>
+      </template>
+    </v-alert>
 
+    <div :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
+      <div class="ws-main">
         <!-- The one skeleton: until the schema is resolved and the form reports ready -->
         <v-skeleton-loader v-if="loading || (resolvedSchemaId && !formReady)" type="card" />
 
@@ -50,8 +50,7 @@
             :gene="formGene"
             @submit="handleSubmit"
             @cancel="handleCancel"
-            @saved="handleSaved"
-            @ready="formReady = true"
+            @ready="handleReady"
           />
         </div>
 
@@ -69,8 +68,17 @@
             This scope does not have a curation schema configured. Please contact an administrator.
           </div>
         </v-alert>
-      </v-col>
-    </v-row>
+      </div>
+
+      <aside v-if="showPanel && frame.score.value" class="ws-panel" aria-label="Score">
+        <ScorePanel
+          :score="frame.score.value"
+          :can-submit="frame.canSubmit.value"
+          :readonly="isActive"
+          :blockers="frame.blockers.value"
+        />
+      </aside>
+    </div>
   </v-container>
 </template>
 
@@ -94,7 +102,7 @@
    * - /scopes/:scopeId/genes/:geneId/curation/new (new from gene)
    */
 
-  import { ref, computed, onMounted } from 'vue'
+  import { ref, computed, onMounted, provide } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { useScopesStore } from '@/stores/scopes'
@@ -105,6 +113,11 @@
   import { useLogger } from '@/composables/useLogger'
   import SchemaDrivenCurationForm from '@/components/forms/SchemaDrivenCurationForm.vue'
   import CurationSchemaSelect from '@/components/forms/CurationSchemaSelect.vue'
+  import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
+  import ScorePanel from '@/components/workspace/ScorePanel.vue'
+  import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
+  import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
+  import { useSaveShortcut } from '@/composables/useSaveShortcut'
 
   interface CurationFormRecord {
     curation_schema_id?: string | null
@@ -112,10 +125,12 @@
     lock_version?: number | null
     gene_id?: string | null
     workflow_stage?: string | null
+    status?: string | null
   }
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
+    display_name?: string | null
   }
 
   interface WorkflowPairRecord {
@@ -170,6 +185,34 @@
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
 
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
+
+  // Workspace frame: the form fills it in (save state, score, submit); the shell shows it
+  const frame = createWorkspaceFrame()
+  provide(WORKSPACE_FRAME, frame)
+  useUnsavedGuard(frame.dirty)
+  useSaveShortcut(
+    () => frame.save(),
+    () => formReady.value && !isActive.value
+  )
+  const showPanel = computed(() => formReady.value && !!frame.score.value)
+
+  const crumbs = computed(() => [
+    { text: scope.value?.display_name || 'Scope', to: `/scopes/${scopeId.value}` },
+    ...(gene.value?.approved_symbol
+      ? [
+          {
+            text: gene.value.approved_symbol,
+            ...(effectiveGeneId.value ? { to: `/genes/${effectiveGeneId.value}` } : {})
+          }
+        ]
+      : []),
+    { text: 'Curation' }
+  ])
+
+  function handleReady() {
+    formReady.value = true
+    frame.markClean()
+  }
 
   function openDetail() {
     router.push({
@@ -251,6 +294,7 @@
 
   // The form emits `submit` without a payload; the saved curation is in the store
   function handleSubmit() {
+    frame.markClean() // submitted: nothing left to lose
     notificationsStore.addToast('Curation submitted successfully', 'success')
     const id = curationsStore.currentCuration?.id || curationId.value
     if (!id) {
@@ -261,6 +305,7 @@
   }
 
   function handleCancel() {
+    frame.markClean() // the form already asked before discarding
     // Navigate back to scope dashboard or previous page
     if (geneId.value) {
       router.push({
@@ -270,10 +315,6 @@
     } else {
       router.back()
     }
-  }
-
-  function handleSaved() {
-    notificationsStore.addToast('Draft saved', 'info')
   }
 
   async function loadData() {
@@ -388,13 +429,25 @@
 </script>
 
 <style scoped>
-  /* Header styling */
-  h1 {
-    font-weight: 600;
+  .workspace {
+    max-width: 1600px;
   }
 
-  /* Ensure proper spacing */
-  .v-container {
-    max-width: 1400px;
+  .ws-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (min-width: 1280px) {
+    .ws-grid--panel {
+      grid-template-columns: minmax(0, 1fr) 340px;
+    }
+
+    .ws-panel {
+      position: sticky;
+      top: 16px;
+    }
   }
 </style>

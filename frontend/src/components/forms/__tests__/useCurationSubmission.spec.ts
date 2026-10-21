@@ -269,4 +269,29 @@ describe('useCurationSubmission', () => {
       expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
     })
   })
+
+  describe('save result for the workspace frame', () => {
+    const clingen: EvidenceData = { evidence_items: [] }
+    it('resolves true on success, also for a first save, and reports it as saved', async () => {
+      curationsStore.saveDraft.mockResolvedValue({ lock_version: 4 })
+      curationsStore.createCuration.mockResolvedValue({ id: 'n' })
+      const existing = setup('cur-1')
+      expect(await existing.api.handleSaveDraft()).toBe(true)
+      expect(await existing.api.handleClinGenSaveDraft(clingen)).toBe(true)
+      const fresh = setup()
+      expect(await fresh.api.handleSaveDraft()).toBe(true)
+      expect(fresh.s.onSaved).toHaveBeenCalled()
+      const freshClinGen = setup()
+      expect(await freshClinGen.api.handleClinGenSaveDraft(clingen)).toBe(true)
+      expect(freshClinGen.s.onSaved).toHaveBeenCalled()
+    })
+
+    it('resolves false when the save is refused or throws', async () => {
+      curationsStore.saveDraft.mockResolvedValueOnce(undefined).mockRejectedValue({ message: 'x' })
+      const { api } = setup('cur-1')
+      expect(await api.handleSaveDraft()).toBe(false)
+      expect(await api.handleSaveDraft()).toBe(false)
+      expect(await api.handleClinGenSaveDraft(clingen)).toBe(false)
+    })
+  })
 })

@@ -106,6 +106,7 @@
    * can be emitted as a whole.
    */
   import { ref, watch } from 'vue'
+  import { generateUUID } from '@/utils/uuidPolyfill'
   import DynamicField from './DynamicField.vue'
   import type { ComponentFallbackEvent, FieldSchema } from './types'
 
@@ -178,6 +179,10 @@
         }
       })
     }
+
+    // Stable row identity for review diffs and anchored comments (removing a row must not
+    // shift the identity of the rows after it)
+    if (!newItem.id) newItem.id = generateUUID()
 
     arrayValue.value.push(newItem)
     emit('update:model-value', arrayValue.value)
