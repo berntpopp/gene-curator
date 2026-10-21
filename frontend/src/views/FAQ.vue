@@ -5,12 +5,15 @@
         <h1 class="text-h4 mb-6">Frequently Asked Questions</h1>
 
         <v-expansion-panels variant="accordion">
-          <v-expansion-panel v-for="(faq, index) in faqs" :key="index">
+          <v-expansion-panel v-for="faq in faqs" :id="faq.id" :key="faq.id">
             <v-expansion-panel-title>
               {{ faq.question }}
             </v-expansion-panel-title>
             <v-expansion-panel-text>
-              <div v-html="faq.answer"></div>
+              <p>{{ faq.answer }}</p>
+              <ul v-if="faq.items" class="ml-6 mt-2">
+                <li v-for="item in faq.items" :key="item">{{ item }}</li>
+              </ul>
             </v-expansion-panel-text>
           </v-expansion-panel>
         </v-expansion-panels>
@@ -21,80 +24,84 @@
 
 <script setup lang="ts">
   interface Faq {
+    id: string
     question: string
     answer: string
+    items?: string[]
   }
 
   const faqs: Faq[] = [
     {
+      id: 'what-is-gene-curator',
       question: 'What is Gene Curator?',
       answer:
-        'Gene Curator is an advanced platform for genetic information curation and management, designed to support ClinGen Standard Operating Procedures v11 with automated evidence scoring and summary generation.'
+        'Gene Curator is a platform for gene-disease curation. Curation is organised in scopes, each with its own members, genes and workflow. Curation follows a configurable schema, for example ClinGen SOP v11 or GenCC.'
     },
     {
-      question: 'Who can use Gene Curator?',
+      id: 'roles',
+      question: 'What roles exist?',
       answer:
-        'Gene Curator supports three user roles:<br/>• <strong>Viewers</strong>: Can browse and search gene information<br/>• <strong>Curators</strong>: Can add, edit, and manage gene data<br/>• <strong>Administrators</strong>: Full system access including user management'
+        'There are two separate role systems. Your account role is either admin (platform administration) or user. Inside each scope you hold one of these roles:',
+      items: [
+        'Admin: manages the scope, its members and workflow',
+        'Curator: prepares precurations and curations for assigned genes',
+        'Reviewer: reviews curations submitted by others (4-eyes principle)',
+        'Viewer: read-only access to the scope'
+      ]
     },
     {
+      id: 'get-access',
       question: 'How do I get access?',
       answer:
-        "Contact your system administrator to request an account. New users are assigned the 'viewer' role by default and can be upgraded to curator or admin roles as needed."
+        'Register an account from the Register page. Access to a scope is granted when a scope admin invites you as a member. Pending invitations do not grant access until you accept them.'
     },
     {
-      question: 'What is ClinGen compliance?',
-      answer:
-        'ClinGen (Clinical Genome Resource) provides standardized procedures for gene-disease validity curation. Gene Curator implements SOP v11 with automated evidence scoring and template-driven summary generation.'
-    },
-    {
+      id: 'search-genes',
       question: 'How do I search for genes?',
       answer:
-        'Use the search functionality on the Genes page to find genes by:<br/>• Gene symbol (approved, previous, or alias)<br/>• HGNC ID<br/>• Gene family<br/>• Chromosome location<br/>• Keywords in gene descriptions'
+        'Open the Gene Catalogue (/genes) and use the "Search genes" field. It matches gene symbols and HGNC IDs. You can narrow the results with the Classification, Disease and Scope filters.'
     },
     {
-      question: 'Can I import multiple genes at once?',
+      id: 'bulk-add-genes',
+      question: 'Can I add several genes at once?',
       answer:
-        'Yes, curators and administrators can use the bulk import feature in Gene Administration to upload multiple genes from CSV files or paste data directly.'
+        'Yes. In the Add Genes dialog, switch to the bulk tab and enter gene symbols or HGNC IDs, one per line or comma-separated. Validate the list before adding. Files cannot be uploaded.'
     },
     {
-      question: 'What data is stored for each gene?',
-      answer:
-        'Gene Curator stores comprehensive genetic information including:<br/>• Basic identifiers (HGNC ID, symbols)<br/>• Chromosomal location<br/>• Gene families and classifications<br/>• ClinGen scores and metrics<br/>• External database references<br/>• Change history and provenance'
-    },
-    {
-      question: 'Is my data secure?',
-      answer:
-        'Yes, Gene Curator implements multiple security measures:<br/>• JWT-based authentication<br/>• Role-based access control<br/>• Encrypted data transmission<br/>• Audit logs for all changes<br/>• Cryptographic content addressing for data integrity'
-    },
-    {
+      id: 'precurate-gene',
       question: 'How do I precurate a gene?',
       answer:
-        'To precurate a gene:<br/>1. Navigate to your scope and find the assigned gene<br/>2. Click "Start Precuration" to open the dynamic form<br/>3. Fill in the precuration fields (disease association, lumping/splitting decision, etc.)<br/>4. Save as draft or submit to advance the gene to the curation stage'
+        'Open your scope and find the gene assigned to you, then choose Start Precuration. Fill in the precuration form and save it as a draft, or submit it when it is complete.'
     },
     {
+      id: 'review-workflow',
       question: 'How does the review workflow work?',
       answer:
-        'Gene Curator uses a 4-eyes principle for quality assurance:<br/>1. A curator submits their curation for review<br/>2. A different user (reviewer or admin) is assigned to review<br/>3. The reviewer can approve, request changes, or reject<br/>4. On approval, the curation becomes active<br/><br/>The same person who created a curation cannot approve it.'
+        'A curation is submitted for review. A reviewer in the same scope then approves it, requests changes, or rejects it. Approval makes the curation active. The person who created a curation cannot review it, so a second person must approve it.'
     },
     {
-      question: 'What happens when a curation is rejected?',
+      id: 'requested-changes',
+      question: 'What happens when changes are requested or a curation is rejected?',
       answer:
-        'When a reviewer rejects or requests changes:<br/>• The curator receives a notification<br/>• The curation returns to the curation stage<br/>• The curator can edit and resubmit<br/>• Review comments are preserved for reference'
+        'The feedback entered by the reviewer is shown to the curator. A curation that needs changes can be revised and resubmitted. A rejected curation is marked as rejected.'
     },
     {
-      question: 'Can I work across multiple scopes?',
+      id: 'multiple-scopes',
+      question: 'Can I work in more than one scope?',
       answer:
-        'Yes. You can be a member of multiple scopes with different roles in each. For example, you might be a curator in "Kidney Genetics" and a reviewer in "Cardiac Genetics". Use the scope selector in the navigation to switch between your active scopes.'
+        'Yes. You can be a member of several scopes with a different role in each. Open each scope from the Scopes page.'
     },
     {
-      question: 'How do I manage gene assignments as an admin?',
+      id: 'assignments',
+      question: 'Where are gene assignments managed?',
       answer:
-        'Scope admins can manage gene assignments from the Gene Assignment Manager:<br/>• <strong>View</strong>: See assignment details, history, and current status<br/>• <strong>Edit</strong>: Change priority, due date, and notes<br/>• <strong>Reassign</strong>: Transfer a gene to a different curator within the scope'
+        'The Assignments page (/assignments) lists assigned genes. From there you can view an assignment, edit its priority, due date and notes, and reassign a gene to another curator in the scope.'
     },
     {
-      question: 'Where do I see my notifications?',
+      id: 'notifications',
+      question: 'Where do I see notifications?',
       answer:
-        'Notifications appear in the bell icon in the top navigation bar. The badge shows your unread count. Click to see all notifications including review assignments, approvals, rejections, and revision requests. You can mark individual notifications or all as read.'
+        'An unread count badge appears on your account button in the top bar. It shows how many notifications are unread.'
     }
   ]
 </script>
