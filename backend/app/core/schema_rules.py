@@ -301,6 +301,8 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
     overrides = _as(list, model.get("overrides"))
     for i, override in _items(overrides, f"{path}.overrides", out):
         out += _need(override, f"{path}.overrides[{i}]", {"when": str, "class": str})
+        if "field" in override:
+            out += _need(override, f"{path}.overrides[{i}]", {"field": str, "in": list})
     bands = _items(_as(list, model.get("bands")), f"{path}.bands", out)
     for i, band in bands:
         out += _need(band, f"{path}.bands[{i}]", {"class": str})

@@ -158,7 +158,10 @@ def test_point_columns_match_the_point_model_ranges() -> None:
 def test_embedded_point_model_is_the_template() -> None:
     """046 pins the corrected model into the v1 snapshots; it must equal the template file.
     It replaces only the pre-046 template (two 4-point categories), never a custom model."""
-    assert literal("model") == template("clingen_sop_v11")
+    current = template("clingen_sop_v11")
+    assert current
+    # 047 since changed only the overrides (contradictory evidence disputes by impact)
+    assert literal("model") == {**current, "overrides": literal("model")["overrides"]}
     old = literal("old")
     assert [c["key"] for c in old["sections"][1]["categories"]][-2:] == [
         "models",
