@@ -4,6 +4,7 @@ import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useLogger } from '@/composables/useLogger'
 import type { ClinGenEvidenceData } from '@/components/clingen/types'
+import { replaceKeepingChanges } from '@/components/workspace/useUnsavedGuard'
 import { apiDetail } from './apiDetail'
 import type { ApiErrorLike } from './types'
 
@@ -60,6 +61,13 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   // Created by a submit that was then refused: a retry reuses it rather than creating another
   let createdId: string | null = null
   const existingId = () => curationId() || createdId
+
+  /** The created curation's edit page is the same document: no leave prompt, the form stays. */
+  const openCreated = (id: string) =>
+    replaceKeepingChanges(router, {
+      name: 'curation-edit',
+      params: { scopeId: scopeId(), curationId: id }
+    })
 
   /** Payload for a new curation; a gene and workflow pair are required by the API. */
   function createPayload(evidence: EvidenceData) {
@@ -125,11 +133,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         )) as CurationRecord
         lockVersion.value = created.lock_version ?? 0
         options.onSaved()
-        // Navigate to edit the created curation
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: scopeId(), curationId: created.id }
-        })
+        await openCreated(created.id)
       }
 
       notificationsStore.addToast('Draft saved', 'success')
@@ -163,10 +167,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         )) as CurationRecord
         createdId = created.id
         // A reload after a refused submit must open this curation, not create another
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: scopeId(), curationId: created.id }
-        })
+        await openCreated(created.id)
         lockVersion.value = created.lock_version ?? 0
         submittedId = await submitAt(created.id, lockVersion.value)
       }
@@ -208,10 +209,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         )) as CurationRecord
         createdId = created.id
         // A reload after a refused submit must open this curation, not create another
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: scopeId(), curationId: created.id }
-        })
+        await openCreated(created.id)
         lockVersion.value = created.lock_version ?? 0
         submittedId = await submitAt(created.id, lockVersion.value)
       }
@@ -260,11 +258,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         )) as CurationRecord
         lockVersion.value = created.lock_version ?? 0
         options.onSaved()
-        // Navigate to edit the created curation
-        router.replace({
-          name: 'curation-edit',
-          params: { scopeId: scopeId(), curationId: created.id }
-        })
+        await openCreated(created.id)
       }
 
       notificationsStore.addToast('Draft saved', 'success')
