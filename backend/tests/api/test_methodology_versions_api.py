@@ -22,7 +22,9 @@ VERSIONS = "/api/v1/schemas/methodology-versions"
 def test_admin_publishes_numbered_snapshots_and_lists_them_newest_first(
     client: TestClient, db_session: Session, admin_token: str
 ) -> None:
-    schema = insert_schema(db_session, scoring_configuration={"engine": "x"})
+    schema = insert_schema(
+        db_session, scoring_configuration={"engine": "clingen_sop_v11"}
+    )
 
     first = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token))
     assert first.status_code == 201, first.text
@@ -30,7 +32,7 @@ def test_admin_publishes_numbered_snapshots_and_lists_them_newest_first(
     assert body["version"] == 1
     assert body["published_at"] and body["created_by"]
     assert body["snapshot"]["field_definitions"] == schema.field_definitions
-    assert body["snapshot"]["scoring_configuration"] == {"engine": "x"}
+    assert body["snapshot"]["scoring_configuration"] == {"engine": "clingen_sop_v11"}
 
     schema.field_definitions = {"changed": {"type": "text"}}
     db_session.commit()
@@ -89,7 +91,9 @@ def test_admin_derives_inactive_schema_whose_v1_points_at_the_source(
     admin_token: str,
     test_user_admin: UserNew,
 ) -> None:
-    schema = insert_schema(db_session, scoring_configuration={"engine": "x"})
+    schema = insert_schema(
+        db_session, scoring_configuration={"engine": "clingen_sop_v11"}
+    )
     v1 = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token)).json()
     r = client.post(
         f"{BASE}/{schema.id}/versions/{v1['id']}/derive",
@@ -101,7 +105,7 @@ def test_admin_derives_inactive_schema_whose_v1_points_at_the_source(
     assert derived["id"] != str(schema.id)
     assert (derived["name"], derived["is_active"]) == ("Derived", False)
     assert derived["created_by"] == str(test_user_admin.id)
-    assert derived["scoring_configuration"] == {"engine": "x"}
+    assert derived["scoring_configuration"] == {"engine": "clingen_sop_v11"}
 
     versions = client.get(
         f"{BASE}/{derived['id']}/versions", headers=auth(admin_token)

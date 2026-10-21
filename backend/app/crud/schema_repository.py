@@ -59,6 +59,23 @@ SNAPSHOT_KEYS = (
 )
 
 
+# Stages every item passes through in the workflow engine (entry -> precuration -> review)
+REQUIRED_STAGES = ("entry", "precuration", "review")
+
+
+def publish_errors(definition: dict[str, Any]) -> list[str]:
+    """Why `definition` cannot be published: the static checks plus required stages."""
+    errors, _ = validate_schema_structure(definition)
+    states = definition.get("workflow_states")
+    if isinstance(states, dict) and not {"states", "transitions"} & set(states):
+        errors += [
+            f"workflow_states: Missing required stage: {stage}"
+            for stage in REQUIRED_STAGES
+            if stage not in states
+        ]
+    return errors
+
+
 class CRUDCurationSchema(
     CRUDBase[CurationSchema, CurationSchemaCreate, CurationSchemaUpdate]
 ):
