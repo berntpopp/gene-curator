@@ -25,94 +25,6 @@ from app.schemas.gene_catalogue import GeneCatalogueFilters
 pytestmark = pytest.mark.unit
 
 
-# ---------------------------------------------------------------------------
-# Pure scoring helpers
-# ---------------------------------------------------------------------------
-
-
-def test_sum_points_ignores_missing_and_none() -> None:
-    items: list[dict[str, Any]] = [{"points": 2}, {"points": None}, {}, {"points": 1.5}]
-    assert catalogue._sum_points_from_list(items) == 3.5
-    assert catalogue._sum_points_from_list([{"x": 4}], key="x") == 4
-
-
-def test_genetic_score_sums_all_contributing_sections() -> None:
-    genetic: dict[str, Any] = {
-        "case_level": {
-            "autosomal_dominant_or_x_linked": {
-                "predicted_or_proven_null": [{"proband_counted_points": 3}],
-                "other_variant_type": [{"proband_counted_points": 1}],
-            },
-            "autosomal_recessive": {
-                "predicted_or_proven_null": [{"proband_counted_points": 2}],
-            },
-        },
-        "segregation": [{"points": 1}],
-        "case_control": {
-            "single_variant_analysis": [{"points": 0.5}],
-            "aggregate_variant_analysis": [{"points": 0.5}],
-        },
-    }
-    assert catalogue._calc_genetic_score(genetic) == 8.0
-
-
-def test_experimental_score_sums_function_models_and_rescue() -> None:
-    experimental: dict[str, Any] = {
-        "function": {
-            "biochemical_function": [{"points": 2}],
-            "expression": [{"points": 1}],
-        },
-        "functional_alteration": {"patient_cells": [{"points": 1}]},
-        "models": {"cell_culture_model": [{"points": 1}]},
-        "rescue": {"human": [{"points": 1}], "patient_cells": [{"points": 0.5}]},
-    }
-    assert catalogue._calc_experimental_score(experimental) == 6.5
-
-
-@pytest.mark.parametrize(
-    ("genetic", "total", "expected"),
-    [
-        (6.0, 12.0, "definitive"),
-        (4.5, 12.0, "strong"),
-        (3.0, 9.0, "moderate"),
-        (0.0, 1.0, "limited"),
-        (0.0, 0.5, "no_known"),
-        (5.9, 11.9, "moderate"),  # just below each boundary
-    ],
-)
-def test_classification_thresholds(genetic: float, total: float, expected: str) -> None:
-    assert catalogue._determine_classification(genetic, total) == expected
-
-
-def test_scores_from_evidence_handles_empty_and_zero() -> None:
-    assert catalogue._calculate_scores_from_evidence({}) == (None, None, None, None)
-    assert catalogue._calculate_scores_from_evidence({"genetic_evidence": {}}) == (
-        None,
-        None,
-        None,
-        None,
-    )
-
-
-def test_scores_from_evidence_applies_caps() -> None:
-    evidence: dict[str, Any] = {
-        "genetic_evidence": {"segregation": [{"points": 20}]},
-        "experimental_evidence": {"models": {"cell_culture_model": [{"points": 10}]}},
-    }
-    genetic, experimental, total, classification = (
-        catalogue._calculate_scores_from_evidence(evidence)
-    )
-    assert genetic == 12.0  # capped
-    assert experimental == 6.0  # capped
-    assert total == 18.0
-    assert classification == "definitive"
-
-
-# ---------------------------------------------------------------------------
-# Catalogue queries (SQLite)
-# ---------------------------------------------------------------------------
-
-
 def _curation(
     db: Session,
     gene: Gene,
@@ -251,7 +163,14 @@ def test_entries_filter_search_chromosome_and_scope(
         "limited",
     )
 
-    # Text search casts ARRAY columns (PostgreSQL-only), so it is not exercised here.
+    test_gene.alias_symbols = ["ALIAS1"]
+    test_gene.previous_symbols = ["PREVIOUS1"]
+    db_session.commit()
+    for query in ("BRCA1", "HGNC:1100", "ALIAS1", "PREVIOUS1"):
+        found, _ = catalogue.get_catalogue_entries(
+            db_session, GeneCatalogueFilters(search=query)
+        )
+        assert [entry.approved_symbol for entry in found] == ["BRCA1"]
     by_chrom, _ = catalogue.get_catalogue_entries(
         db_session, GeneCatalogueFilters(chromosome="7")
     )
@@ -302,7 +221,7 @@ def test_entries_classification_filter_and_pagination(
     assert [e.approved_symbol for e in page] == ["AAA2"]
 
 
-def test_entry_falls_back_to_evidence_when_scores_missing(
+def test_entry_does_not_invent_scores_when_persisted_scores_missing(
     db_session: Session,
     test_gene: Gene,
     test_scope: Scope,
@@ -335,8 +254,8 @@ def test_entry_falls_back_to_evidence_when_scores_missing(
     assert entry.scope_count == 1
     assert entry.diseases == ["Test disease"]
     scope_view = entry.scope_curations[0]
-    assert scope_view.genetic_score == 7.0
-    assert scope_view.classification == "limited"  # derived: total 7 falls in limited
+    assert scope_view.genetic_score is None
+    assert scope_view.classification is None
     assert scope_view.curator_name == "Curator User"
     assert scope_view.mondo_id == "MONDO:0000001"
 
@@ -402,5 +321,63 @@ def test_available_classifications_and_scopes(
     assert catalogue.get_available_classifications(db_session) == ["limited"]
 
     scopes = catalogue.get_available_scopes_for_catalogue(db_session)
-    assert {s["scope_name"] for s in scopes} == {"test-scope", "public-scope"}
+    assert {s["name"] for s in scopes} == {"test-scope", "public-scope"}
     assert {s["is_public"] for s in scopes} == {False, True}
+    from app.api.v1.endpoints.gene_catalogue import get_available_scopes
+
+    options = get_available_scopes(db=db_session)
+    assert {option.id for option in options} == {
+        str(test_scope.id),
+        str(test_public_scope.id),
+    }
+    assert {option.name for option in options} == {"test-scope", "public-scope"}
+
+
+@pytest.mark.parametrize("curation_disease", [None, "", "Curated disease"])
+def test_catalogue_uses_precuration_disease_without_extra_queries(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_precuration,
+    curation_disease: str | None,
+) -> None:
+    from sqlalchemy import event
+
+    from app.crud.curation import curation_crud
+
+    test_precuration.evidence_data = {
+        "disease_name": "NAA10-related syndrome",
+        "mondo_id": "MONDO:0000001",
+        "mode_of_inheritance": "X-linked",
+    }
+    test_curation.precuration_id = test_precuration.id
+    test_curation.evidence_data = {"disease_name": curation_disease}
+    db_session.add(
+        ActiveCuration(
+            gene_id=test_curation.gene_id,
+            scope_id=test_curation.scope_id,
+            curation_id=test_curation.id,
+            activated_at=datetime.now(UTC),
+        )
+    )
+    db_session.commit()
+    db_session.expire_all()
+    statements = []
+
+    def record(conn, cursor, statement, parameters, context, executemany):
+        statements.append(statement)
+
+    event.listen(db_session.bind, "before_cursor_execute", record)
+    try:
+        entries, _ = catalogue.get_catalogue_entries(db_session, GeneCatalogueFilters())
+    finally:
+        event.remove(db_session.bind, "before_cursor_execute", record)
+
+    expected = curation_disease or "NAA10-related syndrome"
+    detail = entries[0].scope_curations[0]
+    assert entries[0].diseases == [expected]
+    assert detail.disease_name == expected
+    assert detail.mondo_id == "MONDO:0000001"
+    assert detail.mode_of_inheritance == "X-linked"
+    assert len(statements) == 3  # count, genes, curations with joined precurations
+    summaries, _ = curation_crud.get_multi_filtered(db_session)
+    assert summaries[0].disease_name == detail.disease_name

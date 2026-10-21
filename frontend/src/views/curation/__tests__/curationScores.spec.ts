@@ -51,9 +51,9 @@ describe('computeScores', () => {
     const scores = computeScores(full)
     expect(scores.caseLevel).toEqual({ adxlNull: 3, adxlOther: 0.5, arNull: 1.5, arOther: 0 })
     expect(scores.segregation).toBe(3)
-    expect(scores.caseControl).toBe(3)
-    // 3 + 0.5 + 1.5 + 0 + 3 + 3 = 11
-    expect(scores.genetic).toBe(11)
+    expect(scores.caseControl).toBe(2)
+    // 5 case-level + 3 segregation + 2 case-control = 10
+    expect(scores.genetic).toBe(10)
   })
 
   it('sums each experimental category', () => {
@@ -64,15 +64,15 @@ describe('computeScores', () => {
     expect(scores.rescue).toBe(2.5)
     // 1 + 0.5 + 0.5 + 1.5 + 1.5 + 2.5 = 7.5 -> capped at 6
     expect(scores.experimental).toBe(6)
-    expect(scores.total).toBe(17)
+    expect(scores.total).toBe(16)
   })
 
-  it('caps genetic evidence at 12 points', () => {
+  it('caps segregation before the genetic total', () => {
     const scores = computeScores({
       genetic_evidence: { segregation: [{ points: 20 }] }
     })
-    expect(scores.genetic).toBe(12)
-    expect(scores.total).toBe(12)
+    expect(scores.genetic).toBe(3)
+    expect(scores.total).toBe(3)
   })
 
   it('uses points, not proband_counted_points, for segregation and case-control', () => {
@@ -89,7 +89,7 @@ describe('computeScores', () => {
 
 describe('classifyScores', () => {
   it.each([
-    [12, 6, 'Definitive'],
+    [12, 6, 'Strong'],
     [12, 4.5, 'Strong'],
     [9, 3, 'Moderate'],
     [1, 0, 'Limited'],
@@ -102,7 +102,20 @@ describe('classifyScores', () => {
     expect(classifyScores(12, 5.5)).toBe('Strong')
   })
 
-  it('does not reach Moderate when total is below 9', () => {
-    expect(classifyScores(8, 3)).toBe('Limited')
+  it('reaches Moderate at 7 regardless of a genetic-score gate', () => {
+    expect(classifyScores(8, 3)).toBe('Moderate')
+  })
+})
+
+it('caps each experimental category before summing', () => {
+  expect(
+    computeScores({ experimental_evidence: { function: { expression: [{ points: 10 }] } } }).total
+  ).toBe(2)
+})
+
+describe('classifyScores flags', () => {
+  it('passes contradictory and replication through', () => {
+    expect(classifyScores(12, 12, false, true)).toBe('Definitive')
+    expect(classifyScores(12, 12, true, true)).toBe('Disputed')
   })
 })

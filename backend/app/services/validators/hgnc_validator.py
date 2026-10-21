@@ -209,7 +209,7 @@ class HGNCValidator(ExternalValidator):
             data = response.json()
 
             # Parse response
-            results = self._parse_search_response(data, limit)
+            results = self._parse_search_response(data, limit, query)
 
             logger.info(
                 "HGNC search completed",
@@ -266,7 +266,7 @@ class HGNCValidator(ExternalValidator):
         return f"/search/{search_query}"
 
     def _parse_search_response(
-        self, data: dict[str, Any], limit: int
+        self, data: dict[str, Any], limit: int, query: str = ""
     ) -> list[HGNCGeneSearchResult]:
         """Parse HGNC API response into search results
 
@@ -282,7 +282,18 @@ class HGNCValidator(ExternalValidator):
         if "response" not in data or "docs" not in data["response"]:
             return results
 
-        docs = data["response"]["docs"][:limit]
+        query_upper = query.upper()
+
+        def rank(doc: dict[str, Any]) -> int:
+            symbol = doc.get("symbol", "").upper()
+            if symbol == query_upper:
+                return 0
+            aliases = (doc.get("prev_symbol") or []) + (doc.get("alias_symbol") or [])
+            if any(alias.upper() == query_upper for alias in aliases):
+                return 1
+            return 2 if symbol.startswith(query_upper) else 3
+
+        docs = sorted(data["response"]["docs"], key=rank)[:limit]
 
         for doc in docs:
             result = HGNCGeneSearchResult(

@@ -586,7 +586,16 @@
   const scores = computed(() => computeScores(curation.value?.evidence_data))
 
   // Classification based on score
-  const classification = computed(() => classifyScores(scores.value.total, scores.value.genetic))
+  const classification = computed(() => {
+    const evidence = curation.value?.evidence_data as
+      { contradictory_evidence?: unknown[]; replicated_over_time?: boolean } | undefined
+    return classifyScores(
+      scores.value.total,
+      scores.value.genetic,
+      (evidence?.contradictory_evidence?.length ?? 0) > 0,
+      evidence?.replicated_over_time === true
+    )
+  })
 
   const classificationColor = computed<string>(() => {
     const colors: Record<string, string> = {

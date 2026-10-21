@@ -1,3 +1,5 @@
+import { caseControlScore, classifyScore } from '@/components/clingen/scoring'
+
 // ClinGen SOP v11 score calculation for the curation detail view (pure, no Vue)
 
 interface Points {
@@ -76,10 +78,12 @@ export function computeScores(evidence: EvidenceData | null | undefined): Eviden
   const adxlOther = sum(adxl.other_variant_type, pc)
   const arNull = sum(ar.predicted_or_proven_null, pc)
   const arOther = sum(ar.other_variant_type, pc)
-  const segregation = sum(genetic.segregation)
+  const segregation = Math.min(sum(genetic.segregation), 3)
   const caseControlData = genetic.case_control ?? {}
-  const caseControl =
-    sum(caseControlData.single_variant_analysis) + sum(caseControlData.aggregate_variant_analysis)
+  const caseControl = caseControlScore(
+    sum(caseControlData.single_variant_analysis),
+    sum(caseControlData.aggregate_variant_analysis)
+  )
 
   const geneticTotal = Math.min(
     adxlNull + adxlOther + arNull + arOther + segregation + caseControl,
@@ -106,7 +110,10 @@ export function computeScores(evidence: EvidenceData | null | undefined): Eviden
     sum(rescueData.patient_cells)
 
   const experimentalTotal = Math.min(
-    biochemical + proteinInteraction + expression + functionalAlteration + models + rescue,
+    Math.min(biochemical + proteinInteraction + expression, 2) +
+      Math.min(functionalAlteration, 2) +
+      Math.min(models, 4) +
+      Math.min(rescue, 4),
     6
   )
 
@@ -125,10 +132,9 @@ export function computeScores(evidence: EvidenceData | null | undefined): Eviden
 }
 
 /** Classification thresholds from the SOP v11 score table. */
-export function classifyScores(total: number, genetic: number): string {
-  if (total >= 12 && genetic >= 6) return 'Definitive'
-  if (total >= 12 && genetic >= 4.5) return 'Strong'
-  if (total >= 9 && genetic >= 3) return 'Moderate'
-  if (total >= 1) return 'Limited'
-  return 'No Known Disease Relationship'
-}
+export const classifyScores = (
+  total: number,
+  _genetic: number,
+  hasContradictory = false,
+  replicatedOverTime = false
+): string => classifyScore(total, hasContradictory, replicatedOverTime)

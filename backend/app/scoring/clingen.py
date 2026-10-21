@@ -31,7 +31,7 @@ class ClinGenEngine(ScoringEngine):
     - Genetic evidence scoring (max 12 points)
     - Experimental evidence scoring (max 6 points)
     - Total maximum score: 18 points
-    - Classification thresholds: Definitive (12+), Strong (7+), Moderate (2+), Limited (0.1+)
+    - Classification thresholds: Strong (12+), Moderate (7+), Limited (0.1+)
     """
 
     # Maximum scores per category (SOP v11 specifications)
@@ -59,8 +59,8 @@ class ClinGenEngine(ScoringEngine):
     # Classification thresholds
     THRESHOLDS: Final[dict[str, float]] = {
         "definitive": 12.0,
-        "strong": 7.0,
-        "moderate": 2.0,
+        "strong": 12.0,
+        "moderate": 7.0,
         "limited": 0.1,
         "no_known": 0.0,
         "disputed": -1.0,
@@ -132,7 +132,11 @@ class ClinGenEngine(ScoringEngine):
         )
 
         # Determine classification
-        classification = self._classify(total_score)
+        classification = self._classify(
+            total_score,
+            has_contradictory=bool(evidence_data.get("contradictory_evidence")),
+            replicated_over_time=evidence_data.get("replicated_over_time") is True,
+        )
 
         # Generate rationale
         rationale = self._generate_rationale(
@@ -238,12 +242,14 @@ class ClinGenEngine(ScoringEngine):
         if isinstance(case_control_data, dict):
             # Single variant analysis
             single_items = case_control_data.get("single_variant_analysis", [])
-            single_score = sum(float(item.get("points", 0)) for item in single_items)
+            single_score = sum(
+                float(item.get("points", 0) or 0) for item in single_items
+            )
 
             # Aggregate variant analysis
             aggregate_items = case_control_data.get("aggregate_variant_analysis", [])
             aggregate_score = sum(
-                float(item.get("points", 0)) for item in aggregate_items
+                float(item.get("points", 0) or 0) for item in aggregate_items
             )
 
             # Max 6 from either method (not combined)
@@ -304,14 +310,14 @@ class ClinGenEngine(ScoringEngine):
         null_variants = inheritance_data.get("predicted_or_proven_null", [])
         for item in null_variants:
             # Use proband_counted_points from the item (already scored by user)
-            points = float(item.get("proband_counted_points", 1.5))
+            points = float(item.get("proband_counted_points", 1.5) or 0)
             null_score += points
             null_items.append({**item, "computed_score": points})
 
         # Other variant types
         other_variants = inheritance_data.get("other_variant_type", [])
         for item in other_variants:
-            points = float(item.get("proband_counted_points", 0.1))
+            points = float(item.get("proband_counted_points", 0.1) or 0)
             other_score += points
             other_items.append({**item, "computed_score": points})
 
@@ -350,7 +356,7 @@ class ClinGenEngine(ScoringEngine):
         """
         # If points provided directly, use that
         if "points" in item:
-            return float(item["points"])
+            return float(item["points"] or 0)
 
         # Otherwise calculate from LOD score
         lod_score = item.get("lod_score")
@@ -637,8 +643,7 @@ class ClinGenEngine(ScoringEngine):
     def _score_case_control(self, item: dict[str, Any]) -> float:
         """Score case-control evidence
 
-        Simplified for MVP: Uses provided score or default.
-        Full implementation would analyze p-values, odds ratios, and study quality.
+        Uses curator-assigned scores; unscored studies contribute no points.
 
         Args:
             item: Case-control evidence item
@@ -648,11 +653,10 @@ class ClinGenEngine(ScoringEngine):
         """
         # Use explicitly provided score if available
         if "computed_score" in item:
-            return float(item["computed_score"])
+            return float(item["computed_score"] or 0)
 
-        # Default conservative score for case-control data
-        # TODO: Implement full scoring based on p-value and odds ratio
-        return 3.0
+        # SOP v11 requires curator-assigned points for each study.
+        return 0.0
 
     def _calculate_experimental_evidence(
         self, evidence_data: list[dict[str, Any]] | dict[str, Any]
@@ -695,7 +699,7 @@ class ClinGenEngine(ScoringEngine):
             # Biochemical function (0.5-2 pts per item)
             biochem_items = function_data.get("biochemical_function", [])
             biochem_score = sum(
-                float(item.get("points", 0.5)) for item in biochem_items
+                float(item.get("points", 0.5) or 0) for item in biochem_items
             )
             function_details["biochemical_function"] = {
                 "items": biochem_items,
@@ -705,7 +709,7 @@ class ClinGenEngine(ScoringEngine):
             # Protein interaction (0.5-2 pts per item)
             protein_items = function_data.get("protein_interaction", [])
             protein_score = sum(
-                float(item.get("points", 0.5)) for item in protein_items
+                float(item.get("points", 0.5) or 0) for item in protein_items
             )
             function_details["protein_interaction"] = {
                 "items": protein_items,
@@ -715,7 +719,7 @@ class ClinGenEngine(ScoringEngine):
             # Expression (0.5-2 pts per item)
             expression_items = function_data.get("expression", [])
             expression_score = sum(
-                float(item.get("points", 0.5)) for item in expression_items
+                float(item.get("points", 0.5) or 0) for item in expression_items
             )
             function_details["expression"] = {
                 "items": expression_items,
@@ -733,7 +737,7 @@ class ClinGenEngine(ScoringEngine):
             # Patient cells (1-2 pts per item)
             patient_items = fa_data.get("patient_cells", [])
             patient_score = sum(
-                float(item.get("points", 1.0)) for item in patient_items
+                float(item.get("points", 1.0) or 0) for item in patient_items
             )
             functional_alteration_details["patient_cells"] = {
                 "items": patient_items,
@@ -743,7 +747,7 @@ class ClinGenEngine(ScoringEngine):
             # Non-patient cells (0.5-1 pts per item)
             non_patient_items = fa_data.get("non_patient_cells", [])
             non_patient_score = sum(
-                float(item.get("points", 0.5)) for item in non_patient_items
+                float(item.get("points", 0.5) or 0) for item in non_patient_items
             )
             functional_alteration_details["non_patient_cells"] = {
                 "items": non_patient_items,
@@ -761,7 +765,7 @@ class ClinGenEngine(ScoringEngine):
             # Non-human model organism (2-4 pts per item)
             organism_items = models_data.get("non_human_model_organism", [])
             organism_score = sum(
-                float(item.get("points", 2.0)) for item in organism_items
+                float(item.get("points", 2.0) or 0) for item in organism_items
             )
             models_details["non_human_model_organism"] = {
                 "items": organism_items,
@@ -770,7 +774,7 @@ class ClinGenEngine(ScoringEngine):
 
             # Cell culture model (1-2 pts per item)
             cell_items = models_data.get("cell_culture_model", [])
-            cell_score = sum(float(item.get("points", 1.0)) for item in cell_items)
+            cell_score = sum(float(item.get("points", 1.0) or 0) for item in cell_items)
             models_details["cell_culture_model"] = {
                 "items": cell_items,
                 "score": cell_score,
@@ -786,13 +790,15 @@ class ClinGenEngine(ScoringEngine):
         if isinstance(rescue_data, dict):
             # Human rescue (2-4 pts)
             human_items = rescue_data.get("human", [])
-            human_score = sum(float(item.get("points", 2.0)) for item in human_items)
+            human_score = sum(
+                float(item.get("points", 2.0) or 0) for item in human_items
+            )
             rescue_details["human"] = {"items": human_items, "score": human_score}
 
             # Non-human organism rescue (2-4 pts)
             organism_rescue_items = rescue_data.get("non_human_model_organism", [])
             organism_rescue_score = sum(
-                float(item.get("points", 2.0)) for item in organism_rescue_items
+                float(item.get("points", 2.0) or 0) for item in organism_rescue_items
             )
             rescue_details["non_human_model_organism"] = {
                 "items": organism_rescue_items,
@@ -802,7 +808,7 @@ class ClinGenEngine(ScoringEngine):
             # Cell culture rescue (1-2 pts)
             cell_rescue_items = rescue_data.get("cell_culture", [])
             cell_rescue_score = sum(
-                float(item.get("points", 1.0)) for item in cell_rescue_items
+                float(item.get("points", 1.0) or 0) for item in cell_rescue_items
             )
             rescue_details["cell_culture"] = {
                 "items": cell_rescue_items,
@@ -812,7 +818,7 @@ class ClinGenEngine(ScoringEngine):
             # Patient cells rescue (1-2 pts)
             patient_rescue_items = rescue_data.get("patient_cells", [])
             patient_rescue_score = sum(
-                float(item.get("points", 1.0)) for item in patient_rescue_items
+                float(item.get("points", 1.0) or 0) for item in patient_rescue_items
             )
             rescue_details["patient_cells"] = {
                 "items": patient_rescue_items,
@@ -875,7 +881,7 @@ class ClinGenEngine(ScoringEngine):
 
             if category in ["expression", "protein_function", "function"]:
                 # Function evidence: use provided points or default
-                score = float(item.get("points", 1.0))
+                score = float(item.get("points", 1.0) or 0)
                 function_score += score
                 function_items.append({**item, "computed_score": score})
 
@@ -894,7 +900,7 @@ class ClinGenEngine(ScoringEngine):
 
             elif category == "rescue":
                 # Rescue: use provided points or default based on rescue_observed
-                score = float(item.get("points", 2.0 if rescue_observed else 0.0))
+                score = float(item.get("points", 2.0 if rescue_observed else 0.0) or 0)
                 rescue_score += score
                 rescue_items.append({**item, "computed_score": score})
 
@@ -922,38 +928,30 @@ class ClinGenEngine(ScoringEngine):
 
         return total, details
 
-    def _classify(self, total_score: float) -> str:
+    def _classify(
+        self,
+        total_score: float,
+        has_contradictory: bool = False,
+        replicated_over_time: bool = False,
+    ) -> str:
         """Determine classification based on total score per SOP v11 thresholds
 
         Thresholds (SOP v11):
-        - Definitive: ≥12 points
-        - Strong: 7-11.99 points
-        - Moderate: 2-6.99 points
-        - Limited: 0.1-1.99 points
+        - Definitive: Strong points (12-18) plus replication over time
+        - Strong: 12-18 points
+        - Moderate: 7-11 points
+        - Limited: 1-6 points (anything above 0 here)
         - No Known: 0 points
-        - Disputed: contradictory evidence (handled separately)
-        - Refuted: contradictory evidence overwhelms supporting (handled separately)
-
-        Args:
-            total_score: Combined genetic + experimental score
-
-        Returns:
-            Classification string
+        - Disputed: any contradictory evidence (matches the frontend)
         """
-        if total_score >= self.THRESHOLDS["definitive"]:
-            return "definitive"
-        elif total_score >= self.THRESHOLDS["strong"]:
-            return "strong"
-        elif total_score >= self.THRESHOLDS["moderate"]:
-            return "moderate"
-        elif total_score >= self.THRESHOLDS["limited"]:
-            return "limited"
-        elif total_score >= self.THRESHOLDS["no_known"]:
-            return "no_known"
-        elif total_score >= self.THRESHOLDS["disputed"]:
+        if has_contradictory:
             return "disputed"
-        else:
-            return "refuted"
+        if total_score >= self.THRESHOLDS["strong"]:
+            return "definitive" if replicated_over_time else "strong"
+        for label in ("moderate", "limited", "no_known", "disputed"):
+            if total_score >= self.THRESHOLDS[label]:
+                return label
+        return "refuted"
 
     def _generate_rationale(
         self,
@@ -981,10 +979,10 @@ class ClinGenEngine(ScoringEngine):
         )
 
         classification_explanations = {
-            "definitive": "Total score ≥12 points supports DEFINITIVE gene-disease relationship.",
-            "strong": "Total score 7-11.99 points supports STRONG gene-disease relationship.",
-            "moderate": "Total score 2-6.99 points supports MODERATE gene-disease relationship.",
-            "limited": "Total score 0.1-1.99 points supports LIMITED gene-disease relationship.",
+            "definitive": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship.",
+            "strong": "Total score 12-18 points supports STRONG gene-disease relationship.",
+            "moderate": "Total score 7-11 points supports MODERATE gene-disease relationship.",
+            "limited": "Total score 1-6 points supports LIMITED gene-disease relationship.",
             "no_known": "No evidence supporting a gene-disease relationship.",
             "disputed": "Conflicting or contradictory evidence present, resulting in DISPUTED classification.",
             "refuted": "Evidence refutes the gene-disease relationship.",
