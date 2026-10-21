@@ -56,6 +56,7 @@
     <!-- Users Table -->
     <v-card>
       <v-data-table
+        style="min-height: 400px"
         :headers="headers"
         :items="paginatedUsers"
         :loading="usersStore.loading"

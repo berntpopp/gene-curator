@@ -467,7 +467,9 @@
   }
 
   .log-entry {
-    transition: all 0.2s ease;
+    transition:
+      transform,
+      box-shadow 0.2s ease;
   }
 
   .log-entry:hover {
