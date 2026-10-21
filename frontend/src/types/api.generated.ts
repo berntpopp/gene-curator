@@ -611,6 +611,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read My Work */
+        get: operations["read_my_work_api_v1_me_work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schemas/curation-schemas": {
         parameters: {
             query?: never;
@@ -1788,6 +1805,26 @@ export interface paths {
          * @description Reject precuration with reason.
          */
         post: operations["reject_precuration_api_v1_precurations__precuration_id__reject_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/genes/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Resolve symbols, previous symbols, aliases and HGNC IDs, preserving input order.
+         */
+        post: operations["resolve_api_v1_genes_resolve_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4849,6 +4886,20 @@ export interface components {
             /** Total Errors */
             total_errors: number;
         };
+        /** GeneCandidate */
+        GeneCandidate: {
+            /** Hgnc Id */
+            hgnc_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Name */
+            name?: string | null;
+            /**
+             * Gene Id
+             * @description Local gene row, null if only in HGNC
+             */
+            gene_id?: string | null;
+        };
         /**
          * GeneCatalogueEntry
          * @description Single gene entry in the catalogue with aggregated curation information.
@@ -5125,6 +5176,54 @@ export interface components {
             warnings: string[];
             /** Errors */
             errors: string[];
+        };
+        /** GeneResolveCounts */
+        GeneResolveCounts: {
+            /** Resolved */
+            resolved: number;
+            /** Ambiguous */
+            ambiguous: number;
+            /** Not Found */
+            not_found: number;
+        };
+        /** GeneResolveItem */
+        GeneResolveItem: {
+            /** Input */
+            input: string;
+            /** Index */
+            index: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "resolved" | "ambiguous" | "not_found";
+            /** Match Type */
+            match_type?: ("symbol" | "previous_symbol" | "alias" | "hgnc_id") | null;
+            /** Source */
+            source?: ("local" | "hgnc") | null;
+            /** Candidates */
+            candidates?: components["schemas"]["GeneCandidate"][];
+            /**
+             * Reason
+             * @description Why an input was not looked up at HGNC (not_found only)
+             */
+            reason?: ("lookup_cap" | "lookup_timeout") | null;
+            /**
+             * Duplicate Of
+             * @description Index of the first input that resolved to the same gene
+             */
+            duplicate_of?: number | null;
+        };
+        /** GeneResolveRequest */
+        GeneResolveRequest: {
+            /** Symbols */
+            symbols: string[];
+        };
+        /** GeneResolveResponse */
+        GeneResolveResponse: {
+            /** Items */
+            items: components["schemas"]["GeneResolveItem"][];
+            counts: components["schemas"]["GeneResolveCounts"];
         };
         /**
          * GeneScopeAssignment
@@ -6367,6 +6466,18 @@ export interface components {
              * @description Full IRI of the term
              */
             iri?: string | null;
+        };
+        /** MyWorkResponse */
+        MyWorkResponse: {
+            /** Items */
+            items: components["schemas"]["WorkItem"][];
+            /**
+             * Counts
+             * @description needs_you equals the rail badge count
+             */
+            counts: {
+                [key: string]: number;
+            };
         };
         /**
          * NotificationListResponse
@@ -8415,6 +8526,55 @@ export interface components {
              */
             error_code?: string | null;
         };
+        /** WorkItem */
+        WorkItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "assignment" | "draft" | "changes_requested" | "review" | "waiting" | "done";
+            /**
+             * Tab
+             * @enum {string}
+             */
+            tab: "needs_you" | "waiting" | "done";
+            /**
+             * Verb
+             * @description Next action, e.g. 'Review curation'
+             */
+            verb: string;
+            /**
+             * Item Type
+             * @enum {string}
+             */
+            item_type: "assignment" | "precuration" | "curation";
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /** Gene Symbol */
+            gene_symbol: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Scope Name */
+            scope_name: string;
+            /**
+             * Link
+             * @description Frontend route that opens the work
+             */
+            link: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /**
          * WorkflowAnalytics
          * @description Advanced workflow analytics.
@@ -9748,6 +9908,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_my_work_api_v1_me_work_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyWorkResponse"];
                 };
             };
         };
@@ -12119,6 +12299,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    resolve_api_v1_genes_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneResolveResponse"];
                 };
             };
             /** @description Validation Error */

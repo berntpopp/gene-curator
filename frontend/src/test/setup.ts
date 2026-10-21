@@ -9,11 +9,11 @@
  * This file is automatically loaded before all tests via vite.config.js
  */
 
-import { config } from '@vue/test-utils'
+import { config, enableAutoUnmount } from '@vue/test-utils'
 import { createVuetify } from 'vuetify'
 import * as components from 'vuetify/components'
 import * as directives from 'vuetify/directives'
-import { vi } from 'vitest'
+import { afterEach, vi } from 'vitest'
 import axios from 'axios'
 
 // Tests never touch the network: unmocked requests fail fast instead of hitting localhost:8051
@@ -61,6 +61,12 @@ Object.defineProperty(window, 'visualViewport', {
     removeEventListener: () => undefined
   }
 })
+
+// Unmount every wrapper after each test. Vuetify's v-intersect directive calls the global
+// IntersectionObserver when a late-mounted overlay/image settles; on a loaded machine that can land
+// after the file's environment is torn down, where the global is gone ("IntersectionObserver is not
+// defined", #322). Unmounted components cannot mount late.
+enableAutoUnmount(afterEach)
 
 // Mock IntersectionObserver (for Vuetify components)
 vi.stubGlobal(
