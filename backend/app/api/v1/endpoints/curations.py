@@ -432,6 +432,13 @@ def save_draft(
             detail="Curation not found",
         )
 
+    # Same rule as PUT: evidence is frozen once submitted (4-eyes), for every role
+    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Only draft or rejected curations can be edited",
+        )
+
     # Only creator or admin can save drafts
     if current_user.role != "admin" and curation.created_by != current_user.id:
         raise HTTPException(
