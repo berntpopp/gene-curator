@@ -15,6 +15,7 @@ from sqlalchemy import (
     Date,
     DateTime,
     Enum,
+    FetchedValue,
     ForeignKey,
     Index,
     Integer,
@@ -66,6 +67,12 @@ class PrecurationNew(Base):
         ForeignKey("curation_schemas.id"),
         nullable=False,
         index=True,
+    )
+    # Pinned at creation by a DB trigger (042); NOT NULL and immutable in PostgreSQL
+    methodology_version_id: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(),
+        ForeignKey("methodology_versions.id"),
+        server_default=FetchedValue(),
     )
 
     # Status and workflow
@@ -179,6 +186,12 @@ class CurationNew(Base):
     # Nullable fields
     precuration_id: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("precurations.id", ondelete="SET NULL")
+    )
+    # Pinned at creation by a DB trigger (042); NOT NULL and immutable in PostgreSQL
+    methodology_version_id: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(),
+        ForeignKey("methodology_versions.id"),
+        server_default=FetchedValue(),
     )
 
     # Status and workflow

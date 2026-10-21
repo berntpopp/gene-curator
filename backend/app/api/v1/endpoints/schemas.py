@@ -18,6 +18,7 @@ from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
     CurationSchemaUpdate,
+    MethodologyVersion,
     SchemaValidationResult,
     WorkflowPair,
     WorkflowPairCreate,
@@ -114,6 +115,44 @@ def get_curation_schema(
         raise HTTPException(status_code=404, detail="Schema not found")
 
     return schema  # type: ignore[return-value]
+
+
+@router.get(
+    "/curation-schemas/{schema_id}/versions", response_model=list[MethodologyVersion]
+)
+def list_methodology_versions(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_admin_user),
+) -> Sequence[MethodologyVersion]:
+    """List a schema's methodology versions, newest first. Requires platform admin."""
+    if not schema_crud.get(db, id=schema_id):
+        raise HTTPException(status_code=404, detail="Schema not found")
+    return schema_crud.list_versions(db, schema_id=schema_id)  # type: ignore[return-value]
+
+
+@router.post(
+    "/curation-schemas/{schema_id}/versions",
+    response_model=MethodologyVersion,
+    status_code=201,
+)
+def publish_methodology_version(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_admin_user),
+) -> MethodologyVersion:
+    """Publish the schema's current content as a new immutable version. Requires platform admin.
+
+    Existing curations keep the version they were created with; new ones get this one.
+    """
+    schema = schema_crud.get(db, id=schema_id)
+    if not schema:
+        raise HTTPException(status_code=404, detail="Schema not found")
+    return schema_crud.publish_version(  # type: ignore[return-value]
+        db, schema=schema, user_id=current_user.id
+    )
 
 
 @router.put("/curation-schemas/{schema_id}", response_model=CurationSchema)

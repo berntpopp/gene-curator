@@ -96,7 +96,10 @@ def world() -> Generator[World, None, None]:
             ),
         )
         cur.execute(
-            "INSERT INTO workflow_pairs (id, name, version) VALUES (%s, %s, '1')",
+            # curations pin a version of the pair's curation schema (042)
+            "INSERT INTO workflow_pairs (id, name, version, precuration_schema_id, "
+            "curation_schema_id) SELECT %s, %s, '1', precuration_schema_id, "
+            "curation_schema_id FROM workflow_pairs WHERE is_active LIMIT 1",
             (str(w.pair), f"gs-{tag}"),
         )
         for cid, sid, status, stage, verdict in (

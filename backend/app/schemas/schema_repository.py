@@ -85,6 +85,22 @@ class CurationSchema(CurationSchemaInDBBase):
     pass
 
 
+class MethodologyVersion(BaseModel):
+    """An immutable, numbered snapshot of a curation schema."""
+
+    id: UUID
+    schema_id: UUID
+    version: int
+    snapshot: dict[str, Any]
+    status: str
+    published_at: datetime | None
+    created_by: UUID | None
+    created_at: datetime | None = None
+    derived_from_version_id: UUID | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 # Workflow Pair Schemas
 class WorkflowPairBase(BaseModel):
     """Base schema for workflow pairs."""
