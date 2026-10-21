@@ -165,26 +165,19 @@ export const useSchemasStore = defineStore('schemas', {
     },
 
     /**
-     * Create an inactive copy with the patch version bumped (client-side: fetch, then create;
-     * the backend has no duplicate endpoint). The admin activates it after editing.
+     * Derive an inactive copy (patch version bumped) from the schema's latest published
+     * version; the copy's v1 records where it came from. The admin activates it after editing.
      */
     async duplicateSchema(id: string) {
       const source = await schemasAPI.getSchemaById(id)
-      const payload: Schema<'CurationSchemaCreate'> = {
+      const [latest] = await schemasAPI.getVersions(id)
+      if (!latest) throw new Error('Schema has no published version')
+      const derived = await schemasAPI.deriveSchema(id, latest.id, {
         name: source.name,
-        version: bumpPatch(source.version),
-        schema_type: source.schema_type,
-        institution: source.institution,
-        description: source.description,
-        field_definitions: source.field_definitions,
-        validation_rules: source.validation_rules,
-        workflow_states: source.workflow_states,
-        ui_configuration: source.ui_configuration,
-        scoring_configuration: source.scoring_configuration,
-        is_active: false,
-        use_dynamic_form: source.use_dynamic_form
-      }
-      return this.createSchema(payload)
+        version: bumpPatch(source.version)
+      })
+      this.schemas.push(derived)
+      return derived
     },
 
     async fetchWorkflowPairs(params: Record<string, unknown> = {}) {

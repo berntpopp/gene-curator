@@ -326,7 +326,7 @@ describe('SchemaManagement', () => {
     const duplicate = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's2' } as never)
     await call(vm, 'duplicateSchema', row)
     expect(duplicate).toHaveBeenCalledWith('s1')
-    expect(showSuccess).toHaveBeenCalledWith('Schema "ClinGen curation" duplicated successfully')
+    expect(showSuccess).toHaveBeenCalledWith('Derived a new draft from "ClinGen curation"')
   })
 
   it('reports a failed duplicate with the backend reason', async () => {

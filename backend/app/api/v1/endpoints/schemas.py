@@ -19,6 +19,7 @@ from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
     CurationSchemaUpdate,
+    MethodologyDerive,
     MethodologyVersion,
     SchemaValidationResult,
     WorkflowPair,
@@ -153,6 +154,41 @@ def publish_methodology_version(
         raise HTTPException(status_code=404, detail="Schema not found")
     return schema_crud.publish_version(  # type: ignore[return-value]
         db, schema=schema, user_id=current_user.id
+    )
+
+
+@router.post(
+    "/curation-schemas/{schema_id}/versions/{version_id}/derive",
+    response_model=CurationSchema,
+    status_code=201,
+)
+def derive_methodology(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    version_id: UUID,
+    derive_in: MethodologyDerive,
+    current_user: UserNew = Depends(deps.get_current_admin_user),
+) -> CurationSchema:
+    """Create an inactive schema from a published version. Requires platform admin.
+
+    The new schema's v1 records the version it was derived from.
+    """
+    source = db.get(MethodologyVersionModel, version_id)
+    if not source or source.schema_id != schema_id:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    if schema_crud.get_by_name_and_version(
+        db, name=derive_in.name, version=derive_in.version
+    ):
+        raise HTTPException(
+            status_code=400, detail="Schema with this name and version already exists"
+        )
+    return schema_crud.derive(  # type: ignore[return-value]
+        db,
+        source=source,
+        name=derive_in.name,
+        version=derive_in.version,
+        user_id=current_user.id,
     )
 
 

@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models import UserNew
 from tests.api.schema_api_support import auth, insert_schema
 
 pytestmark = pytest.mark.unit
@@ -80,6 +81,57 @@ def test_put_on_schema_leaves_published_snapshot_unchanged(
     assert r.status_code == 200, r.text
     got = client.get(f"{VERSIONS}/{v1['id']}", headers=auth(admin_token))
     assert got.json()["snapshot"] == v1["snapshot"]
+
+
+def test_admin_derives_inactive_schema_whose_v1_points_at_the_source(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    test_user_admin: UserNew,
+) -> None:
+    schema = insert_schema(db_session, scoring_configuration={"engine": "x"})
+    v1 = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token)).json()
+    r = client.post(
+        f"{BASE}/{schema.id}/versions/{v1['id']}/derive",
+        json={"name": "Derived", "version": "1.0"},
+        headers=auth(admin_token),
+    )
+    assert r.status_code == 201, r.text
+    derived = r.json()
+    assert derived["id"] != str(schema.id)
+    assert (derived["name"], derived["is_active"]) == ("Derived", False)
+    assert derived["created_by"] == str(test_user_admin.id)
+    assert derived["scoring_configuration"] == {"engine": "x"}
+
+    versions = client.get(
+        f"{BASE}/{derived['id']}/versions", headers=auth(admin_token)
+    ).json()
+    assert len(versions) == 1
+    assert versions[0]["version"] == 1
+    assert versions[0]["derived_from_version_id"] == v1["id"]
+    assert versions[0]["created_by"] == str(test_user_admin.id)
+    assert versions[0]["snapshot"] == v1["snapshot"]
+
+
+def test_derive_refusals(
+    client: TestClient, db_session: Session, admin_token: str, curator_token: str
+) -> None:
+    schema = insert_schema(db_session, name="Taken", version="2")
+    other = insert_schema(db_session, name="Other")
+    vid = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token)).json()[
+        "id"
+    ]
+    body = {"name": "New", "version": "1"}
+
+    def derive(sid: object, v: object, token: str, json: object = body) -> int:
+        url = f"{BASE}/{sid}/versions/{v}/derive"
+        return client.post(url, json=json, headers=auth(token)).status_code
+
+    assert derive(schema.id, vid, curator_token) == 403
+    assert derive(schema.id, uuid4(), admin_token) == 404
+    assert derive(other.id, vid, admin_token) == 404  # version of another schema
+    assert derive(schema.id, vid, admin_token, {"name": "Taken", "version": "2"}) == 400
+    assert derive(schema.id, vid, admin_token, {"name": "", "version": "1"}) == 422
 
 
 def test_unknown_schema_is_404(client: TestClient, admin_token: str) -> None:

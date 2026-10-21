@@ -9,7 +9,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
@@ -161,6 +161,57 @@ class CRUDCurationSchema(
         db.commit()
         db.refresh(version)
         return version
+
+    def derive(
+        self,
+        db: Session,
+        *,
+        source: MethodologyVersion,
+        name: str,
+        version: str,
+        user_id: UUID,
+    ) -> CurationSchema:
+        """Copy a version's snapshot into a new inactive schema whose v1 points back at it."""
+        parent = db.get(CurationSchema, source.schema_id)
+        assert parent is not None  # versions cascade-delete with their schema
+        data: dict[str, Any] = {
+            **{key: source.snapshot.get(key) for key in SNAPSHOT_KEYS},
+            "name": name,
+            "version": version,
+        }
+        schema = CurationSchema(
+            **data,
+            schema_type=parent.schema_type,
+            institution=parent.institution,
+            description=parent.description,
+            use_dynamic_form=parent.use_dynamic_form,
+            is_active=False,
+            created_by=user_id,
+            schema_hash=_schema_content_hash(data),
+        )
+        if db.get_bind().dialect.name == "postgresql":
+            # read by the 044 trigger that publishes v1; transaction-local
+            db.execute(
+                text("SELECT set_config('app.derived_from_version_id', :v, true)"),
+                {"v": str(source.id)},
+            )
+            db.add(schema)
+        else:  # SQLite has no trigger: publish v1 here
+            db.add(schema)
+            db.flush()
+            db.add(
+                MethodologyVersion(
+                    schema_id=schema.id,
+                    version=1,
+                    snapshot=dict(source.snapshot),
+                    published_at=datetime.now(UTC),
+                    created_by=user_id,
+                    derived_from_version_id=source.id,
+                )
+            )
+        db.commit()
+        db.refresh(schema)
+        return schema
 
     def is_schema_in_use(self, db: Session, *, schema_id: UUID) -> bool:
         """Check if schema is currently in use by workflow pairs or curations."""
