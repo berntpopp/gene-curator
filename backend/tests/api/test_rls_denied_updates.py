@@ -111,3 +111,54 @@ def test_engine_transition_maps_only_denials_to_403(
         )
     if expected is HTTPException:
         assert raised.value.status_code == 403
+
+
+@pytest.mark.parametrize(("pgcode", "status"), [("42501", 403), ("23505", None)])
+def test_rls_denied_create_is_403_for_platform_admin_without_membership(
+    client: TestClient,
+    db_session: Session,
+    test_curation,
+    test_precuration: PrecurationNew,
+    pgcode: str,
+    status: int | None,
+):
+    admin = make_user(db_session, role="admin")
+    error = DBAPIError("INSERT", {}, _PgError(pgcode))
+    base = {"gene_id": str(test_curation.gene_id), "evidence_data": {}}
+    for resource, crud, extra in (
+        (
+            "precurations",
+            "precuration_crud.create_precuration",
+            {
+                "scope_id": str(test_precuration.scope_id),
+                "precuration_schema_id": str(test_precuration.precuration_schema_id),
+            },
+        ),
+        (
+            "curations",
+            "curation_crud.create_curation",
+            {
+                "scope_id": str(test_curation.scope_id),
+                "workflow_pair_id": str(test_curation.workflow_pair_id),
+            },
+        ),
+    ):
+        with (
+            patch(f"app.api.v1.endpoints.{resource}.set_rls_context"),
+            patch(f"app.api.v1.endpoints.{resource}.{crud}", side_effect=error),
+        ):
+            if status is None:  # anything but insufficient_privilege stays an error
+                with pytest.raises(DBAPIError):
+                    client.post(
+                        f"/api/v1/{resource}/",
+                        json={**base, **extra},
+                        headers=auth_headers(admin),
+                    )
+                continue
+            r = client.post(
+                f"/api/v1/{resource}/",
+                json={**base, **extra},
+                headers=auth_headers(admin),
+            )
+        assert r.status_code == status, r.text
+        assert "accepted curator membership" in r.json()["detail"]
