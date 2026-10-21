@@ -39,6 +39,7 @@ class W:
     pete: UUID = field(
         default_factory=uuid4
     )  # pending (unaccepted) reviewer invitation
+    root: UUID = field(default_factory=uuid4)  # platform admin, no membership here
     gene: UUID = field(default_factory=uuid4)
     gene2: UUID = field(default_factory=uuid4)
     pre: UUID = field(default_factory=uuid4)  # alice's submitted precuration
@@ -65,6 +66,7 @@ def w() -> Generator[W, None, None]:
             (x.ann, "ann"),
             (x.pat, "pat"),
             (x.pete, "pete"),
+            (x.root, "root"),
         ):
             cur.execute(
                 "INSERT INTO users (id, email, hashed_password, name, role) "
@@ -74,7 +76,7 @@ def w() -> Generator[W, None, None]:
                     f"{name}-{tag}@rlsrev.org",
                     get_password_hash("pw"),
                     name,
-                    "admin" if uid == x.pat else "user",
+                    "admin" if uid in (x.pat, x.root) else "user",
                 ),
             )
         cur.execute(
@@ -125,7 +127,18 @@ def w() -> Generator[W, None, None]:
         )
     yield x
     users = [
-        str(u) for u in (x.alice, x.bob, x.carol, x.dave, x.frank, x.ann, x.pat, x.pete)
+        str(u)
+        for u in (
+            x.alice,
+            x.bob,
+            x.carol,
+            x.dave,
+            x.frank,
+            x.ann,
+            x.pat,
+            x.pete,
+            x.root,
+        )
     ]
     with _owner() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM scopes WHERE id = %s", (str(x.scope),))
@@ -469,3 +482,110 @@ def test_pending_invitation_and_inactive_scope_get_nothing(
         _owner_scalar("SELECT status::text FROM precurations WHERE id = %s", str(w.pre))
         == "submitted"
     )
+
+
+def test_curator_resubmits_after_changes_requested_and_reviewer_approves(
+    client: TestClient, w: W
+) -> None:
+    """Monkey test: the resubmit re-requests bob's review as alice; RLS used to deny it (403)."""
+    move = f"/api/v1/workflow/curation/{w.cur}/transition"
+    r = client.post(
+        move, json={"target_stage": "curation", "notes": "fix"}, headers=_h(w.bob)
+    )
+    assert r.status_code == 200, r.text
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            'UPDATE curations SET evidence_data = \'{"notes": "x"}\' WHERE id = %s',
+            (str(w.cur),),
+        )
+    lock = _owner_scalar("SELECT lock_version FROM curations WHERE id = %s", str(w.cur))
+    r = client.post(
+        f"/api/v1/curations/{w.cur}/submit",
+        json={"lock_version": lock},
+        headers=_h(w.alice),
+    )
+    assert r.status_code == 200, r.text
+    review = _owner_scalar(
+        "SELECT id FROM reviews WHERE curation_id = %s AND status = 'pending' "
+        "AND reviewer_id = %s AND assigned_by = %s",
+        str(w.cur),
+        str(w.bob),
+        str(w.alice),
+    )
+    assert review is not None
+    r = client.post(
+        f"/api/v1/workflow/reviews/{review}/submit",
+        json={"decision": "approve"},
+        headers=_h(w.bob),
+    )
+    assert r.status_code == 200, r.text
+    assert (
+        _owner_scalar("SELECT status::text FROM curations WHERE id = %s", str(w.cur))
+        == "active"
+    )
+
+
+@pytest.mark.parametrize(
+    ("reviewer", "extra"),
+    [
+        ("dave", ""),  # never reviewed this curation
+        ("alice", ""),  # herself (4-eyes)
+        ("bob", "approved"),  # a decision, not a pending request
+    ],
+)
+def test_author_cannot_forge_reviews(w: W, reviewer: str, extra: str) -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO reviews (curation_id, reviewer_id, assigned_by, status) "
+            "VALUES (%s, %s, %s, 'needs_revision')",
+            (str(w.cur), str(w.bob), str(w.bob)),
+        )
+    with Session(database.engine) as db:
+        set_rls_context(db, db.get_one(UserNew, w.alice))
+        with pytest.raises(DBAPIError) as err:
+            db.execute(
+                text(
+                    "INSERT INTO reviews (curation_id, reviewer_id, assigned_by, status) "
+                    "VALUES (:c, :r, :a, CAST(:s AS review_status))"
+                ),
+                {
+                    "c": w.cur,
+                    "r": getattr(w, reviewer),
+                    "a": w.alice,
+                    "s": extra or "pending",
+                },
+            )
+        assert isinstance(err.value.orig, psycopg2.errors.InsufficientPrivilege)
+
+
+def test_platform_admin_without_membership_gets_403_not_500_on_create(
+    client: TestClient, w: W
+) -> None:
+    pair, schema = (
+        _owner_scalar(
+            "SELECT id FROM workflow_pairs WHERE is_active ORDER BY id LIMIT 1"
+        ),
+        _owner_scalar(
+            "SELECT precuration_schema_id FROM workflow_pairs WHERE is_active "
+            "ORDER BY id LIMIT 1"
+        ),
+    )
+    body = {"gene_id": str(w.gene2), "scope_id": str(w.scope), "evidence_data": {}}
+    r = client.post(
+        "/api/v1/precurations/",
+        json={**body, "precuration_schema_id": str(schema)},
+        headers=_h(w.root),
+    )
+    assert r.status_code == 403, r.text
+    assert "accepted curator membership" in r.json()["detail"]
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE precurations SET status = 'approved' WHERE id = %s", (str(w.pre),)
+        )
+    r = client.post(
+        "/api/v1/curations/",
+        json={**body, "gene_id": str(w.gene), "workflow_pair_id": str(pair)},
+        headers=_h(w.root),
+    )
+    assert r.status_code == 403, r.text
+    assert "accepted curator membership" in r.json()["detail"]

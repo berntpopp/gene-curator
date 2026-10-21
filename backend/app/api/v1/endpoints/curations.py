@@ -7,6 +7,7 @@ Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
@@ -16,7 +17,7 @@ from app.core.constants import (
     CURATIONS_MAX_LIMIT,
     DEFAULT_SKIP,
 )
-from app.core.database import get_db
+from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.curation import curation_crud
@@ -341,6 +342,13 @@ def create_curation(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+    except DBAPIError as e:  # require() lets platform admins through; RLS does not
+        db.rollback()
+        raise_if_rls_denied(
+            e,
+            "Creating curations here needs an accepted curator membership in this scope",
+        )
+        raise
 
     return Curation.model_validate(curation)
 
