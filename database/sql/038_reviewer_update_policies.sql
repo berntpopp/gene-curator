@@ -63,7 +63,9 @@ RETURNS TRIGGER AS $$
 DECLARE
     protected TEXT;
 BEGIN
-    IF is_application_admin()
+    -- No app user: migrations and the owner role, which the reviewer policy never covers
+    IF get_current_user_uuid() IS NULL
+       OR is_application_admin()
        OR OLD.created_by = get_current_user_uuid()
        OR can_curate_in_scope(OLD.scope_id) THEN
         RETURN NEW;
