@@ -391,3 +391,32 @@ def test_statistics_forbidden_for_non_member(
     )
 
     assert response.status_code == 403
+
+
+@pytest.mark.parametrize("field", ["display_name", "institution"])
+def test_overlong_string_fields_are_422_not_500(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    app_admin: UserNew,
+    scope_with_admin: Scope,
+    field: str,
+) -> None:
+    """varchar(255) columns: an overlong value is a validation error, not a DB 500."""
+    response = client.patch(
+        f"{BASE}/{scope_with_admin.id}",
+        json={field: "x" * 256},
+        headers=auth_headers(owner),
+    )
+    assert response.status_code == 422
+    payload = {**_create_payload(db_session), field: "x" * 256}
+    response = client.post(f"{BASE}/", json=payload, headers=auth_headers(app_admin))
+    assert response.status_code == 422
+
+
+def test_overlong_scope_name_is_422(
+    client: TestClient, db_session: Session, app_admin: UserNew
+) -> None:
+    payload = _create_payload(db_session, name="a" * 256)
+    response = client.post(f"{BASE}/", json=payload, headers=auth_headers(app_admin))
+    assert response.status_code == 422

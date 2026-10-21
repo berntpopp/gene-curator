@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import CurationStatus, WorkflowStage
+from app.schemas.review_comment import REVIEW_TEXT_MAX
 
 # ========================================
 # PRECURATION EVIDENCE DATA SCHEMA
@@ -66,6 +67,14 @@ class PrecurationSubmit(BaseModel):
 
     notes: str | None = Field(None, max_length=1000, description="Submission notes")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+
+
+class PrecurationReject(BaseModel):
+    """Schema for rejecting a precuration."""
+
+    reason: str = Field(
+        "No reason provided", max_length=REVIEW_TEXT_MAX, description="Reason"
+    )
 
 
 # ========================================

@@ -210,6 +210,7 @@ class TestCurationGet:
 class TestCurationCreate:
     """Tests for POST /curations/"""
 
+    @pytest.mark.usefixtures("approved_precuration")
     def test_create_curation_success(
         self,
         client: TestClient,
@@ -219,7 +220,6 @@ class TestCurationCreate:
         test_workflow_pair: WorkflowPair,
     ):
         """Test successful curation creation."""
-        # Arrange
         curation_data = {
             "gene_id": str(test_gene.id),
             "scope_id": str(test_scope.id),

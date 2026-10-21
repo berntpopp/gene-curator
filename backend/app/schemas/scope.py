@@ -14,11 +14,17 @@ class ScopeBase(BaseModel):
     """Base scope schema with common fields."""
 
     name: str = Field(
-        ..., description="Unique scope identifier (e.g., 'kidney-genetics')"
+        ...,
+        max_length=255,
+        description="Unique scope identifier (e.g., 'kidney-genetics')",
     )
-    display_name: str = Field(..., description="Human-readable scope name")
+    display_name: str = Field(
+        ..., max_length=255, description="Human-readable scope name"
+    )
     description: str | None = Field(None, description="Scope description")
-    institution: str | None = Field(None, description="Owning institution")
+    institution: str | None = Field(
+        None, max_length=255, description="Owning institution"
+    )
     is_public: bool = Field(False, description="Whether scope is publicly visible")
     scope_config: dict[str, Any] = Field(
         default_factory=dict, description="Scope-specific configuration"
@@ -48,9 +54,13 @@ class ScopeCreate(ScopeBase):
 class ScopeUpdate(BaseModel):
     """Schema for updating an existing scope."""
 
-    display_name: str | None = Field(None, description="Human-readable scope name")
+    display_name: str | None = Field(
+        None, max_length=255, description="Human-readable scope name"
+    )
     description: str | None = Field(None, description="Scope description")
-    institution: str | None = Field(None, description="Owning institution")
+    institution: str | None = Field(
+        None, max_length=255, description="Owning institution"
+    )
     is_public: bool | None = Field(None, description="Public scope visibility")
     scope_config: dict[str, Any] | None = Field(
         None, description="Scope-specific configuration"

@@ -29,6 +29,7 @@ from app.main import app
 from app.models.models import (
     CurationNew,
     CurationSchema,
+    CurationStatus,
     EvidenceItem,
     Gene,
     PrecurationNew,
@@ -504,3 +505,13 @@ def pytest_configure(config: Any) -> None:
     config.addinivalue_line("markers", "unit: Unit tests")
     config.addinivalue_line("markers", "integration: Integration tests")
     config.addinivalue_line("markers", "slow: Slow-running tests")
+
+
+@pytest.fixture
+def approved_precuration(
+    db_session: Session, test_precuration: PrecurationNew
+) -> PrecurationNew:
+    """Precuration past its 4-eyes review: a curation may be created for its gene."""
+    test_precuration.status = CurationStatus.APPROVED
+    db_session.commit()
+    return test_precuration
