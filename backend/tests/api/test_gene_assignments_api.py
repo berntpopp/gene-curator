@@ -343,7 +343,7 @@ def test_assignment_statistics_access_rules(
 def test_bulk_create_assignments(
     client: TestClient,
     db_session: Session,
-    curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
 ) -> None:
@@ -352,7 +352,7 @@ def test_bulk_create_assignments(
     response = client.post(
         f"{BASE}/bulk",
         json={"gene_ids": [str(test_gene.id)], "scope_id": str(test_scope.id)},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
 
     assert response.status_code == 200

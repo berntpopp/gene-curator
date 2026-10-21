@@ -368,10 +368,10 @@ def bulk_create_gene_assignments(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkGeneScopeAssignmentResponse:
     """
-    Bulk create gene-scope assignments. Available to all authenticated users with scope access.
+    Bulk create gene-scope assignments. Scope admins and application admins only.
     """
-    if not ScopePermissionService.can_edit_gene_assignment(
-        db, current_user, bulk_request.scope_id
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, bulk_request.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
