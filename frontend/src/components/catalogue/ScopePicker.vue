@@ -54,7 +54,7 @@
         </v-list-item>
       </v-list>
       <v-divider />
-      <p class="text-caption text-medium-emphasis pa-3">
+      <p class="text-body-small text-medium-emphasis pa-3">
         Up to {{ MAX }} columns. Your choice is saved as your default view.
       </p>
     </v-card>

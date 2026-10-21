@@ -34,7 +34,7 @@
         <router-link :to="`/genes/${item.gene_id}`" class="gene-link mono">
           {{ item.approved_symbol }}
         </router-link>
-        <div class="text-caption text-medium-emphasis mono">{{ item.hgnc_id }}</div>
+        <div class="text-body-small text-medium-emphasis mono">{{ item.hgnc_id }}</div>
       </template>
 
       <template v-for="s in store.scopes" :key="s.id" #[`item.scope:${s.id}`]="{ item }">
