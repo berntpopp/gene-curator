@@ -64,6 +64,7 @@ describe('PrecurationFormView', () => {
     ['draft', 'me', 'sc1', false],
     ['rejected', 'me', 'sc1', false],
     ['submitted', 'me', 'sc1', true],
+    ['approved', 'me', 'sc1', true],
     ['draft', 'other', 'sc1', true],
     ['draft', 'me', 'sc2', true]
   ])(
@@ -87,8 +88,33 @@ describe('PrecurationFormView', () => {
       const form = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' })
       expect(form.props('precurationId')).toBe('p1')
       expect(form.props('readonly')).toBe(readonly)
+      // A read-only form always says why its actions are disabled
+      expect(wrapper.find('[data-testid="ws-readonly"]').exists()).toBe(readonly)
     }
   )
+
+  it.each([
+    ['submitted', 'in review'],
+    ['in_review', 'in review'],
+    ['approved', 'Read-only: this precuration is approved.'],
+    ['archived', 'Read-only: this precuration is archived.']
+  ])('says why a %s precuration is read-only', async (status, text) => {
+    useAuthStore().user = { id: 'me' } as never
+    route.params = { scopeId: 'sc1', precurationId: 'p1' }
+    vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+      id: 'p1',
+      gene_id: 'g7',
+      status,
+      created_by: 'me',
+      scope_id: 'sc1'
+    } as never)
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+    const wrapper = mount(PrecurationFormView, {
+      global: { stubs: { SchemaDrivenPrecurationForm: true } }
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain(text)
+  })
 
   it.each([
     ['rejected', 'Narrow the disease', true],

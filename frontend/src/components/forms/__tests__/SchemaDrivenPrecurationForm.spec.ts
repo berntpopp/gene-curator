@@ -164,6 +164,8 @@ describe('SchemaDrivenPrecurationForm', () => {
       await internals(wrapper).handleSubmit()
       expect(precurationsStore.saveDraft).not.toHaveBeenCalled()
       expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
+      // Reload must not offer the stale local copy back
+      expect(recovery.clearRecovery).toHaveBeenCalled()
     })
 
     it('shows it when the submit itself is refused as stale', async () => {

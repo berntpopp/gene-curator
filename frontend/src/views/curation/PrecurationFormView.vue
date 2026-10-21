@@ -55,6 +55,16 @@
       </p>
 
       <v-alert
+        v-if="readonlyReason"
+        data-testid="ws-readonly"
+        type="info"
+        variant="tonal"
+        class="mb-4"
+      >
+        {{ readonlyReason }}
+      </v-alert>
+
+      <v-alert
         v-if="sentBackReason"
         type="warning"
         variant="tonal"
@@ -175,7 +185,9 @@
   const sentBackReason = ref<string | null>(null)
   const loading = ref(true)
   const loadError = ref<string | null>(null)
-  const readonly = ref(false)
+  // Why the form is read-only; empty when the user may edit it
+  const readonlyReason = ref('')
+  const readonly = computed(() => !!readonlyReason.value)
 
   /**
    * Load scope and get precuration schema from workflow pair
@@ -279,10 +291,14 @@
         loadedGeneId.value = precuration.gene_id
         // Editable only by its author, in this scope, while draft or sent back (rejected)
         const mine = precuration.created_by === (authStore.user as { id?: string } | null)?.id
-        readonly.value =
-          !mine ||
-          precuration.scope_id !== scopeId.value ||
-          !['draft', 'rejected'].includes(precuration.status)
+        readonlyReason.value =
+          !mine || precuration.scope_id !== scopeId.value
+            ? 'Read-only: only the curator who started this precuration can edit it.'
+            : ['draft', 'rejected'].includes(precuration.status)
+              ? ''
+              : ['submitted', 'in_review'].includes(precuration.status)
+                ? 'Read-only: this precuration is in review. It can be edited again if changes are requested.'
+                : `Read-only: this precuration is ${precuration.status}.`
         // The reviewer's reason stays visible while the precuration is sent back
         const reason = precuration.computed_fields?.rejection_reason
         sentBackReason.value =

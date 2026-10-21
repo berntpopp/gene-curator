@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { nextTick, ref, type Ref } from 'vue'
 import { useCurationSubmission, type EvidenceData } from '../useCurationSubmission'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -134,6 +134,17 @@ describe('useCurationSubmission', () => {
       expect(s.lockVersion.value).toBe(3) // never adopt the newer version without a reload
       expect(s.onSaved).not.toHaveBeenCalled()
       expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
+    })
+
+    it('drops the local recovery copy on a conflict, so a reload never offers the stale edits', async () => {
+      curationsStore.saveDraft.mockResolvedValue(null)
+      curationsStore.error = { message: 'x', isConflict: true }
+      const { api, s } = setup('cur-1')
+
+      await api.handleSaveDraft()
+      await nextTick()
+
+      expect(s.clearRecovery).toHaveBeenCalled()
     })
 
     it('shows the API error, never a success toast, when the save is refused (403)', async () => {
@@ -297,6 +308,88 @@ describe('useCurationSubmission', () => {
       })
       expect(curationsStore.submitCuration).toHaveBeenCalledWith('cur-1', { lock_version: 7 })
       expect(s.onSubmit).toHaveBeenCalled()
+    })
+
+    it('keeps the version the update returned when submit is refused, so a retry is not stale', async () => {
+      curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 4 })
+      curationsStore.submitCuration.mockRejectedValueOnce({
+        response: { status: 403, data: { detail: 'Not a curator in this scope' } }
+      })
+      const { api, s } = setup('cur-1')
+
+      await api.handleClinGenSubmit(clingen)
+
+      expect(s.lockVersion.value).toBe(4)
+      expect(addToast).toHaveBeenCalledWith('Not a curator in this scope', 'error')
+
+      curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 5 })
+      await api.handleClinGenSubmit(clingen)
+      expect(curationsStore.updateCuration).toHaveBeenLastCalledWith('cur-1', {
+        evidence_data: clingen,
+        lock_version: 4
+      })
+    })
+
+    it('retries a refused submit on the curation it created, never a second one', async () => {
+      curationsStore.createCuration.mockResolvedValueOnce({ id: 'new-cg', lock_version: 0 })
+      curationsStore.submitCuration.mockRejectedValueOnce({
+        response: { status: 403, data: { detail: 'Not a curator in this scope' } }
+      })
+      const { api, s } = setup()
+
+      await api.handleClinGenSubmit(clingen)
+      curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 1 })
+      await api.handleClinGenSubmit(clingen)
+
+      expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
+      expect(curationsStore.updateCuration).toHaveBeenCalledWith('new-cg', {
+        evidence_data: clingen,
+        lock_version: 0
+      })
+      expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('new-cg', { lock_version: 1 })
+      expect(s.onSubmit).toHaveBeenCalledWith('new-cg')
+      // A reload after the refused submit opens that curation, not a new one
+      expect(replace).toHaveBeenCalledWith({
+        name: 'curation-edit',
+        params: { scopeId: 'scope-1', curationId: 'new-cg' }
+      })
+    })
+
+    it('retries a refused generic submit on the curation it created', async () => {
+      curationsStore.createCuration.mockResolvedValueOnce({ id: 'new-1', lock_version: 2 })
+      curationsStore.submitCuration.mockRejectedValueOnce({ message: 'refused' })
+      const { api } = setup()
+
+      await api.handleSubmit()
+      await api.handleSubmit()
+
+      expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
+      expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('new-1', { lock_version: 2 })
+      expect(replace).toHaveBeenCalledWith({
+        name: 'curation-edit',
+        params: { scopeId: 'scope-1', curationId: 'new-1' }
+      })
+    })
+
+    it('saves a draft into the curation a refused submit created', async () => {
+      curationsStore.createCuration.mockResolvedValueOnce({ id: 'new-cg', lock_version: 0 })
+      curationsStore.submitCuration.mockRejectedValueOnce({ message: 'refused' })
+      curationsStore.saveDraft.mockResolvedValue({ lock_version: 1 })
+      const { api } = setup()
+
+      await api.handleClinGenSubmit(clingen)
+      await api.handleClinGenSaveDraft(clingen)
+      await api.handleSaveDraft()
+
+      expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
+      expect(curationsStore.saveDraft).toHaveBeenCalledWith('new-cg', {
+        evidence_data: clingen,
+        lock_version: 0
+      })
+      expect(curationsStore.saveDraft).toHaveBeenLastCalledWith('new-cg', {
+        evidence_data: { a: 1 },
+        lock_version: 1
+      })
     })
 
     it('creates and submits a new ClinGen curation', async () => {
