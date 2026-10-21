@@ -49,17 +49,28 @@ def scoring_configuration(
 
 
 def point_ranges(model: dict[str, Any]) -> Ranges:
-    """{evidence list name: (min, max)} for every type with a range.
+    """{type path: (min, max)} for every type with a range.
 
-    ponytail: keyed by the list's last path segment like the stored evidence walk; two types
-    sharing a leaf name with different ranges would collide (none do in shipped models)."""
+    Paths are relative to their section, so AD and AR ``other_variant_type`` keep their own
+    ranges; stored evidence matches a type by path suffix."""
     return {
-        t["path"].rsplit(".", 1)[-1]: (float(t["range"][0]), float(t["range"][1]))
+        t["path"]: (float(t["range"][0]), float(t["range"][1]))
         for s in model["sections"]
         for c in s["categories"]
         for t in c["types"]
         if "range" in t
     }
+
+
+def _limits(path: str, ranges: Ranges) -> tuple[float, float] | None:
+    """The type's range by path suffix; for an unknown parent path, the narrowest range of
+    the types sharing its last segment (a shape we do not know gets the strictest check)."""
+    for type_path, limits in ranges.items():
+        if path == type_path or path.endswith(f".{type_path}"):
+            return limits
+    leaf = path.rsplit(".", 1)[-1]
+    same = [v for k, v in ranges.items() if k.rsplit(".", 1)[-1] == leaf]
+    return min(same, key=lambda limits: limits[1], default=None)
 
 
 def _row_errors(
@@ -96,9 +107,10 @@ def point_range_errors(
         return errors
     for key, value in evidence.items():
         here = f"{path}.{key}" if path else key
-        if key in ranges and isinstance(value, list):
+        limits = _limits(here, ranges) if isinstance(value, list) else None
+        if limits is not None:
             for i, row in enumerate(value):
-                errors += _row_errors(here, i, row, ranges[key])
+                errors += _row_errors(here, i, row, limits)
         else:
             errors += point_range_errors(value, here, ranges)
     return errors

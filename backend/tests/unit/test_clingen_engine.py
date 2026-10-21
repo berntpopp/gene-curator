@@ -170,9 +170,7 @@ class TestNestedGeneticEvidence:
         assert segregation_points({"segregations_counted": 0}) == 0.0
         assert segregation_points({}) == 0.0
 
-    def test_case_control_takes_max_of_single_and_aggregate(
-        self, engine: ClinGenEngine
-    ):
+    def test_case_control_sums_single_and_aggregate(self, engine: ClinGenEngine):
         evidence = {
             "case_control": {
                 "single_variant_analysis": [{"points": 2.0}, {"points": 2.0}],
@@ -182,15 +180,21 @@ class TestNestedGeneticEvidence:
 
         score, details = _genetic(engine, evidence)
 
-        assert score == pytest.approx(4.0)  # max(4, 3), not the sum
-        assert details["case_control"] == pytest.approx(4.0)
+        # SOP v11 (owner decision): the analyses are summed, category max 12
+        assert score == pytest.approx(7.0)
+        assert details["case_control"] == pytest.approx(7.0)
 
-    def test_case_control_capped_at_six(self, engine: ClinGenEngine):
-        evidence = {"case_control": {"single_variant_analysis": [{"points": 7.0}]}}
+    def test_case_control_capped_at_twelve(self, engine: ClinGenEngine):
+        evidence = {
+            "case_control": {
+                "single_variant_analysis": [{"points": 6.0}, {"points": 6.0}],
+                "aggregate_variant_analysis": [{"points": 1.0}],
+            }
+        }
 
         score, _ = _genetic(engine, evidence)
 
-        assert score == pytest.approx(6.0)
+        assert score == pytest.approx(12.0)
 
     def test_genetic_total_capped_at_twelve(self, engine: ClinGenEngine):
         evidence = {

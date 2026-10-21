@@ -13,7 +13,7 @@
             {"path": "case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
             {"path": "case_level.autosomal_dominant_or_x_linked.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 1.5]},
             {"path": "case_level.autosomal_recessive.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
-            {"path": "case_level.autosomal_recessive.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 1.5]}
+            {"path": "case_level.autosomal_recessive.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 3]}
           ]
         },
         {
@@ -23,8 +23,7 @@
         },
         {
           "key": "case_control",
-          "cap": 6,
-          "combine": "max",
+          "cap": 12,
           "types": [
             {"path": "case_control.single_variant_analysis", "default": 0, "range": [0, 6]},
             {"path": "case_control.aggregate_variant_analysis", "default": 0, "range": [0, 6]}
