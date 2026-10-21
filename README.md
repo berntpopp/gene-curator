@@ -57,6 +57,11 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.5.0
+
+Run `make db-migrate` (migrations 036-040) before restarting the backend. Curation and precuration
+updates now require `lock_version`. Details: [docs/releases/v0.5.0.md](docs/releases/v0.5.0.md).
+
 ### Upgrading to v0.4.0
 
 1. Set `APP_DB_PASSWORD` (required; the runtime connects as the non-superuser `app_user`).
