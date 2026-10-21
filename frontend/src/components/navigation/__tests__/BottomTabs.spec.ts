@@ -4,6 +4,7 @@ import { defineComponent, h } from 'vue'
 import { VLayout } from 'vuetify/components'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
+import { useScopesStore } from '@/stores/scopes'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { showInfo } from '@/composables/useNotifications'
 import BottomTabs from '../BottomTabs.vue'
@@ -34,6 +35,8 @@ function signIn(role: string) {
   auth.token = 't'
   auth.isAuthenticated = true
   auth.user = { email: 'a@b.c', role } as never
+  // A reviewer in one scope: the Review tab shows for scope reviewers and admins only
+  useScopesStore().scopes = [{ id: 's1', name: 'k', user_role: 'reviewer' }] as never
   return auth
 }
 
@@ -42,6 +45,7 @@ describe('BottomTabs', () => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
     vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined as never)
+    vi.spyOn(useScopesStore(), 'fetchUserScopes').mockResolvedValue([] as never)
   })
 
   it('renders nothing for signed-out users', async () => {

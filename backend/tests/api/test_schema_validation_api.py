@@ -388,3 +388,36 @@ class TestValidationSmokeRunner:
             {"is_valid", "error_count", "warning_count"} <= set(r)
             for r in results.values()
         )
+
+
+SECTIONED = {
+    "sections": [
+        {
+            "id": "disease",
+            "fields": [
+                {"id": "mondo_id", "type": "text", "required": True},
+                {"id": "score", "type": "number", "min_value": 0, "max_value": 3},
+            ],
+        }
+    ]
+}
+
+
+class TestSectionedSchemas:
+    def test_validate_evidence_handles_sectioned_definitions(
+        self, client: TestClient, viewer_token: str
+    ):
+        """Seeded precuration schemas use `sections`; the validator used to 500."""
+        r = client.post(
+            f"{BASE}/validate-evidence",
+            json={
+                "evidence_data": {"score": 9},
+                "schema_definition": {"field_definitions": SECTIONED},
+            },
+            headers=_auth(viewer_token),
+        )
+        assert r.status_code == 200, r.text
+        body = r.json()
+        assert body["is_valid"] is False
+        assert body["required_fields_missing"] == ["mondo_id"]
+        assert "score" in body["field_validations"]
