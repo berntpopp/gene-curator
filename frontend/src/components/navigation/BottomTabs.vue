@@ -16,7 +16,7 @@
     <v-menu location="top">
       <template #activator="{ props }">
         <v-btn v-bind="props" aria-label="Account">
-          <v-icon>mdi-account-outline</v-icon>
+          <v-icon>mdi-account</v-icon>
           <span>Account</span>
         </v-btn>
       </template>
