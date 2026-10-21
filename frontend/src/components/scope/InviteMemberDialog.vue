@@ -33,7 +33,7 @@
     <template #title
       ><v-icon start color="primary">mdi-account-plus</v-icon> Invite member to scope</template
     >
-    <v-form ref="formRef" v-model="formValid">
+    <v-form ref="formRef" v-model="formValid" class="pt-2">
       <UserSearchAutocomplete
         v-model="selectedUser"
         :scope-id="scopeId"
