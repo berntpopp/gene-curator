@@ -7,7 +7,7 @@
     </template>
     <v-list density="compact">
       <v-list-item
-        v-if="!hasPrecuration(gene)"
+        v-if="canAssignGenes && !hasPrecuration(gene)"
         :disabled="!!startBlockedReason"
         @click="emit('start-precuration', gene)"
       >
@@ -20,7 +20,7 @@
         }}</v-list-item-subtitle>
       </v-list-item>
       <v-list-item
-        v-else-if="hasPrecuration(gene) && !isPrecurationApproved(gene)"
+        v-else-if="canAssignGenes && hasPrecuration(gene) && !isPrecurationApproved(gene)"
         :disabled="!!startBlockedReason"
         @click="emit('complete-precuration', gene)"
       >
@@ -36,7 +36,7 @@
         <v-list-item-title> View Curation ({{ getCurationStatusLabel(gene) }}) </v-list-item-title>
       </v-list-item>
       <v-list-item
-        v-else-if="isPrecurationApproved(gene)"
+        v-else-if="canAssignGenes && isPrecurationApproved(gene)"
         :disabled="!!startBlockedReason"
         @click="emit('start-curation', gene)"
       >
@@ -45,7 +45,7 @@
         </template>
         <v-list-item-title>Start Curation</v-list-item-title>
       </v-list-item>
-      <v-list-item v-else disabled>
+      <v-list-item v-else-if="canAssignGenes" disabled>
         <template #prepend>
           <v-icon>mdi-pencil</v-icon>
         </template>
@@ -85,6 +85,7 @@
   const props = defineProps<{
     gene: GeneRow
     workflow: GeneWorkflowStatus
+    /** Curator or scope admin: only they may start or complete work (backend 403 otherwise). */
     canAssignGenes: boolean
     /** Scope admin only (backend: assign/unassign-curator). */
     canReassign?: boolean

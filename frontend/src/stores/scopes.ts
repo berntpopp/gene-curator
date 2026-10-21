@@ -41,7 +41,17 @@ export const useScopesStore = defineStore('scopes', () => {
 
   const scopes = ref<ScopeRecord[]>([])
   const currentScope = ref<ScopeRecord | null>(null)
+  /** Effective role for permission checks (platform admins count as admin). */
   const currentUserRole = ref<ScopeRole | null>(null)
+  /** The user's real scope membership role, for display. */
+  const membershipRole = ref<ScopeRole | null>(null)
+  const currentRoleLabel = computed(() => {
+    if (!currentUserRole.value) return null
+    const grantedByPlatform = useAuthStore().isAdmin
+    return grantedByPlatform
+      ? `${membershipRole.value ?? currentUserRole.value} (platform admin)`
+      : currentUserRole.value
+  })
   const scopeUsers = ref<Record<string, ScopeMember[]>>({}) // Map of scopeId -> users array
   const scopeStatistics = ref<Record<string, ScopeStatisticsRecord>>({}) // Map of scopeId -> statistics
   const loading = ref(false)
@@ -228,17 +238,10 @@ export const useScopesStore = defineStore('scopes', () => {
         return null
       }
 
-      // RBAC hierarchy: Application admins have implicit admin access to all scopes
-      if (authStore.isAdmin) {
-        currentUserRole.value = 'admin'
-        logService.debug('User role fetched (app admin)', { scope_id: scopeId, role: 'admin' })
-        return 'admin'
-      }
-
-      // For non-admin users, check scope membership
       const members = await scopeService.fetchMembers(scopeId)
-      const membership = members.find(m => m.user_id === currentUserId)
-      currentUserRole.value = membership?.role || null
+      membershipRole.value = members.find(m => m.user_id === currentUserId)?.role || null
+      // Application admins have implicit admin rights; the chip still shows the real role
+      currentUserRole.value = authStore.isAdmin ? 'admin' : membershipRole.value
 
       logService.debug('User role fetched', { scope_id: scopeId, role: currentUserRole.value })
       return currentUserRole.value
@@ -358,6 +361,7 @@ export const useScopesStore = defineStore('scopes', () => {
   function clearCurrentScope() {
     currentScope.value = null
     currentUserRole.value = null
+    membershipRole.value = null
     logService.debug('Current scope cleared')
   }
 
@@ -374,6 +378,8 @@ export const useScopesStore = defineStore('scopes', () => {
     scopes,
     currentScope,
     currentUserRole,
+    membershipRole,
+    currentRoleLabel,
     scopeUsers,
     scopeStatistics,
     loading,

@@ -59,7 +59,7 @@ describe('GeneRowActions', () => {
 
   it('hides assignment and removal actions for read-only users', () => {
     const wrapper = mount(GeneRowActions, {
-      props: { gene, workflow: workflow(), canAssignGenes: false, canRemoveGenes: false },
+      props: { gene, workflow: workflow(), canAssignGenes: true, canRemoveGenes: false },
       global: { stubs: inlineMenu }
     })
 
@@ -84,7 +84,7 @@ describe('GeneRowActions', () => {
       props: {
         gene,
         workflow: workflow({ hasPrecuration: () => true }),
-        canAssignGenes: false,
+        canAssignGenes: true,
         canRemoveGenes: false
       },
       global: { stubs: inlineMenu }
@@ -96,7 +96,7 @@ describe('GeneRowActions', () => {
 
   it('shows a disabled curation hint until the precuration is approved', () => {
     const wrapper = mount(GeneRowActions, {
-      props: { gene, workflow: workflow(), canAssignGenes: false, canRemoveGenes: false },
+      props: { gene, workflow: workflow(), canAssignGenes: true, canRemoveGenes: false },
       global: { stubs: inlineMenu }
     })
 
@@ -142,7 +142,7 @@ describe('GeneRowActions', () => {
       props: {
         gene,
         workflow: workflow({ hasPrecuration: () => true, isPrecurationApproved: () => true }),
-        canAssignGenes: false,
+        canAssignGenes: true,
         canRemoveGenes: false
       },
       global: { stubs: inlineMenu }
@@ -157,7 +157,7 @@ describe('GeneRowActions', () => {
 
   it('emits start and complete precuration actions', async () => {
     const start = mount(GeneRowActions, {
-      props: { gene, workflow: workflow(), canAssignGenes: false, canRemoveGenes: false },
+      props: { gene, workflow: workflow(), canAssignGenes: true, canRemoveGenes: false },
       global: { stubs: inlineMenu }
     })
     await menuItems(start)
@@ -169,7 +169,7 @@ describe('GeneRowActions', () => {
       props: {
         gene,
         workflow: workflow({ hasPrecuration: () => true }),
-        canAssignGenes: false,
+        canAssignGenes: true,
         canRemoveGenes: false
       },
       global: { stubs: inlineMenu }
@@ -195,5 +195,22 @@ describe('GeneRowActions', () => {
     const start = menuItems(wrapper).find(i => i.text().includes('Start Precuration'))
     expect(start?.classes()).toContain('v-list-item--disabled')
     expect(start?.text()).toContain('This scope has no methodology yet')
+  })
+
+  it.each([
+    ['no precuration', workflow()],
+    ['open precuration', workflow({ hasPrecuration: () => true })],
+    [
+      'approved precuration',
+      workflow({ hasPrecuration: () => true, isPrecurationApproved: () => true })
+    ]
+  ])('hides start/complete/curation actions from non-curators (%s)', (_name, wf) => {
+    const wrapper = mount(GeneRowActions, {
+      props: { gene, workflow: wf, canAssignGenes: false, canRemoveGenes: false },
+      global: { stubs: inlineMenu }
+    })
+    expect(wrapper.text()).not.toMatch(
+      /Start Precuration|Complete Precuration|Start Curation|Curation \(requires/
+    )
   })
 })

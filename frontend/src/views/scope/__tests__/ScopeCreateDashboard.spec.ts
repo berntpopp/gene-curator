@@ -10,6 +10,7 @@ import { call, vmOf } from '@/views/__tests__/vm'
 import ScopeCreate from '@/views/scope/ScopeCreate.vue'
 import ScopeDashboard from '@/views/scope/ScopeDashboard.vue'
 import { useScopesStore } from '@/stores/scopes'
+import { useAuthStore } from '@/stores/auth'
 import { usersApi } from '@/api/users'
 import { snackbarState } from '@/composables/useNotifications'
 
@@ -292,6 +293,14 @@ describe('ScopeDashboard', () => {
     expect(wrapper.text()).toContain('Kidney Genetics')
     expect(wrapper.text()).toContain('Renal genes')
     expect(routerReplace).not.toHaveBeenCalled()
+  })
+
+  it('shows the real scope role with a platform-admin suffix in the chip', async () => {
+    const { wrapper, store } = await mountView()
+    store.membershipRole = 'curator'
+    useAuthStore().user = { id: 'me', role: 'admin' } as never
+    await nextTick()
+    expect(wrapper.find('.v-chip').text()).toBe('curator (platform admin)')
   })
 
   it('shows em dashes, not zeros, until the statistics arrive', async () => {

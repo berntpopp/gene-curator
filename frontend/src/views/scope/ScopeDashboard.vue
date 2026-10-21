@@ -62,7 +62,7 @@
               :prepend-icon="getRoleIcon(userRole ?? '')"
               size="large"
             >
-              {{ userRole || 'No role' }}
+              {{ scopeStore.currentRoleLabel || 'No role' }}
             </v-chip>
           </div>
         </v-col>
