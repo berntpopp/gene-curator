@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import GeneAssertions from '../GeneAssertions.vue'
 import type { Schema } from '@/types/api'
@@ -76,5 +76,27 @@ describe('GeneAssertions', () => {
     expect(wrapper.findAllComponents(RouterLinkStub).map(l => l.props('to'))).toEqual([
       { name: 'scope-dashboard', params: { scopeId: 's1' } }
     ])
+  })
+
+  it('renders an active and an in-progress row of the same scope without key clashes', async () => {
+    const warn = vi.fn()
+    const wrapper = mount(GeneAssertions, {
+      props: {
+        scopes: [row({ scope_id: 's0' }), row({ scope_id: 'sA' }), row({ scope_id: 's9' })],
+        linked: true
+      },
+      global: { stubs: { RouterLink: RouterLinkStub }, config: { warnHandler: warn } }
+    })
+    // Vue only checks keys when it patches an existing list
+    await wrapper.setProps({
+      scopes: [
+        row({ scope_id: 's0' }),
+        row(),
+        row({ curation_id: 'c2', stage: 'curation', in_progress: true }),
+        row({ scope_id: 's9' })
+      ]
+    })
+    expect(warn).not.toHaveBeenCalled()
+    expect(wrapper.findAll('tbody tr')).toHaveLength(4)
   })
 })

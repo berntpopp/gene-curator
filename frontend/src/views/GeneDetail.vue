@@ -97,7 +97,7 @@
       <template v-else-if="scopes.length">
         <AgreementBanner
           class="mb-4"
-          :scope-count="scopes.length"
+          :scope-count="activeCount"
           :has-conflicts="summary?.has_conflicts ?? false"
           :consensus="summary?.consensus_classification"
           :classifications="summary?.classification_summary ?? {}"
@@ -114,10 +114,6 @@
           }}
         </p>
       </section>
-      <p v-if="hiddenScopes > 0" class="text-body-small text-medium-emphasis mb-4">
-        Also curated in {{ hiddenScopes }} {{ hiddenScopes === 1 ? 'scope' : 'scopes' }} you cannot
-        see.
-      </p>
 
       <section class="record" aria-labelledby="record-title">
         <h2 id="record-title" class="section-title mb-3">Gene record</h2>
@@ -168,8 +164,8 @@
   const summaryLoading = ref(false)
   const summaryError = ref<string | null>(null)
 
-  // Local gene data from database (store is JS, so its currentGene is typed null)
-  const localGene = computed(() => genesStore.currentGene as Gene | null)
+  // Own copy, not store.currentGene: a stale response must not overwrite what is shown
+  const localGene = ref<Gene | null>(null)
 
   const aliasSymbols = computed<string[]>(
     () => hgncData.value?.alias_symbols || localGene.value?.alias_symbols || []
@@ -179,10 +175,10 @@
   )
   const band = computed(() => hgncData.value?.location || localGene.value?.location || '')
   const scopes = computed(() => summary.value?.scope_summaries ?? [])
-  const hiddenScopes = computed(() => {
-    const total = (summary.value as Schema<'GeneSummaryFull'> | null)?.total_scopes_curated ?? 0
-    return Math.max(0, total - scopes.value.length)
-  })
+  // classification_summary counts active rows only; scopes also holds in-progress rows
+  const activeCount = computed(() =>
+    Object.values(summary.value?.classification_summary ?? {}).reduce((a, b) => a + b, 0)
+  )
 
   const links = computed(() =>
     geneExternalLinks(
@@ -213,11 +209,16 @@
     else router.push({ name: 'GeneCatalogue' })
   }
 
+  // Bumped per gene load so a slow response for a previous gene is dropped
+  let loadSeq = 0
+
   /** HGNC enriches the page; it never blocks it, and a failure keeps the local data. */
   async function fetchHgncData(hgncId: string | null | undefined): Promise<void> {
     if (!hgncId) return
+    const mine = loadSeq
     try {
       const response = await externalValidationAPI.fetchHGNCGene(hgncId)
+      if (mine !== loadSeq) return
       hgncData.value = response.results[0] ?? null
     } catch (e) {
       logger.warn('Failed to fetch HGNC data, using local data', {
@@ -228,20 +229,24 @@
   }
 
   async function loadSummary(geneId: string) {
+    const mine = loadSeq
     summaryLoading.value = true
     summaryError.value = null
     try {
-      summary.value = await summaryStore.loadSummary(geneId, auth.isAuthenticated)
+      const result = await summaryStore.loadSummary(geneId, auth.isAuthenticated)
+      if (mine === loadSeq) summary.value = result
     } catch (e) {
+      if (mine !== loadSeq) return
       summary.value = null
       summaryError.value = 'Could not load the curations for this gene.'
       logger.error('Failed to load gene summary', { gene_id: geneId, error: (e as Error).message })
     } finally {
-      summaryLoading.value = false
+      if (mine === loadSeq) summaryLoading.value = false
     }
   }
 
   async function loadGene(geneId: string) {
+    const mine = ++loadSeq
     try {
       loading.value = true
       error.value = null
@@ -250,11 +255,14 @@
       summary.value = null
 
       const gene = await genesStore.fetchGeneById(geneId)
+      if (mine !== loadSeq) return
+      localGene.value = gene as Gene
       loading.value = false
       void fetchHgncData(gene.hgnc_id)
       void loadSummary(gene.id)
       logger.info('Gene details loaded', { gene_id: geneId, symbol: gene.approved_symbol })
     } catch (err) {
+      if (mine !== loadSeq) return
       const e = err as Error
       logger.error('Failed to load gene details', { error: e.message, stack: e.stack })
       // A malformed id is rejected as 400/422: to the user that is also "not found"
@@ -262,7 +270,7 @@
       notFound.value = status === 404 || status === 400 || status === 422
       error.value = 'Failed to load gene details'
     } finally {
-      loading.value = false
+      if (mine === loadSeq) loading.value = false
     }
   }
 

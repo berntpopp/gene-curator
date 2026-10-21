@@ -16,7 +16,7 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="s in scopes" :key="s.scope_id">
+          <tr v-for="s in scopes" :key="s.curation_id ?? s.scope_id">
             <td data-label="Scope" class="scope">
               <router-link
                 v-if="linked"

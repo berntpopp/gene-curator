@@ -178,6 +178,54 @@ describe('GeneDetail view', () => {
     expect(wrapper.text()).toContain('17q21.31')
   })
 
+  describe('out-of-order responses', () => {
+    const deferred = <T>() => {
+      let resolve!: (v: T) => void
+      const promise = new Promise<T>(r => (resolve = r))
+      return { promise, resolve }
+    }
+
+    it('ignores a slow gene A response after navigating to gene B', async () => {
+      useRoute().params = { id: 'gene-1' }
+      const a = deferred<unknown>()
+      const b = deferred<unknown>()
+      vi.mocked(genesAPI.getGeneById).mockImplementation(
+        ((id: string) => (id === 'gene-1' ? a : b).promise) as never
+      )
+      vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({ results: [] } as never)
+      const wrapper = mountView()
+      useRoute().params = { id: 'gene-2' }
+      await flushPromises()
+      b.resolve({ ...localGene, id: 'gene-2', approved_symbol: 'TP53', hgnc_id: 'HGNC:11998' })
+      await flushPromises()
+      a.resolve(localGene)
+      await flushPromises()
+      expect(wrapper.find('h1').text()).toBe('TP53')
+      expect(externalValidationAPI.fetchHGNCGene).not.toHaveBeenCalledWith('HGNC:1100')
+      expect(geneSummaryAPI.getPublicSummary).not.toHaveBeenCalledWith('gene-1')
+    })
+
+    it('ignores a slow gene A summary after navigating to gene B', async () => {
+      useRoute().params = { id: 'gene-1' }
+      const a = deferred<unknown>()
+      vi.mocked(genesAPI.getGeneById).mockImplementation((async (id: string) =>
+        id === 'gene-1'
+          ? localGene
+          : { ...localGene, id: 'gene-2', approved_symbol: 'TP53' }) as never)
+      vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({ results: [] } as never)
+      vi.mocked(geneSummaryAPI.getPublicSummary).mockImplementation(((id: string) =>
+        id === 'gene-1' ? a.promise : Promise.resolve(null)) as never)
+      const wrapper = mountView()
+      await flushPromises()
+      useRoute().params = { id: 'gene-2' }
+      await flushPromises()
+      a.resolve(summaryOf([scope()]))
+      await flushPromises()
+      expect(wrapper.text()).toContain('No curations yet')
+      expect(wrapper.text()).not.toContain('Kidney genetics')
+    })
+  })
+
   describe('curations', () => {
     beforeEach(() => {
       vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
@@ -208,11 +256,23 @@ describe('GeneDetail view', () => {
       await flushPromises()
       expect(geneSummaryAPI.getPublicSummary).not.toHaveBeenCalled()
       expect(wrapper.text()).toContain('Both scopes agree')
-      expect(wrapper.text()).toContain('Also curated in 1 scope you cannot see.')
+      expect(wrapper.text()).not.toContain('you cannot see.')
       expect(wrapper.findAllComponents(RouterLinkStub).map(l => l.props('to'))).toContainEqual({
         name: 'curation-detail',
         params: { scopeId: 's1', curationId: 'c1' }
       })
+    })
+
+    it('counts only active rows: an in-progress row in the same scope is not a second scope', async () => {
+      vi.mocked(geneSummaryAPI.getPublicSummary).mockResolvedValue(
+        summaryOf([scope(), scope({ stage: 'curation', in_progress: true, curation_id: 'c9' })], {
+          classification_summary: { definitive: 1 }
+        }) as never
+      )
+      const wrapper = mountView()
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('Both scopes agree')
+      expect(wrapper.findAll('tbody tr')).toHaveLength(2)
     })
 
     it('shows a disagreement banner', async () => {
