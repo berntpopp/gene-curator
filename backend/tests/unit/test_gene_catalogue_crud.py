@@ -394,3 +394,40 @@ def test_catalogue_uses_precuration_disease_without_extra_queries(
     assert len(statements) == 3  # count, genes, curations with joined precurations
     summaries, _ = curation_crud.get_multi_filtered(db_session)
     assert summaries[0].disease_name == detail.disease_name
+
+
+def test_classification_list_hides_private_scope_verdicts(
+    db_session: Session,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_public_scope: Scope,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    test_scope.is_public = False  # the curator is its member
+    db_session.commit()
+    _curation(
+        db_session,
+        test_gene,
+        test_scope,
+        test_user_curator,
+        test_workflow_pair,
+        "Refuted",
+    )
+    other = _gene(db_session, test_user_curator, "HGNC:777", "OTHR", "1")
+    _curation(
+        db_session,
+        other,
+        test_public_scope,
+        test_user_curator,
+        test_workflow_pair,
+        "Strong",
+    )
+
+    assert catalogue.get_available_classifications(db_session) == ["strong"]
+    assert catalogue.get_available_classifications(
+        db_session, test_user_curator.id
+    ) == [
+        "refuted",
+        "strong",
+    ]

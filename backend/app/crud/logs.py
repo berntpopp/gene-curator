@@ -13,6 +13,7 @@ from sqlalchemy import and_, func, or_, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
+from app.core.search_text import escape_like
 from app.models.models import SystemLog
 
 
@@ -59,15 +60,19 @@ async def get_logs(  # noqa: C901
     if level:
         filters.append(SystemLog.level == level)
     if logger_name:
-        filters.append(SystemLog.logger.ilike(f"%{logger_name}%"))
+        filters.append(
+            SystemLog.logger.ilike(f"%{escape_like(logger_name)}%", escape="\\")
+        )
     if message:
-        filters.append(SystemLog.message.ilike(f"%{message}%"))
+        filters.append(
+            SystemLog.message.ilike(f"%{escape_like(message)}%", escape="\\")
+        )
     if request_id:
         filters.append(SystemLog.request_id == request_id)
     if user_id:
         filters.append(SystemLog.user_id == user_id)
     if endpoint:
-        filters.append(SystemLog.path.ilike(f"%{endpoint}%"))
+        filters.append(SystemLog.path.ilike(f"%{escape_like(endpoint)}%", escape="\\"))
     if method:
         filters.append(SystemLog.method == method)
     if start_date:

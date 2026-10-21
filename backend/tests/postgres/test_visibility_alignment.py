@@ -1,8 +1,10 @@
 """Old catalogue and GET /genes/{id}/scopes under real RLS: same rule as the matrix (#367)."""
 
+import os
 from collections.abc import Generator
 from uuid import UUID
 
+import psycopg2
 import pytest
 from fastapi.testclient import TestClient
 
@@ -78,3 +80,33 @@ def test_wildcard_and_nul_search(client: TestClient, w: W) -> None:  # noqa: F81
         client.get("/api/v1/gene-catalogue/", params={"search": "a\x00"}).status_code
         == 422
     )
+
+
+@pytest.mark.parametrize("who", WHO)
+def test_filter_lists_hide_private_scope_disease_and_classification(
+    client: TestClient,
+    w: W,  # noqa: F811
+    who: str,
+) -> None:
+    with (
+        psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as conn,
+        conn.cursor() as cur,
+    ):
+        for scope, disease in ((w.pub, "Public disease"), (w.priv, "Secret disease")):
+            cur.execute(
+                "UPDATE curations SET evidence_data = jsonb_build_object('disease_name', %s::text) "
+                "WHERE scope_id = %s AND status = 'active'",
+                (disease, str(scope)),
+            )
+    headers = _headers(w, who)
+    diseases = set(
+        client.get("/api/v1/gene-catalogue/filters/diseases", headers=headers).json()
+    )
+    classes = set(
+        client.get(
+            "/api/v1/gene-catalogue/filters/classifications", headers=headers
+        ).json()
+    )
+    assert "Public disease" in diseases and "strong" in classes
+    assert ("Secret disease" in diseases) == (who == "member")
+    assert ("refuted" in classes) == (who == "member")

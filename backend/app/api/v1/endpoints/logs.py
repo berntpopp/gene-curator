@@ -26,6 +26,7 @@ from app.core.constants import (
 )
 from app.core.database import get_async_db
 from app.core.deps import get_current_active_user
+from app.core.search_text import SearchText
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
 from app.schemas.logs import LogEntry, LogStatsSummary
@@ -80,15 +81,11 @@ def require_admin(current_user: UserNew = Depends(get_current_active_user)) -> U
 @router.get("/", response_model=list[LogEntry])
 async def search_logs(
     level: str | None = Query(None, description="Filter by log level"),
-    logger_name: str | None = Query(
-        None, description="Filter by logger name (partial match)"
-    ),
-    message: str | None = Query(None, description="Search in message (partial match)"),
+    logger_name: SearchText = None,
+    message: SearchText = None,
     request_id: str | None = Query(None, description="Filter by request ID"),
     user_id: str | None = Query(None, description="Filter by user ID"),
-    endpoint: str | None = Query(
-        None, description="Filter by endpoint (partial match)"
-    ),
+    endpoint: SearchText = None,
     method: str | None = Query(None, description="Filter by HTTP method"),
     start_date: datetime | None = Query(None, description="Start date (inclusive)"),
     end_date: datetime | None = Query(None, description="End date (inclusive)"),

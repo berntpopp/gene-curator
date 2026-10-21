@@ -22,6 +22,7 @@ from app.core.constants import (
 )
 from app.core.database import get_db
 from app.core.logging import api_endpoint
+from app.core.search_text import SearchText
 from app.crud.gene import gene_crud
 from app.models import Gene as GeneModel, UserNew
 from app.schemas.gene import (
@@ -165,7 +166,7 @@ def create_gene(
 def count_search_genes(
     *,
     db: Session = Depends(get_db),
-    query: str | None = Query(None, description="Search term"),
+    query: SearchText = None,
     chromosome: str | None = Query(None, description="Filter by chromosome"),
     hgnc_id: str | None = Query(None, description="Filter by HGNC ID"),
     current_user: UserNew = Depends(deps.get_current_active_user),
@@ -180,7 +181,7 @@ def count_search_genes(
 def search_genes(
     *,
     db: Session = Depends(get_db),
-    query: str | None = Query(None, description="Search term"),
+    query: SearchText = None,
     chromosome: str | None = Query(None, description="Filter by chromosome"),
     hgnc_id: str | None = Query(None, description="Filter by HGNC ID"),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
