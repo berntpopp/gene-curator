@@ -1811,6 +1811,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/genes/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve
+         * @description Resolve symbols, previous symbols, aliases and HGNC IDs, preserving input order.
+         */
+        post: operations["resolve_api_v1_genes_resolve_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/genes/": {
         parameters: {
             query?: never;
@@ -2078,6 +2098,23 @@ export interface paths {
          * @description Merge duplicate genes. Requires admin privileges.
          */
         post: operations["merge_genes_api_v1_genes_merge_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Search */
+        get: operations["search_api_v1_search_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4120,6 +4157,25 @@ export interface components {
              */
             lock_version?: number | null;
         };
+        /** CurationHit */
+        CurationHit: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Gene Symbol */
+            gene_symbol: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Scope Name */
+            scope_name: string;
+            /** Status */
+            status: string;
+        };
         /**
          * CurationListResponse
          * @description Paginated list response.
@@ -4830,6 +4886,20 @@ export interface components {
             /** Total Errors */
             total_errors: number;
         };
+        /** GeneCandidate */
+        GeneCandidate: {
+            /** Hgnc Id */
+            hgnc_id: string;
+            /** Symbol */
+            symbol: string;
+            /** Name */
+            name?: string | null;
+            /**
+             * Gene Id
+             * @description Local gene row, null if only in HGNC
+             */
+            gene_id?: string | null;
+        };
         /**
          * GeneCatalogueEntry
          * @description Single gene entry in the catalogue with aggregated curation information.
@@ -5029,6 +5099,18 @@ export interface components {
             /** Has Active Work */
             has_active_work: boolean;
         };
+        /** GeneHit */
+        GeneHit: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Symbol */
+            symbol: string;
+            /** Hgnc Id */
+            hgnc_id: string;
+        };
         /**
          * GeneListResponse
          * @description Response for paginated gene lists.
@@ -5094,6 +5176,54 @@ export interface components {
             warnings: string[];
             /** Errors */
             errors: string[];
+        };
+        /** GeneResolveCounts */
+        GeneResolveCounts: {
+            /** Resolved */
+            resolved: number;
+            /** Ambiguous */
+            ambiguous: number;
+            /** Not Found */
+            not_found: number;
+        };
+        /** GeneResolveItem */
+        GeneResolveItem: {
+            /** Input */
+            input: string;
+            /** Index */
+            index: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "resolved" | "ambiguous" | "not_found";
+            /** Match Type */
+            match_type?: ("symbol" | "previous_symbol" | "alias" | "hgnc_id") | null;
+            /** Source */
+            source?: ("local" | "hgnc") | null;
+            /** Candidates */
+            candidates?: components["schemas"]["GeneCandidate"][];
+            /**
+             * Reason
+             * @description Why an input was not looked up at HGNC (not_found only)
+             */
+            reason?: ("lookup_cap" | "lookup_timeout") | null;
+            /**
+             * Duplicate Of
+             * @description Index of the first input that resolved to the same gene
+             */
+            duplicate_of?: number | null;
+        };
+        /** GeneResolveRequest */
+        GeneResolveRequest: {
+            /** Symbols */
+            symbols: string[];
+        };
+        /** GeneResolveResponse */
+        GeneResolveResponse: {
+            /** Items */
+            items: components["schemas"]["GeneResolveItem"][];
+            counts: components["schemas"]["GeneResolveCounts"];
         };
         /**
          * GeneScopeAssignment
@@ -7575,6 +7705,18 @@ export interface components {
             /** Has Prev */
             has_prev: boolean;
         };
+        /** ScopeHit */
+        ScopeHit: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
+        };
         /**
          * ScopeListItem
          * @description Scope with basic counts for list views.
@@ -8243,6 +8385,15 @@ export interface components {
             /** Created By */
             created_by: string | null;
             statistics: components["schemas"]["ScopeStatistics"];
+        };
+        /** SearchResponse */
+        SearchResponse: {
+            /** Genes */
+            genes: components["schemas"]["GeneHit"][];
+            /** Curations */
+            curations: components["schemas"]["CurationHit"][];
+            /** Scopes */
+            scopes: components["schemas"]["ScopeHit"][];
         };
         /**
          * Token
@@ -12241,6 +12392,39 @@ export interface operations {
             };
         };
     };
+    resolve_api_v1_genes_resolve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GeneResolveRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GeneResolveResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     get_genes_api_v1_genes__get: {
         parameters: {
             query?: {
@@ -12778,6 +12962,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["GeneMergeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_api_v1_search_get: {
+        parameters: {
+            query: {
+                /** @description Search text */
+                q: string;
+                /** @description Max hits per group */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResponse"];
                 };
             };
             /** @description Validation Error */
