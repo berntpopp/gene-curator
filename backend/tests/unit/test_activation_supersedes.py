@@ -68,3 +68,26 @@ def test_activation_archives_previous_and_stamps_approval(
         .all()
     )
     assert [p.curation_id for p in pointers] == [second.id]
+
+
+def test_second_active_curation_for_same_gene_scope_is_rejected(
+    db_session: Session,
+    test_scope: Scope,
+    test_gene: Gene,
+    test_workflow_pair: WorkflowPair,
+    test_user_curator: UserNew,
+) -> None:
+    from sqlalchemy.exc import IntegrityError
+
+    first = _curation(
+        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
+    )
+    second = _curation(
+        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
+    )
+    first.status = CurationStatus.ACTIVE
+    db_session.commit()
+    second.status = CurationStatus.ACTIVE
+    with pytest.raises(IntegrityError):
+        db_session.commit()
+    db_session.rollback()

@@ -354,7 +354,6 @@ class CurationSchema(Base):
 
     __tablename__ = "curation_schemas"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -451,7 +450,6 @@ class WorkflowPair(Base):
 
     __tablename__ = "workflow_pairs"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -526,7 +524,6 @@ class Gene(Base):
 
     __tablename__ = "genes"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -599,7 +596,6 @@ class GeneScopeAssignment(Base):
 
     __tablename__ = "gene_scope_assignments"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -674,7 +670,6 @@ class PrecurationNew(Base):
 
     __tablename__ = "precurations"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -788,7 +783,6 @@ class CurationNew(Base):
 
     __tablename__ = "curations"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -916,6 +910,15 @@ class CurationNew(Base):
         Index("idx_curations_evidence_gin", "evidence_data", postgresql_using="gin"),
         Index("idx_curations_scores_gin", "computed_scores", postgresql_using="gin"),
         Index("idx_curations_lock_version", "id", "lock_version"),
+        # Mirrors database/sql/034: one active curation per gene+scope
+        Index(
+            "uq_curations_one_active",
+            "gene_id",
+            "scope_id",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            sqlite_where=text("status = 'active'"),
+        ),
     )
 
 
@@ -924,7 +927,6 @@ class Review(Base):
 
     __tablename__ = "reviews"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -991,7 +993,6 @@ class ActiveCuration(Base):
 
     __tablename__ = "active_curations"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -1095,7 +1096,6 @@ class AuditLogNew(Base):
 
     __tablename__ = "audit_log"
 
-    # Primary key
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
 
     # Required fields
