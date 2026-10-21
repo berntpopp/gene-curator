@@ -38,14 +38,34 @@ class PrecurationUpdate(BaseModel):
     evidence_data: dict[str, Any] | None = Field(
         None, description="Updated evidence data"
     )
+    lock_version: int = Field(..., description="Optimistic locking version (required)")
 
     model_config = ConfigDict(extra="forbid")
+
+
+class PrecurationDraftSave(BaseModel):
+    """Schema for saving a precuration as draft."""
+
+    evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
+    lock_version: int = Field(..., description="Optimistic locking version (required)")
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class PrecurationConflictResponse(BaseModel):
+    """409 Conflict response for optimistic locking."""
+
+    error: str = "Concurrent modification detected"
+    current_lock_version: int
+    current_state: dict[str, Any]
+    your_lock_version: int
 
 
 class PrecurationSubmit(BaseModel):
     """Schema for submitting a precuration for review."""
 
     notes: str | None = Field(None, max_length=1000, description="Submission notes")
+    lock_version: int = Field(..., description="Optimistic locking version (required)")
 
 
 # ========================================
@@ -77,6 +97,7 @@ class PrecurationInDBBase(BaseModel):
     updated_by: UUID | None
 
     version_number: int
+    lock_version: int
 
     model_config = ConfigDict(from_attributes=True, use_enum_values=True)
 

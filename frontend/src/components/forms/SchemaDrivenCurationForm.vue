@@ -306,6 +306,7 @@
 
   const {
     savingDraft,
+    conflict,
     submitting,
     handleSaveDraft,
     handleSubmit,
@@ -333,6 +334,7 @@
     evidence: evidenceData,
     saving: savingDraft,
     savedAt,
+    conflict,
     save: async () => {
       // Cells commit on blur: let a focused cell's last edit land before saving
       ;(document.activeElement as HTMLElement | null)?.blur?.()

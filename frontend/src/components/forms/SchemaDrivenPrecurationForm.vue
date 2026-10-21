@@ -7,7 +7,8 @@
           <span>{{ gene?.symbol || 'Gene' }} - Precuration</span>
           <v-chip v-if="isDraft" color="warning" size="small" class="ml-2">Draft</v-chip>
           <v-spacer />
-          <v-chip v-if="savedAt" color="success" size="small" variant="outlined">
+          <SaveState v-if="conflict" state="conflict" :saved-at="null" />
+          <v-chip v-else-if="savedAt" color="success" size="small" variant="outlined">
             <v-icon start size="small">mdi-content-save</v-icon>
             Saved {{ formatRelativeTime(savedAt) }}
           </v-chip>
@@ -110,6 +111,7 @@
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import SaveState from '@/components/workspace/SaveState.vue'
   import FormActions from '@/components/forms/FormActions.vue'
   import { useConfirm } from '@/composables/useConfirm'
 
@@ -150,6 +152,8 @@
   const isDraft = ref(true)
   const loadingSchema = ref(false)
   const savingDraft = ref(false)
+  // Another tab saved first: saving and submitting are blocked until the page is reloaded
+  const conflict = ref(false)
   const submitting = ref(false)
   const createdId = ref<string | null>(null)
   const savedAt = ref<number | null>(null) // last successful server save
@@ -291,6 +295,7 @@
    * Save draft
    */
   async function handleSaveDraft() {
+    if (conflict.value) return // never save over the newer version; the user reloads
     savingDraft.value = true
     try {
       const existingId = props.precurationId ?? createdId.value
@@ -298,7 +303,10 @@
         // Update existing precuration draft
         const updated = await precurationsStore.saveDraft(existingId, evidenceData.value)
         // The store swallows save errors and returns nothing
-        if (!updated) throw new Error('Draft not saved')
+        if (!updated) {
+          if (precurationsStore.error?.isConflict) conflict.value = true
+          throw new Error('Draft not saved')
+        }
         emit('saved')
       } else {
         // Create new precuration as draft
@@ -324,7 +332,7 @@
    * Submit precuration
    */
   async function handleSubmit() {
-    if (!canSubmit.value) return
+    if (!canSubmit.value || conflict.value) return
 
     const schema = schemasStore.getSchemaById(props.schemaId)
     const missing = missingRequiredLabels(
@@ -346,6 +354,7 @@
         createdId.value = id
       } else if (!(await precurationsStore.saveDraft(id, evidenceData.value))) {
         // Persist the current edits first; the store swallows errors and returns nothing
+        if (precurationsStore.error?.isConflict) conflict.value = true
         throw new Error('Draft not saved')
       }
       await precurationsStore.submitForReview(id)
@@ -356,6 +365,7 @@
       emit('submit')
     } catch (error) {
       logger.error('Failed to submit precuration', { error: (error as ApiErrorLike).message })
+      if (precurationsStore.error?.isConflict) conflict.value = true
       notificationsStore.addToast(apiDetail(error, 'Failed to submit precuration'), 'error')
     } finally {
       submitting.value = false

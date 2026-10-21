@@ -90,11 +90,14 @@ class TestCurationDraftSave:
 
     def test_valid_draft_save(self):
         """Test valid draft save data."""
-        data = CurationDraftSave(
-            evidence_data={"draft": "data"},
-        )
+        data = CurationDraftSave(evidence_data={"draft": "data"}, lock_version=0)
         assert data.evidence_data == {"draft": "data"}
-        assert data.lock_version is None
+        assert data.lock_version == 0
+
+    def test_draft_save_requires_lock_version(self):
+        """A save without the loaded version could overwrite a newer one."""
+        with pytest.raises(ValueError):
+            CurationDraftSave(evidence_data={"draft": "data"})
 
     def test_draft_save_with_lock_version(self):
         """Test draft save with optional lock version."""

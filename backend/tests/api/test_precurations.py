@@ -85,13 +85,11 @@ class TestPrecurationsList:
         admin_token: str,
     ):
         """Test listing precurations returns empty list when none exist."""
-        # Act
         response = client.get(
             "/api/v1/precurations/",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
         data = response.json()
         assert "precurations" in data
@@ -108,13 +106,11 @@ class TestPrecurationsList:
         test_precuration: PrecurationNew,
     ):
         """Test listing precurations returns existing precurations."""
-        # Act
         response = client.get(
             "/api/v1/precurations/",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["total"] >= 1
@@ -128,13 +124,11 @@ class TestPrecurationsList:
         test_scope: Scope,
     ):
         """Test filtering precurations by scope."""
-        # Act
         response = client.get(
             f"/api/v1/precurations/?scope_id={test_scope.id}",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["total"] >= 1
@@ -144,10 +138,8 @@ class TestPrecurationsList:
         client: TestClient,
     ):
         """Test listing precurations without authentication returns 401."""
-        # Act
         response = client.get("/api/v1/precurations/")
 
-        # Assert
         assert response.status_code == 401
 
     def test_list_precurations_with_scope_user(
@@ -157,13 +149,11 @@ class TestPrecurationsList:
         test_precuration: PrecurationNew,
     ):
         """Test user with assigned scope can list precurations."""
-        # Act
         response = client.get(
             "/api/v1/precurations/",
             headers={"Authorization": f"Bearer {scope_user_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["total"] >= 1
@@ -179,13 +169,11 @@ class TestPrecurationGet:
         test_precuration: PrecurationNew,
     ):
         """Test getting a single precuration by ID."""
-        # Act
         response = client.get(
             f"/api/v1/precurations/{test_precuration.id}",
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == str(test_precuration.id)
@@ -338,16 +326,15 @@ class TestPrecurationUpdate:
         test_precuration: PrecurationNew,
     ):
         """Test successful precuration update."""
-        # Arrange
         update_data = {
             "evidence_data": {
                 "mondo_id": "MONDO:0000003",
                 "disease_name": "Updated Disease",
                 "mode_of_inheritance": "XLR",
             },
+            "lock_version": test_precuration.lock_version,
         }
 
-        # Act
         response = client.put(
             f"/api/v1/precurations/{test_precuration.id}",
             json=update_data,
@@ -365,10 +352,10 @@ class TestPrecurationUpdate:
         admin_token: str,
     ):
         """Test updating non-existent precuration returns 404."""
-        # Arrange
         fake_id = uuid4()
         update_data = {
             "evidence_data": {"test": "data"},
+            "lock_version": 0,
         }
 
         # Act
@@ -392,13 +379,13 @@ class TestPrecurationDraft:
         test_precuration: PrecurationNew,
     ):
         """Test saving precuration as draft."""
-        # Arrange
         draft_data = {
             "evidence_data": {
                 "mondo_id": "MONDO:0000004",
                 "disease_name": "Draft Disease",
                 "mode_of_inheritance": "AD",
             },
+            "lock_version": test_precuration.lock_version,
         }
 
         # Act
@@ -432,6 +419,7 @@ class TestPrecurationSubmit:
         # Arrange
         submit_data = {
             "notes": "Ready for review",
+            "lock_version": test_precuration.lock_version,
         }
 
         # Act
@@ -711,7 +699,10 @@ class TestLumpingSplittingValidation:
         # Act
         response = client.post(
             f"/api/v1/precurations/{precuration.id}/submit",
-            json={"notes": "Ready for review"},
+            json={
+                "notes": "Ready for review",
+                "lock_version": precuration.lock_version,
+            },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
@@ -752,7 +743,10 @@ class TestLumpingSplittingValidation:
         # Act
         response = client.post(
             f"/api/v1/precurations/{precuration.id}/submit",
-            json={"notes": "Ready for review"},
+            json={
+                "notes": "Ready for review",
+                "lock_version": precuration.lock_version,
+            },
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
@@ -800,7 +794,8 @@ class TestLumpingSplittingValidation:
                 "mode_of_inheritance": "AD",
                 "lumping_splitting_applicable": True,
                 "lumping_splitting_decision": "UNDECIDED",
-            }
+            },
+            "lock_version": precuration.lock_version,
         }
         response = client.patch(
             f"/api/v1/precurations/{precuration.id}/draft",

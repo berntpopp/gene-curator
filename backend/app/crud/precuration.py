@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
+from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.precuration_required import (
     MissingRequiredFieldsError,
     missing_required_fields,
@@ -288,37 +289,51 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
 
         return db_obj
 
+    def update_with_lock(
+        self,
+        db: Session,
+        *,
+        db_obj: PrecurationNew,
+        evidence_data: dict[str, Any] | None,
+        lock_version: int,
+        user_id: UUID,
+    ) -> PrecurationNew | None:
+        """Update evidence with optimistic locking. None if lock_version is stale."""
+        values: dict[str, Any] = {"updated_by": user_id}
+        if evidence_data is not None:
+            values["evidence_data"] = evidence_data
+        if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
+            return None
+        db.refresh(db_obj)
+        return db_obj
+
     def save_draft(
         self,
         db: Session,
         *,
         db_obj: PrecurationNew,
         evidence_data: dict[str, Any],
+        lock_version: int,
         user_id: UUID,
-    ) -> PrecurationNew:
-        """Save precuration as draft with auto-save timestamp."""
-        db_obj.evidence_data = evidence_data
-        db_obj.is_draft = True
-        db_obj.auto_saved_at = _utc_now()
-        db_obj.updated_by = user_id
-
-        db.add(db_obj)
-        db.commit()
+    ) -> PrecurationNew | None:
+        """Save precuration as draft with auto-save timestamp. None if lock_version is stale."""
+        values = {
+            "evidence_data": evidence_data,
+            "is_draft": True,
+            "auto_saved_at": _utc_now(),
+            "updated_by": user_id,
+        }
+        if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
+            return None
         db.refresh(db_obj)
-
         return db_obj
 
     _VALID_LS_DECISIONS: ClassVar[set[str]] = {"LUMP", "SPLIT", "NOT_APPLICABLE"}
 
-    def submit_for_review(
-        self,
-        db: Session,
-        *,
-        db_obj: PrecurationNew,
-        submit_data: PrecurationSubmit,
-        user_id: UUID,
-    ) -> PrecurationNew:
-        """Submit precuration for review via workflow engine."""
+    def _check_submittable(
+        self, db: Session, db_obj: PrecurationNew, user_id: UUID
+    ) -> None:
+        """Raise unless the precuration may enter review (required fields, L/S, transition)."""
         schema = db_obj.precuration_schema
         missing = missing_required_fields(
             schema.field_definitions if schema else None,
@@ -356,6 +371,24 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
 
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
+
+    def submit_for_review(
+        self,
+        db: Session,
+        *,
+        db_obj: PrecurationNew,
+        submit_data: PrecurationSubmit,
+        user_id: UUID,
+    ) -> PrecurationNew | None:
+        """Submit precuration for review via workflow engine. None if lock_version is stale."""
+        # Compare-and-bump in one UPDATE first: a stale submit matches no row and changes nothing
+        if not claim_version(db, PrecurationNew, db_obj.id, submit_data.lock_version):
+            return None
+        try:
+            self._check_submittable(db, db_obj, user_id)
+        except Exception:
+            db.rollback()  # undo the claim: a refused submit must not bump the version
+            raise
 
         # Execute transition
         workflow_engine.execute_transition(

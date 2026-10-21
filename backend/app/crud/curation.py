@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
+from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -50,12 +51,20 @@ def get_disease_fields(
     return disease_fields(evidence, precuration_evidence)
 
 
+def _computed(evidence_data: dict[str, Any]) -> dict[str, Any]:
+    """Engine output to persist in the same statement as the evidence write."""
+    result = ClinGenEngine().calculate_scores(evidence_data, {})
+    return {
+        "computed_scores": {**result.scores, **result.evidence_breakdown},
+        "computed_verdict": result.verdict,
+        "computed_summary": result.verdict_rationale,
+    }
+
+
 def _update_computed_scores(curation: CurationNew) -> None:
     """Persist engine output in the same transaction as the evidence write."""
-    result = ClinGenEngine().calculate_scores(curation.evidence_data, {})
-    curation.computed_scores = {**result.scores, **result.evidence_breakdown}
-    curation.computed_verdict = result.verdict
-    curation.computed_summary = result.verdict_rationale
+    for key, value in _computed(curation.evidence_data).items():
+        setattr(curation, key, value)
 
 
 class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
@@ -305,29 +314,20 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         Update curation with optimistic locking.
         Returns None if lock_version doesn't match (conflict).
         """
-        # Check lock version
-        if db_obj.lock_version != obj_in.lock_version:
+        values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
+        if obj_in.evidence_data is not None:
+            values["evidence_data"] = obj_in.evidence_data
+            values.update(_computed(obj_in.evidence_data))
+        if not update_if_version(
+            db, CurationNew, db_obj.id, obj_in.lock_version, values
+        ):
             logger.warning(
                 "Optimistic lock conflict",
                 curation_id=str(db_obj.id),
-                current_version=db_obj.lock_version,
                 requested_version=obj_in.lock_version,
             )
             return None
-
-        # Update fields
-        if obj_in.evidence_data is not None:
-            db_obj.evidence_data = obj_in.evidence_data
-            _update_computed_scores(db_obj)
-
-        db_obj.lock_version += 1
-        db_obj.updated_by = user_id
-        db_obj.updated_at = _utc_now()
-
-        db.add(db_obj)
-        db.commit()
         db.refresh(db_obj)
-
         return db_obj
 
     def save_draft(
@@ -337,25 +337,20 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj: CurationNew,
         draft_data: CurationDraftSave,
         user_id: UUID,
-    ) -> CurationNew:
-        """Save curation as draft with auto-save timestamp."""
-        db_obj.evidence_data = draft_data.evidence_data
-        _update_computed_scores(db_obj)
-        db_obj.is_draft = True
-        db_obj.auto_saved_at = _utc_now()
-        db_obj.updated_by = user_id
-
-        # Only increment lock_version if provided and matches
-        if (
-            draft_data.lock_version is not None
-            and db_obj.lock_version == draft_data.lock_version
+    ) -> CurationNew | None:
+        """Save curation as draft with auto-save timestamp. None if lock_version is stale."""
+        values = {
+            "evidence_data": draft_data.evidence_data,
+            **_computed(draft_data.evidence_data),
+            "is_draft": True,
+            "auto_saved_at": _utc_now(),
+            "updated_by": user_id,
+        }
+        if not update_if_version(
+            db, CurationNew, db_obj.id, draft_data.lock_version, values
         ):
-            db_obj.lock_version += 1
-
-        db.add(db_obj)
-        db.commit()
+            return None
         db.refresh(db_obj)
-
         return db_obj
 
     def submit_for_review(
@@ -367,10 +362,6 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         user_id: UUID,
     ) -> CurationNew | None:
         """Submit curation for review via workflow engine."""
-        # Check lock version
-        if db_obj.lock_version != submit_data.lock_version:
-            return None
-
         # Validate transition
         validation = workflow_engine.validate_transition(
             db,
@@ -384,11 +375,14 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
+        # Compare-and-bump in one UPDATE: a stale submit matches no row and changes nothing
+        if not claim_version(db, CurationNew, db_obj.id, submit_data.lock_version):
+            return None
+
         # Submission metadata and the transition share one commit (in the engine)
         db_obj.is_draft = False
         db_obj.submitted_at = _utc_now()
         db_obj.submitted_by = user_id
-        db_obj.lock_version += 1
         _update_computed_scores(db_obj)
         db.add(db_obj)
         workflow_engine.execute_transition(
