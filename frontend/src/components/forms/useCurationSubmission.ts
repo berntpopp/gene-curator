@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { ref, watch, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -54,6 +54,8 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   const savingDraft = ref(false)
   // Another tab saved first: saving is blocked until the page is reloaded (see SaveState)
   const conflict = ref(false)
+  // The local copy is older than the server's: never offer it back after the reload
+  watch(conflict, isConflict => isConflict && clearRecovery())
   const submitting = ref(false)
 
   /** Payload for a new curation; a gene and workflow pair are required by the API. */

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { nextTick, ref, type Ref } from 'vue'
 import { useCurationSubmission, type EvidenceData } from '../useCurationSubmission'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -134,6 +134,17 @@ describe('useCurationSubmission', () => {
       expect(s.lockVersion.value).toBe(3) // never adopt the newer version without a reload
       expect(s.onSaved).not.toHaveBeenCalled()
       expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
+    })
+
+    it('drops the local recovery copy on a conflict, so a reload never offers the stale edits', async () => {
+      curationsStore.saveDraft.mockResolvedValue(null)
+      curationsStore.error = { message: 'x', isConflict: true }
+      const { api, s } = setup('cur-1')
+
+      await api.handleSaveDraft()
+      await nextTick()
+
+      expect(s.clearRecovery).toHaveBeenCalled()
     })
 
     it('shows the API error, never a success toast, when the save is refused (403)', async () => {
