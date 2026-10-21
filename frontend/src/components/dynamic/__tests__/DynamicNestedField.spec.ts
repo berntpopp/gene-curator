@@ -68,6 +68,9 @@ const objectSchema: FieldSchema = {
   }
 }
 
+// A stable id lets review diffs and anchored comments follow a row when others are removed
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/
+
 describe('DynamicNestedField', () => {
   describe('array fields', () => {
     it('shows the empty state when there are no items', () => {
@@ -99,7 +102,9 @@ describe('DynamicNestedField', () => {
       await wrapper.findAll('button').at(-1)!.trigger('click')
 
       const emitted = wrapper.emitted('update:model-value')!
-      expect(emitted[0]![0]).toEqual([{ name: '', count: 0, flag: false, note: 'default note' }])
+      expect(emitted[0]![0]).toEqual([
+        { id: expect.stringMatching(UUID), name: '', count: 0, flag: false, note: 'default note' }
+      ])
     })
 
     it('appends an empty object when the array has no item properties', async () => {
@@ -107,7 +112,32 @@ describe('DynamicNestedField', () => {
 
       await wrapper.findAll('button').at(-1)!.trigger('click')
 
-      expect(wrapper.emitted('update:model-value')![0]![0]).toEqual([{}])
+      expect(wrapper.emitted('update:model-value')![0]![0]).toEqual([
+        { id: expect.stringMatching(UUID) }
+      ])
+    })
+
+    it('gives every new item its own id', async () => {
+      const wrapper = mountField({ fieldSchema: arraySchema, modelValue: [] })
+      const add = wrapper.findAll('button').at(-1)!
+
+      await add.trigger('click')
+      await add.trigger('click')
+
+      const [first, second] = wrapper.emitted('update:model-value')!.at(-1)![0] as { id: string }[]
+      expect(first!.id).not.toBe(second!.id)
+    })
+
+    it('leaves the ids of existing items alone', async () => {
+      const wrapper = mountField({
+        fieldSchema: arraySchema,
+        modelValue: [{ id: 'keep-me', name: 'A' }]
+      })
+
+      await wrapper.findAll('button').at(-1)!.trigger('click')
+
+      const [kept] = wrapper.emitted('update:model-value')![0]![0] as { id: string }[]
+      expect(kept!.id).toBe('keep-me')
     })
 
     it('removes an item when its delete button is clicked', async () => {

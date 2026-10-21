@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
 from app.core.enums import ScopeRole
@@ -415,7 +415,7 @@ class WorkflowEngine:
             review.recommendation = decision
             review.comments = comments
             review.feedback_data = suggested_changes or {}
-            review.reviewed_at = datetime.now(UTC)
+            review.reviewed_at = func.now()  # DB clock, like audit timestamps
 
             db.flush()
 
