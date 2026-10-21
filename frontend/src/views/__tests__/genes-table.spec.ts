@@ -137,7 +137,13 @@ describe('GenesTable', () => {
     const search = vi.spyOn(genes, 'searchGenes').mockResolvedValue([] as never)
     await call(vm, 'handleFilterChange')
     expect(vm.currentPage).toBe(1)
-    expect(search).toHaveBeenCalledWith({ query: '', chromosome: 'X', page: 1 })
+    expect(search).toHaveBeenCalledWith({
+      query: '',
+      chromosome: 'X',
+      page: 1,
+      sort_by: 'approved_symbol',
+      sort_order: 'asc'
+    })
   })
 
   it('clears filters', async () => {
@@ -173,6 +179,21 @@ describe('GenesTable filter change', () => {
     await call(vm, 'handleFilterChange')
     await flushPromises()
     expect(search).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('GenesTable sorting while searching', () => {
+  it('passes header sort to the search', async () => {
+    const { genes, vm } = await mountTable()
+    const search = vi.spyOn(genes, 'searchGenes').mockResolvedValue([] as never)
+    vm.selectedChromosome = 'X'
+    await call(vm, 'handleOptions', {
+      page: 1,
+      sortBy: [{ key: 'approved_symbol', order: 'desc' }]
+    })
+    expect(search).toHaveBeenLastCalledWith(
+      expect.objectContaining({ sort_by: 'approved_symbol', sort_order: 'desc' })
+    )
   })
 })
 

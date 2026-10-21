@@ -226,7 +226,9 @@
         await genesStore.searchGenes({
           query: searchQuery.value,
           chromosome: selectedChromosome.value,
-          page: currentPage.value
+          page: currentPage.value,
+          sort_by: genesStore.searchParams.sort_by,
+          sort_order: genesStore.searchParams.sort_order
         })
       } catch {
         // the store keeps the message in genesStore.error, shown with Retry
