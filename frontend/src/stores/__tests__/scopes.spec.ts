@@ -230,12 +230,25 @@ describe('useScopesStore', () => {
       expect(api.fetchMembers).not.toHaveBeenCalled()
     })
 
-    it('grants implicit admin to application admins', async () => {
+    it('grants implicit admin to application admins but keeps the real role for the chip', async () => {
       const auth = useAuthStore()
       auth.user = { id: 'me', role: 'admin' } as never
+      const store = useScopesStore()
+      api.fetchMembers.mockResolvedValue([member('me', 'curator')])
 
-      await expect(useScopesStore().fetchUserRole('s1')).resolves.toBe('admin')
-      expect(api.fetchMembers).not.toHaveBeenCalled()
+      await expect(store.fetchUserRole('s1')).resolves.toBe('admin')
+      expect(store.membershipRole).toBe('curator')
+      expect(store.currentRoleLabel).toBe('curator (platform admin)')
+    })
+
+    it('labels a non-member application admin as admin (platform admin)', async () => {
+      const auth = useAuthStore()
+      auth.user = { id: 'me', role: 'admin' } as never
+      const store = useScopesStore()
+      api.fetchMembers.mockResolvedValue([])
+
+      await store.fetchUserRole('s1')
+      expect(store.currentRoleLabel).toBe('admin (platform admin)')
     })
 
     it('reads the role from scope membership for other users', async () => {
@@ -246,6 +259,7 @@ describe('useScopesStore', () => {
 
       await expect(store.fetchUserRole('s1')).resolves.toBe('reviewer')
       expect(store.currentUserRole).toBe('reviewer')
+      expect(store.currentRoleLabel).toBe('reviewer')
     })
 
     it('returns null when the user is not a member', async () => {

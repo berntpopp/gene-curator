@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import EDIT, require
 from app.core.constants import (
     CURATIONS_DEFAULT_LIMIT,
     CURATIONS_MAX_LIMIT,
@@ -320,13 +321,7 @@ def create_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation_in.scope_id, "create")
-    if current_user.role != "admin" and _get_user_scope_role(
-        db, current_user.id, curation_in.scope_id
-    ) not in ["admin", "curator"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only curators and scope admins can create curations",
-        )
+    require(db, current_user, curation_in.scope_id, EDIT)
 
     try:
         curation = curation_crud.create_curation(
@@ -377,6 +372,7 @@ def update_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -432,6 +428,8 @@ def save_draft(
             detail="Curation not found",
         )
 
+    require(db, current_user, curation.scope_id, EDIT)
+
     # Same rule as PUT: evidence is frozen once submitted (4-eyes), for every role
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         raise HTTPException(
@@ -479,6 +477,8 @@ def submit_curation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Curation not found",
         )
+
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Only creator or admin can submit
     if current_user.role != "admin" and curation.created_by != current_user.id:
@@ -560,12 +560,18 @@ def delete_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "delete")
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Only allow deletion of drafts (or by admin)
     if curation.status != CurationStatus.DRAFT and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only draft curations can be deleted",
+        )
+    if not _can_user_delete_curation(db, current_user, curation):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the creator or a scope admin can delete this curation",
         )
 
     curation_crud.soft_delete(db, db_obj=curation, user_id=current_user.id)
