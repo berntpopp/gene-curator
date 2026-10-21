@@ -14,6 +14,8 @@ interface AuthState {
   error: string | null
 }
 
+let initPromise: Promise<void> | null = null
+
 export const useAuthStore = defineStore('auth', {
   state: (): AuthState => ({
     user: null,
@@ -30,7 +32,15 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
-    async initialize() {
+    // Concurrent callers (router guard, components) share one in-flight /me request
+    initialize() {
+      initPromise ??= this.loadStoredSession().finally(() => {
+        initPromise = null
+      })
+      return initPromise
+    },
+
+    async loadStoredSession() {
       const token = localStorage.getItem('access_token')
       if (token) {
         try {

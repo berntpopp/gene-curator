@@ -20,16 +20,7 @@
               Browse Genes
             </v-btn>
             <v-btn
-              v-if="authStore.isAuthenticated"
-              :to="{ name: 'GeneAdmin' }"
-              color="secondary"
-              size="large"
-              prepend-icon="mdi-database-edit"
-            >
-              Manage Genes
-            </v-btn>
-            <v-btn
-              v-else-if="!authStore.isAuthenticated"
+              v-if="!authStore.isAuthenticated"
               :to="{ name: 'Login' }"
               color="secondary"
               size="large"
@@ -101,31 +92,6 @@
         </v-col>
       </v-row>
     </v-container>
-
-    <!-- Recent Activity Section (for authenticated users) -->
-    <v-container v-if="authStore.isAuthenticated" class="py-8">
-      <v-row>
-        <v-col cols="12">
-          <v-card>
-            <v-card-title class="text-h5">
-              <v-icon start>mdi-history</v-icon>
-              Recent Activity
-            </v-card-title>
-            <v-card-text>
-              <p class="text-body-1 text-medium-emphasis">
-                Welcome back, {{ currentUser?.email }}!
-              </p>
-              <p class="text-body-2">
-                Your role:
-                <v-chip size="small" :color="getRoleColor(currentUser?.role)">
-                  {{ currentUser?.role }}
-                </v-chip>
-              </p>
-            </v-card-text>
-          </v-card>
-        </v-col>
-      </v-row>
-    </v-container>
   </div>
 </template>
 
@@ -140,8 +106,6 @@
 
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
-  // The auth store types user as null (untyped JS state); narrow it to the fields shown here
-  const currentUser = computed(() => authStore.user as { email?: string; role?: string } | null)
 
   const statistics = ref<Schema<'GeneStatistics'> | null>(null)
 
@@ -220,15 +184,6 @@
       }
     ]
   })
-
-  const getRoleColor = (role: string | undefined): string => {
-    const colors: Record<string, string> = {
-      admin: 'error',
-      curator: 'warning',
-      viewer: 'info'
-    }
-    return colors[role ?? ''] || 'grey'
-  }
 
   onMounted(async () => {
     try {

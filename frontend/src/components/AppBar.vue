@@ -1,36 +1,42 @@
 <template>
   <v-app-bar app color="primary" dark>
-    <!-- Logo Image -->
-    <v-img
-      src="/img/logo.png"
-      class="mr-3 app-logo"
-      contain
-      max-height="48"
-      max-width="48"
-      @click="$router.push('/')"
-    />
-
-    <!-- Toolbar Title -->
-    <v-toolbar-title>
-      <span class="clickable" @click="$router.push('/')"> Gene Curator </span>
-      <br />
-      <span class="version-info"> Version: {{ version }} - Build: {{ buildHash }} </span>
-    </v-toolbar-title>
+    <!-- Logo + title: one focusable link -->
+    <router-link to="/" aria-label="Gene Curator home" class="brand">
+      <v-img
+        src="/img/logo.png"
+        alt=""
+        class="mr-3"
+        contain
+        max-height="48"
+        max-width="48"
+        width="48"
+      />
+      <span>
+        <span class="text-h6">Gene Curator</span>
+        <br v-if="mdAndUp" />
+        <span v-if="mdAndUp" class="version-info">
+          Version: {{ version }} - Build: {{ buildHash }}
+        </span>
+      </span>
+    </router-link>
 
     <v-spacer />
 
     <!-- Main Navigation -->
-    <MainNavigation />
+    <!-- While a stored token is still being verified, show neither guest nor user nav -->
+    <MainNavigation v-if="authReady" />
 
     <!-- Theme Toggle -->
-    <v-btn aria-label="Toggle theme" icon class="ml-2" @click="toggleTheme">
-      <v-icon>
-        {{ isDark ? 'mdi-weather-night' : 'mdi-white-balance-sunny' }}
-      </v-icon>
-    </v-btn>
+    <v-tooltip v-if="mdAndUp" :text="themeLabel" location="bottom">
+      <template #activator="{ props }">
+        <v-btn v-bind="props" :aria-label="themeLabel" icon class="ml-2" @click="toggleTheme">
+          <v-icon>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+        </v-btn>
+      </template>
+    </v-tooltip>
 
     <!-- User Menu -->
-    <UserMenu />
+    <UserMenu v-if="mdAndUp && authReady" />
   </v-app-bar>
 </template>
 
@@ -59,13 +65,17 @@
    */
 
   import { ref, computed } from 'vue'
-  import { useTheme } from 'vuetify'
+  import { useDisplay, useTheme } from 'vuetify'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
 
   const logger = useLogger()
   const theme = useTheme()
+  const { mdAndUp } = useDisplay()
+  const authStore = useAuthStore()
+  const authReady = computed(() => !authStore.token || !!authStore.user)
 
   // Version info
   const version = ref('0.3.0')
@@ -73,6 +83,8 @@
 
   // Theme (persisted in localStorage, restored in main.js before Vuetify init)
   const isDark = computed(() => theme.global.current.value.dark)
+
+  const themeLabel = computed(() => `Switch to ${isDark.value ? 'light' : 'dark'} theme`)
 
   /**
    * Toggle dark/light theme
@@ -86,22 +98,12 @@
 </script>
 
 <style scoped>
-  .app-logo {
-    cursor: pointer;
-    transition: transform 0.2s ease;
-  }
-
-  .app-logo:hover {
-    transform: scale(1.05);
-  }
-
-  .clickable {
-    cursor: pointer;
-    transition: opacity 0.2s ease;
-  }
-
-  .clickable:hover {
-    opacity: 0.8;
+  .brand {
+    display: flex;
+    align-items: center;
+    color: inherit;
+    text-decoration: none;
+    min-width: 0;
   }
 
   .version-info {

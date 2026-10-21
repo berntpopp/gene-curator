@@ -91,6 +91,17 @@ describe('useAuthStore', () => {
       expect(store.loading).toBe(false)
     })
 
+    it('shares one /me request between concurrent calls', async () => {
+      localStorage.setItem('access_token', 'tok')
+      api.me.mockResolvedValue(makeUser('user'))
+      setActivePinia(createPinia())
+      const store = useAuthStore()
+
+      await Promise.all([store.initialize(), store.initialize()])
+
+      expect(api.me).toHaveBeenCalledTimes(1)
+    })
+
     it('clears auth when the stored token is rejected', async () => {
       localStorage.setItem('access_token', 'expired')
       api.me.mockRejectedValue(new Error('401'))

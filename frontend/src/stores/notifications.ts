@@ -16,6 +16,7 @@ import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
+import { showSnackbar } from '@/composables/useNotifications'
 import { errorMessage, toApiError } from './apiError'
 import type { Schema } from '@/types/api'
 
@@ -24,14 +25,6 @@ const POLL_INTERVAL_MS = 60000
 export type Notification = Schema<'NotificationResponse'>
 
 export type ToastType = 'success' | 'error' | 'warning' | 'info'
-
-export interface Toast {
-  id: number
-  message: string
-  type: ToastType
-  timeout: number
-  visible: boolean
-}
 
 export const useNotificationsStore = defineStore('notifications', () => {
   // ========================================
@@ -42,10 +35,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
   const loading = ref(false)
   const error = ref<string | null>(null)
   let pollTimer: ReturnType<typeof setInterval> | null = null
-
-  // Toast notification state
-  const toasts = ref<Toast[]>([])
-  let toastIdCounter = 0
 
   // ========================================
   // Getters (Computed)
@@ -215,55 +204,9 @@ export const useNotificationsStore = defineStore('notifications', () => {
   // Toast Notifications
   // ========================================
 
-  /**
-   * Add a toast notification (temporary snackbar message)
-   * @param {string} message - Toast message to display
-   * @param {string} type - Toast type: 'success', 'error', 'warning', 'info'
-   * @param {number} timeout - Auto-dismiss timeout in ms (default: 5000)
-   * @returns {number} Toast ID
-   */
-  const addToast = (message: string, type: ToastType = 'info', timeout = 5000): number => {
-    const id = ++toastIdCounter
-    const toast: Toast = {
-      id,
-      message,
-      type,
-      timeout,
-      visible: true
-    }
-
-    toasts.value.push(toast)
-
-    logService.debug('Toast notification added', { id, message, type })
-
-    // Auto-dismiss after timeout
-    if (timeout > 0) {
-      setTimeout(() => {
-        removeToast(id)
-      }, timeout)
-    }
-
-    return id
-  }
-
-  /**
-   * Remove a toast notification
-   * @param {number} toastId - Toast ID to remove
-   */
-  const removeToast = (toastId: number): void => {
-    const index = toasts.value.findIndex(t => t.id === toastId)
-    if (index !== -1) {
-      toasts.value.splice(index, 1)
-      logService.debug('Toast notification removed', { toastId })
-    }
-  }
-
-  /**
-   * Clear all toast notifications
-   */
-  const clearToasts = (): void => {
-    toasts.value = []
-    logService.debug('All toasts cleared')
+  /** Show a toast via the shared snackbar rendered by App.vue (one slot: a new toast replaces the old). */
+  const addToast = (message: string, type: ToastType = 'info', timeout = 5000): void => {
+    showSnackbar(message, type, timeout)
   }
 
   // ========================================
@@ -275,7 +218,6 @@ export const useNotificationsStore = defineStore('notifications', () => {
     notifications,
     loading,
     error,
-    toasts,
 
     // Computed
     unreadNotifications,
@@ -294,9 +236,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     stopPolling,
 
     // Toast Actions
-    addToast,
-    removeToast,
-    clearToasts
+    addToast
   }
 })
 

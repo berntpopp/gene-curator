@@ -65,7 +65,31 @@ describe('router guards', () => {
 
     await router.push('/login')
 
+    expect(router.currentRoute.value.name).toBe('Dashboard')
+  })
+
+  it('sends signed-in users from the landing page to the dashboard', async () => {
+    useFakeAuth({ isAuthenticated: true })
+
+    await router.push('/')
+
+    expect(router.currentRoute.value.name).toBe('Dashboard')
+  })
+
+  it('still shows the landing page to anonymous users', async () => {
+    useFakeAuth()
+
+    await router.push('/')
+
     expect(router.currentRoute.value.name).toBe('Home')
+  })
+
+  it('lists My Work and Review Queue as top-level menu items', () => {
+    for (const name of ['GeneAssignments', 'review-queue']) {
+      expect(router.getRoutes().find(r => r.name === name)?.meta).toMatchObject({
+        showInMainMenu: true
+      })
+    }
   })
 
   it('lets anonymous users reach guest-only pages', async () => {

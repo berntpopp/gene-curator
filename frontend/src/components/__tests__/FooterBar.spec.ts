@@ -22,6 +22,9 @@ const disclaimerStore = vi.hoisted(() => ({
 }))
 vi.mock('@/stores/disclaimer', () => ({ useDisclaimerStore: () => disclaimerStore }))
 
+const authStore = vi.hoisted(() => ({ isAdmin: false }))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
+
 // v-footer needs a Vuetify layout; render it as a plain container instead.
 const passthrough = defineComponent({
   setup(_, { slots }) {
@@ -44,6 +47,8 @@ describe('FooterBar', () => {
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
+    authStore.isAdmin = false
+    vi.unstubAllEnvs()
     vi.clearAllMocks()
   })
 
@@ -66,6 +71,21 @@ describe('FooterBar', () => {
 
     expect(disclaimerStore.showDisclaimerDialog).toHaveBeenCalled()
     expect(logger.debug).toHaveBeenCalledWith('Disclaimer button clicked in footer')
+  })
+
+  it('hides the Logs button from non-admins outside dev builds', () => {
+    vi.stubEnv('DEV', false)
+    mountFooter()
+
+    expect(buttonWith('Logs')).toBeUndefined()
+  })
+
+  it('shows the Logs button to admins in production builds', () => {
+    vi.stubEnv('DEV', false)
+    authStore.isAdmin = true
+    mountFooter()
+
+    expect(buttonWith('Logs')).toBeDefined()
   })
 
   it('shows the error count and opens the log viewer', async () => {

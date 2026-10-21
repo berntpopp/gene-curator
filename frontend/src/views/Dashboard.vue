@@ -70,11 +70,6 @@
                 View Assignments
               </v-btn>
 
-              <v-btn color="info" variant="outlined" block to="/validation">
-                <v-icon start>mdi-check-decagram</v-icon>
-                Validation Dashboard
-              </v-btn>
-
               <v-btn v-if="isAdmin" color="warning" variant="outlined" block to="/admin/schemas">
                 <v-icon start>mdi-cog</v-icon>
                 Schema Management

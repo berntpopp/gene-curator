@@ -1,10 +1,13 @@
 <template>
   <v-app>
+    <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
     <AppBar />
 
-    <v-main>
+    <v-main id="main-content" tabindex="-1">
       <v-container fluid>
-        <router-view />
+        <ErrorBoundary :key="$route.fullPath">
+          <router-view />
+        </ErrorBoundary>
       </v-container>
     </v-main>
 
@@ -16,7 +19,7 @@
     />
 
     <!-- Log Viewer Component -->
-    <LogViewer />
+    <LogViewer v-if="logStore.isViewerVisible" />
 
     <!-- Disclaimer Dialog -->
     <DisclaimerDialog
@@ -30,11 +33,11 @@
 
 <script setup lang="ts">
   import { ref, watch, onMounted, onUnmounted } from 'vue'
-  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { snackbarState } from '@/composables/useNotifications'
   import { useLogger } from '@/composables/useLogger'
+  import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
@@ -47,7 +50,6 @@
     info(message: string, data?: unknown): void
   }
   const logger = useLogger() as ScopedLogger
-  const authStore = useAuthStore()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
 
@@ -65,6 +67,8 @@
       }
     }
   )
+
+  const focusMain = () => document.getElementById('main-content')?.focus()
 
   // Keyboard shortcut for log viewer (Ctrl+Shift+L)
   const handleKeyPress = (event: KeyboardEvent) => {
@@ -84,9 +88,7 @@
   onMounted(async () => {
     logger.info('App component mounted, initializing stores')
 
-    // Initialize authentication state on app startup
-    await authStore.initialize()
-
+    // Auth is bootstrapped by the router guard (single /auth/me request)
     // Initialize disclaimer store
     disclaimerStore.initialize()
 
@@ -123,22 +125,19 @@
     font-family: 'Roboto', sans-serif;
   }
 
-  /* Custom scrollbar */
-  ::-webkit-scrollbar {
-    width: 8px;
+  /* Visually hidden until focused */
+  .skip-link {
+    position: absolute;
+    left: -9999px;
+    z-index: 2100;
+    padding: 8px 16px;
+    background: rgb(var(--v-theme-surface));
+    color: rgb(var(--v-theme-primary));
   }
 
-  ::-webkit-scrollbar-track {
-    background: var(--v-theme-surface);
-  }
-
-  ::-webkit-scrollbar-thumb {
-    background: var(--v-theme-primary);
-    border-radius: 4px;
-  }
-
-  ::-webkit-scrollbar-thumb:hover {
-    background: var(--v-theme-primary-darken-1);
+  .skip-link:focus {
+    left: 8px;
+    top: 8px;
   }
 
   /* Loading state */
@@ -158,17 +157,6 @@
   /* Table styles */
   .gene-table .v-data-table__wrapper {
     border-radius: 8px;
-  }
-
-  /* Form styles */
-  .form-container {
-    max-width: 600px;
-    margin: 0 auto;
-  }
-
-  /* Card styles */
-  .info-card {
-    margin-bottom: 1rem;
   }
 
   /* Responsive adjustments */
