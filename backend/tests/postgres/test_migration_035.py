@@ -65,6 +65,16 @@ def _curation(s: Session, stage: str) -> tuple[CurationNew, list[UserNew]]:
 
 def test_assign_reviewer_on_curation(api: TestClient, owner_session: Session) -> None:
     c, users = _curation(owner_session, "review")
+    # the assignee must hold the REVIEW capability (scope reviewer) in the curation's scope
+    owner_session.execute(
+        text(
+            "INSERT INTO scope_memberships (scope_id, user_id, role, accepted_at) "
+            "VALUES (:s, :u, 'reviewer', now()) "
+            "ON CONFLICT (scope_id, user_id) DO UPDATE SET role = 'reviewer', "
+            "accepted_at = now(), is_active = true"
+        ),
+        {"s": c.scope_id, "u": users[1].id},
+    )
     r = api.post(
         f"/api/v1/workflow/curation/{c.id}/assign-reviewer",
         json={"reviewer_id": str(users[1].id), "review_type": "peer_review"},
