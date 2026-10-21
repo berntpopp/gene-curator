@@ -9,8 +9,8 @@
         </p>
         <div class="d-flex justify-center align-center ga-4">
           <v-btn v-if="!authStore.isAuthenticated" :to="signInTo" color="primary">Sign in</v-btn>
-          <v-btn v-else :to="{ name: 'Dashboard' }" color="primary"> Go to Dashboard </v-btn>
-          <v-btn :to="{ name: 'Home' }" variant="text"> Go Home </v-btn>
+          <v-btn v-else :to="{ name: 'Dashboard' }" color="primary"> Go to dashboard </v-btn>
+          <v-btn :to="{ name: 'Home' }" variant="text"> Go home </v-btn>
         </div>
       </v-col>
     </v-row>

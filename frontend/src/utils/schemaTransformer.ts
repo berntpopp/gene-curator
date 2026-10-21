@@ -119,25 +119,10 @@ export const formatType = (type: string | null | undefined): string => {
   return type.charAt(0).toUpperCase() + type.slice(1)
 }
 
-/**
- * Get color for schema type chip
- *
- * @returns Vuetify color name
- */
-export const getTypeColor = (type: string | null | undefined): string => {
-  const colorMap: Record<string, string> = {
-    precuration: 'blue',
-    curation: 'green',
-    combined: 'purple'
-  }
-  return (type && colorMap[type]) || 'grey'
-}
-
 export default {
   transformSchema,
   transformSchemas,
   prepareSchemaForAPI,
   formatType,
-  getTypeColor,
   SCHEMA_DEFAULTS
 }

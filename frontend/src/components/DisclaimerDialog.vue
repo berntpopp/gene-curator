@@ -12,7 +12,7 @@
     <v-card>
       <v-card-title id="disclaimer-title" class="text-h5 d-flex align-center text-primary">
         <v-icon color="warning" class="mr-2" aria-hidden="true">mdi-alert-circle</v-icon>
-        Research Use Disclaimer
+        Research use disclaimer
       </v-card-title>
 
       <v-card-text id="disclaimer-content" class="pb-0">
@@ -171,19 +171,5 @@
 
   .v-card-text p {
     line-height: 1.6;
-  }
-
-  /* Ensure text is readable */
-  .v-card-text {
-    color: rgba(0, 0, 0, 0.87);
-  }
-
-  /* Dark mode support */
-  .v-theme--dark .v-card-text {
-    color: rgba(255, 255, 255, 0.87);
-  }
-
-  .v-theme--dark .text-medium-emphasis {
-    color: rgba(255, 255, 255, 0.6) !important;
   }
 </style>

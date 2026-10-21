@@ -15,7 +15,7 @@
             size="large"
             @click="openCreateUserDialog"
           >
-            Create User
+            Create user
           </v-btn>
         </div>
       </v-col>
@@ -260,7 +260,7 @@
     <!-- Delete Confirmation Dialog -->
     <v-dialog v-model="deleteDialog" max-width="400">
       <v-card>
-        <v-card-title class="text-h5 text-error"> Confirm Delete </v-card-title>
+        <v-card-title class="text-h5 text-error"> Confirm delete </v-card-title>
         <v-card-text>
           Are you sure you want to delete user <strong>{{ userToDelete?.name }}</strong
           >? This action cannot be undone.

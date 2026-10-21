@@ -70,7 +70,7 @@ describe('GeneDetailModal', () => {
     expect(hgnc.attributes('href')).toBe(
       'https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:1100'
     )
-    expect(wrapper.text()).toContain('Full Details')
+    expect(wrapper.text()).toContain('Full details')
   })
 
   it('says when no alias or previous symbols are recorded', async () => {

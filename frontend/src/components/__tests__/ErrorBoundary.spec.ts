@@ -77,7 +77,7 @@ describe('ErrorBoundary', () => {
     await mountBoundary()
     broken.value = false
 
-    await clickButton('Try Again')
+    await clickButton('Try again')
 
     expect(wrapper?.find('.child-ok').exists()).toBe(true)
     expect(logger.info).toHaveBeenCalledWith('Error boundary reset')
@@ -86,7 +86,7 @@ describe('ErrorBoundary', () => {
   it('navigates to the dashboard from Go to Dashboard', async () => {
     await mountBoundary()
 
-    await clickButton('Go to Dashboard')
+    await clickButton('Go to dashboard')
 
     expect(router.push).toHaveBeenCalledWith('/dashboard')
     expect(logger.info).toHaveBeenCalledWith('Error boundary - navigated to dashboard')

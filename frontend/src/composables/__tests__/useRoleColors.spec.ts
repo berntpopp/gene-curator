@@ -3,10 +3,10 @@ import { useRoleColors } from '../useRoleColors'
 
 describe('useRoleColors', () => {
   it.each([
-    ['admin', 'red', 'mdi-shield-crown'],
-    ['curator', 'blue', 'mdi-pencil'],
-    ['reviewer', 'green', 'mdi-check-circle'],
-    ['viewer', 'grey', 'mdi-eye']
+    ['admin', 'primary', 'mdi-shield-crown'],
+    ['curator', 'surface-variant', 'mdi-pencil'],
+    ['reviewer', 'surface-variant', 'mdi-check-circle'],
+    ['viewer', 'surface-variant', 'mdi-eye']
   ])('maps %s to colour %s and icon %s', (role, color, icon) => {
     const { getRoleColor, getRoleIcon } = useRoleColors()
 
@@ -14,10 +14,10 @@ describe('useRoleColors', () => {
     expect(getRoleIcon(role)).toBe(icon)
   })
 
-  it('falls back to grey colour and account icon for unknown roles', () => {
+  it('falls back to neutral colour and account icon for unknown roles', () => {
     const { getRoleColor, getRoleIcon } = useRoleColors()
 
-    expect(getRoleColor('unknown')).toBe('grey')
+    expect(getRoleColor('unknown')).toBe('surface-variant')
     expect(getRoleIcon('unknown')).toBe('mdi-account')
   })
 
@@ -26,7 +26,7 @@ describe('useRoleColors', () => {
 
     expect(Object.isFrozen(roleColors)).toBe(true)
     expect(Object.isFrozen(roleIcons)).toBe(true)
-    expect(roleColors.admin).toBe('red')
+    expect(roleColors.admin).toBe('primary')
     expect(roleIcons.viewer).toBe('mdi-eye')
   })
 })

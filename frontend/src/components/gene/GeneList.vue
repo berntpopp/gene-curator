@@ -47,15 +47,9 @@
         <v-btn value="cards" icon="mdi-view-grid" aria-label="Card view" />
       </v-btn-toggle>
 
-      <v-btn
-        v-if="canAssignGenes"
-        color="secondary"
-        variant="outlined"
-        class="mr-2"
-        @click="showAddModal = true"
-      >
+      <v-btn v-if="canAssignGenes" variant="outlined" class="mr-2" @click="showAddModal = true">
         <v-icon start>mdi-dna</v-icon>
-        Add Genes
+        Add genes
       </v-btn>
 
       <v-btn v-if="canAssignGenes" color="primary" @click="openAssignModal(selectedIds)">
@@ -211,9 +205,9 @@
           @click="openAssignModal()"
         >
           <v-icon start>mdi-plus</v-icon>
-          Assign Genes
+          Assign genes
         </v-btn>
-        <v-btn v-else variant="outlined" @click="clearFilters">Clear Filters</v-btn>
+        <v-btn v-else variant="outlined" @click="clearFilters">Clear filters</v-btn>
       </template>
     </v-alert>
 
@@ -616,7 +610,7 @@
 <style scoped>
   /* Table row hover */
   tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: rgba(var(--v-theme-on-surface), 0.04);
   }
 
   /* Card hover effect */

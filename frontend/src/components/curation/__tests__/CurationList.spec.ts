@@ -100,7 +100,7 @@ describe('CurationList', () => {
     await wrapper.find('input').setValue('nothing matches')
     expect(wrapper.text()).toContain('No curations match your filters')
 
-    const clear = wrapper.findAll('button').find(b => b.text().includes('Clear Filters'))
+    const clear = wrapper.findAll('button').find(b => b.text().includes('Clear filters'))
     await clear?.trigger('click')
     expect(wrapper.text()).toContain('HNF1B')
   })
@@ -109,17 +109,17 @@ describe('CurationList', () => {
     const { wrapper } = setup({ role: 'user', id: 'u9' }, [], 'viewer')
     await flushPromises()
     expect(wrapper.text()).toContain('No curations yet')
-    expect(wrapper.text()).not.toContain('Start Curation')
+    expect(wrapper.text()).not.toContain('Start curation')
   })
 
   it('offers Start Curation by scope role, not application role', async () => {
     const curator = setup({ role: 'user', id: 'u1' }, rows, 'curator')
     await flushPromises()
-    expect(curator.wrapper.text()).toContain('Start Curation')
+    expect(curator.wrapper.text()).toContain('Start curation')
 
     const viewer = setup({ role: 'user', id: 'u1' }, rows, 'viewer')
     await flushPromises()
-    expect(viewer.wrapper.text()).not.toContain('Start Curation')
+    expect(viewer.wrapper.text()).not.toContain('Start curation')
   })
 
   it('switches to card view and shows the score per card', async () => {

@@ -30,7 +30,7 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-account-group</v-icon>
-      Scope Members
+      Scope members
       <v-spacer />
       <v-btn
         v-if="canInviteMembers"
@@ -38,7 +38,7 @@
         prepend-icon="mdi-account-plus"
         @click="showInviteDialog = true"
       >
-        Invite Member
+        Invite member
       </v-btn>
     </v-card-title>
 
@@ -149,7 +149,7 @@
     <!-- Confirm Remove Member Dialog -->
     <v-dialog v-model="showRemoveDialog" max-width="500">
       <v-card>
-        <v-card-title>Remove Member</v-card-title>
+        <v-card-title>Remove member</v-card-title>
 
         <v-card-text>
           Are you sure you want to remove
@@ -405,7 +405,7 @@
 
 <style scoped>
   .v-list-item {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 
   .v-list-item:last-child {

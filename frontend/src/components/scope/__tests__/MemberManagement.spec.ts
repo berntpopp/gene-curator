@@ -97,10 +97,10 @@ describe('MemberManagement', () => {
 
   it('offers invitations to admins only', async () => {
     const admin = await mountMembers('admin')
-    expect(admin.wrapper.text()).toContain('Invite Member')
+    expect(admin.wrapper.text()).toContain('Invite member')
 
     const viewer = await mountMembers('viewer')
-    expect(viewer.wrapper.text()).not.toContain('Invite Member')
+    expect(viewer.wrapper.text()).not.toContain('Invite member')
   })
 
   it('exposes the current member IDs for the invite search exclusion', async () => {

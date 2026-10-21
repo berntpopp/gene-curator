@@ -22,7 +22,7 @@
               </v-card>
             </v-col>
             <v-col cols="4">
-              <v-card variant="tonal" color="secondary" class="text-center pa-2">
+              <v-card variant="tonal" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-clipboard-check</v-icon>
                 <div class="text-h5 font-weight-bold">
                   {{ summaryValue(catalogueStore.summary.totalCurations) }}
@@ -96,13 +96,12 @@
             </v-col>
             <v-col cols="12" md="2">
               <v-btn
-                color="secondary"
                 variant="outlined"
                 block
                 :disabled="!catalogueStore.hasActiveFilters"
                 @click="clearFilters"
               >
-                Clear All
+                Clear all
               </v-btn>
             </v-col>
           </v-row>
@@ -110,15 +109,14 @@
             v-if="Object.keys(catalogueStore.summary.classificationSummary).length > 0"
             class="d-flex flex-wrap ga-2 mt-2"
           >
-            <v-chip
+            <span
               v-for="(count, classification) in catalogueStore.summary.classificationSummary"
               :key="classification"
-              :color="getClassificationColor(classification)"
-              variant="tonal"
-              size="small"
+              class="d-inline-flex align-center ga-1"
             >
-              {{ formatClassification(classification) }}: {{ count }}
-            </v-chip>
+              <ClassificationMark :classification="classification" />
+              <span class="tabular text-medium-emphasis">{{ count }}</span>
+            </span>
           </div>
         </v-card-text>
       </v-card>
@@ -194,17 +192,10 @@
           <!-- Classifications Column -->
           <template #item.classifications="{ item }">
             <div v-if="Object.keys(item.classifications || {}).length > 0">
-              <v-chip
+              <ClassificationMark
                 v-if="getBestClassification(item)"
-                :color="getClassificationColor(getBestClassification(item))"
-                size="small"
-                variant="tonal"
-              >
-                <v-icon start size="x-small">{{
-                  getClassificationIcon(getBestClassification(item))
-                }}</v-icon>
-                {{ formatClassification(getBestClassification(item)) }}
-              </v-chip>
+                :classification="getBestClassification(item)"
+              />
               <div
                 v-if="Object.keys(item.classifications).length > 1"
                 class="text-caption text-medium-emphasis mt-1"
@@ -294,13 +285,13 @@
           <template #expanded-row="{ columns, item }">
             <tr>
               <td :colspan="columns.length" class="pa-0">
-                <v-card flat color="grey-lighten-4" class="ma-2">
+                <v-card flat color="surface-variant" class="ma-2">
                   <v-card-title class="text-subtitle-1">
                     <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
                     Curations by Scope
                   </v-card-title>
                   <v-card-text class="pa-0">
-                    <v-list density="compact" class="bg-grey-lighten-4">
+                    <v-list density="compact" class="bg-surface-variant">
                       <v-list-item
                         v-for="curation in item.scope_curations"
                         :key="curation.scope_id"
@@ -314,15 +305,11 @@
 
                         <v-list-item-title class="font-weight-medium">
                           {{ curation.scope_display_name }}
-                          <v-chip
+                          <ClassificationMark
                             v-if="curation.classification"
-                            :color="getClassificationColor(curation.classification)"
-                            size="x-small"
-                            variant="tonal"
+                            :classification="curation.classification"
                             class="ml-2"
-                          >
-                            {{ formatClassification(curation.classification) }}
-                          </v-chip>
+                          />
                         </v-list-item-title>
 
                         <v-list-item-subtitle>
@@ -457,11 +444,7 @@
               :class="{ 'border-b': true }"
             >
               <template #prepend>
-                <v-avatar
-                  size="32"
-                  :color="getClassificationColor(curation.classification)"
-                  variant="tonal"
-                >
+                <v-avatar size="32" color="surface-variant">
                   <v-icon size="small">
                     {{ curation.is_public ? 'mdi-earth' : 'mdi-lock' }}
                   </v-icon>
@@ -470,17 +453,10 @@
 
               <v-list-item-title class="d-flex align-center flex-wrap ga-2">
                 <span class="font-weight-medium">{{ curation.scope_display_name }}</span>
-                <v-chip
+                <ClassificationMark
                   v-if="curation.classification"
-                  :color="getClassificationColor(curation.classification)"
-                  size="x-small"
-                  variant="tonal"
-                >
-                  <v-icon start size="x-small">{{
-                    getClassificationIcon(curation.classification)
-                  }}</v-icon>
-                  {{ formatClassification(curation.classification) }}
-                </v-chip>
+                  :classification="curation.classification"
+                />
               </v-list-item-title>
 
               <v-list-item-subtitle class="mt-1">
@@ -558,7 +534,7 @@
           <v-btn variant="text" @click="quickInfoDialog = false">Close</v-btn>
           <v-btn color="primary" variant="elevated" @click="navigateToGene(selectedGene)">
             <v-icon start>mdi-open-in-new</v-icon>
-            View Gene Details
+            View gene details
           </v-btn>
         </v-card-actions>
       </v-card>
@@ -569,6 +545,7 @@
 <script setup lang="ts">
   import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
   import type { Schema } from '@/types/api'
   import type { DataTableHeader } from 'vuetify'
@@ -577,9 +554,7 @@
     formatScore,
     getBestScore,
     getBestClassification,
-    getScoreColorClass,
-    getClassificationColor,
-    getClassificationIcon
+    getScoreColorClass
   } from './GeneCatalogueView.utils'
   import { EMPTY, formatDate } from '@/utils/format'
 

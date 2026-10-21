@@ -106,7 +106,7 @@ describe('CurationHeader', () => {
     const wrapper = mount(CurationHeader)
     expect(wrapper.text()).toContain('Unknown')
     expect(wrapper.text()).toContain('Not specified')
-    expect(wrapper.text()).toContain('Not Classified')
+    expect(wrapper.text()).toContain('Not classified')
     expect(wrapper.text()).toContain('Draft')
   })
 })

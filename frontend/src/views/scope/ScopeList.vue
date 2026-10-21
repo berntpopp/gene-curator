@@ -41,7 +41,7 @@
           <v-spacer />
 
           <v-btn color="primary" prepend-icon="mdi-plus" @click="navigateToCreate">
-            Create Scope
+            Create scope
           </v-btn>
         </div>
 
@@ -203,7 +203,7 @@
               Try adjusting your filters or create a new scope
             </div>
             <v-btn color="primary" prepend-icon="mdi-plus" @click="navigateToCreate">
-              Create Scope
+              Create scope
             </v-btn>
           </v-card-text>
         </v-card>
@@ -411,7 +411,7 @@
 
   .scope-card:hover {
     transform: translateY(-4px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 8px 16px rgba(var(--v-theme-on-surface), 0.15);
   }
 
   /* Inactive scope styling */

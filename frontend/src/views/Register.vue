@@ -86,7 +86,7 @@
                 :loading="authStore.loading"
                 class="mb-4"
               >
-                Create Account
+                Create account
               </v-btn>
 
               <div class="text-center">

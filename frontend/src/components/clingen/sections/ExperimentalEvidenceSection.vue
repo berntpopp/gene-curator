@@ -74,15 +74,10 @@
       <v-expansion-panel value="functional_alteration">
         <v-expansion-panel-title>
           <div class="d-flex align-center w-100">
-            <v-icon class="mr-2" color="secondary">mdi-chart-line-variant</v-icon>
+            <v-icon class="mr-2">mdi-chart-line-variant</v-icon>
             <span class="font-weight-medium">Functional Alteration</span>
             <v-spacer />
-            <v-chip
-              v-if="functionalAlterationScore > 0"
-              size="small"
-              color="secondary"
-              class="mr-2"
-            >
+            <v-chip v-if="functionalAlterationScore > 0" size="small" class="mr-2">
               {{ functionalAlterationScore.toFixed(2) }} pts (max 2)
             </v-chip>
           </div>
@@ -95,7 +90,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addPatientCells" />
+              <AddEvidenceButton :readonly="readonly" @click="addPatientCells" />
             </div>
             <EvidenceDataTable
               :items="modelValue.functional_alteration?.patient_cells || []"
@@ -113,11 +108,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1</v-chip>
               <v-spacer />
-              <AddEvidenceButton
-                color="secondary"
-                :readonly="readonly"
-                @click="addNonPatientCells"
-              />
+              <AddEvidenceButton :readonly="readonly" @click="addNonPatientCells" />
             </div>
             <EvidenceDataTable
               :items="modelValue.functional_alteration?.non_patient_cells || []"

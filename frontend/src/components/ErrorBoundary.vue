@@ -24,13 +24,13 @@
       </v-expansion-panels>
 
       <template #append>
-        <v-btn variant="outlined" prepend-icon="mdi-refresh" @click="reset"> Try Again </v-btn>
+        <v-btn variant="outlined" prepend-icon="mdi-refresh" @click="reset"> Try again </v-btn>
       </template>
     </v-alert>
 
     <!-- Additional actions -->
     <div class="mt-4 d-flex ga-2">
-      <v-btn variant="text" prepend-icon="mdi-home" @click="goHome"> Go to Dashboard </v-btn>
+      <v-btn variant="text" prepend-icon="mdi-home" @click="goHome"> Go to dashboard </v-btn>
     </div>
   </div>
   <slot v-else />
@@ -118,18 +118,14 @@
   }
 
   .error-stack {
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.75rem;
-    background-color: rgba(0, 0, 0, 0.05);
+    background-color: rgba(var(--v-theme-on-surface), 0.05);
     padding: 12px;
     border-radius: 4px;
     overflow-x: auto;
     max-height: 300px;
     overflow-y: auto;
-  }
-
-  .v-theme--dark .error-stack {
-    background-color: rgba(255, 255, 255, 0.05);
   }
 
   /* Ensure proper spacing for action buttons */

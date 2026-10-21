@@ -2,7 +2,7 @@
   <v-card>
     <v-card-title>
       <v-icon start>mdi-calculator</v-icon>
-      Live Scoring
+      Live scoring
     </v-card-title>
     <v-card-text>
       <!-- Skeleton loader during loading -->
@@ -35,17 +35,7 @@
         </div>
 
         <!-- Classification chip with color -->
-        <v-chip
-          v-if="classification"
-          :color="classificationColor"
-          size="large"
-          variant="flat"
-          class="mb-4"
-          block
-        >
-          <v-icon start>{{ getClassificationIcon(classification) }}</v-icon>
-          {{ classification }}
-        </v-chip>
+        <ClassificationMark v-if="classification" :classification="classification" class="mb-4" />
 
         <!-- Near-threshold indicator -->
         <v-alert
@@ -106,13 +96,8 @@
               <v-list density="compact">
                 <v-list-item v-for="(threshold, level) in sortedThresholds" :key="level">
                   <template #prepend>
-                    <v-chip
-                      :color="getClassificationColorForLevel(level)"
-                      size="small"
-                      variant="flat"
-                    />
+                    <ClassificationMark :classification="String(level)" class="mr-2" />
                   </template>
-                  <v-list-item-title>{{ level }}</v-list-item-title>
                   <v-list-item-subtitle>≥ {{ threshold }} points</v-list-item-subtitle>
                 </v-list-item>
               </v-list>
@@ -125,6 +110,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * ScoreDisplay Component
    *
@@ -265,48 +251,6 @@
     }
 
     return 'mdi-chart-box'
-  }
-
-  /**
-   * Get icon for classification level
-   */
-  function getClassificationIcon(cls: string): string {
-    const clsLower = cls.toLowerCase()
-
-    if (clsLower.includes('definitive') || clsLower.includes('strong')) {
-      return 'mdi-check-circle'
-    }
-
-    if (clsLower.includes('moderate')) {
-      return 'mdi-check'
-    }
-
-    if (clsLower.includes('limited') || clsLower.includes('disputed')) {
-      return 'mdi-alert'
-    }
-
-    return 'mdi-minus-circle'
-  }
-
-  /**
-   * Get color for a specific classification level (for threshold display)
-   */
-  function getClassificationColorForLevel(level: string): string {
-    const levelLower = level.toLowerCase()
-
-    if (levelLower.includes('definitive') || levelLower.includes('strong')) {
-      return 'success'
-    }
-
-    if (levelLower.includes('moderate')) {
-      return 'info'
-    }
-
-    if (levelLower.includes('limited') || levelLower.includes('disputed')) {
-      return 'warning'
-    }
-
-    return 'grey'
   }
 </script>
 

@@ -58,11 +58,11 @@
           <v-spacer />
           <v-btn v-if="showDetails" variant="text" size="x-small" @click="showDetails = false">
             <v-icon size="small">mdi-chevron-up</v-icon>
-            Hide Details
+            Hide details
           </v-btn>
           <v-btn v-else variant="text" size="x-small" @click="showDetails = true">
             <v-icon size="small">mdi-chevron-down</v-icon>
-            Show Details
+            Show details
           </v-btn>
         </div>
         <v-expand-transition>
@@ -456,7 +456,7 @@
 <style scoped>
   /* Ensure chips are readable */
   :deep(.v-chip) {
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.875rem;
   }
 

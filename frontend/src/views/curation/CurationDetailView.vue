@@ -45,7 +45,7 @@
         <!-- Content -->
         <div v-else-if="curation">
           <!-- Classification Banner -->
-          <v-card class="mb-6" :color="classificationColor" variant="tonal">
+          <v-card class="mb-6" variant="outlined">
             <v-card-text>
               <v-row align="center">
                 <v-col cols="12" md="4" class="text-center text-md-left">
@@ -55,9 +55,7 @@
                   <div class="text-subtitle-1">Total Points</div>
                 </v-col>
                 <v-col cols="12" md="4" class="text-center">
-                  <v-chip :color="classificationColor" size="x-large" variant="elevated">
-                    {{ classification }}
-                  </v-chip>
+                  <ClassificationMark :classification="classification" class="text-h6" />
                   <div class="text-caption mt-2">Gene-Disease Validity Classification</div>
                 </v-col>
                 <v-col cols="12" md="4">
@@ -132,12 +130,7 @@
                     <v-col cols="12" md="6">
                       <div class="mb-4">
                         <div class="text-caption text-medium-emphasis">Mode of Inheritance</div>
-                        <v-chip
-                          v-if="curation.mode_of_inheritance"
-                          :color="getInheritanceColor(curation.mode_of_inheritance)"
-                          variant="tonal"
-                          class="mt-1"
-                        >
+                        <v-chip v-if="curation.mode_of_inheritance" variant="outlined" class="mt-1">
                           {{ formatInheritance(curation.mode_of_inheritance) }}
                         </v-chip>
                         <span v-else class="text-body-1 mt-1">Not specified</span>
@@ -170,7 +163,7 @@
               <v-card class="workflow-actions">
                 <v-card-title>
                   <v-icon start>mdi-cog</v-icon>
-                  Workflow Actions
+                  Workflow actions
                 </v-card-title>
                 <v-card-text>
                   <div
@@ -189,7 +182,7 @@
                       block
                       @click="showSubmitDialog = true"
                     >
-                      Submit for Review
+                      Submit for review
                     </v-btn>
                     <!-- Review Actions (for submitted curations) -->
                     <v-btn
@@ -210,7 +203,7 @@
                       block
                       @click="openReview('reject')"
                     >
-                      Request Changes
+                      Request changes
                     </v-btn>
                     <v-divider v-if="canDelete && (canSubmitForReview || canReview)" class="my-2" />
                     <v-btn
@@ -253,7 +246,7 @@
               <v-card>
                 <v-card-title>
                   <v-icon start>mdi-file-document-outline</v-icon>
-                  Evidence Details
+                  Evidence details
                 </v-card-title>
                 <v-card-text>
                   <CurationEvidenceReadonly
@@ -313,7 +306,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start color="primary">mdi-send</v-icon>
-          Submit for Review
+          Submit for review
         </v-card-title>
         <v-card-text>
           <p>
@@ -338,7 +331,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start color="error">mdi-delete-alert</v-icon>
-          Delete Curation
+          Delete curation
         </v-card-title>
         <v-card-text>
           <v-alert type="warning" variant="tonal" class="mb-4">
@@ -378,6 +371,7 @@
 
 <script setup lang="ts">
   import { formatDateTime } from '@/utils/format'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
@@ -478,17 +472,6 @@
     )
   })
 
-  const classificationColor = computed<string>(() => {
-    const colors: Record<string, string> = {
-      Definitive: 'success',
-      Strong: 'info',
-      Moderate: 'warning',
-      Limited: 'orange',
-      'No Known Disease Relationship': 'grey'
-    }
-    return colors[classification.value] || 'grey'
-  })
-
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => {
     // Use backend-provided permission if available
@@ -520,17 +503,6 @@
       MT: 'Mitochondrial'
     }
     return labels[moi] || moi.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-  }
-
-  const getInheritanceColor = (moi: string): string => {
-    const colors: Record<string, string> = {
-      AD: 'blue',
-      AR: 'green',
-      XLD: 'purple',
-      XLR: 'purple',
-      MT: 'orange'
-    }
-    return colors[moi] || 'grey'
   }
 
   // Actions

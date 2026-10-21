@@ -125,7 +125,7 @@ describe('TabContent Section Rendering', () => {
         fields: ['field1']
       },
       {
-        name: 'Genetic Evidence',
+        name: 'Genetic evidence',
         fields: ['field2']
       }
     ])
@@ -139,7 +139,7 @@ describe('TabContent Section Rendering', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.text()).toContain('Case Information')
-    expect(wrapper.text()).toContain('Genetic Evidence')
+    expect(wrapper.text()).toContain('Genetic evidence')
   })
 
   it('renders section icon when present', async () => {
@@ -600,7 +600,7 @@ describe('Schema Navigation', () => {
     const schema = createSchema({
       genetic_evidence: {
         type: 'object',
-        title: 'Genetic Evidence',
+        title: 'Genetic evidence',
         properties: {
           case_level: { type: 'number', title: 'Case Level Score' }
         }

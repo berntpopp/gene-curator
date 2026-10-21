@@ -1,5 +1,5 @@
 <template>
-  <v-app-bar app color="primary" dark>
+  <v-app-bar app color="primary">
     <!-- Logo + title: one focusable link -->
     <router-link to="/" aria-label="Gene Curator home" class="brand">
       <v-img

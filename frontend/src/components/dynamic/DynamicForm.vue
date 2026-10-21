@@ -150,15 +150,9 @@
 
           <v-card-actions v-if="!readonly && !hideActions">
             <v-spacer />
-            <v-btn
-              color="secondary"
-              variant="outlined"
-              :loading="saving"
-              :disabled="!hasChanges"
-              @click="saveDraft"
-            >
+            <v-btn variant="outlined" :loading="saving" :disabled="!hasChanges" @click="saveDraft">
               <v-icon start>mdi-content-save</v-icon>
-              Save Draft
+              Save draft
             </v-btn>
             <v-btn
               type="submit"

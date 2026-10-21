@@ -3,8 +3,7 @@ import {
   transformSchema,
   transformSchemas,
   prepareSchemaForAPI,
-  formatType,
-  getTypeColor
+  formatType
 } from '../schemaTransformer'
 import defaultExport from '../schemaTransformer'
 
@@ -90,19 +89,10 @@ describe('schemaTransformer', () => {
       expect(formatType('')).toBe('Unknown')
       expect(formatType(null)).toBe('Unknown')
     })
-
-    it('getTypeColor maps known types and defaults to grey', () => {
-      expect(getTypeColor('precuration')).toBe('blue')
-      expect(getTypeColor('curation')).toBe('green')
-      expect(getTypeColor('combined')).toBe('purple')
-      expect(getTypeColor('other')).toBe('grey')
-      expect(getTypeColor(null)).toBe('grey')
-    })
   })
 
   it('default export bundles the same helpers', () => {
     expect(defaultExport.transformSchema).toBe(transformSchema)
-    expect(defaultExport.getTypeColor).toBe(getTypeColor)
     expect(defaultExport.SCHEMA_DEFAULTS).toBe(SCHEMA_DEFAULTS)
   })
 })

@@ -36,7 +36,7 @@ describe('DisclaimerDialog', () => {
   it('shows the research-use disclaimer when open', () => {
     mountDialog()
 
-    expect(document.body.textContent).toContain('Research Use Disclaimer')
+    expect(document.body.textContent).toContain('Research use disclaimer')
     expect(document.body.textContent).toContain('NOT a clinical diagnostic tool')
   })
 

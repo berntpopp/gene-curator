@@ -49,8 +49,8 @@ describe('static pages', () => {
     const wrapper = mount(NotFound, mountOpts(createPinia()))
     expect(wrapper.text()).toContain('Page Not Found')
     expect(wrapper.text()).toContain('/no/such/page?x=1')
-    expect(wrapper.text()).toContain('Go Home')
-    expect(wrapper.text()).toContain('Gene Catalogue')
+    expect(wrapper.text()).toContain('Go home')
+    expect(wrapper.text()).toContain('Gene catalogue')
     expect(wrapper.find('.text-error').exists()).toBe(false)
   })
 
@@ -68,7 +68,7 @@ describe('static pages', () => {
     setActivePinia(pinia)
     useAuthStore().isAuthenticated = true
     const wrapper = mount(NotAuthorized, mountOpts(pinia))
-    expect(wrapper.text()).toContain('Go to Dashboard')
+    expect(wrapper.text()).toContain('Go to dashboard')
     expect(wrapper.text()).not.toContain('Sign in')
   })
 

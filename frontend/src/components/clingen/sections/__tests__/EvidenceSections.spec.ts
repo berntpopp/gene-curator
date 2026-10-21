@@ -182,7 +182,7 @@ describe('ContradictoryEvidenceSection', () => {
 
   it('adds a default contradictory item, updates a field and removes a row', async () => {
     const wrapper = mount(ContradictoryEvidenceSection, { props: { modelValue: [] } })
-    await buttonWithText(wrapper, 'Add Contradictory Evidence').trigger('click')
+    await buttonWithText(wrapper, 'Add contradictory evidence').trigger('click')
     const added = wrapper.emitted('update:model-value')?.[0]?.[0] as EvidenceItem[]
     expect(added).toEqual([
       expect.objectContaining({ evidence_type: 'population', impact: 'note' })

@@ -64,10 +64,10 @@
       <v-expansion-panel value="ar">
         <v-expansion-panel-title>
           <div class="d-flex align-center w-100">
-            <v-icon class="mr-2" color="secondary">mdi-account-multiple</v-icon>
+            <v-icon class="mr-2">mdi-account-multiple</v-icon>
             <span class="font-weight-medium">Case-Level Data - Autosomal Recessive</span>
             <v-spacer />
-            <v-chip v-if="arScore > 0" size="small" color="secondary" class="mr-2">
+            <v-chip v-if="arScore > 0" size="small" class="mr-2">
               {{ arScore.toFixed(2) }} pts
             </v-chip>
           </div>
@@ -80,7 +80,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
-              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addArNull" />
+              <AddEvidenceButton :readonly="readonly" @click="addArNull" />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_level?.autosomal_recessive?.predicted_or_proven_null || []"
@@ -99,7 +99,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
-              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addArOther" />
+              <AddEvidenceButton :readonly="readonly" @click="addArOther" />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_level?.autosomal_recessive?.other_variant_type || []"

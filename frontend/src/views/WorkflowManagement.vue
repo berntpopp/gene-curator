@@ -38,11 +38,11 @@
 
         <template #item.schemas="{ item }">
           <div>
-            <v-chip size="small" color="blue" variant="outlined" class="mb-1">
+            <v-chip size="small" variant="outlined" class="mb-1">
               Pre: {{ getSchemaName(item.precuration_schema_id, 'precuration') }}
             </v-chip>
             <br />
-            <v-chip size="small" color="green" variant="outlined">
+            <v-chip size="small" variant="outlined">
               Cur: {{ getSchemaName(item.curation_schema_id, 'curation') }}
             </v-chip>
           </div>
@@ -91,14 +91,14 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start>mdi-stairs</v-icon>
-        Workflow Stages Configuration
+        Workflow stages configuration
       </v-card-title>
       <v-card-text>
         <v-row>
           <v-col v-for="stage in workflowStages" :key="stage.id" cols="12" sm="6" md="4">
             <v-card variant="outlined">
               <v-card-title class="text-subtitle-1">
-                <v-icon :color="getStageColor(stage.stage_type)" start>
+                <v-icon start>
                   {{ getStageIcon(stage.stage_type) }}
                 </v-icon>
                 {{ stage.name }}
@@ -121,7 +121,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-eye</v-icon>
-          Workflow Details
+          Workflow details
         </v-card-title>
         <v-card-text v-if="selectedWorkflow">
           <v-list>
@@ -172,8 +172,7 @@
               <v-chip
                 v-for="stage in workflowStages"
                 :key="stage.id"
-                :color="getStageColor(stage.stage_type)"
-                variant="flat"
+                variant="outlined"
                 size="small"
               >
                 <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
@@ -194,7 +193,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start>mdi-pencil</v-icon>
-          Edit Workflow
+          Edit workflow
         </v-card-title>
         <v-card-text>
           <v-form ref="editWorkflowForm">
@@ -236,7 +235,7 @@
     <!-- Create Workflow Dialog -->
     <v-dialog v-model="createWorkflowDialog" max-width="600">
       <v-card>
-        <v-card-title>Create New {{ TERMINOLOGY.WORKFLOW }}</v-card-title>
+        <v-card-title>Create new {{ TERMINOLOGY.WORKFLOW }}</v-card-title>
         <v-card-text>
           <v-form ref="createForm">
             <v-text-field
@@ -375,17 +374,6 @@
     // Don't propagate error up - handle it here
     return false
   })
-
-  const getStageColor = (stageType: string) => {
-    const colorMap: Record<string, string> = {
-      entry: 'blue',
-      precuration: 'orange',
-      curation: 'green',
-      review: 'purple',
-      active: 'success'
-    }
-    return colorMap[stageType] || 'grey'
-  }
 
   const getStageIcon = (stageType: string) => {
     const iconMap: Record<string, string> = {

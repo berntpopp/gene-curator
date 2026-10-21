@@ -4,9 +4,7 @@ import {
   formatScore,
   getBestScore,
   getBestClassification,
-  getScoreColorClass,
-  getClassificationColor,
-  getClassificationIcon
+  getScoreColorClass
 } from '@/views/GeneCatalogueView.utils'
 
 describe('formatClassification', () => {
@@ -70,20 +68,8 @@ describe('getScoreColorClass', () => {
     [12, 'text-success'],
     [9, 'text-primary'],
     [6, 'text-warning'],
-    [2, 'text-secondary']
+    [2, 'text-medium-emphasis']
   ])('score %s -> %s', (score, expected) => {
     expect(getScoreColorClass(score)).toBe(expected)
-  })
-})
-
-describe('getClassificationColor and getClassificationIcon', () => {
-  it('maps known classifications case-insensitively', () => {
-    expect(getClassificationColor('Definitive')).toBe('success')
-    expect(getClassificationIcon('DEFINITIVE')).toBe('mdi-check-circle')
-  })
-  it('falls back for unknown or missing classifications', () => {
-    expect(getClassificationColor('unknown')).toBe('default')
-    expect(getClassificationColor(null)).toBe('default')
-    expect(getClassificationIcon(undefined)).toBe('mdi-help-circle-outline')
   })
 })

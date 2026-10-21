@@ -1,17 +1,10 @@
 // Pure display helpers for GeneCatalogueView.vue
 import type { Schema } from '@/types/api'
+import { CLASSIFICATIONS } from '@/config/classification'
 
 type CatalogueEntry = Schema<'GeneCatalogueEntry'>
 
-const CLASSIFICATION_PRIORITY = [
-  'definitive',
-  'strong',
-  'moderate',
-  'limited',
-  'no_known',
-  'disputed',
-  'refuted'
-]
+const CLASSIFICATION_PRIORITY: string[] = CLASSIFICATIONS.map(c => c.key)
 
 export const formatClassification = (classification: string | null | undefined): string => {
   if (!classification) return 'Unknown'
@@ -54,35 +47,5 @@ export const getScoreColorClass = (score: number | null | undefined): string => 
   if (score >= 12) return 'text-success'
   if (score >= 9) return 'text-primary'
   if (score >= 6) return 'text-warning'
-  return 'text-secondary'
-}
-
-const CLASSIFICATION_COLORS: Record<string, string> = {
-  definitive: 'success',
-  strong: 'primary',
-  moderate: 'warning',
-  limited: 'secondary',
-  no_known: 'default',
-  disputed: 'error',
-  refuted: 'error'
-}
-
-// Classification color mapping
-export const getClassificationColor = (classification: string | null | undefined): string => {
-  return CLASSIFICATION_COLORS[classification?.toLowerCase() ?? ''] || 'default'
-}
-
-const CLASSIFICATION_ICONS: Record<string, string> = {
-  definitive: 'mdi-check-circle',
-  strong: 'mdi-check-circle-outline',
-  moderate: 'mdi-alert-circle',
-  limited: 'mdi-help-circle',
-  no_known: 'mdi-minus-circle',
-  disputed: 'mdi-alert',
-  refuted: 'mdi-close-circle'
-}
-
-// Classification icon mapping
-export const getClassificationIcon = (classification: string | null | undefined): string => {
-  return CLASSIFICATION_ICONS[classification?.toLowerCase() ?? ''] || 'mdi-help-circle-outline'
+  return 'text-medium-emphasis'
 }

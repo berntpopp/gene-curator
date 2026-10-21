@@ -29,7 +29,7 @@
         <v-card>
           <v-card-title class="d-flex align-center">
             <v-icon start>mdi-folder-plus</v-icon>
-            Create New Scope
+            Create new scope
           </v-card-title>
 
           <v-card-text>
@@ -175,7 +175,7 @@
               prepend-icon="mdi-account-plus"
               @click="showAddMemberDialog = true"
             >
-              Add Member
+              Add member
             </v-btn>
           </v-card-text>
 
@@ -189,7 +189,7 @@
               @click="handleSubmit"
             >
               <v-icon start>mdi-check</v-icon>
-              Create Scope
+              Create scope
             </v-btn>
           </v-card-actions>
         </v-card>
@@ -203,7 +203,7 @@
       <v-card>
         <v-card-title class="d-flex align-center">
           <v-icon start color="primary">mdi-account-plus</v-icon>
-          Add Initial Member
+          Add initial member
         </v-card-title>
 
         <v-card-text>

@@ -302,7 +302,7 @@
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors()
+  const { getRoleColor } = useRoleColors()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
@@ -383,13 +383,6 @@
     } else {
       selectedGenes.value = [...availableGenes.value]
     }
-  }
-
-  /**
-   * Get role color
-   */
-  const getRoleColor = (role: string) => {
-    return useGetRoleColor(role)
   }
 
   /**

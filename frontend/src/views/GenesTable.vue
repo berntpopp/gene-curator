@@ -41,9 +41,7 @@
               />
             </v-col>
             <v-col cols="12" md="2">
-              <v-btn color="secondary" variant="outlined" block @click="clearFilters">
-                Clear All
-              </v-btn>
+              <v-btn variant="outlined" block @click="clearFilters"> Clear all </v-btn>
             </v-col>
           </v-row>
         </v-card-text>

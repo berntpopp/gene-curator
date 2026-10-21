@@ -2,7 +2,7 @@
   <div class="evidence-data-table">
     <v-table v-if="items.length > 0" density="compact" class="rounded">
       <thead>
-        <tr class="bg-grey-lighten-4">
+        <tr class="bg-surface-variant">
           <th v-for="col in columns" :key="col.key" :style="{ width: col.width }">
             {{ col.label }}
           </th>

@@ -321,7 +321,7 @@
 <style scoped>
   /* Ensure chips are readable */
   :deep(.v-chip) {
-    font-family: 'Roboto Mono', monospace;
+    font-family: var(--font-mono);
     font-size: 0.875rem;
   }
 

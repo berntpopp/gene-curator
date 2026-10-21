@@ -18,7 +18,7 @@
   <v-card>
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-email-open</v-icon>
-      Pending Invitations
+      Pending invitations
       <v-chip v-if="pendingCount > 0" color="warning" size="small" class="ml-2">
         {{ pendingCount }}
       </v-chip>
@@ -269,7 +269,7 @@
 
 <style scoped>
   .v-list-item {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 
   .v-list-item:last-child {

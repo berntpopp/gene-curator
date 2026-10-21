@@ -4,9 +4,7 @@
       <v-icon start :color="classificationColor">mdi-chart-line</v-icon>
       <span class="text-subtitle-1">ClinGen Score</span>
       <v-spacer />
-      <v-chip :color="classificationColor" size="small" variant="elevated" class="font-weight-bold">
-        {{ breakdown.classification }}
-      </v-chip>
+      <ClassificationMark :classification="breakdown.classification" />
     </v-card-title>
 
     <v-card-text>
@@ -59,12 +57,11 @@
           <v-card variant="outlined" density="compact">
             <v-card-text class="text-center pa-2">
               <div class="text-caption text-medium-emphasis">Experimental Evidence</div>
-              <div class="text-h6 font-weight-bold text-secondary">
+              <div class="text-h6 font-weight-bold text-primary">
                 {{ breakdown.experimental_total.toFixed(2) }}
               </div>
               <v-progress-linear
                 :model-value="(breakdown.experimental_total / 6) * 100"
-                color="secondary"
                 height="4"
                 rounded
                 class="mt-1"
@@ -134,7 +131,7 @@
 
             <!-- Experimental Categories -->
             <div>
-              <div class="text-caption font-weight-bold text-secondary mb-1">
+              <div class="text-caption font-weight-bold text-primary mb-1">
                 Experimental Evidence
               </div>
               <v-row dense>
@@ -169,13 +166,14 @@
         prepend-icon="mdi-file-document"
         @click="$emit('view-full-score')"
       >
-        View Full Scorecard
+        View full scorecard
       </v-btn>
     </v-card-actions>
   </v-card>
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * ScorePreview Component
    *

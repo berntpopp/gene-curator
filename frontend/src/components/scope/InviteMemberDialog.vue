@@ -33,7 +33,7 @@
     <v-card>
       <v-card-title class="d-flex align-center">
         <v-icon start color="primary">mdi-account-plus</v-icon>
-        Invite Member to Scope
+        Invite member to scope
       </v-card-title>
 
       <v-card-text>
@@ -114,7 +114,7 @@
           @click="handleSubmit"
         >
           <v-icon start>mdi-send</v-icon>
-          Send Invitation
+          Send invitation
         </v-btn>
       </v-card-actions>
     </v-card>
@@ -349,6 +349,6 @@
 
 <style scoped>
   .v-tabs {
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
   }
 </style>

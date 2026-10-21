@@ -11,7 +11,7 @@
       <v-spacer />
       <v-btn color="primary" variant="flat" to="/scopes" size="large">
         <v-icon start>mdi-plus</v-icon>
-        Start New Curation
+        Start new curation
       </v-btn>
     </div>
 
@@ -22,7 +22,7 @@
             <v-icon start>mdi-domain</v-icon>
             {{ TERMINOLOGY.SCOPES }}
             <v-spacer />
-            <v-btn variant="text" size="small" to="/scopes"> View All </v-btn>
+            <v-btn variant="text" size="small" to="/scopes"> View all </v-btn>
           </v-card-title>
           <v-card-text>
             <div v-if="loading" class="text-center py-8">
@@ -62,18 +62,18 @@
         <v-card class="mb-4">
           <v-card-title class="d-flex align-center">
             <v-icon start>mdi-flash</v-icon>
-            Quick Actions
+            Quick actions
           </v-card-title>
           <v-card-text>
             <div class="d-grid ga-2">
               <v-btn color="primary" variant="outlined" block to="/scopes">
                 <v-icon start>mdi-plus</v-icon>
-                New Curation
+                New curation
               </v-btn>
 
-              <v-btn color="secondary" variant="outlined" block to="/assignments">
+              <v-btn variant="outlined" block to="/assignments">
                 <v-icon start>mdi-view-list</v-icon>
-                View Assignments
+                View assignments
               </v-btn>
 
               <v-btn v-if="isAdmin" color="warning" variant="outlined" block to="/admin/schemas">

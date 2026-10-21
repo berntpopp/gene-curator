@@ -16,7 +16,7 @@ describe('useScoring', () => {
 
     expect(breakdown.value.total_score).toBe(0)
     expect(breakdown.value.classification).toBe('No Known Disease Relationship')
-    expect(classificationColor.value).toBe('error')
+    expect(classificationColor.value).toBe('cls-no-known')
     expect(progressPercentage.value).toBe(0)
     expect(isSufficientEvidence.value).toBe(false)
   })
@@ -67,10 +67,10 @@ describe('useScoring', () => {
   })
 
   it.each([
-    [12, 'Definitive', 'success'],
-    [7, 'Strong', 'info'],
-    [2, 'Moderate', 'warning'],
-    [0.1, 'Limited', 'grey']
+    [12, 'Definitive', 'cls-definitive'],
+    [7, 'Strong', 'cls-strong'],
+    [2, 'Moderate', 'cls-moderate'],
+    [0.1, 'Limited', 'cls-limited']
   ])('total %s classifies as %s with colour %s', (score, classification, color) => {
     const evidence = ref([item('genetic', 'case_level', score)])
     const { breakdown, classificationColor, isSufficientEvidence } = useScoring(evidence)
@@ -80,12 +80,12 @@ describe('useScoring', () => {
     expect(isSufficientEvidence.value).toBe(true)
   })
 
-  it('progress percentage is relative to 12 and capped at 100', () => {
-    const { progressPercentage } = useScoring(ref([item('genetic', 'case_level', 6)]))
-    expect(progressPercentage.value).toBe(50)
+  it('progress percentage is relative to 18', () => {
+    const { progressPercentage } = useScoring(ref([item('genetic', 'case_level', 9)]))
+    expect(progressPercentage.value).toBeCloseTo(50)
 
-    const full = useScoring(ref([item('genetic', 'case_level', 30)]))
-    expect(full.progressPercentage.value).toBe(100)
+    const twelve = useScoring(ref([item('genetic', 'case_level', 12)]))
+    expect(twelve.progressPercentage.value).toBeCloseTo(66.7, 1)
   })
 
   it('reacts to changes in the evidence list', () => {

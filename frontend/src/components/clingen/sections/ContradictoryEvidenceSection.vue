@@ -16,14 +16,14 @@
       <v-spacer />
       <v-btn v-if="!readonly" color="error" variant="tonal" size="small" @click="addEvidence">
         <v-icon start>mdi-plus</v-icon>
-        Add Contradictory Evidence
+        Add contradictory evidence
       </v-btn>
     </div>
 
     <v-card v-if="modelValue.length > 0" variant="outlined">
       <v-table density="compact">
         <thead>
-          <tr class="bg-error-lighten-5">
+          <tr class="bg-surface-variant">
             <th style="width: 100px">Label</th>
             <th style="width: 100px">PMID</th>
             <th style="width: 150px">Type</th>
@@ -190,10 +190,6 @@
 </script>
 
 <style scoped>
-  .contradictory-evidence-section :deep(.bg-error-lighten-5) {
-    background: rgba(var(--v-theme-error), 0.05) !important;
-  }
-
   .contradictory-evidence-section :deep(td) {
     padding: 4px 8px !important;
     vertical-align: middle;
