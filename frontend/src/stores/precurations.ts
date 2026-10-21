@@ -185,6 +185,8 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.error = null
       try {
         const newPrecuration = await precurationsAPI.createPrecuration(data)
+        // Later saves and submits send this version, not a guessed 0
+        this.currentPrecuration = newPrecuration
 
         this.precurations.unshift(toSummary(newPrecuration))
         this.pagination.total += 1

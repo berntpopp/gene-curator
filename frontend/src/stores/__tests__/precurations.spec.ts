@@ -180,6 +180,28 @@ describe('usePrecurationsStore', () => {
     })
   })
 
+  describe('create then save then a failed submit', () => {
+    it('keeps the created version so a retry never sends a stale 0', async () => {
+      const store = usePrecurationsStore()
+      api.createPrecuration.mockResolvedValue(full('p1', { lock_version: 0 }))
+      api.saveDraft.mockResolvedValue(full('p1', { lock_version: 1 }))
+      api.submitPrecuration
+        .mockRejectedValueOnce(new Error('required fields'))
+        .mockResolvedValueOnce(full('p1', { lock_version: 3 }))
+
+      await store.createPrecuration(newPrecuration)
+      await store.saveDraft('p1', { a: 1 })
+      await expect(store.submitForReview('p1')).rejects.toThrow()
+      await store.submitForReview('p1')
+
+      expect(api.saveDraft).toHaveBeenCalledWith('p1', { evidence_data: { a: 1 }, lock_version: 0 })
+      expect(api.submitPrecuration.mock.calls.map(c => c[1])).toEqual([
+        { notes: null, lock_version: 1 },
+        { notes: null, lock_version: 1 }
+      ])
+    })
+  })
+
   describe('saveDraft', () => {
     it('wraps evidence data and updates list and current entries', async () => {
       const store = usePrecurationsStore()

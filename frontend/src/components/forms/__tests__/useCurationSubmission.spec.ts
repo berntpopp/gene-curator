@@ -90,6 +90,36 @@ describe('useCurationSubmission', () => {
       expect(s.lockVersion.value).toBe(3)
     })
 
+    it.each(['handleSaveDraft', 'handleClinGenSaveDraft'] as const)(
+      'a double Ctrl+S sends one request, not a second one with the same version (%s)',
+      async name => {
+        let finish: (v: unknown) => void = () => {}
+        curationsStore.saveDraft.mockReturnValue(new Promise(r => (finish = r)))
+        const { api } = setup('cur-1')
+
+        const save = api[name] as (data?: EvidenceData) => Promise<boolean>
+        const first = save({ a: 1 })
+        const second = await save({ a: 1 })
+        finish({ lock_version: 4 })
+        await first
+
+        expect(second).toBe(false)
+        expect(curationsStore.saveDraft).toHaveBeenCalledTimes(1)
+        expect(api.conflict.value).toBe(false)
+      }
+    )
+
+    it('does not save once a conflict is flagged', async () => {
+      curationsStore.saveDraft.mockResolvedValue(null)
+      curationsStore.error = { message: 'x', isConflict: true }
+      const { api } = setup('cur-1')
+      await api.handleSaveDraft()
+      curationsStore.saveDraft.mockClear()
+
+      expect(await api.handleSaveDraft()).toBe(false)
+      expect(curationsStore.saveDraft).not.toHaveBeenCalled()
+    })
+
     it('flags a conflict (another tab saved first) and keeps the loaded version', async () => {
       curationsStore.saveDraft.mockResolvedValue(null)
       curationsStore.error = {

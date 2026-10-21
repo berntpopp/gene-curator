@@ -68,6 +68,8 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
    */
   /** Resolves true when the draft reached the server (the workspace frame shows the result). */
   async function handleSaveDraft(): Promise<boolean> {
+    // A second Ctrl+S in flight would reuse the same version and 409 against ourselves
+    if (savingDraft.value || conflict.value) return false
     savingDraft.value = true
     try {
       const payload = {
@@ -187,6 +189,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   async function handleClinGenSaveDraft(
     clingenEvidenceData: ClinGenEvidenceData | EvidenceData
   ): Promise<boolean> {
+    if (savingDraft.value || conflict.value) return false
     savingDraft.value = true
     try {
       const id = curationId()
