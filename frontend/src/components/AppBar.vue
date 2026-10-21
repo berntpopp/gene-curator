@@ -79,7 +79,7 @@
   const authReady = computed(() => !authStore.token || !!authStore.user)
 
   // Version info
-  const version = ref('0.4.0')
+  const version = ref('0.4.1')
   const buildHash = ref('dev')
 
   // Theme mode (persisted in localStorage, restored in main.ts before Vuetify init)

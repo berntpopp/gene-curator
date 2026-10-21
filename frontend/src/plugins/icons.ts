@@ -22,6 +22,8 @@ function pathFor(name: string, raw?: string): string | undefined {
 const MdiPathIcon = defineComponent({
   props: {
     icon: { type: String, default: undefined },
+    // required by Vuetify's IconComponent contract (vue-tsc rejects an optional tag)
+    // eslint-disable-next-line vue/require-default-prop
     tag: { type: String, required: true as const }
   },
   setup: props => () => {

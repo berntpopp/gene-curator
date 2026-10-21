@@ -74,5 +74,15 @@ export default defineConfigWithVueTs(
     ],
     languageOptions: { globals: { ...globals.vitest } },
     rules: { 'no-console': 'off' }
+  },
+  {
+    // inline stub components are idiomatic in specs
+    files: ['**/__tests__/**', '**/*.spec.ts'],
+    rules: { 'vue/one-component-per-file': 'off' }
+  },
+  {
+    // top-level route views keep their single-word file names
+    files: ['src/views/*.vue'],
+    rules: { 'vue/multi-word-component-names': 'off' }
   }
 )

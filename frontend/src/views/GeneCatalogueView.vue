@@ -388,7 +388,7 @@
     </v-container>
 
     <!-- Quick Info Dialog -->
-    <BaseDialog v-model="quickInfoDialog" v-if="selectedGene" size="lg">
+    <BaseDialog v-if="selectedGene" v-model="quickInfoDialog" size="lg">
       <template #title
         ><v-avatar size="40" color="primary" variant="tonal" class="mr-3">
           <v-icon>mdi-dna</v-icon>

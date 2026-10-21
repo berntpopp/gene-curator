@@ -1,5 +1,5 @@
 <template>
-  <BaseDialog v-model="open" v-if="user" size="lg">
+  <BaseDialog v-if="user" v-model="open" size="lg">
     <template #title>User Details: {{ user.name }}</template>
     <v-row>
       <v-col cols="12" md="6">

@@ -29,7 +29,7 @@
 -->
 
 <template>
-  <BaseDialog v-model="isOpen" @cancel="close" size="md">
+  <BaseDialog v-model="isOpen" size="md" @cancel="close">
     <template #title
       ><v-icon start color="primary" size="28">mdi-dna</v-icon>
       <span class="text-title-large">
