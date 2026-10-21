@@ -310,6 +310,26 @@ describe('useCurationSubmission', () => {
       expect(s.onSubmit).toHaveBeenCalled()
     })
 
+    it('keeps the version the update returned when submit is refused, so a retry is not stale', async () => {
+      curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 4 })
+      curationsStore.submitCuration.mockRejectedValueOnce({
+        response: { status: 403, data: { detail: 'Not a curator in this scope' } }
+      })
+      const { api, s } = setup('cur-1')
+
+      await api.handleClinGenSubmit(clingen)
+
+      expect(s.lockVersion.value).toBe(4)
+      expect(addToast).toHaveBeenCalledWith('Not a curator in this scope', 'error')
+
+      curationsStore.updateCuration.mockResolvedValueOnce({ lock_version: 5 })
+      await api.handleClinGenSubmit(clingen)
+      expect(curationsStore.updateCuration).toHaveBeenLastCalledWith('cur-1', {
+        evidence_data: clingen,
+        lock_version: 4
+      })
+    })
+
     it('creates and submits a new ClinGen curation', async () => {
       curationsStore.createCuration.mockResolvedValue({ id: 'new-cg' })
       const { api, s } = setup()

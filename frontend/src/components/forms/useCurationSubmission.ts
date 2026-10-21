@@ -188,7 +188,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           evidence_data: { ...clingenEvidenceData },
           lock_version: lockVersion.value
         })) as CurationRecord
-        submittedId = await submitAt(id, updated.lock_version as number)
+        // The update bumped the version: keep it, so a retry after a refused submit is not stale
+        lockVersion.value = updated.lock_version as number
+        submittedId = await submitAt(id, lockVersion.value)
       } else {
         // Create and submit new curation
         const created = (await curationsStore.createCuration(
