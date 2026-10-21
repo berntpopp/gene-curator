@@ -102,6 +102,7 @@ const stubs = {
       '<div><slot name="toolbar-actions" /><div v-for="item in items" :key="item.assignment_id" class="row"><slot name="item.select" :item="item" /><slot name="item.gene_symbol" :item="item" /><slot name="item.curator_name" :item="item" /><slot name="item.stage" :item="item" /><slot name="item.priority" :item="item" /><slot name="item.updated_at" :item="item" /><slot name="item.actions" :item="item" /></div><slot v-if="!items.length" name="no-data" /></div>'
   },
   GeneBulkBar: true,
+  PasteGenesDialog: true,
   VDialog: { template: '<div><slot /></div>' },
   AddGeneModal: true,
   AssignCuratorModal: true,
