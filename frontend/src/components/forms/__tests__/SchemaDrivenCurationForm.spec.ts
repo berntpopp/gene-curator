@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createWebHistory } from 'vue-router'
 import SchemaDrivenCurationForm from '../SchemaDrivenCurationForm.vue'
@@ -147,6 +147,27 @@ describe('SchemaDrivenCurationForm', () => {
       })
 
       expect(wrapper.exists()).toBe(true)
+    })
+
+    it('renders only a skeleton (no score card) until schema and curation have loaded', async () => {
+      const wrapper = mount(SchemaDrivenCurationForm, {
+        props: { schemaId: 'schema-1', scopeId: 'scope-1' },
+        global: {
+          plugins: [router],
+          stubs: {
+            ErrorBoundary: false,
+            FormRecoveryDialog: true,
+            DynamicForm: true,
+            ScorePreview: { template: '<div class="score-preview" />' },
+            ClinGenCurationForm: true,
+            FormActions: true
+          }
+        }
+      })
+      expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
+      expect(wrapper.find('.score-preview').exists()).toBe(false)
+      await flushPromises()
+      expect(wrapper.find('.v-skeleton-loader').exists()).toBe(false)
     })
 
     it('should accept gene prop', () => {

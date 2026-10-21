@@ -293,6 +293,28 @@ describe('ScopeDashboard', () => {
     expect(routerReplace).not.toHaveBeenCalled()
   })
 
+  it('shows em dashes, not zeros, until the statistics arrive', async () => {
+    routeState.params = { scopeId: 's1', tab: 'overview' }
+    const store = useScopesStore()
+    vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
+      store.currentScope = scope as never
+      return scope as never
+    })
+    vi.spyOn(store, 'fetchUserRole').mockResolvedValue('admin' as never)
+    let release!: (v: never) => void
+    vi.spyOn(store, 'fetchStatistics').mockReturnValue(new Promise(r => (release = r as never)))
+    const wrapper = mount(ScopeDashboard, opts())
+    await flushPromises()
+    const tiles = wrapper
+      .findAll('.text-h4')
+      .map(t => t.text())
+      .slice(1)
+    expect(tiles).toEqual(['—', '—', '—', '—'])
+    release({ total_genes_assigned: 10, member_count: 4 } as never)
+    await flushPromises()
+    expect(wrapper.findAll('.text-h4')[1]?.text()).toBe('10')
+  })
+
   it('derives the in-progress count and curation progress from the statistics', async () => {
     const { vm } = await mountView()
     expect(vm.inProgressCount).toBe(6)
