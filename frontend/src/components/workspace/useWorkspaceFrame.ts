@@ -44,6 +44,9 @@ export function createWorkspaceFrame() {
   const savedAt = ref<number | null>(null)
   const score = ref<ScoreSnapshot | null>(null)
   const meta = ref<{ disease?: string; moi?: string }>({})
+  // Things that must be fixed before saving, by source (e.g. an unknown PMID in a table)
+  const blockerMap = ref<Record<string, string>>({})
+  const blockers = computed(() => Object.values(blockerMap.value))
 
   const snapshot = () => JSON.stringify(form.value?.evidence.value ?? null)
   const dirty = computed(() => baseline.value !== null && snapshot() !== baseline.value)
@@ -70,7 +73,7 @@ export function createWorkspaceFrame() {
 
   async function save(): Promise<boolean> {
     const f = form.value
-    if (!f || f.saving.value) return false
+    if (!f || f.saving.value || blockers.value.length) return false
     const ok = await f.save().catch(() => false)
     failed.value = !ok
     if (ok) {
@@ -84,10 +87,10 @@ export function createWorkspaceFrame() {
     submitBinding.value = binding
   }
 
-  const canSubmit = computed(() => !!submitBinding.value?.canSubmit.value)
+  const canSubmit = computed(() => !!submitBinding.value?.canSubmit.value && !blockers.value.length)
 
   function submit(): boolean {
-    if (!submitBinding.value?.canSubmit.value) return false
+    if (!canSubmit.value || !submitBinding.value) return false
     submitBinding.value.run()
     return true
   }
@@ -98,6 +101,11 @@ export function createWorkspaceFrame() {
     savedAt,
     score,
     meta,
+    blockers,
+    setBlocker: (id: string, reason: string | null) => {
+      const rest = Object.fromEntries(Object.entries(blockerMap.value).filter(([k]) => k !== id))
+      blockerMap.value = reason ? { ...rest, [id]: reason } : rest
+    },
     canSubmit,
     hasSubmit: computed(() => !!submitBinding.value),
     markClean,

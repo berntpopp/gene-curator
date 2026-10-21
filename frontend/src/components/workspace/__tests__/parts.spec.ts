@@ -126,6 +126,19 @@ describe('ScorePanel', () => {
     expect(ready.text()).toContain('Ready to submit')
   })
 
+  it('lists blockers such as an unknown PMID', () => {
+    const w = mount(ScorePanel, {
+      props: {
+        score: score(),
+        canSubmit: false,
+        readonly: false,
+        blockers: ['PMID 99 was not found']
+      }
+    })
+    expect(w.text()).toContain('PMID 99 was not found')
+    expect(w.text()).not.toContain('Add at least one')
+  })
+
   it('hides the checklist when read-only', () => {
     const w = mount(ScorePanel, { props: { score: score(), canSubmit: false, readonly: true } })
     expect(w.text()).not.toContain('Before you submit')

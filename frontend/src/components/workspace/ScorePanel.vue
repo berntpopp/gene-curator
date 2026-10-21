@@ -78,7 +78,15 @@
     { at: 12, label: 'Strong' }
   ]
 
-  const props = defineProps<{ score: ScoreSnapshot; canSubmit: boolean; readonly: boolean }>()
+  const props = withDefaults(
+    defineProps<{
+      score: ScoreSnapshot
+      canSubmit: boolean
+      readonly: boolean
+      blockers?: string[]
+    }>(),
+    { blockers: () => [] }
+  )
 
   const next = computed(() => {
     const band = BANDS.find(b => b.at > props.score.total)
@@ -102,9 +110,14 @@
   })
 
   const checks = computed(() => [
-    props.canSubmit
-      ? { text: 'Ready to submit', warn: false }
-      : { text: 'Add at least one scored genetic evidence item', warn: true },
+    ...props.blockers.map(text => ({ text, warn: true })),
+    ...(props.blockers.length
+      ? []
+      : [
+          props.canSubmit
+            ? { text: 'Ready to submit', warn: false }
+            : { text: 'Add at least one scored genetic evidence item', warn: true }
+        ]),
     ...(props.score.hasContradictory
       ? [
           {

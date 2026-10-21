@@ -67,4 +67,9 @@ describe('WorkspaceHeader', () => {
       false
     )
   })
+
+  it('disables save while blocked', () => {
+    const w = mountHeader({ saveBlocked: true })
+    expect(w.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+  })
 })

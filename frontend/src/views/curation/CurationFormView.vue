@@ -13,6 +13,7 @@
       :show-submit="frame.hasSubmit.value"
       :can-submit="frame.canSubmit.value"
       :saving="frame.state.value === 'saving'"
+      :save-blocked="frame.blockers.value.length > 0"
       @save="frame.save()"
       @submit="frame.submit()"
       @retry="frame.save()"
@@ -75,6 +76,7 @@
           :score="frame.score.value"
           :can-submit="frame.canSubmit.value"
           :readonly="isActive"
+          :blockers="frame.blockers.value"
         />
       </aside>
     </div>
