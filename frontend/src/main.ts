@@ -12,8 +12,6 @@ import { piniaErrorHandlerPlugin } from './plugins/piniaErrorHandler'
 // Vuetify
 import 'vuetify/styles'
 import { createVuetify, type ThemeDefinition } from 'vuetify'
-import * as components from 'vuetify/components'
-import * as directives from 'vuetify/directives'
 
 // Material Design Icons
 import '@mdi/font/css/materialdesignicons.css'
@@ -78,8 +76,6 @@ const customDarkTheme: ThemeDefinition = {
 }
 
 const vuetify = createVuetify({
-  components,
-  directives,
   // Vuetify 4 lowered the defaults; keep v3 breakpoints so layouts do not shift.
   display: { thresholds: { md: 960, lg: 1280, xl: 1920, xxl: 2560 } },
   theme: {
