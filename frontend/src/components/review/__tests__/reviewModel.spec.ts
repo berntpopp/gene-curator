@@ -7,7 +7,8 @@ import {
   formatValue,
   approveBlockers,
   queryTodos,
-  checklistFor
+  checklistFor,
+  REVIEW_TEXT_MAX
 } from '../reviewModel'
 import type { Schema } from '@/types/api'
 
@@ -128,6 +129,17 @@ describe('queryTodos', () => {
   })
   it('is empty without open queries', () => {
     expect(queryTodos('alice', [])).toBe('')
+  })
+  it('never exceeds the feedback limit, and says how many queries did not fit', () => {
+    const many = Array.from({ length: 40 }, (_, i) =>
+      c({ item_path: 'summary', body: `Question ${i} ${'x'.repeat(100)}` })
+    )
+    const text = queryTodos('alice', many)
+    expect(text.length).toBeLessThanOrEqual(REVIEW_TEXT_MAX)
+    expect(text).toMatch(/- …and \d+ more open quer(y|ies)/)
+    const huge = queryTodos('alice', [c({ item_path: 'summary', body: 'y'.repeat(5000) })])
+    expect(huge.length).toBeLessThanOrEqual(REVIEW_TEXT_MAX)
+    expect(huge.endsWith('…')).toBe(true)
   })
 })
 

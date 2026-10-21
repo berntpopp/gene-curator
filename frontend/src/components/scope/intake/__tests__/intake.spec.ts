@@ -49,5 +49,8 @@ describe('toRows', () => {
     expect(reasonText(items[3]!)).toContain('too many')
     expect(reasonText({ ...items[3]!, reason: 'lookup_timeout' })).toContain('in time')
     expect(reasonText({ ...items[3]!, reason: null })).toBe('Not found at HGNC')
+    expect(reasonText({ ...items[3]!, reason: 'invalid_identifier' })).toBe(
+      'Not a gene symbol or HGNC ID'
+    )
   })
 })

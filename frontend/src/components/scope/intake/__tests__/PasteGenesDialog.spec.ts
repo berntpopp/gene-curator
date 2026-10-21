@@ -128,6 +128,22 @@ describe('PasteGenesDialog', () => {
     expect(addToast).toHaveBeenCalledWith('1 gene added, 1 already in scope, 1 failed', 'warning')
   })
 
+  it('explains a refused list in words, not raw validation JSON', async () => {
+    resolve.mockRejectedValue({
+      response: {
+        data: { detail: [{ loc: ['body', 'symbols'], msg: 'List should have at most 1000 items' }] }
+      }
+    })
+    const w = mountDialog()
+    await w.find('textarea').setValue('A')
+    await w.find('[data-testid=resolve]').trigger('click')
+    await flushPromises()
+    expect(addToast).toHaveBeenCalledWith(
+      'Could not resolve the list. Symbols: List should have at most 1000 items.',
+      'error'
+    )
+  })
+
   it('keeps the dialog open and tells the user when resolving or adding fails', async () => {
     resolve.mockRejectedValue(new Error('down'))
     const w = mountDialog()

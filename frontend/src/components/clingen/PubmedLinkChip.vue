@@ -11,5 +11,10 @@
   // Separate component: a dynamic href on v-chip inside a v-for breaks vue-tsc scope checking.
   const props = defineProps<{ pmid: string }>()
 
-  const pubmedUrl = computed(() => `https://pubmed.ncbi.nlm.nih.gov/${props.pmid}`)
+  // Not a numeric PMID: still shown, but not a link
+  const pubmedUrl = computed(() =>
+    /^\d{1,9}$/.test(String(props.pmid).trim())
+      ? `https://pubmed.ncbi.nlm.nih.gov/${String(props.pmid).trim()}`
+      : undefined
+  )
 </script>

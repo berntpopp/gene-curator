@@ -10,7 +10,8 @@ export const parseSymbols = (text: string): string[] => text.split(/[\s,;]+/).fi
 
 export const REASON_TEXT = {
   lookup_cap: 'Not looked up at HGNC: too many unknown symbols in one list',
-  lookup_timeout: 'HGNC did not answer in time, try again'
+  lookup_timeout: 'HGNC did not answer in time, try again',
+  invalid_identifier: 'Not a gene symbol or HGNC ID'
 } as const
 
 /** One review row: the response item plus the user's choice. */
