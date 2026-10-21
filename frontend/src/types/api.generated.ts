@@ -1650,6 +1650,61 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/curations/{curation_id}/review-comments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Review Comments */
+        get: operations["list_review_comments_api_v1_curations__curation_id__review_comments_get"];
+        put?: never;
+        /** Create Review Comment */
+        post: operations["create_review_comment_api_v1_curations__curation_id__review_comments_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/curations/{curation_id}/review-comments/{comment_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Review Comment */
+        patch: operations["update_review_comment_api_v1_curations__curation_id__review_comments__comment_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/curations/{curation_id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Curation Diff
+         * @description Current evidence versus the version the reviewer last saw (none yet: all items added).
+         */
+        get: operations["curation_diff_api_v1_curations__curation_id__diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/precurations/": {
         parameters: {
             query?: never;
@@ -4165,6 +4220,15 @@ export interface components {
             can_delete: boolean;
         };
         /**
+         * CurationDiff
+         * @description Current evidence versus the baseline; with no baseline every item is reported as added.
+         */
+        CurationDiff: {
+            baseline: components["schemas"]["DiffBaseline"] | null;
+            /** Items */
+            items: components["schemas"]["DiffItem"][];
+        };
+        /**
          * CurationDraftSave
          * @description Schema for saving a curation as draft.
          */
@@ -4616,6 +4680,39 @@ export interface components {
              * @description Reason for deactivation
              */
             reason?: string | null;
+        };
+        /**
+         * DiffBaseline
+         * @description The version the reviewer last saw: their own last review decision, else anyone's latest decision,
+         *     else the earlier submission.
+         */
+        DiffBaseline: {
+            /** Audit Id */
+            audit_id: number;
+            /**
+             * As Of
+             * Format: date-time
+             */
+            as_of: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "review" | "any_review" | "previous_submission";
+        };
+        /** DiffItem */
+        DiffItem: {
+            /** Path */
+            path: string;
+            /**
+             * Change
+             * @enum {string}
+             */
+            change: "added" | "removed" | "changed";
+            /** Before */
+            before?: unknown;
+            /** After */
+            after?: unknown;
         };
         /**
          * EvidenceItem
@@ -7462,6 +7559,72 @@ export interface components {
              * @description Full publication date
              */
             publication_date?: string | null;
+        };
+        /** ReviewComment */
+        ReviewComment: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /** Review Id */
+            review_id: string | null;
+            /** Item Path */
+            item_path: string;
+            /** Body */
+            body: string;
+            /**
+             * Author Id
+             * Format: uuid
+             */
+            author_id: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "resolved";
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "query" | "accepted";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** ReviewCommentCreate */
+        ReviewCommentCreate: {
+            /** Item Path */
+            item_path: string;
+            /** Body */
+            body?: string | null;
+            /** Review Id */
+            review_id?: string | null;
+            /**
+             * Kind
+             * @default query
+             * @enum {string}
+             */
+            kind: "query" | "accepted";
+        };
+        /** ReviewCommentUpdate */
+        ReviewCommentUpdate: {
+            /** Body */
+            body?: string | null;
+            /** Status */
+            status?: ("open" | "resolved") | null;
         };
         /**
          * ReviewStatus
@@ -12156,6 +12319,139 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CurationScoreResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_review_comments_api_v1_curations__curation_id__review_comments_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewComment"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_review_comment_api_v1_curations__curation_id__review_comments_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCommentCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewComment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_review_comment_api_v1_curations__curation_id__review_comments__comment_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+                comment_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewCommentUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReviewComment"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    curation_diff_api_v1_curations__curation_id__diff_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationDiff"];
                 };
             };
             /** @description Validation Error */

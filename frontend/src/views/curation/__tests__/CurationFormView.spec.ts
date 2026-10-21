@@ -1,13 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
+import { defineComponent, h, inject, onMounted, ref, type Ref } from 'vue'
+import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
+import { useNotificationsStore } from '@/stores/notifications'
 import CurationFormView from '@/views/curation/CurationFormView.vue'
 import { useSchemasStore } from '@/stores/schemas'
 import { useScopesStore } from '@/stores/scopes'
 import { useCurationsStore } from '@/stores/curations'
 import { usePrecurationsStore } from '@/stores/precurations'
 import { useGenesStore } from '@/stores/genes'
-import { useNotificationsStore } from '@/stores/notifications'
 
 const { routerPush, routerBack, routeState, logger } = vi.hoisted(() => ({
   routerPush: vi.fn(),
@@ -21,13 +23,20 @@ const { routerPush, routerBack, routeState, logger } = vi.hoisted(() => ({
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: routerPush, back: routerBack }),
-  useRoute: () => routeState
+  useRoute: () => routeState,
+  onBeforeRouteLeave: vi.fn()
 }))
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 
 type Vm = Record<string, unknown> & Record<string, (...args: never[]) => unknown>
 
-const stubs = { SchemaDrivenCurationForm: true, CurationSchemaSelect: true }
+const stubs = {
+  SchemaDrivenCurationForm: true,
+  CurationSchemaSelect: true,
+  'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' }
+}
 
 const mountView = async (
   setup?: (stores: {
@@ -36,7 +45,8 @@ const mountView = async (
     curations: ReturnType<typeof useCurationsStore>
     precurations: ReturnType<typeof usePrecurationsStore>
     genes: ReturnType<typeof useGenesStore>
-  }) => void
+  }) => void,
+  extraStubs: Record<string, unknown> = {}
 ) => {
   const schemas = useSchemasStore()
   const scopes = useScopesStore()
@@ -47,7 +57,7 @@ const mountView = async (
   vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
   vi.spyOn(scopes, 'fetchScope').mockResolvedValue({ default_workflow_pair_id: 'wp1' } as never)
   setup?.({ schemas, scopes, curations, precurations, genes })
-  const wrapper = mount(CurationFormView, { global: { stubs } })
+  const wrapper = mount(CurationFormView, { global: { stubs: { ...stubs, ...extraStubs } } })
   await flushPromises()
   return {
     wrapper,
@@ -100,7 +110,7 @@ describe('CurationFormView', () => {
     })
     expect(vm.resolvedSchemaId).toBe('sch-wp')
     expect(vm.resolvedWorkflowPairId).toBe('wp1')
-    expect(wrapper.text()).toContain('New Curation')
+    expect(wrapper.text()).toContain('New curation')
   })
 
   it('auto-selects the only available curation schema', async () => {
@@ -295,10 +305,137 @@ describe('CurationFormView', () => {
     expect(routerPush).toHaveBeenCalledWith({ name: 'scope-dashboard', params: { scopeId: 'sc1' } })
   })
 
-  it('announces a saved draft', async () => {
-    const toast = vi.spyOn(useNotificationsStore(), 'addToast')
-    const { vm } = await mountView()
-    ;(vm.handleSaved as () => void)()
-    expect(toast).toHaveBeenCalledWith('Draft saved', 'info')
+  describe('workspace frame', () => {
+    // Stands in for the form: attaches to the frame like SchemaDrivenCurationForm does
+    const FrameForm = defineComponent({
+      name: 'SchemaDrivenCurationForm',
+      emits: ['ready', 'submit'],
+      setup(_, { emit }) {
+        const frame = inject(WORKSPACE_FRAME)!
+        const evidence = ref<unknown>({ a: 1 })
+        const saving = ref(false)
+        const savedAt = ref<number | null>(null)
+        const save = vi.fn().mockResolvedValue(true)
+        frame.attachForm({ evidence, saving, savedAt, save })
+        frame.attachSubmit({ canSubmit: ref(true), run: () => emit('submit') })
+        frame.setScore({
+          genetic: 6,
+          experimental: 1.5,
+          total: 7.5,
+          classification: 'Moderate',
+          hasContradictory: false
+        })
+        frame.setMeta({ disease: 'Alport syndrome', moi: 'X-linked' })
+        onMounted(() => emit('ready'))
+        formApi.evidence = evidence
+        formApi.save = save
+        return () => h('div', { class: 'form' })
+      }
+    })
+    const formApi = {} as { evidence: Ref<unknown>; save: ReturnType<typeof vi.fn> }
+
+    async function mountFramed(curation: Record<string, unknown> = { workflow_stage: 'curation' }) {
+      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+      const wrapper = await mountView(
+        ({ schemas, scopes, curations, genes }) => {
+          schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
+          vi.spyOn(scopes, 'fetchScope').mockResolvedValue({
+            default_workflow_pair_id: 'wp1',
+            display_name: 'Kidney genetics'
+          } as never)
+          vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({
+            curation_schema_id: 'sch',
+            gene_id: 'g1',
+            ...curation
+          } as never)
+          vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'COL4A5' } as never)
+        },
+        { SchemaDrivenCurationForm: FrameForm }
+      )
+      await flushPromises()
+      return wrapper
+    }
+
+    it('shows breadcrumb, stage, disease, saved state and the score panel', async () => {
+      const { wrapper } = await mountFramed()
+      expect(wrapper.find('nav[aria-label="Breadcrumb"]').text()).toContain('Kidney genetics')
+      expect(wrapper.find('nav[aria-label="Breadcrumb"]').text()).toContain('COL4A5')
+      expect(wrapper.find('h1').text()).toContain('COL4A5')
+      expect(wrapper.text()).toContain('Alport syndrome')
+      expect(wrapper.find('[aria-current="step"]').text()).toBe('Curation')
+      expect(wrapper.text()).toContain('Saved')
+      expect(wrapper.text()).toContain('Calculated classification')
+      expect(wrapper.text()).toContain('7.5')
+    })
+
+    it('shows unsaved changes after an edit and saves from the header', async () => {
+      const { wrapper } = await mountFramed()
+      formApi.evidence.value = { a: 2 }
+      await flushPromises()
+      expect(wrapper.text()).toContain('Unsaved changes')
+      await wrapper.find('[data-testid="ws-save"]').trigger('click')
+      await flushPromises()
+      expect(formApi.save).toHaveBeenCalledTimes(1)
+      expect(wrapper.text()).not.toContain('Unsaved changes')
+    })
+
+    it('saves on Ctrl+S, including inside an input, but not inside a dialog', async () => {
+      const { wrapper } = await mountFramed()
+      void wrapper
+      const input = document.createElement('input')
+      document.body.append(input)
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+      )
+      expect(formApi.save).toHaveBeenCalledTimes(1)
+      const dialog = document.createElement('div')
+      dialog.setAttribute('role', 'dialog')
+      const inner = document.createElement('input')
+      dialog.append(inner)
+      document.body.append(dialog)
+      inner.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 's', ctrlKey: true, bubbles: true, cancelable: true })
+      )
+      expect(formApi.save).toHaveBeenCalledTimes(1)
+      input.remove()
+      dialog.remove()
+    })
+
+    it('warns on reload only while there are unsaved changes', async () => {
+      await mountFramed()
+      const fire = () => {
+        const e = new Event('beforeunload', { cancelable: true })
+        window.dispatchEvent(e)
+        return e.defaultPrevented
+      }
+      expect(fire()).toBe(false)
+      formApi.evidence.value = { a: 3 }
+      await flushPromises()
+      expect(fire()).toBe(true)
+    })
+
+    it('marks an active curation read-only: no save or submit, no Ctrl+S', async () => {
+      const { wrapper } = await mountFramed({ workflow_stage: 'active' })
+      expect(wrapper.find('[data-testid="ws-save"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="ws-submit"]').exists()).toBe(false)
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+      expect(formApi.save).not.toHaveBeenCalled()
+    })
+
+    it('leaves without asking after a submit', async () => {
+      const { wrapper } = await mountFramed()
+      formApi.evidence.value = { a: 4 }
+      await flushPromises()
+      await wrapper.find('[data-testid="ws-submit"]').trigger('click')
+      await flushPromises()
+      const e = new Event('beforeunload', { cancelable: true })
+      window.dispatchEvent(e)
+      expect(e.defaultPrevented).toBe(false)
+    })
+
+    it('shows an archived curation as the terminal stage', async () => {
+      const { wrapper } = await mountFramed({ workflow_stage: 'active', status: 'archived' })
+      expect(wrapper.find('[aria-current="step"]').text()).toBe('Archived')
+    })
   })
 })

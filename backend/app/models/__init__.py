@@ -25,6 +25,7 @@ from .models import (
     WorkflowPair,
     WorkflowStage,
 )
+from .review_comments import ReviewItemComment
 
 # Create aliases for backward compatibility
 User = UserNew
@@ -42,6 +43,7 @@ __all__ = [
     "NotificationType",
     "PrecurationNew",
     "Review",
+    "ReviewItemComment",
     "ReviewStatus",
     "SchemaSelection",
     "SchemaType",

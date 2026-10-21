@@ -24,6 +24,7 @@ from app.api.v1.endpoints import (
     ontology,
     precurations,
     publications,
+    review_comments,
     schema_validation,
     schemas,
     scope_memberships,
@@ -58,6 +59,9 @@ api_router.include_router(
 )
 api_router.include_router(workflow.router, prefix="/workflow", tags=["workflow"])
 api_router.include_router(curations.router, prefix="/curations", tags=["curations"])
+api_router.include_router(
+    review_comments.router, prefix="/curations", tags=["review-comments"]
+)
 api_router.include_router(
     precurations.router, prefix="/precurations", tags=["precurations"]
 )

@@ -64,7 +64,8 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   /**
    * Save draft
    */
-  async function handleSaveDraft() {
+  /** Resolves true when the draft reached the server (the workspace frame shows the result). */
+  async function handleSaveDraft(): Promise<boolean> {
     savingDraft.value = true
     try {
       const payload = {
@@ -81,7 +82,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
             curationsStore.error?.message || 'Failed to save draft',
             'error'
           )
-          return
+          return false
         }
         lockVersion.value = updated.lock_version as number
         options.onSaved()
@@ -90,6 +91,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload(evidenceData.value)
         )) as CurationRecord
+        options.onSaved()
         // Navigate to edit the created curation
         router.replace({
           name: 'curation-edit',
@@ -99,9 +101,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
 
       notificationsStore.addToast('Draft saved', 'success')
       clearRecovery()
+      return true
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
+      return false
     } finally {
       savingDraft.value = false
     }
@@ -177,7 +181,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   /**
    * Handle ClinGen form save draft
    */
-  async function handleClinGenSaveDraft(clingenEvidenceData: ClinGenEvidenceData | EvidenceData) {
+  async function handleClinGenSaveDraft(
+    clingenEvidenceData: ClinGenEvidenceData | EvidenceData
+  ): Promise<boolean> {
     savingDraft.value = true
     try {
       const id = curationId()
@@ -192,7 +198,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
             curationsStore.error?.message || 'Failed to save draft',
             'error'
           )
-          return
+          return false
         }
         lockVersion.value = updated.lock_version as number
         options.onSaved()
@@ -201,6 +207,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
+        options.onSaved()
         // Navigate to edit the created curation
         router.replace({
           name: 'curation-edit',
@@ -210,9 +217,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
 
       notificationsStore.addToast('Draft saved', 'success')
       clearRecovery()
+      return true
     } catch (error) {
       logger.error('Failed to save ClinGen draft', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
+      return false
     } finally {
       savingDraft.value = false
     }

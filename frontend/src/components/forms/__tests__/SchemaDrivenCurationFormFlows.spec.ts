@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import SchemaDrivenCurationForm from '../SchemaDrivenCurationForm.vue'
+import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
 
 const confirmMock = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
@@ -406,5 +407,54 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     press('false')
     await flushPromises()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
+  })
+
+  describe('workspace frame hook', () => {
+    async function mountFramed(dynamic: boolean) {
+      schemaState.useDynamicForm = dynamic
+      const frame = createWorkspaceFrame()
+      const wrapper = mount(SchemaDrivenCurationForm, {
+        props: { schemaId: 'schema-1', scopeId: 'scope-1', curationId: 'cur-1' },
+        global: { stubs, provide: { [WORKSPACE_FRAME as symbol]: frame } }
+      })
+      await flushPromises()
+      frame.markClean()
+      return { wrapper, frame }
+    }
+
+    it('reports edits as unsaved and saves the ClinGen draft through the frame', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, lock_version: 2 })
+      curationsStore.saveDraft.mockResolvedValue({ lock_version: 3 })
+      const { wrapper, frame } = await mountFramed(false)
+      expect(frame.state.value).toBe('saved')
+
+      wrapper
+        .findComponent({ name: 'ClinGenCurationForm' })
+        .vm.$emit('update:model-value', { a: 1 })
+      await flushPromises()
+      expect(frame.state.value).toBe('unsaved')
+
+      expect(await frame.save()).toBe(true)
+      expect(curationsStore.saveDraft).toHaveBeenCalledWith('cur-1', {
+        evidence_data: { a: 1 },
+        lock_version: 2
+      })
+      expect(frame.state.value).toBe('saved')
+    })
+
+    it('saves the generic form through the frame and reports a failed save', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, lock_version: 2 })
+      curationsStore.saveDraft.mockResolvedValue(undefined)
+      const { wrapper, frame } = await mountFramed(true)
+      wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', { b: 2 })
+      await flushPromises()
+      expect(await frame.save()).toBe(false)
+      expect(frame.state.value).toBe('failed')
+    })
+
+    it('works without a frame', async () => {
+      const wrapper = await mountForm()
+      expect(wrapper.exists()).toBe(true)
+    })
   })
 })

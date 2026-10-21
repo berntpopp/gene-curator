@@ -97,4 +97,30 @@ describe('PrecurationFormView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Could not load precuration')
   })
+
+  it('shows the workspace header: breadcrumb to the scope and gene, precuration stage', async () => {
+    vi.mocked(scopesAPI.getScopeById).mockResolvedValue({
+      display_name: 'Kidney genetics',
+      default_workflow_pair_id: 'wp1'
+    } as never)
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue({
+      approved_symbol: 'BRCA1',
+      hgnc_id: 'HGNC:1100'
+    } as never)
+    const wrapper = mount(PrecurationFormView, {
+      global: {
+        stubs: {
+          SchemaDrivenPrecurationForm: true,
+          'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' }
+        }
+      }
+    })
+    await flushPromises()
+    const crumbs = wrapper.find('nav[aria-label="Breadcrumb"]')
+    expect(crumbs.findAll('a').map(a => a.attributes('href'))).toEqual(['/scopes/sc1', '/genes/g1'])
+    expect(crumbs.find('[aria-current="page"]').text()).toBe('Precuration')
+    expect(wrapper.find('[aria-current="step"]').text()).toBe('Precuration')
+    expect(wrapper.find('[data-testid="ws-save"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('HGNC')
+  })
 })

@@ -1,5 +1,10 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { flushPromises } from '@vue/test-utils'
+import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
 import { mount } from '@vue/test-utils'
+const api = vi.hoisted(() => ({ validatePMIDs: vi.fn() }))
+vi.mock('@/api/publications', () => ({ publicationsAPI: api }))
+
 import EvidenceDataTable from '../EvidenceDataTable.vue'
 import type { EvidenceColumn } from '../types'
 
@@ -100,5 +105,121 @@ describe('EvidenceDataTable', () => {
     })
     await wrapper.findAll('tbody tr')[1]?.find('button').trigger('click')
     expect(wrapper.emitted('remove')?.[0]).toEqual([1])
+  })
+})
+
+describe('EvidenceDataTable PMID lookup on blur (#319)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    api.validatePMIDs.mockReset()
+  })
+  afterEach(() => vi.useRealTimers())
+
+  const known = {
+    results: [
+      {
+        pmid: '31000001',
+        is_valid: true,
+        publication: {
+          pmid: '31000001',
+          title: 'COL4A5 variants',
+          authors: ['Smith J', 'Doe A'],
+          year: 2019
+        }
+      }
+    ]
+  }
+  const unknown = { results: [{ pmid: '99', is_valid: false, error: 'Publication not found: 99' }] }
+
+  function mountTable(pmid: string, frame = createWorkspaceFrame()) {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ label: 'P1', pmid, points: 1 }], columns },
+      global: { provide: { [WORKSPACE_FRAME as symbol]: frame } }
+    })
+    return { wrapper, frame }
+  }
+
+  async function blurPmid(wrapper: ReturnType<typeof mount>, value: string) {
+    const input = wrapper.find('input[placeholder="PMID"]')
+    ;(input.element as HTMLInputElement).value = value
+    await input.trigger('blur')
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+  }
+
+  it('shows the citation under a PMID that exists', async () => {
+    api.validatePMIDs.mockResolvedValue(known)
+    const { wrapper } = mountTable('31000001')
+    await blurPmid(wrapper, '31000001')
+    expect(api.validatePMIDs).toHaveBeenCalledWith(['31000001'], expect.any(AbortSignal))
+    expect(wrapper.find('[data-testid="pmid-citation"]').text()).toContain('Smith et al. 2019')
+    expect(wrapper.find('[data-testid="pmid-citation"]').attributes('title')).toBe(
+      'COL4A5 variants'
+    )
+  })
+
+  it('says so and blocks saving when the PMID is unknown, and unblocks when fixed', async () => {
+    api.validatePMIDs.mockResolvedValueOnce(unknown).mockResolvedValueOnce(known)
+    const { wrapper, frame } = mountTable('99')
+    await blurPmid(wrapper, '99')
+    expect(wrapper.find('[data-testid="pmid-notfound"]').text()).toContain('not found')
+    expect(frame.blockers.value[0]).toContain('99')
+
+    await wrapper.setProps({ items: [{ label: 'P1', pmid: '31000001', points: 1 }] })
+    await blurPmid(wrapper, '31000001')
+    expect(frame.blockers.value).toEqual([])
+  })
+
+  it('does not look up what is not a PMID, and ignores empty cells', async () => {
+    const { wrapper } = mountTable('')
+    await blurPmid(wrapper, 'abc')
+    await blurPmid(wrapper, '')
+    expect(api.validatePMIDs).not.toHaveBeenCalled()
+  })
+
+  it('does not block when the lookup itself fails', async () => {
+    api.validatePMIDs.mockRejectedValue(new Error('offline'))
+    const { wrapper, frame } = mountTable('5')
+    await blurPmid(wrapper, '5')
+    expect(frame.blockers.value).toEqual([])
+    expect(wrapper.find('[data-testid="pmid-notfound"]').exists()).toBe(false)
+  })
+
+  it('clears its blocker when the table goes away', async () => {
+    api.validatePMIDs.mockResolvedValue(unknown)
+    const { wrapper, frame } = mountTable('99')
+    await blurPmid(wrapper, '99')
+    wrapper.unmount()
+    expect(frame.blockers.value).toEqual([])
+  })
+
+  it('looks nothing up when read-only', async () => {
+    const wrapper = mount(EvidenceDataTable, {
+      props: { items: [{ pmid: '31000001' }], columns, readonly: true }
+    })
+    await wrapper.find('input[placeholder="PMID"]').trigger('blur')
+    await vi.advanceTimersByTimeAsync(500)
+    expect(api.validatePMIDs).not.toHaveBeenCalled()
+  })
+
+  it("keeps another row's lookup running when a row is removed (keyed by row id)", async () => {
+    api.validatePMIDs.mockImplementation(() => new Promise(() => {}))
+    const wrapper = mount(EvidenceDataTable, {
+      props: {
+        items: [
+          { id: 'r1', pmid: '11' },
+          { id: 'r2', pmid: '22' }
+        ],
+        columns
+      }
+    })
+    const inputs = wrapper.findAll('input[placeholder="PMID"]')
+    await inputs[0]!.trigger('blur')
+    await inputs[1]!.trigger('blur')
+    await vi.advanceTimersByTimeAsync(300)
+    const signals = api.validatePMIDs.mock.calls.map(c => c[1] as AbortSignal)
+    await wrapper.setProps({ items: [{ id: 'r2', pmid: '22' }] })
+    expect(signals[0]!.aborted).toBe(true) // the removed row's lookup stops
+    expect(signals[1]!.aborted).toBe(false) // the surviving row's does not
   })
 })

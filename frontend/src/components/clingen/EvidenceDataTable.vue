@@ -25,9 +25,29 @@
                   :readonly="readonly"
                   placeholder="PMID"
                   @change="commitInput(index, col.key, $event)"
+                  @blur="onPmidBlur(item, index, $event)"
                 />
                 <PubmedLinkButton v-if="item[col.key]" :pmid="item[col.key]" />
               </div>
+              <template v-for="r in [lookup.resultOf(item[col.key])]" :key="r?.status">
+                <div
+                  v-if="r?.status === 'found'"
+                  data-testid="pmid-citation"
+                  class="pmid-note"
+                  :title="r.title"
+                >
+                  {{ r.citation }}
+                </div>
+                <div
+                  v-else-if="r?.status === 'notfound'"
+                  data-testid="pmid-notfound"
+                  class="pmid-note pmid-note--error"
+                  role="alert"
+                >
+                  PMID not found in Europe PMC
+                </div>
+                <div v-else-if="r?.status === 'loading'" class="pmid-note">Looking up…</div>
+              </template>
             </template>
 
             <!-- Select field -->
@@ -114,7 +134,10 @@
    * Supports various field types: text, number, select, pmid.
    */
 
+  import { computed, getCurrentInstance, inject, onBeforeUnmount, watch } from 'vue'
   import PubmedLinkButton from './PubmedLinkButton.vue'
+  import { usePmidLookup } from '@/composables/usePmidLookup'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import type { EvidenceColumn, EvidenceItem } from './types'
 
   const props = withDefaults(
@@ -135,6 +158,44 @@
     'update:items': [items: EvidenceItem[]]
     remove: [index: number]
   }>()
+
+  // PMID cells: Europe PMC lookup on blur; an unknown PMID blocks saving (the workspace frame says so)
+  const lookup = usePmidLookup()
+  const frame = inject(WORKSPACE_FRAME, null)
+  const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
+  const pmidKeys = computed(() => props.columns.filter(c => c.type === 'pmid').map(c => c.key))
+  const unknownPmids = computed(() =>
+    props.items
+      .flatMap(item => pmidKeys.value.map(k => item[k]))
+      .filter(p => lookup.statusOf(p) === 'notfound')
+      .map(p => String(p).trim())
+  )
+  watch(
+    unknownPmids,
+    list =>
+      frame?.setBlocker(
+        blockerId,
+        list.length ? `PMID ${list.join(', ')} not found in Europe PMC` : null
+      ),
+    { immediate: true }
+  )
+  onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
+
+  // Lookups are keyed by the row's id when it has one, so removing a row cancels its own lookup
+  const rowKey = (item: EvidenceItem, index: number): string | number =>
+    typeof item.id === 'string' || typeof item.id === 'number' ? item.id : index
+
+  function onPmidBlur(item: EvidenceItem, index: number, event: Event) {
+    if (!props.readonly) lookup.check(rowKey(item, index), (event.target as HTMLInputElement).value)
+  }
+
+  watch(
+    () => props.items.map(rowKey),
+    (keys, before) => {
+      const live = new Set(keys)
+      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+    }
+  )
 
   function updateField(index: number, key: string, value: unknown) {
     const newItems = [...props.items]
@@ -180,6 +241,15 @@
   .evidence-data-table :deep(td) {
     padding: 4px 8px !important;
     vertical-align: middle;
+  }
+
+  .pmid-note {
+    font-size: 0.75rem;
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+
+  .pmid-note--error {
+    color: rgb(var(--v-theme-error));
   }
 
   .evidence-data-table :deep(th) {
