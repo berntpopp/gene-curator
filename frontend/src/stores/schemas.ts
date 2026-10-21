@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { schemasAPI } from '@/api'
 import { errorMessage } from './apiError'
+import { useValidationStore } from './validation'
 import type { Schema } from '@/types/api'
 
 type CurationSchemaRecord = Schema<'CurationSchema'>
@@ -116,6 +117,7 @@ export const useSchemasStore = defineStore('schemas', {
       this.error = null
       try {
         const updatedSchema = await schemasAPI.updateSchema(id, schemaData)
+        delete useValidationStore().jsonSchemas[id] // cached JSON schema is stale now
 
         const index = this.schemas.findIndex(s => s.id === id)
         if (index !== -1) {
@@ -138,6 +140,7 @@ export const useSchemasStore = defineStore('schemas', {
       this.error = null
       try {
         await schemasAPI.deleteSchema(id)
+        delete useValidationStore().jsonSchemas[id]
         this.schemas = this.schemas.filter(s => s.id !== id)
         if (this.currentSchema && this.currentSchema.id === id) {
           this.currentSchema = null

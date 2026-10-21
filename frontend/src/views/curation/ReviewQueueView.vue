@@ -238,7 +238,6 @@
 
   import { ref, computed, onMounted, watch } from 'vue'
   import { curationsAPI } from '@/api'
-  import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import { usePrecurationsStore } from '@/stores/precurations'
@@ -262,7 +261,6 @@
     created_by?: string | null
   }
 
-  const authStore = useAuthStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
   const precurationStore = usePrecurationsStore()
@@ -359,35 +357,38 @@
   async function fetchPendingReviews() {
     loading.value = true
     try {
-      // Fetch curations with in_review status (pending peer review)
-      const response = await curationsAPI.getCurations({
-        curation_status: 'in_review',
-        limit: 200
-      })
-
-      curations.value = (response.curations || []).map(
-        (c: Schema<'CurationSummary'>): ReviewItem => ({
-          id: c.id,
-          gene_id: c.gene_id,
-          gene_symbol: c.gene_symbol,
-          disease_name: c.disease_name,
-          scope_id: c.scope_id,
-          scope_name: c.scope_name,
-          curator_name: c.curator_name,
-          status: c.status,
-          workflow_stage: c.workflow_stage,
-          total_score: Number(c.computed_scores?.total_score) || 0,
-          classification: c.computed_verdict,
-          updated_at: c.updated_at,
-          created_at: c.created_at,
-          created_by: c.created_by
+      // The server decides what needs my review (reviewer/admin scopes, not my own, 4-eyes);
+      // walk every page so the queue is never silently capped
+      const inReview: Schema<'CurationSummary'>[] = []
+      const pageSize = 200
+      for (;;) {
+        const response = await curationsAPI.getCurations({
+          curation_status: 'in_review',
+          pending_review: true,
+          skip: inReview.length,
+          limit: pageSize
         })
-      )
+        const rows = response.curations || []
+        inReview.push(...rows)
+        if (rows.length === 0 || inReview.length >= (response.total ?? 0)) break
+      }
 
-      // Filter out curations created by current user (can't review your own - 4-eyes principle)
-      // authStore is JS, so user is typed null; narrow to the id used here
-      const userId = (authStore.user as { id?: string } | null)?.id
-      curations.value = curations.value.filter(c => c.created_by !== userId)
+      curations.value = inReview.map((c: Schema<'CurationSummary'>): ReviewItem => ({
+        id: c.id,
+        gene_id: c.gene_id,
+        gene_symbol: c.gene_symbol,
+        disease_name: c.disease_name,
+        scope_id: c.scope_id,
+        scope_name: c.scope_name,
+        curator_name: c.curator_name,
+        status: c.status,
+        workflow_stage: c.workflow_stage,
+        total_score: Number(c.computed_scores?.total_score) || 0,
+        classification: c.computed_verdict,
+        updated_at: c.updated_at,
+        created_at: c.created_at,
+        created_by: c.created_by
+      }))
 
       // Submitted precurations are reviewed here too (they gate curation, #231)
       // Walk every page so the queue is never silently capped
@@ -395,15 +396,14 @@
       let pages = 1
       for (let page = 1; page <= pages; page++) {
         precurationStore.pagination.page = page
-        await precurationStore.fetchPrecurations({ status: 'submitted' })
+        await precurationStore.fetchPrecurations({ status: 'submitted', pending_review: true })
         submitted.push(...precurationStore.precurations)
         pages = precurationStore.pagination.pages
       }
       precurationStore.pagination.page = 1
       curations.value.push(
         ...submitted
-          // Your own precuration is never yours to approve (4-eyes)
-          .filter(p => p.status === 'submitted' && p.created_by !== userId)
+          .filter(p => p.status === 'submitted')
           .map((p): ReviewItem => ({
             kind: 'precuration',
             id: p.id,

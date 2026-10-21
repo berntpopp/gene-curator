@@ -534,7 +534,6 @@
   onMounted(async () => {
     if (props.schemaId) {
       try {
-        await validationStore.generateJsonSchema(props.schemaId)
         if (Object.keys(formData.value).length > 0) {
           await validateForm()
         }

@@ -11446,6 +11446,8 @@ export interface operations {
                 curation_status?: components["schemas"]["CurationStatus"] | null;
                 /** @description Filter by curator */
                 curator_id?: string | null;
+                /** @description Only scopes where the caller can review, excluding their own */
+                pending_review?: boolean;
             };
             header?: never;
             path?: never;
@@ -11733,6 +11735,8 @@ export interface operations {
                 gene_id?: string | null;
                 /** @description Filter by status */
                 precuration_status?: components["schemas"]["CurationStatus"] | null;
+                /** @description Only scopes where the caller can review, excluding their own */
+                pending_review?: boolean;
             };
             header?: never;
             path?: never;

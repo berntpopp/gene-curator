@@ -24,6 +24,8 @@ interface ValidationState {
   error: string | null
 }
 
+const inFlightSchemas = new Map<string, Promise<JsonSchemaDocument>>()
+
 export const useValidationStore = defineStore('validation', {
   state: (): ValidationState => ({
     supportedFieldTypes: [],
@@ -91,6 +93,17 @@ export const useValidationStore = defineStore('validation', {
     },
 
     async generateJsonSchema(schemaId: string) {
+      const cached = this.jsonSchemas[schemaId]
+      if (cached) return cached
+      // Concurrent callers (several forms mounting at once) share one request
+      const pending = inFlightSchemas.get(schemaId)
+      if (pending) return pending
+      const request = this.fetchJsonSchema(schemaId).finally(() => inFlightSchemas.delete(schemaId))
+      inFlightSchemas.set(schemaId, request)
+      return request
+    },
+
+    async fetchJsonSchema(schemaId: string) {
       this.loading = true
       this.error = null
       try {
