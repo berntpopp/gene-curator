@@ -393,7 +393,9 @@ router.beforeEach(async to => {
 
   // Handle guest-only routes (login, register)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return { name: 'Home' }
+    // Honour ?redirect= only for same-origin paths (no //host or /\\host)
+    const target = to.query.redirect
+    return typeof target === 'string' && /^\/(?![/\\])/.test(target) ? target : { name: 'Home' }
   }
 
   // Handle protected routes

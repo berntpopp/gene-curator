@@ -68,6 +68,25 @@ describe('router guards', () => {
     expect(router.currentRoute.value.name).toBe('Dashboard')
   })
 
+  it('sends a signed-in user on /login to the same-origin redirect target', async () => {
+    useFakeAuth({ isAuthenticated: true })
+
+    await router.push('/login?redirect=/faq?x=1')
+
+    expect(router.currentRoute.value.fullPath).toBe('/faq?x=1')
+  })
+
+  it.each(['//evil.example', 'https://evil.example', '/\\evil.example'])(
+    'ignores the unsafe redirect %s',
+    async target => {
+      useFakeAuth({ isAuthenticated: true })
+
+      await router.push({ name: 'Login', query: { redirect: target } })
+
+      expect(router.currentRoute.value.name).toBe('Dashboard')
+    }
+  )
+
   it('sends signed-in users from the landing page to the dashboard', async () => {
     useFakeAuth({ isAuthenticated: true })
 
