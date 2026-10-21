@@ -1,13 +1,15 @@
 /**
  * Display helpers for scope gene assignments (GeneList and its card/row children).
+ * Curation statuses come from the shared map in config/status.ts.
  */
+import { curationStatusColor, curationStatusLabel } from '@/config/status'
 
 /** Progress percentage implied by an assignment status. */
 export function calculateProgress(assignment: { status?: string | null }): number {
   const statusProgress: Record<string, number> = {
     assigned: 0,
     in_progress: 25,
-    under_review: 75,
+    in_review: 75,
     completed: 100
   }
   return statusProgress[assignment.status ?? ''] || 0
@@ -17,10 +19,9 @@ export function getStatusColor(status: string): string {
   const colors: Record<string, string> = {
     assigned: 'grey',
     in_progress: 'warning',
-    under_review: 'info',
     completed: 'success'
   }
-  return colors[status] || 'grey'
+  return colors[status] ?? curationStatusColor(status)
 }
 
 /** An 'assigned' row with no curator reads 'Unassigned', matching the curator column. */
@@ -29,10 +30,9 @@ export function getStatusLabel(status: string, hasCurator = true): string {
   const labels: Record<string, string> = {
     assigned: 'Assigned',
     in_progress: 'In Progress',
-    under_review: 'Under Review',
     completed: 'Completed'
   }
-  return labels[status] || status
+  return labels[status] ?? curationStatusLabel(status)
 }
 
 export function getPriorityColor(priority: string | null | undefined): string {

@@ -102,7 +102,7 @@ OpenAPI; never hand-write API response types. All code is TypeScript; components
 **Database.** `database/sql/NNN_*.sql` run in order when Postgres initialises an empty volume.
 New migrations are a new numbered file, idempotent (`IF NOT EXISTS`, `CREATE OR REPLACE`), and must
 pass `make test-postgres`, which builds a fresh database from all files. Mirror schema changes in
-`backend/app/models/models.py`. `schema_migrations` records applied files; `make db-migrate` applies pending files atomically.
+`backend/app/models/` (domain modules; `models.py` is a re-export shim). `schema_migrations` records applied files; `make db-migrate` applies pending files atomically.
 Legacy databases must be upgraded through 027 before the initial baseline. New migrations must
 record their own filename for fresh Docker initialization.
 
