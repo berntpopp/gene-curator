@@ -127,6 +127,21 @@ describe('Login', () => {
     expect(routerPush).toHaveBeenCalledWith('/genes')
   })
 
+  it('ignores an off-site redirect query parameter', async () => {
+    routeState.query = { redirect: '//evil.example' }
+    const auth = useAuthStore()
+    vi.spyOn(auth, 'login').mockResolvedValue(undefined as never)
+    const wrapper = mount(Login, mountOpts(pinia))
+
+    await wrapper.find('input[type="email"]').setValue('user@example.org')
+    await wrapper.find('input[type="password"]').setValue('secret123')
+    await flushPromises()
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(routerPush).toHaveBeenLastCalledWith({ name: 'Home' })
+  })
+
   it('shows exactly one error and lets the user retry with the right password', async () => {
     const auth = useAuthStore()
     const login = vi.spyOn(auth, 'login').mockImplementationOnce(async () => {

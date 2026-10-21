@@ -76,7 +76,7 @@ describe('router guards', () => {
     expect(router.currentRoute.value.fullPath).toBe('/faq?x=1')
   })
 
-  it.each(['//evil.example', 'https://evil.example', '/\\evil.example'])(
+  it.each(['//evil.example', 'https://evil.example', '/\\evil.example', '%2F%2Fevil.example'])(
     'ignores the unsafe redirect %s',
     async target => {
       useFakeAuth({ isAuthenticated: true })

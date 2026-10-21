@@ -140,6 +140,7 @@
   import { ref, reactive, computed, nextTick } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
+  import { safeRedirect } from '@/utils/safeRedirect'
   import { showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
@@ -194,9 +195,7 @@
       showSuccess('Login successful!')
 
       // Redirect to intended page or home
-      const redirect = route.query.redirect
-      const redirectTo = typeof redirect === 'string' && redirect ? redirect : { name: 'Home' }
-      router.push(redirectTo)
+      router.push(safeRedirect(route.query.redirect) ?? { name: 'Home' })
     } catch (error) {
       const err = error as {
         message?: string
