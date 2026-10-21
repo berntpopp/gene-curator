@@ -2,18 +2,18 @@
   <v-container fluid class="fill-height">
     <v-row align="center" justify="center">
       <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="pa-6" elevation="8">
-          <v-card-title class="text-center mb-4">
-            <v-img
-              src="/img/logo.png"
-              alt="Gene Curator Logo"
-              width="64"
-              aspect-ratio="1"
-              class="mx-auto mb-4"
-            />
-            <h1 class="text-headline-large">Create Account</h1>
-          </v-card-title>
+        <div class="text-center mb-6">
+          <v-img
+            src="/img/logo.png"
+            alt="Gene Curator Logo"
+            width="88"
+            aspect-ratio="1"
+            class="mx-auto mb-4"
+          />
+          <h1 class="text-headline-small mb-1">Create account</h1>
+        </div>
 
+        <v-card class="pa-6" variant="flat" border>
           <v-card-text>
             <v-form ref="registerForm" @submit.prevent="handleRegister">
               <v-text-field
@@ -151,7 +151,7 @@
 
       await authStore.register(userData)
 
-      showSuccess('Account created successfully! You are now logged in.')
+      showSuccess('Account created')
       router.push({ name: 'Home' })
     } catch (error) {
       const err = error as Error
@@ -160,18 +160,3 @@
     }
   }
 </script>
-
-<style scoped>
-  .fill-height {
-    background: linear-gradient(
-      135deg,
-      rgb(var(--v-theme-surface)) 0%,
-      rgb(var(--v-theme-background)) 100%
-    );
-  }
-
-  .v-card {
-    backdrop-filter: blur(10px);
-    background: rgba(var(--v-theme-surface), 0.9);
-  }
-</style>

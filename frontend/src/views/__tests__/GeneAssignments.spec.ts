@@ -103,6 +103,11 @@ describe('GeneAssignments (My Work)', () => {
     expect(wrapper.find('.manager-stub').exists()).toBe(true)
   })
 
+  it('titles the page like its route', async () => {
+    const wrapper = await mountView()
+    expect(wrapper.find('h1').text()).toBe('Assignments')
+  })
+
   it('does not blank My Work when only the shared store error is set', async () => {
     const store = setup()
     vi.spyOn(store, 'fetchCuratorAssignments').mockResolvedValue([mine] as never)

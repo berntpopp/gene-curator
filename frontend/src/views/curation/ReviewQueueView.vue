@@ -3,7 +3,7 @@
     <!-- Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-headline-large font-weight-bold">Review Queue</h1>
+        <h1 class="page-title text-headline-large font-weight-bold">Review Queue</h1>
         <p class="text-body-large text-medium-emphasis mt-1">Curations awaiting peer review</p>
       </div>
       <v-spacer />
@@ -78,7 +78,7 @@
     >
       <v-alert-title>
         <v-icon size="large" class="mr-2">mdi-check-circle</v-icon>
-        {{ searchQuery || selectedScope ? 'No matching curations' : 'All caught up!' }}
+        {{ searchQuery || selectedScope ? 'No matching curations' : 'No reviews waiting' }}
       </v-alert-title>
       <div v-if="!searchQuery && !selectedScope">
         There are no curations waiting for your review at this time.
