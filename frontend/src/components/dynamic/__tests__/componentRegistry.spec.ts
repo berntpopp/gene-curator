@@ -13,7 +13,13 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { componentRegistry, getComponent } from '../componentRegistry'
+import {
+  cellFor,
+  componentRegistry,
+  emptyValue,
+  fieldTypes,
+  getComponent
+} from '../componentRegistry'
 
 describe('componentRegistry', () => {
   describe('Registry Exports', () => {
@@ -105,5 +111,29 @@ describe('componentRegistry', () => {
       expect(getComponent('Pmidinput')).toBeNull()
       expect(getComponent('hpoInput')).toBeNull()
     })
+  })
+})
+
+describe('fieldTypes', () => {
+  it('gives each type an empty value, overridden by a default', () => {
+    expect(
+      ['string', 'number', 'boolean', 'object', 'array', 'evidence_table'].map(type =>
+        emptyValue({ type })
+      )
+    ).toEqual(['', null, false, {}, [], []])
+    expect(emptyValue({ type: 'number', default: 1.5 })).toBe(1.5)
+    expect(emptyValue({ type: 'unknown' })).toBeNull()
+  })
+
+  it('picks compact cells: select for choices, date input, text otherwise', () => {
+    expect(cellFor({ type: 'string', enum: ['a'] }).props).toEqual({
+      items: [{ title: 'a', value: 'a' }]
+    })
+    expect(cellFor({ type: 'string', format: 'date' })).toMatchObject({
+      props: { type: 'date' },
+      lazy: true
+    })
+    expect(cellFor({ type: 'unknown' })).toBe(fieldTypes.string!.cell)
+    expect(fieldTypes.evidence_table!.editor).toBeTruthy()
   })
 })

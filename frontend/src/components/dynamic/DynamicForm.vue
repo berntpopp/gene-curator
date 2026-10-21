@@ -70,7 +70,7 @@
               </v-alert>
               <v-row>
                 <v-col
-                  v-for="(field, fieldName) in jsonSchema.properties"
+                  v-for="(field, fieldName) in shownProperties"
                   :key="fieldName"
                   :cols="getFieldCols(field)"
                 >
@@ -192,6 +192,8 @@
   import { useFormTabs } from './composables/useFormTabs'
   import { errorDetails } from './errorDetails'
   import { labelForPath } from './fieldLabels'
+  import { normalizeDefinition } from './normalizeDefinition'
+  import { resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
   import type {
     FieldSchema,
@@ -212,6 +214,8 @@
   const props = withDefaults(
     defineProps<{
       schemaId: string
+      /** Raw methodology config (version snapshot); rendered instead of the generated JSON schema */
+      definition?: Record<string, unknown>
       title?: string
       initialData?: FormData
       readonly?: boolean
@@ -222,7 +226,8 @@
       title: 'Dynamic Form',
       initialData: () => ({}),
       readonly: false,
-      hideActions: false
+      hideActions: false,
+      definition: undefined
     }
   )
 
@@ -250,12 +255,24 @@
   // Spinner only for the initial schema load: validation toggles store.loading on every
   // keystroke and must never unmount the form.
   const loading = computed(
-    () => validationStore.loading && !validationStore.getJsonSchema(props.schemaId)
+    () =>
+      !props.definition && validationStore.loading && !validationStore.getJsonSchema(props.schemaId)
   )
   const error = computed(() => validationStore.error)
   // The store is untyped JS; an unloaded schema is treated as an empty document
-  const jsonSchema = computed<JsonSchemaDocument>(
-    () => validationStore.getJsonSchema(props.schemaId) ?? {}
+  const jsonSchema = computed<JsonSchemaDocument>(() =>
+    props.definition
+      ? normalizeDefinition(props.definition)
+      : (validationStore.getJsonSchema(props.schemaId) ?? {})
+  )
+  // Flat layout: visible fields with `required_when` resolved against the form data
+  const shownProperties = computed(() =>
+    Object.fromEntries(
+      Object.entries(jsonSchema.value.properties ?? {}).flatMap(([name, field]) => {
+        const shown = resolveField(field, formData.value)
+        return shown ? [[name, shown]] : []
+      })
+    )
   )
   const labelFor = (path?: string) => (path ? labelForPath(jsonSchema.value, path) : '')
   const validationResult = computed(() => {
@@ -426,6 +443,7 @@
         return 12
       case 'array':
       case 'object':
+      case 'evidence_table':
         return 12
       case 'text':
         if (field.multiline) return 12
@@ -507,7 +525,7 @@
   watch(
     () => props.schemaId,
     async newSchemaId => {
-      if (newSchemaId) {
+      if (newSchemaId && !props.definition) {
         try {
           await validationStore.generateJsonSchema(newSchemaId)
         } catch (err) {

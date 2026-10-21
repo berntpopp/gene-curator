@@ -20,14 +20,14 @@
 
           <v-row>
             <v-col
-              v-for="fieldPath in section.fields"
+              v-for="{ fieldPath, fieldSchema } in shownFields(section)"
               :key="fieldPath"
               cols="12"
-              :sm="section.fields.length > 2 ? 6 : 12"
+              :sm="section.fields.length > 2 && fieldSchema.type !== 'evidence_table' ? 6 : 12"
             >
               <DynamicField
                 :field-name="getFieldName(fieldPath)"
-                :field-schema="getFieldSchema(fieldPath)"
+                :field-schema="fieldSchema"
                 :model-value="getFieldValue(fieldPath)"
                 :validation-result="getFieldValidation(fieldPath)"
                 :backend-errors="backendErrors[fieldPath] || []"
@@ -47,11 +47,13 @@
   import { ref, onActivated, onDeactivated } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import DynamicField from './DynamicField.vue'
+  import { resolveField } from './conditions'
   import type {
     FieldSchema,
     FieldValidation,
     FormValidationResult,
     JsonSchemaDocument,
+    SectionConfig,
     TabConfig
   } from './types'
 
@@ -150,6 +152,14 @@
     }
 
     return field as FieldSchema
+  }
+
+  /** Visible fields of a section, with `required_when` resolved against the form data */
+  function shownFields(section: SectionConfig) {
+    return section.fields.flatMap(fieldPath => {
+      const fieldSchema = resolveField(getFieldSchema(fieldPath), props.formData)
+      return fieldSchema ? [{ fieldPath, fieldSchema }] : []
+    })
   }
 
   /**

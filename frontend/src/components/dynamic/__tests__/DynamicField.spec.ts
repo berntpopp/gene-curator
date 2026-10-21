@@ -1,8 +1,6 @@
 /**
  * DynamicField Component Tests
  *
- * Tests for the dynamic field rendering component enhancements
- *
  * Test Coverage:
  * - Depth tracking for nested fields
  * - Custom component rendering via registry
@@ -31,6 +29,7 @@ vi.mock('@/composables/useLogger', () => ({
 
 // Mock componentRegistry
 vi.mock('../componentRegistry', () => ({
+  fieldTypes: {},
   componentRegistry: {
     MONDOAutocomplete: {
       name: 'MONDOAutocomplete',
