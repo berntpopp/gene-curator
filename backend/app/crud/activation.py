@@ -14,8 +14,8 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
     if hasattr(item, "workflow_stage"):
         item.workflow_stage = WorkflowStage.ACTIVE
     if isinstance(item, CurationNew):
-        item.approved_at = item.approved_at or datetime.now(UTC)
-        item.approved_by = item.approved_by or user_id
+        item.approved_at = datetime.now(UTC)
+        item.approved_by = user_id
         # One active curation per gene+scope: supersede any other (same transaction)
         for old in db.query(CurationNew).filter(
             CurationNew.gene_id == item.gene_id,

@@ -91,3 +91,27 @@ def test_second_active_curation_for_same_gene_scope_is_rejected(
     with pytest.raises(IntegrityError):
         db_session.commit()
     db_session.rollback()
+
+
+def test_reapproval_restamps_approver_and_time(
+    db_session: Session,
+    test_scope: Scope,
+    test_gene: Gene,
+    test_workflow_pair: WorkflowPair,
+    test_user_curator: UserNew,
+    test_user_admin: UserNew,
+) -> None:
+    c = _curation(
+        db_session, test_scope, test_gene, test_workflow_pair, test_user_curator
+    )
+    workflow_engine._transition_to_active(
+        db_session, c, test_user_curator.id, None, None
+    )
+    db_session.commit()
+    first_at = c.approved_at
+    c.status = CurationStatus.APPROVED  # reopened, edited, approved again
+    db_session.commit()
+    workflow_engine._transition_to_active(db_session, c, test_user_admin.id, None, None)
+    db_session.commit()
+    assert c.approved_by == test_user_admin.id
+    assert c.approved_at > first_at
