@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, type Ref } from 'vue'
-import { onBeforeRouteLeave } from 'vue-router'
+import { onBeforeRouteLeave, type RouteLocationRaw, type Router } from 'vue-router'
 import { useConfirm } from '@/composables/useConfirm'
 
 // Set when the user already chose to discard; the page reloads, so it never needs resetting
@@ -11,12 +11,25 @@ export function reloadDiscardingChanges() {
   window.location.reload()
 }
 
+// Set while the URL moves to another address of the same document
+let keeping = false
+
+/** Changes the URL without the leave prompt, e.g. /new -> the edit page of the curation just created. */
+export async function replaceKeepingChanges(router: Router, to: RouteLocationRaw) {
+  keeping = true
+  try {
+    await router.replace(to)
+  } finally {
+    keeping = false
+  }
+}
+
 /** Asks before leaving the route and warns on tab close/reload while there are unsaved changes. */
 export function useUnsavedGuard(dirty: Readonly<Ref<boolean>>) {
   const { confirm } = useConfirm()
 
   onBeforeRouteLeave(async () => {
-    if (!dirty.value) return true
+    if (!dirty.value || keeping) return true
     return confirm({
       title: 'Leave without saving?',
       text: 'Your changes since the last save will be lost.',

@@ -292,3 +292,14 @@ def test_stale_round_does_not_inflate_dashboard_or_my_work(client, db_session: S
     assert pending(b) == 1  # re-assigned in the new round
     assert _kinds(client, b) == ["review"]  # unassigned in the new round
     assert _kinds(client, a) == ["review"]  # A's old decision does not hide it
+
+
+def test_rejected_precuration_needs_the_curator(
+    client, db_session: Session, test_scope, test_user_curator, test_precuration
+):
+    test_precuration.status = "rejected"  # reviewer requested changes
+    db_session.commit()
+    (item,) = _get(client, test_user_curator)["items"]
+    assert item["kind"] == "changes_requested"
+    assert item["item_type"] == "precuration"
+    assert item["link"] == f"/scopes/{test_scope.id}/precurations/{test_precuration.id}"
