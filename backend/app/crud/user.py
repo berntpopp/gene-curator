@@ -45,7 +45,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         return db_obj
 
     def update_user(
-        self, db: Session, *, user_id: str, user_update: UserUpdate
+        self, db: Session, *, user_id: UUID | str, user_update: UserUpdate
     ) -> User | None:
         """Update user data."""
         db_obj = self.get(db, id=user_id)
@@ -67,7 +67,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         db.refresh(db_obj)
         return db_obj
 
-    def update_password(self, db: Session, *, user_id: str, new_password: str) -> bool:
+    def update_password(
+        self, db: Session, *, user_id: UUID | str, new_password: str
+    ) -> bool:
         """Update user password."""
         db_obj = self.get(db, id=user_id)
         if not db_obj:
@@ -185,7 +187,7 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
             "role_distribution": role_counts,
         }
 
-    def get_user_activity(self, db: Session, *, user_id: str) -> dict[str, Any]:
+    def get_user_activity(self, db: Session, *, user_id: UUID | str) -> dict[str, Any]:
         """Get user activity summary."""
         user = self.get(db, id=user_id)
         if not user:

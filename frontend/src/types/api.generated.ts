@@ -7430,6 +7430,18 @@ export interface components {
             limit: number;
         };
         /**
+         * PrecurationReject
+         * @description Schema for rejecting a precuration.
+         */
+        PrecurationReject: {
+            /**
+             * Reason
+             * @description Reason
+             * @default No reason provided
+             */
+            reason: string;
+        };
+        /**
          * PrecurationSubmit
          * @description Schema for submitting a precuration for review.
          */
@@ -12870,9 +12882,7 @@ export interface operations {
         };
         requestBody: {
             content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
+                "application/json": components["schemas"]["PrecurationReject"];
             };
         };
         responses: {

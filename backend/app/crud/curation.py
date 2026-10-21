@@ -270,6 +270,28 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                 f"WorkflowPair with id {obj_in.workflow_pair_id} not found"
             )
 
+        # 4-eyes: curation needs an approved precuration, unless it re-curates an active one
+        approved = select(PrecurationNew.id).where(
+            PrecurationNew.gene_id == obj_in.gene_id,
+            PrecurationNew.scope_id == obj_in.scope_id,
+            PrecurationNew.status == CurationStatus.APPROVED,
+        )
+        if obj_in.precuration_id:
+            allowed = db.scalar(
+                approved.where(PrecurationNew.id == obj_in.precuration_id)
+            )
+        else:
+            active = select(CurationNew.id).where(
+                CurationNew.gene_id == obj_in.gene_id,
+                CurationNew.scope_id == obj_in.scope_id,
+                CurationNew.status == CurationStatus.ACTIVE,
+            )
+            allowed = db.scalar(approved.limit(1)) or db.scalar(active.limit(1))
+        if not allowed:
+            raise ValueError(
+                "An approved precuration for this gene and scope is required"
+            )
+
         # Create curation
         now = _utc_now()
         db_obj = CurationNew(

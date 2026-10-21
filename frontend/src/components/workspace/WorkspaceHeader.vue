@@ -18,8 +18,15 @@
 
       <div class="ws-actions">
         <SaveState v-if="state" :state="state" :saved-at="savedAt" @retry="emit('retry')" />
-        <template v-if="!readonly">
-          <v-btn data-testid="ws-save" variant="outlined" :loading="saving" @click="emit('save')">
+        <!-- No save state: the page has no draft here (precuration shell), so no actions -->
+        <template v-if="state">
+          <v-btn
+            data-testid="ws-save"
+            variant="outlined"
+            :loading="saving"
+            :disabled="readonly"
+            @click="emit('save')"
+          >
             Save draft
           </v-btn>
           <v-btn
@@ -27,7 +34,7 @@
             data-testid="ws-submit"
             color="primary"
             variant="flat"
-            :disabled="!canSubmit"
+            :disabled="readonly || !canSubmit"
             @click="emit('submit')"
           >
             Submit for review

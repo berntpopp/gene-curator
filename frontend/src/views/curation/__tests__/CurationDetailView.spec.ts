@@ -30,6 +30,7 @@ import { curationsAPI } from '@/api'
 import { useNotificationsStore } from '@/stores/notifications'
 import { workflowAPI, schemasAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
+import { useScopesStore } from '@/stores/scopes'
 import CurationDetailView from '@/views/curation/CurationDetailView.vue'
 import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
 import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
@@ -100,6 +101,29 @@ describe('CurationDetailView', () => {
     await flushPromises()
     return wrapper
   }
+
+  describe('re-curation entry point', () => {
+    const recurate = (w: Awaited<ReturnType<typeof load>>) => w.find('[data-testid="recurate"]')
+
+    it('offers a curator to start a re-curation from the active curation', async () => {
+      vi.spyOn(useScopesStore(), 'fetchUserRole').mockResolvedValue('curator' as never)
+      const wrapper = await load({ workflow_stage: 'active', status: 'active', gene_id: 'g1' })
+      await recurate(wrapper).trigger('click')
+      expect(router.push).toHaveBeenCalledWith({
+        name: 'gene-curation-create',
+        params: { scopeId: 'sc1', geneId: 'g1' },
+        query: { from: 'c1' }
+      })
+    })
+
+    it('hides it from viewers and for curations that are not active', async () => {
+      const role = vi.spyOn(useScopesStore(), 'fetchUserRole')
+      role.mockResolvedValue('viewer' as never)
+      expect(recurate(await load({ workflow_stage: 'active', gene_id: 'g1' })).exists()).toBe(false)
+      role.mockResolvedValue('curator' as never)
+      expect(recurate(await load({ gene_id: 'g1' })).exists()).toBe(false)
+    })
+  })
 
   it('renders ClinGen evidence rows read-only for the reviewer (#238)', async () => {
     const wrapper = await load({

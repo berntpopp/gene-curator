@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.crud.curation import curation_crud
-from app.models.models import CurationNew
+from app.models.models import CurationNew, PrecurationNew
 
 pytestmark = pytest.mark.unit
 
@@ -59,7 +59,10 @@ def test_scope_list_reads_persisted_engine_scores(
 
 @pytest.mark.parametrize("operation", ["create", "update", "draft", "submit"])
 def test_evidence_writes_persist_engine_result(
-    db_session: Session, test_curation: CurationNew, operation: str
+    db_session: Session,
+    test_curation: CurationNew,
+    approved_precuration: PrecurationNew,
+    operation: str,
 ) -> None:
     from unittest.mock import patch
 

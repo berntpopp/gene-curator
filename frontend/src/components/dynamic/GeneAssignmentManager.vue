@@ -1,6 +1,6 @@
 <template>
   <v-card>
-    <v-card-title class="d-flex align-center">
+    <v-card-title class="d-flex align-center text-wrap">
       <v-icon start>mdi-account-group</v-icon>
       Gene assignment management
     </v-card-title>
