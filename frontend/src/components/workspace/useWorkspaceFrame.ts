@@ -65,7 +65,6 @@ export function createWorkspaceFrame() {
 
   function markSaved() {
     baseline.value = inflight ?? snapshot()
-    inflight = null
   }
 
   function attachForm(binding: FormBinding) {

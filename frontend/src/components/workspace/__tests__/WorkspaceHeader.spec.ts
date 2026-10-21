@@ -67,4 +67,10 @@ describe('WorkspaceHeader', () => {
       false
     )
   })
+
+  it('shows the inheritance in plain words', () => {
+    const w = mountHeader({ moi: 'autosomal_dominant' })
+    expect(w.text()).not.toContain('autosomal_dominant')
+    expect(w.find('.ws-title__text').text()).toContain('Autosomal dominant')
+  })
 })

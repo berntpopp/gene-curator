@@ -12,7 +12,7 @@
       <div class="ws-title__text">
         <h1 class="mono">{{ title }}</h1>
         <span v-if="subtitle" class="ws-title__disease">{{ subtitle }}</span>
-        <span v-if="moi" class="text-medium-emphasis">{{ moi }}</span>
+        <span v-if="moi" class="text-medium-emphasis">{{ formatInheritance(moi) }}</span>
         <StageLine :stage="stage" :archived="archived" />
       </div>
 
@@ -39,6 +39,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatInheritance } from '@/utils/inheritance'
   import StageLine from './StageLine.vue'
   import SaveState from './SaveState.vue'
   import type { SaveState as SaveStateName } from './useWorkspaceFrame'

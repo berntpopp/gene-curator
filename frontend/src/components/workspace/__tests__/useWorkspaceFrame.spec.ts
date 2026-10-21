@@ -140,4 +140,27 @@ describe('workspace frame save state', () => {
     expect(frame.blockers.value).toEqual([])
     expect(frame.canSubmit.value).toBe(true)
   })
+
+  it('keeps in-flight edits unsaved when the form sets savedAt during a frame-started save', async () => {
+    const evidence = ref<Record<string, unknown>>({ a: 1 })
+    const saving = ref(false)
+    const savedAt = ref<number | null>(null)
+    let finish!: () => void
+    const save = vi.fn(async () => {
+      saving.value = true
+      await new Promise<void>(r => (finish = r))
+      savedAt.value = 99 // what SchemaDrivenCurationForm.onSaved does
+      saving.value = false
+      return true
+    })
+    const frame = createWorkspaceFrame()
+    frame.attachForm({ evidence, saving, savedAt, save })
+    frame.markClean()
+    evidence.value = { a: 2 }
+    const pending = frame.save()
+    evidence.value = { a: 3 }
+    finish()
+    await pending
+    expect(frame.state.value).toBe('unsaved')
+  })
 })
