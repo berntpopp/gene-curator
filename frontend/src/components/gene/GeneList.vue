@@ -306,6 +306,7 @@
     getStatusColor,
     getStatusLabel
   } from './geneDisplay'
+  import { CURATION_STATUS } from '@/config/status'
   import type { ApiErrorLike } from '@/components/forms/types'
   import type { GeneRow } from './types'
 
@@ -376,7 +377,7 @@
   const statusOptions = [
     { title: 'Assigned', value: 'assigned' },
     { title: 'In Progress', value: 'in_progress' },
-    { title: 'Under Review', value: 'under_review' },
+    { title: CURATION_STATUS.in_review.label, value: 'in_review' },
     { title: 'Completed', value: 'completed' }
   ]
 
