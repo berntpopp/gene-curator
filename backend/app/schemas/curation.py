@@ -36,6 +36,8 @@ class CurationBase(BaseModel):
 class CurationCreate(CurationBase):
     """Schema for creating a new curation."""
 
+    pass
+
 
 class CurationUpdate(BaseModel):
     """Schema for updating an existing curation."""

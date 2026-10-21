@@ -28,7 +28,7 @@ GOOD = {
 
 
 def test_point_range_errors_name_the_item_and_limit() -> None:
-    assert point_range_errors(GOOD) == []
+    assert point_range_errors(GOOD) == [] and point_range_errors(None) == []
     (error,) = point_range_errors(BAD)
     assert "predicted_or_proven_null[0]" in error and "0 and 3" in error
     assert point_range_errors({"segregation": [{"points": -1}]})
