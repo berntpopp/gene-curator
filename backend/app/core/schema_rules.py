@@ -4,6 +4,9 @@ from typing import Any
 
 from app.core.schema_validation_result import SchemaValidationResult
 
+# One copy of the condition semantics (equals / in, True is not 1), shared with submit
+from app.crud.precuration_required import _condition_holds
+
 
 def resolve_named_rules(schema_definition: dict[str, Any]) -> Any:
     """The schema's field definitions with named regex rules turned into `pattern` + `pattern_message`."""
@@ -36,27 +39,9 @@ def _resolve(fields: Any, rules: dict[str, Any]) -> Any:
     return out
 
 
-def condition_holds(condition: dict[str, Any], data: dict[str, Any]) -> bool:
-    """Every entry holds: a list means "one of", anything else "equals" (W4F conditions.ts)."""
-
-    def value_at(path: str) -> Any:
-        value: Any = data
-        for key in path.split("."):
-            value = value.get(key) if isinstance(value, dict) else None
-        return value
-
-    return all(
-        value_at(path) in expected
-        if isinstance(expected, list)
-        else value_at(path) == expected
-        for path, expected in condition.items()
-    )
-
-
 def is_visible(config: dict[str, Any], data: dict[str, Any]) -> bool:
     """False when the field's `visible_when` / `show_when` condition does not hold."""
-    condition = config.get("visible_when", config.get("show_when"))
-    return not isinstance(condition, dict) or condition_holds(condition, data)
+    return _condition_holds(config.get("visible_when", config.get("show_when")), data)
 
 
 # Rule keys the seeded schemas store as lists/maps of fields rather than one rule config
@@ -76,7 +61,7 @@ def apply_field_list_rules(
     ]
     for name, cond in _as(dict, rules.get("conditional_required")).items():
         when = _as(dict, cond.get("when") if isinstance(cond, dict) else None)
-        if when and all(data.get(k) == v for k, v in when.items()):
+        if when and _condition_holds(when, data):
             required.append(name)
     for name in required:
         if (

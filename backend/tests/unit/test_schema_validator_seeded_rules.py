@@ -151,3 +151,15 @@ def test_hidden_field_values_are_still_validated() -> None:
         data, {"field_definitions": LUMPING}
     )
     assert [e["field"] for e in result.errors] == ["lumping_splitting_decision"]
+
+
+def test_condition_does_not_treat_one_as_true() -> None:
+    """Same semantics as crud/precuration_required.py and the frontend `===`."""
+    fields = {
+        "x": {"type": "number"},
+        "y": {"type": "text", "required": True, "show_when": {"x": True}},
+    }
+    result = SchemaValidator().validate_evidence_data(
+        {"x": 1}, {"field_definitions": fields}
+    )
+    assert result.required_fields_missing == []
