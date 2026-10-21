@@ -116,6 +116,7 @@
               @complete-precuration="completePrecuration"
               @view-curation="viewCuration"
               @start-curation="startCuration"
+              @start-recuration="startRecuration"
               @reassign="reassignGene"
               @edit-assignment="editGeneAssignment"
               @remove="confirmRemoveGene"
@@ -404,6 +405,13 @@
       return
     }
     router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new`)
+  }
+
+  /** Re-curation: a new curation that starts from the gene's active curation */
+  function startRecuration(gene: GeneRow) {
+    const active = geneCurations.value[gene.gene_id]
+    if (active)
+      router.push(`/scopes/${props.scopeId}/genes/${gene.gene_id}/curation/new?from=${active.id}`)
   }
 
   /**

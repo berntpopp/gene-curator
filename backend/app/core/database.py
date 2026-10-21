@@ -142,7 +142,9 @@ def get_db() -> Generator[Session, None, None]:
             yield session
             session.commit()
         except Exception as e:
-            logger.error("Database error", error=e)
+            # HTTPExceptions (401/403/400...) are API outcomes, not database errors
+            if not isinstance(e, HTTPException):
+                logger.error("Database error", error=e)
             session.rollback()
             raise
 

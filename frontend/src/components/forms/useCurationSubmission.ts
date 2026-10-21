@@ -26,7 +26,8 @@ export interface CurationSubmissionOptions {
   clearRecovery: () => void
   clearHistory: () => void
   onSaved: () => void
-  onSubmit: () => void
+  /** Receives the id of the submitted curation (new when it was created on submit). */
+  onSubmit: (id: string) => void
 }
 
 /**
@@ -63,6 +64,27 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     return { gene_id, scope_id: scopeId(), workflow_pair_id, evidence_data: evidence }
   }
 
+  /** Submit at a known version and keep the version the server answers with. */
+  async function submitAt(id: string, version: number): Promise<string> {
+    const submitted = (await curationsStore.submitCuration(id, { lock_version: version })) as
+      CurationRecord | undefined
+    if (submitted?.lock_version != null) lockVersion.value = submitted.lock_version
+    return id
+  }
+
+  /** A 409 shows the conflict banner and the store's conflict text, not a generic error. */
+  function reportSubmitError(error: unknown) {
+    if (curationsStore.error?.isConflict) {
+      conflict.value = true
+      notificationsStore.addToast(
+        curationsStore.error.message ?? 'Failed to submit curation',
+        'error'
+      )
+      return
+    }
+    notificationsStore.addToast(apiDetail(error, 'Failed to submit curation'), 'error')
+  }
+
   /**
    * Save draft
    */
@@ -96,6 +118,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload(evidenceData.value)
         )) as CurationRecord
+        lockVersion.value = created.lock_version ?? 0
         options.onSaved()
         // Navigate to edit the created curation
         router.replace({
@@ -123,27 +146,26 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     if (!canSubmit()) return
 
     submitting.value = true
+    let submittedId: string
     try {
       const id = curationId()
       if (id) {
-        await curationsStore.submitCuration(id, {
-          lock_version: lockVersion.value
-        })
+        submittedId = await submitAt(id, lockVersion.value)
       } else {
         // Create and submit
         const created = (await curationsStore.createCuration(
           createPayload(evidenceData.value)
         )) as CurationRecord
-        await curationsStore.submitCuration(created.id, { lock_version: 0 })
+        submittedId = await submitAt(created.id, created.lock_version ?? 0)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')
       clearRecovery()
       clearHistory()
-      options.onSubmit()
+      options.onSubmit(submittedId)
     } catch (error) {
       logger.error('Failed to submit curation', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast(apiDetail(error, 'Failed to submit curation'), 'error')
+      reportSubmitError(error)
     } finally {
       submitting.value = false
     }
@@ -155,6 +177,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
    */
   async function handleClinGenSubmit(clingenEvidenceData: ClinGenEvidenceData | EvidenceData) {
     submitting.value = true
+    let submittedId: string
     try {
       const id = curationId()
       if (id) {
@@ -163,21 +186,21 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           evidence_data: { ...clingenEvidenceData },
           lock_version: lockVersion.value
         })) as CurationRecord
-        await curationsStore.submitCuration(id, { lock_version: updated.lock_version as number })
+        submittedId = await submitAt(id, updated.lock_version as number)
       } else {
         // Create and submit new curation
         const created = (await curationsStore.createCuration(
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
-        await curationsStore.submitCuration(created.id, { lock_version: 0 })
+        submittedId = await submitAt(created.id, created.lock_version ?? 0)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')
       clearRecovery()
-      options.onSubmit()
+      options.onSubmit(submittedId)
     } catch (error) {
       logger.error('Failed to submit ClinGen curation', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast(apiDetail(error, 'Failed to submit curation'), 'error')
+      reportSubmitError(error)
     } finally {
       submitting.value = false
     }
@@ -214,6 +237,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
+        lockVersion.value = created.lock_version ?? 0
         options.onSaved()
         // Navigate to edit the created curation
         router.replace({

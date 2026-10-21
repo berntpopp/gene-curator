@@ -51,6 +51,16 @@
         </template>
         <v-list-item-title> Curation (requires approved precuration) </v-list-item-title>
       </v-list-item>
+      <v-list-item
+        v-if="canAssignGenes && isCurationActive(gene)"
+        :disabled="!!startBlockedReason"
+        @click="emit('start-recuration', gene)"
+      >
+        <template #prepend>
+          <v-icon>mdi-pencil</v-icon>
+        </template>
+        <v-list-item-title>Start re-curation</v-list-item-title>
+      </v-list-item>
       <v-divider />
       <v-list-item v-if="canReassign" @click="emit('reassign', gene)">
         <template #prepend>
@@ -99,11 +109,17 @@
     'complete-precuration': [gene: GeneRow]
     'view-curation': [gene: GeneRow]
     'start-curation': [gene: GeneRow]
+    'start-recuration': [gene: GeneRow]
     reassign: [gene: GeneRow]
     'edit-assignment': [gene: GeneRow]
     remove: [gene: GeneRow]
   }>()
 
-  const { hasPrecuration, isPrecurationApproved, hasCuration, getCurationStatusLabel } =
-    props.workflow
+  const {
+    hasPrecuration,
+    isPrecurationApproved,
+    hasCuration,
+    isCurationActive,
+    getCurationStatusLabel
+  } = props.workflow
 </script>

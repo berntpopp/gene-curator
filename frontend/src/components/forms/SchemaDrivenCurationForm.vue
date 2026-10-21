@@ -171,10 +171,13 @@
       geneId?: string | null
       gene?: { symbol?: string | null } | null
       readonly?: boolean
+      /** Re-curation: a new curation starts from this (active) curation's evidence and disease. */
+      prefillFrom?: string | null
     }>(),
     {
       workflowPairId: null,
       curationId: null,
+      prefillFrom: null,
       geneId: null,
       gene: null,
       readonly: false
@@ -182,7 +185,7 @@
   )
 
   const emit = defineEmits<{
-    submit: []
+    submit: [id: string]
     cancel: []
     saved: []
     ready: []
@@ -326,7 +329,7 @@
       savedAt.value = Date.now()
       emit('saved')
     },
-    onSubmit: () => emit('submit')
+    onSubmit: id => emit('submit', id)
   })
 
   // The workspace frame (when the shell provides one) shows save state and owns Ctrl+S.
@@ -536,6 +539,27 @@
     }
   }
 
+  /** Re-curation: copy the active curation's evidence and disease into the new draft. */
+  async function loadPrefill() {
+    if (props.curationId || !props.prefillFrom) return
+    try {
+      const source = await curationsStore.fetchCurationById(props.prefillFrom)
+      const { disease_name, mondo_id, mode_of_inheritance } = source
+      // Evidence wins over the resolved disease fields, as in the backend
+      evidenceData.value = {
+        ...Object.fromEntries(
+          Object.entries({ disease_name, mondo_id, mode_of_inheritance }).filter(([, v]) => v)
+        ),
+        ...(source.evidence_data ?? {})
+      }
+    } catch (error) {
+      logger.error('Failed to load re-curation source', {
+        error: (error as ApiErrorLike).message
+      })
+      notificationsStore.addToast('Failed to load the active curation', 'error')
+    }
+  }
+
   /**
    * Load schema
    */
@@ -557,6 +581,7 @@
   onMounted(async () => {
     await loadSchema()
     await loadCuration()
+    await loadPrefill()
     // Also load precuration data for new curations
     if (!props.curationId && props.geneId) {
       await loadPrecurationData()

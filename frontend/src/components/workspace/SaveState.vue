@@ -25,11 +25,12 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import type { SaveState } from './useWorkspaceFrame'
+  import { reloadDiscardingChanges } from './useUnsavedGuard'
 
   const props = defineProps<{ state: SaveState; savedAt: number | null }>()
   const emit = defineEmits<{ retry: [] }>()
-  // The browser's leave prompt still asks first while there are unsaved changes
-  const reload = () => window.location.reload()
+  // The banner already warns that local changes are lost: no second browser prompt
+  const reload = reloadDiscardingChanges
 
   const time = computed(() =>
     props.savedAt

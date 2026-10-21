@@ -4,6 +4,7 @@ User management API endpoints for admin users.
 
 from collections.abc import Sequence
 from typing import Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, Field
@@ -75,7 +76,7 @@ async def get_user_statistics(
 
 @router.get("/{user_id}", response_model=UserResponse)
 async def get_user(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> User:
@@ -86,7 +87,7 @@ async def get_user(
     - Regular users can only view their own profile
     """
     # Check if user is trying to view their own profile OR is an admin
-    if str(current_user.id) != user_id and current_user.role != "admin":
+    if current_user.id != user_id and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only view your own profile. Admin access required to view other users.",
@@ -123,7 +124,7 @@ async def create_user(
 
 @router.put("/{user_id}", response_model=UserResponse)
 async def update_user(
-    user_id: str,
+    user_id: UUID,
     user_data: UserUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
@@ -167,7 +168,7 @@ async def update_user(
 
 @router.put("/{user_id}/password")
 async def update_user_password(
-    user_id: str,
+    user_id: UUID,
     body: PasswordUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
@@ -187,7 +188,7 @@ async def update_user_password(
 
 @router.put("/{user_id}/activate")
 async def activate_user(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ) -> dict[str, str]:
@@ -208,7 +209,7 @@ async def activate_user(
 
 @router.put("/{user_id}/deactivate")
 async def deactivate_user(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ) -> dict[str, str]:
@@ -236,7 +237,7 @@ async def deactivate_user(
 
 @router.delete("/{user_id}")
 async def delete_user(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_admin_user),
 ) -> dict[str, str]:
@@ -262,7 +263,7 @@ async def delete_user(
 
 @router.get("/{user_id}/activity")
 async def get_user_activity(
-    user_id: str,
+    user_id: UUID,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ) -> dict[str, Any]:
@@ -273,7 +274,7 @@ async def get_user_activity(
     - Regular users can only view their own activity
     """
     # Check if user is trying to view their own activity OR is an admin
-    if str(current_user.id) != user_id and current_user.role != "admin":
+    if current_user.id != user_id and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You can only view your own activity. Admin access required to view other users' activity.",
