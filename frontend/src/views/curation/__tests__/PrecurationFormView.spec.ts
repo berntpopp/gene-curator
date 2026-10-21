@@ -64,6 +64,7 @@ describe('PrecurationFormView', () => {
     ['draft', 'me', 'sc1', false],
     ['rejected', 'me', 'sc1', false],
     ['submitted', 'me', 'sc1', true],
+    ['approved', 'me', 'sc1', true],
     ['draft', 'other', 'sc1', true],
     ['draft', 'me', 'sc2', true]
   ])(
