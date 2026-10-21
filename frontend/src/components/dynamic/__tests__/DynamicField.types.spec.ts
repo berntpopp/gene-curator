@@ -114,6 +114,15 @@ describe('DynamicField field types', () => {
     ])
   })
 
+  it('titles snake_case enum values readably and keeps the stored value', () => {
+    const wrapper = mountField({ type: 'string', enum: ['autosomal_dominant', 'AD'] })
+
+    expect(wrapper.findComponent({ name: 'VSelect' }).props('items')).toEqual([
+      { title: 'Autosomal dominant', value: 'autosomal_dominant' },
+      { title: 'AD', value: 'AD' }
+    ])
+  })
+
   it('renders numbers and integers as numeric text fields', () => {
     const wrapper = mountField({ type: 'integer', minimum: 0, maximum: 9 })
 

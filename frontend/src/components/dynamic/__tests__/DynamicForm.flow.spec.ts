@@ -7,6 +7,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mount, flushPromises, type VueWrapper } from '@vue/test-utils'
+import { reactive } from 'vue'
 
 const store = vi.hoisted(() => ({
   loading: false,
@@ -139,6 +140,7 @@ describe('DynamicForm flow', () => {
 
   it('shows a loading message while the schema loads', () => {
     store.loading = true
+    store.schema = null
     const wrapper = mountForm()
 
     expect(wrapper.text()).toContain('Loading form schema...')
@@ -302,5 +304,72 @@ describe('DynamicForm flow', () => {
     const wrapper = mountForm()
 
     expect(wrapper.emitted('validation-change')![0]).toEqual([{ is_valid: true }])
+  })
+})
+
+describe('DynamicForm stays mounted and follows late initial data', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    store.loading = false
+    store.error = null
+    store.schema = flatSchema
+    store.result = null
+    store.getJsonSchema.mockImplementation(() => store.schema)
+    store.getValidationResult.mockImplementation(() => store.result)
+    store.generateJsonSchema.mockResolvedValue(undefined)
+    store.validateEvidence.mockResolvedValue(null)
+  })
+
+  it('keeps the fields mounted while field validation is loading', async () => {
+    store.loading = true // a field validation is in flight, the schema is already loaded
+    const wrapper = mountForm()
+
+    expect(wrapper.text()).not.toContain('Loading form schema...')
+    expect(wrapper.findAllComponents({ name: 'DynamicField' })).toHaveLength(2)
+  })
+
+  it('fills the fields when initial data arrives after mount', async () => {
+    const wrapper = mountForm({ initialData: {} })
+    await wrapper.setProps({ initialData: { name: 'Grace' } })
+
+    expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('Grace')
+  })
+
+  it('fills the fields when initial data is mutated in place (restore)', async () => {
+    const data = reactive<Record<string, unknown>>({})
+    const wrapper = mountForm({ initialData: data })
+    data.name = 'Grace'
+    await flushPromises()
+
+    expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('Grace')
+  })
+
+  it('does not overwrite edits the user made before late data arrives', async () => {
+    const wrapper = mountForm({ initialData: {} })
+    fieldStub(wrapper, 'name').vm.$emit('update:modelValue', 'typed')
+    await wrapper.setProps({ initialData: { name: 'Grace' } })
+
+    expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('typed')
+  })
+
+  it('labels error paths with the schema title, not the raw path', () => {
+    store.schema = {
+      properties: {
+        entity_definition: {
+          type: 'object',
+          properties: { mode_of_inheritance: { type: 'string', title: 'Mode of inheritance' } }
+        }
+      }
+    }
+    store.result = {
+      is_valid: false,
+      errors: [{ field: 'entity_definition.mode_of_inheritance', message: 'Required' }],
+      warnings: [{ field: 'entity_definition.disease_name', message: 'Short' }]
+    }
+    const wrapper = mountForm()
+
+    expect(wrapper.text()).toContain('Mode of inheritance: Required')
+    expect(wrapper.text()).toContain('Disease name: Short')
+    expect(wrapper.text()).not.toContain('entity_definition')
   })
 })
