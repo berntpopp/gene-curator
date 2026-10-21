@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from app.core.enum_options import enum_option, flatten_sections
-from app.core.schema_rules import resolve_named_rules
+from app.core.schema_rules import apply_field_list_rules, resolve_named_rules
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
 
@@ -572,7 +572,8 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Apply custom validation rules."""
-        for rule_name, rule_config in validation_rules.items():
+        rules = apply_field_list_rules(evidence_data, validation_rules, result)
+        for rule_name, rule_config in rules.items():
             try:
                 rule_type = rule_config.get("type", "condition")
 
@@ -756,7 +757,6 @@ class SchemaValidator:
     ) -> None:
         """Validate GenCC classification business rules."""
         classification = evidence_data.get("classification", "")
-        evidence_data.get("confidence_level", "")
 
         # GenCC-specific validation rules would go here
         valid_classifications = [
