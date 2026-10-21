@@ -56,6 +56,19 @@ def test_published_version_cannot_change_as_owner(owner_session: Session) -> Non
     _fails(owner_session, "DELETE FROM methodology_versions WHERE id = :v", v=vid)
 
 
+def test_truncate_is_refused_and_rows_survive(owner_session: Session) -> None:
+    # row-level triggers never fire on TRUNCATE; CASCADE would wipe pinned work (043)
+    count = "SELECT count(*) FROM methodology_versions"
+    before = owner_session.scalar(text(count))
+    for sql in (
+        "TRUNCATE methodology_versions CASCADE",
+        "TRUNCATE curation_schemas CASCADE",
+    ):
+        with pytest.raises(DBAPIError, match="immutable"), owner_session.begin_nested():
+            owner_session.execute(text(sql))
+    assert before and owner_session.scalar(text(count)) == before
+
+
 def test_admin_publishes_but_cannot_change_or_delete(db: Session) -> None:
     admin = db.scalar(
         text("SELECT id FROM users WHERE role = 'admin' AND is_active LIMIT 1")
