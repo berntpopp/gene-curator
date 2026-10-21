@@ -12,7 +12,6 @@ import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Home from '@/views/Home.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useGenesStore } from '@/stores/genes'
 
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
   routerPush: vi.fn(),
@@ -108,7 +107,7 @@ describe('Login', () => {
     await flushPromises()
 
     expect(login).toHaveBeenCalledWith({ email: 'user@example.org', password: 'secret123' })
-    expect(showSuccess).toHaveBeenCalledWith('Login successful!')
+    expect(showSuccess).not.toHaveBeenCalled()
     expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
   })
 
@@ -207,6 +206,19 @@ describe('Login', () => {
     const wrapper = mount(Login, mountOpts(pinia))
     await flushPromises()
     expect(wrapper.text()).toContain('Account locked')
+    expect(wrapper.find('[role="alert"]').text()).toContain('Account locked')
+  })
+
+  it('offers invitation and public browse links and a research-use footer', () => {
+    const wrapper = mount(Login, mountOpts(pinia))
+    const targets = wrapper
+      .findAllComponents(RouterLinkStub)
+      .map(l => l.props('to') as { name?: string })
+    expect(wrapper.find('h1').text()).toBe('Sign in to Gene Curator')
+    expect(targets).toContainEqual({ name: 'Register' })
+    expect(targets).toContainEqual({ name: 'GeneCatalogue' })
+    expect(wrapper.text()).toContain('Ask your scope admin for an invitation')
+    expect(wrapper.text()).toContain('Research use only')
   })
 
   it('quick login fills the admin development credentials and submits', async () => {
@@ -303,37 +315,18 @@ describe('Home', () => {
     setActivePinia(pinia)
   })
 
-  it('shows the loading state until statistics arrive, then the overview cards', async () => {
-    const genes = useGenesStore()
-    vi.spyOn(genes, 'fetchStatistics').mockResolvedValue({
-      curated_genes: 12,
-      active_curations: 7,
-      total_scopes: 3,
-      pending_review: 2
-    } as never)
+  it('is a quiet page: description and two actions, no tiles or feature grid', async () => {
     const wrapper = mount(Home, mountOpts(pinia))
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Curated Genes')
-    expect(wrapper.text()).toContain('12')
-    expect(wrapper.text()).toContain('Pending Review')
-  })
-
-  it('keeps the loading message and logs a warning when statistics fail', async () => {
-    const genes = useGenesStore()
-    vi.spyOn(genes, 'fetchStatistics').mockRejectedValue(new Error('offline'))
-    const wrapper = mount(Home, mountOpts(pinia))
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('Loading statistics...')
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to load statistics:',
-      expect.objectContaining({ error: 'offline' })
-    )
+    expect(wrapper.text()).toContain('Methodology-agnostic platform')
+    expect(wrapper.text()).toContain('Browse genes')
+    expect(wrapper.text()).not.toContain('Key Features')
+    expect(wrapper.text()).not.toContain('Curated Genes')
+    expect(wrapper.findAll('.v-card')).toHaveLength(0)
   })
 
   it('shows Sign in to guests and no admin link to anyone', async () => {
-    vi.spyOn(useGenesStore(), 'fetchStatistics').mockResolvedValue({} as never)
     const wrapper = mount(Home, mountOpts(pinia))
     await flushPromises()
 

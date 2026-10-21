@@ -277,16 +277,6 @@ export const useGenesStore = defineStore('genes', {
       this.searchTotal = 0
     },
 
-    async fetchStatistics() {
-      try {
-        const stats = await genesAPI.getStatistics()
-        return stats
-      } catch (error) {
-        this.error = errorMessage(error, 'Request failed')
-        throw error
-      }
-    },
-
     clearError() {
       this.error = null
     }
