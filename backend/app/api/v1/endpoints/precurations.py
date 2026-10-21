@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import EDIT, REVIEW, require
 from app.core.constants import (
     DEFAULT_SKIP,
     PRECURATIONS_DEFAULT_LIMIT,
@@ -44,15 +45,12 @@ def _check_scope_access(
     db: Session,
     current_user: UserNew,
     scope_id: UUID,
-    required_roles: list[str] | None = None,
 ) -> None:
     """
     Check if user has access to the specified scope.
     Uses ScopePermissionService for centralized permission logic.
     """
-    if not ScopePermissionService.has_scope_access(
-        db, current_user, scope_id, required_roles=required_roles
-    ):
+    if not ScopePermissionService.has_scope_access(db, current_user, scope_id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not authorized to access this scope",
@@ -188,9 +186,7 @@ def create_precuration(
     set_rls_context(db, current_user)
 
     # Verify scope access
-    _check_scope_access(
-        db, current_user, precuration_in.scope_id, required_roles=["admin", "curator"]
-    )
+    require(db, current_user, precuration_in.scope_id, EDIT)
 
     existing = precuration_crud.get_open_draft(
         db,
@@ -243,9 +239,7 @@ def update_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
-    )
+    require(db, current_user, precuration.scope_id, EDIT)
 
     # Check precuration is editable
     if precuration.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -291,9 +285,7 @@ def save_draft(
             detail="Precuration not found",
         )
 
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
-    )
+    require(db, current_user, precuration.scope_id, EDIT)
 
     # Only creator or admin can save drafts
     if current_user.role != "admin" and precuration.created_by != current_user.id:
@@ -332,9 +324,7 @@ def submit_precuration(
             detail="Precuration not found",
         )
 
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
-    )
+    require(db, current_user, precuration.scope_id, EDIT)
 
     # Only creator or admin can submit
     if current_user.role != "admin" and precuration.created_by != current_user.id:
@@ -395,9 +385,7 @@ def complete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
-    )
+    require(db, current_user, precuration.scope_id, EDIT)
 
     try:
         completed = precuration_crud.complete_precuration(
@@ -442,12 +430,10 @@ def approve_precuration(
         )
 
     # Verify scope access with reviewer role
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
-    )
+    require(db, current_user, precuration.scope_id, REVIEW)
 
     # 4-eyes principle: creator cannot approve their own precuration
-    if precuration.created_by == current_user.id and current_user.role != "admin":
+    if precuration.created_by == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot approve your own precuration (4-eyes principle)",
@@ -490,9 +476,7 @@ def reject_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
-    )
+    require(db, current_user, precuration.scope_id, REVIEW)
 
     reason = rejection_data.get("reason", "No reason provided")
 
@@ -531,9 +515,7 @@ def delete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(
-        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
-    )
+    require(db, current_user, precuration.scope_id, EDIT)
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":
