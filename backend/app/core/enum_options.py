@@ -25,5 +25,9 @@ def flatten_sections(defs: dict[str, Any]) -> dict[str, Any]:
     """Field dict keyed by id from flat defs plus the seeded ``sections`` list shape."""
     fields = {k: v for k, v in defs.items() if k != "sections"}
     for section in defs.get("sections") or []:
-        fields.update({f["id"]: f for f in section.get("fields", [])})
+        if not isinstance(section, dict):
+            continue
+        for f in section.get("fields") or []:
+            if isinstance(f, dict) and f.get("id"):
+                fields[f["id"]] = f
     return fields

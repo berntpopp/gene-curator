@@ -353,6 +353,26 @@ class TestValidateSchemaDefinition:
 
 
 class TestGenerateJsonSchema:
+    def test_sections_skip_malformed_entries(self, validator: SchemaValidator):
+        schema = validator.generate_json_schema(
+            {
+                "field_definitions": {
+                    "sections": [
+                        "junk",
+                        {
+                            "fields": [
+                                "x",
+                                {"type": "text"},
+                                {"id": "ok", "type": "text"},
+                            ]
+                        },
+                        {"fields": None},
+                    ]
+                }
+            }
+        )
+        assert set(schema["properties"]) == {"ok"}
+
     def test_sectioned_field_definitions_are_flattened(
         self, validator: SchemaValidator
     ):
