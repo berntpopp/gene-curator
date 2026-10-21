@@ -8,6 +8,7 @@ interface RailMeta {
   icon?: string
   label?: string
   tabLabel?: string
+  tabOrder?: number
   order?: number
   requiresAuth?: boolean
   requiresGuest?: boolean
@@ -45,6 +46,7 @@ export function useNavEntries() {
         to: { name: r.name },
         icon: (r.meta as RailMeta).icon,
         label: (r.meta as RailMeta).label ?? '',
+        tabOrder: (r.meta as RailMeta).tabOrder ?? (r.meta as RailMeta).order ?? 999,
         tabLabel: (r.meta as RailMeta).tabLabel ?? (r.meta as RailMeta).label ?? '',
         badge:
           r.name === 'review-queue' && pendingReviewCount.value > 0

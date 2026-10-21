@@ -6,8 +6,13 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkflowStore } from '@/stores/workflow'
+import { showInfo } from '@/composables/useNotifications'
 import BottomTabs from '../BottomTabs.vue'
 
+vi.mock('@/composables/useNotifications', () => ({ showInfo: vi.fn() }))
+vi.mock('@/composables/useLogger', () => ({
+  useLogger: () => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() })
+}))
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
@@ -29,12 +34,12 @@ function makeRouter(): Router {
       { path: '/', name: 'Home', component },
       { path: '/assignments', name: 'GeneAssignments', component, meta: main('My work', 1) },
       { path: '/review-queue', name: 'review-queue', component, meta: main('Review', 2) },
-      { path: '/scopes', name: 'scopes', component, meta: main('Scopes', 3) },
+      { path: '/scopes', name: 'scopes', component, meta: main('Scopes', 3, { tabOrder: 4 }) },
       {
         path: '/genes',
         name: 'GeneCatalogue',
         component,
-        meta: main('Gene Catalogue', 4, { tabLabel: 'Genes' })
+        meta: main('Gene Catalogue', 4, { tabLabel: 'Genes', tabOrder: 3 })
       },
       { path: '/profile', name: 'UserProfile', component },
       {
@@ -92,7 +97,7 @@ describe('BottomTabs', () => {
 
     expect(wrapper.find('nav').attributes('aria-label')).toBe('Primary')
     const labels = wrapper.findAll('.v-btn').map(b => b.attributes('aria-label') ?? b.text())
-    expect(labels).toEqual(['My work', 'Review, 3 pending', 'Scopes', 'Gene Catalogue', 'Account'])
+    expect(labels).toEqual(['My work', 'Review, 3 pending', 'Gene Catalogue', 'Scopes', 'Account'])
     // the visible text is the short tab label so five tabs fit at 390 px
     expect(wrapper.findAll('.v-btn span').map(s => s.text())).toContain('Genes')
     wrapper.unmount()
@@ -115,6 +120,7 @@ describe('BottomTabs', () => {
     logoutItem.click()
     await flushPromises()
     expect(logout).toHaveBeenCalled()
+    expect(showInfo).toHaveBeenCalledWith('Signed out')
     expect(router.currentRoute.value.name).toBe('Home')
     wrapper.unmount()
   })

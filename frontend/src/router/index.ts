@@ -100,7 +100,8 @@ const routes: RouteRecordRaw[] = [
       showInMainMenu: true,
       icon: 'mdi-folder-multiple',
       label: TERMINOLOGY.SCOPES,
-      order: 3
+      order: 3,
+      tabOrder: 4
     }
   },
   {
@@ -209,6 +210,7 @@ const routes: RouteRecordRaw[] = [
       icon: 'mdi-dna',
       label: TERMINOLOGY.GENE_CATALOG,
       tabLabel: 'Genes',
+      tabOrder: 3,
       order: 4
     }
   },

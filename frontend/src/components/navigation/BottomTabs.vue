@@ -1,7 +1,7 @@
 <template>
   <v-bottom-navigation v-if="isAuthenticated && authReady" grow tag="nav" aria-label="Primary">
     <v-btn
-      v-for="item in primary"
+      v-for="item in tabs"
       :key="item.name"
       :to="item.to"
       :aria-label="item.badge ? `${item.label}, ${item.badge} pending` : item.label"
@@ -37,16 +37,14 @@
 
 <script setup lang="ts">
   /** Phone navigation (below md, signed in). Entries come from useNavEntries (route meta). */
-  import { useRouter } from 'vue-router'
-  import { useAuthStore } from '@/stores/auth'
   import BaseNavigationItem from './BaseNavigationItem.vue'
+  import { computed } from 'vue'
+  import { useLogout } from './useLogout'
   import { useNavEntries } from './useNavEntries'
 
-  const router = useRouter()
   const { primary, admin, isAuthenticated, authReady } = useNavEntries()
+  // Phone.png puts Genes before Scopes; tabOrder overrides the rail order
+  const tabs = computed(() => [...primary.value].sort((a, b) => a.tabOrder - b.tabOrder))
 
-  async function handleLogout() {
-    await useAuthStore().logout()
-    void router.push({ name: 'Home' })
-  }
+  const handleLogout = useLogout()
 </script>

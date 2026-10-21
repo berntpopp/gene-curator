@@ -75,10 +75,9 @@
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { useNotificationsStore } from '@/stores/notifications'
-  import { useLogger } from '@/composables/useLogger'
-  import { showInfo } from '@/composables/useNotifications'
   import { TERMINOLOGY } from '@/config/terminology'
   import NotificationBadge from './NotificationBadge.vue'
+  import { useLogout } from './useLogout'
   import BaseNavigationItem from './BaseNavigationItem.vue'
   import type { RouteRecordNormalized } from 'vue-router'
 
@@ -98,7 +97,6 @@
   const router = useRouter()
   const authStore = useAuthStore()
   const notificationsStore = useNotificationsStore()
-  const logger = useLogger()
 
   /**
    * User menu items from router
@@ -141,20 +139,7 @@
    */
   const totalUnread = computed(() => notificationsStore.totalUnread)
 
-  /**
-   * Handle user logout
-   */
-  async function handleLogout() {
-    try {
-      await authStore.logout()
-      showInfo('Signed out')
-      router.push({ name: 'Home' })
-      logger.info('User logged out')
-    } catch (error) {
-      const err = error instanceof Error ? error : undefined
-      logger.error('Logout error:', { error: err?.message, stack: err?.stack })
-    }
-  }
+  const handleLogout = useLogout()
 
   /**
    * Load notifications whenever the user becomes authenticated (also after a cold reload)
