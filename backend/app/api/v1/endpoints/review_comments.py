@@ -1,0 +1,170 @@
+"""Per-item review comments and the evidence diff for a curation (#279).
+
+Capability checks go through core.capabilities.require (VIEW to read, REVIEW or, for the
+curation's own curator, EDIT to write). The database enforces the same rules with RLS, which
+has no platform-admin bypass; a write it refuses becomes a 403 here.
+"""
+
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import or_, select
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
+
+from app.core.capabilities import EDIT, REVIEW, VIEW, require
+from app.core.database import get_db
+from app.core.deps import get_current_active_user
+from app.core.logging import api_endpoint
+from app.models import AuditLogNew, CurationNew, Review, ReviewItemComment, UserNew
+from app.schemas.review_comment import (
+    CurationDiff,
+    ReviewComment,
+    ReviewCommentCreate,
+    ReviewCommentUpdate,
+)
+from app.services.evidence_diff import diff_evidence
+
+router = APIRouter()
+
+_DENIED = HTTPException(
+    status.HTTP_403_FORBIDDEN, "Not authorized to comment on this item"
+)
+
+
+def _curation(db: Session, curation_id: UUID) -> CurationNew:
+    curation = db.get(CurationNew, curation_id)
+    if curation is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Curation not found")
+    return curation
+
+
+def _require_writer(db: Session, user: UserNew, curation: CurationNew) -> None:
+    """Reviewers and scope admins, or the curation's own curator (replies)."""
+    try:
+        require(db, user, curation.scope_id, REVIEW)
+    except HTTPException:
+        require(db, user, curation.scope_id, EDIT)
+        if curation.created_by != user.id:
+            raise _DENIED from None
+
+
+def _commit(db: Session) -> None:
+    try:
+        db.commit()
+    except (DBAPIError, StaleDataError):
+        db.rollback()
+        raise _DENIED from None
+
+
+@router.get("/{curation_id}/review-comments", response_model=list[ReviewComment])
+@api_endpoint()
+def list_review_comments(
+    curation_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> list[ReviewItemComment]:
+    curation = _curation(db, curation_id)
+    require(db, current_user, curation.scope_id, VIEW)
+    return list(
+        db.scalars(
+            select(ReviewItemComment)
+            .where(ReviewItemComment.curation_id == curation_id)
+            .order_by(ReviewItemComment.created_at, ReviewItemComment.id)
+        )
+    )
+
+
+@router.post(
+    "/{curation_id}/review-comments",
+    response_model=ReviewComment,
+    status_code=status.HTTP_201_CREATED,
+)
+@api_endpoint()
+def create_review_comment(
+    curation_id: UUID,
+    payload: ReviewCommentCreate,
+    db: Session = Depends(get_db),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> ReviewItemComment:
+    curation = _curation(db, curation_id)
+    _require_writer(db, current_user, curation)
+    if payload.review_id is not None:
+        review = db.get(Review, payload.review_id)
+        if review is None or review.curation_id != curation_id:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "Unknown review")
+    comment = ReviewItemComment(
+        curation_id=curation_id, author_id=current_user.id, **payload.model_dump()
+    )
+    db.add(comment)
+    _commit(db)
+    db.refresh(comment)
+    return comment
+
+
+@router.patch(
+    "/{curation_id}/review-comments/{comment_id}", response_model=ReviewComment
+)
+@api_endpoint()
+def update_review_comment(
+    curation_id: UUID,
+    comment_id: UUID,
+    payload: ReviewCommentUpdate,
+    db: Session = Depends(get_db),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> ReviewItemComment:
+    curation = _curation(db, curation_id)
+    require(db, current_user, curation.scope_id, VIEW)
+    comment = db.get(ReviewItemComment, comment_id)
+    if comment is None or comment.curation_id != curation_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Comment not found")
+    if payload.body is not None:
+        if comment.author_id != current_user.id:
+            raise _DENIED
+        comment.body = payload.body
+    if payload.status is not None:
+        _require_writer(db, current_user, curation)
+        comment.status = payload.status
+    _commit(db)
+    db.refresh(comment)
+    return comment
+
+
+@router.get("/{curation_id}/diff", response_model=CurationDiff)
+@api_endpoint()
+def curation_diff(
+    curation_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> CurationDiff:
+    """Current evidence versus the audit-log snapshot taken at the last submission."""
+    curation = _curation(db, curation_id)
+    require(db, current_user, curation.scope_id, VIEW)
+    submission = db.scalars(
+        select(AuditLogNew)
+        .where(
+            AuditLogNew.entity_type == "curations",
+            AuditLogNew.entity_id == curation_id,
+            AuditLogNew.new_status.in_(("submitted", "in_review")),
+            # a status transition, not a later edit made while already submitted
+            or_(
+                AuditLogNew.previous_status.is_(None),
+                AuditLogNew.previous_status != AuditLogNew.new_status,
+            ),
+        )
+        .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
+        .limit(1)
+    ).first()
+    if submission is None:
+        return CurationDiff(baseline=None, items=[])
+    snapshot = (submission.changes or {}).get("evidence_data") or {}
+    return CurationDiff.model_validate(
+        {
+            "baseline": {
+                "audit_id": submission.id,
+                "submitted_at": submission.timestamp,
+            },
+            "items": diff_evidence(snapshot, curation.evidence_data or {}),
+        }
+    )
