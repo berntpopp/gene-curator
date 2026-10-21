@@ -7,217 +7,128 @@
 -->
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      <v-icon start>mdi-cog</v-icon>
-      Scope settings
-    </v-card-title>
-
+  <v-card variant="flat" border>
     <v-card-text>
-      <!-- Workflow Configuration Section -->
-      <v-card variant="outlined" class="mb-4">
-        <v-card-title class="text-body-large">
-          <v-icon start size="small">mdi-sitemap</v-icon>
-          Workflow configuration
-        </v-card-title>
-        <v-card-text>
-          <v-alert
-            v-if="!scope.default_workflow_pair_id"
-            type="warning"
-            variant="tonal"
-            class="mb-4"
-          >
-            <template #prepend>
-              <v-icon>mdi-alert</v-icon>
-            </template>
-            <strong>No workflow configured.</strong>
-            Select a workflow pair to enable precuration and curation for genes in this scope.
-          </v-alert>
+      <h2 class="text-title-medium mb-3">Workflow</h2>
+      <p v-if="!scope.default_workflow_pair_id" class="text-body-medium text-warning mb-3">
+        No workflow configured. Select a workflow pair to enable precuration and curation for genes
+        in this scope.
+      </p>
 
-          <v-select
-            v-model="selectedWorkflowPairId"
-            :items="workflowPairs"
-            item-title="displayName"
-            item-value="id"
-            label="Workflow Pair"
-            hint="Defines the precuration and curation schemas for all genes in this scope"
-            persistent-hint
-            :loading="loadingWorkflowPairs"
-            :disabled="saving || !canEditSettings"
-            clearable
-            @update:model-value="handleWorkflowPairChange"
-          >
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps">
-                <template #subtitle> {{ item.version }} • {{ item.description }} </template>
-              </v-list-item>
-            </template>
-            <template #selection="{ item }"> {{ item.name }} ({{ item.version }}) </template>
-          </v-select>
+      <v-select
+        v-model="selectedWorkflowPairId"
+        :items="workflowPairs"
+        item-title="displayName"
+        item-value="id"
+        label="Workflow pair"
+        hint="Defines the precuration and curation schemas for all genes in this scope"
+        persistent-hint
+        :loading="loadingWorkflowPairs"
+        :disabled="saving || !canEditSettings"
+        clearable
+        @update:model-value="handleWorkflowPairChange"
+      >
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps">
+            <template #subtitle> {{ item.version }} • {{ item.description }} </template>
+          </v-list-item>
+        </template>
+        <template #selection="{ item }"> {{ item.name }} ({{ item.version }}) </template>
+      </v-select>
 
-          <!-- Show linked schemas when workflow pair is selected -->
-          <div v-if="selectedWorkflowPair" class="mt-4">
-            <v-divider class="my-3" />
-            <div class="text-title-small mb-2">Linked Schemas</div>
-            <v-row dense>
-              <v-col cols="12" md="6">
-                <v-card variant="tonal" color="primary">
-                  <v-card-text class="py-2">
-                    <div class="text-body-small text-medium-emphasis">Precuration Schema</div>
-                    <div class="text-body-medium font-weight-medium">
-                      {{ selectedWorkflowPair.precuration_schema_name || 'Not configured' }}
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-              <v-col cols="12" md="6">
-                <v-card variant="tonal">
-                  <v-card-text class="py-2">
-                    <div class="text-body-small text-medium-emphasis">Curation Schema</div>
-                    <div class="text-body-medium font-weight-medium">
-                      {{ selectedWorkflowPair.curation_schema_name || 'Not configured' }}
-                    </div>
-                  </v-card-text>
-                </v-card>
-              </v-col>
-            </v-row>
-          </div>
-        </v-card-text>
-      </v-card>
+      <ul v-if="selectedWorkflowPair" class="text-body-medium mt-3 ml-4">
+        <li>
+          Precuration schema:
+          {{ selectedWorkflowPair.precuration_schema_name || 'Not configured' }}
+        </li>
+        <li>
+          Curation schema: {{ selectedWorkflowPair.curation_schema_name || 'Not configured' }}
+        </li>
+      </ul>
 
-      <!-- Basic Information Section -->
-      <v-card variant="outlined" class="mb-4">
-        <v-card-title class="text-body-large">
-          <v-icon start size="small">mdi-information</v-icon>
-          Basic information
-        </v-card-title>
-        <v-card-text>
-          <v-text-field
-            v-model="editableScope.display_name"
-            label="Display Name"
-            :disabled="saving || !canEditSettings"
-            @update:model-value="markDirty"
-          />
-          <v-textarea
-            v-model="editableScope.description"
-            label="Description"
-            rows="3"
-            :disabled="saving || !canEditSettings"
-            @update:model-value="markDirty"
-          />
-          <v-text-field
-            v-model="editableScope.institution"
-            label="Institution"
-            :disabled="saving || !canEditSettings"
-            @update:model-value="markDirty"
-          />
-          <v-switch
-            v-model="editableScope.is_public"
-            label="Public Scope"
-            hint="Public scopes are visible to all users"
-            persistent-hint
-            :disabled="saving || !canEditSettings"
-            @update:model-value="markDirty"
-          />
-        </v-card-text>
-      </v-card>
+      <h2 class="text-title-medium mt-6 mb-3">Basic information</h2>
+      <v-text-field
+        v-model="editableScope.display_name"
+        label="Display name"
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
+      <v-textarea
+        v-model="editableScope.description"
+        label="Description"
+        rows="3"
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
+      <v-text-field
+        v-model="editableScope.institution"
+        label="Institution"
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
+      <v-switch
+        v-model="editableScope.is_public"
+        label="Public scope"
+        hint="Public scopes are visible to all users"
+        persistent-hint
+        :disabled="saving || !canEditSettings"
+        @update:model-value="markDirty"
+      />
 
-      <!-- Save Button -->
-      <div v-if="canEditSettings" class="d-flex justify-end">
-        <v-btn color="primary" :loading="saving" :disabled="!isDirty" @click="saveSettings">
-          <v-icon start>mdi-content-save</v-icon>
+      <div v-if="canEditSettings" class="d-flex align-center justify-end ga-3 mt-4">
+        <span v-if="!isDirty" class="text-body-small text-medium-emphasis">No changes to save</span>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="saving"
+          :disabled="!isDirty"
+          @click="saveSettings"
+        >
           Save settings
         </v-btn>
       </div>
 
-      <!-- Read-only message for non-admins -->
-      <v-alert v-if="!canEditSettings" type="info" variant="tonal" class="mt-4">
-        <template #prepend>
-          <v-icon>mdi-lock</v-icon>
-        </template>
-        Only scope administrators can modify these settings.
-      </v-alert>
-
-      <!-- Danger Zone - App admins only -->
-      <v-card v-if="canDeleteScope" variant="outlined" class="mt-4" color="error">
-        <v-card-title class="text-body-large">
-          <v-icon start size="small" color="error">mdi-alert-octagon</v-icon>
-          Danger zone
-        </v-card-title>
-        <v-card-text>
-          <p class="text-body-medium mb-3">
-            Deleting this scope is permanent and cannot be undone.
-          </p>
-
-          <!-- Show gene assignment info if scope has active assignments -->
-          <v-alert
-            v-if="hasActiveAssignments"
-            type="info"
-            variant="tonal"
-            density="compact"
-            class="mb-3"
-          >
-            <template #prepend>
-              <v-icon>mdi-dna</v-icon>
-            </template>
-            This scope has <strong>{{ activeGeneCount }}</strong> active gene assignment{{
+      <!-- Application admins and the scope creator only -->
+      <section v-if="canDeleteScope" class="delete-zone mt-6 pa-4">
+        <h2 class="text-title-medium mb-2">Delete this scope</h2>
+        <p class="text-body-medium mb-3">
+          <template v-if="hasActiveAssignments">
+            This scope has {{ activeGeneCount }} active gene assignment{{
               activeGeneCount !== 1 ? 's' : ''
-            }}. Deleting will remove all associated data.
-          </v-alert>
-
-          <v-btn color="error" variant="outlined" :loading="deleting" @click="openDeleteDialog">
-            <v-icon start>mdi-delete</v-icon>
-            Delete scope
-          </v-btn>
-        </v-card-text>
-      </v-card>
+            }}. Deleting removes them with all precurations, curations and reviews.
+          </template>
+          <template v-else>
+            Deleting this scope is permanent and removes all its memberships.
+          </template>
+        </p>
+        <v-btn color="error" variant="outlined" :loading="deleting" @click="openDeleteDialog">
+          Delete {{ scopeLabel }}
+        </v-btn>
+      </section>
     </v-card-text>
 
-    <!-- Delete Confirmation Dialog -->
     <BaseDialog
       v-model="showDeleteDialog"
       persistent
       size="md"
+      :title="`Delete ${scopeLabel}?`"
       @cancel="!deleting && (showDeleteDialog = false)"
     >
-      <template #title><v-icon start color="error">mdi-alert</v-icon> Delete scope</template>
       <p class="mb-3">
-        Are you sure you want to delete <strong>{{ scope.display_name || scope.name }}</strong
-        >?
-      </p>
-
-      <!-- Show assignment warning if scope has active assignments -->
-      <v-alert
-        v-if="hasActiveAssignments"
-        type="error"
-        variant="tonal"
-        density="compact"
-        class="mb-3"
-      >
-        <template #prepend>
-          <v-icon>mdi-dna</v-icon>
+        <template v-if="hasActiveAssignments">
+          {{ activeGeneCount }} gene assignment{{ activeGeneCount !== 1 ? 's' : '' }} will be
+          permanently deleted with all precurations, curations and reviews.
         </template>
-        <div>
-          <strong
-            >{{ activeGeneCount }} gene assignment{{ activeGeneCount !== 1 ? 's' : '' }}</strong
-          >
-          will be permanently deleted along with all associated precurations, curations, and
-          reviews.
-        </div>
-      </v-alert>
-
-      <v-alert v-else type="warning" variant="tonal" density="compact" class="mb-3">
-        This action cannot be undone. All scope memberships will be removed.
-      </v-alert>
-
-      <!-- Require confirmation checkbox if there are active assignments -->
-      <v-checkbox
-        v-if="hasActiveAssignments"
-        v-model="deleteConfirmed"
-        label="I understand that all gene data in this scope will be permanently deleted"
-        color="error"
-        density="compact"
+        <template v-else>This cannot be undone. All scope memberships will be removed.</template>
+        To confirm, type <strong>{{ scopeLabel }}</strong
+        >.
+      </p>
+      <v-text-field
+        v-model="typedName"
+        :label="`Type ${scopeLabel}`"
+        autofocus
         hide-details
+        autocomplete="off"
       />
       <template #actions>
         <v-btn variant="text" :disabled="deleting" @click="showDeleteDialog = false">Cancel</v-btn>
@@ -225,19 +136,21 @@
           color="error"
           variant="flat"
           :loading="deleting"
-          :disabled="hasActiveAssignments && !deleteConfirmed"
+          :disabled="typedName !== scopeLabel"
           @click="deleteScope"
         >
-          Delete
+          Delete {{ scopeLabel }}
         </v-btn>
-      </template></BaseDialog
-    >
+      </template>
+    </BaseDialog>
   </v-card>
 </template>
 
 <script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
   import { isAxiosError } from 'axios'
+  import { onBeforeRouteLeave } from 'vue-router'
+  import { useConfirm } from '@/composables/useConfirm'
   import { scopesAPI } from '@/api/scopes'
   import { useAuthStore } from '@/stores/auth'
   import { useScopesStore } from '@/stores/scopes'
@@ -288,7 +201,7 @@
   const saving = ref(false)
   const deleting = ref(false)
   const showDeleteDialog = ref(false)
-  const deleteConfirmed = ref(false)
+  const typedName = ref('')
   const isDirty = ref(false)
   const selectedWorkflowPairId = ref<string | null>(null)
   const editableScope = ref({
@@ -326,6 +239,8 @@
   const selectedWorkflowPair = computed(() => {
     return workflowPairs.value.find(wp => wp.id === selectedWorkflowPairId.value)
   })
+
+  const scopeLabel = computed(() => props.scope.display_name || props.scope.name)
 
   // Methods
   function markDirty() {
@@ -367,7 +282,7 @@
   }
 
   function openDeleteDialog() {
-    deleteConfirmed.value = false
+    typedName.value = ''
     showDeleteDialog.value = true
   }
 
@@ -416,9 +331,30 @@
     { deep: true }
   )
 
+  // Leaving the settings route with edits would silently drop them. The tab switch lives in
+  // ScopeDashboard and needs the same check (follow-up).
+  const { confirm } = useConfirm()
+  onBeforeRouteLeave(
+    async () =>
+      !isDirty.value ||
+      confirm({
+        title: 'Discard unsaved changes?',
+        text: 'Your edits to the scope settings have not been saved.',
+        confirmText: 'Discard',
+        destructive: true
+      })
+  )
+
   // Lifecycle
   onMounted(async () => {
     initializeFromScope()
     await loadWorkflowPairs()
   })
 </script>
+
+<style scoped>
+  .delete-zone {
+    border: 1px solid rgb(var(--v-theme-error));
+    border-radius: 4px;
+  }
+</style>

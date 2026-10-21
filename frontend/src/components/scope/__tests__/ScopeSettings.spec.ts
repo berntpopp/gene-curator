@@ -15,6 +15,13 @@ import { useAuthStore } from '@/stores/auth'
 import ScopeSettings from '../ScopeSettings.vue'
 import { snackbarState } from '@/composables/useNotifications'
 
+const guard = vi.hoisted(() => ({ fn: null as null | (() => Promise<boolean> | boolean) }))
+const confirm = vi.hoisted(() => vi.fn())
+vi.mock('vue-router', () => ({
+  onBeforeRouteLeave: (cb: () => Promise<boolean> | boolean) => (guard.fn = cb)
+}))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm }) }))
+
 vi.mock('@/api/scopes', () => ({
   scopesAPI: { updateScope: vi.fn(), deleteScope: vi.fn() }
 }))
@@ -29,7 +36,7 @@ vi.mock('@/services/logService', () => ({
 
 interface SettingsInternals {
   isDirty: boolean
-  deleteConfirmed: boolean
+  typedName: string
   showDeleteDialog: boolean
   editableScope: { display_name: string }
   selectedWorkflowPairId: string | null
@@ -73,6 +80,8 @@ describe('ScopeSettings', () => {
   beforeEach(() => {
     pinia = createPinia()
     setActivePinia(pinia)
+    guard.fn = null
+    confirm.mockReset()
     vi.mocked(schemasAPI.getWorkflowPairs).mockReset()
     vi.mocked(schemasAPI.getWorkflowPairs).mockResolvedValue([pair])
     vi.mocked(schemasAPI.getSchemas).mockReset()
@@ -110,14 +119,14 @@ describe('ScopeSettings', () => {
     expect(schemasAPI.getWorkflowPairs).toHaveBeenCalledWith({ active_only: true })
     expect(vm.selectedWorkflowPairId).toBeNull()
     expect(wrapper.text()).toContain('No workflow configured.')
-    expect(wrapper.text()).not.toContain('Linked Schemas')
+    expect(wrapper.text()).not.toContain('Precuration schema')
   })
 
   it('shows the linked schemas of the configured workflow pair', async () => {
     const { wrapper } = await mountSettings({ scope: { default_workflow_pair_id: 'wp-1' } })
 
     expect(wrapper.text()).not.toContain('No workflow configured.')
-    expect(wrapper.text()).toContain('Linked Schemas')
+    expect(wrapper.text()).toContain('Precuration schema')
     expect(wrapper.text()).toContain('Precuration v1')
     expect(wrapper.text()).toContain('Curation v1')
   })
@@ -141,7 +150,7 @@ describe('ScopeSettings', () => {
     const { wrapper, vm } = await mountSettings({ role: 'curator' })
 
     expect(vm.canEditSettings).toBe(false)
-    expect(wrapper.text()).toContain('Only scope administrators can modify these settings.')
+    expect(wrapper.text()).not.toContain('Only scope administrators')
     expect(wrapper.findAll('button').some(b => b.text().includes('Save settings'))).toBe(false)
   })
 
@@ -214,18 +223,62 @@ describe('ScopeSettings', () => {
     expect(other.vm.canDeleteScope).toBe(false)
   })
 
-  it('requires confirmation before deleting a scope with gene assignments', async () => {
+  it('requires typing the scope name before the delete button enables', async () => {
     const { vm } = await mountSettings({ role: 'admin', statistics: { total_genes_assigned: 3 } })
     expect(vm.hasActiveAssignments).toBe(true)
 
     vm.openDeleteDialog()
+    await flushPromises()
+    const button = () =>
+      Array.from(document.body.querySelectorAll('button')).find(b =>
+        b.textContent?.includes('Delete Kidney')
+      )!
     expect(vm.showDeleteDialog).toBe(true)
-    expect(vm.deleteConfirmed).toBe(false)
+    expect(vm.typedName).toBe('')
+    expect(button().disabled).toBe(true)
 
-    vm.deleteConfirmed = true
+    vm.typedName = 'Kidney'
+    await flushPromises()
+    expect(button().disabled).toBe(false)
+
     await vm.deleteScope()
-
     expect(scopesAPI.deleteScope).toHaveBeenCalledWith('scope-1', { force: true })
+  })
+
+  it('flattens the panel: one card, no nested alerts or tonal schema cards', async () => {
+    useScopesStore().currentUserRole = 'admin'
+    const { wrapper } = await mountSettings({
+      role: 'admin',
+      scope: { default_workflow_pair_id: 'wp-1' }
+    })
+    expect(wrapper.findAll('.v-card')).toHaveLength(1)
+    expect(wrapper.findAll('.v-alert')).toHaveLength(0)
+    expect(
+      wrapper
+        .findAll('li')
+        .map(l => l.text())
+        .join(' ')
+    ).toContain('Precuration v1')
+  })
+
+  it('names the scope on the delete button with one red outline', async () => {
+    const { wrapper } = await mountSettings({ role: 'admin' })
+    const del = wrapper.findAll('button').find(b => b.text() === 'Delete Kidney')
+    expect(del).toBeDefined()
+    expect(wrapper.findAll('.text-error, .border-error').length).toBeLessThanOrEqual(2)
+  })
+
+  it('asks before leaving with unsaved edits, and not when clean', async () => {
+    const { vm } = await mountSettings({ role: 'admin' })
+    expect(await guard.fn!()).toBe(true)
+    expect(confirm).not.toHaveBeenCalled()
+
+    vm.handleWorkflowPairChange()
+    confirm.mockResolvedValueOnce(false)
+    expect(await guard.fn!()).toBe(false)
+    confirm.mockResolvedValueOnce(true)
+    expect(await guard.fn!()).toBe(true)
+    expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ destructive: true }))
   })
 
   it('deletes an empty scope without force and emits deleted', async () => {
