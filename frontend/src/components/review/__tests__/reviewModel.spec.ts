@@ -124,13 +124,68 @@ describe('groupDiff, first review (whole sections added)', () => {
     ])
   })
 
-  it('drops empty sections and blank values', () => {
-    expect(
-      groupDiff([
-        { path: 'contradictory_evidence', change: 'added', before: null, after: [] },
-        { path: 'notes', change: 'added', before: null, after: null }
-      ])
-    ).toEqual([])
+  it('keeps one "none" row for an empty value added or removed', () => {
+    const groups = groupDiff([
+      { path: 'contradictory_evidence', change: 'added', before: null, after: [] },
+      { path: 'g.cases[r9]', change: 'removed', before: { id: 'r9', note: '' }, after: null }
+    ])
+    expect(groups.map(g => [g.key, g.change, g.fields])).toEqual([
+      [
+        'contradictory_evidence',
+        'added',
+        [{ name: '', label: '', change: 'added', before: undefined, after: 'none' }]
+      ],
+      [
+        'g.cases[r9]',
+        'removed',
+        [{ name: '', label: '', change: 'removed', before: 'none', after: undefined }]
+      ]
+    ])
+  })
+})
+
+describe('groupDiff, records with ids (same keys as the backend in later rounds)', () => {
+  const round1 = groupDiff([
+    {
+      path: 'g',
+      change: 'added',
+      before: null,
+      after: {
+        cases: [
+          { id: 'u1', proband_label: 'C1', pmid: '1' },
+          { id: 'u2', proband_label: 'C2', pmid: '2' }
+        ],
+        plain: [{ pmid: '3' }]
+      }
+    }
+  ])
+  const round2 = groupDiff([
+    { path: 'g.cases[u1].pmid', change: 'changed', before: '1', after: '9' }
+  ])
+
+  it('keys records by id, like the backend diff, and hides the id row', () => {
+    expect(round1.map(g => g.key)).toEqual(['g.cases[u1]', 'g.cases[u2]', 'g.plain[0]'])
+    expect(round1[0]!.key).toBe(round2[0]!.key)
+    expect(round1[0]!.fields.map(f => f.name)).toEqual(['proband_label', 'pmid'])
+    expect(round1[0]!.label).toBe('Cases · C1')
+  })
+
+  it('keeps a round-1 open query blocking approval in round 2', () => {
+    const query = c({ item_path: round1[0]!.key, body: 'Which transcript?' })
+    expect(approveBlockers(round2, [query], 'bob').map(g => g.key)).toEqual(['g.cases[u1]'])
+  })
+
+  it('names an id-keyed record from the evidence, numeric ids included', () => {
+    const evidence = {
+      g: {
+        cases: [
+          { id: 'u1', proband_label: 'C1' },
+          { id: 0, label: 'Zero' }
+        ]
+      }
+    }
+    expect(itemLabel('g.cases[u1]', { evidence })).toBe('Cases · C1 (G)')
+    expect(itemLabel('g.cases[0]', { evidence })).toBe('Cases · Zero (G)')
   })
 })
 

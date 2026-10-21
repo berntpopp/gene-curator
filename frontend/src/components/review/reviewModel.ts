@@ -96,22 +96,31 @@ function valueAt(root: unknown, path: string): unknown {
   for (const [, key, index] of path.matchAll(/([^.[\]]+)|\[([^\]]*)\]/g)) {
     if (key !== undefined) v = isRecord(v) ? v[key] : undefined
     else if (Array.isArray(v))
-      v = /^\d+$/.test(index!) ? v[+index!] : v.find(r => isRecord(r) && r.id === index)
+      v =
+        v.find(r => isRecord(r) && String(r.id) === index) ??
+        (/^\d+$/.test(index!) ? v[+index!] : undefined)
     else v = undefined
   }
   return v
 }
 
-/** Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped. */
-function leaves(v: unknown, path = ''): [string, unknown][] {
+/**
+ * Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped.
+ * Records are keyed `[id]` when every one has an id (as the backend diff does), else by position.
+ */
+function leaves(v: unknown, path: string): [string, unknown][] {
   if (Array.isArray(v)) {
     if (v.every(x => typeof x !== 'object' || x === null)) {
       return v.length ? [[path, v.join(', ')]] : []
     }
-    return v.flatMap((x, i) => leaves(x, `${path}[${i}]`))
+    const byId = v.every(x => isRecord(x) && 'id' in x)
+    return v.flatMap((x, i) => leaves(x, `${path}[${byId ? String(x.id) : i}]`))
   }
   if (isRecord(v)) {
-    return Object.entries(v).flatMap(([k, x]) => leaves(x, path ? `${path}.${k}` : k))
+    const idKeyed = path.endsWith(`[${String(v.id)}]`) // the id is in the key already
+    return Object.entries(v)
+      .filter(([k]) => !(idKeyed && k === 'id'))
+      .flatMap(([k, x]) => leaves(x, path ? `${path}.${k}` : k))
   }
   return v === null || v === undefined || v === '' ? [] : [[path, v]]
 }
@@ -120,11 +129,11 @@ function leaves(v: unknown, path = ''): [string, unknown][] {
 function rows(it: DiffItem): [string, unknown, unknown][] {
   if (it.change === 'changed') return [[it.path, it.before, it.after]]
   const added = it.change === 'added'
-  return leaves(added ? it.after : it.before).map(([p, v]) => [
-    !p ? it.path : p.startsWith('[') ? it.path + p : `${it.path}.${p}`,
-    added ? undefined : v,
-    added ? v : undefined
-  ])
+  const filled = leaves(added ? it.after : it.before, it.path)
+  // An empty value still shows that something was added or removed
+  return (filled.length ? filled : [[it.path, 'none']]).map(([p, v]) =>
+    added ? [p, undefined, v] : [p, v, undefined]
+  )
 }
 
 // The record's own name: its `label` / `*_label` field (every SOP v11 list item has one).
