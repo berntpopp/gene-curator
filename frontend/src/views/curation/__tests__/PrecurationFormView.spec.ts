@@ -90,6 +90,30 @@ describe('PrecurationFormView', () => {
     }
   )
 
+  it.each([
+    ['rejected', 'Narrow the disease', true],
+    ['submitted', 'Narrow the disease', false]
+  ])('shows the reviewer reason on a %s precuration: %s (%s)', async (status, reason, shown) => {
+    useAuthStore().user = { id: 'me' } as never
+    route.params = { scopeId: 'sc1', precurationId: 'p1' }
+    vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+      id: 'p1',
+      gene_id: 'g7',
+      status,
+      created_by: 'me',
+      scope_id: 'sc1',
+      computed_fields: { rejection_reason: reason }
+    } as never)
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+    const wrapper = mount(PrecurationFormView, {
+      global: { stubs: { SchemaDrivenPrecurationForm: true } }
+    })
+    await flushPromises()
+    const alert = wrapper.find('[data-testid=sent-back-reason]')
+    expect(alert.exists()).toBe(shown)
+    if (shown) expect(alert.text()).toContain(reason)
+  })
+
   it('shows an error when the precuration cannot be loaded', async () => {
     route.params = { scopeId: 'sc1', precurationId: 'p1' }
     vi.mocked(precurationsAPI.getPrecuration).mockRejectedValue(new Error('404'))

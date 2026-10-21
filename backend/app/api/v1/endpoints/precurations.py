@@ -392,51 +392,38 @@ def submit_precuration(
 
 
 # ========================================
-# COMPLETE ENDPOINT (skip peer review)
+# COMPLETE ENDPOINT (submits for review)
 # ========================================
 
 
-@router.post("/{precuration_id}/complete", response_model=Precuration)
+@router.post(
+    "/{precuration_id}/complete",
+    response_model=Precuration,
+    responses={409: {"model": PrecurationConflictResponse}},
+)
 @api_endpoint()
 def complete_precuration(
     precuration_id: UUID,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Precuration:
-    """
-    Mark precuration as completed and ready for curation.
+    """Submit the precuration for review at its current version, like /submit.
 
-    This endpoint provides a simplified workflow path that skips peer review.
-    Use this when precuration doesn't require 4-eyes principle validation.
-    After completion, curation can begin immediately.
+    D1: nobody approves their own work (admins included), so there is no shortcut past review.
     """
-    # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
-
     precuration = precuration_crud.get(db, precuration_id)
-
     if not precuration:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Precuration not found",
         )
-
-    # Verify scope access
-    require(db, current_user, precuration.scope_id, EDIT)
-
-    try:
-        completed = precuration_crud.complete_precuration(
-            db,
-            db_obj=precuration,
-            user_id=current_user.id,
-        )
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-
-    return Precuration.model_validate(completed)
+    return submit_precuration(
+        precuration_id,
+        PrecurationSubmit(lock_version=precuration.lock_version),
+        db,
+        current_user,
+    )
 
 
 # ========================================

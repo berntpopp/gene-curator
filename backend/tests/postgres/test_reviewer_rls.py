@@ -189,6 +189,12 @@ def test_reviewer_requests_changes_on_a_curation(client: TestClient, w: W) -> No
         )
         == "curation"
     )
+    # the feedback is stored (as bob's review decision) and alice, as app_user, reads it back
+    trail = client.get(
+        f"/api/v1/workflow/curation/{w.cur}/audit-trail", headers=_h(w.alice)
+    )
+    assert trail.status_code == 200, trail.text
+    assert trail.json()["entries"][-1]["notes"] == "needs work"
 
 
 # alice: the curator who wrote it (D1); carol: viewer; dave: another curator

@@ -24,6 +24,7 @@ from app.crud.review_round import (
     in_current_round,
     pending_reviews,
     reassign_earlier_reviewers,
+    record_review_decision,
 )
 from app.crud.workflow_statistics import compute_workflow_statistics
 from app.models import (
@@ -119,8 +120,7 @@ class WorkflowEngine:
         if item.created_by == user_id:
             errors.append("4-eyes principle violation: Cannot review your own work")
 
-        # Check review permissions for curations
-        if item_type == "curation" and not self._has_review_permissions(db, user, item):
+        if not self._has_review_permissions(db, user, item):
             errors.append("Insufficient permissions for peer review")
 
         return errors
@@ -139,13 +139,11 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
-        # Check if transition is valid
         if target_stage not in self.valid_transitions.get(current_stage, []):
             errors.append(
                 f"Invalid transition from {current_stage.value} to {target_stage.value}"
             )
 
-        # Get user for permission checks
         user = (
             db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
         )
@@ -170,7 +168,7 @@ class WorkflowEngine:
             )
 
         # 4-eyes principle validation
-        if self._requires_peer_review(current_stage, target_stage):
+        if self._requires_peer_review(current_stage, target_stage, item_type):
             errors.extend(
                 self._validate_4_eyes_principle(db, user, user_id, item, item_type)
             )
@@ -205,12 +203,10 @@ class WorkflowEngine:
     ) -> WorkflowTransition:
         """Execute a workflow state transition."""
 
-        # Get current item and stage
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
         if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
 
-        # Validate transition
         validation = self.validate_transition(
             db, current_stage, target_stage, user_id, item_id, item_type
         )
@@ -218,36 +214,18 @@ class WorkflowEngine:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
         try:
-            # Execute the transition based on target stage
-            transition_result = None
-
-            if target_stage == WorkflowStage.PRECURATION:
-                transition_result = self._transition_to_precuration(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.CURATION:
-                transition_result = self._transition_to_curation(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.REVIEW:
-                transition_result = self._transition_to_review(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.ACTIVE:
-                transition_result = self._transition_to_active(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.ENTRY:
-                transition_result = self._transition_to_entry(
-                    db, item, user_id, notes, metadata
-                )
-
-            else:
+            if item_type == "curation" and current_stage == WorkflowStage.REVIEW:
+                record_review_decision(db, item, user_id, target_stage, notes)
+            handler = {
+                WorkflowStage.PRECURATION: self._transition_to_precuration,
+                WorkflowStage.CURATION: self._transition_to_curation,
+                WorkflowStage.REVIEW: self._transition_to_review,
+                WorkflowStage.ACTIVE: self._transition_to_active,
+                WorkflowStage.ENTRY: self._transition_to_entry,
+            }.get(target_stage)
+            if handler is None:
                 raise ValueError(f"Unsupported target stage: {target_stage}")
+            transition_result = handler(db, item, user_id, notes, metadata)
 
             # Emit notifications for workflow transitions
             self._emit_transition_notification(
@@ -647,20 +625,13 @@ class WorkflowEngine:
         return False
 
     def _requires_peer_review(
-        self, current_stage: WorkflowStage, target_stage: WorkflowStage
+        self, current_stage: WorkflowStage, target_stage: WorkflowStage, item_type: str
     ) -> bool:
-        """
-        Check if transition requires peer review (4-eyes principle).
-
-        Note: The 4-eyes principle applies at APPROVAL time (REVIEW -> ACTIVE),
-        not at SUBMISSION time (CURATION -> REVIEW). A curator can submit their
-        own work for review, but a different reviewer must approve it.
-        """
-        peer_review_transitions = [
-            # Only approval requires 4-eyes - a different person must approve
-            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE),
-        ]
-        return (current_stage, target_stage) in peer_review_transitions
+        """Review decisions (4-eyes): anything leaving REVIEW, and approving a precuration
+        (-> CURATION). Submitting one's own work (-> REVIEW) is not a decision."""
+        return current_stage == WorkflowStage.REVIEW or (
+            item_type == "precuration" and target_stage == WorkflowStage.CURATION
+        )
 
     def _has_review_permissions(self, db: Session, user: UserNew, item: Any) -> bool:
         """Review needs the REVIEW capability in the item's scope (no admin bypass)."""
@@ -714,6 +685,12 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
+        errors.extend(
+            self._review_exit_errors(
+                db, item_type, current_stage, target_stage, item_id
+            )
+        )
+
         # Add specific validation logic based on stages
         if target_stage == WorkflowStage.REVIEW and item_type == "curation":
             curation = (
@@ -738,6 +715,33 @@ class WorkflowEngine:
 
         return {"errors": errors, "warnings": warnings, "requirements": requirements}
 
+    @staticmethod
+    def _review_exit_errors(
+        db: Session,
+        item_type: str,
+        current: WorkflowStage,
+        target: WorkflowStage,
+        item_id: UUID,
+    ) -> list[str]:
+        """Moves the endpoint must not make: they leave an inconsistent item or lose the reason.
+        Precurations are approved only once submitted."""
+        back = current == WorkflowStage.REVIEW and target == WorkflowStage.PRECURATION
+        if item_type == "curation":
+            return (
+                ["To send a curation back, request changes (stage curation)"]
+                if back
+                else []
+            )
+        if back:
+            return [f"Send a precuration back with POST /precurations/{item_id}/reject"]
+        if target == WorkflowStage.ACTIVE:
+            return ["A precuration is approved to curation, not activated"]
+        pre = db.get(PrecurationNew, item_id)
+        submitted = (CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW)
+        if target == WorkflowStage.CURATION and pre and pre.status not in submitted:
+            return ["Only a submitted precuration can be approved"]
+        return []
+
     def _transition_to_precuration(
         self,
         db: Session,
@@ -747,7 +751,6 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to precuration stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.PRECURATION
         db.flush()
@@ -765,8 +768,9 @@ class WorkflowEngine:
         # Update workflow stage and status (when returning from review)
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.CURATION
-        if hasattr(item, "status"):
-            item.status = CurationStatus.DRAFT
+        if hasattr(item, "status"):  # an approved precuration, or a curation sent back
+            is_pre = isinstance(item, PrecurationNew)
+            item.status = CurationStatus.APPROVED if is_pre else CurationStatus.DRAFT
         db.flush()
         return {"success": True, "message": "Transitioned to curation"}
 
@@ -779,10 +783,8 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to review stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.REVIEW
-        # Update status
         if hasattr(item, "status"):
             item.status = CurationStatus.IN_REVIEW
         if isinstance(item, CurationNew):
@@ -817,7 +819,6 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition back to entry stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.ENTRY
         db.flush()

@@ -1,6 +1,14 @@
 <template>
   <aside v-if="feedback?.any" class="feedback" aria-labelledby="feedback-title">
     <h2 id="feedback-title" class="text-title-medium mb-2">Review feedback</h2>
+    <p
+      v-if="feedback.noteAt"
+      class="text-body-small text-medium-emphasis mb-1"
+      data-testid="feedback-by"
+    >
+      Changes requested{{ feedback.noteBy ? ` by ${feedback.noteBy}` : '' }} on
+      {{ formatDateTime(feedback.noteAt) }}
+    </p>
     <p v-if="feedback.note" class="feedback__note" data-testid="feedback-note">
       {{ feedback.note }}
     </p>
@@ -20,6 +28,7 @@
   /** What the reviewer asked for when sending the curation back: their note and open item queries. */
   import { onMounted, ref } from 'vue'
   import { itemLabel } from '@/components/review/reviewModel'
+  import { formatDateTime } from '@/utils/format'
   import { useReviewFeedbackStore, type ReviewFeedback } from '@/stores/reviewFeedback'
 
   const props = defineProps<{ curationId: string; scopeId: string; me: string }>()
