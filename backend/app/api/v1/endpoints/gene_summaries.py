@@ -8,6 +8,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -17,10 +18,10 @@ from app.core.deps import (
     get_current_user_optional,
 )
 from app.core.logging import api_endpoint, get_logger
+from app.crud.scope_visibility import member_scope_ids, visible_scope_ids
 from app.models.models import CurationNew, Scope, UserNew
 from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic
 from app.services.gene_summary_service import GeneSummaryService
-from app.services.scope_permissions import ScopePermissionService
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -116,31 +117,41 @@ async def get_gene_curating_scopes(
 ) -> list[dict[str, Any]]:
     """Get list of scopes curating this gene
 
-    Returns scopes with active curations for the gene, filtered by user permissions.
-    Public scopes are always visible; private scopes only if user is a member.
+    Public active scopes are visible to everyone, private ones to accepted members; platform
+    admins get no bypass. Non-members count only active curations; members also see
+    in-progress work (curation/review stage) in their own scopes.
 
     Args:
         db: Database session
         gene_id: UUID of the gene
-        current_user: Current user (optional, for filtering private scopes)
+        current_user: Current user (optional)
 
     Returns:
         List of scope information with curation counts
     """
-    # Get all active curations for gene
-    query = db.query(CurationNew).filter(
-        CurationNew.gene_id == gene_id,
-        CurationNew.workflow_stage.in_(["curation", "review", "active"]),
+    user_id = current_user.id if current_user else None
+    rows = db.execute(
+        select(CurationNew.scope_id, func.count())
+        .where(
+            CurationNew.gene_id == gene_id,
+            CurationNew.scope_id.in_(visible_scope_ids(user_id)),
+            or_(
+                CurationNew.workflow_stage == "active",
+                and_(
+                    CurationNew.workflow_stage.in_(["curation", "review"]),
+                    CurationNew.scope_id.in_(member_scope_ids(user_id)),
+                ),
+            ),
+        )
+        .group_by(CurationNew.scope_id)
+    ).all()
+    counts = dict(rows)
+    scopes = (
+        db.query(Scope)
+        .filter(Scope.id.in_(list(counts)))
+        .order_by(Scope.name, Scope.id)
+        .all()
     )
-
-    # Apply visibility filter based on user permissions
-    query = ScopePermissionService.filter_visible_curations(db, query, current_user)
-
-    curations = query.all()
-
-    # Get unique scopes
-    scope_ids = list({c.scope_id for c in curations})
-    scopes = db.query(Scope).filter(Scope.id.in_(scope_ids)).all()
 
     scope_list = [
         {
@@ -148,7 +159,7 @@ async def get_gene_curating_scopes(
             "scope_name": scope.name,
             "display_name": scope.display_name,
             "is_public": scope.is_public,
-            "curation_count": sum(1 for c in curations if c.scope_id == scope.id),
+            "curation_count": counts[scope.id],
         }
         for scope in scopes
     ]

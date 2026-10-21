@@ -12,6 +12,7 @@ from uuid import UUID
 from sqlalchemy import String, func, or_, select
 from sqlalchemy.orm import Session
 
+from app.core.search_text import escape_like
 from app.models import ActiveCuration, CurationNew, Gene, Scope, ScopeMembership
 from app.models.models import CurationStatus
 from app.schemas.gene_catalogue_matrix import (
@@ -94,8 +95,7 @@ def get_matrix(
     query = select(Gene).where(or_(*gene_filter))
 
     if search:
-        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-        term = f"%{escaped}%"
+        term = f"%{escape_like(search)}%"
         query = query.where(
             or_(
                 Gene.approved_symbol.ilike(term, escape="\\"),

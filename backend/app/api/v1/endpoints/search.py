@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
+from app.core.search_text import MAX_SEARCH, escape_like
 from app.models.models import (
     CurationNew,
     CurationStatus,
@@ -26,12 +27,12 @@ from app.schemas.search import CurationHit, GeneHit, ScopeHit, SearchResponse
 
 router = APIRouter()
 
-MIN_Q, MAX_Q = 2, 100
+MIN_Q, MAX_Q = 2, MAX_SEARCH
 
 
 def _like(q: str) -> tuple[str, str]:
     """Escape LIKE wildcards; returns (contains, prefix) patterns."""
-    esc = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    esc = escape_like(q)
     return f"%{esc}%", f"{esc}%"
 
 
