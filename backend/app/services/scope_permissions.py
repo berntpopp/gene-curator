@@ -24,7 +24,13 @@ from sqlalchemy.orm import Query, Session
 
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
-from app.models.models import CurationNew, Scope, ScopeMembership, UserNew
+from app.models.models import (
+    CurationNew,
+    CurationStatus,
+    Scope,
+    ScopeMembership,
+    UserNew,
+)
 
 if TYPE_CHECKING:
     from app.models.models import PrecurationNew
@@ -192,6 +198,7 @@ class ScopePermissionService:
         """Check if user can edit curation
 
         Editing rules:
+        - Nobody, admins included, edits unless status is draft/rejected (4-eyes)
         - Admins can edit all curations
         - Creators can edit own curations (if not in review/active stage)
         - Scope admins can edit any curation in their scope (if not in review/active stage)
@@ -204,6 +211,9 @@ class ScopePermissionService:
         Returns:
             True if user can edit curation, False otherwise
         """
+        if curation.status not in (CurationStatus.DRAFT, CurationStatus.REJECTED):
+            return False
+
         # Admin can edit all
         if user.role.value == "admin":
             logger.debug(

@@ -363,7 +363,7 @@
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
-  import { humanize } from '@/components/dynamic/fieldLabels'
+  import { formatInheritance } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
   import { useWorkflowStore } from '@/stores/workflow'
@@ -472,16 +472,6 @@
   })
 
   // Utility functions
-  const formatInheritance = (moi: string): string => {
-    const labels: Record<string, string> = {
-      AD: 'Autosomal dominant',
-      AR: 'Autosomal recessive',
-      XLD: 'X-linked dominant',
-      XLR: 'X-linked recessive',
-      MT: 'Mitochondrial'
-    }
-    return labels[moi] || humanize(moi.toLowerCase())
-  }
 
   // Actions
   async function loadCurationSchema() {
