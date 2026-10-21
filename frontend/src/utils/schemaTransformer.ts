@@ -39,7 +39,7 @@ const SCHEMA_DEFAULTS = {
   version: '1.0.0',
   description: '',
   type: 'unknown',
-  status: 'draft'
+  status: 'inactive'
 } as const
 
 /**
@@ -56,9 +56,7 @@ export const transformSchema = (
 ): TransformedSchema | null => {
   if (!schema) return null
 
-  // Derive status from is_active flag
-  const status =
-    schema.is_active === true ? 'active' : schema.is_active === false ? 'deprecated' : 'draft'
+  const status = schema.is_active ? 'active' : 'inactive'
 
   return {
     ...schema,
@@ -122,20 +120,6 @@ export const formatType = (type: string | null | undefined): string => {
 }
 
 /**
- * Safely format a status string for display
- *
- * @returns Formatted status string (capitalized) or 'Draft'
- *
- * @example
- * formatStatus('active') // Returns: 'Active'
- * formatStatus(undefined) // Returns: 'Draft'
- */
-export const formatStatus = (status: string | null | undefined): string => {
-  if (!status || typeof status !== 'string') return 'Draft'
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-/**
  * Get color for schema type chip
  *
  * @returns Vuetify color name
@@ -149,27 +133,11 @@ export const getTypeColor = (type: string | null | undefined): string => {
   return (type && colorMap[type]) || 'grey'
 }
 
-/**
- * Get color for schema status chip
- *
- * @returns Vuetify color name
- */
-export const getStatusColor = (status: string | null | undefined): string => {
-  const colorMap: Record<string, string> = {
-    draft: 'orange',
-    active: 'success',
-    deprecated: 'error'
-  }
-  return (status && colorMap[status]) || 'grey'
-}
-
 export default {
   transformSchema,
   transformSchemas,
   prepareSchemaForAPI,
   formatType,
-  formatStatus,
   getTypeColor,
-  getStatusColor,
   SCHEMA_DEFAULTS
 }

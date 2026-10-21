@@ -134,66 +134,65 @@ class TestCurationSchemaRead:
 
 class TestCurationSchemaWrite:
     def test_create_accepts_seeded_workflow_states_format(
-        self, client: TestClient, curator_token: str
+        self, client: TestClient, admin_token: str
     ):
         """Regression: the seeded {"states": [...]} shape must be accepted on create."""
         response = client.post(
             f"{BASE}/curation-schemas",
             json=schema_payload(name="Seeded Shape"),
-            headers=auth(curator_token),
+            headers=auth(admin_token),
         )
 
         assert response.status_code == 200, response.text
         assert response.json()["name"] == "Seeded Shape"
 
     def test_create_duplicate_name_version_rejected(
-        self, client: TestClient, db_session: Session, curator_token: str
+        self, client: TestClient, db_session: Session, admin_token: str
     ):
         insert_schema(db_session, name="Dup", version="2.0")
 
         response = client.post(
             f"{BASE}/curation-schemas",
             json=schema_payload(name="Dup", version="2.0"),
-            headers=auth(curator_token),
+            headers=auth(admin_token),
         )
 
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
 
     def test_create_missing_required_fields_is_422(
-        self, client: TestClient, curator_token: str
+        self, client: TestClient, admin_token: str
     ):
         response = client.post(
             f"{BASE}/curation-schemas",
             json={"name": "No body"},
-            headers=auth(curator_token),
+            headers=auth(admin_token),
         )
 
         assert response.status_code == 422
 
-    def test_update_by_owner(
-        self, client: TestClient, owned_schema: CurationSchema, curator_token: str
+    @pytest.mark.parametrize("who", ["viewer_token", "curator_token", "other_token"])
+    def test_non_admin_cannot_create_or_update(
+        self,
+        client: TestClient,
+        owned_schema: CurationSchema,
+        request: pytest.FixtureRequest,
+        who: str,
     ):
-        response = client.put(
-            f"{BASE}/curation-schemas/{owned_schema.id}",
-            json={"description": "updated"},
-            headers=auth(curator_token),
+        """#212: schema writes need platform admin, even for the schema's creator."""
+        headers = auth(request.getfixturevalue(who))
+
+        created = client.post(
+            f"{BASE}/curation-schemas", json=schema_payload(), headers=headers
         )
-
-        assert response.status_code == 200
-        assert response.json()["description"] == "updated"
-
-    def test_update_by_other_user_forbidden(
-        self, client: TestClient, owned_schema: CurationSchema, other_token: str
-    ):
-        response = client.put(
+        updated = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
             json={"description": "hijack"},
-            headers=auth(other_token),
+            headers=headers,
         )
 
-        assert response.status_code == 403
-        assert response.json()["detail"] == "Can only update own schemas"
+        assert created.status_code == 403
+        assert updated.status_code == 403
 
     def test_update_by_admin_allowed(
         self, client: TestClient, owned_schema: CurationSchema, admin_token: str

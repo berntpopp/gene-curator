@@ -4,9 +4,7 @@ import {
   transformSchemas,
   prepareSchemaForAPI,
   formatType,
-  formatStatus,
-  getTypeColor,
-  getStatusColor
+  getTypeColor
 } from '../schemaTransformer'
 import defaultExport from '../schemaTransformer'
 
@@ -24,18 +22,18 @@ describe('schemaTransformer', () => {
       })
       expect(transformSchema({ schema_type: 'precuration', is_active: false })).toMatchObject({
         type: 'precuration',
-        status: 'deprecated'
+        status: 'inactive'
       })
     })
 
-    it('treats a missing is_active flag as draft', () => {
-      expect(transformSchema({ schema_type: 'combined' })).toMatchObject({ status: 'draft' })
+    it('treats a missing is_active flag as inactive', () => {
+      expect(transformSchema({ schema_type: 'combined' })).toMatchObject({ status: 'inactive' })
     })
 
     it('fills missing name, version and description with defaults', () => {
       expect(transformSchema({})).toEqual({
         type: SCHEMA_DEFAULTS.type,
-        status: 'draft',
+        status: 'inactive',
         name: SCHEMA_DEFAULTS.name,
         version: SCHEMA_DEFAULTS.version,
         description: SCHEMA_DEFAULTS.description
@@ -93,11 +91,6 @@ describe('schemaTransformer', () => {
       expect(formatType(null)).toBe('Unknown')
     })
 
-    it('formatStatus capitalises and falls back to Draft', () => {
-      expect(formatStatus('active')).toBe('Active')
-      expect(formatStatus(undefined)).toBe('Draft')
-    })
-
     it('getTypeColor maps known types and defaults to grey', () => {
       expect(getTypeColor('precuration')).toBe('blue')
       expect(getTypeColor('curation')).toBe('green')
@@ -105,19 +98,11 @@ describe('schemaTransformer', () => {
       expect(getTypeColor('other')).toBe('grey')
       expect(getTypeColor(null)).toBe('grey')
     })
-
-    it('getStatusColor maps known statuses and defaults to grey', () => {
-      expect(getStatusColor('draft')).toBe('orange')
-      expect(getStatusColor('active')).toBe('success')
-      expect(getStatusColor('deprecated')).toBe('error')
-      expect(getStatusColor('unknown')).toBe('grey')
-      expect(getStatusColor(undefined)).toBe('grey')
-    })
   })
 
   it('default export bundles the same helpers', () => {
     expect(defaultExport.transformSchema).toBe(transformSchema)
-    expect(defaultExport.getStatusColor).toBe(getStatusColor)
+    expect(defaultExport.getTypeColor).toBe(getTypeColor)
     expect(defaultExport.SCHEMA_DEFAULTS).toBe(SCHEMA_DEFAULTS)
   })
 })

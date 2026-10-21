@@ -351,10 +351,13 @@
   // workflowStages are static configuration in workflowStore
   const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
-  const precurationSchemas = computed(
-    (): SchemaOption[] => schemasStore.getPrecurationSchemas || []
+  // Admin pages load inactive schemas too, but a pair may only reference active ones
+  const precurationSchemas = computed((): SchemaOption[] =>
+    (schemasStore.getPrecurationSchemas || []).filter(s => s.is_active)
   )
-  const curationSchemas = computed((): SchemaOption[] => schemasStore.getCurationSchemas || [])
+  const curationSchemas = computed((): SchemaOption[] =>
+    (schemasStore.getCurationSchemas || []).filter(s => s.is_active)
+  )
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
@@ -503,8 +506,8 @@
       // - workflowPairs and schemas are in schemasStore
       // - analytics and reviewers are in workflowStore
       await Promise.all([
-        schemasStore.fetchSchemas(),
-        schemasStore.fetchWorkflowPairs(),
+        schemasStore.fetchSchemas({ active_only: false }),
+        schemasStore.fetchWorkflowPairs({ active_only: false }),
         workflowStore.fetchWorkflowAnalytics().catch(() => null), // Non-critical
         workflowStore.fetchPeerReviewers().catch(() => null) // Non-critical
       ])
