@@ -353,6 +353,51 @@ class TestValidateSchemaDefinition:
 
 
 class TestGenerateJsonSchema:
+    def test_sectioned_field_definitions_are_flattened(
+        self, validator: SchemaValidator
+    ):
+        # Shape seeded by migration 016 (ClinGen Precuration)
+        schema = validator.generate_json_schema(
+            {
+                "field_definitions": {
+                    "sections": [
+                        {
+                            "id": "disease_entity",
+                            "fields": [
+                                {
+                                    "id": "disease_name",
+                                    "type": "text",
+                                    "required": True,
+                                },
+                                {"id": "note", "type": "textarea", "required": False},
+                            ],
+                        },
+                        {
+                            "id": "inheritance",
+                            "fields": [
+                                {
+                                    "id": "mode_of_inheritance",
+                                    "type": "select",
+                                    "options": [
+                                        {"value": "AD", "label": "Autosomal Dominant"}
+                                    ],
+                                }
+                            ],
+                        },
+                    ]
+                }
+            }
+        )
+        assert set(schema["properties"]) == {
+            "disease_name",
+            "note",
+            "mode_of_inheritance",
+        }
+        assert schema["required"] == ["disease_name"]
+        assert schema["properties"]["mode_of_inheritance"]["enumOptions"] == [
+            {"value": "AD", "label": "Autosomal Dominant"}
+        ]
+
     def test_select_emits_labelled_enum_options_and_keeps_enum(
         self, validator: SchemaValidator
     ):

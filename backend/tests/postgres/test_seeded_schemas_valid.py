@@ -61,11 +61,6 @@ def test_seeded_schemas_emit_labelled_enum_options(db: Session) -> None:
     ).mappings()
     seen = 0
     for row in rows:
-        fields = row["field_definitions"]
-        if not isinstance(fields, dict) or not all(
-            isinstance(v, dict) for v in fields.values()
-        ):
-            continue  # sectioned list format: generate_json_schema does not support it
         generated = SchemaValidator().generate_json_schema(
             {"field_definitions": row["field_definitions"]}
         )["properties"]

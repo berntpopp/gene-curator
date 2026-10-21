@@ -7,7 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
-from app.core.enum_options import enum_option
+from app.core.enum_options import enum_option, flatten_sections
 from app.core.schema_rules import resolve_named_rules
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
@@ -151,7 +151,7 @@ class SchemaValidator:
         Returns:
             JSON Schema for validation
         """
-        fields = schema_definition.get("field_definitions", {})
+        fields = flatten_sections(schema_definition.get("field_definitions", {}))
         json_schema: dict[str, Any] = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",

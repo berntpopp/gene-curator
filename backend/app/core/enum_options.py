@@ -19,3 +19,11 @@ def enum_option(option: Any) -> dict[str, Any]:
             else text
         )
     return {"value": value, "label": label}
+
+
+def flatten_sections(defs: dict[str, Any]) -> dict[str, Any]:
+    """Field dict keyed by id from flat defs plus the seeded ``sections`` list shape."""
+    fields = {k: v for k, v in defs.items() if k != "sections"}
+    for section in defs.get("sections") or []:
+        fields.update({f["id"]: f for f in section.get("fields", [])})
+    return fields
