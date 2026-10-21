@@ -42,7 +42,7 @@ describe('useWorkflowStore', () => {
     vi.clearAllMocks()
   })
 
-  it('exposes the five static workflow stages in order', () => {
+  it('exposes the static workflow stages in order, archived last', () => {
     const store = useWorkflowStore()
     expect(store.workflowStages).toEqual(WORKFLOW_STAGES)
     expect(WORKFLOW_STAGES.map(s => s.id)).toEqual([
@@ -50,7 +50,8 @@ describe('useWorkflowStore', () => {
       'precuration',
       'curation',
       'review',
-      'active'
+      'active',
+      'archived'
     ])
   })
 
@@ -267,6 +268,28 @@ describe('useWorkflowStore', () => {
         'c1',
         expect.objectContaining({ target_stage: 'curation' })
       )
+    })
+
+    it('archived is the terminal stage: it sorts after active and never moves on', async () => {
+      const store = useWorkflowStore()
+      api.getWorkflowState.mockResolvedValue(stateAt('active', ['archived', 'review']))
+      api.transitionItem.mockResolvedValue(transition)
+      await store.advanceStage(payload)
+      expect(api.transitionItem).toHaveBeenLastCalledWith(
+        'curation',
+        'c1',
+        expect.objectContaining({ target_stage: 'archived' })
+      )
+
+      api.getWorkflowState.mockResolvedValue(stateAt('archived', ['review']))
+      await store.rejectStage(payload)
+      expect(api.transitionItem).toHaveBeenLastCalledWith(
+        'curation',
+        'c1',
+        expect.objectContaining({ target_stage: 'review' })
+      )
+      api.getWorkflowState.mockResolvedValue(stateAt('archived', ['review']))
+      await expect(store.advanceStage(payload)).rejects.toThrow('No forward transition')
     })
 
     it('fails without calling the backend when no matching transition is allowed', async () => {
