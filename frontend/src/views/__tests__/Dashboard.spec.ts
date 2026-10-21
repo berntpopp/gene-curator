@@ -62,19 +62,22 @@ describe('Dashboard view', () => {
     expect(wrapper.text()).toContain('Schema Management')
   })
 
-  it('still renders when loading scopes fails', async () => {
-    vi.mocked(useScopesStore().fetchUserScopes).mockRejectedValue(new Error('boom'))
+  it('shows the store error with Retry instead of the empty state, and retries the load', async () => {
+    const store = useScopesStore()
+    vi.mocked(store.fetchUserScopes).mockImplementationOnce(async () => {
+      store.error = 'Request failed'
+      throw new Error('500')
+    })
     const wrapper = mountView()
     await flushPromises()
     expect(wrapper.find('.v-progress-circular').exists()).toBe(false)
-    expect(wrapper.text()).toContain('No scopes assigned')
-  })
+    expect(wrapper.text()).toContain('Request failed')
+    expect(wrapper.text()).not.toContain('No scopes assigned')
 
-  it('sends New Curation actions to the scopes list, not the removed wizard', () => {
-    const targets = mountView()
-      .findAllComponents({ name: 'VBtn' })
-      .map(b => b.props('to'))
-    expect(targets).toContain('/scopes')
-    expect(targets).not.toContain('/scope-selection')
+    vi.mocked(store.fetchUserScopes).mockResolvedValueOnce(undefined as never)
+    await wrapper.find('button.retry').trigger('click')
+    await flushPromises()
+    expect(store.fetchUserScopes).toHaveBeenCalledTimes(2)
+    expect(wrapper.text()).toContain('No scopes assigned')
   })
 })

@@ -53,6 +53,27 @@ describe('GeneDetail view', () => {
     expect(wrapper.text()).toContain('Failed to load gene details')
   })
 
+  it('says "Gene not found" with a catalogue link on a 404', async () => {
+    vi.mocked(genesAPI.getGeneById).mockRejectedValue({ response: { status: 404 } })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Gene not found')
+    expect(wrapper.text()).not.toContain('Retry')
+  })
+
+  it('offers Retry on other failures and reloads the gene', async () => {
+    vi.mocked(genesAPI.getGeneById)
+      .mockRejectedValueOnce({ response: { status: 500 } })
+      .mockResolvedValueOnce(localGene as never)
+    vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({ results: [] } as never)
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Gene not found')
+    await wrapper.find('button.retry').trigger('click')
+    await flushPromises()
+    expect(wrapper.find('h1').text()).toBe('BRCA1')
+  })
+
   it('renders HGNC data when the lookup succeeds', async () => {
     vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
     vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({

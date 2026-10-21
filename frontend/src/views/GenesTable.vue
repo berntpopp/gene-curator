@@ -95,7 +95,13 @@
 
     <!-- Data Table -->
     <v-container>
-      <v-card>
+      <v-alert v-if="genesStore.error" type="error" variant="tonal">
+        {{ genesStore.error }}
+        <template #append>
+          <v-btn class="retry" variant="text" @click="performSearch">Retry</v-btn>
+        </template>
+      </v-alert>
+      <v-card v-else>
         <v-data-table
           :headers="headers"
           :items="genes"
@@ -186,7 +192,6 @@
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'
-  import { showError } from '@/composables/useNotifications'
 
   const router = useRouter()
   const authStore = useAuthStore()
@@ -306,8 +311,8 @@
           chromosome: selectedChromosome.value,
           page: currentPage.value
         })
-      } catch (error) {
-        showError('Search failed. Please try again.')
+      } catch {
+        // the store keeps the message in genesStore.error, shown with Retry
       }
     } else {
       await loadGenes()
@@ -317,8 +322,8 @@
   const loadGenes = async () => {
     try {
       await genesStore.fetchGenes({ page: currentPage.value })
-    } catch (error) {
-      showError('Failed to load genes. Please try again.')
+    } catch {
+      // the store keeps the message in genesStore.error, shown with Retry
     }
   }
 

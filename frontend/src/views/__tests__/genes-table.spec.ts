@@ -50,6 +50,26 @@ beforeEach(() => {
 })
 
 describe('GenesTable', () => {
+  it('shows the store error with Retry instead of the empty state', async () => {
+    useAuthStore().isAuthenticated = true
+    const genes = useGenesStore()
+    const fetchGenes = vi
+      .spyOn(genes, 'fetchGenes')
+      .mockImplementationOnce(async () => {
+        genes.error = 'Request failed'
+        throw new Error('500')
+      })
+      .mockResolvedValueOnce(undefined as never)
+    const wrapper = mount(GenesTable, { global: { stubs: { RouterLink: RouterLinkStub } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Request failed')
+    expect(wrapper.text()).not.toContain('No genes available')
+
+    await wrapper.find('button.retry').trigger('click')
+    await flushPromises()
+    expect(fetchGenes).toHaveBeenCalledTimes(2)
+  })
+
   it('lists the genes with only the columns the API provides', async () => {
     const { wrapper } = await mountTable()
     const text = wrapper.text()
