@@ -54,17 +54,11 @@
           ]
         },
         {
-          "key": "models",
+          "key": "models_and_rescue",
           "cap": 4,
           "types": [
             {"path": "models.non_human_model_organism", "default": 2, "range": [0, 4]},
-            {"path": "models.cell_culture_model", "default": 1, "range": [0, 2]}
-          ]
-        },
-        {
-          "key": "rescue",
-          "cap": 4,
-          "types": [
+            {"path": "models.cell_culture_model", "default": 1, "range": [0, 2]},
             {"path": "rescue.human", "default": 2, "range": [0, 4]},
             {"path": "rescue.non_human_model_organism", "default": 2, "range": [0, 4]},
             {"path": "rescue.cell_culture", "default": 1, "range": [0, 2]},

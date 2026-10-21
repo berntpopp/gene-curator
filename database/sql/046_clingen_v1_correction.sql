@@ -9,6 +9,11 @@
 -- frontend/src/components/clingen/sections/evidenceTableColumns.ts with the add-row defaults,
 -- point ranges the validator enforces (min_value/max_value; min/max for the form), "order"
 -- (jsonb sorts object keys), and replicated_over_time, which the Definitive band requires.
+-- The v1 snapshots also embed the corrected point model (backend/app/scoring/templates/
+-- clingen_sop_v11.json): SOP v11 scores Models & Rescue as ONE category capped at 4, not two.
+-- Stored scores do not change here (SQL cannot run the scorer): after deploying, run once
+--   cd backend && uv run python -m app.services.recompute_scores
+-- which logs every curation whose total or class changes.
 -- evidence_data paths are unchanged, so pins and stored data stay valid.
 -- This is the one sanctioned exception to 042's immutability: as the table owner, the
 -- trigger is disabled only for this update and re-enabled in the same transaction.
@@ -16,7 +21,7 @@
 -- =============================================================================
 
 -- A corrected copy of a snapshot-shaped document; the layout patch is keyed by section name
-CREATE OR REPLACE FUNCTION pg_temp.clingen_046(s JSONB)
+CREATE OR REPLACE FUNCTION pg_temp.clingen_046(s JSONB, with_model BOOLEAN)
 RETURNS JSONB AS $fn$
     SELECT s
         || jsonb_build_object(
@@ -490,6 +495,94 @@ $fields$::jsonb)
                  FROM jsonb_array_elements(s->'ui_configuration'->'layout'->'tabs')
                       WITH ORDINALITY AS x(tab, i))))
         ELSE '{}'::jsonb END
+        || CASE WHEN with_model THEN jsonb_build_object(
+            'scoring_configuration',
+            COALESCE(s->'scoring_configuration', '{}'::jsonb) || jsonb_build_object('point_model', $model$
+{
+  "name": "ClinGen SOP v11",
+  "total_cap": 18,
+  "sections": [
+    {
+      "key": "genetic_evidence",
+      "cap": 12,
+      "categories": [
+        {
+          "key": "case_level",
+          "cap": 12,
+          "types": [
+            {"path": "case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
+            {"path": "case_level.autosomal_dominant_or_x_linked.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 1.5]},
+            {"path": "case_level.autosomal_recessive.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
+            {"path": "case_level.autosomal_recessive.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 1.5]}
+          ]
+        },
+        {
+          "key": "segregation",
+          "cap": 3,
+          "types": [{"path": "segregation", "rule": "segregation", "range": [0, 3]}]
+        },
+        {
+          "key": "case_control",
+          "cap": 6,
+          "combine": "max",
+          "types": [
+            {"path": "case_control.single_variant_analysis", "default": 0, "range": [0, 6]},
+            {"path": "case_control.aggregate_variant_analysis", "default": 0, "range": [0, 6]}
+          ]
+        }
+      ]
+    },
+    {
+      "key": "experimental_evidence",
+      "cap": 6,
+      "categories": [
+        {
+          "key": "function",
+          "cap": 2,
+          "types": [
+            {"path": "function.biochemical_function", "default": 0.5, "range": [0, 2]},
+            {"path": "function.protein_interaction", "default": 0.5, "range": [0, 2]},
+            {"path": "function.expression", "default": 0.5, "range": [0, 2]}
+          ]
+        },
+        {
+          "key": "functional_alteration",
+          "cap": 2,
+          "types": [
+            {"path": "functional_alteration.patient_cells", "default": 1, "range": [0, 2]},
+            {"path": "functional_alteration.non_patient_cells", "default": 0.5, "range": [0, 1]}
+          ]
+        },
+        {
+          "key": "models_and_rescue",
+          "cap": 4,
+          "types": [
+            {"path": "models.non_human_model_organism", "default": 2, "range": [0, 4]},
+            {"path": "models.cell_culture_model", "default": 1, "range": [0, 2]},
+            {"path": "rescue.human", "default": 2, "range": [0, 4]},
+            {"path": "rescue.non_human_model_organism", "default": 2, "range": [0, 4]},
+            {"path": "rescue.cell_culture", "default": 1, "range": [0, 2]},
+            {"path": "rescue.patient_cells", "default": 1, "range": [0, 2]}
+          ]
+        }
+      ]
+    }
+  ],
+  "overrides": [
+    {"when": "contradictory_evidence", "class": "disputed", "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."}
+  ],
+  "bands": [
+    {"class": "definitive", "min": 12, "requires": "replicated_over_time", "description": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship."},
+    {"class": "strong", "min": 12, "description": "Total score 12-18 points supports STRONG gene-disease relationship."},
+    {"class": "moderate", "min": 7, "description": "Total score 7-11 points supports MODERATE gene-disease relationship."},
+    {"class": "limited", "min": 0.1, "description": "Total score 1-6 points supports LIMITED gene-disease relationship."},
+    {"class": "no_known", "min": 0, "description": "No evidence supporting a gene-disease relationship."},
+    {"class": "disputed", "min": -1, "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."},
+    {"class": "refuted", "description": "Evidence refutes the gene-disease relationship."}
+  ]
+}
+$model$::jsonb))
+        ELSE '{}'::jsonb END
 $fn$ LANGUAGE SQL IMMUTABLE;
 
 DO $migration$
@@ -500,16 +593,17 @@ BEGIN
     ALTER TABLE methodology_versions DISABLE TRIGGER trigger_methodology_version_immutable;
     WITH fixed AS (
         UPDATE methodology_versions
-        SET snapshot = pg_temp.clingen_046(snapshot)
+        SET snapshot = pg_temp.clingen_046(snapshot, true)
         WHERE version = 1
           AND snapshot->'scoring_configuration'->>'engine' = 'clingen_sop_v11'
-          AND snapshot IS DISTINCT FROM pg_temp.clingen_046(snapshot)
+          AND snapshot IS DISTINCT FROM pg_temp.clingen_046(snapshot, true)
         RETURNING id
     )
     SELECT array_agg(id::text ORDER BY id) INTO corrected FROM fixed;
     ALTER TABLE methodology_versions ENABLE TRIGGER trigger_methodology_version_immutable;
 
-    -- The working copies too, so the next publish does not bring the drift back
+    -- The working copies too, so the next publish does not bring the drift back (their point
+    -- model stays the template file, fixed the same way)
     WITH fixed AS (
         UPDATE curation_schemas c
         SET field_definitions = f.doc->'field_definitions',
@@ -518,7 +612,7 @@ BEGIN
             SELECT id, pg_temp.clingen_046(jsonb_build_object(
                 'field_definitions', field_definitions,
                 'ui_configuration', ui_configuration
-            )) AS doc
+            ), false) AS doc
             FROM curation_schemas
             WHERE schema_type = 'curation'
               AND scoring_configuration->>'engine' = 'clingen_sop_v11'

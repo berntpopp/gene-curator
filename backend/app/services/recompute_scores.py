@@ -1,4 +1,9 @@
-"""One-off, idempotent backfill: recompute persisted scores for every curation."""
+"""One-off, idempotent backfill: recompute persisted ClinGen scores for every curation.
+
+Run once after deploying 046 (Models & Rescue as one category capped at 4):
+``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
+class changes is logged with its gene and old -> new total and class.
+"""
 
 from typing import Any
 
@@ -7,8 +12,8 @@ from sqlalchemy.orm import Session
 
 from app.core.deps import set_rls_context
 from app.core.logging import get_logger
-from app.models.models import CurationNew, UserNew, UserRoleNew
-from app.scoring.clingen import ClinGenEngine
+from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
+from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
 from app.scoring.point_limits import scoring_configuration
 
 logger = get_logger(__name__)
@@ -47,7 +52,11 @@ def recompute_all_scores(db: Session) -> int:
     engine = ClinGenEngine()
     cols = (CurationNew.id, CurationNew.evidence_data, CurationNew.computed_scores)
     pin = (CurationNew.workflow_pair_id, CurationNew.methodology_version_id)
-    curations = db.execute(select(*cols, CurationNew.computed_verdict, *pin)).all()
+    curations = db.execute(
+        select(
+            *cols, CurationNew.computed_verdict, *pin, Gene.approved_symbol
+        ).outerjoin(Gene, Gene.id == CurationNew.gene_id)
+    ).all()
     updated = unchanged = 0
     skipped: list[str] = []
     failed = 0
@@ -58,6 +67,7 @@ def recompute_all_scores(db: Session) -> int:
         old_verdict,
         pair_id,
         version_id,
+        gene,
     ) in curations:
         if _has_unscored_keys(evidence):
             skipped.append(
@@ -66,6 +76,11 @@ def recompute_all_scores(db: Session) -> int:
             continue
         try:
             config = scoring_configuration(db, pair_id, version_id)
+            if config.get("engine", ENGINE_NAME) != ENGINE_NAME:
+                skipped.append(
+                    str(curation_id)
+                )  # GenCC/qualitative: not ClinGen points
+                continue
             result = engine.calculate_scores(evidence or {}, config)
         except Exception:  # one bad legacy row must not abort the backfill
             failed += 1
@@ -78,6 +93,14 @@ def recompute_all_scores(db: Session) -> int:
             unchanged += 1
             continue
         updated += 1
+        if old_verdict != result.verdict:
+            logger.warning(
+                "Curation class changed",
+                curation_id=str(curation_id),
+                gene=gene,
+                total=f"{(old_scores or {}).get('total_score')} -> {result.total_score}",
+                verdict=f"{old_verdict} -> {result.verdict}",
+            )
         db.execute(
             update(CurationNew)
             .where(CurationNew.id == curation_id)

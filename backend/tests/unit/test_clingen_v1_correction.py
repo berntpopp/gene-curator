@@ -148,3 +148,8 @@ def test_point_columns_match_the_point_model_ranges() -> None:
                 low, high = type_def["range"]
                 assert (column["min_value"], column["max_value"]) == (low, high)
                 assert (column["min"], column["max"]) == (low, high)
+
+
+def test_embedded_point_model_is_the_template() -> None:
+    """046 pins the corrected model into the v1 snapshots; it must equal the template file."""
+    assert literal("model") == template("clingen_sop_v11")

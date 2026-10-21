@@ -117,6 +117,39 @@ def test_each_category_cap_boundary(section: str, category: dict) -> None:
         assert _categories(result)[category["key"]] == pytest.approx(expected)
 
 
+@pytest.mark.parametrize(
+    ("models", "rescue", "expected"),
+    [(2, 1.5, 3.5), (2, 2, 4), (4, 4, 4), (1, 0, 1), (0, 4, 4)],
+)
+def test_models_and_rescue_share_one_cap_of_four(
+    models: float, rescue: float, expected: float
+) -> None:
+    """SOP v11 experimental matrix: Models & Rescue is one category, max 4 points."""
+    experimental = {
+        "models": {"non_human_model_organism": [{"points": models}]},
+        "rescue": {"human": [{"points": rescue}]},
+    }
+    result = ClinGenEngine().calculate_scores(
+        {"experimental_evidence": experimental}, {}
+    )
+    assert _categories(result)["models_and_rescue"] == expected
+    assert result.total_score == expected
+    legacy = [
+        {"evidence_category": "models", "points": models},
+        {"evidence_category": "rescue", "points": rescue},
+    ]
+    flat = ClinGenEngine().calculate_scores({"experimental_evidence": legacy}, {})
+    assert _categories(flat)["models_and_rescue"] == expected
+
+
+def test_experimental_categories_follow_sop_v11() -> None:
+    """Function 2, Functional Alteration 2, Models & Rescue 4; experimental total 6."""
+    _, experimental = CLINGEN["sections"]
+    caps = {c["key"]: c["cap"] for c in experimental["categories"]}
+    assert caps == {"function": 2, "functional_alteration": 2, "models_and_rescue": 4}
+    assert experimental["cap"] == 6
+
+
 def test_section_and_total_caps() -> None:
     experimental = {
         "function": {"expression": [{"points": 2}]},
@@ -163,7 +196,9 @@ def _custom_model() -> dict:
             ],
         }
     )
-    rescue = next(c for c in experimental["categories"] if c["key"] == "rescue")
+    rescue = next(
+        c for c in experimental["categories"] if c["key"] == "models_and_rescue"
+    )
     rescue["types"] = [t for t in rescue["types"] if t["path"] != "rescue.human"]
     return model
 
@@ -179,7 +214,9 @@ def test_custom_category_scores_without_code_changes() -> None:
         CUSTOM_EVIDENCE, {"point_model": _custom_model()}
     )
     assert _categories(result)["patient_registry_cohort"] == 1.5
-    assert _categories(result)["rescue"] == 0  # removed type no longer counts
+    assert (
+        _categories(result)["models_and_rescue"] == 0
+    )  # removed type no longer counts
     assert result.total_score == 1.5
     assert result.verdict == "limited"
     default = ClinGenEngine().calculate_scores(CUSTOM_EVIDENCE, {})
@@ -357,3 +394,51 @@ def test_recompute_scores_with_the_pinned_version(
     assert (
         test_curation.computed_scores["total_score"] == 0
     )  # v1 has no rescue in human
+
+
+def test_recompute_logs_class_changes_and_skips_other_engines(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import recompute_scores
+
+    calls: list[dict] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "warning", lambda msg, **kw: calls.append(kw)
+    )
+    v1 = _version(db_session, test_curation, 1, {"engine": "clingen_sop_v11"})
+    test_curation.methodology_version_id = v1.id
+    test_curation.evidence_data = {
+        "genetic_evidence": {
+            "segregation": [{"points": 3}],
+            "case_control": {"single_variant_analysis": [{"points": 4}]},
+        },  # 7
+        "experimental_evidence": {
+            "models": {"non_human_model_organism": [{"points": 4}]},
+            "rescue": {"human": [{"points": 4}]},
+        },
+    }  # two caps of 4 gave 7 + 6 = 13 Strong; SOP v11 one cap of 4: 7 + 4 = 11 Moderate
+    test_curation.computed_scores = {"total_score": 13.0}
+    test_curation.computed_verdict = "strong"
+    db_session.commit()
+    recompute_scores.recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_scores["total_score"] == 11
+    assert test_curation.computed_verdict == "moderate"
+    (change,) = calls
+    assert change["curation_id"] == str(test_curation.id)
+    assert change["gene"] == test_curation.gene.approved_symbol
+    assert (change["total"], change["verdict"]) == (
+        "13.0 -> 11.0",
+        "strong -> moderate",
+    )
+
+    v2 = _version(db_session, test_curation, 2, {"engine": "gencc_based"})
+    test_curation.methodology_version_id = v2.id
+    test_curation.computed_verdict = "keep"
+    db_session.commit()
+    recompute_scores.recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_verdict == "keep"  # never scored with ClinGen points
