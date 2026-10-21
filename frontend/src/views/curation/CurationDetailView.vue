@@ -582,6 +582,8 @@
       showApproveDialog.value = false
       showRejectDialog.value = false
       notificationStore.addToast(doneMessage, 'success')
+      // MainNavigation re-counts the review badge on visibilitychange; no shared store holds it yet
+      document.dispatchEvent(new Event('visibilitychange'))
       await loadCuration()
     } catch (err) {
       const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message

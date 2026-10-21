@@ -150,6 +150,17 @@ describe('CurationDetailView', () => {
     expect(dialogs.props('errorDetail')).toBe('Notification step failed')
   })
 
+  it('asks the navigation to refresh the review badge after a transition', async () => {
+    vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
+    const refresh = vi.fn()
+    document.addEventListener('visibilitychange', refresh)
+    const wrapper = await load({ can_review: true })
+    wrapper.findComponent(CurationReviewDialogs).vm.$emit('approve', 'ok')
+    await flushPromises()
+    document.removeEventListener('visibilitychange', refresh)
+    expect(refresh).toHaveBeenCalled()
+  })
+
   it('requests changes with the comment from the dialog (#242)', async () => {
     vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
     const wrapper = await load({ can_review: true })
