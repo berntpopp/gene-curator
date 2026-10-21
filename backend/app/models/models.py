@@ -38,6 +38,11 @@ from app.core.db_types import (
 )
 
 
+def _user_fk() -> Any:
+    """Nullable audit FK to users (created_by/updated_by)."""
+    return mapped_column(compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL"))
+
+
 class SchemaMigration(Base):
     """Applied SQL migrations; written only by the migration owner."""
 
@@ -559,12 +564,8 @@ class Gene(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
-    updated_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
+    created_by: Mapped[PyUUID | None] = _user_fk()
+    updated_by: Mapped[PyUUID | None] = _user_fk()
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(
@@ -735,12 +736,8 @@ class PrecurationNew(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
-    updated_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
+    created_by: Mapped[PyUUID | None] = _user_fk()
+    updated_by: Mapped[PyUUID | None] = _user_fk()
 
     # Provenance tracking
     version_number: Mapped[int] = mapped_column(Integer, default=1)
@@ -865,12 +862,8 @@ class CurationNew(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
-    updated_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
+    created_by: Mapped[PyUUID | None] = _user_fk()
+    updated_by: Mapped[PyUUID | None] = _user_fk()
 
     # Provenance tracking
     version_number: Mapped[int] = mapped_column(Integer, default=1)
@@ -976,6 +969,10 @@ class Review(Base):
     # Version tracking for iterative reviews
     review_round: Mapped[int] = mapped_column(Integer, default=1)
 
+    # Read by the audit trigger (migration 035)
+    created_by: Mapped[PyUUID | None] = _user_fk()
+    updated_by: Mapped[PyUUID | None] = _user_fk()
+
     # Relationships
     curation: Mapped["CurationNew"] = relationship(
         "CurationNew", back_populates="reviews"
@@ -1047,12 +1044,8 @@ class ActiveCuration(Base):
         onupdate=func.now(),
         nullable=False,
     )
-    created_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
-    updated_by: Mapped[PyUUID | None] = mapped_column(
-        compatible_uuid(), ForeignKey("users.id", ondelete="SET NULL")
-    )
+    created_by: Mapped[PyUUID | None] = _user_fk()
+    updated_by: Mapped[PyUUID | None] = _user_fk()
 
     # Relationships
     gene: Mapped["Gene"] = relationship("Gene", back_populates="active_curations")
