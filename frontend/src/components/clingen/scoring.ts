@@ -1,3 +1,4 @@
+import { hasContent } from './hasContent'
 import type { EvidenceItem, ExperimentalEvidence, GeneticEvidence } from './types'
 
 export interface GeneticBreakdown {
@@ -39,7 +40,9 @@ export function sumPoints(items: unknown): number {
 }
 
 export function sumProbandPoints(items: unknown): number {
-  return asRows(items).reduce((sum, item) => sum + pointsOf(item.proband_counted_points), 0)
+  return asRows(items)
+    .filter(hasContent)
+    .reduce((sum, item) => sum + pointsOf(item.proband_counted_points), 0)
 }
 
 export function calculateGeneticScore(ge: GeneticEvidence): GeneticBreakdown {

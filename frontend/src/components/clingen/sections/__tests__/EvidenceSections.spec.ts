@@ -35,8 +35,8 @@ describe('GeneticEvidenceSection', () => {
       ...createEmptyGeneticEvidence(),
       case_level: {
         autosomal_dominant_or_x_linked: {
-          predicted_or_proven_null: [{ proband_counted_points: 1.5 }],
-          other_variant_type: [{ proband_counted_points: 0.1 }]
+          predicted_or_proven_null: [{ pmid: '1', proband_counted_points: 1.5 }],
+          other_variant_type: [{ pmid: '1', proband_counted_points: 0.1 }]
         }
       },
       segregation: [{ points: 2 }, { points: 2 }],

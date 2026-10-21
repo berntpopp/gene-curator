@@ -308,7 +308,7 @@ class ClinGenEngine(ScoringEngine):
 
         # Predicted/proven null variants
         null_variants = rows(inheritance_data.get("predicted_or_proven_null"))
-        for item in null_variants:
+        for item in filter(has_content, null_variants):
             # Use proband_counted_points from the item (already scored by user)
             points = float(item.get("proband_counted_points", 1.5) or 0)
             null_score += points
@@ -316,7 +316,7 @@ class ClinGenEngine(ScoringEngine):
 
         # Other variant types
         other_variants = rows(inheritance_data.get("other_variant_type"))
-        for item in other_variants:
+        for item in filter(has_content, other_variants):
             points = float(item.get("proband_counted_points", 0.1) or 0)
             other_score += points
             other_items.append({**item, "computed_score": points})

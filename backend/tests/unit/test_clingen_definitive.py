@@ -63,3 +63,23 @@ class TestDefinitiveAndContradictory:
     def test_rationale_uses_sop_v11_ranges(self, engine: ClinGenEngine):
         text = engine._generate_rationale(1, 0, 1, "limited")
         assert "1-6 points" in text
+
+
+def test_fresh_empty_case_level_row_scores_nothing():
+    fresh = {
+        "variant_type": "nonsense",
+        "variant": "",
+        "pmid": "",
+        "score_status": "score",
+        "proband_counted_points": 1.5,
+    }
+    engine = ClinGenEngine()
+    score, _ = engine._score_case_level_nested(
+        {"predicted_or_proven_null": [fresh]}, "AR"
+    )
+    assert score == 0
+    filled = {**fresh, "pmid": "12345678"}
+    score, _ = engine._score_case_level_nested(
+        {"predicted_or_proven_null": [filled]}, "AR"
+    )
+    assert score == 1.5
