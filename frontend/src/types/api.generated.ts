@@ -2020,7 +2020,8 @@ export interface paths {
         };
         /**
          * Get Gene
-         * @description Get gene by ID with assignment information.
+         * @description Get gene by ID. Genes are public reference data; assignment information
+         *     (scopes, curators) is only included for signed-in users.
          */
         get: operations["get_gene_api_v1_genes__gene_id__get"];
         /**
