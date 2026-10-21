@@ -313,6 +313,7 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import { openPanelsWithRows } from './openPanelsWithRows'
   import { sumPoints } from '../scoring'
   import { createEmptyExperimentalEvidence } from '../evidenceDefaults'
   import type { EvidenceItem, ExperimentalEvidence } from '../types'
@@ -341,6 +342,7 @@
   const emit = defineEmits<{ 'update:model-value': [value: ExperimentalEvidence] }>()
 
   const expandedPanels = ref(['function'])
+  openPanelsWithRows(expandedPanels, () => ({ ...props.modelValue }))
 
   // Score calculations
   const functionScore = computed(() => {

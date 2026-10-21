@@ -238,6 +238,7 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import { openPanelsWithRows } from './openPanelsWithRows'
   import { sumPoints, sumProbandPoints } from '../scoring'
   import { createEmptyGeneticEvidence } from '../evidenceDefaults'
   import type { EvidenceItem, GeneticEvidence } from '../types'
@@ -263,6 +264,12 @@
   const emit = defineEmits<{ 'update:model-value': [value: GeneticEvidence] }>()
 
   const expandedPanels = ref(['ad_xl'])
+  openPanelsWithRows(expandedPanels, () => ({
+    ad_xl: props.modelValue.case_level?.autosomal_dominant_or_x_linked,
+    ar: props.modelValue.case_level?.autosomal_recessive,
+    segregation: props.modelValue.segregation,
+    case_control: props.modelValue.case_control
+  }))
 
   // Score calculations
   const adXlScore = computed(() => {
