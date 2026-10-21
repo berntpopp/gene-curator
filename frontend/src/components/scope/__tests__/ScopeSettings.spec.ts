@@ -292,6 +292,15 @@ describe('ScopeSettings', () => {
     expect(wrapper.emitted('deleted')).toHaveLength(1)
   })
 
+  it('clears the dirty flag on delete so leaving does not prompt', async () => {
+    const { vm } = await mountSettings({ role: 'admin' })
+    vm.isDirty = true
+
+    await vm.deleteScope()
+
+    expect(vm.isDirty).toBe(false)
+  })
+
   it('shows the server detail when a delete is rejected', async () => {
     vi.mocked(scopesAPI.deleteScope).mockRejectedValueOnce(
       Object.assign(new Error('Request failed'), {

@@ -27,6 +27,7 @@
       :items="pageRows"
       :items-length="rows.length"
       :loading="loading"
+      :error="scopeStore.error"
       empty-text="No scopes found. Use New scope to create one."
     >
       <template #item.display_name="{ item }">

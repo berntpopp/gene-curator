@@ -29,7 +29,19 @@ describe('slugify', () => {
   it('lowercases, dashes words and drops everything else', () => {
     expect(slugify('Kidney Genetics')).toBe('kidney-genetics')
     expect(slugify('  Ciliopathies -- & Cystic (PKD)! ')).toBe('ciliopathies-cystic-pkd')
-    expect(slugify('Ärzte 2')).toBe('rzte-2')
+    expect(slugify('Ärzte 2')).toBe('arzte-2')
+    expect(slugify('Müller Lab')).toBe('muller-lab')
     expect(slugify('')).toBe('')
+  })
+  it('caps at 64 chars without a trailing dash', () => {
+    const out = slugify(`${'a'.repeat(63)} bbb`)
+    expect(out).toBe('a'.repeat(63))
+    expect(slugify('x'.repeat(100))).toHaveLength(64)
+  })
+  it('prefixes a leading digit so the slug starts with a letter', () => {
+    expect(slugify('2024 Lab')).toBe('s-2024-lab')
+  })
+  it('returns empty for emoji-only names', () => {
+    expect(slugify('🧬🧬')).toBe('')
   })
 })

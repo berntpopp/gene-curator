@@ -298,6 +298,7 @@
         assignment_count: activeGeneCount.value
       })
       showDeleteDialog.value = false
+      isDirty.value = false // scope is gone; leaving must not prompt
       emit('deleted')
     } catch (error) {
       const fallback = error instanceof Error ? error.message : undefined

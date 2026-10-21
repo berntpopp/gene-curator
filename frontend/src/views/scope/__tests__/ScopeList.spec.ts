@@ -50,6 +50,15 @@ describe('ScopeList view', () => {
     expect(wrapper.text()).toContain('No scopes found')
   })
 
+  it('shows the error state instead of the empty text on load failure', async () => {
+    const store = useScopesStore()
+    store.fetchUserScopes = vi.fn().mockResolvedValue(undefined) as never
+    store.error = 'boom'
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="table-error"]').text()).toContain('boom')
+  })
+
   it('shows a progress bar while loading', () => {
     const store = useScopesStore()
     store.fetchUserScopes = vi.fn(() => new Promise(() => {})) as never
