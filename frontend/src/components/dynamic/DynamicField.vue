@@ -555,24 +555,25 @@
   // Initialize validation rules from composable
   const { validationRules } = useValidationRules(() => props.fieldSchema)
 
+  // Lowercase raw values ('mitochondrial', 'lump/split/undecided') read as labels; mixed case ('AD') is kept
+  const optionTitle = (value: unknown): unknown =>
+    typeof value === 'string' && /^[a-z0-9]+([_/ -][a-z0-9]+)*$/.test(value)
+      ? humanize(value)
+      : value
+
   const getSelectItems = (): Array<{ title: unknown; value: unknown }> => {
     const options = props.fieldSchema.enumOptions
     if (options) {
       return options.map(option => {
-        if (typeof option === 'string') return { title: option, value: option }
-        return { title: option.label || option, value: option.value || option }
+        if (typeof option === 'string') return { title: optionTitle(option), value: option }
+        return {
+          title: option.label || optionTitle(option.value) || option,
+          value: option.value || option
+        }
       })
     }
 
-    return (
-      props.fieldSchema.enum?.map(value => ({
-        title:
-          typeof value === 'string' && /^[a-z0-9]+(_[a-z0-9]+)+$/.test(value)
-            ? humanize(value)
-            : value,
-        value
-      })) || []
-    )
+    return props.fieldSchema.enum?.map(value => ({ title: optionTitle(value), value })) || []
   }
 
   const getErrorMessages = (): string[] => {
