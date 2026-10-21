@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Router } from 'vue-router'
-import { myWorkAPI } from '@/api/myWork'
+import { myWorkApi } from '@/api/myWork'
 import { usePrecurationsStore } from '@/stores/precurations'
 
 const POLL_MS = 60_000
@@ -19,7 +19,7 @@ export const useWorkCountsStore = defineStore('workCounts', () => {
 
   async function fetch() {
     try {
-      const { items, counts } = await myWorkAPI.get()
+      const { items, counts } = await myWorkApi.getMyWork()
       needsYou.value = counts.needs_you ?? 0
       review.value = items.filter(i => i.kind === 'review' && i.tab === 'needs_you').length
     } catch {

@@ -3,6 +3,7 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { VLayout } from 'vuetify/components'
 import { createRouter, createMemoryHistory } from 'vue-router'
+import { createPinia } from 'pinia'
 import PhoneHeader from '../PhoneHeader.vue'
 
 vi.mock('@/composables/useLogger', () => ({
@@ -19,7 +20,7 @@ describe('PhoneHeader', () => {
     })
     await router.push('/assignments')
     const wrapper = mount(defineComponent({ render: () => h(VLayout, () => h(PhoneHeader)) }), {
-      global: { plugins: [router] }
+      global: { plugins: [router, createPinia()] }
     })
     await flushPromises()
 

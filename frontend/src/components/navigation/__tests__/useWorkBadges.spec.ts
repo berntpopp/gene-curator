@@ -4,13 +4,14 @@ import { defineComponent, h } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { myWorkAPI } from '@/api/myWork'
+import { myWorkApi } from '@/api/myWork'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { usePrecurationsStore } from '@/stores/precurations'
 import { useWorkBadges } from '../useWorkBadges'
+import { useNavEntries } from '../useNavEntries'
 
 vi.mock('@/api/myWork', () => ({
-  myWorkAPI: { get: vi.fn().mockResolvedValue({ items: [], counts: { needs_you: 2 } }) }
+  myWorkApi: { getMyWork: vi.fn().mockResolvedValue({ items: [], counts: { needs_you: 2 } }) }
 }))
 vi.mock('@/api/precurations', () => ({
   precurationsAPI: {
@@ -35,7 +36,7 @@ function setup() {
 }
 
 describe('useWorkBadges', () => {
-  const fetch = vi.mocked(myWorkAPI.get)
+  const fetch = vi.mocked(myWorkApi.getMyWork)
 
   beforeEach(() => {
     vi.useFakeTimers()
@@ -104,6 +105,22 @@ describe('useWorkBadges', () => {
     b.wrapper.unmount()
     vi.advanceTimersByTime(120_000)
     expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('rail, phone tabs and palette (all via useNavEntries) share one poller', async () => {
+    useAuthStore().isAuthenticated = true
+    const router = createRouter({
+      history: createMemoryHistory(),
+      routes: [{ path: '/', component }]
+    })
+    const consumer = defineComponent({ setup: () => (useNavEntries(), () => h('div')) })
+    const wrappers = [0, 1, 2].map(() => mount(consumer, { global: { plugins: [router] } }))
+    await flushPromises()
+    fetch.mockClear()
+
+    vi.advanceTimersByTime(60_000)
+    expect(fetch).toHaveBeenCalledTimes(1)
+    wrappers.forEach(w => w.unmount())
   })
 
   it('stops polling, drops listeners and resets counts on unmount or sign-out', async () => {
