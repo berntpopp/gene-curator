@@ -47,9 +47,9 @@
               class="mr-3"
             ></v-icon>
 
-            <div>
-              <h1 class="text-headline-large mb-1">{{ scope.display_name }}</h1>
-              <div class="text-body-large text-medium-emphasis">
+            <div class="scope-head-text">
+              <h1 class="scope-title text-headline-large mb-1">{{ scope.display_name }}</h1>
+              <div class="scope-description text-body-large text-medium-emphasis">
                 {{ scope.description }}
               </div>
             </div>
@@ -454,6 +454,16 @@
 </script>
 
 <style scoped>
+  /* A long unbroken word must wrap, not widen the page (phone) */
+  .scope-title,
+  .scope-description {
+    overflow-wrap: anywhere;
+  }
+
+  .scope-head-text {
+    min-width: 0;
+  }
+
   /* Tab content padding */
   .v-window-item {
     padding: 0;

@@ -1,7 +1,9 @@
 import { computed } from 'vue'
 import { useRouter, type RouteRecordNormalized } from 'vue-router'
 import { storeToRefs } from 'pinia'
+import { watch } from 'vue'
 import { useAuthStore } from '@/stores/auth'
+import { useScopesStore } from '@/stores/scopes'
 import { useWorkBadges } from './useWorkBadges'
 
 interface RailMeta {
@@ -13,6 +15,8 @@ interface RailMeta {
   requiresAuth?: boolean
   requiresGuest?: boolean
   requiredRoles?: string[]
+  navScopeRoles?: string[]
+  navAppRoles?: string[]
   showInMainMenu?: boolean
   showInDropdown?: string
 }
@@ -36,11 +40,27 @@ export function useNavEntries() {
   // While a stored token is still being verified, show neither guest nor user entries
   const authReady = computed(() => !authStore.token || !!authStore.user)
 
+  // Scope roles come with the user's scopes; load them once signed in (rail and phone tabs share this)
+  const scopesStore = useScopesStore()
+  watch(
+    isAuthenticated,
+    v => {
+      if (v && scopesStore.scopes.length === 0) {
+        void scopesStore.fetchUserScopes().catch(() => undefined) // entries needing a scope role stay hidden
+      }
+    },
+    { immediate: true }
+  )
+  const hasScopeRole = (roles: string[]) =>
+    scopesStore.scopes.some(s => roles.includes(s.user_role ?? ''))
+
   const allowed = (m: RailMeta) =>
     authReady.value &&
     !(m.requiresAuth && !isAuthenticated.value) &&
     !(m.requiresGuest && isAuthenticated.value) &&
-    (!m.requiredRoles || authStore.hasAnyRole(m.requiredRoles))
+    (!m.requiredRoles || authStore.hasAnyRole(m.requiredRoles)) &&
+    (!m.navAppRoles || authStore.hasAnyRole(m.navAppRoles)) &&
+    (!m.navScopeRoles || hasScopeRole(m.navScopeRoles))
 
   const entries = (pick: (m: RailMeta) => boolean) =>
     router

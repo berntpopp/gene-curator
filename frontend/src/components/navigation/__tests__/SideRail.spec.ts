@@ -55,7 +55,7 @@ describe('SideRail', () => {
     auth.user = { email: 'a@b.c', role: 'user' } as never
     Object.assign(useWorkCountsStore(), { review: 3, needsYou: 5 })
     const scopes = useScopesStore()
-    scopes.scopes = [{ id: 's1', name: 'Kidney' }] as never
+    scopes.scopes = [{ id: 's1', name: 'Kidney', user_role: 'reviewer' }] as never
     const wrapper = await mountRail()
 
     expect(wrapper.text()).toContain('My work')
@@ -103,5 +103,53 @@ describe('SideRail', () => {
     wrapper.findComponent({ name: 'VSelect' }).vm.$emit('update:modelValue', 's1')
     await vi.waitFor(() => expect(router.currentRoute.value.fullPath).toBe('/scopes/s1'))
     wrapper.unmount()
+  })
+
+  describe('entries follow the role (#monkey)', () => {
+    const signIn = (role: 'user' | 'admin', scopeRole: string | null) => {
+      const auth = useAuthStore()
+      auth.token = 't'
+      auth.isAuthenticated = true
+      auth.user = { email: 'a@b.c', role } as never
+      useScopesStore().scopes = [{ id: 's1', name: 'k', user_role: scopeRole }] as never
+    }
+
+    it('hides Review and Assignments from a viewer', async () => {
+      signIn('user', 'viewer')
+      const wrapper = await mountRail()
+      expect(wrapper.text()).not.toContain('Review')
+      expect(wrapper.text()).not.toContain('Assignments')
+      wrapper.unmount()
+    })
+
+    it('shows Review to a scope reviewer and to a scope admin, still no Assignments', async () => {
+      for (const role of ['reviewer', 'admin']) {
+        signIn('user', role)
+        const wrapper = await mountRail()
+        expect(wrapper.text()).toContain('Review')
+        expect(wrapper.text()).not.toContain('Assignments')
+        wrapper.unmount()
+      }
+    })
+
+    it('gives a platform admin Assignments, but Review only with a real reviewer or admin membership', async () => {
+      signIn('admin', 'viewer')
+      let wrapper = await mountRail()
+      expect(wrapper.text()).toContain('Assignments')
+      expect(wrapper.text()).not.toContain('Review')
+      wrapper.unmount()
+
+      signIn('admin', 'reviewer')
+      wrapper = await mountRail()
+      expect(wrapper.text()).toContain('Review')
+      wrapper.unmount()
+    })
+
+    it('hides Review from a curator', async () => {
+      signIn('user', 'curator')
+      const wrapper = await mountRail()
+      expect(wrapper.text()).not.toContain('Review')
+      wrapper.unmount()
+    })
   })
 })
