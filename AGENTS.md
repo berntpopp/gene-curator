@@ -91,6 +91,8 @@ keys and the legacy `New` suffix (`UserNew`, `CurationNew`).
 schema. Scoring engines subclass `ScoringEngine` and register with `scoring_registry`.
 Workflow: Entry -> Precuration -> Curation -> Review (4-eyes) -> Active, backwards transitions
 allowed, one active curation per gene and scope (`crud/workflow_engine.py`).
+A required boolean must be answered and false is an answer; a required field whose
+`show_when`/`visible_when` is false is not required.
 
 **Frontend** (`frontend/src`): axios client in `api/client` (token refresh on 401, correlation IDs),
 one module per resource in `api/`, Pinia stores in `stores/` (components never call `api/` directly),

@@ -8,8 +8,8 @@
       <span class="text-title-large">Approve {{ geneSymbol }} for {{ scopeName }}?</span>
     </template>
     <p class="text-body-medium text-medium-emphasis mb-4">
-      This becomes the active, public assertion for {{ geneSymbol }} in this scope and replaces any
-      earlier version.
+      Once every required reviewer has approved, this becomes the active, public assertion for
+      {{ geneSymbol }} in this scope and replaces any earlier version.
     </p>
     <dl class="summary mb-4">
       <div>
@@ -79,7 +79,7 @@
         data-testid="approve-confirm"
         @click="emit('approve', note)"
       >
-        Approve and publish
+        Approve
       </v-btn>
     </template>
   </BaseDialog>
