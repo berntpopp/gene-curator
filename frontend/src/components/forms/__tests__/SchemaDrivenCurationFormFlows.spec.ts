@@ -204,30 +204,77 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(internals(wrapper).evidenceData).toEqual({ evidence_items: [] })
   })
 
-  it('starts a re-curation from the active curation: its evidence and disease, a new draft', async () => {
+  it('starts a re-curation from the active curation: its evidence and precuration, a new draft', async () => {
+    const evidence = {
+      entity_definition: { mondo_id: 'MONDO:0018965' },
+      genetic_evidence: { x: 1 }
+    }
     curationsStore.fetchCurationById.mockResolvedValue({
       id: 'active-1',
-      evidence_data: { genetic_evidence: { x: 1 } },
+      precuration_id: 'stale-pre', // rejected since: create would refuse this link
+      evidence_data: evidence,
       disease_name: 'Alport syndrome',
       mondo_id: 'MONDO:0018965',
       mode_of_inheritance: 'XL',
       lock_version: 6,
       status: 'active'
     })
+    curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
+    precurationsStore.precurations = [
+      { id: 'stale-pre', status: 'rejected' },
+      { id: 'pre-2', status: 'approved' }
+    ]
 
-    const wrapper = await mountForm({ geneId: 'g-1', prefillFrom: 'active-1' })
+    const wrapper = await mountForm({
+      geneId: 'g-1',
+      workflowPairId: 'wp-1',
+      prefillFrom: 'active-1'
+    })
     const vm = internals(wrapper)
 
     expect(curationsStore.fetchCurationById).toHaveBeenCalledWith('active-1')
-    expect(vm.evidenceData).toEqual({
-      disease_name: 'Alport syndrome',
-      mondo_id: 'MONDO:0018965',
-      mode_of_inheritance: 'XL',
-      genetic_evidence: { x: 1 }
-    })
+    // Only the evidence: resolved disease fields are not copied to the top level (#409)
+    expect(vm.evidenceData).toEqual(evidence)
     // The new curation is a fresh draft, not the active one
     expect(vm.lockVersion).toBe(0)
     expect(vm.curationStatus).toBe('draft')
+
+    // The draft links the currently approved precuration, never the source's stale one (#409)
+    vm.handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    await flushPromises()
+    expect(curationsStore.createCuration).toHaveBeenCalledWith({
+      gene_id: 'g-1',
+      scope_id: 'scope-1',
+      workflow_pair_id: 'wp-1',
+      precuration_id: 'pre-2',
+      evidence_data: evidence
+    })
+  })
+
+  it('creates a re-curation without a link when no precuration is approved', async () => {
+    curationsStore.fetchCurationById.mockResolvedValue({
+      id: 'active-1',
+      precuration_id: 'stale-pre',
+      evidence_data: { a: 1 },
+      status: 'active'
+    })
+    curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
+    precurationsStore.precurations = [{ id: 'stale-pre', status: 'rejected' }]
+
+    const wrapper = await mountForm({
+      geneId: 'g-1',
+      workflowPairId: 'wp-1',
+      prefillFrom: 'active-1'
+    })
+    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    await flushPromises()
+
+    expect(curationsStore.createCuration).toHaveBeenCalledWith({
+      gene_id: 'g-1',
+      scope_id: 'scope-1',
+      workflow_pair_id: 'wp-1',
+      evidence_data: { a: 1 }
+    })
   })
 
   it('ignores the prefill source when editing an existing curation, and reports a failed prefill', async () => {
