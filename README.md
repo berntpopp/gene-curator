@@ -59,7 +59,7 @@ An existing database gets the role with `make db-migrate` before the backend res
 
 ### Upgrading to v0.5.0
 
-Run `make db-migrate` (migrations 036-040) before restarting the backend. Curation and precuration
+Run `make db-migrate` (migrations 036-041) before restarting the backend. Curation and precuration
 updates now require `lock_version`. Details: [docs/releases/v0.5.0.md](docs/releases/v0.5.0.md).
 
 ### Upgrading to v0.4.0
