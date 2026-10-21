@@ -116,6 +116,21 @@ describe('SideRail', () => {
     admin.unmount()
   })
 
+  it('loads the scopes when the user signs in after the rail mounted', async () => {
+    const auth = useAuthStore()
+    const scopes = useScopesStore()
+    scopes.scopes = []
+    const wrapper = await mountRail()
+    expect(scopes.fetchUserScopes).not.toHaveBeenCalled()
+
+    auth.token = 't'
+    auth.isAuthenticated = true
+    auth.user = { email: 'a@b.c', role: 'user' } as never
+    await flushPromises()
+    expect(scopes.fetchUserScopes).toHaveBeenCalledTimes(1)
+    wrapper.unmount()
+  })
+
   it('loads the scopes when signed in and none are loaded yet, and navigates on switch', async () => {
     const auth = useAuthStore()
     auth.token = 't'

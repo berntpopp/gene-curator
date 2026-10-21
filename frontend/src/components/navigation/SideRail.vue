@@ -64,7 +64,7 @@
    * primary destinations, `showInDropdown: 'curationSetup'` for the admin group.
    * Below md App.vue renders AppBar instead.
    */
-  import { computed, onMounted } from 'vue'
+  import { computed, watch } from 'vue'
   import { useRouter, type RouteRecordNormalized } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { useAuthStore } from '@/stores/auth'
@@ -123,11 +123,16 @@
     if (id) void router.push({ name: 'scope-dashboard', params: { scopeId: id } })
   }
 
-  onMounted(() => {
-    if (isAuthenticated.value && scopes.value.length === 0) {
-      void scopesStore.fetchUserScopes().catch(() => undefined) // switcher stays empty; page-level errors surface elsewhere
-    }
-  })
+  // The rail stays mounted through login, so load when the user becomes authenticated
+  watch(
+    isAuthenticated,
+    v => {
+      if (v && scopes.value.length === 0) {
+        void scopesStore.fetchUserScopes().catch(() => undefined) // switcher stays empty; page-level errors surface elsewhere
+      }
+    },
+    { immediate: true }
+  )
 </script>
 
 <style scoped>
@@ -140,7 +145,7 @@
 
   .side-rail :deep(.v-list-item),
   .side-rail :deep(.v-list-subheader),
-  .side-rail :deep(.v-btn),
+  .side-rail :deep(.v-btn--variant-text),
   .side-rail :deep(.v-field) {
     color: #e6e8ee;
   }

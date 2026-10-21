@@ -1,7 +1,7 @@
 <template>
   <v-app>
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
-    <SideRail v-if="mdAndUp" />
+    <SideRail v-if="mdAndUp && authStore.isAuthenticated" />
     <AppBar v-else />
 
     <v-main id="main-content" tabindex="-1">
@@ -35,6 +35,7 @@
 
 <script setup lang="ts">
   import { ref, watch, onMounted, onUnmounted } from 'vue'
+  import { useAuthStore } from '@/stores/auth'
   import { useLogStore } from '@/stores/logStore'
   import { useDisclaimerStore } from '@/stores/disclaimer'
   import { snackbarState } from '@/composables/useNotifications'
@@ -56,6 +57,7 @@
   }
   const logger = useLogger() as ScopedLogger
   const { mdAndUp } = useDisplay()
+  const authStore = useAuthStore()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
 
