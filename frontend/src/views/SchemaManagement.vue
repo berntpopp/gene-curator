@@ -355,7 +355,11 @@
         ...basics,
         schema_type: type as string,
         field_definitions: { example_field: { type: 'string', title: 'Example field' } },
-        workflow_states: ['draft', 'submitted'],
+        workflow_states: {
+          states: [{ name: 'draft' }, { name: 'submitted' }],
+          transitions: { draft: ['submitted'], submitted: [] },
+          initial_state: 'draft'
+        },
         ui_configuration: { sections: [] },
         is_active: false,
         use_dynamic_form: true
