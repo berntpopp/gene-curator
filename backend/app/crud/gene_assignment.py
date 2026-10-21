@@ -3,7 +3,7 @@ CRUD operations for gene-scope assignments.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -269,7 +269,7 @@ class CRUDGeneScopeAssignment(
 
         obj_in_data = obj_in.model_dump()
         obj_in_data["assigned_by"] = assigned_by
-        obj_in_data["assigned_at"] = datetime.utcnow()
+        obj_in_data["assigned_at"] = datetime.now(UTC)
 
         # Map schema field 'priority_level' to model field 'priority'
         if "priority_level" in obj_in_data:

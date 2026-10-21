@@ -3,9 +3,9 @@ Pydantic schemas for system log API endpoints.
 """
 
 from datetime import datetime
-from typing import Any, ClassVar
+from typing import Any
 
-from pydantic import AliasChoices, BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
 
 
 class LogEntry(BaseModel):
@@ -45,10 +45,10 @@ class LogEntry(BaseModel):
     def _user_id_to_str(cls, v: object) -> object:
         return None if v is None else str(v)
 
-    class Config:
-        from_attributes = True
-        populate_by_name = True
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        from_attributes=True,
+        populate_by_name=True,
+        json_schema_extra={
             "example": {
                 "id": 12345,
                 "timestamp": "2025-01-15T10:30:45.123Z",
@@ -64,7 +64,8 @@ class LogEntry(BaseModel):
                 "method": "POST",
                 "status_code": 201,
             }
-        }
+        },
+    )
 
 
 class LogSearchParams(BaseModel):
@@ -90,8 +91,8 @@ class LogSearchParams(BaseModel):
         100, ge=1, le=1000, description="Maximum number of records to return"
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "level": "ERROR",
                 "start_date": "2025-01-15T00:00:00Z",
@@ -99,7 +100,8 @@ class LogSearchParams(BaseModel):
                 "skip": 0,
                 "limit": 100,
             }
-        }
+        },
+    )
 
 
 class LogStatsSummary(BaseModel):
@@ -121,8 +123,8 @@ class LogStatsSummary(BaseModel):
         ..., description="Top 5 most common error messages"
     )
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "total_logs": 50000,
                 "logs_by_level": {
@@ -150,7 +152,8 @@ class LogStatsSummary(BaseModel):
                     }
                 ],
             }
-        }
+        },
+    )
 
 
 class LogExportParams(BaseModel):
@@ -162,8 +165,8 @@ class LogExportParams(BaseModel):
     end_date: datetime | None = Field(None, description="End date (inclusive)")
     limit: int = Field(10000, ge=1, le=100000, description="Maximum records to export")
 
-    class Config:
-        json_schema_extra: ClassVar[dict[str, Any]] = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "format": "csv",
                 "level": "ERROR",
@@ -171,4 +174,5 @@ class LogExportParams(BaseModel):
                 "end_date": "2025-01-15T23:59:59Z",
                 "limit": 1000,
             }
-        }
+        },
+    )

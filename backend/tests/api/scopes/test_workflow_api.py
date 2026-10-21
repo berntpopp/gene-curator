@@ -10,6 +10,7 @@ from app.models.models import (
     ActiveCuration,
     CurationNew,
     CurationStatus,
+    GeneScopeAssignment,
     Scope,
     UserNew,
     WorkflowStage as S,
@@ -466,6 +467,32 @@ def test_statistics_and_dashboard_for_member(
     assert stats.json()["time_period_days"] == 7
     assert dashboard.status_code == 200
     assert dashboard.json()["my_pending_reviews"] == 0
+
+
+def test_dashboard_my_assignments_count_is_exact(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    other = make_user(db_session)
+    for owner in (curator, curator, other, other, other):
+        db_session.add(
+            GeneScopeAssignment(
+                gene_id=make_gene(db_session).id,
+                scope_id=scope_with_admin.id,
+                assigned_curator_id=owner.id,
+            )
+        )
+    db_session.commit()
+
+    dashboard = client.get(
+        f"{BASE}/dashboard",
+        params={"scope_id": str(scope_with_admin.id)},
+        headers=auth_headers(curator),
+    )
+
+    assert dashboard.json()["my_assignments"]["total"] == 2
 
 
 def test_analytics_rejects_period_below_minimum(
