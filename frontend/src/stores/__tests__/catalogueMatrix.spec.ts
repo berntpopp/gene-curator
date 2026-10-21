@@ -126,4 +126,15 @@ describe('catalogueMatrix store', () => {
     expect(store.total).toBe(1)
     expect(store.loading).toBe(false)
   })
+
+  it('clears loading when the scope list empties during an in-flight request', async () => {
+    let first!: (v: unknown) => void
+    api.getMatrix.mockImplementationOnce(() => new Promise(r => (first = r)))
+    const store = useCatalogueMatrixStore()
+    const slow = store.fetch({ scopeIds: ['a'], page: 1, size: 25 })
+    await store.fetch({ scopeIds: [], page: 1, size: 25 })
+    first({ scopes: [], rows: [], total: 0 })
+    await slow
+    expect(store.loading).toBe(false)
+  })
 })

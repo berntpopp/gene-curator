@@ -87,6 +87,7 @@ export const useCatalogueMatrixStore = defineStore('catalogueMatrix', () => {
     if (!q.scopeIds.length) {
       scopes.value = rows.value = []
       total.value = 0
+      loading.value = false
       return
     }
     loading.value = true
