@@ -86,7 +86,7 @@ def create_curation_schema(
         )
 
     # Validate schema structure
-    validation_result = schema_crud.validate_schema_structure(schema_in.dict())
+    validation_result = schema_crud.validate_schema_structure(schema_in.model_dump())
     if not validation_result.is_valid:
         raise HTTPException(
             status_code=400,
@@ -431,4 +431,4 @@ def calculate_scores_with_engine(
     if not result:
         raise HTTPException(status_code=404, detail="Scoring engine not found")
 
-    return {"engine_name": engine_name, "result": result.dict()}
+    return {"engine_name": engine_name, "result": result.model_dump()}
