@@ -73,6 +73,7 @@ vi.mock('@/composables/useFormRecovery', async () => {
       lastSaved: recovery.lastSaved,
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
+      dropIfSaved: vi.fn(),
       clearRecovery: recovery.clearRecovery
     })
   }

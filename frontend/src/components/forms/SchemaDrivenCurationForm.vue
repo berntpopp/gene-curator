@@ -102,7 +102,7 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      v-model="showRecoveryDialog"
+      :model-value="showRecoveryDialog && recoveryReady"
       :timestamp="recoveryTimestamp"
       @restore="handleRestore"
       @discard="discardRecovery"
@@ -150,6 +150,7 @@
   import type { ApiErrorLike } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
+  import { hasContent } from '@/components/clingen/hasContent'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import ScorePreview from '@/components/evidence/ScorePreview.vue'
@@ -234,9 +235,7 @@
   })
 
   // Flags that change the classification (Disputed / Definitive), as in the backend
-  const hasContradictory = computed(
-    () => ((evidenceData.value.contradictory_evidence as unknown[] | undefined)?.length ?? 0) > 0
-  )
+  const hasContradictory = computed(() => hasContent(evidenceData.value.contradictory_evidence))
   const replicatedOverTime = computed(() => evidenceData.value.replicated_over_time === true)
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
@@ -252,8 +251,10 @@
     showRecoveryDialog,
     restoreRecovery: restoreInPlace,
     discardRecovery,
-    clearRecovery
+    clearRecovery,
+    dropIfSaved
   } = formRecovery
+  const recoveryReady = ref(false) // offer recovery only after the saved curation is known
   const recoveryTimestamp = formRecovery.recoveryTimestamp
 
   // restore mutates evidenceData in place; a new reference lets reference watchers (ClinGen form) see it
@@ -503,6 +504,7 @@
           evidenceData.value = curation.evidence_data || {}
         }
 
+        dropIfSaved(evidenceData.value)
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
         curationStatus.value = curation.status || 'draft'
@@ -544,6 +546,7 @@
       await loadPrecurationData()
     }
     ready.value = true
+    recoveryReady.value = true
     emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,

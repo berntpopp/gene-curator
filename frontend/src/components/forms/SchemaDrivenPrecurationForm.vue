@@ -43,6 +43,7 @@
 
         <!-- Actions -->
         <FormActions
+          v-if="!readonly"
           :can-undo="canUndo"
           :can-redo="canRedo"
           :can-submit="canSubmit"
@@ -59,7 +60,7 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      v-model="showRecoveryDialog"
+      :model-value="showRecoveryDialog && recoveryReady"
       :timestamp="recoveryTimestamp"
       @restore="restoreRecovery"
       @discard="discardRecovery"
@@ -101,7 +102,8 @@
   import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
-  import { errorMessage } from '@/stores/apiError'
+  import { apiDetail } from './apiDetail'
+  import { missingRequiredLabels } from './requiredFields'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import type { ApiErrorLike } from './types'
@@ -158,11 +160,18 @@
     () => `precuration-${props.precurationId || 'new'}-schema-${props.schemaId}`
   )
 
-  const { showRecoveryDialog, recoveryTimestamp, restoreRecovery, discardRecovery, clearRecovery } =
-    useFormRecovery(recoveryKey.value, evidenceData, {
-      saveInterval: 5000,
-      maxAge: 24 * 60 * 60 * 1000
-    })
+  const recoveryReady = ref(false) // offer recovery only after the saved draft is known
+  const {
+    showRecoveryDialog,
+    recoveryTimestamp,
+    restoreRecovery,
+    discardRecovery,
+    clearRecovery,
+    dropIfSaved
+  } = useFormRecovery(recoveryKey.value, evidenceData, {
+    saveInterval: 5000,
+    maxAge: 24 * 60 * 60 * 1000
+  })
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -288,7 +297,9 @@
       if (existingId) {
         // Update existing precuration draft
         const updated = await precurationsStore.saveDraft(existingId, evidenceData.value)
-        if (updated) emit('saved')
+        // The store swallows save errors and returns nothing
+        if (!updated) throw new Error('Draft not saved')
+        emit('saved')
       } else {
         // Create new precuration as draft
         const created = await precurationsStore.createPrecuration(createPayload())
@@ -303,7 +314,7 @@
       clearRecovery()
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to save draft', 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
     } finally {
       savingDraft.value = false
     }
@@ -314,6 +325,15 @@
    */
   async function handleSubmit() {
     if (!canSubmit.value) return
+
+    const missing = missingRequiredLabels(
+      schemasStore.getSchemaById(props.schemaId)?.field_definitions,
+      evidenceData.value
+    )
+    if (missing.length > 0) {
+      notificationsStore.addToast(`Required before submitting: ${missing.join(', ')}`, 'error')
+      return
+    }
 
     submitting.value = true
     try {
@@ -334,7 +354,7 @@
       emit('submit')
     } catch (error) {
       logger.error('Failed to submit precuration', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast(errorMessage(error, 'Failed to submit precuration'), 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to submit precuration'), 'error')
     } finally {
       submitting.value = false
     }
@@ -387,6 +407,7 @@
       if (precuration) {
         evidenceData.value = precuration.evidence_data
         isDraft.value = precuration.status === 'draft'
+        dropIfSaved(precuration.evidence_data)
       }
     } catch (error) {
       logger.error('Failed to load precuration', { error: (error as ApiErrorLike).message })
@@ -415,6 +436,7 @@
   onMounted(async () => {
     await loadSchema()
     await loadPrecuration()
+    recoveryReady.value = true
     logger.debug('SchemaDrivenPrecurationForm mounted', {
       schemaId: props.schemaId,
       precurationId: props.precurationId

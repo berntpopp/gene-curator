@@ -17,13 +17,18 @@ const precurationsStore = vi.hoisted(() => ({
   submitForReview: vi.fn()
 }))
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
-const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn() }))
+const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn(), dropIfSaved: vi.fn() }))
+const schemaFields = vi.hoisted(() => ({ value: undefined as Record<string, unknown> | undefined }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) => ({ id, name: 'Panel schema' }),
+    getSchemaById: (id: string) => ({
+      id,
+      name: 'Panel schema',
+      field_definitions: schemaFields.value
+    }),
     fetchSchemaById: vi.fn()
   })
 }))
@@ -41,7 +46,8 @@ vi.mock('@/composables/useFormRecovery', async () => {
       lastSaved: ref(null),
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
-      clearRecovery: recovery.clearRecovery
+      clearRecovery: recovery.clearRecovery,
+      dropIfSaved: recovery.dropIfSaved
     })
   }
 })
@@ -91,6 +97,7 @@ describe('SchemaDrivenPrecurationForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
+    schemaFields.value = undefined
   })
 
   it('creates a precuration on first draft save and navigates to its editor', async () => {
@@ -217,7 +224,10 @@ describe('SchemaDrivenPrecurationForm', () => {
   })
 
   it('reports a failed submission', async () => {
-    precurationsStore.submitForReview.mockRejectedValue({ message: 'locked' })
+    precurationsStore.submitForReview.mockRejectedValue({
+      message: 'locked',
+      response: { data: { detail: 'locked' } }
+    })
     const wrapper = mountForm({ precurationId: 'p-1' })
     await flushPromises()
 
@@ -310,5 +320,99 @@ describe('SchemaDrivenPrecurationForm', () => {
     input.addEventListener('keydown', e => vm.handleKeydown(e))
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     expect(wrapper.emitted('cancel')).toBeUndefined()
+  })
+
+  describe('monkey-test findings', () => {
+    const required = {
+      entity_definition: {
+        type: 'object',
+        properties: {
+          disease_name: { type: 'string', required: true, label: 'Disease name' },
+          mode_of_inheritance: { type: 'enum', required: true }
+        }
+      }
+    }
+
+    it('refuses to submit an empty precuration and names the missing fields by label', async () => {
+      schemaFields.value = required
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      await internals(wrapper).handleSubmit()
+
+      expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
+      const [message, kind] = addToast.mock.calls.at(-1) as [string, string]
+      expect(kind).toBe('error')
+      expect(message).toContain('Disease name')
+      expect(message).toContain('Mode of inheritance')
+      expect(message).not.toContain('entity_definition')
+    })
+
+    it('submits once the required fields are filled', async () => {
+      schemaFields.value = required
+      precurationsStore.submitForReview.mockResolvedValue({})
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+      internals(wrapper).handleEvidenceChange({
+        entity_definition: { disease_name: 'X', mode_of_inheritance: 'unknown' }
+      })
+
+      await internals(wrapper).handleSubmit()
+
+      expect(precurationsStore.submitForReview).toHaveBeenCalledWith('p-1')
+    })
+
+    it('shows the API detail of a rejected submit', async () => {
+      precurationsStore.submitForReview.mockRejectedValue({
+        response: { data: { detail: { message: 'Missing required fields: notes', fields: [] } } }
+      })
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      await internals(wrapper).handleSubmit()
+
+      expect(addToast).toHaveBeenCalledWith('Missing required fields: notes', 'error')
+    })
+
+    it('does not claim success when the draft save fails', async () => {
+      precurationsStore.saveDraft.mockResolvedValue(null)
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      await internals(wrapper).handleSaveDraft()
+
+      expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
+      expect(addToast).toHaveBeenCalledWith('Failed to save draft', 'error')
+      expect(recovery.clearRecovery).not.toHaveBeenCalled()
+    })
+
+    it('saves the draft on Ctrl+S pressed inside the form', async () => {
+      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      await wrapper.find('form').trigger('keydown', { key: 's', ctrlKey: true })
+      await flushPromises()
+
+      expect(precurationsStore.saveDraft).toHaveBeenCalled()
+    })
+
+    it('drops a recovery snapshot equal to the loaded draft', async () => {
+      precurationsStore.fetchPrecurationById.mockResolvedValue({
+        evidence_data: { a: 1 },
+        status: 'draft'
+      })
+      mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      expect(recovery.dropIfSaved).toHaveBeenCalledWith({ a: 1 })
+    })
+
+    it('hides Save draft and Submit when read-only', async () => {
+      const wrapper = mountForm({ precurationId: 'p-1', readonly: true })
+      await flushPromises()
+
+      expect(wrapper.findComponent({ name: 'FormActions' }).exists()).toBe(false)
+    })
   })
 })

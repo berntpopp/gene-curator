@@ -50,6 +50,8 @@ export interface UseFormRecoveryReturn {
   discardRecovery: () => void
   clearRecovery: () => void
   resumeAutoSave: () => void
+  /** Forget the snapshot when it equals the data already saved on the server */
+  dropIfSaved: (saved: unknown) => void
 }
 
 /**
@@ -67,6 +69,15 @@ function hasNonEmptyData(data: unknown): boolean {
     return values.some(value => hasNonEmptyData(value))
   }
   return false
+}
+
+/** JSON with sorted keys: the server (JSONB) does not keep key order */
+function canonical(data: unknown): string {
+  return JSON.stringify(data, (_key, value) =>
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a.localeCompare(b)))
+      : value
+  )
 }
 
 export function useFormRecovery<T extends object>(
@@ -240,7 +251,17 @@ export function useFormRecovery<T extends object>(
     isPaused.value = false
   }
 
+  function dropIfSaved(savedData: unknown): void {
+    if (showRecoveryDialog.value && canonical(recoveryData.value) === canonical(savedData)) {
+      localStorage.removeItem(recoveryKey)
+      recoveryData.value = null
+      recoveryTimestamp.value = null
+      showRecoveryDialog.value = false
+    }
+  }
+
   return {
+    dropIfSaved,
     showRecoveryDialog,
     recoveryData,
     recoveryTimestamp,

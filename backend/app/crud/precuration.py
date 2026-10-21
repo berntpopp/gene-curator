@@ -42,6 +42,40 @@ def _utc_now() -> datetime:
     return datetime.now(UTC)
 
 
+class MissingRequiredFieldsError(ValueError):
+    """Submit refused: schema-required fields are empty (dotted paths in ``fields``)."""
+
+    def __init__(self, fields: list[str]) -> None:
+        super().__init__(f"Missing required fields: {', '.join(fields)}")
+        self.fields = fields
+
+
+def missing_required_fields(
+    field_definitions: Any, data: Any, prefix: str = ""
+) -> list[str]:
+    """Dotted paths of required schema fields that are empty in ``data``."""
+    if not isinstance(field_definitions, dict):
+        return []
+    data = data if isinstance(data, dict) else {}
+    missing: list[str] = []
+    for name, config in field_definitions.items():
+        if not isinstance(config, dict):
+            continue
+        path = f"{prefix}{name}"
+        value = data.get(name)
+        if config.get("required") is True and (
+            value is None
+            or (isinstance(value, str) and not value.strip())
+            or (isinstance(value, list | dict) and not value)
+        ):
+            missing.append(path)
+        elif config.get("type") == "object":
+            missing += missing_required_fields(
+                config.get("properties"), value, f"{path}."
+            )
+    return missing
+
+
 class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpdate]):
     """
     CRUD operations for precurations with workflow integration.
@@ -318,6 +352,13 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew:
         """Submit precuration for review via workflow engine."""
+        schema = db_obj.precuration_schema
+        missing = missing_required_fields(
+            schema.field_definitions if schema else None, db_obj.evidence_data
+        )
+        if missing:
+            raise MissingRequiredFieldsError(missing)
+
         # Validate lumping/splitting consistency
         evidence = db_obj.evidence_data or {}
         if evidence.get("lumping_splitting_applicable"):
