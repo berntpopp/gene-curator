@@ -82,6 +82,7 @@ def test_unapproved_precuration_is_rejected(
     )
 
 
+@pytest.mark.parametrize("linked", [False, True])
 def test_approved_precuration_allows_create(
     client: TestClient,
     test_user_admin: UserNew,
@@ -89,19 +90,12 @@ def test_approved_precuration_allows_create(
     test_gene: Gene,
     test_workflow_pair: WorkflowPair,
     approved_precuration: PrecurationNew,
+    linked: bool,
 ) -> None:
-    assert (
-        _create(client, test_user_admin, test_scope, test_gene, test_workflow_pair)
-        == 201
-    )
+    extra = {"precuration_id": str(approved_precuration.id)} if linked else {}
     assert (
         _create(
-            client,
-            test_user_admin,
-            test_scope,
-            test_gene,
-            test_workflow_pair,
-            precuration_id=str(approved_precuration.id),
+            client, test_user_admin, test_scope, test_gene, test_workflow_pair, **extra
         )
         == 201
     )
@@ -153,4 +147,60 @@ def test_approved_precuration_of_other_gene_or_scope_is_rejected(
             precuration_id=str(approved_precuration.id),
         )
         == 400
+    )
+
+
+@pytest.mark.parametrize(
+    "open_status",
+    [
+        CurationStatus.DRAFT,
+        CurationStatus.SUBMITTED,
+        CurationStatus.IN_REVIEW,
+        CurationStatus.REJECTED,
+    ],
+)
+def test_open_curation_blocks_another(
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    test_scope: Scope,
+    test_gene: Gene,
+    test_workflow_pair: WorkflowPair,
+    approved_precuration: PrecurationNew,
+    open_status: CurationStatus,
+) -> None:
+    """One open curation per gene and scope: a second is refused with the open one's id."""
+    make_curation(  # the active one being re-curated does not count as open
+        db_session,
+        scope=test_scope,
+        gene=test_gene,
+        creator=test_user_admin,
+        stage=WorkflowStage.ACTIVE,
+        status=CurationStatus.ACTIVE,
+    )
+    existing = make_curation(
+        db_session,
+        scope=test_scope,
+        gene=test_gene,
+        creator=test_user_admin,
+        stage=WorkflowStage.CURATION,
+        status=open_status,
+    )
+    body = {
+        "gene_id": str(test_gene.id),
+        "scope_id": str(test_scope.id),
+        "workflow_pair_id": str(test_workflow_pair.id),
+        "evidence_data": {},
+    }
+    response = client.post(
+        "/api/v1/curations/", json=body, headers=auth_headers(test_user_admin)
+    )
+    assert response.status_code == 409
+    assert response.json()["detail"]["curation_id"] == str(existing.id)
+
+    existing.status = CurationStatus.ARCHIVED
+    db_session.commit()
+    assert (
+        _create(client, test_user_admin, test_scope, test_gene, test_workflow_pair)
+        == 201
     )

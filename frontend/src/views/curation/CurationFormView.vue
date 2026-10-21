@@ -414,6 +414,20 @@
 
       // Check precuration status for new curations (not edits)
       if (!curationId.value && geneId.value) {
+        // One open curation per gene and scope: open it (e.g. the draft approval created)
+        const { curations } = await curationsStore.fetchCurations({
+          scope_id: scopeId.value,
+          gene_id: geneId.value
+        })
+        const open = curations.find(c => !['active', 'archived'].includes(c.status))
+        if (open) {
+          router.replace({
+            name: 'curation-edit',
+            params: { scopeId: scopeId.value, curationId: open.id }
+          })
+          return
+        }
+
         await checkPrecurationStatus()
 
         // Redirect if no approved precuration exists

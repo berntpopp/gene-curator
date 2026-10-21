@@ -11,8 +11,9 @@ import { useCurationsStore } from '@/stores/curations'
 import { usePrecurationsStore } from '@/stores/precurations'
 import { useGenesStore } from '@/stores/genes'
 
-const { routerPush, routerBack, routeState, logger } = vi.hoisted(() => ({
+const { routerPush, routerReplace, routerBack, routeState, logger } = vi.hoisted(() => ({
   routerPush: vi.fn(),
+  routerReplace: vi.fn(),
   routerBack: vi.fn(),
   routeState: {
     params: {} as Record<string, string>,
@@ -22,7 +23,7 @@ const { routerPush, routerBack, routeState, logger } = vi.hoisted(() => ({
 }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: routerPush, back: routerBack }),
+  useRouter: () => ({ push: routerPush, replace: routerReplace, back: routerBack }),
   useRoute: () => routeState,
   onBeforeRouteLeave: vi.fn()
 }))
@@ -58,6 +59,7 @@ const mountView = async (
   vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
   vi.spyOn(scopes, 'fetchScope').mockResolvedValue({ default_workflow_pair_id: 'wp1' } as never)
   vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)
+  vi.spyOn(curations, 'fetchCurations').mockResolvedValue({ curations: [] } as never)
   setup?.({ schemas, scopes, curations, precurations, genes })
   const wrapper = mount(CurationFormView, { global: { stubs: { ...stubs, ...extraStubs } } })
   await flushPromises()
@@ -205,6 +207,30 @@ describe('CurationFormView', () => {
     expect(vm.formGene).toEqual({ symbol: 'HNF1B' })
     expect(vm.precurationStatus).toBe('approved')
   })
+
+  it.each([{}, { from: 'c-active' }])(
+    'opens the open curation of the gene instead of starting another (query %o)',
+    async query => {
+      routeState.params = { scopeId: 'sc1', geneId: 'g1' }
+      routeState.query = query as Record<string, string>
+      const { curations, precurations } = await mountView(({ curations, precurations, genes }) => {
+        vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+        vi.spyOn(curations, 'fetchCurations').mockResolvedValue({
+          curations: [
+            { id: 'c-active', status: 'active' },
+            { id: 'c-draft', status: 'draft' }
+          ]
+        } as never)
+        vi.spyOn(precurations, 'fetchPrecurations')
+      })
+      expect(curations.fetchCurations).toHaveBeenCalledWith({ scope_id: 'sc1', gene_id: 'g1' })
+      expect(routerReplace).toHaveBeenCalledWith({
+        name: 'curation-edit',
+        params: { scopeId: 'sc1', curationId: 'c-draft' }
+      })
+      expect(precurations.fetchPrecurations).not.toHaveBeenCalled()
+    }
+  )
 
   it('sends the user to the precuration form when none is approved', async () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }

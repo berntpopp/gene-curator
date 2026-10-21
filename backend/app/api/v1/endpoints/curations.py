@@ -20,7 +20,7 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
-from app.crud.curation import curation_crud
+from app.crud.curation import OpenCurationExistsError, curation_crud
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import holds_review_capability
 from app.models import CurationNew, CurationStatus, UserNew
@@ -337,6 +337,11 @@ def create_curation(
             obj_in=curation_in,
             user_id=current_user.id,
         )
+    except OpenCurationExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(e), "curation_id": str(e.curation_id)},
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
