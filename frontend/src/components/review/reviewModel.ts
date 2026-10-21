@@ -36,18 +36,48 @@ export function itemLabel(key: string): string {
   return parts.join(' › ') + (m?.[2] ? ` ${m[2]}` : '')
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v)
+
+/** Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped. */
+function leaves(v: unknown, path = ''): [string, unknown][] {
+  if (Array.isArray(v)) {
+    if (v.every(x => typeof x !== 'object' || x === null)) {
+      return v.length ? [[path, v.join(', ')]] : []
+    }
+    return v.flatMap((x, i) => leaves(x, `${path}[${i}]`))
+  }
+  if (isRecord(v)) {
+    return Object.entries(v).flatMap(([k, x]) => leaves(x, path ? `${path}.${k}` : k))
+  }
+  return v === null || v === undefined || v === '' ? [] : [[path, v]]
+}
+
+/** Added or removed whole values become one row per filled field instead of a JSON blob. */
+function expand(it: DiffItem): DiffField[] | null {
+  const value = it.change === 'added' ? it.after : it.change === 'removed' ? it.before : undefined
+  if (typeof value !== 'object' || value === null) return null
+  const rows = leaves(value)
+  const side = (v: unknown) =>
+    it.change === 'added' ? { before: undefined, after: v } : { before: v, after: undefined }
+  return rows.length
+    ? rows.map(([name, v]) => ({ name, change: it.change, ...side(v) }))
+    : [{ name: '', change: it.change, ...side('none') }]
+}
+
 export function groupDiff(items: DiffItem[]): DiffGroup[] {
   const groups = new Map<string, DiffGroup>()
   for (const it of items) {
     const key = itemKey(it.path)
     let g = groups.get(key)
     if (!g) groups.set(key, (g = { key, label: itemLabel(key), change: it.change, fields: [] }))
-    g.fields.push({
-      name: it.path.slice(key.length).replace(/^\./, ''),
-      change: it.change,
-      before: it.before,
-      after: it.after
-    })
+    const base = it.path.slice(key.length).replace(/^\./, '')
+    const rows = expand(it)
+    if (rows) {
+      g.fields.push(...rows.map(r => ({ ...r, name: [base, r.name].filter(Boolean).join('.') })))
+    } else {
+      g.fields.push({ name: base, change: it.change, before: it.before, after: it.after })
+    }
     if (g.fields.some(f => f.change !== g.fields[0]!.change)) g.change = 'changed'
   }
   return [...groups.values()]

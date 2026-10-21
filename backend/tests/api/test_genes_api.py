@@ -116,9 +116,12 @@ def _create_payload(
     }
 
 
-def test_gene_routes_require_authentication(client: TestClient) -> None:
+def test_gene_list_requires_authentication_but_single_gene_is_public(
+    client: TestClient,
+) -> None:
     assert client.get(f"{BASE}/").status_code in (401, 403)
-    assert client.get(f"{BASE}/{uuid4()}").status_code in (401, 403)
+    # public reference data: unauthenticated lookups reach the handler (404, not 401)
+    assert client.get(f"{BASE}/{uuid4()}").status_code == 404
 
 
 def test_create_gene_then_duplicate_is_rejected(
@@ -163,6 +166,31 @@ def test_get_gene_by_id_includes_assignment_info(
     assert body["total_scope_assignments"] == 1
     assert body["is_assigned_to_any_scope"] is True
     assert str(test_scope.id) in body["scope_assignments"]
+
+
+def test_get_gene_is_public_and_hides_assignments_when_anonymous(
+    client: TestClient, db_session: Session, test_gene: Gene, test_scope: Scope
+) -> None:
+    _assign(db_session, test_gene, test_scope)
+
+    response = client.get(f"{BASE}/{test_gene.id}")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["approved_symbol"] == "BRCA1"
+    assert body["total_scope_assignments"] == 0
+    assert body["scope_assignments"] == {}
+    assert body["is_assigned_to_any_scope"] is False
+    # no internal user ids or integrity hashes for anonymous readers
+    for hidden in ("created_by", "updated_by", "record_hash", "previous_hash"):
+        assert body[hidden] is None
+
+
+def test_get_gene_keeps_audit_fields_for_signed_in_users(
+    client: TestClient, curator_token: str, test_gene: Gene
+) -> None:
+    body = client.get(f"{BASE}/{test_gene.id}", headers=_auth(curator_token)).json()
+    assert body["created_by"] and body["record_hash"]
 
 
 def test_get_unknown_gene_is_404(client: TestClient, curator_token: str) -> None:
