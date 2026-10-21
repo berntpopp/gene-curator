@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core.capabilities import EDIT, require
 from app.core.constants import (
@@ -282,26 +283,18 @@ def get_curation(
             detail="Not authorized to access this scope",
         )
 
-    # If no precuration linked, try to find approved one for this gene+scope
-    # Note: We use db.expire() to prevent the temporary assignment from being
-    # persisted, avoiding unintended flush/side effects in the session
-    effective_precuration = curation.precuration
-    if not effective_precuration:
+    # If no precuration linked, show the approved one for this gene+scope. set_committed_value
+    # attaches it for serialization only: a plain assignment would be flushed as an UPDATE
+    # (precuration_id, and a lock_version bump by trigger) on a read.
+    if not curation.precuration:
         approved_precuration = precuration_crud.get_approved_for_gene_scope(
             db, curation.gene_id, curation.scope_id
         )
         if approved_precuration:
-            effective_precuration = approved_precuration
-            # Temporarily attach for serialization (will be expired after)
-            curation.precuration = approved_precuration
+            set_committed_value(curation, "precuration", approved_precuration)
 
     # Build response with permission flags
     response = CurationDetail.from_orm_with_relations(curation)
-
-    # Expire the precuration relationship to prevent unintended flush/side effects
-    # This ensures the temporary assignment doesn't persist to the database
-    if effective_precuration and effective_precuration != curation.precuration:
-        db.expire(curation, ["precuration"])
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)

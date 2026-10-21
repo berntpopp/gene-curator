@@ -12,7 +12,7 @@
             <div class="text-body-medium mt-1">Gene-Disease Validity Classification</div>
           </v-col>
           <v-col cols="12" md="6" class="text-md-right">
-            <div class="d-flex align-center justify-md-end ga-4">
+            <div class="d-flex align-center justify-md-end ga-2 ga-sm-4">
               <div class="text-center">
                 <div class="text-headline-small font-weight-bold">
                   {{ geneticScore.toFixed(1) }}

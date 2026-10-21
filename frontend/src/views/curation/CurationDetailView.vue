@@ -21,6 +21,15 @@
               Edit
             </v-btn>
             <v-btn
+              v-if="canRecurate"
+              data-testid="recurate"
+              color="primary"
+              variant="flat"
+              @click="startRecuration"
+            >
+              Start re-curation
+            </v-btn>
+            <v-btn
               color="info"
               variant="outlined"
               prepend-icon="mdi-download"
@@ -399,9 +408,11 @@
   import type { EvidenceData } from './curationScores'
   import { useCurationClassification } from './useCurationClassification'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
   interface CurationRecord {
     status: string
+    gene_id?: string
     workflow_pair_id?: string
     evidence_data?: EvidenceData | null
     gene_symbol?: string | null
@@ -468,19 +479,13 @@
   const { scores, classification } = useCurationClassification(() => curation.value?.evidence_data)
 
   // Permissions - use backend-computed values based on scope-specific roles
-  const canEdit = computed(() => {
-    // Use backend-provided permission if available
-    return curation.value?.can_edit ?? false
-  })
+  const canEdit = computed(() => curation.value?.can_edit ?? false)
 
   const canSubmitForReview = computed(() => {
     return canEdit.value && curation.value?.status === 'draft'
   })
 
-  const canDelete = computed(() => {
-    // Use backend-provided permission if available
-    return curation.value?.can_delete ?? false
-  })
+  const canDelete = computed(() => curation.value?.can_delete ?? false)
 
   // Can review: backend checks scope-specific roles and 4-eyes principle
   // The creator never reviews their own curation (D1), whatever the backend flag says
@@ -536,6 +541,7 @@
       const data = await curationsAPI.getCuration(curationId.value)
       curation.value = data as CurationRecord
       logger.debug('Curation loaded', { curation_id: curationId.value })
+      if (curation.value.workflow_stage === 'active') void curateGuard.check()
       await loadCurationSchema()
     } catch (err) {
       error.value = 'Failed to load curation details'
@@ -546,6 +552,19 @@
     } finally {
       loading.value = false
     }
+  }
+
+  // Re-curation: curators and scope admins start a new curation from the active one
+  const curateGuard = useCurateGuard(() => scopeId.value)
+  const canRecurate = computed(
+    () => curation.value?.workflow_stage === 'active' && curateGuard.allowed.value
+  )
+  function startRecuration() {
+    router.push({
+      name: 'gene-curation-create',
+      params: { scopeId: scopeId.value, geneId: curation.value.gene_id },
+      query: { from: curationId.value }
+    })
   }
 
   function editCuration() {

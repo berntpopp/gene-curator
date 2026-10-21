@@ -9,7 +9,7 @@
       :archived="curation?.status === 'archived'"
       :state="frame.state.value"
       :saved-at="frame.savedAt.value"
-      :readonly="isActive"
+      :readonly="readonly"
       :show-submit="frame.hasSubmit.value"
       :can-submit="frame.canSubmit.value"
       :saving="frame.state.value === 'saving'"
@@ -25,8 +25,14 @@
       :me="myId"
     />
 
-    <v-alert v-if="isActive && !loading" type="info" variant="tonal" class="mb-4">
-      This curation is active and read-only. Re-curation starts from the curation page.
+    <v-alert
+      v-if="readonlyReason && !loading"
+      data-testid="ws-readonly"
+      type="info"
+      variant="tonal"
+      class="mb-4"
+    >
+      {{ readonlyReason }}
       <template #append>
         <v-btn variant="text" @click="openDetail">Open curation</v-btn>
       </template>
@@ -59,8 +65,9 @@
             :curation-id="curationId"
             :scope-id="scopeId"
             :gene-id="effectiveGeneId"
-            :readonly="isActive"
+            :readonly="readonly"
             :gene="formGene"
+            :prefill-from="prefillFrom"
             @submit="handleSubmit"
             @cancel="handleCancel"
             @ready="handleReady"
@@ -87,7 +94,7 @@
         <ScorePanel
           :score="frame.score.value"
           :can-submit="frame.canSubmit.value"
-          :readonly="isActive"
+          :readonly="readonly"
           :blockers="frame.blockers.value"
         />
       </aside>
@@ -140,6 +147,7 @@
     curation_schema_id?: string | null
     workflow_pair_id?: string | null
     lock_version?: number | null
+    can_edit?: boolean
     gene_id?: string | null
     workflow_stage?: string | null
     status?: string | null
@@ -186,6 +194,9 @@
     () => (route.params.geneId as string) || (route.query.gene_id as string) || undefined
   )
 
+  // Re-curation: the active curation the new one starts from
+  const prefillFrom = computed<RouteId>(() => (route.query.from as string) || undefined)
+
   const effectiveGeneId = computed<RouteId>(
     () => geneId.value ?? curation.value?.gene_id ?? undefined
   )
@@ -205,6 +216,20 @@
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
 
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
+  // Saving is only possible for a draft or returned curation the user may edit (backend `can_edit`)
+  const readonlyReason = computed(() => {
+    if (curation.value?.status === 'archived') {
+      return 'This curation is archived and read-only. A newer curation replaced it.'
+    }
+    if (isActive.value) {
+      return 'This curation is active and read-only. Start a re-curation from the curation page.'
+    }
+    if (curation.value?.can_edit !== false) return ''
+    return ['draft', 'rejected'].includes(curation.value.status ?? '')
+      ? 'Read-only: you do not have permission to edit this curation.'
+      : 'Read-only: this curation is in review. It can be edited again if changes are requested.'
+  })
+  const readonly = computed(() => !!readonlyReason.value)
 
   // Workspace frame: the form fills it in (save state, score, submit); the shell shows it
   const frame = createWorkspaceFrame()
@@ -212,7 +237,7 @@
   useUnsavedGuard(frame.dirty)
   useSaveShortcut(
     () => frame.save(),
-    () => formReady.value && !isActive.value
+    () => formReady.value && !readonly.value
   )
   const showPanel = computed(() => formReady.value && !!frame.score.value)
 
@@ -312,11 +337,11 @@
     logger.debug('Schema selected', { schemaId })
   }
 
-  // The form emits `submit` without a payload; the saved curation is in the store
-  function handleSubmit() {
+  // The form emits the submitted curation's id (the store's current one may be a re-curation source)
+  function handleSubmit(submittedId?: string) {
     frame.markClean() // submitted: nothing left to lose
     notificationsStore.addToast('Curation submitted successfully', 'success')
-    const id = curationsStore.currentCuration?.id || curationId.value
+    const id = submittedId || curationsStore.currentCuration?.id || curationId.value
     if (!id) {
       router.push({ name: 'scope-dashboard', params: { scopeId: scopeId.value } })
       return

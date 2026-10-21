@@ -1,12 +1,12 @@
 <template>
   <v-container fluid>
-    <div class="d-flex align-center mb-6">
+    <div class="d-flex flex-wrap align-center ga-2 mb-6">
       <div>
         <h1 class="page-title text-headline-large font-weight-bold">Assignments</h1>
         <p class="text-body-large text-medium-emphasis mt-1">Genes assigned to you</p>
       </div>
       <v-spacer />
-      <v-btn variant="outlined" class="mr-2" to="/review-queue">Review queue</v-btn>
+      <v-btn variant="outlined" to="/review-queue">Review queue</v-btn>
       <v-btn color="primary" variant="flat" to="/scopes">
         <v-icon start>mdi-plus</v-icon>
         New assignment

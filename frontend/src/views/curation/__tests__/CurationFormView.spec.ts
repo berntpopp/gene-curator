@@ -283,6 +283,21 @@ describe('CurationFormView', () => {
     })
   })
 
+  it('re-curation: starts from the active curation and opens the new one after submit', async () => {
+    routeState.query = { from: 'active-1' }
+    const { wrapper, vm, curations } = await mountView(({ schemas }) => {
+      schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+    })
+    const form = wrapper.findComponent({ name: 'SchemaDrivenCurationForm' })
+    expect(form.props('prefillFrom')).toBe('active-1')
+    curations.currentCuration = { id: 'active-1' } as never // loaded as the prefill source
+    ;(vm.handleSubmit as (id: string) => void)('new-2')
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'curation-detail',
+      params: { scopeId: 'sc1', curationId: 'new-2' }
+    })
+  })
+
   it('falls back to the scope dashboard when no curation id is known after a submit', async () => {
     const { vm } = await mountView()
     ;(vm.handleSubmit as () => void)()
@@ -417,12 +432,37 @@ describe('CurationFormView', () => {
       expect(fire()).toBe(true)
     })
 
-    it('marks an active curation read-only: no save or submit, no Ctrl+S', async () => {
+    it('marks an active curation read-only: save and submit disabled, no Ctrl+S', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active' })
-      expect(wrapper.find('[data-testid="ws-save"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="ws-submit"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
       expect(formApi.save).not.toHaveBeenCalled()
+    })
+
+    it('opens an in-review curation read-only with the reason (its /edit URL)', async () => {
+      const { wrapper } = await mountFramed({
+        workflow_stage: 'review',
+        status: 'in_review',
+        can_edit: false
+      })
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.form').attributes('readonly')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('in review')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+      expect(formApi.save).not.toHaveBeenCalled()
+    })
+
+    it('opens a draft read-only for someone who may not edit it', async () => {
+      const { wrapper } = await mountFramed({ status: 'draft', can_edit: false })
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('permission')
+    })
+
+    it('keeps a returned (changes requested) curation editable for its curator', async () => {
+      const { wrapper } = await mountFramed({ status: 'rejected', can_edit: true })
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('[data-testid="ws-readonly"]').exists()).toBe(false)
     })
 
     it('leaves without asking after a submit', async () => {
@@ -436,9 +476,12 @@ describe('CurationFormView', () => {
       expect(e.defaultPrevented).toBe(false)
     })
 
-    it('shows an archived curation as the terminal stage', async () => {
+    it('shows an archived curation as the terminal stage, read-only as archived', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active', status: 'archived' })
       expect(wrapper.find('[aria-current="step"]').text()).toBe('Archived')
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('archived')
+      const other = await mountFramed({ status: 'archived', can_edit: false })
+      expect(other.wrapper.find('[data-testid="ws-readonly"]').text()).toContain('archived')
     })
   })
 

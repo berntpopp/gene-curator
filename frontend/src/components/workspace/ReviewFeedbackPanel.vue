@@ -41,6 +41,9 @@
     border: 1px solid rgb(var(--v-theme-outline, var(--v-border-color)));
     border-left: 3px solid rgb(var(--v-theme-warning));
     border-radius: 6px;
+    /* Long unbroken text (URLs, IDs) wraps instead of widening the page */
+    overflow-wrap: anywhere;
+    min-width: 0;
   }
 
   .feedback__note {
