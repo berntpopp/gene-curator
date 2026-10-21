@@ -12,7 +12,7 @@ configurable schemas, scope-based teams and a multi-stage, 4-eyes review workflo
 | Layer | Stack |
 | --- | --- |
 | Backend | Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2, uv |
-| Frontend | Vue 3.5, TypeScript 6 (strict, no JS left), Vite 7, Pinia, Vuetify 3, Node 24 (`.nvmrc`) |
+| Frontend | Vue 3.5, TypeScript 6 (strict, no JS left), Vite 7, Pinia, Vuetify 4, Node 24 (`.nvmrc`) |
 | Database | PostgreSQL 15 with row-level security; schema in `database/sql/*.sql` |
 | Quality | ruff, mypy (strict), bandit, pytest; ESLint 10 + typescript-eslint, Prettier, vue-tsc, Vitest, Playwright |
 

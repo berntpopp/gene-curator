@@ -16,7 +16,7 @@ Example:
 # ========================================
 
 APP_NAME = "Gene Curator API"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 APP_DESCRIPTION = "Schema-agnostic genetic curation platform backend"
 
 # ========================================
