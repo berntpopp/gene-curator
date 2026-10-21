@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getInitials, displayNameRules } from '@/views/scope/ScopeCreate.utils'
+import { getInitials, displayNameRules, slugify } from '@/views/scope/ScopeCreate.utils'
 
 describe('getInitials', () => {
   it('returns ? for empty names', () => {
@@ -22,5 +22,14 @@ describe('displayNameRules', () => {
     expect(minLength?.('abcd')).toBe(true)
     expect(maxLength?.('x'.repeat(101))).toBe('Maximum 100 characters allowed')
     expect(maxLength?.('x'.repeat(100))).toBe(true)
+  })
+})
+
+describe('slugify', () => {
+  it('lowercases, dashes words and drops everything else', () => {
+    expect(slugify('Kidney Genetics')).toBe('kidney-genetics')
+    expect(slugify('  Ciliopathies -- & Cystic (PKD)! ')).toBe('ciliopathies-cystic-pkd')
+    expect(slugify('Ärzte 2')).toBe('rzte-2')
+    expect(slugify('')).toBe('')
   })
 })

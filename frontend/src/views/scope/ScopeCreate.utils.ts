@@ -14,3 +14,10 @@ export const displayNameRules = [
   (v: string) => (v && v.length >= 4) || 'Minimum 4 characters required',
   (v: string) => (v && v.length <= 100) || 'Maximum 100 characters allowed'
 ]
+
+/** "Kidney Genetics" -> "kidney-genetics": lowercase ASCII words joined by single dashes */
+export const slugify = (text: string): string =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
