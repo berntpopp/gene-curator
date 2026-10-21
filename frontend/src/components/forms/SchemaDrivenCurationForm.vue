@@ -68,7 +68,11 @@
             <!-- Sidebar: Live Scoring -->
             <v-col cols="12" lg="4">
               <div class="sticky-sidebar">
-                <ScorePreview :evidence-items="scoreEvidenceItems" />
+                <ScorePreview
+                  :evidence-items="scoreEvidenceItems"
+                  :has-contradictory="hasContradictory"
+                  :replicated-over-time="replicatedOverTime"
+                />
               </div>
             </v-col>
           </v-row>
@@ -228,6 +232,12 @@
     }
     return []
   })
+
+  // Flags that change the classification (Disputed / Definitive), as in the backend
+  const hasContradictory = computed(
+    () => ((evidenceData.value.contradictory_evidence as unknown[] | undefined)?.length ?? 0) > 0
+  )
+  const replicatedOverTime = computed(() => evidenceData.value.replicated_over_time === true)
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(

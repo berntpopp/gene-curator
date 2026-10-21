@@ -133,6 +133,21 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     confirmMock.mockResolvedValue(true)
   })
 
+  it('passes contradictory and replicated flags to the score preview', async () => {
+    const wrapper = await mountForm()
+    const preview = () => wrapper.findComponent({ name: 'ScorePreview' })
+    expect(preview().props('hasContradictory')).toBe(false)
+    expect(preview().props('replicatedOverTime')).toBe(false)
+
+    wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', {
+      replicated_over_time: true,
+      contradictory_evidence: [{ id: 1 }]
+    })
+    await flushPromises()
+    expect(preview().props('hasContradictory')).toBe(true)
+    expect(preview().props('replicatedOverTime')).toBe(true)
+  })
+
   it('loads an existing curation, its linked precuration and lock version', async () => {
     curationsStore.fetchCurationById.mockResolvedValue({
       evidence_data: { panel: 'x' },

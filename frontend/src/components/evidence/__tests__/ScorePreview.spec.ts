@@ -55,6 +55,17 @@ describe('ScorePreview', () => {
     expect(wrapper.text()).toContain('18.00')
   })
 
+  it('shows Definitive for Strong points that replicated, and Disputed when contradicted', () => {
+    const evidenceItems = [genetic('case_level', 12)]
+    expect(mount(ScorePreview, { props: { evidenceItems } }).text()).toContain('Strong')
+    expect(
+      mount(ScorePreview, { props: { evidenceItems, replicatedOverTime: true } }).text()
+    ).toContain('Definitive')
+    expect(
+      mount(ScorePreview, { props: { evidenceItems, hasContradictory: true } }).text()
+    ).toContain('Disputed')
+  })
+
   it('uses singular wording for one item and no "add more" hint once scored', () => {
     const wrapper = mount(ScorePreview, {
       props: { evidenceItems: [genetic('case_level', 8)] }
