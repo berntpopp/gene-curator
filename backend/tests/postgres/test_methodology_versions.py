@@ -27,7 +27,7 @@ pytestmark = pytest.mark.postgres
 
 MIGRATION = Path(__file__).parents[3] / "database/sql/042_methodology_versions.sql"
 LATEST = (
-    "SELECT id FROM methodology_versions WHERE schema_id = :s AND status = 'published' "
+    "SELECT id FROM methodology_versions WHERE schema_id = :s "
     "ORDER BY version DESC LIMIT 1"
 )
 
@@ -47,9 +47,7 @@ def _fails(s: Session, sql: str, **params: object) -> None:
 
 
 def test_published_version_cannot_change_as_owner(owner_session: Session) -> None:
-    vid = owner_session.scalar(
-        text("SELECT id FROM methodology_versions WHERE status = 'published' LIMIT 1")
-    )
+    vid = owner_session.scalar(text("SELECT id FROM methodology_versions LIMIT 1"))
     _fails(
         owner_session,
         "UPDATE methodology_versions SET snapshot = '{}' WHERE id = :v",
@@ -58,7 +56,7 @@ def test_published_version_cannot_change_as_owner(owner_session: Session) -> Non
     _fails(owner_session, "DELETE FROM methodology_versions WHERE id = :v", v=vid)
 
 
-def test_admin_edits_a_draft_until_published_then_never(db: Session) -> None:
+def test_admin_publishes_but_cannot_change_or_delete(db: Session) -> None:
     admin = db.scalar(
         text("SELECT id FROM users WHERE role = 'admin' AND is_active LIMIT 1")
     )
@@ -71,19 +69,46 @@ def test_admin_edits_a_draft_until_published_then_never(db: Session) -> None:
         ),
         {"s": schema, "u": admin},
     )
-    db.execute(
-        text("UPDATE methodology_versions SET snapshot = '{\"a\": 1}' WHERE id = :v"),
-        {"v": vid},
+    # no UPDATE/DELETE policy: app_user changes nothing, not even as platform admin
+    for sql in (
+        "UPDATE methodology_versions SET snapshot = '{\"a\": 1}' WHERE id = :v",
+        "DELETE FROM methodology_versions WHERE id = :v",
+    ):
+        assert db.execute(text(sql), {"v": vid}).rowcount == 0  # type: ignore[attr-defined]
+    assert (
+        db.scalar(
+            text("SELECT snapshot FROM methodology_versions WHERE id = :v"), {"v": vid}
+        )
+        == {}
     )
-    db.execute(
+
+
+def test_row_without_a_published_version_is_refused(owner_session: Session) -> None:
+    s = owner_session
+    s.execute(
         text(
-            "UPDATE methodology_versions SET status = 'published', published_at = now() "
-            "WHERE id = :v"
-        ),
-        {"v": vid},
+            "ALTER TABLE curation_schemas "
+            "DISABLE TRIGGER trigger_publish_initial_methodology_version"
+        )
     )
-    _fails(db, "UPDATE methodology_versions SET snapshot = '{}' WHERE id = :v", v=vid)
-    _fails(db, "DELETE FROM methodology_versions WHERE id = :v", v=vid)
+    schema = s.scalar(
+        text(
+            "INSERT INTO curation_schemas (name, version, schema_type, field_definitions, "
+            "workflow_states, ui_configuration, schema_hash) VALUES ('nover', '1', "
+            "'precuration', '{}', '{}', '{}', repeat('6', 64)) RETURNING id"
+        )
+    )
+    gene, scope = s.execute(
+        text("SELECT (SELECT id FROM genes LIMIT 1), (SELECT id FROM scopes LIMIT 1)")
+    ).one()
+    with pytest.raises(DBAPIError, match="no published methodology version"):
+        s.execute(
+            text(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id) "
+                "VALUES (:g, :sc, :ps)"
+            ),
+            {"g": gene, "sc": scope, "ps": schema},
+        )
 
 
 def test_non_admin_reads_but_cannot_write(db: Session) -> None:
@@ -151,8 +176,8 @@ def test_rows_are_pinned_at_creation_and_never_repinned(
 
     newer = s.scalar(
         text(
-            "INSERT INTO methodology_versions (schema_id, version, snapshot, status, "
-            "published_at) SELECT :s, max(version) + 1, '{}', 'published', now() "
+            "INSERT INTO methodology_versions (schema_id, version, snapshot) "
+            "SELECT :s, max(version) + 1, '{}' "
             "FROM methodology_versions WHERE schema_id = :s RETURNING id"
         ),
         {"s": cur_schema},
@@ -232,11 +257,11 @@ def w() -> Generator[W, None, None]:
         )
         x.pair = str(cur.fetchone()[0])
         cur.execute(
-            "SELECT id, version, status FROM methodology_versions WHERE schema_id = %s",
+            "SELECT id, version FROM methodology_versions WHERE schema_id = %s",
             (x.schema,),
         )
         rows = cur.fetchall()
-        assert [(r[1], r[2]) for r in rows] == [(1, "published")]  # auto v1 on insert
+        assert [r[1] for r in rows] == [1]  # auto-published v1 on insert
         x.v1 = str(rows[0][0])
         for gene in x.genes:
             cur.execute(
@@ -392,8 +417,7 @@ def test_migration_backfills_legacy_rows_and_reruns_cleanly(
             s.execute(
                 text(
                     "SELECT (SELECT count(*) FROM curation_schemas), "
-                    "(SELECT count(*) FROM methodology_versions WHERE version = 1 "
-                    " AND status = 'published'), "
+                    "(SELECT count(*) FROM methodology_versions WHERE version = 1), "
                     "(SELECT count(*) FROM methodology_versions), "
                     "(SELECT count(*) FROM precurations p JOIN methodology_versions mv "
                     " ON mv.id = p.methodology_version_id "
@@ -410,7 +434,15 @@ def test_migration_backfills_legacy_rows_and_reruns_cleanly(
             ).one()
         )
 
+    untouched = (
+        "SELECT (SELECT array_agg(lock_version ORDER BY id) FROM curations), "
+        "(SELECT array_agg(lock_version ORDER BY id) FROM precurations), "
+        "(SELECT count(*) FROM audit_log)"
+    )
+    before = s.execute(text(untouched)).one()
     s.execute(text(MIGRATION.read_text()))
+    # the backfill fires no user triggers: no lock_version bump, no audit row
+    assert s.execute(text(untouched)).one() == before
     first = state()
     schemas, v1s, versions, pre_pinned, pres, cur_pinned, curs, recorded = first
     assert schemas == v1s == versions  # one published v1 per schema

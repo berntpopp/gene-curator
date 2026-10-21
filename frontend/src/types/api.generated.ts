@@ -6726,10 +6726,11 @@ export interface components {
             snapshot: {
                 [key: string]: unknown;
             };
-            /** Status */
-            status: string;
-            /** Published At */
-            published_at: string | null;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
             /** Created By */
             created_by: string | null;
             /** Created At */

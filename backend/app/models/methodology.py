@@ -10,7 +10,6 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
-    String,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -21,7 +20,7 @@ from app.core.db_types import compatible_jsonb, compatible_uuid
 
 
 class MethodologyVersion(Base):
-    """A schema snapshot; once published, the database refuses any UPDATE or DELETE."""
+    """A schema snapshot, published on insert; the database refuses any UPDATE or DELETE."""
 
     __tablename__ = "methodology_versions"
 
@@ -35,8 +34,9 @@ class MethodologyVersion(Base):
     )
     version: Mapped[int] = mapped_column(Integer, nullable=False)
     snapshot: Mapped[dict[str, Any]] = mapped_column(compatible_jsonb(), nullable=False)
-    status: Mapped[str] = mapped_column(String(20), nullable=False, default="draft")
-    published_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[dt] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
     created_by: Mapped[PyUUID | None] = mapped_column(
         compatible_uuid(), ForeignKey("users.id")
     )
@@ -52,5 +52,4 @@ class MethodologyVersion(Base):
             "schema_id", "version", name="uq_methodology_versions_schema_version"
         ),
         CheckConstraint("version > 0"),
-        CheckConstraint("status IN ('draft', 'published')"),
     )

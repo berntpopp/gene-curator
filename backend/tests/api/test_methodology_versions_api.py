@@ -25,7 +25,7 @@ def test_admin_publishes_numbered_snapshots_and_lists_them_newest_first(
     first = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token))
     assert first.status_code == 201, first.text
     body = first.json()
-    assert (body["version"], body["status"]) == (1, "published")
+    assert body["version"] == 1
     assert body["published_at"] and body["created_by"]
     assert body["snapshot"]["field_definitions"] == schema.field_definitions
     assert body["snapshot"]["scoring_configuration"] == {"engine": "x"}

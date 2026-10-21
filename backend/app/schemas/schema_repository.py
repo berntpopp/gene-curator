@@ -92,8 +92,7 @@ class MethodologyVersion(BaseModel):
     schema_id: UUID
     version: int
     snapshot: dict[str, Any]
-    status: str
-    published_at: datetime | None
+    published_at: datetime
     created_by: UUID | None
     created_at: datetime | None = None
     derived_from_version_id: UUID | None

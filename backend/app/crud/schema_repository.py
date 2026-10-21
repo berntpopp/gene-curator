@@ -139,18 +139,21 @@ class CRUDCurationSchema(
         self, db: Session, *, schema: CurationSchema, user_id: UUID
     ) -> MethodologyVersion:
         """Publish the schema's current content as its next, immutable version."""
+        # Lock the schema row so concurrent publishes serialize on the next number
+        db.execute(
+            select(CurationSchema.id)
+            .where(CurationSchema.id == schema.id)
+            .with_for_update()
+        )
         latest = db.scalar(
             select(func.max(MethodologyVersion.version)).where(
                 MethodologyVersion.schema_id == schema.id
             )
         )
-        # ponytail: two concurrent publishes collide on the unique (schema, version) key;
-        # the loser errors and can retry. Add a lock if admins ever publish concurrently.
         version = MethodologyVersion(
             schema_id=schema.id,
             version=(latest or 0) + 1,
             snapshot={key: getattr(schema, key) for key in SNAPSHOT_KEYS},
-            status="published",
             published_at=datetime.now(UTC),
             created_by=user_id,
         )
