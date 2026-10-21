@@ -14,6 +14,7 @@ from app.core import deps
 from app.core.database import get_db
 from app.crud.schema_repository import schema_crud, workflow_pair_crud
 from app.models import UserNew
+from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
@@ -124,9 +125,9 @@ def list_methodology_versions(
     *,
     db: Session = Depends(get_db),
     schema_id: UUID,
-    current_user: UserNew = Depends(deps.get_current_admin_user),
+    current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Sequence[MethodologyVersion]:
-    """List a schema's methodology versions, newest first. Requires platform admin."""
+    """List a schema's methodology versions, newest first."""
     if not schema_crud.get(db, id=schema_id):
         raise HTTPException(status_code=404, detail="Schema not found")
     return schema_crud.list_versions(db, schema_id=schema_id)  # type: ignore[return-value]
@@ -252,6 +253,20 @@ def get_compatible_scoring_engines(
     )
 
     return compatible_engines
+
+
+@router.get("/methodology-versions/{version_id}", response_model=MethodologyVersion)
+def get_methodology_version(
+    *,
+    db: Session = Depends(get_db),
+    version_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_active_user),
+) -> MethodologyVersion:
+    """Get one methodology version (forms render the version a curation is pinned to)."""
+    version = db.get(MethodologyVersionModel, version_id)
+    if not version:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    return version  # type: ignore[return-value]
 
 
 # ========================================
