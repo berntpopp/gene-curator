@@ -33,6 +33,10 @@ describe('slugify', () => {
     expect(slugify('Müller Lab')).toBe('muller-lab')
     expect(slugify('')).toBe('')
   })
+  it('maps letters that do not decompose instead of dropping them', () => {
+    expect(slugify('Monkey Ünicøde')).toBe('monkey-unicode')
+    expect(slugify('Æble Straße Łódź Đorđe')).toBe('aeble-strasse-lodz-dorde')
+  })
   it('caps at 64 chars without a trailing dash', () => {
     const out = slugify(`${'a'.repeat(63)} bbb`)
     expect(out).toBe('a'.repeat(63))
