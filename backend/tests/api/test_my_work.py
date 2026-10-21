@@ -12,6 +12,7 @@ from app.models import (
     GeneScopeAssignment,
     Review,
     ScopeMembership,
+    WorkflowStage,
 )
 
 
@@ -124,7 +125,6 @@ def test_pending_membership_grants_nothing(
 
 
 # --- review visibility and the real request-changes flow -------------------
-from datetime import timedelta  # noqa: E402
 
 from app.crud.workflow_engine import WorkflowEngine  # noqa: E402
 from tests.api.scopes.factories import (  # noqa: E402
@@ -216,19 +216,33 @@ def test_request_changes_via_workflow_moves_to_needs_you(client, db_session: Ses
         db_session, r.review_id, reviewer.id, "request_changes", "fix"
     )
     db_session.refresh(c)
-    assert c.status == "in_review"  # the real flow leaves it IN_REVIEW
+    assert c.status == "draft"  # back with the curator, editable
     body = _get(client, curator)
     assert [i["kind"] for i in body["items"]] == ["changes_requested"]
     assert body["counts"] == {"needs_you": 1, "waiting": 0, "done": 0}
 
-    # only the latest decision counts: a newer approval clears the label
-    later = Review(
-        curation_id=c.id, reviewer_id=reviewer.id, status="approved",
-        assigned_at=datetime.now(UTC) + timedelta(minutes=5),
-    )  # fmt: skip
-    db_session.add(later)
-    db_session.commit()
+    # a new round clears the label: resubmitted, it is waiting again
+    WorkflowEngine().execute_transition(
+        db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
+    )
     assert _kinds(client, curator) == ["waiting"]
+    assert _kinds(client, reviewer) == ["review"]  # new round: old decision is stale
+
+
+def test_rejected_curation_needs_the_curator(client, db_session: Session):
+    scope = make_scope(db_session)
+    curator, reviewer = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, curator, "curator")
+    make_member(db_session, scope, reviewer, "reviewer")
+    c = _in_review(db_session, scope, curator)
+    engine = WorkflowEngine()
+    r = engine.assign_peer_reviewer(
+        db_session, c.id, "curation", reviewer.id, curator.id
+    )
+    engine.submit_peer_review(db_session, r.review_id, reviewer.id, "reject")
+    body = _get(client, curator)
+    assert [i["kind"] for i in body["items"]] == ["changes_requested"]
+    assert _kinds(client, reviewer) == []
 
 
 def test_reassigned_reviewer_and_other_reviewers_after_request_changes(
@@ -244,10 +258,37 @@ def test_reassigned_reviewer_and_other_reviewers_after_request_changes(
     r = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
     engine.submit_peer_review(db_session, r.review_id, rev.id, "request_changes")
     assert _kinds(client, other) == []  # curator owns the next move
-    # same reviewer reassigned for the next round: their new PENDING review shows
-    new = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
-    db_session.get(Review, new.review_id).assigned_at = datetime.now(UTC) + timedelta(
-        minutes=1
+    # curator resubmits: the earlier reviewer is re-assigned automatically
+    engine.execute_transition(
+        db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
     )
-    db_session.commit()
     assert _kinds(client, rev) == ["review"]
+
+
+def test_stale_round_does_not_inflate_dashboard_or_my_work(client, db_session: Session):
+    scope = make_scope(db_session)
+    curator, a, b = (make_user(db_session) for _ in range(3))
+    make_member(db_session, scope, curator, "curator")
+    for u in (a, b):
+        make_member(db_session, scope, u, "reviewer")
+    c = _in_review(db_session, scope, curator)
+    engine = WorkflowEngine()
+    ra = engine.assign_peer_reviewer(db_session, c.id, "curation", a.id, curator.id)
+    engine.assign_peer_reviewer(db_session, c.id, "curation", b.id, curator.id)
+
+    def pending(user) -> int:
+        token = create_access_token(data={"sub": str(user.id), "email": user.email})
+        r = client.get(
+            "/api/v1/workflow/dashboard", headers={"Authorization": f"Bearer {token}"}
+        )
+        return r.json()["my_pending_reviews"]
+
+    assert pending(b) == 1
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    assert pending(b) == 0  # B's review belongs to the closed round
+    engine.execute_transition(
+        db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
+    )
+    assert pending(b) == 1  # re-assigned in the new round
+    assert _kinds(client, b) == ["review"]  # unassigned in the new round
+    assert _kinds(client, a) == ["review"]  # A's old decision does not hide it

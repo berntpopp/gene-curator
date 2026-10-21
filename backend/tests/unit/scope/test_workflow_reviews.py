@@ -3,18 +3,25 @@
 from uuid import uuid4
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.crud.review_round import reassign_earlier_reviewers
 from app.crud.workflow_engine import WorkflowEngine
 from app.models.models import (
     CurationNew,
+    CurationStatus,
+    NotificationNew,
     Review,
     ReviewStatus,
     Scope,
+    ScopeMembership,
     UserNew,
     WorkflowStage,
 )
+from app.services.scope_permissions import ScopePermissionService
 from tests.api.scopes.factories import (
+    auth_headers,
     make_curation,
     make_gene,
     make_member,
@@ -190,15 +197,50 @@ def test_rejection_is_recorded_as_rejected_and_blocks_activation(
     rejected = engine.submit_peer_review(
         db_session, first.review_id, reviewer.id, "reject"
     )
-    approved = engine.submit_peer_review(
-        db_session, second.review_id, other.id, "approve"
-    )
+    # the round is closed: the second reviewer can no longer approve it
+    with pytest.raises(ValueError, match="not in review"):
+        engine.submit_peer_review(db_session, second.review_id, other.id, "approve")
 
     assert rejected["auto_transitioned"] is False
-    assert approved["auto_transitioned"] is False
     assert db_session.get(Review, first.review_id).status == ReviewStatus.REJECTED
     db_session.refresh(curation)
-    assert curation.workflow_stage == S.REVIEW
+    assert curation.workflow_stage == S.CURATION
+    assert curation.status == CurationStatus.REJECTED
+
+
+@pytest.mark.parametrize(
+    ("decision", "status"),
+    [
+        ("request_changes", CurationStatus.DRAFT),
+        ("reject", CurationStatus.REJECTED),
+    ],
+)
+def test_non_approve_decision_returns_curation_to_curator(
+    db_session: Session,
+    engine: WorkflowEngine,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+    decision: str,
+    status: CurationStatus,
+) -> None:
+    """#354: the curation must not stay IN_REVIEW; the curator can edit and resubmit."""
+    curation = _review_setup(db_session, creator, scope)
+    request = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", reviewer.id, creator.id
+    )
+    engine.submit_peer_review(db_session, request.review_id, reviewer.id, decision)
+
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (S.CURATION, status)
+    assert ScopePermissionService.can_edit_curation(db_session, creator, curation)
+
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (
+        S.REVIEW,
+        CurationStatus.IN_REVIEW,
+    )
 
 
 @pytest.mark.parametrize(
@@ -349,3 +391,148 @@ def test_workflow_statistics_empty_scope(
 
     assert stats.total_reviews == 0
     assert stats.approval_rate == 0.0
+
+
+def _two_reviewer_round(db_session, engine, creator, scope):
+    a, b = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, a, "reviewer")
+    make_member(db_session, scope, b, "reviewer")
+    curation = _review_setup(db_session, creator, scope)
+    ra = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", a.id, creator.id
+    )
+    rb = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", b.id, creator.id
+    )
+    return curation, a, b, ra, rb
+
+
+def test_other_reviewer_cannot_submit_after_changes_requested(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    with pytest.raises(ValueError, match="not in review"):
+        engine.submit_peer_review(db_session, rb.review_id, b.id, "reject")
+    db_session.refresh(curation)
+    assert curation.status == CurationStatus.DRAFT  # still the curator's to edit
+    # reviewer load and the dashboard count ignore the closed round
+    load = {
+        r["id"]: r["pending_review_count"]
+        for r in engine.get_eligible_peer_reviewers(db_session, scope_id=scope.id)
+    }
+    assert load[b.id] == 0
+
+
+def test_resubmit_then_approve_activates(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    # old round's pending review of B cannot be used in the new round
+    with pytest.raises(ValueError, match="previous review round"):
+        engine.submit_peer_review(db_session, rb.review_id, b.id, "approve")
+    # both earlier reviewers were re-assigned in the new round; both must approve
+    new = {
+        r.reviewer_id: r.id
+        for r in db_session.query(Review).filter(
+            Review.curation_id == curation.id, Review.status == ReviewStatus.PENDING
+        )
+        if r.id != rb.review_id
+    }
+    first = engine.submit_peer_review(db_session, new[a.id], a.id, "approve")
+    assert first["auto_transitioned"] is False
+    result = engine.submit_peer_review(db_session, new[b.id], b.id, "approve")
+    assert result["auto_transitioned"] is True
+    db_session.refresh(curation)
+    assert curation.workflow_stage == S.ACTIVE
+
+
+def test_resubmit_reassigns_earlier_reviewers_and_notifies(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    db_session.expire_all()
+    state = engine.get_workflow_state(db_session, curation.id, "curation")
+    assert {r["reviewer_id"] for r in state.pending_reviews} == {a.id, b.id}
+    for u in (a, b):
+        notes = db_session.scalars(
+            select(NotificationNew).where(
+                NotificationNew.user_id == u.id,
+                NotificationNew.title == "New review assigned",
+            )
+        ).all()
+        assert len(notes) == 2  # first assignment and the new round
+    # the curator never gets a review of their own work, even as an earlier "reviewer"
+    assert creator.id not in {r["reviewer_id"] for r in state.pending_reviews}
+
+
+def test_pending_status_filter_ignores_stale_reviews(
+    client, db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    _curation, a, b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    r = client.get(
+        "/api/v1/workflow/reviews/my-assignments?status=pending",
+        headers=auth_headers(b),
+    )
+    assert r.json() == []  # B's review belongs to the closed round
+
+
+def test_reassign_without_a_submission_is_a_noop(
+    db_session: Session, creator: UserNew, scope: Scope
+) -> None:
+    curation = _review_setup(db_session, creator, scope)
+    assert reassign_earlier_reviewers(db_session, curation, creator.id) == []
+
+
+def test_demoted_reviewer_is_not_reassigned_and_approval_still_works(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    db_session.query(ScopeMembership).filter(ScopeMembership.user_id == b.id).update(
+        {"role": "curator"}
+    )
+    db_session.commit()
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    pending = {
+        r["reviewer_id"]
+        for r in engine.get_workflow_state(
+            db_session, curation.id, "curation"
+        ).pending_reviews
+    }
+    assert pending == {a.id}  # B lost the REVIEW capability
+    review = (
+        db_session.query(Review)
+        .filter(Review.reviewer_id == a.id, Review.status == ReviewStatus.PENDING)
+        .one()
+    )
+    assert engine.submit_peer_review(db_session, review.id, a.id, "approve")[
+        "auto_transitioned"
+    ]
+
+
+def test_manual_assign_after_auto_reassign_does_not_duplicate(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, _b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    with pytest.raises(ValueError, match="already has a pending review"):
+        engine.assign_peer_reviewer(
+            db_session, curation.id, "curation", a.id, creator.id
+        )
+    pending = db_session.query(Review).filter(
+        Review.curation_id == curation.id,
+        Review.reviewer_id == a.id,
+        Review.status == ReviewStatus.PENDING,
+    )
+    assert pending.count() == 1
+    notes = db_session.query(NotificationNew).filter(
+        NotificationNew.user_id == a.id, NotificationNew.title == "New review assigned"
+    )
+    assert notes.count() == 2  # first round + the automatic one, no third

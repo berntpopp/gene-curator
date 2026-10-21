@@ -193,7 +193,7 @@
                       variant="elevated"
                       prepend-icon="mdi-check-circle"
                       block
-                      @click="openReview('approve')"
+                      @click="review.open('approve')"
                     >
                       Approve
                     </v-btn>
@@ -203,7 +203,7 @@
                       variant="outlined"
                       prepend-icon="mdi-undo"
                       block
-                      @click="openReview('reject')"
+                      @click="review.open('reject')"
                     >
                       Request changes
                     </v-btn>
@@ -234,6 +234,17 @@
               </v-card>
             </v-col>
           </v-row>
+
+          <ReviewDiff
+            v-if="showReviewDiff"
+            class="mb-6"
+            :curation-id="curationId"
+            :me="myId"
+            :creator-id="curation.created_by ?? ''"
+            :reviewer="canReview"
+            :can-reply="canReview || isCreator"
+            :only-with-comments="curation.status !== 'in_review'"
+          />
 
           <!-- Score Breakdown -->
           <v-row class="mb-6">
@@ -339,18 +350,25 @@
       </template></BaseDialog
     >
 
-    <CurationReviewDialogs
-      v-model:approve-open="showApproveDialog"
-      v-model:reject-open="showRejectDialog"
+    <ApproveChecklistDialog
+      v-model="review.showApprove.value"
       :gene-symbol="curation?.gene_symbol"
+      :scope-name="scopeName"
       :classification="classification"
-      :scores="scores"
-      :summary="evidence.evidence_summary"
-      :counts="evidenceCountsText(curation?.evidence_data)"
-      :busy="approving || rejecting"
-      :error-detail="reviewError"
-      @approve="approveCuration"
-      @reject="rejectCuration"
+      :total="scores.total.toFixed(1)"
+      :curator="curation?.curator_name"
+      :blockers="blockers"
+      :busy="review.busy.value"
+      :error="review.error.value"
+      @approve="review.approve"
+    />
+    <RequestChangesDialog
+      v-model="review.showReject.value"
+      :gene-symbol="curation?.gene_symbol"
+      :todos="todos"
+      :busy="review.busy.value"
+      :error="review.error.value"
+      @reject="review.reject"
     />
   </v-container>
 </template>
@@ -360,18 +378,22 @@
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
-  import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
+  import { curationsAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
   import { formatInheritance } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
-  import { useWorkCountsStore } from '@/stores/workCounts'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
-  import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
-  import { evidenceCountsText } from '@/components/curation/evidenceCounts'
+  import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
+  import RequestChangesDialog from '@/components/review/RequestChangesDialog.vue'
+  import ReviewDiff from '@/components/review/ReviewDiff.vue'
+  import { useReviewTransitions } from '@/components/review/useReviewTransitions'
+  import { approveBlockers, groupDiff, queryTodos } from '@/components/review/reviewModel'
+  import { useReviewStore } from '@/stores/review'
+  import { useScopesStore } from '@/stores/scopes'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
   import type { EvidenceData } from './curationScores'
   import { useCurationClassification } from './useCurationClassification'
@@ -408,7 +430,6 @@
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
   const authStore = useAuthStore()
-  const workCounts = useWorkCountsStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -422,13 +443,8 @@
   const error = ref<string | null>(null)
   const showSubmitDialog = ref(false)
   const showDeleteDialog = ref(false)
-  const showApproveDialog = ref(false)
-  const showRejectDialog = ref(false)
   const submitting = ref(false)
   const deleting = ref(false)
-  const approving = ref(false)
-  const rejecting = ref(false)
-  const reviewError = ref<string | null>(null)
   const curationSchemaId = ref<string | null>(null)
 
   const evidence = computed(
@@ -466,10 +482,26 @@
   })
 
   // Can review: backend checks scope-specific roles and 4-eyes principle
-  const canReview = computed(() => {
-    // Use backend-provided permission if available
-    return curation.value?.can_review ?? false
+  // The creator never reviews their own curation (D1), whatever the backend flag says
+  const myId = computed(() => (authStore.user as { id?: string } | null)?.id ?? '')
+  const isCreator = computed(() => !!myId.value && curation.value?.created_by === myId.value)
+  const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)
+
+  const reviewStore = useReviewStore()
+  const scopeName = computed(() => {
+    const sc = useScopesStore().scopes.find(x => x.id === scopeId.value)
+    return sc?.display_name || sc?.name || 'this scope'
   })
+  const showReviewDiff = computed(
+    () => curation.value.status === 'in_review' || curation.value.status === 'draft'
+  )
+  // A review that is not loaded (failed, or another curation's) must block approval, never pass
+  const blockers = computed(() =>
+    reviewStore.ready(curationId.value)
+      ? approveBlockers(groupDiff(reviewStore.diff?.items ?? []), reviewStore.comments, myId.value)
+      : [{ key: '', label: 'The review has not loaded' }]
+  )
+  const todos = computed(() => queryTodos(curation.value?.created_by ?? '', reviewStore.comments))
 
   // Utility functions
 
@@ -557,44 +589,7 @@
     }
   }
 
-  function openReview(kind: 'approve' | 'reject') {
-    reviewError.value = null
-    if (kind === 'approve') showApproveDialog.value = true
-    else showRejectDialog.value = true
-  }
-
-  // Shared by both review dialogs: show the API detail inside the dialog, not just a toast
-  async function transition(
-    target_stage: 'active' | 'curation',
-    notes: string | null,
-    doneMessage: string
-  ) {
-    reviewError.value = null
-    try {
-      await workflowAPI.transitionCuration(curationId.value, { target_stage, notes })
-      showApproveDialog.value = false
-      showRejectDialog.value = false
-      notificationStore.addToast(doneMessage, 'success')
-      workCounts.fetch()
-      await loadCuration()
-    } catch (err) {
-      const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
-      reviewError.value = detail ?? 'Request failed'
-      logger.error('Failed review transition', { target_stage, error: detail })
-    }
-  }
-
-  async function approveCuration(comment: string) {
-    approving.value = true
-    await transition('active', comment || null, 'Curation approved and activated')
-    approving.value = false
-  }
-
-  async function rejectCuration(comment: string) {
-    rejecting.value = true
-    await transition('curation', comment, 'Curation returned to curator for changes')
-    rejecting.value = false
-  }
+  const review = useReviewTransitions(() => curationId.value, loadCuration)
 
   function exportCuration() {
     const exportData = {

@@ -11,6 +11,16 @@ vi.mock('@/api', () => ({
   schemasAPI: { getWorkflowPairById: vi.fn(), getSchemaById: vi.fn() }
 }))
 
+vi.mock('@/api/reviewComments', () => ({
+  reviewCommentsAPI: {
+    getDiff: vi.fn().mockResolvedValue({ baseline: null, items: [] }),
+    list: vi.fn().mockResolvedValue([]),
+    create: vi.fn(),
+    update: vi.fn(),
+    myPendingItemIds: vi.fn()
+  }
+}))
+
 vi.mock('vue-router', () => ({
   useRouter: () => router,
   useRoute: () => ({ params: { scopeId: 'sc1', curationId: 'c1' } })
@@ -21,7 +31,9 @@ import { workflowAPI, schemasAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import CurationDetailView from '@/views/curation/CurationDetailView.vue'
 import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
-import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
+import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
+import RequestChangesDialog from '@/components/review/RequestChangesDialog.vue'
+import ReviewDiff from '@/components/review/ReviewDiff.vue'
 
 const openDialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
 
@@ -145,17 +157,17 @@ describe('CurationDetailView', () => {
       response: { data: { detail: 'Notification step failed' } }
     })
     const wrapper = await load({ can_review: true })
-    const dialogs = wrapper.findComponent(CurationReviewDialogs)
-    dialogs.vm.$emit('approve', 'ok')
+    const dialog = wrapper.findComponent(ApproveChecklistDialog)
+    dialog.vm.$emit('approve', 'ok')
     await flushPromises()
-    expect(dialogs.props('errorDetail')).toBe('Notification step failed')
+    expect(dialog.props('error')).toBe('Notification step failed')
   })
 
   it('refreshes the shared review badge count after a transition', async () => {
     vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
     const refresh = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
     const wrapper = await load({ can_review: true })
-    wrapper.findComponent(CurationReviewDialogs).vm.$emit('approve', 'ok')
+    wrapper.findComponent(ApproveChecklistDialog).vm.$emit('approve', 'ok')
     await flushPromises()
     expect(refresh).toHaveBeenCalled()
   })
@@ -163,12 +175,80 @@ describe('CurationDetailView', () => {
   it('requests changes with the comment from the dialog (#242)', async () => {
     vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
     const wrapper = await load({ can_review: true })
-    wrapper.findComponent(CurationReviewDialogs).vm.$emit('reject', 'Fix it')
+    wrapper.findComponent(RequestChangesDialog).vm.$emit('reject', 'Fix it')
     await flushPromises()
     expect(workflowAPI.transitionCuration).toHaveBeenCalledWith('c1', {
       target_stage: 'curation',
       notes: 'Fix it'
     })
+  })
+
+  it('shows reviewers the evidence diff with Accept and Query controls (#279)', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    const diff = wrapper.findComponent(ReviewDiff)
+    expect(diff.exists()).toBe(true)
+    expect(diff.props('reviewer')).toBe(true)
+    expect(diff.props('canReply')).toBe(true)
+  })
+
+  it('never gives the curation creator Accept or Approve, even with can_review (D1)', async () => {
+    useAuthStore().user = { id: 'alice' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice', can_edit: true })
+    expect(wrapper.findComponent(ReviewDiff).props('reviewer')).toBe(false)
+    expect(wrapper.findComponent(ReviewDiff).props('canReply')).toBe(true)
+    expect(wrapper.text()).not.toContain('Approve')
+    expect(wrapper.text()).toContain('Waiting for review by another scope reviewer (4-eyes)')
+  })
+
+  it('opens the approve checklist with the unreviewed items as blockers', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    const approve = wrapper.findAll('button').find(b => b.text() === 'Approve')!
+    await approve.trigger('click')
+    expect(wrapper.findComponent(ApproveChecklistDialog).props('modelValue')).toBe(true)
+  })
+
+  it('prefills request changes with the open queries as to-dos', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const { useReviewStore } = await import('@/stores/review')
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    useReviewStore().comments = [
+      {
+        id: 'q',
+        kind: 'query',
+        status: 'open',
+        item_path: 'summary',
+        body: 'Explain',
+        author_id: 'bob'
+      },
+      {
+        id: 'r',
+        kind: 'query',
+        status: 'open',
+        item_path: 'summary',
+        body: 'My reply',
+        author_id: 'alice'
+      }
+    ] as never
+    await flushPromises()
+    expect(wrapper.findComponent(RequestChangesDialog).props('todos')).toBe('- Summary: Explain')
+  })
+
+  it('blocks approval while the review has not loaded (failed load)', async () => {
+    const { reviewCommentsAPI } = await import('@/api/reviewComments')
+    vi.mocked(reviewCommentsAPI.getDiff).mockRejectedValueOnce({ response: { status: 500 } })
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    const blockers = wrapper.findComponent(ApproveChecklistDialog).props('blockers')
+    expect(blockers).toHaveLength(1)
+    expect(blockers[0]!.label).toContain('not loaded')
+  })
+
+  it('shows a curator the queries after changes were requested (draft)', async () => {
+    useAuthStore().user = { id: 'alice' } as never
+    const wrapper = await load({ status: 'draft', created_by: 'alice', can_edit: true })
+    expect(wrapper.findComponent(ReviewDiff).props('onlyWithComments')).toBe(true)
   })
 
   it('gives an empty ClinGen draft the ClinGen view', async () => {
