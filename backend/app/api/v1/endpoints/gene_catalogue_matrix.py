@@ -24,7 +24,12 @@ def get_catalogue_matrix(
     scope_ids: list[UUID] = Query(
         ..., min_length=1, max_length=MAX_MATRIX_SCOPES, description="Scopes (columns)"
     ),
-    search: str | None = Query(None, description="Gene symbol, HGNC ID or aliases"),
+    search: str | None = Query(
+        None,
+        max_length=100,
+        pattern=r"^[^\x00]*$",
+        description="Gene symbol, HGNC ID or aliases (literal text)",
+    ),
     agreement: Literal["agree", "disagree"] | None = Query(
         None, description="Only genes whose active classifications agree or disagree"
     ),

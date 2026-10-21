@@ -67,6 +67,7 @@ def get_matrix(
         db.execute(
             select(Scope).where(
                 Scope.id.in_(scope_ids),
+                Scope.is_active.is_(True),
                 or_(Scope.is_public.is_(True), Scope.id.in_(member_ids)),
             )
         )
@@ -93,13 +94,14 @@ def get_matrix(
     query = select(Gene).where(or_(*gene_filter))
 
     if search:
-        term = f"%{search}%"
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        term = f"%{escaped}%"
         query = query.where(
             or_(
-                Gene.approved_symbol.ilike(term),
-                Gene.hgnc_id.ilike(term),
-                Gene.previous_symbols.cast(String).ilike(term),
-                Gene.alias_symbols.cast(String).ilike(term),
+                Gene.approved_symbol.ilike(term, escape="\\"),
+                Gene.hgnc_id.ilike(term, escape="\\"),
+                Gene.previous_symbols.cast(String).ilike(term, escape="\\"),
+                Gene.alias_symbols.cast(String).ilike(term, escape="\\"),
             )
         )
     if agreement:
@@ -124,8 +126,13 @@ def get_matrix(
         query = query.where(Gene.id.in_(classified))
 
     total = db.execute(select(func.count()).select_from(query.subquery())).scalar() or 0
-    order = Gene.approved_symbol.desc() if descending else Gene.approved_symbol.asc()
-    genes = db.execute(query.order_by(order).offset(skip).limit(limit)).scalars().all()
+    # Gene.id breaks symbol ties so pages never repeat or skip rows.
+    order = (
+        (Gene.approved_symbol.desc(), Gene.id.desc())
+        if descending
+        else (Gene.approved_symbol.asc(), Gene.id.asc())
+    )
+    genes = db.execute(query.order_by(*order).offset(skip).limit(limit)).scalars().all()
 
     cells: dict[UUID, dict[UUID, MatrixCell]] = defaultdict(dict)
     gene_ids = [g.id for g in genes]

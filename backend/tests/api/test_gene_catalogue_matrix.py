@@ -30,7 +30,7 @@ def _gene(db: Session, symbol: str, n: int, **kw: Any) -> Gene:
         id=uuid4(),
         hgnc_id=f"HGNC:{n}",
         approved_symbol=symbol,
-        record_hash=hashlib.sha256(symbol.encode()).hexdigest(),
+        record_hash=hashlib.sha256(f"{symbol}{n}".encode()).hexdigest(),
         **{"previous_symbols": [], "alias_symbols": [], **kw},
     )
     db.add(gene)
@@ -329,3 +329,48 @@ def test_query_count_is_bounded(
         event.remove(engine, "before_cursor_execute", count)
     assert len(body["rows"]) == 23
     assert len(statements) <= 10, statements
+
+
+def test_ties_on_symbol_page_without_repeats_or_gaps(
+    client: TestClient, world: World
+) -> None:
+    genes = [_gene(world.db, "DUP", 100 + i) for i in range(5)]
+    for gene in genes:
+        world.cur(gene, world.pub, "Strong")
+    seen: list[str] = []
+    for skip in range(0, 5, 2):
+        body = client.get(
+            URL, params=[*world.ids(world.pub), ("limit", "2"), ("skip", str(skip))]
+        ).json()
+        seen += [r["gene_id"] for r in body["rows"]]
+    assert sorted(seen) == sorted(str(g.id) for g in genes)
+
+
+def test_like_wildcards_in_search_are_literal(client: TestClient, world: World) -> None:
+    world.cur(world.pkd1, world.pub, "Strong")
+    world.cur(world.hnf1b, world.pub, "Strong")
+    odd = _gene(world.db, "A_B", 50)
+    world.cur(odd, world.pub, "Strong")
+    world.cur(_gene(world.db, "AXB", 51), world.pub, "Strong")
+    base = world.ids(world.pub)
+    for term in ("%", "\\"):
+        assert client.get(URL, params=[*base, ("search", term)]).json()["total"] == 0
+    found = client.get(URL, params=[*base, ("search", "A_B")]).json()
+    assert [r["approved_symbol"] for r in found["rows"]] == ["A_B"]
+
+
+def test_search_rejects_nul_and_overlong(client: TestClient, world: World) -> None:
+    base = world.ids(world.pub)
+    assert client.get(URL, params=[*base, ("search", "a\x00b")]).status_code == 422
+    assert client.get(URL, params=[*base, ("search", "x" * 101)]).status_code == 422
+
+
+def test_deactivated_scope_is_hidden(client: TestClient, world: World) -> None:
+    world.cur(world.pkd1, world.pub, "Strong")
+    world.cur(world.hnf1b, world.other, "Strong")
+    world.other.is_public = True
+    world.other.is_active = False
+    world.db.commit()
+    body = client.get(URL, params=world.ids(world.pub, world.other)).json()
+    assert [s["id"] for s in body["scopes"]] == [str(world.pub.id)]
+    assert [r["approved_symbol"] for r in body["rows"]] == ["PKD1"]
