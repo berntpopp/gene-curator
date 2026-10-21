@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
@@ -58,6 +58,8 @@ const response = {
   ]
 }
 
+const mounted: { unmount: () => void }[] = []
+
 async function mountView(url = '/genes') {
   const router = createRouter({
     history: createMemoryHistory(),
@@ -75,10 +77,14 @@ async function mountView(url = '/genes') {
   await flushPromises()
   await new Promise(r => setTimeout(r))
   await flushPromises()
+  mounted.push(wrapper)
   return { wrapper, router }
 }
 
 describe('GeneCatalogueView', () => {
+  // Unmount so teleported menus from earlier tests cannot be hit by document.body queries.
+  afterEach(() => mounted.splice(0).forEach(w => w.unmount()))
+
   beforeEach(() => {
     setActivePinia(createPinia())
     localStorage.clear()
@@ -156,9 +162,7 @@ describe('GeneCatalogueView', () => {
     await wrapper.find('[data-testid="scope-picker"]').trigger('click')
     await new Promise(r => setTimeout(r, 50))
     ;(document.body.querySelector('[data-testid="scope-s2"] input') as HTMLInputElement).click()
-    await new Promise(r => setTimeout(r, 20))
-    await flushPromises()
-    expect(router.currentRoute.value.query.scopes).toEqual(['s1'])
+    await vi.waitFor(() => expect(router.currentRoute.value.query.scopes).toEqual(['s1']))
     expect(JSON.parse(localStorage.getItem('catalogue.shownScopes')!)).toEqual(['s1'])
     expect(api.getMatrix.mock.calls.at(-1)![0].scope_ids).toEqual(['s1'])
   })
