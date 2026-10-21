@@ -10,119 +10,135 @@
       <template v-else>Ask a scope admin to choose one.</template>
     </v-alert>
 
-    <ScopeStageStrip
-      class="mb-3"
-      :counts="stageCounts"
-      :model-value="stageFilter"
-      @update:model-value="setStage"
-    />
+    <div class="gene-layout">
+      <div class="gene-layout__main">
+        <ScopeStageStrip
+          class="mb-3"
+          :counts="stageCounts"
+          :model-value="stageFilter"
+          @update:model-value="setStage"
+        />
 
-    <GeneBulkBar
-      v-if="canReassign"
-      class="mb-3"
-      :selected="selectedRows"
-      @assign="openAssignModal(selectedRows.filter(r => !r.curator_id).map(r => r.gene_id))"
-      @clear="selectedIds = []"
-      @changed="onBulkChanged"
-    />
-
-    <DataTable
-      v-model:search="table.search.value"
-      v-model:filters="table.filters.value"
-      v-model:page="table.page.value"
-      v-model:items-per-page="table.itemsPerPage.value"
-      v-model:sort-by="table.sortBy.value"
-      v-model:density="table.density.value"
-      :headers="tableHeaders"
-      :items="pageRows"
-      :items-length="filteredGenes.length"
-      :loading="loading"
-      :filter-defs="filterDefs"
-    >
-      <template #toolbar-actions>
-        <v-btn
-          v-if="canReassign && filteredGenes.length"
-          size="small"
-          variant="text"
-          data-testid="select-all"
-          @click="selectedIds = filteredGenes.map(g => g.gene_id)"
-        >
-          Select all {{ filteredGenes.length }}
-        </v-btn>
-        <v-btn
+        <GeneBulkBar
           v-if="canReassign"
-          size="small"
-          color="primary"
-          variant="flat"
-          data-testid="add-genes"
-          @click="showAddModal = true"
-        >
-          Add genes
-        </v-btn>
-      </template>
+          class="mb-3"
+          :selected="selectedRows"
+          @assign="openAssignModal(selectedRows.filter(r => !r.curator_id).map(r => r.gene_id))"
+          @clear="selectedIds = []"
+          @changed="onBulkChanged"
+        />
 
-      <template #item.select="{ item }">
-        <v-checkbox-btn
-          v-model="selectedIds"
-          :value="item.gene_id"
-          density="compact"
-          :aria-label="`Select ${item.gene_symbol}`"
-        />
-      </template>
-      <template #item.gene_symbol="{ item }">
-        <a href="#" class="gene-link" @click.prevent="viewGene(item)">{{ item.gene_symbol }}</a>
-        <div class="text-body-small text-medium-emphasis">{{ item.gene_hgnc_id }}</div>
-      </template>
-      <template #item.curator_name="{ item }">
-        <span :class="{ 'text-medium-emphasis': !item.curator_name }">
-          {{ item.curator_name || 'Unassigned' }}
-        </span>
-      </template>
-      <template #item.stage="{ item }">
-        <v-chip size="small" :color="stageColor(item.stage)" variant="tonal">
-          {{ stageTitle(item.stage) }}
-        </v-chip>
-      </template>
-      <template #item.priority="{ item }">{{ getPriorityLabel(item.priority) }}</template>
-      <template #item.updated_at="{ item }">{{ formatDate(item.updated_at) }}</template>
-      <template #item.actions="{ item }">
-        <GeneRowActions
-          :gene="item"
-          :workflow="workflow"
-          :can-assign-genes="canAssignGenes"
-          :can-reassign="canReassign"
-          :can-remove-genes="canRemoveGenes"
-          :start-blocked-reason="startBlockedReason"
-          @start-precuration="startPrecuration"
-          @complete-precuration="completePrecuration"
-          @view-curation="viewCuration"
-          @start-curation="startCuration"
-          @reassign="reassignGene"
-          @edit-assignment="editGeneAssignment"
-          @remove="confirmRemoveGene"
-        />
-      </template>
-      <template #no-data>
-        <div data-testid="table-empty" class="pa-6 text-center text-medium-emphasis">
-          <template v-if="rows.length">
-            No genes match the filters.
-            <v-btn variant="text" size="small" @click="clearFilters">Clear filters</v-btn>
-          </template>
-          <template v-else>
-            No genes in this scope yet.
+        <DataTable
+          v-model:search="table.search.value"
+          v-model:filters="table.filters.value"
+          v-model:page="table.page.value"
+          v-model:items-per-page="table.itemsPerPage.value"
+          v-model:sort-by="table.sortBy.value"
+          v-model:density="table.density.value"
+          :headers="tableHeaders"
+          :items="pageRows"
+          :items-length="filteredGenes.length"
+          :loading="loading"
+          :filter-defs="filterDefs"
+        >
+          <template #toolbar-actions>
+            <v-btn
+              v-if="canReassign && filteredGenes.length"
+              size="small"
+              variant="text"
+              data-testid="select-all"
+              @click="selectedIds = filteredGenes.map(g => g.gene_id)"
+            >
+              Select all {{ filteredGenes.length }}
+            </v-btn>
             <v-btn
               v-if="canReassign"
+              size="small"
               variant="text"
+              data-testid="paste-genes"
+              @click="showPasteModal = true"
+            >
+              Paste list
+            </v-btn>
+            <v-btn
+              v-if="canReassign"
               size="small"
               color="primary"
+              variant="flat"
+              data-testid="add-genes"
               @click="showAddModal = true"
             >
               Add genes
             </v-btn>
           </template>
-        </div>
-      </template>
-    </DataTable>
+
+          <template #item.select="{ item }">
+            <v-checkbox-btn
+              v-model="selectedIds"
+              :value="item.gene_id"
+              density="compact"
+              :aria-label="`Select ${item.gene_symbol}`"
+            />
+          </template>
+          <template #item.gene_symbol="{ item }">
+            <a href="#" class="gene-link" @click.prevent="viewGene(item)">{{ item.gene_symbol }}</a>
+            <div class="text-body-small text-medium-emphasis">{{ item.gene_hgnc_id }}</div>
+          </template>
+          <template #item.curator_name="{ item }">
+            <span :class="{ 'text-medium-emphasis': !item.curator_name }">
+              {{ item.curator_name || 'Unassigned' }}
+            </span>
+          </template>
+          <template #item.stage="{ item }">
+            <v-chip size="small" :color="stageColor(item.stage)" variant="tonal">
+              {{ stageTitle(item.stage) }}
+            </v-chip>
+          </template>
+          <template #item.priority="{ item }">{{ getPriorityLabel(item.priority) }}</template>
+          <template #item.updated_at="{ item }">{{ formatDate(item.updated_at) }}</template>
+          <template #item.actions="{ item }">
+            <GeneRowActions
+              :gene="item"
+              :workflow="workflow"
+              :can-assign-genes="canAssignGenes"
+              :can-reassign="canReassign"
+              :can-remove-genes="canRemoveGenes"
+              :start-blocked-reason="startBlockedReason"
+              @start-precuration="startPrecuration"
+              @complete-precuration="completePrecuration"
+              @view-curation="viewCuration"
+              @start-curation="startCuration"
+              @reassign="reassignGene"
+              @edit-assignment="editGeneAssignment"
+              @remove="confirmRemoveGene"
+            />
+          </template>
+          <template #no-data>
+            <div data-testid="table-empty" class="pa-6 text-center text-medium-emphasis">
+              <template v-if="rows.length">
+                No genes match the filters.
+                <v-btn variant="text" size="small" @click="clearFilters">Clear filters</v-btn>
+              </template>
+              <template v-else>
+                No genes in this scope yet.
+                <v-btn
+                  v-if="canReassign"
+                  variant="text"
+                  size="small"
+                  color="primary"
+                  @click="showAddModal = true"
+                >
+                  Add genes
+                </v-btn>
+              </template>
+            </div>
+          </template>
+        </DataTable>
+      </div>
+      <ScopeWorkloadPanel :genes="rows" class="gene-layout__side" />
+    </div>
+
+    <PasteGenesDialog v-model="showPasteModal" :scope-id="scopeId" @added="refresh" />
 
     <AddGeneModal v-model="showAddModal" :scope-id="scopeId" @added="handleGenesAdded" />
 
@@ -182,6 +198,8 @@
   import DataTable from '@/components/common/DataTable.vue'
   import ScopeStageStrip from '@/components/scope/ScopeStageStrip.vue'
   import GeneBulkBar from './GeneBulkBar.vue'
+  import ScopeWorkloadPanel from '@/components/scope/ScopeWorkloadPanel.vue'
+  import PasteGenesDialog from '@/components/scope/intake/PasteGenesDialog.vue'
   import AddGeneModal from '@/components/gene/AddGeneModal.vue'
   import AssignCuratorModal from '@/components/gene/AssignCuratorModal.vue'
   import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
@@ -243,6 +261,7 @@
 
   // Modal state
   const showAddModal = ref(false)
+  const showPasteModal = ref(false)
   const showAssignModal = ref(false)
   const showGeneDetailModal = ref(false)
   const showReassignModal = ref(false)
@@ -500,6 +519,19 @@
 </script>
 
 <style scoped>
+  .gene-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+    align-items: start;
+  }
+
+  @media (max-width: 1100px) {
+    .gene-layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   .gene-link {
     color: rgb(var(--v-theme-secondary));
     font-family: 'IBM Plex Mono', monospace;
