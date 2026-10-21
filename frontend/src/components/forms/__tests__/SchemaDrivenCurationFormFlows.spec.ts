@@ -204,6 +204,42 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(internals(wrapper).evidenceData).toEqual({ evidence_items: [] })
   })
 
+  it('starts a re-curation from the active curation: its evidence and disease, a new draft', async () => {
+    curationsStore.fetchCurationById.mockResolvedValue({
+      id: 'active-1',
+      evidence_data: { genetic_evidence: { x: 1 } },
+      disease_name: 'Alport syndrome',
+      mondo_id: 'MONDO:0018965',
+      mode_of_inheritance: 'XL',
+      lock_version: 6,
+      status: 'active'
+    })
+
+    const wrapper = await mountForm({ geneId: 'g-1', prefillFrom: 'active-1' })
+    const vm = internals(wrapper)
+
+    expect(curationsStore.fetchCurationById).toHaveBeenCalledWith('active-1')
+    expect(vm.evidenceData).toEqual({
+      disease_name: 'Alport syndrome',
+      mondo_id: 'MONDO:0018965',
+      mode_of_inheritance: 'XL',
+      genetic_evidence: { x: 1 }
+    })
+    // The new curation is a fresh draft, not the active one
+    expect(vm.lockVersion).toBe(0)
+    expect(vm.curationStatus).toBe('draft')
+  })
+
+  it('ignores the prefill source when editing an existing curation, and reports a failed prefill', async () => {
+    curationsStore.currentCuration = { id: 'cur-1', evidence_data: { a: 1 }, status: 'draft' }
+    await mountForm({ curationId: 'cur-1', prefillFrom: 'active-1' })
+    expect(curationsStore.fetchCurationById).not.toHaveBeenCalled()
+
+    curationsStore.fetchCurationById.mockRejectedValue({ message: 'gone' })
+    await mountForm({ prefillFrom: 'active-1' })
+    expect(addToast).toHaveBeenCalledWith('Failed to load the active curation', 'error')
+  })
+
   it('reports a failed curation load', async () => {
     curationsStore.fetchCurationById.mockRejectedValue({ message: 'gone' })
 

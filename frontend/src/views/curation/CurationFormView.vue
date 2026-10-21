@@ -67,6 +67,7 @@
             :gene-id="effectiveGeneId"
             :readonly="readonly"
             :gene="formGene"
+            :prefill-from="prefillFrom"
             @submit="handleSubmit"
             @cancel="handleCancel"
             @ready="handleReady"
@@ -192,6 +193,9 @@
   const geneId = computed<RouteId>(
     () => (route.params.geneId as string) || (route.query.gene_id as string) || undefined
   )
+
+  // Re-curation: the active curation the new one starts from
+  const prefillFrom = computed<RouteId>(() => (route.query.from as string) || undefined)
 
   const effectiveGeneId = computed<RouteId>(
     () => geneId.value ?? curation.value?.gene_id ?? undefined
@@ -330,11 +334,11 @@
     logger.debug('Schema selected', { schemaId })
   }
 
-  // The form emits `submit` without a payload; the saved curation is in the store
-  function handleSubmit() {
+  // The form emits the submitted curation's id (the store's current one may be a re-curation source)
+  function handleSubmit(submittedId?: string) {
     frame.markClean() // submitted: nothing left to lose
     notificationsStore.addToast('Curation submitted successfully', 'success')
-    const id = curationsStore.currentCuration?.id || curationId.value
+    const id = submittedId || curationsStore.currentCuration?.id || curationId.value
     if (!id) {
       router.push({ name: 'scope-dashboard', params: { scopeId: scopeId.value } })
       return

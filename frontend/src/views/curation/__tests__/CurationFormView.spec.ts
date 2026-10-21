@@ -283,6 +283,21 @@ describe('CurationFormView', () => {
     })
   })
 
+  it('re-curation: starts from the active curation and opens the new one after submit', async () => {
+    routeState.query = { from: 'active-1' }
+    const { wrapper, vm, curations } = await mountView(({ schemas }) => {
+      schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+    })
+    const form = wrapper.findComponent({ name: 'SchemaDrivenCurationForm' })
+    expect(form.props('prefillFrom')).toBe('active-1')
+    curations.currentCuration = { id: 'active-1' } as never // loaded as the prefill source
+    ;(vm.handleSubmit as (id: string) => void)('new-2')
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'curation-detail',
+      params: { scopeId: 'sc1', curationId: 'new-2' }
+    })
+  })
+
   it('falls back to the scope dashboard when no curation id is known after a submit', async () => {
     const { vm } = await mountView()
     ;(vm.handleSubmit as () => void)()

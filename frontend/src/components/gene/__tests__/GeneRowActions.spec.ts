@@ -23,6 +23,7 @@ function workflow(overrides: Record<string, unknown> = {}): GeneWorkflowStatus {
     hasPrecuration: () => false,
     isPrecurationApproved: () => false,
     hasCuration: () => false,
+    isCurationActive: () => false,
     getCurationStatusLabel: () => 'No Curation',
     ...overrides
   } as unknown as GeneWorkflowStatus
@@ -212,5 +213,23 @@ describe('GeneRowActions', () => {
     expect(wrapper.text()).not.toMatch(
       /Start Precuration|Complete Precuration|Start Curation|Curation \(requires/
     )
+  })
+
+  it('offers a re-curation for an active curation to users who may curate', async () => {
+    const active = workflow({
+      hasCuration: () => true,
+      isCurationActive: () => true,
+      getCurationStatusLabel: () => 'Active'
+    })
+    const mk = (canAssignGenes: boolean) =>
+      mount(GeneRowActions, {
+        props: { gene, workflow: active, canAssignGenes, canRemoveGenes: false },
+        global: { stubs: inlineMenu }
+      })
+    const wrapper = mk(true)
+    const item = menuItems(wrapper).find(i => i.text().includes('Start re-curation'))
+    await item!.trigger('click')
+    expect(wrapper.emitted('start-recuration')).toEqual([[gene]])
+    expect(mk(false).text()).not.toContain('Start re-curation')
   })
 })

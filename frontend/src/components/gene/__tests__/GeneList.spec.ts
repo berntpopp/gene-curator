@@ -55,6 +55,7 @@ interface GeneListVm {
   startPrecuration(gene: unknown): void
   startCuration(gene: unknown): void
   viewCuration(gene: unknown): void
+  startRecuration(gene: unknown): void
   completePrecuration(gene: unknown): Promise<void>
   reassignGene(gene: unknown): void
   editGeneAssignment(gene: unknown): void
@@ -428,6 +429,15 @@ describe('GeneList', () => {
       push.mockClear()
       vm.viewCuration({ gene_id: 'g-2' })
       expect(push).not.toHaveBeenCalled()
+    })
+
+    it('starts a re-curation from the active curation', async () => {
+      getCurations.mockResolvedValue({
+        curations: [{ id: 'c-7', gene_id: 'g-1', status: 'active', updated_at: '2025-01-01' }]
+      } as never)
+      const vm = internals(await mountList())
+      vm.startRecuration({ gene_id: 'g-1' })
+      expect(push).toHaveBeenCalledWith('/scopes/scope-1/genes/g-1/curation/new?from=c-7')
     })
 
     it('starts precuration instead of completing when none exists', async () => {
