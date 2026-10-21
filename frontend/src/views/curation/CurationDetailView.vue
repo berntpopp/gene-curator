@@ -406,16 +406,15 @@
   import { useReviewStore } from '@/stores/review'
   import { useScopesStore } from '@/stores/scopes'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
-  import type { EvidenceData } from './curationScores'
-  import { useCurationClassification } from './useCurationClassification'
+  import { useCurationClassification, type ScoredCuration } from './useCurationClassification'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
-  interface CurationRecord {
+  interface CurationRecord extends ScoredCuration {
     status: string
     gene_id?: string
     workflow_pair_id?: string
-    evidence_data?: EvidenceData | null
+    evidence_data?: Record<string, unknown> | null
     gene_symbol?: string | null
     hgnc_id?: string | null
     disease_name?: string | null
@@ -478,7 +477,7 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
-  const { scores, classification } = useCurationClassification(() => curation.value?.evidence_data)
+  const { scores, classification } = useCurationClassification(() => curation.value)
 
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => curation.value?.can_edit ?? false)

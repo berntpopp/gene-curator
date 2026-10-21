@@ -1,19 +1,19 @@
 import { computed } from 'vue'
-import { hasContent } from '@/components/clingen/hasContent'
-import { classifyScores, computeScores, type EvidenceData } from './curationScores'
+import { getClassification } from '@/config/classification'
+import { storedScores, type StoredScores } from './curationScores'
 
-/** Evidence scores and the ClinGen classification derived from a curation's evidence_data. */
-export function useCurationClassification(evidence: () => object | null | undefined) {
-  const scores = computed(() => computeScores(evidence() as EvidenceData | null | undefined))
+export interface ScoredCuration {
+  computed_scores?: StoredScores | null
+  computed_verdict?: string | null
+}
+
+/** Stored scores and the stored classification of a curation (no client recalculation). */
+export function useCurationClassification(curation: () => ScoredCuration | null | undefined) {
+  const scores = computed(() => storedScores(curation()?.computed_scores))
+  // Label form ("Moderate"), as the approve checklist and ClassificationMark expect
   const classification = computed(() => {
-    const data = evidence() as
-      { contradictory_evidence?: unknown[]; replicated_over_time?: boolean } | null | undefined
-    return classifyScores(
-      scores.value.total,
-      scores.value.genetic,
-      hasContent(data?.contradictory_evidence),
-      data?.replicated_over_time === true
-    )
+    const verdict = curation()?.computed_verdict
+    return verdict ? getClassification(verdict).label : ''
   })
   return { scores, classification }
 }

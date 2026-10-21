@@ -62,22 +62,6 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Failed to load curation details')
   })
 
-  it.each([
-    [{ contradictory_evidence: [{ pmid: '1' }] }, 'Disputed'],
-    [{ replicated_over_time: true }, 'No known disease relationship'],
-    [{}, 'No known disease relationship']
-  ])('classifies evidence %j as %s', async (extra, label) => {
-    vi.mocked(curationsAPI.getCuration).mockResolvedValue({
-      id: 'c1',
-      workflow_stage: 'curation',
-      status: 'draft',
-      evidence_data: { ...extra }
-    } as never)
-    const wrapper = mount(CurationDetailView, { global: { stubs: { DynamicForm: true } } })
-    await flushPromises()
-    expect(wrapper.text()).toContain(label)
-  })
-
   const load = async (curation: Record<string, unknown>, engine = 'clingen_sop_v11') => {
     vi.mocked(schemasAPI.getWorkflowPairById).mockResolvedValue({
       curation_schema_id: 's1'
@@ -175,6 +159,32 @@ describe('CurationDetailView', () => {
         name: 'scope-dashboard',
         params: { scopeId: 'sc1' }
       })
+  })
+
+  it('shows the stored score and verdict, not a client recalculation (#266)', async () => {
+    // Client SOP caps would give 4 model points (Strong); the pinned model stored 9.6 Moderate
+    const wrapper = await load({
+      can_review: true,
+      evidence_data: {
+        experimental_evidence: { models: { non_human_model_organism: [{ points: 4 }] } }
+      },
+      computed_verdict: 'moderate',
+      computed_scores: {
+        total_score: 9.6,
+        genetic_evidence_total: 8.6,
+        experimental_evidence_total: 1,
+        trace: {
+          sections: [
+            { key: 'experimental_evidence', score: 1, categories: [{ key: 'models', score: 1 }] }
+          ]
+        }
+      }
+    })
+    expect(wrapper.text()).toContain('9.60')
+    expect(wrapper.text()).toContain('Moderate')
+    const dialog = wrapper.findComponent(ApproveChecklistDialog)
+    expect(dialog.props('classification')).toBe('Moderate')
+    expect(dialog.props('total')).toBe('9.6')
   })
 
   it('shows the API detail inside the approve dialog when approving fails (#237)', async () => {
