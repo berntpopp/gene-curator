@@ -296,3 +296,64 @@ def test_point_ranges_use_pinned_version(
     with pytest.raises(HTTPException) as exc:
         enforce_clingen_point_ranges(db_session, pair_id, bad, pinned.id)
     assert exc.value.status_code == 422
+
+
+def _narrowed_model() -> dict:
+    """v2: cohorts narrowed to 0-1, segregation widened to 0-5."""
+    model = _custom_model()
+    for category in model["sections"][0]["categories"]:
+        for type_def in category["types"]:
+            if type_def["path"] == "patient_registry_cohort.cohorts":
+                type_def["range"] = [0, 1]
+            if type_def["path"] == "segregation":
+                type_def["range"] = [0, 5]
+    return model
+
+
+def test_update_and_submit_check_ranges_of_the_pinned_version(
+    client, admin_token, db_session: Session, test_curation: CurationNew
+) -> None:
+    v1 = _version(db_session, test_curation, 1, {"point_model": _custom_model()})
+    _version(db_session, test_curation, 2, {"point_model": _narrowed_model()})
+    test_curation.methodology_version_id = v1.id
+    db_session.commit()
+    headers = {"Authorization": f"Bearer {admin_token}"}
+    url = f"/api/v1/curations/{test_curation.id}"
+    ok_v1 = {
+        "genetic_evidence": {"patient_registry_cohort": {"cohorts": [{"points": 1.5}]}}
+    }
+    ok_v2_only = {"genetic_evidence": {"segregation": [{"points": 4}]}}
+
+    r = client.put(
+        url, json={"evidence_data": ok_v1, "lock_version": 0}, headers=headers
+    )
+    assert r.status_code == 200, r.text
+    lock = r.json()["lock_version"]
+    r = client.put(
+        url, json={"evidence_data": ok_v2_only, "lock_version": lock}, headers=headers
+    )
+    assert r.status_code == 422 and "between 0 and 3" in r.text
+
+    test_curation.evidence_data = ok_v2_only  # e.g. saved through /draft
+    db_session.commit()
+    r = client.post(f"{url}/submit", json={"lock_version": lock}, headers=headers)
+    assert r.status_code == 422 and "between 0 and 3" in r.text
+
+
+def test_recompute_scores_with_the_pinned_version(
+    db_session: Session, test_curation: CurationNew, test_user_admin: object
+) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    v1 = _version(db_session, test_curation, 1, {"point_model": _custom_model()})
+    _version(db_session, test_curation, 2, {"engine": "clingen_sop_v11"})
+    test_curation.evidence_data = {
+        "experimental_evidence": {"rescue": {"human": [{"points": 2}]}}
+    }
+    test_curation.methodology_version_id = v1.id
+    db_session.commit()
+    recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert (
+        test_curation.computed_scores["total_score"] == 0
+    )  # v1 has no rescue in human

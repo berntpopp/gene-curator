@@ -400,7 +400,10 @@ def update_curation(
         )
 
     enforce_clingen_point_ranges(
-        db, curation.workflow_pair_id, curation_in.evidence_data
+        db,
+        curation.workflow_pair_id,
+        curation_in.evidence_data,
+        curation.methodology_version_id,
     )
     updated = curation_crud.update_with_lock(
         db,
@@ -505,7 +508,12 @@ def submit_curation(
             detail="Only the creator can submit for review",
         )
 
-    enforce_clingen_point_ranges(db, curation.workflow_pair_id, curation.evidence_data)
+    enforce_clingen_point_ranges(
+        db,
+        curation.workflow_pair_id,
+        curation.evidence_data,
+        curation.methodology_version_id,
+    )
 
     try:
         submitted = curation_crud.submit_for_review(
