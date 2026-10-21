@@ -54,7 +54,8 @@ function toResult(item: Item | undefined): PmidResult {
  * does not (offline must not stop curation).
  */
 export function usePmidLookup() {
-  const results = inject(RESULTS, null) ?? reactive<Record<string, PmidResult>>({})
+  const outer = inject(RESULTS, null)
+  const results = outer ?? reactive<Record<string, PmidResult>>({})
   provide(RESULTS, results)
   const cells = new Map<
     string | number,
@@ -124,6 +125,8 @@ export function usePmidLookup() {
   })
 
   return {
+    /** Inside a form with its own lookup (the curation form), which owns the submit blocker */
+    shared: !!outer,
     check,
     checkAll,
     cancel,

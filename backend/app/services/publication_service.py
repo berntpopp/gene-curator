@@ -396,6 +396,9 @@ class PublicationService:
         return None
 
 
+LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
+LOOKUP_TIMEOUT_S = 20.0  # whole lookup; slower counts as offline (never blocks)
+
 # pmid_format as the forms accept it: optional "PMID:" prefix, 1-9 digits
 _PMID = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
 
@@ -431,11 +434,23 @@ def unknown_pmids(db: Session, pmids: set[str]) -> list[str]:
 
 
 async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
+    """Europe PMC results, at most LOOKUP_CONCURRENCY at a time; [] after LOOKUP_TIMEOUT_S."""
     # fetch_publication never touches the cache session
     service = PublicationService(cast(AsyncSession, None))
+    gate = asyncio.Semaphore(LOOKUP_CONCURRENCY)
+
+    async def one(pmid: str) -> PMIDValidationResult:
+        async with gate:
+            return await service.fetch_publication(pmid)
+
     try:
         return list(
-            await asyncio.gather(*(service.fetch_publication(p) for p in pmids))
+            await asyncio.wait_for(
+                asyncio.gather(*(one(p) for p in pmids)), LOOKUP_TIMEOUT_S
+            )
         )
+    except TimeoutError:
+        logger.warning("PMID lookup timed out, not blocking submit", pmids=pmids)
+        return []
     finally:
         await service.close()

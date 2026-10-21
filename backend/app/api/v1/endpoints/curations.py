@@ -36,7 +36,6 @@ from app.schemas.curation import (
     CurationUpdate,
 )
 from app.scoring.point_limits import enforce_clingen_point_ranges
-from app.services.publication_service import evidence_pmids, unknown_pmids
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -507,22 +506,7 @@ def submit_curation(
             detail="Only the creator can submit for review",
         )
 
-    enforce_clingen_point_ranges(
-        db,
-        curation.workflow_pair_id,
-        curation.evidence_data,
-        curation.methodology_version_id,
-    )
-    # The form checks only the tables a curator opened; API callers are checked here
-    pmids = evidence_pmids(curation.evidence_data)
-    unknown = unknown_pmids(db, pmids) if pmids else []
-    if unknown:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"PMID {', '.join(unknown)} not found in Europe PMC; "
-            "fix or remove before submitting",
-        )
-
+    # Point ranges and PMIDs: review_guards, in the transition into review
     try:
         submitted = curation_crud.submit_for_review(
             db,

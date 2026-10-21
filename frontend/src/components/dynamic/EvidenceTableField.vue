@@ -160,6 +160,7 @@
   watch(
     unknownPmids,
     list =>
+      !lookup.shared &&
       frame?.setBlocker(
         blockerId,
         list.length
