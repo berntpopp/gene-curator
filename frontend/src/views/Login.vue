@@ -7,7 +7,8 @@
             <v-img
               src="/img/logo.png"
               alt="Gene Curator Logo"
-              max-width="64"
+              width="64"
+              aspect-ratio="1"
               class="mx-auto mb-4"
             />
             <h1 class="text-h4">Sign in</h1>

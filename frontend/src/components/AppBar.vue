@@ -9,6 +9,7 @@
         contain
         max-height="48"
         max-width="48"
+        aspect-ratio="1"
         width="48"
       />
       <span>

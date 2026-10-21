@@ -7,7 +7,8 @@
             <v-img
               src="/img/logo.png"
               alt="Gene Curator Logo"
-              max-width="120"
+              width="120"
+              aspect-ratio="1"
               class="mx-auto mb-4"
             />
             <h1 class="text-h3 mb-2">Gene Curator</h1>

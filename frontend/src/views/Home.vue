@@ -4,7 +4,13 @@
     <v-container fluid class="hero-section pa-8">
       <v-row align="center" justify="center">
         <v-col cols="12" md="8" class="text-center">
-          <v-img src="/img/logo.png" alt="Gene Curator Logo" max-width="120" class="mx-auto mb-6" />
+          <v-img
+            src="/img/logo.png"
+            alt="Gene Curator Logo"
+            width="120"
+            aspect-ratio="1"
+            class="mx-auto mb-6"
+          />
           <h1 class="text-h3 mb-4 font-weight-bold">Gene Curator</h1>
           <p class="text-h6 mb-6 text-medium-emphasis">
             Advanced platform for genetic information curation and management with ClinGen
