@@ -225,6 +225,7 @@
   import LumpingSplittingSection from './sections/LumpingSplittingSection.vue'
   import ScoreSummary from './ScoreSummary.vue'
   import { createEmptyExperimentalEvidence, createEmptyGeneticEvidence } from './evidenceDefaults'
+  import { normalizeLegacy } from './scoring'
   import { calculateExperimentalScore, calculateGeneticScore, classifyScore } from './scoring'
   import type {
     ClinGenEvidenceData,
@@ -419,7 +420,7 @@
       if (newData && Object.keys(newData).length > 0) {
         evidenceData.value = {
           ...evidenceData.value,
-          ...newData
+          ...normalizeLegacy(newData)
         }
       }
     },
