@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 # Schema Repository Base Schemas
@@ -74,8 +74,9 @@ class CurationSchemaInDBBase(CurationSchemaBase):
     updated_at: datetime | None = None
     created_by: UUID | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
 
 class CurationSchema(CurationSchemaInDBBase):
@@ -123,8 +124,9 @@ class WorkflowPairInDBBase(WorkflowPairBase):
     updated_at: datetime | None = None
     created_by: UUID | None = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(
+        from_attributes=True,
+    )
 
 
 class WorkflowPair(WorkflowPairInDBBase):

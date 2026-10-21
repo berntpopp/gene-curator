@@ -205,6 +205,8 @@ minversion = "6.0"
 # PostgreSQL-only tests (RLS, triggers) run in their own lane: `make test-postgres`
 addopts = "-ra -q --strict-markers --strict-config -m 'not postgres'"
 testpaths = ["tests"]
+# New Pydantic v1-style APIs in app code must fail CI (#330)
+filterwarnings = ["error::pydantic.warnings.PydanticDeprecatedSince20:app"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
