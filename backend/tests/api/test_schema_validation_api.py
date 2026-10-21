@@ -495,3 +495,43 @@ class TestSectionedSchemas:
         assert body["is_valid"] is False
         assert body["required_fields_missing"] == ["mondo_id"]
         assert "score" in body["field_validations"]
+
+    def test_unset_checkbox_and_hidden_fields_are_not_missing(
+        self, client: TestClient, viewer_token: str
+    ):
+        """Seeded lumping section: the untouched checkbox hides decision (#268)."""
+        definition = {
+            "sections": [
+                {
+                    "id": "lumping",
+                    "fields": [
+                        {"id": "applicable", "type": "boolean", "required": True},
+                        {
+                            "id": "decision",
+                            "type": "select",
+                            "required": True,
+                            "show_when": {"applicable": True},
+                        },
+                    ],
+                }
+            ]
+        }
+        r = client.post(
+            f"{BASE}/validate-evidence",
+            json={
+                "evidence_data": {},
+                "schema_definition": {"field_definitions": definition},
+            },
+            headers=_auth(viewer_token),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["required_fields_missing"] == []
+
+        r = client.post(
+            f"{BASE}/generate-json-schema",
+            json={"schema_definition": {"field_definitions": definition}},
+            headers=_auth(viewer_token),
+        )
+        doc = r.json()["json_schema"]
+        assert doc["required"] == ["applicable"]
+        assert doc["properties"]["decision"]["visible_when"] == {"applicable": True}

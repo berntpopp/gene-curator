@@ -1,8 +1,11 @@
 /**
  * Required-field check against a precuration schema; mirrors backend `missing_required_fields`
  * (crud/precuration.py). Required = `required: true` in flat/nested definitions or in
- * `sections[].fields[]`, plus `validation_rules.required_fields`.
+ * `sections[].fields[]`, plus `validation_rules.required_fields`. A field hidden by its
+ * `visible_when` / `show_when` condition is not required; an unset checkbox counts as false.
  */
+import { conditionHolds } from '@/components/dynamic/conditions'
+import type { Condition } from '@/components/dynamic/types'
 
 const humanize = (key: string) => {
   const words = key.replace(/_/g, ' ').trim()
@@ -22,24 +25,28 @@ interface Cfg {
   required?: unknown
   properties?: unknown
   fields?: unknown
+  visible_when?: Condition
+  show_when?: Condition
 }
 
-/** [dotted path, display label] of every required field. */
-function requiredSpecs(defs: unknown, prefix = ''): [string, string][] {
+type Spec = [path: string, label: string, cfg?: Cfg]
+
+/** [dotted path, display label, config] of every required field. */
+function requiredSpecs(defs: unknown, prefix = ''): Spec[] {
   if (!defs || typeof defs !== 'object') return []
-  const found: [string, string][] = []
+  const found: Spec[] = []
   const record = defs as Record<string, unknown>
   const sections = Array.isArray(record.sections) ? (record.sections as Cfg[]) : []
   for (const section of sections) {
     for (const f of Array.isArray(section?.fields) ? (section.fields as Cfg[]) : []) {
-      if (f?.required === true && f.id) found.push([prefix + f.id, f.label || humanize(f.id)])
+      if (f?.required === true && f.id) found.push([prefix + f.id, f.label || humanize(f.id), f])
     }
   }
   for (const [name, raw] of Object.entries(record)) {
     if (name === 'sections' || !raw || typeof raw !== 'object') continue
     const cfg = raw as Cfg
     if (cfg.required === true) {
-      found.push([prefix + name, cfg.label || cfg.title || humanize(name)])
+      found.push([prefix + name, cfg.label || cfg.title || humanize(name), cfg])
     } else if (cfg.type === 'object') {
       found.push(...requiredSpecs(cfg.properties, `${prefix}${name}.`))
     }
@@ -64,5 +71,11 @@ export function missingRequiredLabels(defs: unknown, data: unknown, rules?: unkn
       specs.push([path, humanize(path.split('.').pop() ?? path)])
     }
   }
-  return specs.filter(([path]) => isEmpty(valueAt(data, path))).map(([, label]) => label)
+  return specs
+    .filter(([path, , cfg]) => {
+      const when = cfg?.visible_when ?? cfg?.show_when
+      if (when && !conditionHolds(when, data)) return false
+      return cfg?.type !== 'boolean' && isEmpty(valueAt(data, path))
+    })
+    .map(([, label]) => label)
 }

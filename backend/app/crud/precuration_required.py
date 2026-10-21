@@ -66,7 +66,7 @@ def missing_required_fields(
 
     Required = ``required: true`` in flat/nested definitions or ``sections[].fields[]``,
     plus ``validation_rules.required_fields``; a field hidden by its ``visible_when`` /
-    ``show_when`` condition is not required. Mirrored by the frontend requiredFields.ts.
+    ``show_when`` condition is not required, nor is a checkbox. Mirrored by the frontend requiredFields.ts.
     """
     fields = _fields(field_definitions)
     paths = [path for path, config in fields if config.get("required") is True]
@@ -74,13 +74,17 @@ def missing_required_fields(
         (validation_rules or {}).get("required_fields") if validation_rules else None
     )
     paths += [p for p in listed or [] if p not in paths]
-    shown_when = {
-        path: config.get("visible_when", config.get("show_when"))
-        for path, config in fields
-    }
+    configs = dict(fields)
     return [
         path
         for path in dict.fromkeys(paths)
-        if condition_holds(shown_when.get(path), data)
+        if condition_holds(
+            (config := configs.get(path, {})).get(
+                "visible_when", config.get("show_when")
+            ),
+            data,
+        )
+        # an unset checkbox is false, not missing
+        and config.get("type") != "boolean"
         and _is_empty(_value_at(data, path))
     ]
