@@ -67,7 +67,7 @@
           </v-chip>
         </div>
         <p class="text-body-medium text-medium-emphasis mb-2">
-          <template v-if="hgncData?.name">{{ hgncData.name }} &middot;</template>
+          <template v-if="hgncData?.name">{{ hgncData.name }} &middot; </template>
           <span class="mono">{{ hgncData?.hgnc_id || localGene.hgnc_id }}</span>
           <template v-if="band">
             &middot; <span class="mono">{{ band }}</span></template
@@ -105,7 +105,7 @@
         <GeneAssertions class="mb-4" :scopes="scopes" :linked="auth.isAuthenticated" />
       </template>
       <section v-else class="empty mb-4" aria-label="Curations">
-        <h2 class="text-title-medium">No curations yet</h2>
+        <h2 class="section-title">No curations yet</h2>
         <p class="text-body-medium text-medium-emphasis">
           {{
             auth.isAuthenticated
@@ -120,7 +120,7 @@
       </p>
 
       <section class="record" aria-labelledby="record-title">
-        <h2 id="record-title" class="text-title-medium mb-3">Gene record</h2>
+        <h2 id="record-title" class="section-title mb-3">Gene record</h2>
         <dl class="record__grid">
           <div v-for="row in recordRows" :key="row.label">
             <dt>{{ row.label }}</dt>
@@ -284,6 +284,13 @@
     border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
     border-radius: 8px;
     padding: 16px;
+  }
+
+  .section-title {
+    margin: 0 0 12px;
+    font-size: 15px;
+    font-weight: 600;
+    line-height: 20px;
   }
 
   .record__grid {

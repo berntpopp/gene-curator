@@ -17,7 +17,7 @@
         </thead>
         <tbody>
           <tr v-for="s in scopes" :key="s.scope_id">
-            <td>
+            <td data-label="Scope" class="scope">
               <router-link
                 v-if="linked"
                 :to="{ name: 'scope-dashboard', params: { scopeId: s.scope_id } }"
@@ -26,16 +26,18 @@
               </router-link>
               <template v-else>{{ s.scope_name }}</template>
             </td>
-            <td>{{ s.disease_name || EMPTY }}</td>
-            <td>{{ s.mode_of_inheritance || EMPTY }}</td>
-            <td>
+            <td data-label="Disease" class="wide">{{ s.disease_name || EMPTY }}</td>
+            <td data-label="MOI">{{ s.mode_of_inheritance || EMPTY }}</td>
+            <td data-label="Stage">
               {{ stageLabel(s.stage) }}
               <span v-if="s.in_progress" class="assertions__progress">in progress</span>
             </td>
-            <td><ClassificationMark :classification="s.classification" /></td>
-            <td class="num mono tabular">{{ s.total_score.toFixed(1) }}</td>
-            <td class="mono tabular">{{ formatDate(s.last_updated) }}</td>
-            <td>
+            <td data-label="Classification">
+              <ClassificationMark :classification="s.classification" />
+            </td>
+            <td data-label="Score" class="num mono tabular">{{ s.total_score.toFixed(1) }}</td>
+            <td data-label="Updated" class="mono tabular">{{ formatDate(s.last_updated) }}</td>
+            <td class="open">
               <router-link
                 v-if="linked && s.curation_id"
                 :to="{
@@ -128,6 +130,57 @@
   .assertions__progress {
     margin-left: 6px;
     color: rgb(var(--v-theme-warning));
+  }
+
+  /* Phone: one block per scope instead of a table that scrolls the classification off-screen */
+  @media (max-width: 600px) {
+    .assertions__table {
+      min-width: 0;
+    }
+
+    thead {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip-path: inset(50%);
+    }
+
+    tr {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px 16px;
+      padding: 12px 16px;
+      border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+    }
+
+    td {
+      display: block;
+      padding: 0;
+      border: 0;
+      text-align: left;
+    }
+
+    td[data-label]::before {
+      content: attr(data-label);
+      font-family: var(--font-sans);
+      display: block;
+      font-size: 12px;
+      color: rgb(var(--v-theme-on-surface-variant));
+    }
+
+    td.num {
+      text-align: left;
+    }
+
+    .scope,
+    .wide {
+      grid-column: 1 / -1;
+    }
+
+    .open:empty {
+      display: none;
+    }
   }
 
   .sr-only {
