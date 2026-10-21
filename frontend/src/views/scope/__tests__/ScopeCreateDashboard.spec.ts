@@ -447,4 +447,29 @@ describe('ScopeDashboard', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Scope not found')
   })
+
+  it('names the progress bar and passes methodology and admins to the overview', async () => {
+    const { wrapper, store } = await mountView('admin', 'overview')
+    store.currentScope = { ...scope, default_workflow_pair_id: 'wp-1' } as never
+    store.scopeUsers['s1'] = [
+      { role: 'admin', user_full_name: 'Mara König' },
+      { role: 'curator', user_full_name: 'Alice' }
+    ] as never
+    await flushPromises()
+
+    expect(wrapper.find('[aria-label="Curation progress"]').exists()).toBe(true)
+    const overview = wrapper.findComponent({ name: 'ScopeOverview' })
+    expect(overview.attributes('admins')).toBe('Mara König')
+  })
+
+  it('offers a way back from the not-found state', async () => {
+    routeState.params = { scopeId: 's1', tab: 'overview' }
+    const store = useScopesStore()
+    vi.spyOn(store, 'fetchScope').mockResolvedValue(undefined as never)
+    vi.spyOn(store, 'fetchUserRole').mockResolvedValue(null as never)
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
+    const wrapper = mount(ScopeDashboard, opts())
+    await flushPromises()
+    expect(wrapper.text()).toContain('Back to scopes')
+  })
 })

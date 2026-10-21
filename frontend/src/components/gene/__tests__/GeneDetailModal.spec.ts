@@ -1,14 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import GeneDetailModal from '../GeneDetailModal.vue'
-import { externalValidationAPI } from '@/api'
+import { externalValidationAPI, genesAPI } from '@/api'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
-vi.mock('@/api', () => ({ externalValidationAPI: { fetchHGNCGene: vi.fn() } }))
+const addToast = vi.hoisted(() => vi.fn())
+vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
+vi.mock('@/api', () => ({
+  externalValidationAPI: { fetchHGNCGene: vi.fn() },
+  genesAPI: { validateGene: vi.fn() }
+}))
 
 const fetchHGNCGene = vi.mocked(externalValidationAPI.fetchHGNCGene)
+const validateGene = vi.mocked(genesAPI.validateGene)
 
 const brca1 = {
   hgnc_id: 'HGNC:1100',
@@ -31,7 +37,12 @@ const dialogStub = {
 function mountModal(props: Record<string, unknown> = {}) {
   return mount(GeneDetailModal, {
     props: { modelValue: true, hgncId: 'HGNC:1100', geneSymbol: 'BRCA1', ...props },
-    global: { stubs: { VDialog: dialogStub } }
+    global: {
+      stubs: {
+        VDialog: dialogStub,
+        RouterLink: { props: ['to'], template: '<a :href="to"><slot /></a>' }
+      }
+    }
   })
 }
 
@@ -157,5 +168,43 @@ describe('GeneDetailModal', () => {
       .trigger('click')
 
     expect(wrapper.emitted('update:modelValue')?.[0]).toEqual([false])
+  })
+
+  it('shows curator, stage and a curation link when opened from a scope', async () => {
+    fetchHGNCGene.mockResolvedValue({ results: [brca1] } as never)
+    const wrapper = mountModal({
+      scopeContext: { curator: 'Ada', stage: 'Curation', curationLink: '/scopes/s/curations/c' }
+    })
+    await flushPromises()
+
+    const ctx = wrapper.find('[data-testid=scope-context]')
+    expect(ctx.text()).toContain('Ada')
+    expect(ctx.text()).toContain('Curation')
+    expect(ctx.find('a').attributes('href')).toBe('/scopes/s/curations/c')
+  })
+
+  it('revalidates the gene and shows the result', async () => {
+    fetchHGNCGene.mockResolvedValue({ results: [brca1] } as never)
+    validateGene.mockResolvedValue({ is_valid: false, warnings: ['old symbol'] } as never)
+    const wrapper = mountModal({ geneId: 'g-1' })
+    await flushPromises()
+
+    await wrapper.find('[data-testid=revalidate]').trigger('click')
+    await flushPromises()
+
+    expect(validateGene).toHaveBeenCalledWith('g-1')
+    expect(wrapper.find('[data-testid=validation-result]').text()).toContain('old symbol')
+  })
+
+  it('reports a failed revalidation', async () => {
+    fetchHGNCGene.mockResolvedValue({ results: [brca1] } as never)
+    validateGene.mockRejectedValue({ message: 'down' })
+    const wrapper = mountModal({ geneId: 'g-1' })
+    await flushPromises()
+
+    await wrapper.find('[data-testid=revalidate]').trigger('click')
+    await flushPromises()
+
+    expect(addToast).toHaveBeenCalledWith('Failed to revalidate: down', 'error')
   })
 })

@@ -47,6 +47,40 @@
       <v-spacer />
       <v-btn aria-label="Close" icon="mdi-close" variant="text" density="compact" @click="close"
     /></template>
+    <!-- Scope context -->
+    <dl v-if="scopeContext" class="scope-context mb-4" data-testid="scope-context">
+      <dt>Curator</dt>
+      <dd>{{ scopeContext.curator || 'Unassigned' }}</dd>
+      <dt>Stage</dt>
+      <dd>{{ scopeContext.stage }}</dd>
+      <template v-if="scopeContext.curationLink">
+        <dt>Curation</dt>
+        <dd>
+          <router-link :to="scopeContext.curationLink" @click="close">Open curation</router-link>
+        </dd>
+      </template>
+    </dl>
+
+    <v-alert
+      v-if="validation"
+      :type="validation.is_valid ? 'success' : 'warning'"
+      variant="tonal"
+      density="compact"
+      closable
+      class="mb-4"
+      data-testid="validation-result"
+      @click:close="validation = null"
+    >
+      <strong>{{
+        validation.is_valid ? 'Gene annotation is valid' : 'Validation issues found'
+      }}</strong>
+      <ul v-if="validation.warnings?.length || validation.errors?.length" class="mb-0 pl-4">
+        <li v-for="m in [...(validation.warnings ?? []), ...(validation.errors ?? [])]" :key="m">
+          {{ m }}
+        </li>
+      </ul>
+    </v-alert>
+
     <!-- Loading State -->
     <div v-if="loading" class="d-flex flex-column align-center py-8">
       <v-progress-circular indeterminate color="primary" size="48" />
@@ -157,6 +191,16 @@
     </template>
     <template #actions>
       <v-btn
+        v-if="props.geneId"
+        variant="text"
+        :loading="revalidating"
+        data-testid="revalidate"
+        @click="revalidate"
+      >
+        <v-icon start>mdi-refresh</v-icon>
+        Revalidate
+      </v-btn>
+      <v-btn
         v-if="geneData?.hgnc_id"
         variant="text"
         color="primary"
@@ -184,7 +228,8 @@
    */
 
   import { ref, computed, watch } from 'vue'
-  import { externalValidationAPI } from '@/api'
+  import { externalValidationAPI, genesAPI } from '@/api'
+  import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
   import type { ApiErrorLike } from '@/components/forms/types'
@@ -198,12 +243,15 @@
       hgncId?: string
       geneSymbol?: string
       geneId?: string
+      /** Set when opened from a scope: the gene's curator, stage and curation link there. */
+      scopeContext?: { curator: string; stage: string; curationLink: string }
     }>(),
     {
       modelValue: false,
       hgncId: '',
       geneSymbol: '',
-      geneId: ''
+      geneId: '',
+      scopeContext: undefined
     }
   )
 
@@ -212,8 +260,11 @@
   }>()
 
   const logger = useLogger()
+  const notifications = useNotificationsStore()
 
   // State
+  const revalidating = ref(false)
+  const validation = ref<Awaited<ReturnType<typeof genesAPI.validateGene>> | null>(null)
   const geneData = ref<HgncGene | null>(null)
   const loading = ref(false)
   const error = ref<string | null>(null)
@@ -277,6 +328,25 @@
     }
   }
 
+  /** Check the stored gene annotation against HGNC (gene data, not the scope assignment). */
+  async function revalidate() {
+    revalidating.value = true
+    validation.value = null
+    try {
+      validation.value = await genesAPI.validateGene(props.geneId)
+      logger.info('Gene revalidated', {
+        gene_id: props.geneId,
+        is_valid: validation.value.is_valid
+      })
+    } catch (e) {
+      const message = (e as ApiErrorLike).message
+      logger.error('Failed to revalidate gene', { error: message })
+      notifications.addToast(`Failed to revalidate: ${message}`, 'error')
+    } finally {
+      revalidating.value = false
+    }
+  }
+
   /**
    * Close the modal
    */
@@ -306,4 +376,14 @@
   )
 </script>
 
-<style scoped></style>
+<style scoped>
+  .scope-context {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 4px 16px;
+  }
+
+  .scope-context dt {
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+</style>

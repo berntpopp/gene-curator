@@ -2,14 +2,13 @@
   EditGeneAssignmentModal Component
 
   Modal dialog for editing gene assignment details within a scope.
-  Allows editing priority, due date, notes, and revalidating gene annotation.
+  Allows editing priority, due date and notes.
 
   **Features**:
   - Displays current gene info (read-only)
   - Priority level selection (high, medium, low)
   - Due date picker with calendar
   - Assignment notes textarea
-  - Gene annotation revalidation against HGNC
 
   **Props**:
   - modelValue: v-model for dialog visibility
@@ -19,7 +18,6 @@
   **Events**:
   - update:modelValue: Dialog visibility change
   - updated: Emitted when assignment is successfully updated
-  - revalidated: Emitted when gene annotation is revalidated
 
   @example
   <EditGeneAssignmentModal
@@ -27,7 +25,6 @@
     :scope-id="scopeId"
     :gene="selectedGene"
     @updated="handleUpdated"
-    @revalidated="handleRevalidated"
   />
 -->
 
@@ -56,57 +53,9 @@
               </div>
             </div>
           </div>
-          <!-- Revalidate Button -->
-          <v-btn
-            variant="outlined"
-            size="small"
-            color="primary"
-            :loading="isRevalidating"
-            @click="handleRevalidateGene"
-          >
-            <v-icon start size="small">mdi-refresh</v-icon>
-            Revalidate
-          </v-btn>
         </div>
       </v-card-text>
     </v-card>
-
-    <!-- Validation Result Alert -->
-    <v-expand-transition>
-      <v-alert
-        v-if="validationResult"
-        :type="validationResult.is_valid ? 'success' : 'warning'"
-        variant="tonal"
-        density="compact"
-        closable
-        class="mb-4"
-        @click:close="validationResult = null"
-      >
-        <div v-if="validationResult.is_valid">
-          <strong>Gene annotation is valid</strong>
-          <div v-if="validationResult.approved_symbol" class="text-body-small">
-            Approved symbol: {{ validationResult.approved_symbol }}
-          </div>
-        </div>
-        <div v-else>
-          <strong>Validation issues found</strong>
-          <ul v-if="validationResult.warnings?.length" class="mb-0 pl-4">
-            <li v-for="(warning, i) in validationResult.warnings" :key="i" class="text-body-small">
-              {{ warning }}
-            </li>
-          </ul>
-          <ul v-if="validationResult.errors?.length" class="mb-0 pl-4">
-            <li
-              v-for="(error, i) in validationResult.errors"
-              :key="i"
-              class="text-body-small text-error"
-            >
-              {{ error }}
-            </li>
-          </ul>
-        </div>
-      </v-alert>
-    </v-expand-transition>
 
     <!-- Edit Form -->
     <v-form ref="formRef" v-model="formValid">
@@ -131,13 +80,10 @@
 
       <!-- Due Date Picker -->
       <div class="mb-4">
-        <div class="text-title-small mb-2">
-          <v-icon start size="small" color="primary">mdi-calendar</v-icon>
-          Due Date
-        </div>
         <v-text-field
           v-model="formData.due_date"
           type="date"
+          label="Due date"
           variant="outlined"
           density="compact"
           clearable
@@ -191,7 +137,7 @@
 
 <script setup lang="ts">
   import { ref, computed, watch } from 'vue'
-  import { assignmentsAPI, genesAPI } from '@/api'
+  import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import type { ApiErrorLike } from '@/components/forms/types'
@@ -218,17 +164,7 @@
   const emit = defineEmits<{
     'update:modelValue': [value: boolean]
     updated: []
-    revalidated: [result: GeneValidationResult]
   }>()
-
-  /** Result of genesAPI.validateGene (only the fields this modal reads). */
-  interface GeneValidationResult {
-    is_valid: boolean
-    approved_symbol?: string | null
-    warnings?: string[]
-    errors?: string[]
-    external_data?: unknown
-  }
 
   type Priority = 'low' | 'medium' | 'high'
 
@@ -255,7 +191,6 @@
 
   // Loading states
   const isSaving = ref(false)
-  const isRevalidating = ref(false)
 
   // Form data
   const formData = ref<AssignmentForm>({
@@ -266,9 +201,6 @@
 
   // Original data for change detection
   const originalData = ref<Partial<AssignmentForm>>({})
-
-  // Validation result
-  const validationResult = ref<GeneValidationResult | null>(null)
 
   // ============================================
   // COMPUTED
@@ -339,7 +271,6 @@
       assignment_notes: ''
     }
     originalData.value = {}
-    validationResult.value = null
     formValid.value = false
   }
 
@@ -349,45 +280,6 @@
   const handleCancel = () => {
     resetForm()
     isOpen.value = false
-  }
-
-  /**
-   * Handle gene revalidation
-   */
-  const handleRevalidateGene = async () => {
-    if (!props.gene?.gene_id) return
-
-    isRevalidating.value = true
-    validationResult.value = null
-
-    try {
-      const result = await genesAPI.validateGene(props.gene.gene_id)
-
-      validationResult.value = result
-
-      logger.info('Gene revalidated', {
-        gene_id: props.gene.gene_id,
-        gene_symbol: props.gene.gene_symbol,
-        is_valid: result.is_valid
-      })
-
-      if (result.is_valid) {
-        notificationStore.addToast(`${props.gene.gene_symbol} annotation is valid`, 'success')
-      } else {
-        notificationStore.addToast(`${props.gene.gene_symbol} has validation warnings`, 'warning')
-      }
-
-      emit('revalidated', result)
-    } catch (error) {
-      const apiError = error as ApiErrorLike
-      logger.error('Failed to revalidate gene', { error: apiError.message })
-      notificationStore.addToast(
-        `Failed to revalidate: ${(apiError.response as { data?: { detail?: string } } | undefined)?.data?.detail || apiError.message}`,
-        'error'
-      )
-    } finally {
-      isRevalidating.value = false
-    }
   }
 
   /**

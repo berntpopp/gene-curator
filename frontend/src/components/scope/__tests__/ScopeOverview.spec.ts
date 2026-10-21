@@ -8,38 +8,27 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ScopeOverview from '../ScopeOverview.vue'
 
-const scope = {
-  name: 'kidney',
-  display_name: 'Kidney Genetics',
-  description: 'Renal genes',
-  institution: 'Charité',
-  is_public: true,
-  is_active: true
-}
+const scope = { institution: 'Charité' }
 
 describe('ScopeOverview', () => {
-  it('shows the scope information rows', () => {
-    const wrapper = mount(ScopeOverview, { props: { scope } })
-
-    expect(wrapper.text()).toContain('kidney')
-    expect(wrapper.text()).toContain('Kidney Genetics')
-    expect(wrapper.text()).toContain('Renal genes')
-    expect(wrapper.text()).toContain('Charité')
-    expect(wrapper.text()).toContain('Public')
-    expect(wrapper.text()).toContain('Active')
-  })
-
-  it('omits optional rows and shows private/inactive state', () => {
+  it('shows methodology, scope admins and institution in a definition list', () => {
     const wrapper = mount(ScopeOverview, {
-      props: {
-        scope: { ...scope, description: '', institution: null, is_public: false, is_active: false }
-      }
+      props: { scope, methodology: 'ClinGen SOP v11', admins: ['Mara König', 'Bob'] }
     })
 
-    expect(wrapper.text()).not.toContain('Description')
+    expect(wrapper.find('dl').exists()).toBe(true)
+    expect(wrapper.text()).toContain('ClinGen SOP v11')
+    expect(wrapper.text()).toContain('Mara König, Bob')
+    expect(wrapper.text()).toContain('Charité')
+    expect(wrapper.text()).not.toContain('Visibility')
+  })
+
+  it('shows dashes without methodology or admins and omits the institution', () => {
+    const wrapper = mount(ScopeOverview, { props: { scope: { institution: null } } })
+
+    expect(wrapper.text()).toContain('Methodology—')
+    expect(wrapper.text()).toContain('Scope admins—')
     expect(wrapper.text()).not.toContain('Institution')
-    expect(wrapper.text()).toContain('Private')
-    expect(wrapper.text()).toContain('Inactive')
   })
 
   it('hides the statistics and activity cards without statistics', () => {

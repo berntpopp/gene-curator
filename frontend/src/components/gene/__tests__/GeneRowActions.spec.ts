@@ -13,9 +13,9 @@ const gene: GeneRow = {
   curator_name: '',
   priority: 'medium',
   assignment_notes: '',
-  status: 'assigned',
+  stage: 'precuration',
   due_date: null,
-  progress: 0
+  updated_at: '2026-10-20T00:00:00Z'
 }
 
 function workflow(overrides: Record<string, unknown> = {}): GeneWorkflowStatus {
