@@ -1,7 +1,8 @@
 <template>
   <v-app>
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
-    <AppBar />
+    <SideRail v-if="mdAndUp" />
+    <AppBar v-else />
 
     <v-main id="main-content" tabindex="-1">
       <v-container fluid>
@@ -9,6 +10,7 @@
           <router-view />
         </ErrorBoundary>
       </v-container>
+      <FooterBar />
     </v-main>
 
     <MessageSnackbar
@@ -28,8 +30,6 @@
       v-model="disclaimerDialogVisible"
       @acknowledged="handleDisclaimerAcknowledged"
     />
-
-    <FooterBar />
   </v-app>
 </template>
 
@@ -40,6 +40,8 @@
   import { snackbarState } from '@/composables/useNotifications'
   import { useLogger } from '@/composables/useLogger'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
+  import { useDisplay } from 'vuetify'
+  import SideRail from '@/components/navigation/SideRail.vue'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
@@ -53,6 +55,7 @@
     info(message: string, data?: unknown): void
   }
   const logger = useLogger() as ScopedLogger
+  const { mdAndUp } = useDisplay()
   const logStore = useLogStore()
   const disclaimerStore = useDisclaimerStore()
 

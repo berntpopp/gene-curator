@@ -28,6 +28,7 @@ interface DisclaimerState {
 
 const stubs = {
   AppBar: true,
+  SideRail: true,
   FooterBar: true,
   MessageSnackbar: true,
   LogViewer: true,
