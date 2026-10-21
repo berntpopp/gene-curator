@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_async_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint, get_logger
+from app.core.search_text import SearchText, escape_like
 from app.models.models import Publication, UserNew
 from app.schemas.validation import (
     PMIDValidationRequest,
@@ -176,7 +177,7 @@ async def list_publications(
     *,
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(50, ge=1, le=100, description="Max records to return"),
-    search: str | None = Query(None, description="Search in title or authors"),
+    search: SearchText = None,
     current_user: UserNew = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_async_db),
 ) -> list[PublicationData]:
@@ -206,11 +207,11 @@ async def list_publications(
     stmt = select(Publication).order_by(Publication.created_at.desc())
 
     if search:
-        search_term = f"%{search}%"
+        search_term = f"%{escape_like(search)}%"
         stmt = stmt.where(
-            (Publication.title.ilike(search_term))
-            | (Publication.author_string.ilike(search_term))
-            | (Publication.pmid.ilike(search_term))
+            (Publication.title.ilike(search_term, escape="\\"))
+            | (Publication.author_string.ilike(search_term, escape="\\"))
+            | (Publication.pmid.ilike(search_term, escape="\\"))
         )
 
     stmt = stmt.offset(skip).limit(limit)

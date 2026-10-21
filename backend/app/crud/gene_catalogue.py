@@ -6,12 +6,15 @@ of genes with finished curations across all scopes. It never modifies source dat
 
 from collections import defaultdict
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import Select, String, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
+from app.core.search_text import escape_like
 from app.crud.curation import get_disease_fields
+from app.crud.scope_visibility import visible_scope_ids
 from app.models import ActiveCuration, CurationNew, Gene, Scope, UserNew
 from app.schemas.gene_catalogue import (
     GeneCatalogueEntry,
@@ -24,7 +27,14 @@ from app.schemas.gene_catalogue import (
 logger = get_logger(__name__)
 
 
-def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
+def _visible(user_id: UUID | None) -> Any:
+    """Active curations of scopes the caller may see (public, or accepted membership)."""
+    return ActiveCuration.scope_id.in_(visible_scope_ids(user_id))
+
+
+def get_catalogue_summary_stats(
+    db: Session, user_id: UUID | None = None
+) -> GeneCatalogueSummaryStats:
     """Get overall catalogue statistics.
 
     Returns aggregated counts of genes, curations, scopes, and classification
@@ -34,7 +44,7 @@ def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     total_genes = (
         db.execute(
             select(func.count(func.distinct(ActiveCuration.gene_id))).where(
-                ActiveCuration.archived_at.is_(None)
+                ActiveCuration.archived_at.is_(None), _visible(user_id)
             )
         ).scalar()
         or 0
@@ -44,7 +54,7 @@ def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     total_curations = (
         db.execute(
             select(func.count(ActiveCuration.id)).where(
-                ActiveCuration.archived_at.is_(None)
+                ActiveCuration.archived_at.is_(None), _visible(user_id)
             )
         ).scalar()
         or 0
@@ -54,7 +64,7 @@ def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     total_scopes = (
         db.execute(
             select(func.count(func.distinct(ActiveCuration.scope_id))).where(
-                ActiveCuration.archived_at.is_(None)
+                ActiveCuration.archived_at.is_(None), _visible(user_id)
             )
         ).scalar()
         or 0
@@ -64,7 +74,7 @@ def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     classification_counts = db.execute(
         select(CurationNew.computed_verdict, func.count(CurationNew.id))
         .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
-        .where(ActiveCuration.archived_at.is_(None))
+        .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
         .group_by(CurationNew.computed_verdict)
     ).all()
 
@@ -97,7 +107,7 @@ def _with_sort_column(query: Select[Any], sort_by: str) -> tuple[Select[Any], An
 
 
 def get_catalogue_entries(
-    db: Session, filters: GeneCatalogueFilters
+    db: Session, filters: GeneCatalogueFilters, user_id: UUID | None = None
 ) -> tuple[list[GeneCatalogueEntry], int]:
     """Query catalogue entries with filtering and pagination.
 
@@ -115,18 +125,18 @@ def get_catalogue_entries(
     base_query = (
         select(Gene)
         .join(ActiveCuration, ActiveCuration.gene_id == Gene.id)
-        .where(ActiveCuration.archived_at.is_(None))
+        .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
         .distinct()
     )
 
     # Apply filters
     if filters.search:
-        search_term = f"%{filters.search}%"
+        term = f"%{escape_like(filters.search)}%"
         base_query = base_query.where(
-            (Gene.approved_symbol.ilike(search_term))
-            | (Gene.hgnc_id.ilike(search_term))
-            | (Gene.previous_symbols.cast(String).ilike(search_term))
-            | (Gene.alias_symbols.cast(String).ilike(search_term))
+            (Gene.approved_symbol.ilike(term, escape="\\"))
+            | (Gene.hgnc_id.ilike(term, escape="\\"))
+            | (Gene.previous_symbols.cast(String).ilike(term, escape="\\"))
+            | (Gene.alias_symbols.cast(String).ilike(term, escape="\\"))
         )
 
     if filters.chromosome:
@@ -143,14 +153,16 @@ def get_catalogue_entries(
         )
 
     if filters.disease:
-        disease_term = f"%{filters.disease}%"
+        disease_term = f"%{escape_like(filters.disease)}%"
         # Need to join to curation to filter by evidence_data
         if not filters.classification:
             base_query = base_query.join(
                 CurationNew, ActiveCuration.curation_id == CurationNew.id
             )
         base_query = base_query.where(
-            CurationNew.evidence_data["disease_name"].astext.ilike(disease_term)
+            CurationNew.evidence_data["disease_name"].astext.ilike(
+                disease_term, escape="\\"
+            )
         )
 
     # Count total before pagination
@@ -171,7 +183,7 @@ def get_catalogue_entries(
     # Build catalogue entries with detailed curation info
     entries = []
     for gene in genes:
-        entry = _build_catalogue_entry(db, gene, filters)
+        entry = _build_catalogue_entry(db, gene, filters, user_id)
         if entry:
             entries.append(entry)
 
@@ -221,7 +233,7 @@ def _build_scope_curation_summary(
 
 
 def _build_catalogue_entry(
-    db: Session, gene: Gene, filters: GeneCatalogueFilters
+    db: Session, gene: Gene, filters: GeneCatalogueFilters, user_id: UUID | None = None
 ) -> GeneCatalogueEntry | None:
     """Build a single catalogue entry with all scope curations.
 
@@ -243,6 +255,7 @@ def _build_catalogue_entry(
         .where(
             ActiveCuration.gene_id == gene.id,
             ActiveCuration.archived_at.is_(None),
+            _visible(user_id),
         )
     )
 
@@ -256,9 +269,11 @@ def _build_catalogue_entry(
             func.lower(CurationNew.computed_verdict) == filters.classification.lower()
         )
     if filters.disease:
-        disease_term = f"%{filters.disease}%"
+        disease_term = f"%{escape_like(filters.disease)}%"
         curation_query = curation_query.where(
-            CurationNew.evidence_data["disease_name"].astext.ilike(disease_term)
+            CurationNew.evidence_data["disease_name"].astext.ilike(
+                disease_term, escape="\\"
+            )
         )
 
     results = db.execute(curation_query).all()
@@ -298,6 +313,7 @@ def _build_catalogue_entry(
 def get_gene_catalogue(
     db: Session,
     filters: GeneCatalogueFilters | None = None,
+    user_id: UUID | None = None,
 ) -> GeneCatalogueResponse:
     """Get the complete gene catalogue response.
 
@@ -314,10 +330,10 @@ def get_gene_catalogue(
         filters = GeneCatalogueFilters()
 
     # Get entries and total count
-    entries, total = get_catalogue_entries(db, filters)
+    entries, total = get_catalogue_entries(db, filters, user_id)
 
     # Get summary statistics
-    summary = get_catalogue_summary_stats(db)
+    summary = get_catalogue_summary_stats(db, user_id)
 
     # Calculate pagination flags
     has_next = (filters.skip + filters.limit) < total
@@ -334,7 +350,9 @@ def get_gene_catalogue(
     )
 
 
-def get_available_classifications(db: Session) -> list[str]:
+def get_available_classifications(
+    db: Session, user_id: UUID | None = None
+) -> list[str]:
     """Get list of available classifications in the catalogue.
 
     Returns classifications that have at least one active curation.
@@ -345,6 +363,7 @@ def get_available_classifications(db: Session) -> list[str]:
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
             .where(
                 ActiveCuration.archived_at.is_(None),
+                _visible(user_id),
                 CurationNew.computed_verdict.isnot(None),
             )
         )
@@ -355,7 +374,9 @@ def get_available_classifications(db: Session) -> list[str]:
     return sorted([r.lower() for r in results if r])
 
 
-def get_available_diseases(db: Session, limit: int = 50) -> list[str]:
+def get_available_diseases(
+    db: Session, limit: int = 50, user_id: UUID | None = None
+) -> list[str]:
     """Get list of available diseases in the catalogue.
 
     Returns unique disease names from active curations.
@@ -367,6 +388,7 @@ def get_available_diseases(db: Session, limit: int = 50) -> list[str]:
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
             .where(
                 ActiveCuration.archived_at.is_(None),
+                _visible(user_id),
                 CurationNew.evidence_data["disease_name"].astext.isnot(None),
                 CurationNew.evidence_data["disease_name"].astext != "",
             )
@@ -379,7 +401,9 @@ def get_available_diseases(db: Session, limit: int = 50) -> list[str]:
     return sorted([r for r in results if r])
 
 
-def get_available_scopes_for_catalogue(db: Session) -> list[dict[str, Any]]:
+def get_available_scopes_for_catalogue(
+    db: Session, user_id: UUID | None = None
+) -> list[dict[str, Any]]:
     """Get scopes that have active curations in the catalogue.
 
     Returns scope info (id, name, display_name) for filtering.
@@ -387,7 +411,7 @@ def get_available_scopes_for_catalogue(db: Session) -> list[dict[str, Any]]:
     results = db.execute(
         select(Scope.id, Scope.name, Scope.display_name, Scope.is_public)
         .join(ActiveCuration, ActiveCuration.scope_id == Scope.id)
-        .where(ActiveCuration.archived_at.is_(None))
+        .where(ActiveCuration.archived_at.is_(None), _visible(user_id))
         .distinct()
     ).all()
 

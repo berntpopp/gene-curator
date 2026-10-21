@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_active_user, get_current_admin_user
+from app.core.search_text import MAX_SEARCH, NO_NUL
 from app.crud.user import user_crud
 from app.models import User
 from app.schemas.auth import UserCreate, UserResponse, UserUpdate
@@ -40,7 +41,13 @@ async def get_users(
 
 @router.get("/search", response_model=list[UserResponse])
 async def search_users(
-    q: str = Query(..., min_length=1, description="Search query"),
+    q: str = Query(
+        ...,
+        min_length=1,
+        max_length=MAX_SEARCH,
+        pattern=NO_NUL,
+        description="Search query",
+    ),
     skip: int = Query(0, ge=0, description="Number of users to skip"),
     limit: int = Query(
         100, ge=1, le=1000, description="Maximum number of users to return"

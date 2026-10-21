@@ -25,6 +25,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user, require_scope_role
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
+from app.core.search_text import MAX_SEARCH, NO_NUL, escape_like
 from app.crud.scope_membership import scope_membership_crud
 from app.models import Scope, ScopeMembership, User, UserNew
 from app.schemas.auth import UserResponse
@@ -67,7 +68,11 @@ def search_users_for_invitation(
     db: Session = Depends(get_db),
     scope_id: UUID,
     q: str = Query(
-        ..., min_length=1, description="Search query (name, email, or institution)"
+        ...,
+        min_length=1,
+        max_length=MAX_SEARCH,
+        pattern=NO_NUL,
+        description="Search query (name, email, or institution)",
     ),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
     scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
@@ -101,10 +106,11 @@ def search_users_for_invitation(
     )
 
     # Search users excluding existing members
+    term = f"%{escape_like(q)}%"
     search_filter = or_(
-        UserNew.name.ilike(f"%{q}%"),
-        UserNew.email.ilike(f"%{q}%"),
-        UserNew.institution.ilike(f"%{q}%"),
+        UserNew.name.ilike(term, escape="\\"),
+        UserNew.email.ilike(term, escape="\\"),
+        UserNew.institution.ilike(term, escape="\\"),
     )
 
     stmt = (

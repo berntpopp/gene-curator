@@ -12,6 +12,7 @@ from sqlalchemy import Select, and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
 from app.core.logging import batch_operation, database_query, timed_operation
+from app.core.search_text import escape_like
 from app.crud.base import CRUDBase
 from app.models import (
     CurationNew,
@@ -75,12 +76,14 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
 
         # Text search across multiple fields
         if search_params.query:
-            search_term = f"%{search_params.query}%"
+            search_term = f"%{escape_like(search_params.query)}%"
             stmt = stmt.where(
                 or_(
-                    Gene.approved_symbol.ilike(search_term),
-                    Gene.hgnc_id.ilike(search_term),
-                    Gene.details.op("->>")("gene_description").ilike(search_term),
+                    Gene.approved_symbol.ilike(search_term, escape="\\"),
+                    Gene.hgnc_id.ilike(search_term, escape="\\"),
+                    Gene.details.op("->>")("gene_description").ilike(
+                        search_term, escape="\\"
+                    ),
                     text(":query_val = ANY(genes.previous_symbols)").bindparams(
                         query_val=search_params.query
                     ),

@@ -14,24 +14,25 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
+from app.core.search_text import MAX_SEARCH, escape_like
+from app.crud.scope_visibility import visible_scope_ids
 from app.models.models import (
     CurationNew,
     CurationStatus,
     Gene,
     Scope,
-    ScopeMembership,
     UserNew,
 )
 from app.schemas.search import CurationHit, GeneHit, ScopeHit, SearchResponse
 
 router = APIRouter()
 
-MIN_Q, MAX_Q = 2, 100
+MIN_Q, MAX_Q = 2, MAX_SEARCH
 
 
 def _like(q: str) -> tuple[str, str]:
     """Escape LIKE wildcards; returns (contains, prefix) patterns."""
-    esc = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    esc = escape_like(q)
     return f"%{esc}%", f"{esc}%"
 
 
@@ -45,14 +46,8 @@ def _rank(column: Any, q: str, prefix: str) -> Any:
 
 
 def _visible(stmt: Any, user: UserNew, scope_id_col: Any) -> Any:
-    if user.role == "admin":
-        return stmt
-    member_of = select(ScopeMembership.scope_id).where(
-        ScopeMembership.user_id == user.id,
-        ScopeMembership.is_active == True,  # noqa: E712
-        ScopeMembership.accepted_at.isnot(None),
-    )
-    return stmt.where(scope_id_col.in_(member_of))
+    """Shared rule (crud/scope_visibility): public, or accepted membership; no admin bypass."""
+    return stmt.where(scope_id_col.in_(visible_scope_ids(user.id)))
 
 
 @router.get("", response_model=SearchResponse)

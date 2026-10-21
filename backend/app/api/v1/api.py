@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     gene_catalogue,
     gene_catalogue_matrix,
     gene_resolve,
+    gene_search,
     gene_summaries,
     genes,
     health,
@@ -67,6 +68,7 @@ api_router.include_router(
 
 # Core entity endpoints
 api_router.include_router(gene_resolve.router, prefix="/genes", tags=["genes"])
+api_router.include_router(gene_search.router, prefix="/genes", tags=["genes"])
 api_router.include_router(genes.router, prefix="/genes", tags=["genes"])
 api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(users.router, prefix="/users", tags=["users"])
