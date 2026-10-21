@@ -56,13 +56,13 @@ describe('WorkspaceHeader', () => {
     expect(w.emitted('retry')).toHaveLength(1)
   })
 
-  it('disables submit when not allowed and hides actions when read-only', () => {
+  it('disables submit when not allowed and both actions when read-only', () => {
     expect(
       mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]').attributes('disabled')
     ).toBeDefined()
     const ro = mountHeader({ readonly: true })
-    expect(ro.find('[data-testid="ws-save"]').exists()).toBe(false)
-    expect(ro.find('[data-testid="ws-submit"]').exists()).toBe(false)
+    expect(ro.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+    expect(ro.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
     expect(mountHeader({ showSubmit: false }).find('[data-testid="ws-submit"]').exists()).toBe(
       false
     )

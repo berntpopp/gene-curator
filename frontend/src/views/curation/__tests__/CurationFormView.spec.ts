@@ -417,12 +417,37 @@ describe('CurationFormView', () => {
       expect(fire()).toBe(true)
     })
 
-    it('marks an active curation read-only: no save or submit, no Ctrl+S', async () => {
+    it('marks an active curation read-only: save and submit disabled, no Ctrl+S', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active' })
-      expect(wrapper.find('[data-testid="ws-save"]').exists()).toBe(false)
-      expect(wrapper.find('[data-testid="ws-submit"]').exists()).toBe(false)
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
       expect(formApi.save).not.toHaveBeenCalled()
+    })
+
+    it('opens an in-review curation read-only with the reason (its /edit URL)', async () => {
+      const { wrapper } = await mountFramed({
+        workflow_stage: 'review',
+        status: 'in_review',
+        can_edit: false
+      })
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
+      expect(wrapper.find('.form').attributes('readonly')).toBeDefined()
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('in review')
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+      expect(formApi.save).not.toHaveBeenCalled()
+    })
+
+    it('opens a draft read-only for someone who may not edit it', async () => {
+      const { wrapper } = await mountFramed({ status: 'draft', can_edit: false })
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('permission')
+    })
+
+    it('keeps a returned (changes requested) curation editable for its curator', async () => {
+      const { wrapper } = await mountFramed({ status: 'rejected', can_edit: true })
+      expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeUndefined()
+      expect(wrapper.find('[data-testid="ws-readonly"]').exists()).toBe(false)
     })
 
     it('leaves without asking after a submit', async () => {
