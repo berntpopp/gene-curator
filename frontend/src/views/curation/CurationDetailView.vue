@@ -363,8 +363,10 @@
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
+  import { humanize } from '@/components/dynamic/fieldLabels'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
+  import { useWorkflowStore } from '@/stores/workflow'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
@@ -406,6 +408,7 @@
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
   const authStore = useAuthStore()
+  const workflowStore = useWorkflowStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -471,13 +474,13 @@
   // Utility functions
   const formatInheritance = (moi: string): string => {
     const labels: Record<string, string> = {
-      AD: 'Autosomal Dominant',
-      AR: 'Autosomal Recessive',
-      XLD: 'X-linked Dominant',
-      XLR: 'X-linked Recessive',
+      AD: 'Autosomal dominant',
+      AR: 'Autosomal recessive',
+      XLD: 'X-linked dominant',
+      XLR: 'X-linked recessive',
       MT: 'Mitochondrial'
     }
-    return labels[moi] || moi.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+    return labels[moi] || humanize(moi.toLowerCase())
   }
 
   // Actions
@@ -582,6 +585,7 @@
       showApproveDialog.value = false
       showRejectDialog.value = false
       notificationStore.addToast(doneMessage, 'success')
+      workflowStore.fetchPendingReviewCount()
       await loadCuration()
     } catch (err) {
       const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message

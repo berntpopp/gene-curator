@@ -151,12 +151,12 @@
   const authStore = useAuthStore()
   const { isAuthenticated } = storeToRefs(authStore)
   const workflowStore = useWorkflowStore()
-  const pendingReviewCount = ref(0)
+  const pendingReviewCount = computed(() => workflowStore.pendingReviewCount)
   let badgeRefreshInterval: ReturnType<typeof setInterval> | null = null
 
   async function refreshBadgeCount() {
     try {
-      pendingReviewCount.value = await workflowStore.fetchPendingReviewCount()
+      await workflowStore.fetchPendingReviewCount()
     } catch {
       // Silent fail for badge refresh — don't break navigation
     }
@@ -181,7 +181,7 @@
       badgeRefreshInterval = null
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-    pendingReviewCount.value = 0
+    workflowStore.pendingReviewCount = 0
   }
 
   onMounted(() => {

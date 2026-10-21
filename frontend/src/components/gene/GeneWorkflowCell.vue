@@ -12,7 +12,7 @@
     variant="tonal"
   >
     <v-icon start size="small">mdi-eye-check</v-icon>
-    Awaiting Review
+    {{ curationStatusLabel(getCuration(gene)?.status) }}
   </v-chip>
   <!-- Curation in progress -->
   <v-chip
@@ -43,6 +43,7 @@
 
 <script setup lang="ts">
   /** Workflow status chip of one gene row (precuration / curation progress). */
+  import { curationStatusLabel } from '@/config/status'
   import type { GeneRow } from './types'
   import type { GeneWorkflowStatus } from './useGeneWorkflowStatus'
 

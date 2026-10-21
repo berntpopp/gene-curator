@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, joinedload
 
+from app.core.enums import ScopeRole
 from app.crud.base import CRUDBase
 from app.models import (
     CurationNew,
@@ -525,7 +526,9 @@ class CRUDGeneScopeAssignment(
                     ScopeMembership.user_id == curator_id,
                     ScopeMembership.is_active,
                     ScopeMembership.accepted_at.isnot(None),
-                    ScopeMembership.role.in_(["curator", "admin"]),
+                    ScopeMembership.role.in_(
+                        [ScopeRole.CURATOR.value, ScopeRole.ADMIN.value]
+                    ),
                 )
             )
             if not is_curator:

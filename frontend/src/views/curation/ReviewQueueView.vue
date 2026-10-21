@@ -131,7 +131,7 @@
                 <div class="d-flex align-center">
                   <v-chip color="warning" size="small" variant="flat">
                     <v-icon start size="small">mdi-clock-outline</v-icon>
-                    Awaiting Review
+                    {{ curationStatusLabel(curation.status) }}
                   </v-chip>
                 </div>
               </v-col>
@@ -236,8 +236,12 @@
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { curationStatusLabel } from '@/config/status'
   import { useLogger } from '@/composables/useLogger'
+  import { useConfirm } from '@/composables/useConfirm'
   import { useNotificationsStore } from '@/stores/notifications'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useWorkflowStore } from '@/stores/workflow'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
 
@@ -262,6 +266,9 @@
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
   const precurationStore = usePrecurationsStore()
+  const scopesStore = useScopesStore()
+  const workflowStore = useWorkflowStore()
+  const { confirm } = useConfirm()
 
   // State
   const loading = ref(true)
@@ -352,9 +359,20 @@
   })
 
   // Methods
+  // The API returns the scope's machine name; show the display name when the user's scopes load
+  async function loadScopeNames(): Promise<Map<string, string>> {
+    try {
+      if (!scopesStore.scopes.length) await scopesStore.fetchUserScopes()
+    } catch {
+      // fall back to the machine name
+    }
+    return new Map(scopesStore.scopes.map(sc => [sc.id, sc.display_name || sc.name]))
+  }
+
   async function fetchPendingReviews() {
     loading.value = true
     try {
+      const scopeNames = await loadScopeNames()
       // The server decides what needs my review (reviewer/admin scopes, not my own, 4-eyes);
       // walk every page so the queue is never silently capped
       const inReview: Schema<'CurationSummary'>[] = []
@@ -377,7 +395,7 @@
         gene_symbol: c.gene_symbol,
         disease_name: c.disease_name,
         scope_id: c.scope_id,
-        scope_name: c.scope_name,
+        scope_name: scopeNames.get(c.scope_id ?? '') ?? c.scope_name,
         curator_name: c.curator_name,
         status: c.status,
         workflow_stage: c.workflow_stage,
@@ -409,7 +427,7 @@
             gene_symbol: p.gene_symbol,
             disease_name: p.disease_name,
             scope_id: p.scope_id,
-            scope_name: p.scope_name,
+            scope_name: scopeNames.get(p.scope_id) ?? p.scope_name,
             curator_name: p.curator_name,
             status: p.status,
             total_score: 0,
@@ -437,6 +455,12 @@
   }
 
   async function approve(item: ReviewItem) {
+    const ok = await confirm({
+      title: 'Approve precuration?',
+      text: `Approve the precuration for ${item.gene_symbol}? This lets curation start.`,
+      confirmText: 'Approve'
+    })
+    if (!ok) return
     busyId.value = item.id
     try {
       await precurationStore.approvePrecuration(item.id)
@@ -471,6 +495,7 @@
 
   function removeItem(id: string) {
     curations.value = curations.value.filter(c => c.id !== id)
+    workflowStore.fetchPendingReviewCount()
   }
 
   function errorText(error: unknown): string {

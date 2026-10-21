@@ -22,6 +22,7 @@ from uuid import UUID
 from sqlalchemy import and_, exists
 from sqlalchemy.orm import Query, Session
 
+from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Scope, ScopeMembership, UserNew
 
@@ -77,13 +78,18 @@ def admin_bypass_returns_true(func: Callable[P, bool]) -> Callable[P, bool]:
     return wrapper
 
 
+def _valid_roles(roles: list[str]) -> list[str]:
+    """Reject role literals outside the Postgres scope_role enum (would 500 there)."""
+    return [ScopeRole(r).value for r in roles]
+
+
 class ScopePermissionService:
     """Centralized scope-based permission logic
 
     This service implements:
     - Public/private scope visibility
     - Scope membership verification
-    - Role-based curation access (curator, reviewer, scope_admin)
+    - Role-based curation access (curator, reviewer, admin)
     - Four-eyes principle (cannot approve own curations)
     """
 
@@ -188,7 +194,7 @@ class ScopePermissionService:
         Editing rules:
         - Admins can edit all curations
         - Creators can edit own curations (if not in review/active stage)
-        - Scope admins can edit any curation in their scope
+        - Scope admins can edit any curation in their scope (if not in review/active stage)
 
         Args:
             db: Database session
@@ -231,7 +237,12 @@ class ScopePermissionService:
             .first()
         )
 
-        if scope_member and scope_member.role == "scope_admin":
+        # Same stage guard as creators: no evidence edits while in review/active (4-eyes)
+        if (
+            scope_member
+            and scope_member.role == ScopeRole.ADMIN.value
+            and curation.workflow_stage.value not in ["review", "active"]
+        ):
             logger.debug(
                 "Scope admin can edit curation",
                 user_id=str(user.id),
@@ -398,7 +409,7 @@ class ScopePermissionService:
         ]
 
         if required_roles:
-            conditions.append(ScopeMembership.role.in_(required_roles))
+            conditions.append(ScopeMembership.role.in_(_valid_roles(required_roles)))
 
         # Use EXISTS for early termination (stops at first match)
         exists_query = exists().where(and_(*conditions))
@@ -458,7 +469,7 @@ class ScopePermissionService:
 
         # Add role filter if specified
         if required_roles:
-            query = query.filter(ScopeMembership.role.in_(required_roles))
+            query = query.filter(ScopeMembership.role.in_(_valid_roles(required_roles)))
 
         scope_ids = [row[0] for row in query.all()]
         logger.debug(
@@ -516,7 +527,7 @@ class ScopePermissionService:
         Requires curator or admin role in the scope.
         """
         return ScopePermissionService.has_scope_access(
-            db, user, scope_id, required_roles=["admin", "curator", "scope_admin"]
+            db, user, scope_id, required_roles=["admin", "curator"]
         )
 
     @staticmethod
@@ -542,5 +553,5 @@ class ScopePermissionService:
             db,
             user,
             precuration.scope_id,
-            required_roles=["admin", "curator", "reviewer", "scope_admin"],
+            required_roles=["admin", "curator", "reviewer"],
         )
