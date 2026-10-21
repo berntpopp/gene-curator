@@ -139,6 +139,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         status: CurationStatus | None = None,
         curator_id: UUID | None = None,
         include_archived: bool = False,
+        exclude_creator_id: UUID | None = None,
     ) -> tuple[list[CurationSummary], int]:
         """
         Get curation summaries with joined data for list views.
@@ -177,6 +178,8 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             stmt = stmt.where(CurationNew.status == status)
         if curator_id:
             stmt = stmt.where(CurationNew.created_by == curator_id)
+        if exclude_creator_id:
+            stmt = stmt.where(CurationNew.created_by != exclude_creator_id)
 
         # Get total count (before pagination)
         count_stmt = select(func.count()).select_from(

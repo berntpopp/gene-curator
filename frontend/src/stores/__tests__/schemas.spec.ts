@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Schema } from '@/types/api'
 import { setActivePinia, createPinia } from 'pinia'
 import { useSchemasStore } from '@/stores/schemas'
+import { useValidationStore } from '@/stores/validation'
 import { schemasAPI } from '@/api'
 
 vi.mock('@/api', () => ({
@@ -148,6 +149,19 @@ describe('useSchemasStore', () => {
 
       expect(store.schemas[0]).toMatchObject({ name: 'upd' })
       expect(store.currentSchema).toMatchObject({ name: 'upd' })
+    })
+
+    it('update and delete drop the cached JSON schema', async () => {
+      const store = useSchemasStore()
+      const validation = useValidationStore()
+      validation.jsonSchemas = { a: { type: 'object' }, b: { type: 'object' } } as never
+      api.updateSchema.mockResolvedValue(schema('a'))
+      api.deleteSchema.mockResolvedValue(undefined as never)
+
+      await store.updateSchema('a', {})
+      expect(validation.jsonSchemas).not.toHaveProperty('a')
+      await store.deleteSchema('b')
+      expect(validation.jsonSchemas).not.toHaveProperty('b')
     })
 
     it('updateSchema records errors and rethrows', async () => {

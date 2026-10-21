@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWorkflowStore, WORKFLOW_STAGES } from '@/stores/workflow'
-import { workflowAPI, curationsAPI } from '@/api'
-import { useAuthStore } from '@/stores/auth'
+import { workflowAPI, curationsAPI, precurationsAPI } from '@/api'
 import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
@@ -20,11 +19,15 @@ vi.mock('@/api', () => ({
   },
   curationsAPI: {
     getCurations: vi.fn()
+  },
+  precurationsAPI: {
+    getPrecurations: vi.fn()
   }
 }))
 
 const api = vi.mocked(workflowAPI)
 const curations = vi.mocked(curationsAPI)
+const precurations = vi.mocked(precurationsAPI)
 
 type Stage = Schema<'WorkflowStage'>
 
@@ -286,20 +289,25 @@ describe('useWorkflowStore', () => {
   })
 
   describe('fetchPendingReviewCount', () => {
-    it('counts in-review curations not created by the current user', async () => {
+    it('sums the server-side pending_review totals of curations and precurations', async () => {
       const store = useWorkflowStore()
-      const auth = useAuthStore()
-      auth.user = { id: 'me' } as Schema<'UserResponse'>
-      curations.getCurations.mockResolvedValue({
-        curations: [{ created_by: 'me' }, { created_by: 'other' }, { created_by: 'x' }]
-      } as Schema<'CurationListResponse'>)
+      curations.getCurations.mockResolvedValue({ total: 7 } as Schema<'CurationListResponse'>)
+      precurations.getPrecurations.mockResolvedValue({
+        total: 2
+      } as Schema<'PrecurationListResponse'>)
 
-      await expect(store.fetchPendingReviewCount()).resolves.toBe(2)
+      await expect(store.fetchPendingReviewCount()).resolves.toBe(9)
       expect(curations.getCurations).toHaveBeenCalledWith({
         curation_status: 'in_review',
-        limit: 200
+        limit: 1,
+        pending_review: true
       })
-      expect(store.pendingReviewCount).toBe(2)
+      expect(precurations.getPrecurations).toHaveBeenCalledWith({
+        precuration_status: 'submitted',
+        limit: 1,
+        pending_review: true
+      })
+      expect(store.pendingReviewCount).toBe(9)
     })
 
     it('returns 0 when the request fails', async () => {
