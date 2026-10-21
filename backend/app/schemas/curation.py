@@ -54,7 +54,7 @@ class CurationDraftSave(BaseModel):
     """Schema for saving a curation as draft."""
 
     evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
-    lock_version: int | None = Field(None, description="Optional lock version")
+    lock_version: int = Field(..., description="Optimistic locking version (required)")
 
 
 class CurationSubmit(BaseModel):

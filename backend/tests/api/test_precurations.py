@@ -338,16 +338,15 @@ class TestPrecurationUpdate:
         test_precuration: PrecurationNew,
     ):
         """Test successful precuration update."""
-        # Arrange
         update_data = {
             "evidence_data": {
                 "mondo_id": "MONDO:0000003",
                 "disease_name": "Updated Disease",
                 "mode_of_inheritance": "XLR",
             },
+            "lock_version": test_precuration.lock_version,
         }
 
-        # Act
         response = client.put(
             f"/api/v1/precurations/{test_precuration.id}",
             json=update_data,
@@ -365,10 +364,10 @@ class TestPrecurationUpdate:
         admin_token: str,
     ):
         """Test updating non-existent precuration returns 404."""
-        # Arrange
         fake_id = uuid4()
         update_data = {
             "evidence_data": {"test": "data"},
+            "lock_version": 0,
         }
 
         # Act
@@ -392,13 +391,13 @@ class TestPrecurationDraft:
         test_precuration: PrecurationNew,
     ):
         """Test saving precuration as draft."""
-        # Arrange
         draft_data = {
             "evidence_data": {
                 "mondo_id": "MONDO:0000004",
                 "disease_name": "Draft Disease",
                 "mode_of_inheritance": "AD",
             },
+            "lock_version": test_precuration.lock_version,
         }
 
         # Act
@@ -800,7 +799,8 @@ class TestLumpingSplittingValidation:
                 "mode_of_inheritance": "AD",
                 "lumping_splitting_applicable": True,
                 "lumping_splitting_decision": "UNDECIDED",
-            }
+            },
+            "lock_version": precuration.lock_version,
         }
         response = client.patch(
             f"/api/v1/precurations/{precuration.id}/draft",

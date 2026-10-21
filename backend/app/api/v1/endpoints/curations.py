@@ -44,6 +44,20 @@ logger = get_logger(__name__)
 # ========================================
 
 
+def _conflict(curation: CurationNew, sent: int) -> HTTPException:
+    """409 with the current version and state (the failed UPDATE rolled back, so this reads what
+    the other tab saved)."""
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail={
+            "error": "Concurrent modification detected",
+            "current_lock_version": curation.lock_version,
+            "your_lock_version": sent,
+            "current_state": curation.evidence_data,
+        },
+    )
+
+
 def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | None:
     """Get user's role for a specific scope from scope_memberships."""
     from app.models import ScopeMembership
@@ -385,16 +399,7 @@ def update_curation(
     )
 
     if updated is None:
-        # Return conflict response with current state
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail={
-                "error": "Concurrent modification detected",
-                "current_lock_version": curation.lock_version,
-                "your_lock_version": curation_in.lock_version,
-                "current_state": curation.evidence_data,
-            },
-        )
+        raise _conflict(curation, curation_in.lock_version)
 
     return Curation.model_validate(updated)
 
@@ -404,7 +409,11 @@ def update_curation(
 # ========================================
 
 
-@router.patch("/{curation_id}/draft", response_model=Curation)
+@router.patch(
+    "/{curation_id}/draft",
+    response_model=Curation,
+    responses={409: {"model": CurationConflictResponse}},
+)
 @api_endpoint()
 def save_draft(
     curation_id: UUID,
@@ -446,6 +455,8 @@ def save_draft(
         draft_data=draft_in,
         user_id=current_user.id,
     )
+    if updated is None:
+        raise _conflict(curation, draft_in.lock_version)
 
     return Curation.model_validate(updated)
 

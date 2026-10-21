@@ -103,7 +103,9 @@ def test_evidence_writes_persist_engine_result(
         result = curation_crud.save_draft(
             db_session,
             db_obj=test_curation,
-            draft_data=CurationDraftSave(evidence_data=evidence),
+            draft_data=CurationDraftSave(
+                evidence_data=evidence, lock_version=test_curation.lock_version
+            ),
             user_id=user_id,
         )
     else:
@@ -158,7 +160,9 @@ def test_draft_can_save_unscored_rows(
     result = curation_crud.save_draft(
         db_session,
         db_obj=test_curation,
-        draft_data=CurationDraftSave(evidence_data=evidence),
+        draft_data=CurationDraftSave(
+            evidence_data=evidence, lock_version=test_curation.lock_version
+        ),
         user_id=test_curation.created_by,
     )
     assert result.evidence_data == evidence

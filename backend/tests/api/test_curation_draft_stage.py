@@ -58,7 +58,10 @@ def test_save_draft_blocked_outside_draft_or_rejected(
 
     response = client.patch(
         f"/api/v1/curations/{test_curation.id}/draft",
-        json={"evidence_data": {"tampered": True}},
+        json={
+            "evidence_data": {"tampered": True},
+            "lock_version": test_curation.lock_version,
+        },
         headers={"Authorization": f"Bearer {token}"},
     )
 
@@ -77,7 +80,7 @@ def test_save_draft_allowed_when_rejected(
     db_session.commit()
     response = client.patch(
         f"/api/v1/curations/{test_curation.id}/draft",
-        json={"evidence_data": {"x": 1}},
+        json={"evidence_data": {"x": 1}, "lock_version": test_curation.lock_version},
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert response.status_code == 200

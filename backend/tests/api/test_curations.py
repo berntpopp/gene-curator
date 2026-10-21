@@ -414,6 +414,7 @@ class TestCurationDraft:
         # Arrange
         draft_data = {
             "evidence_data": {"draft_field": "draft_value"},
+            "lock_version": test_curation.lock_version,
         }
 
         # Act
@@ -429,27 +430,20 @@ class TestCurationDraft:
         assert data["evidence_data"]["draft_field"] == "draft_value"
         assert data["is_draft"] is True
 
-    def test_save_draft_without_lock_version(
+    def test_save_draft_requires_lock_version(
         self,
         client: TestClient,
         admin_token: str,
         test_curation: CurationNew,
     ):
-        """Test draft save works without lock_version."""
-        # Arrange
-        draft_data = {
-            "evidence_data": {"auto_saved": True},
-        }
-
-        # Act
+        """A draft save without the version the client loaded is refused, not applied blindly."""
         response = client.patch(
             f"/api/v1/curations/{test_curation.id}/draft",
-            json=draft_data,
+            json={"evidence_data": {"auto_saved": True}},
             headers={"Authorization": f"Bearer {admin_token}"},
         )
 
-        # Assert
-        assert response.status_code == 200
+        assert response.status_code == 422
 
 
 class TestCurationSubmit:

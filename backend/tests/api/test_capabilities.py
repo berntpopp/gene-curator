@@ -132,7 +132,9 @@ def test_creator_without_edit_capability_cannot_write(
         response = client.delete(url, headers=auth_headers(user))
     elif action == "draft":
         response = client.patch(
-            url + "/draft", headers=auth_headers(user), json={"evidence_data": {}}
+            url + "/draft",
+            headers=auth_headers(user),
+            json={"evidence_data": {}, "lock_version": test_curation.lock_version},
         )
     else:
         response = client.post(
