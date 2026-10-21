@@ -6486,18 +6486,6 @@ export interface components {
              */
             iri?: string | null;
         };
-        /** MyWorkResponse */
-        MyWorkResponse: {
-            /** Items */
-            items: components["schemas"]["WorkItem"][];
-            /**
-             * Counts
-             * @description needs_you equals the rail badge count
-             */
-            counts: {
-                [key: string]: number;
-            };
-        };
         /**
          * MatrixCell
          * @description One gene in one scope: the active curation, else the member's in-progress one.
@@ -6590,6 +6578,18 @@ export interface components {
             display_name: string;
             /** Is Public */
             is_public: boolean;
+        };
+        /** MyWorkResponse */
+        MyWorkResponse: {
+            /** Items */
+            items: components["schemas"]["WorkItem"][];
+            /**
+             * Counts
+             * @description needs_you equals the rail badge count
+             */
+            counts: {
+                [key: string]: number;
+            };
         };
         /**
          * NotificationListResponse
@@ -13610,7 +13610,7 @@ export interface operations {
             query: {
                 /** @description Scopes (columns) */
                 scope_ids: string[];
-                /** @description Gene symbol, HGNC ID or aliases */
+                /** @description Gene symbol, HGNC ID or aliases (literal text) */
                 search?: string | null;
                 /** @description Only genes whose active classifications agree or disagree */
                 agreement?: ("agree" | "disagree") | null;
