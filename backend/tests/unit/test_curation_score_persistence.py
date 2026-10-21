@@ -166,7 +166,7 @@ def test_draft_can_save_unscored_rows(
 
 
 def test_recompute_all_scores_is_idempotent(
-    db_session: Session, test_curation: CurationNew
+    db_session: Session, test_curation: CurationNew, test_user_admin: object
 ) -> None:
     from app.services.recompute_scores import recompute_all_scores
 
@@ -183,6 +183,7 @@ def test_recompute_all_scores_is_idempotent(
     test_curation.computed_verdict = None
     test_curation.computed_scores = {"raw_scores": {}}
     db_session.commit()
+    updated_at = test_curation.updated_at
 
     assert recompute_all_scores(db_session) >= 1
     db_session.refresh(test_curation)
@@ -197,3 +198,11 @@ def test_recompute_all_scores_is_idempotent(
         test_curation.computed_verdict,
         test_curation.computed_scores["total_score"],
     )
+    assert test_curation.updated_at == updated_at
+
+
+def test_recompute_requires_an_admin(db_session: Session) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    with pytest.raises(RuntimeError, match="admin"):
+        recompute_all_scores(db_session)

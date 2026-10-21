@@ -86,3 +86,43 @@ def test_migration_is_idempotent(owner_session: Session) -> None:
         )
         == 0
     )
+
+
+def test_recompute_backfill_under_rls_keeps_updated_at(owner_session: Session) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    curation = owner_session.scalars(select(CurationNew)).first()
+    if curation is None:
+        scope = owner_session.scalars(select(Scope)).first()
+        user = owner_session.scalars(select(UserNew)).first()
+        pair = owner_session.scalars(select(WorkflowPair)).first()
+        assert scope is not None and user is not None and pair is not None
+        gene = Gene(
+            id=uuid4(),
+            hgnc_id="HGNC:999029",
+            approved_symbol="BACKFILL",
+            record_hash="0" * 64,
+        )
+        owner_session.add(gene)
+        owner_session.flush()
+        curation = CurationNew(
+            id=uuid4(),
+            gene_id=gene.id,
+            scope_id=scope.id,
+            workflow_pair_id=pair.id,
+            workflow_stage="curation",
+            is_draft=False,
+            evidence_data={},
+            created_by=user.id,
+        )
+        owner_session.add(curation)
+        owner_session.flush()
+    updated_at = curation.updated_at
+    owner_session.execute(
+        text("UPDATE curations SET computed_verdict = NULL WHERE id = :i"),
+        {"i": curation.id},
+    )
+    assert recompute_all_scores(owner_session) >= 1
+    owner_session.refresh(curation)
+    assert curation.computed_verdict == "no_known"
+    assert curation.updated_at == updated_at

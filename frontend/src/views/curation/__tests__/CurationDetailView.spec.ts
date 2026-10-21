@@ -36,4 +36,20 @@ describe('CurationDetailView', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Failed to load curation details')
   })
+
+  it.each([
+    [{ contradictory_evidence: [{ pmid: '1' }] }, 'Disputed'],
+    [{ replicated_over_time: true }, 'No Known Disease Relationship'],
+    [{}, 'No Known Disease Relationship']
+  ])('classifies evidence %j as %s', async (extra, label) => {
+    vi.mocked(curationsAPI.getCuration).mockResolvedValue({
+      id: 'c1',
+      workflow_stage: 'curation',
+      status: 'draft',
+      evidence_data: { ...extra }
+    } as never)
+    const wrapper = mount(CurationDetailView, { global: { stubs: { DynamicForm: true } } })
+    await flushPromises()
+    expect(wrapper.text()).toContain(label)
+  })
 })
