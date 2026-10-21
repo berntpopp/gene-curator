@@ -1,7 +1,11 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount, type DOMWrapper } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
 import { normalizeField } from '../normalizeDefinition'
+
+vi.mock('@/api/publications', () => ({
+  publicationsAPI: { validatePMIDs: vi.fn().mockResolvedValue({ results: [] }) }
+}))
 
 // Seeded shape (020_complete_sop11_schema.sql, segregation), trimmed to one column per cell type
 const segregation = normalizeField({

@@ -183,4 +183,16 @@ describe('usePmidLookup', () => {
     expect(b!.aborted).toBe(false)
     expect(lookup.statusOf('42')).toBe('loading')
   })
+
+  it('checkAll looks up unseen PMIDs in batches of 50, and a failed batch does not block', async () => {
+    const { lookup } = setup()
+    api.validatePMIDs.mockRejectedValueOnce(new Error('offline')).mockResolvedValueOnce(found('51'))
+    await lookup.checkAll([...Array.from({ length: 51 }, (_, i) => String(i + 1)), '', 'x', '1'])
+    expect(api.validatePMIDs).toHaveBeenCalledTimes(2)
+    expect(api.validatePMIDs.mock.calls[0]![0]).toHaveLength(50)
+    expect(api.validatePMIDs.mock.calls[1]![0]).toEqual(['51'])
+    expect(lookup.statusOf('1')).toBe('error')
+    expect(lookup.statusOf('51')).toBe('found')
+    expect(lookup.hasUnknown(['1', '51'])).toBe(false)
+  })
 })

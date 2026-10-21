@@ -10,6 +10,7 @@ export interface PmidResult {
 }
 
 const DEBOUNCE_MS = 300
+const BATCH = 50 // backend PMIDValidationRequest max_length
 const PMID = /^\d{1,9}$/
 
 /** "PMID: 123" and "123" are the same PMID. */
@@ -17,6 +18,23 @@ const normalize = (raw: unknown) =>
   String(raw ?? '')
     .trim()
     .replace(/^PMID:?\s*/i, '')
+
+type Item = Awaited<ReturnType<typeof publicationsAPI.validatePMIDs>>['results'][number]
+
+function toResult(item: Item | undefined): PmidResult {
+  const pub = item?.publication
+  return item?.is_valid && pub
+    ? {
+        status: 'found',
+        title: pub.title,
+        citation: [pub.authors[0]?.split(' ')[0], pub.authors.length > 1 && 'et al.', pub.year]
+          .filter(Boolean)
+          .join(' ')
+      }
+    : // The API also answers 200 when Europe PMC times out or errors: only a real
+      // "not found" may block; anything else is a failed lookup (retried on the next blur)
+      { status: item?.error?.startsWith('Publication not found') ? 'notfound' : 'error' }
+}
 
 /**
  * Europe PMC lookup (through the publications API) for PMID cells, on blur.
@@ -63,33 +81,39 @@ export function usePmidLookup() {
       try {
         const item = (await publicationsAPI.validatePMIDs([pmid], ctrl.signal)).results[0]
         if (ctrl.signal.aborted) return
-        const pub = item?.publication
-        results[pmid] =
-          item?.is_valid && pub
-            ? {
-                status: 'found',
-                title: pub.title,
-                citation: [
-                  pub.authors[0]?.split(' ')[0],
-                  pub.authors.length > 1 && 'et al.',
-                  pub.year
-                ]
-                  .filter(Boolean)
-                  .join(' ')
-              }
-            : // The API also answers 200 when Europe PMC times out or errors: only a real
-              // "not found" may block; anything else is a failed lookup (retried on the next blur)
-              { status: item?.error?.startsWith('Publication not found') ? 'notfound' : 'error' }
+        results[pmid] = toResult(item)
       } catch {
         if (!ctrl.signal.aborted) results[pmid] = { status: 'error' }
       }
     }, DEBOUNCE_MS)
   }
 
-  onScopeDispose(() => [...cells.keys()].forEach(cancel))
+  /** PMIDs loaded with saved rows: each one never looked up, in sequential batches. */
+  const batchCtrl = new AbortController()
+  async function checkAll(raws: unknown[]) {
+    const pmids = [...new Set(raws.map(normalize))].filter(
+      p => PMID.test(p) && (results[p]?.status ?? 'idle') === 'idle'
+    )
+    for (let i = 0; i < pmids.length; i += BATCH) {
+      const chunk = pmids.slice(i, i + BATCH)
+      chunk.forEach(p => (results[p] = { status: 'loading' }))
+      try {
+        const res = await publicationsAPI.validatePMIDs(chunk, batchCtrl.signal)
+        chunk.forEach((p, j) => (results[p] = toResult(res.results[j])))
+      } catch {
+        chunk.forEach(p => (results[p] = { status: 'error' }))
+      }
+    }
+  }
+
+  onScopeDispose(() => {
+    ;[...cells.keys()].forEach(cancel)
+    batchCtrl.abort()
+  })
 
   return {
     check,
+    checkAll,
     cancel,
     statusOf: (raw: unknown): PmidStatus => results[normalize(raw)]?.status ?? 'idle',
     resultOf: (raw: unknown): PmidResult | undefined => results[normalize(raw)],
