@@ -1694,7 +1694,7 @@ export interface paths {
         };
         /**
          * Curation Diff
-         * @description Current evidence versus the audit-log snapshot taken at the last submission.
+         * @description Current evidence versus the version the reviewer last saw (none yet: all items added).
          */
         get: operations["curation_diff_api_v1_curations__curation_id__diff_get"];
         put?: never;
@@ -4220,7 +4220,7 @@ export interface components {
         };
         /**
          * CurationDiff
-         * @description Current evidence versus its snapshot at the last submission (baseline null: never submitted).
+         * @description Current evidence versus the baseline; with no baseline every item is reported as added.
          */
         CurationDiff: {
             baseline: components["schemas"]["DiffBaseline"] | null;
@@ -4680,15 +4680,23 @@ export interface components {
              */
             reason?: string | null;
         };
-        /** DiffBaseline */
+        /**
+         * DiffBaseline
+         * @description The version the reviewer last saw: as of their last review decision, else the earlier submission.
+         */
         DiffBaseline: {
             /** Audit Id */
             audit_id: number;
             /**
-             * Submitted At
+             * As Of
              * Format: date-time
              */
-            submitted_at: string;
+            as_of: string;
+            /**
+             * Source
+             * @enum {string}
+             */
+            source: "review" | "previous_submission";
         };
         /** DiffItem */
         DiffItem: {
@@ -7579,6 +7587,11 @@ export interface components {
              */
             status: "open" | "resolved";
             /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "query" | "accepted";
+            /**
              * Created At
              * Format: date-time
              */
@@ -7594,9 +7607,15 @@ export interface components {
             /** Item Path */
             item_path: string;
             /** Body */
-            body: string;
+            body?: string | null;
             /** Review Id */
             review_id?: string | null;
+            /**
+             * Kind
+             * @default query
+             * @enum {string}
+             */
+            kind: "query" | "accepted";
         };
         /** ReviewCommentUpdate */
         ReviewCommentUpdate: {
