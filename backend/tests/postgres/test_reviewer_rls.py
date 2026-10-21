@@ -607,6 +607,10 @@ def test_platform_admin_without_membership_gets_403_not_500_on_create(
         cur.execute(
             "UPDATE precurations SET status = 'approved' WHERE id = %s", (str(w.pre),)
         )
+        # The gene's open curation would refuse the create (409) before RLS is reached
+        cur.execute(
+            "UPDATE curations SET status = 'archived' WHERE id = %s", (str(w.cur),)
+        )
     r = client.post(
         "/api/v1/curations/",
         json={**body, "gene_id": str(w.gene), "workflow_pair_id": str(pair)},
