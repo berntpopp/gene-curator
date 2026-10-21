@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -16,10 +16,10 @@ from app.models import (
     Review,
     ReviewStatus,
     Scope,
+    ScopeMembership,
     UserNew,
 )
 from app.schemas.my_work import WorkItem, WorkKind, WorkTab
-from app.services.scope_permissions import ScopePermissionService
 
 DONE_WINDOW = timedelta(days=7)
 _S = CurationStatus
@@ -54,15 +54,45 @@ def _rows(
     return [(o, g, s, kind) for o, g, s in db.execute(stmt)]
 
 
-def get_my_work(db: Session, user: UserNew) -> list[WorkItem]:
-    """Only accepted memberships count (pending invitations grant nothing)."""
-    scopes = ScopePermissionService.get_user_scope_ids(db, user)
-    items = _needs_you(db, user, scopes)
-    reviewer_scopes = ScopePermissionService.get_user_scope_ids(
-        db, user, ["admin", "reviewer"]
+def _member_scopes(
+    db: Session, user: UserNew, roles: tuple[str, ...] | None = None
+) -> list[UUID]:
+    """Accepted, active memberships only; platform admins get no implicit scopes."""
+    stmt = (
+        select(ScopeMembership.scope_id)
+        .join(Scope, Scope.id == ScopeMembership.scope_id)
+        .where(
+            ScopeMembership.user_id == user.id,
+            ScopeMembership.is_active,
+            ScopeMembership.accepted_at.isnot(None),
+            Scope.is_active,
+        )
     )
-    items += _reviews_waiting_done(db, user, scopes, reviewer_scopes)
+    if roles:
+        stmt = stmt.where(ScopeMembership.role.in_(roles))
+    return list(db.execute(stmt).scalars())
+
+
+def get_my_work(db: Session, user: UserNew) -> list[WorkItem]:
+    scopes = _member_scopes(db, user)
+    items = _needs_you(db, user, scopes)
+    items += _reviews_waiting_done(
+        db, user, scopes, _member_scopes(db, user, ("admin", "reviewer"))
+    )
     return items
+
+
+# Newest review decides: a later approval or new round clears "changes requested".
+_latest_review = (
+    select(Review.status)
+    .where(Review.curation_id == CurationNew.id)
+    .order_by(Review.assigned_at.desc())
+    .limit(1)
+    .scalar_subquery()
+)
+_changes_requested = _latest_review == ReviewStatus.NEEDS_REVISION
+# NULL-safe negation: a curation with no review at all is not 'changes requested'
+_not_changes_requested = _latest_review.is_distinct_from(ReviewStatus.NEEDS_REVISION)
 
 
 def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]:
@@ -93,25 +123,24 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
             )
         )
 
-    revised = exists().where(
-        Review.curation_id == CurationNew.id,
-        Review.status == ReviewStatus.NEEDS_REVISION,
-    )
     mine = [CurationNew.created_by == user.id]
     pmine = [PrecurationNew.created_by == user.id]
     cedit = "/scopes/{s}/curations/{i}/edit"
     pview = "/scopes/{s}/precurations/{i}"
 
-    for r in rows(
-        CurationNew, "curation", *mine, CurationNew.status == _S.DRAFT, revised
-    ):
+    open_states = CurationNew.status.in_((_S.DRAFT, _S.IN_REVIEW))
+    for r in rows(CurationNew, "curation", *mine, open_states, _changes_requested):
         items.append(
             _item(
                 r, "changes_requested", "needs_you", "Address requested changes", cedit
             )
         )
     for r in rows(
-        CurationNew, "curation", *mine, CurationNew.status == _S.DRAFT, ~revised
+        CurationNew,
+        "curation",
+        *mine,
+        CurationNew.status == _S.DRAFT,
+        _not_changes_requested,
     ):
         items.append(_item(r, "draft", "needs_you", "Continue curation draft", cedit))
     for r in rows(
@@ -122,6 +151,19 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
         )
 
     return items
+
+
+def _assignment_filters(user: UserNew) -> list[Any]:
+    """Skip items assigned to another reviewer, or that I already decided."""
+
+    def has(*cond: Any) -> Any:
+        return exists().where(Review.curation_id == CurationNew.id, *cond)
+
+    pending = ReviewStatus.PENDING
+    mine_open = has(Review.reviewer_id == user.id, Review.status == pending)
+    others = has(Review.reviewer_id != user.id, Review.status == pending)
+    decided = has(Review.reviewer_id == user.id, Review.status != pending)
+    return [~decided, or_(~others, mine_open)]
 
 
 def _reviews_waiting_done(
@@ -137,12 +179,14 @@ def _reviews_waiting_done(
         (CurationNew, "curation", _S.IN_REVIEW, cview),
         (PrecurationNew, "precuration", _S.SUBMITTED, pview),
     ):
+        extra = _assignment_filters(user) if model is CurationNew else []
         for r in rows(
             model,
             kind,
             model.status == status,
             model.created_by != user.id,
             model.scope_id.in_(reviewer_scopes),
+            *extra,
         ):
             items.append(_item(r, "review", "needs_you", f"Review {kind}", link))
 
@@ -163,6 +207,8 @@ def _reviews_waiting_done(
         ),
     ):
         mm = [model.created_by == user.id]
+        if model is CurationNew:
+            mm.append(_not_changes_requested)
         for r in rows(model, kind, *mm, model.status.in_(waiting)):
             items.append(_item(r, "waiting", "waiting", "Waiting for review", link))
         for r in rows(
