@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="catalogue">
     <header class="catalogue__head">
-      <h1 class="text-headline-small">Genes</h1>
+      <h1 class="page-title text-headline-small">Genes</h1>
       <span class="text-body-medium text-medium-emphasis tabular">{{ store.total }} in view</span>
     </header>
 
