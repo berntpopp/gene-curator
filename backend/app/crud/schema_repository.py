@@ -12,6 +12,7 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select, text
 from sqlalchemy.orm import Session
 
+from app.core.logging import get_logger
 from app.crud.base import CRUDBase
 from app.crud.schema_validators import validate_schema_structure
 from app.models import (
@@ -31,6 +32,8 @@ from app.schemas.schema_repository import (
 )
 from app.scoring.base import ScoringResult
 from app.scoring.clingen import ClinGenEngine
+
+logger = get_logger(__name__)
 
 
 def _schema_content_hash(schema_data: dict[str, Any]) -> str:
@@ -62,10 +65,6 @@ SNAPSHOT_KEYS = (
 )
 
 
-# Stages every item passes through in the workflow engine (entry -> precuration -> review)
-REQUIRED_STAGES = ("entry", "precuration", "review")
-
-
 def _score(evidence: Any, config: Any) -> ScoringResult:
     """Score like a curation save does (crud/curation.py `_computed`)."""
     return ClinGenEngine().calculate_scores(
@@ -77,13 +76,6 @@ def _score(evidence: Any, config: Any) -> ScoringResult:
 def publish_errors(definition: dict[str, Any]) -> list[str]:
     """Why `definition` cannot be published: static checks, then the version tests."""
     errors, _ = validate_schema_structure(definition)
-    states = definition.get("workflow_states")
-    if isinstance(states, dict) and not {"states", "transitions"} & set(states):
-        errors += [
-            f"workflow_states: Missing required stage: {stage}"
-            for stage in REQUIRED_STAGES
-            if stage not in states
-        ]
     # tests only run on a valid definition; a malformed point model cannot score
     return errors or _test_failures(definition.get("scoring_configuration"))
 
@@ -242,8 +234,19 @@ class CRUDCurationSchema(
         new_config = target.snapshot.get("scoring_configuration")
         out = []
         for curation, version, snapshot in rows:
-            old = _score(curation.evidence_data, snapshot.get("scoring_configuration"))
-            new = _score(curation.evidence_data, new_config)
+            try:
+                old = _score(
+                    curation.evidence_data, snapshot.get("scoring_configuration")
+                )
+                new = _score(curation.evidence_data, new_config)
+            except Exception as exc:  # a pre-gate malformed pin must not fail the list
+                logger.warning(
+                    "Impact skipped curation",
+                    curation_id=str(curation.id),
+                    from_version=version,
+                    error=str(exc),
+                )
+                continue
             if (old.total_score, old.verdict) != (new.total_score, new.verdict):
                 out.append(
                     {

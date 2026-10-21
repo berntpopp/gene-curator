@@ -155,6 +155,14 @@ def test_impact_lists_older_pinned_curations_whose_result_changes(
     db = db_session
     schema = insert_schema(db, workflow_states=STAGES, scoring_configuration=CLINGEN)
     v1 = _publish(client, admin_token, schema).json()
+    # published before the gate: its point model cannot score, the row is skipped
+    broken = MethodologyVersion(
+        id=uuid4(),
+        schema_id=schema.id,
+        version=2,
+        snapshot={"scoring_configuration": {"point_model": {"sections": [{}]}}},
+    )
+    db.add(broken)
     schema.scoring_configuration = {**CLINGEN, "point_model": _custom_model()}
     db.commit()
     v2 = _publish(client, admin_token, schema).json()
@@ -181,6 +189,7 @@ def test_impact_lists_older_pinned_curations_whose_result_changes(
     curation(v1["id"], {})  # 0 -> 0
     curation(v1["id"], CUSTOM_EVIDENCE, status="archived", workflow_stage="archived")
     curation(v2["id"], CUSTOM_EVIDENCE)  # already on the target version
+    curation(str(broken.id), CUSTOM_EVIDENCE)
     db.commit()
 
     r = client.get(
@@ -209,7 +218,7 @@ def test_impact_lists_older_pinned_curations_whose_result_changes(
         f"{BASE}/{other.id}/versions/{v2['id']}/impact", headers=auth(admin_token)
     )
     assert missing.status_code == 404
-    assert db.query(MethodologyVersion).filter_by(schema_id=schema.id).count() == 2
+    assert db.query(MethodologyVersion).filter_by(schema_id=schema.id).count() == 3
 
 
 def test_score_returns_trace_that_sums_to_the_total(
@@ -230,3 +239,18 @@ def test_score_returns_trace_that_sums_to_the_total(
     assert sum(s["score"] for s in trace["sections"]) == trace["raw_total"]
     for section in trace["sections"]:
         assert sum(c["score"] for c in section["categories"]) == section["raw"]
+
+
+def test_validate_reports_missing_required_stages(
+    client: TestClient, db_session: Session, admin_token: str
+) -> None:
+    schema = insert_schema(
+        db_session, workflow_states={"review": {"reviewers_required": 2}}
+    )
+    r = client.post(f"{BASE}/{schema.id}/validate", headers=auth(admin_token))
+    assert r.status_code == 200, r.text
+    assert not r.json()["is_valid"]
+    assert [e for e in r.json()["errors"] if "required stage" in e] == [
+        "workflow_states: Missing required stage: entry",
+        "workflow_states: Missing required stage: precuration",
+    ]

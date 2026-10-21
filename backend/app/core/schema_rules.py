@@ -204,12 +204,20 @@ def _check_workflow(states: Any) -> list[Diagnostic]:
     return out
 
 
+# Stages every item passes through in the workflow engine (entry -> precuration -> review)
+REQUIRED_STAGES = ("entry", "precuration", "review")
+
+
 def _check_stage_map(states: dict[str, Any]) -> list[Diagnostic]:
     """Stage-keyed map (seeded SOP schemas): targets are known stages, reviewers 1-5."""
     from app.models.model_enums import WorkflowStage
 
     known = set(states) | {stage.value for stage in WorkflowStage}
-    out: list[Diagnostic] = []
+    out: list[Diagnostic] = [
+        ("error", "workflow_states", f"Missing required stage: {stage}")
+        for stage in REQUIRED_STAGES
+        if stage not in states
+    ]
     for stage, cfg in states.items():
         for i, target in enumerate(cfg.get("allowed_transitions") or []):
             if target not in known:
