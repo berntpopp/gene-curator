@@ -21,10 +21,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addBiochemical">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton :readonly="readonly" @click="addBiochemical" />
             </div>
             <EvidenceDataTable
               :items="modelValue.function?.biochemical_function || []"
@@ -42,10 +39,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addProteinInteraction">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton :readonly="readonly" @click="addProteinInteraction" />
             </div>
             <EvidenceDataTable
               :items="modelValue.function?.protein_interaction || []"
@@ -63,10 +57,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addExpression">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton :readonly="readonly" @click="addExpression" />
             </div>
             <EvidenceDataTable
               :items="modelValue.function?.expression || []"
@@ -104,10 +95,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addPatientCells">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addPatientCells" />
             </div>
             <EvidenceDataTable
               :items="modelValue.functional_alteration?.patient_cells || []"
@@ -125,10 +113,11 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addNonPatientCells">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton
+                color="secondary"
+                :readonly="readonly"
+                @click="addNonPatientCells"
+              />
             </div>
             <EvidenceDataTable
               :items="modelValue.functional_alteration?.non_patient_cells || []"
@@ -161,10 +150,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="info" variant="tonal" @click="addOrganism">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="info" :readonly="readonly" @click="addOrganism" />
             </div>
             <EvidenceDataTable
               :items="modelValue.models?.non_human_model_organism || []"
@@ -182,10 +168,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="info" variant="tonal" @click="addCellCulture">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="info" :readonly="readonly" @click="addCellCulture" />
             </div>
             <EvidenceDataTable
               :items="modelValue.models?.cell_culture_model || []"
@@ -218,10 +201,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addHumanRescue">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="success" :readonly="readonly" @click="addHumanRescue" />
             </div>
             <EvidenceDataTable
               :items="modelValue.rescue?.human || []"
@@ -239,10 +219,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addOrganismRescue">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="success" :readonly="readonly" @click="addOrganismRescue" />
             </div>
             <EvidenceDataTable
               :items="modelValue.rescue?.non_human_model_organism || []"
@@ -260,10 +237,11 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addCellCultureRescue">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton
+                color="success"
+                :readonly="readonly"
+                @click="addCellCultureRescue"
+              />
             </div>
             <EvidenceDataTable
               :items="modelValue.rescue?.cell_culture || []"
@@ -281,10 +259,11 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addPatientCellsRescue">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton
+                color="success"
+                :readonly="readonly"
+                @click="addPatientCellsRescue"
+              />
             </div>
             <EvidenceDataTable
               :items="modelValue.rescue?.patient_cells || []"
@@ -313,6 +292,8 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import AddEvidenceButton from './AddEvidenceButton.vue'
+  import { openPanelsWithRows } from './openPanelsWithRows'
   import { sumPoints } from '../scoring'
   import { createEmptyExperimentalEvidence } from '../evidenceDefaults'
   import type { EvidenceItem, ExperimentalEvidence } from '../types'
@@ -341,6 +322,7 @@
   const emit = defineEmits<{ 'update:model-value': [value: ExperimentalEvidence] }>()
 
   const expandedPanels = ref(['function'])
+  openPanelsWithRows(expandedPanels, () => ({ ...props.modelValue }))
 
   // Score calculations
   const functionScore = computed(() => {

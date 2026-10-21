@@ -109,6 +109,7 @@ class PrecurationSummary(BaseModel):
     created_at: datetime
     updated_at: datetime
     curator_name: str | None
+    created_by: UUID | None = None
 
     model_config = ConfigDict(use_enum_values=True)
 

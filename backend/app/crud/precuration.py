@@ -194,6 +194,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 created_at=row.PrecurationNew.created_at,
                 updated_at=row.PrecurationNew.updated_at,
                 curator_name=row.curator_name,
+                created_by=row.PrecurationNew.created_by,
             )
             for row in results
         ]

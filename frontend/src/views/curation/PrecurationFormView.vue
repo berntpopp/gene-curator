@@ -61,6 +61,7 @@
             v-if="precurationSchemaId"
             :schema-id="precurationSchemaId"
             :scope-id="scopeId"
+            :precuration-id="precurationId"
             :gene-id="geneId"
             :gene="formGene"
             :readonly="readonly"
@@ -105,6 +106,8 @@
   import { genesAPI, scopesAPI, schemasAPI } from '@/api'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
+  import { usePrecurationsStore } from '@/stores/precurations'
+  import { useAuthStore } from '@/stores/auth'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
 
   interface ScopeRecord {
@@ -130,10 +133,15 @@
   const route = useRoute()
   const notificationsStore = useNotificationsStore()
   const logger = useLogger()
+  const precurationsStore = usePrecurationsStore()
+  const authStore = useAuthStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
-  const geneId = computed(() => route.params.geneId as string | undefined)
+  const precurationId = computed(() => route.params.precurationId as string | undefined)
+  // On the edit route the gene comes from the precuration itself
+  const loadedGeneId = ref<string | undefined>(undefined)
+  const geneId = computed(() => (route.params.geneId as string | undefined) ?? loadedGeneId.value)
 
   // State
   const scope = ref<ScopeRecord | null>(null)
@@ -237,14 +245,24 @@
       // Load scope and schema first
       await loadScopeAndSchema()
 
-      // Then load gene info (if creating new precuration)
+      if (precurationId.value) {
+        const precuration = await precurationsStore.fetchPrecurationById(precurationId.value)
+        loadedGeneId.value = precuration.gene_id
+        // Editable only by its author, in this scope, while draft or sent back (rejected)
+        const mine = precuration.created_by === (authStore.user as { id?: string } | null)?.id
+        readonly.value =
+          !mine ||
+          precuration.scope_id !== scopeId.value ||
+          !['draft', 'rejected'].includes(precuration.status)
+      }
+
       if (geneId.value) {
         await loadGene()
       } else {
         loadError.value = 'No gene specified. Please select a gene from the scope dashboard.'
       }
     } catch (err) {
-      // Error already set by load functions
+      loadError.value ||= `Could not load precuration: ${(err as ErrorLike).message}`
       logger.error('Failed to initialize precuration form', { error: (err as ErrorLike).message })
     } finally {
       loading.value = false

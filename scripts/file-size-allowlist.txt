@@ -12,4 +12,4 @@
 768 frontend/src/components/dynamic/__tests__/DynamicForm.tabs.spec.ts
 679 frontend/src/components/dynamic/__tests__/TabContent.spec.ts
 774 frontend/src/views/GeneCatalogueView.vue
-818 frontend/src/views/curation/CurationDetailView.vue
+695 frontend/src/views/curation/CurationDetailView.vue

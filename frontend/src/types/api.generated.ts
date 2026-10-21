@@ -7081,6 +7081,8 @@ export interface components {
             updated_at: string;
             /** Curator Name */
             curator_name: string | null;
+            /** Created By */
+            created_by?: string | null;
         };
         /**
          * PrecurationUpdate

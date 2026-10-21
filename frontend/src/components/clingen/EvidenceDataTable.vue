@@ -97,7 +97,11 @@
 
     <!-- Empty state -->
     <v-alert v-else type="info" variant="tonal" density="compact">
-      No evidence items added yet. Click "Add Evidence" to begin.
+      {{
+        readonly
+          ? 'No evidence recorded'
+          : 'No evidence items added yet. Click "Add Evidence" to begin.'
+      }}
     </v-alert>
   </div>
 </template>

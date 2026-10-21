@@ -188,6 +188,21 @@ describe('CurationFormView', () => {
     })
   })
 
+  it('reopens an existing unapproved precuration instead of creating a new one', async () => {
+    routeState.params = { scopeId: 'sc1', geneId: 'g1' }
+    await mountView(({ genes, precurations }) => {
+      vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'X' } as never)
+      vi.spyOn(precurations, 'fetchPrecurations').mockImplementation(async () => {
+        precurations.precurations = [{ id: 'p9', status: 'draft' }] as never
+        return {} as never
+      })
+    })
+    expect(routerPush).toHaveBeenCalledWith({
+      name: 'precuration-edit',
+      params: { scopeId: 'sc1', precurationId: 'p9' }
+    })
+  })
+
   it('treats a failing precuration lookup as no precuration', async () => {
     routeState.query = { gene_id: 'g2' }
     const { vm } = await mountView(({ genes, precurations }) => {

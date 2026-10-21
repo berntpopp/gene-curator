@@ -26,9 +26,9 @@
           <span>{{ gene?.symbol }} - {{ schema?.name || 'Curation' }}</span>
           <v-chip v-if="isDraft" color="warning" size="small" class="ml-2"> Draft </v-chip>
           <v-spacer />
-          <v-chip v-if="lastSaved" color="success" size="small" variant="outlined">
+          <v-chip v-if="savedAt" color="success" size="small" variant="outlined">
             <v-icon start size="small">mdi-content-save</v-icon>
-            Saved {{ formatRelativeTime(lastSaved) }}
+            Saved {{ formatRelativeTime(savedAt) }}
           </v-chip>
         </v-card-title>
 
@@ -233,7 +233,6 @@
   })
   const {
     showRecoveryDialog,
-    lastSaved,
     restoreRecovery: restoreInPlace,
     discardRecovery,
     clearRecovery

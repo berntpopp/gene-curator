@@ -22,10 +22,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addAdXlNull">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton :readonly="readonly" @click="addAdXlNull" />
             </div>
             <EvidenceDataTable
               :items="
@@ -47,10 +44,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addAdXlOther">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton :readonly="readonly" @click="addAdXlOther" />
             </div>
             <EvidenceDataTable
               :items="
@@ -86,10 +80,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addArNull">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addArNull" />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_level?.autosomal_recessive?.predicted_or_proven_null || []"
@@ -108,10 +99,7 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addArOther">
-                <v-icon start>mdi-plus</v-icon>
-                Add Evidence
-              </v-btn>
+              <AddEvidenceButton color="secondary" :readonly="readonly" @click="addArOther" />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_level?.autosomal_recessive?.other_variant_type || []"
@@ -142,10 +130,12 @@
             <span class="text-subtitle-2">Family Segregation Studies</span>
             <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-3</v-chip>
             <v-spacer />
-            <v-btn size="small" color="info" variant="tonal" @click="addSegregation">
-              <v-icon start>mdi-plus</v-icon>
-              Add Segregation
-            </v-btn>
+            <AddEvidenceButton
+              color="info"
+              label="Add Segregation"
+              :readonly="readonly"
+              @click="addSegregation"
+            />
           </div>
           <EvidenceDataTable
             :items="modelValue.segregation || []"
@@ -185,10 +175,12 @@
               <span class="text-subtitle-2">Single Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
-              <v-btn size="small" color="warning" variant="tonal" @click="addSingleVariant">
-                <v-icon start>mdi-plus</v-icon>
-                Add Study
-              </v-btn>
+              <AddEvidenceButton
+                color="warning"
+                label="Add Study"
+                :readonly="readonly"
+                @click="addSingleVariant"
+              />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_control?.single_variant_analysis || []"
@@ -206,10 +198,12 @@
               <span class="text-subtitle-2">Aggregate Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
-              <v-btn size="small" color="warning" variant="tonal" @click="addAggregateVariant">
-                <v-icon start>mdi-plus</v-icon>
-                Add Study
-              </v-btn>
+              <AddEvidenceButton
+                color="warning"
+                label="Add Study"
+                :readonly="readonly"
+                @click="addAggregateVariant"
+              />
             </div>
             <EvidenceDataTable
               :items="modelValue.case_control?.aggregate_variant_analysis || []"
@@ -238,6 +232,8 @@
 
   import { ref, computed } from 'vue'
   import EvidenceDataTable from '../EvidenceDataTable.vue'
+  import AddEvidenceButton from './AddEvidenceButton.vue'
+  import { openPanelsWithRows } from './openPanelsWithRows'
   import { sumPoints, sumProbandPoints } from '../scoring'
   import { createEmptyGeneticEvidence } from '../evidenceDefaults'
   import type { EvidenceItem, GeneticEvidence } from '../types'
@@ -263,6 +259,12 @@
   const emit = defineEmits<{ 'update:model-value': [value: GeneticEvidence] }>()
 
   const expandedPanels = ref(['ad_xl'])
+  openPanelsWithRows(expandedPanels, () => ({
+    ad_xl: props.modelValue.case_level?.autosomal_dominant_or_x_linked,
+    ar: props.modelValue.case_level?.autosomal_recessive,
+    segregation: props.modelValue.segregation,
+    case_control: props.modelValue.case_control
+  }))
 
   // Score calculations
   const adXlScore = computed(() => {

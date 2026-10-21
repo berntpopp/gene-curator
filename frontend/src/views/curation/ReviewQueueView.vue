@@ -100,6 +100,15 @@
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-dna" color="primary" class="mr-2" />
                   <span class="text-h6 font-weight-bold">{{ curation.gene_symbol }}</span>
+                  <v-chip
+                    v-if="curation.kind === 'precuration'"
+                    size="x-small"
+                    color="info"
+                    variant="tonal"
+                    class="ml-2"
+                  >
+                    Precuration
+                  </v-chip>
                 </div>
                 <div v-if="curation.disease_name" class="text-body-2 text-medium-emphasis ml-7">
                   {{ curation.disease_name }}
@@ -126,7 +135,7 @@
 
               <!-- Score Preview -->
               <v-col cols="12" md="2">
-                <div class="text-center">
+                <div v-if="curation.kind !== 'precuration'" class="text-center">
                   <div class="text-h4 font-weight-bold">
                     {{ curation.total_score || 0 }}
                   </div>
@@ -147,7 +156,33 @@
                 <div class="text-caption text-medium-emphasis mb-2">
                   Submitted {{ formatRelativeTime(curation.updated_at) }}
                 </div>
+                <div v-if="curation.kind === 'precuration'" class="d-flex justify-end ga-2">
+                  <v-btn
+                    variant="text"
+                    :to="`/scopes/${curation.scope_id}/precurations/${curation.id}`"
+                    data-test="open-precuration"
+                  >
+                    Open
+                  </v-btn>
+                  <v-btn
+                    variant="outlined"
+                    color="warning"
+                    data-test="reject-precuration"
+                    @click="openReject(curation)"
+                  >
+                    Request changes
+                  </v-btn>
+                  <v-btn
+                    color="success"
+                    :loading="busyId === curation.id"
+                    data-test="approve-precuration"
+                    @click="approve(curation)"
+                  >
+                    Approve
+                  </v-btn>
+                </div>
                 <v-btn
+                  v-else
                   color="primary"
                   :to="`/scopes/${curation.scope_id}/curations/${curation.id}`"
                 >
@@ -169,6 +204,27 @@
       :total-visible="5"
       class="mt-6"
     />
+
+    <v-dialog v-model="showReject" max-width="500">
+      <v-card title="Request changes">
+        <v-card-text>
+          <v-textarea v-model="rejectReason" label="Feedback for the curator" rows="3" />
+          <v-alert v-if="rejectError" type="error" variant="tonal">{{ rejectError }}</v-alert>
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showReject = false">Cancel</v-btn>
+          <v-btn
+            color="warning"
+            variant="elevated"
+            :disabled="!rejectReason.trim()"
+            @click="confirmReject"
+          >
+            Request changes
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -185,9 +241,11 @@
   import { useAuthStore } from '@/stores/auth'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
+  import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
 
   interface ReviewItem {
+    kind?: 'curation' | 'precuration'
     id: string
     gene_id: string
     gene_symbol?: string | null
@@ -207,6 +265,7 @@
   const authStore = useAuthStore()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
+  const precurationStore = usePrecurationsStore()
 
   // State
   const loading = ref(true)
@@ -217,6 +276,11 @@
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
   const itemsPerPage = 10
+  const busyId = ref<string | null>(null)
+  const showReject = ref(false)
+  const rejectReason = ref('')
+  const rejectError = ref<string | null>(null)
+  const rejectTarget = ref<ReviewItem | null>(null)
 
   // Sort options
   const sortOptions = [
@@ -325,6 +389,37 @@
       const userId = (authStore.user as { id?: string } | null)?.id
       curations.value = curations.value.filter(c => c.created_by !== userId)
 
+      // Submitted precurations are reviewed here too (they gate curation, #231)
+      // Walk every page so the queue is never silently capped
+      const submitted: Schema<'PrecurationSummary'>[] = []
+      let pages = 1
+      for (let page = 1; page <= pages; page++) {
+        precurationStore.pagination.page = page
+        await precurationStore.fetchPrecurations({ status: 'submitted' })
+        submitted.push(...precurationStore.precurations)
+        pages = precurationStore.pagination.pages
+      }
+      precurationStore.pagination.page = 1
+      curations.value.push(
+        ...submitted
+          // Your own precuration is never yours to approve (4-eyes)
+          .filter(p => p.status === 'submitted' && p.created_by !== userId)
+          .map((p): ReviewItem => ({
+            kind: 'precuration',
+            id: p.id,
+            gene_id: p.gene_id,
+            gene_symbol: p.gene_symbol,
+            disease_name: p.disease_name,
+            scope_id: p.scope_id,
+            scope_name: p.scope_name,
+            curator_name: p.curator_name,
+            status: p.status,
+            total_score: 0,
+            updated_at: p.updated_at,
+            created_at: p.created_at
+          }))
+      )
+
       // Extract unique scopes for filter
       const scopeMap = new Map<string, { id: string; name: string }>()
       curations.value.forEach(c => {
@@ -341,6 +436,48 @@
     } finally {
       loading.value = false
     }
+  }
+
+  async function approve(item: ReviewItem) {
+    busyId.value = item.id
+    try {
+      await precurationStore.approvePrecuration(item.id)
+      removeItem(item.id)
+      notificationStore.addToast(`Precuration for ${item.gene_symbol} approved`, 'success')
+    } catch (error) {
+      notificationStore.addToast(`Failed to approve: ${errorText(error)}`, 'error')
+    } finally {
+      busyId.value = null
+    }
+  }
+
+  function openReject(item: ReviewItem) {
+    rejectTarget.value = item
+    rejectReason.value = ''
+    rejectError.value = null
+    showReject.value = true
+  }
+
+  async function confirmReject() {
+    const item = rejectTarget.value
+    if (!item) return
+    try {
+      await precurationStore.rejectPrecuration(item.id, rejectReason.value.trim())
+      removeItem(item.id)
+      showReject.value = false
+      notificationStore.addToast('Changes requested', 'success')
+    } catch (error) {
+      rejectError.value = errorText(error)
+    }
+  }
+
+  function removeItem(id: string) {
+    curations.value = curations.value.filter(c => c.id !== id)
+  }
+
+  function errorText(error: unknown): string {
+    const e = error as { response?: { data?: { detail?: string } }; message?: string }
+    return e.response?.data?.detail || e.message || 'unknown error'
   }
 
   function getClassificationColor(classification: string | null | undefined): string {

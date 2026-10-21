@@ -177,6 +177,16 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/scopes/:scopeId/precurations/:precurationId',
+    name: 'precuration-edit',
+    component: PrecurationFormView,
+    props: true,
+    meta: {
+      title: 'Precuration',
+      requiresAuth: true
+    }
+  },
+  {
     path: '/scopes/:scopeId/genes/:geneId/precuration/new',
     name: 'gene-precuration-create',
     component: PrecurationFormView,

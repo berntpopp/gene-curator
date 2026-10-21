@@ -8,7 +8,7 @@
             <v-btn aria-label="Go back" icon variant="text" class="mr-3" @click="goBack">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
-            <h1 class="text-h4 d-inline">Curation Details</h1>
+            <h1 class="text-h4 d-inline">{{ pageTitle }}</h1>
           </div>
           <div class="d-flex ga-2">
             <v-btn
@@ -167,12 +167,19 @@
 
             <v-col cols="12" md="4">
               <!-- Workflow Actions -->
-              <v-card>
+              <v-card class="workflow-actions">
                 <v-card-title>
                   <v-icon start>mdi-cog</v-icon>
                   Workflow Actions
                 </v-card-title>
                 <v-card-text>
+                  <div
+                    v-if="curation.status === 'in_review'"
+                    class="text-body-2 text-medium-emphasis mb-3"
+                  >
+                    Submitted by {{ curation.curator_name || 'unknown' }}
+                    {{ formatDateTime(curation.updated_at) }}
+                  </div>
                   <div class="d-flex flex-column ga-2">
                     <v-btn
                       v-if="canSubmitForReview"
@@ -191,7 +198,7 @@
                       variant="elevated"
                       prepend-icon="mdi-check-circle"
                       block
-                      @click="showApproveDialog = true"
+                      @click="openReview('approve')"
                     >
                       Approve
                     </v-btn>
@@ -201,16 +208,18 @@
                       variant="outlined"
                       prepend-icon="mdi-undo"
                       block
-                      @click="showRejectDialog = true"
+                      @click="openReview('reject')"
                     >
                       Request Changes
                     </v-btn>
+                    <v-divider v-if="canDelete && (canSubmitForReview || canReview)" class="my-2" />
                     <v-btn
                       v-if="canDelete"
                       color="error"
                       variant="outlined"
                       prepend-icon="mdi-delete"
                       block
+                      data-test="delete"
                       @click="showDeleteDialog = true"
                     >
                       Delete
@@ -219,7 +228,11 @@
                       v-if="!canSubmitForReview && !canDelete && !canReview"
                       class="text-body-2 text-medium-emphasis text-center py-2"
                     >
-                      No actions available
+                      {{
+                        isAuthorInReview
+                          ? 'Waiting for review by another scope reviewer (4-eyes)'
+                          : 'No actions available'
+                      }}
                     </div>
                   </div>
                 </v-card-text>
@@ -230,100 +243,12 @@
           <!-- Score Breakdown -->
           <v-row class="mb-6">
             <v-col cols="12">
-              <v-card>
-                <v-card-title>
-                  <v-icon start>mdi-chart-bar</v-icon>
-                  Evidence Score Breakdown
-                </v-card-title>
-                <v-card-text>
-                  <v-row>
-                    <!-- Genetic Evidence -->
-                    <v-col cols="12" md="6">
-                      <div class="text-subtitle-1 font-weight-medium mb-3">
-                        <v-icon start color="primary">mdi-dna</v-icon>
-                        Genetic Evidence
-                        <v-chip size="small" class="ml-2" color="primary" variant="tonal">
-                          {{ scores.genetic.toFixed(2) }} / 12
-                        </v-chip>
-                      </div>
-                      <v-table density="compact">
-                        <tbody>
-                          <tr>
-                            <td>Case-Level (AD/XL Null)</td>
-                            <td class="text-right">{{ scores.caseLevel.adxlNull.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Case-Level (AD/XL Other)</td>
-                            <td class="text-right">{{ scores.caseLevel.adxlOther.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Case-Level (AR Null)</td>
-                            <td class="text-right">{{ scores.caseLevel.arNull.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Case-Level (AR Other)</td>
-                            <td class="text-right">{{ scores.caseLevel.arOther.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Segregation</td>
-                            <td class="text-right">{{ scores.segregation.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Case-Control</td>
-                            <td class="text-right">{{ scores.caseControl.toFixed(2) }}</td>
-                          </tr>
-                        </tbody>
-                      </v-table>
-                    </v-col>
-
-                    <!-- Experimental Evidence -->
-                    <v-col cols="12" md="6">
-                      <div class="text-subtitle-1 font-weight-medium mb-3">
-                        <v-icon start color="secondary">mdi-flask</v-icon>
-                        Experimental Evidence
-                        <v-chip size="small" class="ml-2" color="secondary" variant="tonal">
-                          {{ scores.experimental.toFixed(2) }} / 6
-                        </v-chip>
-                      </div>
-                      <v-table density="compact">
-                        <tbody>
-                          <tr>
-                            <td>Biochemical Function</td>
-                            <td class="text-right">{{ scores.function.biochemical.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Protein Interaction</td>
-                            <td class="text-right">
-                              {{ scores.function.proteinInteraction.toFixed(2) }}
-                            </td>
-                          </tr>
-                          <tr>
-                            <td>Expression</td>
-                            <td class="text-right">{{ scores.function.expression.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Functional Alteration</td>
-                            <td class="text-right">{{ scores.functionalAlteration.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Models</td>
-                            <td class="text-right">{{ scores.models.toFixed(2) }}</td>
-                          </tr>
-                          <tr>
-                            <td>Rescue</td>
-                            <td class="text-right">{{ scores.rescue.toFixed(2) }}</td>
-                          </tr>
-                        </tbody>
-                      </v-table>
-                    </v-col>
-                  </v-row>
-                </v-card-text>
-              </v-card>
+              <CurationScoreBreakdown :scores="scores" />
             </v-col>
           </v-row>
 
           <!-- Evidence Details (Schema-Agnostic) -->
-          <v-row v-if="curationSchemaId" class="mb-6">
+          <v-row v-if="isClinGenSchema || curationSchemaId" class="mb-6">
             <v-col cols="12">
               <v-card>
                 <v-card-title>
@@ -331,7 +256,13 @@
                   Evidence Details
                 </v-card-title>
                 <v-card-text>
+                  <CurationEvidenceReadonly
+                    v-if="isClinGenSchema"
+                    :evidence="evidence"
+                    :moi="curation.mode_of_inheritance ?? undefined"
+                  />
                   <DynamicForm
+                    v-else-if="curationSchemaId"
                     :schema-id="curationSchemaId"
                     :initial-data="curation.evidence_data || {}"
                     :readonly="true"
@@ -429,94 +360,19 @@
       </v-card>
     </v-dialog>
 
-    <!-- Approve Confirmation Dialog -->
-    <v-dialog v-model="showApproveDialog" max-width="600">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start color="success">mdi-check-circle</v-icon>
-          Approve Curation
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="info" variant="tonal" class="mb-4">
-            Approving this curation will move it to the <strong>Active</strong> stage.
-          </v-alert>
-          <p class="mb-4">
-            Approve the <strong>{{ classification }}</strong> classification for
-            <strong>{{ curation?.gene_symbol }}</strong
-            >?
-          </p>
-          <div class="d-flex justify-space-between mb-4">
-            <div>
-              <span class="text-medium-emphasis">Total Score:</span>
-              <strong class="ml-2">{{ scores.total.toFixed(2) }}</strong>
-            </div>
-            <div>
-              <span class="text-medium-emphasis">Genetic:</span>
-              <strong class="ml-2">{{ scores.genetic.toFixed(2) }}</strong>
-            </div>
-            <div>
-              <span class="text-medium-emphasis">Experimental:</span>
-              <strong class="ml-2">{{ scores.experimental.toFixed(2) }}</strong>
-            </div>
-          </div>
-          <v-textarea
-            v-model="reviewComments"
-            label="Approval Comments (optional)"
-            placeholder="Add any comments about this approval..."
-            rows="3"
-            variant="outlined"
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showApproveDialog = false">Cancel</v-btn>
-          <v-btn color="success" variant="elevated" :loading="approving" @click="approveCuration">
-            Approve
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Request Changes Dialog -->
-    <v-dialog v-model="showRejectDialog" max-width="600">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start color="warning">mdi-undo</v-icon>
-          Request Changes
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="warning" variant="tonal" class="mb-4">
-            This will return the curation to the curator for revisions.
-          </v-alert>
-          <p class="mb-4">
-            Request changes for the curation of <strong>{{ curation?.gene_symbol }}</strong
-            >?
-          </p>
-          <v-textarea
-            v-model="reviewComments"
-            label="Feedback for Curator"
-            placeholder="Describe what changes are needed..."
-            rows="4"
-            variant="outlined"
-            :rules="[v => !!v || 'Please provide feedback for the curator']"
-            required
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showRejectDialog = false">Cancel</v-btn>
-          <v-btn
-            color="warning"
-            variant="elevated"
-            :loading="rejecting"
-            :disabled="!reviewComments"
-            @click="rejectCuration"
-          >
-            Request Changes
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <CurationReviewDialogs
+      v-model:approve-open="showApproveDialog"
+      v-model:reject-open="showRejectDialog"
+      :gene-symbol="curation?.gene_symbol"
+      :classification="classification"
+      :scores="scores"
+      :summary="evidence.evidence_summary"
+      :counts="evidenceCountsText(curation?.evidence_data)"
+      :busy="approving || rejecting"
+      :error-detail="reviewError"
+      @approve="approveCuration"
+      @reject="rejectCuration"
+    />
   </v-container>
 </template>
 
@@ -527,7 +383,13 @@
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useLogger } from '@/composables/useLogger'
+  import { useAuthStore } from '@/stores/auth'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
+  import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
+  import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
+  import { evidenceCountsText } from '@/components/curation/evidenceCounts'
+  import type { ClinGenEvidenceData } from '@/components/clingen/types'
   import { computeScores, classifyScores, type EvidenceData } from './curationScores'
 
   interface CurationRecord {
@@ -541,6 +403,7 @@
     mode_of_inheritance?: string | null
     workflow_stage?: string | null
     curator_name?: string | null
+    created_by?: string | null
     lock_version?: number | null
     created_at?: string | null
     updated_at?: string | null
@@ -559,6 +422,7 @@
   const route = useRoute()
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
+  const authStore = useAuthStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -578,9 +442,25 @@
   const deleting = ref(false)
   const approving = ref(false)
   const rejecting = ref(false)
-  const reviewComments = ref('')
+  const reviewError = ref<string | null>(null)
   const curationSchemaId = ref<string | null>(null)
-  const loadingSchema = ref(false)
+
+  const evidence = computed(
+    () => (curation.value?.evidence_data ?? {}) as Partial<ClinGenEvidenceData>
+  )
+  // ClinGen schemas (by scoring engine) get the read-only evidence view
+  const isClinGenSchema = ref(false)
+  const pageTitle = computed(() =>
+    curation.value?.gene_symbol
+      ? [curation.value.gene_symbol, curation.value.disease_name].filter(Boolean).join(' – ')
+      : 'Curation Details'
+  )
+  const isAuthorInReview = computed(
+    () =>
+      curation.value?.status === 'in_review' &&
+      !!curation.value.created_by &&
+      curation.value.created_by === (authStore.user as { id?: string } | null)?.id
+  )
 
   // Calculate scores from evidence_data
   const scores = computed(() => computeScores(curation.value?.evidence_data))
@@ -643,7 +523,7 @@
       XLR: 'X-linked Recessive',
       MT: 'Mitochondrial'
     }
-    return labels[moi] || moi
+    return labels[moi] || moi.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
   }
 
   const getInheritanceColor = (moi: string): string => {
@@ -660,10 +540,13 @@
   // Actions
   async function loadCurationSchema() {
     if (!curation.value?.workflow_pair_id) return
-    loadingSchema.value = true
     try {
       const workflowPair = await schemasAPI.getWorkflowPairById(curation.value.workflow_pair_id)
       curationSchemaId.value = workflowPair.curation_schema_id || null
+      if (curationSchemaId.value) {
+        const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
+        isClinGenSchema.value = schema.scoring_configuration?.engine === 'clingen_sop_v11'
+      }
       logger.debug('Curation schema loaded', {
         workflow_pair_id: curation.value.workflow_pair_id,
         curation_schema_id: curationSchemaId.value
@@ -673,9 +556,6 @@
         error: (err as ErrorLike).message,
         workflow_pair_id: curation.value.workflow_pair_id
       })
-      // Non-fatal: evidence display is supplementary, score tables still show
-    } finally {
-      loadingSchema.value = false
     }
   }
 
@@ -687,7 +567,6 @@
       const data = await curationsAPI.getCuration(curationId.value)
       curation.value = data as CurationRecord
       logger.debug('Curation loaded', { curation_id: curationId.value })
-      // Load schema for read-only evidence display
       await loadCurationSchema()
     } catch (err) {
       error.value = 'Failed to load curation details'
@@ -742,46 +621,42 @@
     }
   }
 
-  async function approveCuration() {
-    approving.value = true
+  function openReview(kind: 'approve' | 'reject') {
+    reviewError.value = null
+    if (kind === 'approve') showApproveDialog.value = true
+    else showRejectDialog.value = true
+  }
+
+  // Shared by both review dialogs: show the API detail inside the dialog, not just a toast
+  async function transition(
+    target_stage: 'active' | 'curation',
+    notes: string | null,
+    doneMessage: string
+  ) {
+    reviewError.value = null
     try {
-      // Transition to active stage (approval)
-      await workflowAPI.transitionCuration(curationId.value, {
-        target_stage: 'active',
-        notes: reviewComments.value || null
-      })
+      await workflowAPI.transitionCuration(curationId.value, { target_stage, notes })
       showApproveDialog.value = false
-      reviewComments.value = ''
-      notificationStore.addToast('Curation approved and activated', 'success')
+      showRejectDialog.value = false
+      notificationStore.addToast(doneMessage, 'success')
       await loadCuration()
     } catch (err) {
-      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
-      logger.error('Failed to approve curation', { error: errorDetail })
-      notificationStore.addToast(`Failed to approve: ${errorDetail}`, 'error')
-    } finally {
-      approving.value = false
+      const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
+      reviewError.value = detail ?? 'Request failed'
+      logger.error('Failed review transition', { target_stage, error: detail })
     }
   }
 
-  async function rejectCuration() {
+  async function approveCuration(comment: string) {
+    approving.value = true
+    await transition('active', comment || null, 'Curation approved and activated')
+    approving.value = false
+  }
+
+  async function rejectCuration(comment: string) {
     rejecting.value = true
-    try {
-      // Transition back to curation stage (request changes)
-      await workflowAPI.transitionCuration(curationId.value, {
-        target_stage: 'curation',
-        notes: reviewComments.value
-      })
-      showRejectDialog.value = false
-      reviewComments.value = ''
-      notificationStore.addToast('Curation returned to curator for changes', 'success')
-      await loadCuration()
-    } catch (err) {
-      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
-      logger.error('Failed to request changes', { error: errorDetail })
-      notificationStore.addToast(`Failed to request changes: ${errorDetail}`, 'error')
-    } finally {
-      rejecting.value = false
-    }
+    await transition('curation', comment, 'Curation returned to curator for changes')
+    rejecting.value = false
   }
 
   function exportCuration() {
@@ -806,6 +681,8 @@
   }
 
   function goBack() {
+    // Return to wherever the user came from (e.g. the Review Queue), else the scope dashboard
+    if (window.history.state?.back) return router.back()
     router.push({ name: 'scope-dashboard', params: { scopeId: scopeId.value } })
   }
 

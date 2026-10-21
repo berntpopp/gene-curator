@@ -315,10 +315,13 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     })
   })
 
-  it('shows when the form was last saved', async () => {
-    recovery.lastSaved!.value = new Date(Date.now() - 10 * 60_000).toISOString()
+  it('shows the last server save, not the recovery autosave', async () => {
+    recovery.lastSaved!.value = new Date().toISOString()
     const wrapper = await mountForm()
+    expect(wrapper.text()).not.toContain('Saved')
 
+    ;(wrapper.vm as unknown as { savedAt: number }).savedAt = Date.now() - 10 * 60_000
+    await flushPromises()
     expect(wrapper.text()).toContain('Saved 10m ago')
     expect(internals(wrapper).formatRelativeTime(null)).toBe('')
   })

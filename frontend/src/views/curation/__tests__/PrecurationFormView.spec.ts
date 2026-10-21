@@ -8,16 +8,23 @@ vi.mock('@/api', () => ({
   schemasAPI: { getWorkflowPairs: vi.fn() }
 }))
 
+const route = vi.hoisted(() => ({ params: {} as Record<string, string>, query: {} }))
+
+vi.mock('@/api/precurations', () => ({ precurationsAPI: { getPrecuration: vi.fn() } }))
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push: vi.fn() }),
-  useRoute: () => ({ params: { scopeId: 'sc1', geneId: 'g1' }, query: {} })
+  useRoute: () => route
 }))
 
 import { genesAPI, scopesAPI, schemasAPI } from '@/api'
+import { useAuthStore } from '@/stores/auth'
+import { precurationsAPI } from '@/api/precurations'
 import PrecurationFormView from '@/views/curation/PrecurationFormView.vue'
 
 describe('PrecurationFormView', () => {
   beforeEach(() => {
+    route.params = { scopeId: 'sc1', geneId: 'g1' }
     setActivePinia(createPinia())
     vi.mocked(scopesAPI.getScopeById).mockResolvedValue({
       default_workflow_pair_id: 'wp1'
@@ -49,5 +56,45 @@ describe('PrecurationFormView', () => {
     })
     await flushPromises()
     expect(wrapper.text()).toContain('Could not load gene information: 404')
+  })
+
+  it.each([
+    ['draft', 'me', 'sc1', false],
+    ['rejected', 'me', 'sc1', false],
+    ['submitted', 'me', 'sc1', true],
+    ['draft', 'other', 'sc1', true],
+    ['draft', 'me', 'sc2', true]
+  ])(
+    'opens a %s precuration by %s in %s (readonly=%s)',
+    async (status, createdBy, precScope, readonly) => {
+      useAuthStore().user = { id: 'me' } as never
+      route.params = { scopeId: 'sc1', precurationId: 'p1' }
+      vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+        id: 'p1',
+        gene_id: 'g7',
+        status,
+        created_by: createdBy,
+        scope_id: precScope
+      } as never)
+      vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+      const wrapper = mount(PrecurationFormView, {
+        global: { stubs: { SchemaDrivenPrecurationForm: true } }
+      })
+      await flushPromises()
+      expect(genesAPI.getGeneById).toHaveBeenCalledWith('g7')
+      const form = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' })
+      expect(form.props('precurationId')).toBe('p1')
+      expect(form.props('readonly')).toBe(readonly)
+    }
+  )
+
+  it('shows an error when the precuration cannot be loaded', async () => {
+    route.params = { scopeId: 'sc1', precurationId: 'p1' }
+    vi.mocked(precurationsAPI.getPrecuration).mockRejectedValue(new Error('404'))
+    const wrapper = mount(PrecurationFormView, {
+      global: { stubs: { SchemaDrivenPrecurationForm: true } }
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('Could not load precuration')
   })
 })
