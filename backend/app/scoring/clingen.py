@@ -23,11 +23,17 @@ from .point_model import ItemRule, point_model, score, template
 
 logger = get_logger(__name__)
 
-# Row keys that are not entered evidence: row id, the PMID itself, preset case-row points
-# ponytail: a row whose only entry is points (no other field) is not flagged for its PMID
+# Row keys that are not entered evidence (points are checked on their own)
 _NOT_EVIDENCE_KEYS = {"id", "pmid", "proband_counted_points"}
 
 ENGINE_NAME = "clingen_sop_v11"
+
+
+def _positive(value: Any) -> bool:
+    try:
+        return not isinstance(value, bool) and float(value) > 0
+    except (TypeError, ValueError):
+        return False
 
 
 def lod_to_points_sop11(lod_score: float) -> float:
@@ -253,12 +259,12 @@ class ClinGenEngine(ScoringEngine):
 
         # No "no/too few evidence" hints: in-progress work, and the score panel shows it
 
-        missing_pmid_count = self._count_missing_pmids(
-            genetic_evidence, experimental_evidence
-        )
-        if missing_pmid_count > 0:
+        problems = self._pmid_problems(genetic_evidence, experimental_evidence)
+        if problems["scored"]:
+            warnings.append(f"{problems['scored']} scored row(s) have no PMID")
+        if problems["invalid"]:
             warnings.append(
-                f"{missing_pmid_count} evidence item(s) with invalid or missing PMID"
+                f"{problems['invalid']} evidence item(s) with invalid or missing PMID"
             )
 
         return warnings
@@ -315,29 +321,34 @@ class ClinGenEngine(ScoringEngine):
 
         return warnings
 
-    def _count_missing_pmids(
+    def _pmid_problems(
         self,
         genetic_evidence: list[dict[str, Any]],
         experimental_evidence: list[dict[str, Any]] | dict[str, Any],
-    ) -> int:
-        """Count evidence items with missing or invalid PMIDs."""
+    ) -> dict[str, int]:
+        """Count rows that score without a PMID, and invalid or missing PMIDs."""
         # Genetic and experimental evidence: nested SOP v11 dict or legacy list
         items = [
             *self._iter_evidence_items(genetic_evidence),
             *self._iter_evidence_items(experimental_evidence),
         ]
-        return sum(1 for item in items if self._lacks_valid_pmid(item))
+        counts = {"scored": 0, "invalid": 0}
+        for item in items:
+            problem = self._pmid_problem(item)
+            if problem:
+                counts[problem] += 1
+        return counts
 
-    def _lacks_valid_pmid(self, item: dict[str, Any]) -> bool:
-        """A filled-in but invalid PMID, or a row with other content but no PMID.
-
-        A freshly added row (only its id and preset points) is not flagged yet.
-        """
+    def _pmid_problem(self, item: dict[str, Any]) -> str | None:
+        """ "invalid": a filled-in bad PMID or other content without one; "scored":
+        points > 0 (preset ones too, they count) without a PMID. Blank rows: None."""
         pmid = str(item.get("pmid") or "").strip()
         if pmid:
-            return not self._is_valid_pmid(pmid)
+            return None if self._is_valid_pmid(pmid) else "invalid"
+        if any(k.endswith("points") and _positive(v) for k, v in item.items()):
+            return "scored"
         rest = {k: v for k, v in item.items() if k not in _NOT_EVIDENCE_KEYS}
-        return has_content(rest)
+        return "invalid" if has_content(rest) else None
 
     @classmethod
     def _iter_evidence_items(cls, node: Any) -> Iterator[dict[str, Any]]:

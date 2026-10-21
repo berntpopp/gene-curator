@@ -292,17 +292,6 @@ class TestNestedEndToEnd:
 
         assert result.warnings == ["1 evidence item(s) with invalid or missing PMID"]
 
-    def test_only_filled_rows_without_pmid_count(self, engine: ClinGenEngine):
-        fresh = {"id": "r1", "pmid": "", "proband_counted_points": 1.5, "notes": None}
-        filled = {"id": "r2", "pmid": None, "proband_label": "Proband 1"}
-        evidence = {
-            "genetic_evidence": _nested_case_level(null_items=[fresh, filled]),
-        }
-
-        result = engine.calculate_scores(evidence, {})
-
-        assert result.warnings == ["1 evidence item(s) with invalid or missing PMID"]
-
     def test_few_items_without_experimental_do_not_warn(self, engine: ClinGenEngine):
         evidence = {
             "genetic_evidence": _nested_case_level(null_items=[_null_item()]),
