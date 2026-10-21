@@ -3,7 +3,7 @@
 from unittest.mock import patch
 
 import pytest
-from fastapi import HTTPException
+from fastapi import HTTPException, Response
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
@@ -46,6 +46,7 @@ def test_precuration_write_roles_direct(
     kwargs = {"db": db_session, "current_user": user}
     if action == "create":
         endpoint = precurations.create_precuration
+        kwargs["response"] = Response()
         kwargs["precuration_in"] = PrecurationCreate(
             gene_id=test_precuration.gene_id,
             scope_id=scope.id,

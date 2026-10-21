@@ -7,7 +7,7 @@ Follows patterns from curations.py.
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy.orm import Session
 
 from app.core.constants import (
@@ -157,12 +157,15 @@ def get_precuration(
 @api_endpoint()
 def create_precuration(
     precuration_in: PrecurationCreate,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Precuration:
     """
     Create a new precuration.
     Requires curator or admin access to the target scope.
+    Idempotent per creator: an open draft for the same gene and scope is returned
+    (200) instead of inserting another, so a retry after a lost response is safe.
     """
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
@@ -171,6 +174,16 @@ def create_precuration(
     _check_scope_access(
         db, current_user, precuration_in.scope_id, required_roles=["admin", "curator"]
     )
+
+    existing = precuration_crud.get_open_draft(
+        db,
+        gene_id=precuration_in.gene_id,
+        scope_id=precuration_in.scope_id,
+        user_id=current_user.id,
+    )
+    if existing:
+        response.status_code = status.HTTP_200_OK
+        return Precuration.model_validate(existing)
 
     try:
         precuration = precuration_crud.create_precuration(

@@ -286,9 +286,10 @@
   async function handleSaveDraft() {
     savingDraft.value = true
     try {
-      if (props.precurationId) {
+      const existingId = props.precurationId ?? createdId.value
+      if (existingId) {
         // Update existing precuration draft
-        const updated = await precurationsStore.saveDraft(props.precurationId, evidenceData.value)
+        const updated = await precurationsStore.saveDraft(existingId, evidenceData.value)
         if (updated) emit('saved')
       } else {
         // Create new precuration as draft
@@ -320,6 +321,9 @@
       if (!id) {
         id = (await precurationsStore.createPrecuration(createPayload())).id
         createdId.value = id
+      } else if (!props.precurationId) {
+        // Retry after a failed submit: persist the edits made since
+        await precurationsStore.saveDraft(id, evidenceData.value)
       }
       await precurationsStore.submitForReview(id)
 

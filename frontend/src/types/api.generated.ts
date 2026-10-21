@@ -1651,6 +1651,8 @@ export interface paths {
          * Create Precuration
          * @description Create a new precuration.
          *     Requires curator or admin access to the target scope.
+         *     Idempotent per creator: an open draft for the same gene and scope is returned
+         *     (200) instead of inserting another, so a retry after a lost response is safe.
          */
         post: operations["create_precuration_api_v1_precurations__post"];
         delete?: never;
