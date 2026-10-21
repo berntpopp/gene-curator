@@ -1,7 +1,6 @@
 """Gene summary Pydantic schemas for cross-scope aggregation"""
 
 from datetime import datetime
-from typing import Any
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -16,6 +15,13 @@ class ScopeSummary(BaseModel):
     classification: str | None = Field(
         None,
         description="Classification: definitive, strong, moderate, limited, no_known, disputed, refuted",
+    )
+    curation_id: UUID | None = Field(None, description="Curation this row links to")
+    disease_name: str | None = Field(None, description="Disease of the curation")
+    mode_of_inheritance: str | None = Field(None, description="Mode of inheritance")
+    stage: str | None = Field(None, description="Workflow stage of the curation")
+    in_progress: bool = Field(
+        False, description="True for a member's not-yet-active curation"
     )
     genetic_score: float = Field(..., description="Total genetic evidence score")
     experimental_score: float = Field(
@@ -44,7 +50,7 @@ class GeneSummaryPublic(BaseModel):
     has_conflicts: bool = Field(
         ..., description="Whether different scopes have conflicting classifications"
     )
-    scope_summaries: list[dict[str, Any]] = Field(
+    scope_summaries: list[ScopeSummary] = Field(
         ..., description="Per-scope summary details"
     )
     last_updated: datetime = Field(..., description="Last computation timestamp")
