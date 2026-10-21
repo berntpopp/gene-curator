@@ -101,6 +101,7 @@
   import { useValidationStore } from '@/stores/validation'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { errorMessage } from '@/stores/apiError'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import type { ApiErrorLike } from './types'
@@ -147,6 +148,7 @@
   const loadingSchema = ref(false)
   const savingDraft = ref(false)
   const submitting = ref(false)
+  const createdId = ref<string | null>(null)
   const isValid = ref(true) // Updated via validation-change event
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
@@ -313,13 +315,13 @@
 
     submitting.value = true
     try {
-      if (props.precurationId) {
-        await precurationsStore.submitForReview(props.precurationId)
-      } else {
-        // Create and submit
-        const created = await precurationsStore.createPrecuration(createPayload())
-        await precurationsStore.submitForReview(created.id)
+      // Keep the created id so a retry submits the same record, not a new draft
+      let id = props.precurationId ?? createdId.value
+      if (!id) {
+        id = (await precurationsStore.createPrecuration(createPayload())).id
+        createdId.value = id
       }
+      await precurationsStore.submitForReview(id)
 
       notificationsStore.addToast('Precuration submitted for review', 'success')
       clearRecovery()
@@ -327,7 +329,7 @@
       emit('submit')
     } catch (error) {
       logger.error('Failed to submit precuration', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to submit precuration', 'error')
+      notificationsStore.addToast(errorMessage(error, 'Failed to submit precuration'), 'error')
     } finally {
       submitting.value = false
     }

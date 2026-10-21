@@ -168,6 +168,23 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(precurationsStore.submitForReview).toHaveBeenCalledWith('new-p')
   })
 
+  it('retries a failed new submission on the same record and shows the API detail', async () => {
+    precurationsStore.createPrecuration.mockResolvedValue({ id: 'new-p' })
+    precurationsStore.submitForReview
+      .mockRejectedValueOnce({ response: { data: { detail: 'Invalid transition' } } })
+      .mockResolvedValueOnce({})
+    const wrapper = mountForm({ geneId: 'g-1' })
+    await flushPromises()
+
+    await internals(wrapper).handleSubmit()
+    expect(addToast).toHaveBeenCalledWith('Invalid transition', 'error')
+    await internals(wrapper).handleSubmit()
+
+    expect(precurationsStore.createPrecuration).toHaveBeenCalledTimes(1)
+    expect(precurationsStore.submitForReview).toHaveBeenLastCalledWith('new-p')
+    expect(wrapper.emitted('submit')).toHaveLength(1)
+  })
+
   it('does not submit while the evidence is invalid or read-only', async () => {
     const wrapper = mountForm({ precurationId: 'p-1', readonly: true })
     await flushPromises()
@@ -187,7 +204,7 @@ describe('SchemaDrivenPrecurationForm', () => {
     await internals(wrapper).handleSubmit()
 
     expect(logger.error).toHaveBeenCalledWith('Failed to submit precuration', { error: 'locked' })
-    expect(addToast).toHaveBeenCalledWith('Failed to submit precuration', 'error')
+    expect(addToast).toHaveBeenCalledWith('locked', 'error')
     expect(wrapper.emitted('submit')).toBeUndefined()
   })
 

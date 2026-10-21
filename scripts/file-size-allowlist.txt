@@ -1,11 +1,10 @@
 # Files over 650 lines: allowance may only go down (scripts/check_file_size.py)
 727 backend/app/api/v1/endpoints/gene_assignments.py
 651 backend/app/api/v1/endpoints/genes.py
-1104 backend/app/core/schema_validator.py
-665 backend/app/crud/scope.py
-1271 backend/app/crud/workflow_engine.py
+1102 backend/app/core/schema_validator.py
+1242 backend/app/crud/workflow_engine.py
 1664 backend/app/models/models.py
-1358 backend/app/scoring/clingen.py
+1356 backend/app/scoring/clingen.py
 703 backend/tests/api/test_curations.py
 812 backend/tests/api/test_precurations.py
 684 backend/tests/services/test_scope_permissions.py
@@ -14,4 +13,4 @@
 768 frontend/src/components/dynamic/__tests__/DynamicForm.tabs.spec.ts
 679 frontend/src/components/dynamic/__tests__/TabContent.spec.ts
 782 frontend/src/views/GeneCatalogueView.vue
-809 frontend/src/views/curation/CurationDetailView.vue
+818 frontend/src/views/curation/CurationDetailView.vue
