@@ -84,7 +84,6 @@ interface WorkflowState {
   loading: boolean
   error: string | null
   currentWorkflowStage: string | null
-  pendingReviewCount: number
   _workflowStages: WorkflowStage[]
 }
 
@@ -99,7 +98,6 @@ export const useWorkflowStore = defineStore('workflow', {
     loading: false,
     error: null,
     currentWorkflowStage: null,
-    pendingReviewCount: 0,
     // Static workflow stages - exposed via getter for consistency
     _workflowStages: WORKFLOW_STAGES
   }),
@@ -302,30 +300,6 @@ export const useWorkflowStore = defineStore('workflow', {
       } catch (error) {
         this.error = errorMessage(error, 'Request failed')
         throw error
-      }
-    },
-
-    async fetchPendingReviewCount() {
-      try {
-        // Dynamic import keeps this store free of a static dependency cycle with curations
-        const { curationsAPI, precurationsAPI } = await import('@/api')
-        // pending_review is the server-side definition shared with the review queue
-        const [cur, pre] = await Promise.all([
-          curationsAPI.getCurations({
-            curation_status: 'in_review',
-            limit: 1,
-            pending_review: true
-          }),
-          precurationsAPI.getPrecurations({
-            precuration_status: 'submitted',
-            limit: 1,
-            pending_review: true
-          })
-        ])
-        this.pendingReviewCount = cur.total + pre.total
-        return this.pendingReviewCount
-      } catch {
-        return 0
       }
     },
 

@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWorkflowStore, WORKFLOW_STAGES } from '@/stores/workflow'
-import { workflowAPI, curationsAPI, precurationsAPI } from '@/api'
+import { workflowAPI } from '@/api'
 import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
@@ -16,18 +16,10 @@ vi.mock('@/api', () => ({
     submitPeerReview: vi.fn(),
     getCurationWorkflowHistory: vi.fn(),
     getWorkflowStatistics: vi.fn()
-  },
-  curationsAPI: {
-    getCurations: vi.fn()
-  },
-  precurationsAPI: {
-    getPrecurations: vi.fn()
   }
 }))
 
 const api = vi.mocked(workflowAPI)
-const curations = vi.mocked(curationsAPI)
-const precurations = vi.mocked(precurationsAPI)
 
 type Stage = Schema<'WorkflowStage'>
 
@@ -285,36 +277,6 @@ describe('useWorkflowStore', () => {
       expect(api.transitionItem).not.toHaveBeenCalled()
       expect(store.error).toContain('No forward transition')
       expect(store.loading).toBe(false)
-    })
-  })
-
-  describe('fetchPendingReviewCount', () => {
-    it('sums the server-side pending_review totals of curations and precurations', async () => {
-      const store = useWorkflowStore()
-      curations.getCurations.mockResolvedValue({ total: 7 } as Schema<'CurationListResponse'>)
-      precurations.getPrecurations.mockResolvedValue({
-        total: 2
-      } as Schema<'PrecurationListResponse'>)
-
-      await expect(store.fetchPendingReviewCount()).resolves.toBe(9)
-      expect(curations.getCurations).toHaveBeenCalledWith({
-        curation_status: 'in_review',
-        limit: 1,
-        pending_review: true
-      })
-      expect(precurations.getPrecurations).toHaveBeenCalledWith({
-        precuration_status: 'submitted',
-        limit: 1,
-        pending_review: true
-      })
-      expect(store.pendingReviewCount).toBe(9)
-    })
-
-    it('returns 0 when the request fails', async () => {
-      const store = useWorkflowStore()
-      curations.getCurations.mockRejectedValue(new Error('down'))
-
-      await expect(store.fetchPendingReviewCount()).resolves.toBe(0)
     })
   })
 

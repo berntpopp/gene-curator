@@ -17,17 +17,17 @@ interface RailMeta {
   showInDropdown?: string
 }
 
-/**
- * Route-driven nav entries shared by the side rail and the phone bottom tabs:
- * `showInMainMenu` for primary destinations, `showInDropdown: 'curationSetup'` for admin.
- * Also starts badge polling, so mount one nav at a time.
- */
 /** Route name -> badge count */
 const BADGE: Record<string, (c: { needsYou: number; review: number }) => number> = {
   GeneAssignments: c => c.needsYou,
   'review-queue': c => c.review
 }
 
+/**
+ * Route-driven nav entries shared by the side rail, phone bottom tabs and command palette:
+ * `showInMainMenu` for primary destinations, `showInDropdown: 'curationSetup'` for admin.
+ * Also holds the shared badge poller (one request per interval however many consumers).
+ */
 export function useNavEntries() {
   const router = useRouter()
   const authStore = useAuthStore()

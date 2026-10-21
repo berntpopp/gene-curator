@@ -3,7 +3,7 @@
     <router-link to="/" aria-label="Gene Curator home" class="mx-3">
       <v-img src="/img/logo.png" alt="" width="28" max-width="28" max-height="28" contain />
     </router-link>
-    <h1 class="text-title-large header-title">{{ title }}</h1>
+    <div class="text-title-large header-title">{{ title }}</div>
     <v-spacer />
     <SearchButton />
     <ThemeToggle />

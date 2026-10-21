@@ -24,7 +24,8 @@ describe('PhoneHeader', () => {
     })
     await flushPromises()
 
-    expect(wrapper.find('header h1').text()).toBe('My work')
+    expect(wrapper.find('header').text()).toContain('My work')
+    expect(wrapper.find('h1').exists()).toBe(false) // views own the page's single h1
     expect(wrapper.find('button[aria-label="Search"]').exists()).toBe(true)
     expect(wrapper.find('button[aria-label^="Theme:"]').exists()).toBe(true)
     wrapper.unmount()

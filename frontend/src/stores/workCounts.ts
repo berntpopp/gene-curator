@@ -20,6 +20,8 @@ export const useWorkCountsStore = defineStore('workCounts', () => {
   async function fetch() {
     try {
       const { items, counts } = await myWorkApi.getMyWork()
+      // A late response must not restore a signed-out user's counts
+      if (!holders) return
       needsYou.value = counts.needs_you ?? 0
       review.value = items.filter(i => i.kind === 'review' && i.tab === 'needs_you').length
     } catch {

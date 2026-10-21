@@ -1,4 +1,4 @@
-import { useWorkflowStore } from '@/stores/workflow'
+import { useWorkCountsStore } from '@/stores/workCounts'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
@@ -153,7 +153,7 @@ describe('CurationDetailView', () => {
 
   it('refreshes the shared review badge count after a transition', async () => {
     vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
-    const refresh = vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(0)
+    const refresh = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
     const wrapper = await load({ can_review: true })
     wrapper.findComponent(CurationReviewDialogs).vm.$emit('approve', 'ok')
     await flushPromises()

@@ -5,6 +5,7 @@ import { useWorkCountsStore } from '../workCounts'
 
 vi.mock('@/api/myWork', () => ({ myWorkApi: { getMyWork: vi.fn() } }))
 
+const router = { afterEach: () => () => undefined } as never
 const item = (kind: string, tab: string) => ({ kind, tab })
 
 describe('workCounts store', () => {
@@ -19,6 +20,8 @@ describe('workCounts store', () => {
       counts: { needs_you: 2, waiting: 0, done: 1 }
     } as never)
     const store = useWorkCountsStore()
+    store.acquire(router)
+    vi.mocked(myWorkApi.getMyWork).mockClear()
     await store.fetch()
 
     expect(myWorkApi.getMyWork).toHaveBeenCalledTimes(1)
@@ -26,8 +29,22 @@ describe('workCounts store', () => {
     expect(store.review).toBe(1)
   })
 
+  it('ignores a response that arrives after the last holder released (sign-out)', async () => {
+    let resolve!: (v: never) => void
+    vi.mocked(myWorkApi.getMyWork).mockReturnValueOnce(new Promise(r => (resolve = r)) as never)
+    const store = useWorkCountsStore()
+    store.acquire(router)
+    store.release()
+    resolve({ items: [], counts: { needs_you: 9 } } as never)
+    await vi.waitFor(() => expect(myWorkApi.getMyWork).toHaveBeenCalled())
+    await Promise.resolve()
+    expect(store.needsYou).toBe(0)
+  })
+
   it('keeps the last counts when a refresh fails, and reset clears them', async () => {
     const store = useWorkCountsStore()
+    store.acquire(router)
+    await vi.waitFor(() => expect(myWorkApi.getMyWork).toHaveBeenCalled())
     vi.mocked(myWorkApi.getMyWork).mockResolvedValueOnce({
       items: [],
       counts: { needs_you: 4 }

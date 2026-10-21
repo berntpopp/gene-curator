@@ -16,7 +16,7 @@ vi.mock('@/api/precurations', () => ({
 
 import { curationsAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
-import { useWorkflowStore } from '@/stores/workflow'
+import { useWorkCountsStore } from '@/stores/workCounts'
 import { useScopesStore } from '@/stores/scopes'
 import { useNotificationsStore } from '@/stores/notifications'
 import { confirmState } from '@/composables/useConfirm'
@@ -204,9 +204,7 @@ describe('ReviewQueueView', () => {
     })
 
     it('approves a precuration and removes it from the queue', async () => {
-      const refreshBadge = vi
-        .spyOn(useWorkflowStore(), 'fetchPendingReviewCount')
-        .mockResolvedValue(0)
+      const refreshBadge = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
       vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
         precurations: [pre],
