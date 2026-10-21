@@ -16,6 +16,8 @@ from sqlalchemy.orm import Session
 from app.core import database
 from app.core.security import create_access_token
 from app.main import app
+from app.scoring.clingen import ClinGenEngine
+from app.scoring.point_model import template
 from tests.postgres.conftest import set_test_user_context
 from tests.unit.test_clingen_v1_correction import NULL_AD, _at, _evidence
 
@@ -63,6 +65,15 @@ def test_seeded_clingen_v1_validates_real_form_data(client: TestClient) -> None:
     for version in versions:
         ok = validate(version, _evidence())
         assert ok["is_valid"] is True, ok["errors"]
+        live = ok["score_calculations"]  # the forms' live score, pinned point model
+        saved = ClinGenEngine().calculate_scores(
+            _evidence(), {}
+        )  # embedded == template
+        assert (live["verdict"], live["total_score"]) == (
+            saved.verdict,
+            saved.total_score,
+        )
+        assert live["trace"] == saved.evidence_breakdown["trace"]
         errors = validate(version, bad)["errors"]
         assert [e["field"].rsplit(".", 1)[-1] for e in errors] == [
             "proband_counted_points"
@@ -116,3 +127,5 @@ def test_corrected_version_is_immutable_for_app_user(db: Session) -> None:
         assert contradictory["pmid"]["order"] == 2
         case_level = fields["genetic_evidence"]["properties"]["case_level"]
         assert case_level["order"] == 1
+        model = snapshot["scoring_configuration"]["point_model"]
+        assert model == template("clingen_sop_v11")

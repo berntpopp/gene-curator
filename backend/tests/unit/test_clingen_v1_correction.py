@@ -124,6 +124,12 @@ def test_out_of_range_points_are_rejected(bad: object) -> None:
     ]
 
 
+def test_cleared_number_cell_is_absent() -> None:
+    evidence = _evidence()
+    _at(evidence, NULL_AD)[0]["proband_counted_points"] = ""
+    assert _errors(evidence) == []
+
+
 def test_bad_pmid_select_and_shape_are_rejected() -> None:
     evidence = _evidence()
     row = _at(evidence, NULL_AD)[0]
@@ -146,10 +152,15 @@ def test_point_columns_match_the_point_model_ranges() -> None:
                     type_def.get("points_key", "points")
                 ]
                 low, high = type_def["range"]
-                assert (column["min_value"], column["max_value"]) == (low, high)
                 assert (column["min"], column["max"]) == (low, high)
 
 
 def test_embedded_point_model_is_the_template() -> None:
-    """046 pins the corrected model into the v1 snapshots; it must equal the template file."""
+    """046 pins the corrected model into the v1 snapshots; it must equal the template file.
+    It replaces only the pre-046 template (two 4-point categories), never a custom model."""
     assert literal("model") == template("clingen_sop_v11")
+    old = literal("old")
+    assert [c["key"] for c in old["sections"][1]["categories"]][-2:] == [
+        "models",
+        "rescue",
+    ]

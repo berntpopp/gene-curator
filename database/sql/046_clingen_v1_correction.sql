@@ -7,10 +7,12 @@
 -- validate-evidence rejected real data and accepted any point value.
 -- The fields literal holds the evidence definitions the ClinGen forms actually write: the column sets of
 -- frontend/src/components/clingen/sections/evidenceTableColumns.ts with the add-row defaults,
--- point ranges the validator enforces (min_value/max_value; min/max for the form), "order"
+-- point ranges (min/max, enforced by validate-evidence), "order"
 -- (jsonb sorts object keys), and replicated_over_time, which the Definitive band requires.
 -- The v1 snapshots also embed the corrected point model (backend/app/scoring/templates/
--- clingen_sop_v11.json): SOP v11 scores Models & Rescue as ONE category capped at 4, not two.
+-- clingen_sop_v11.json) unless they carry their own: SOP v11 scores Models & Rescue as ONE
+-- category capped at 4, sums single-variant and aggregate case-control (cap 12), and lets an
+-- AR other-variant proband score up to 3 (two variants of 0-1.5).
 -- Stored scores do not change here (SQL cannot run the scorer): after deploying, run once
 --   cd backend && uv run python -m app.services.recompute_scores
 -- which logs every curation whose total or class changes.
@@ -56,7 +58,7 @@ RETURNS JSONB AS $fn$
                     "variant": {"type": "string", "label": "Variant (HGVS)", "order": 3},
                     "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 4},
                     "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}, {"value": "contradicts", "label": "Contradicts"}], "default": "score", "order": 5},
-                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 3, "max_value": 3, "step": 0.1, "default": 1.5, "order": 6},
+                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "max": 3, "step": 0.1, "default": 1.5, "order": 6},
                     "explanation": {"type": "string", "label": "Explanation", "order": 7}
                   }
                 },
@@ -75,7 +77,7 @@ RETURNS JSONB AS $fn$
                     "variant": {"type": "string", "label": "Variant (HGVS)", "order": 3},
                     "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 4},
                     "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}, {"value": "contradicts", "label": "Contradicts"}], "default": "score", "order": 5},
-                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 1.5, "max_value": 1.5, "step": 0.1, "default": 0.1, "order": 6},
+                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "max": 1.5, "step": 0.1, "default": 0.1, "order": 6},
                     "explanation": {"type": "string", "label": "Explanation", "order": 7}
                   }
                 },
@@ -103,7 +105,7 @@ RETURNS JSONB AS $fn$
                     "variant_2": {"type": "string", "label": "Variant 2", "order": 4},
                     "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 5},
                     "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}, {"value": "contradicts", "label": "Contradicts"}], "default": "score", "order": 6},
-                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 3, "max_value": 3, "step": 0.1, "default": 1.5, "order": 7},
+                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "max": 3, "step": 0.1, "default": 1.5, "order": 7},
                     "explanation": {"type": "string", "label": "Explanation", "order": 8}
                   }
                 },
@@ -112,7 +114,7 @@ RETURNS JSONB AS $fn$
               "other_variant_type": {
                 "type": "array",
                 "label": "Other Variant Type",
-                "description": "Biallelic other variant types (default 0.1, 0-1.5 points)",
+                "description": "Biallelic other variant types (each variant 0-1.5, max 3 points per proband)",
                 "ui_component": "EvidenceTable",
                 "items": {
                   "type": "object",
@@ -123,7 +125,7 @@ RETURNS JSONB AS $fn$
                     "variant_2": {"type": "string", "label": "Variant 2", "order": 4},
                     "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 5},
                     "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}, {"value": "contradicts", "label": "Contradicts"}], "default": "score", "order": 6},
-                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 1.5, "max_value": 1.5, "step": 0.1, "default": 0.1, "order": 7},
+                    "proband_counted_points": {"type": "number", "label": "Points", "min": 0, "max": 3, "step": 0.1, "default": 0.1, "order": 7},
                     "explanation": {"type": "string", "label": "Explanation", "order": 8}
                   }
                 },
@@ -145,9 +147,9 @@ RETURNS JSONB AS $fn$
           "properties": {
             "family_label": {"type": "string", "label": "Family", "order": 1},
             "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 2},
-            "lod_score": {"type": "number", "label": "LOD Score", "min": 0, "min_value": 0, "step": 0.1, "default": 0, "order": 3},
-            "segregations_counted": {"type": "number", "label": "Seg. Counted", "min": 0, "min_value": 0, "default": 0, "order": 4},
-            "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 3, "max_value": 3, "step": 0.1, "default": 0, "order": 5},
+            "lod_score": {"type": "number", "label": "LOD Score", "min": 0, "step": 0.1, "default": 0, "order": 3},
+            "segregations_counted": {"type": "number", "label": "Seg. Counted", "min": 0, "default": 0, "order": 4},
+            "points": {"type": "number", "label": "Points", "min": 0, "max": 3, "step": 0.1, "default": 0, "order": 5},
             "explanation": {"type": "string", "label": "Explanation", "order": 6}
           }
         },
@@ -156,7 +158,7 @@ RETURNS JSONB AS $fn$
       "case_control": {
         "type": "object",
         "label": "Case-Control Data",
-        "description": "Case-control studies (max 6 points)",
+        "description": "Case-control studies (single variant and aggregate analyses summed, max 12 points)",
         "properties": {
           "single_variant_analysis": {
             "type": "array",
@@ -169,13 +171,13 @@ RETURNS JSONB AS $fn$
                 "study_label": {"type": "string", "label": "Study", "order": 1},
                 "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 2},
                 "variant": {"type": "string", "label": "Variant", "order": 3},
-                "cases_with_variant": {"type": "number", "label": "Cases+", "min": 0, "min_value": 0, "default": 0, "order": 4},
-                "cases_total": {"type": "number", "label": "Cases", "min": 1, "min_value": 1, "default": 1, "order": 5},
-                "controls_with_variant": {"type": "number", "label": "Ctrl+", "min": 0, "min_value": 0, "default": 0, "order": 6},
-                "controls_total": {"type": "number", "label": "Ctrl", "min": 1, "min_value": 1, "default": 1, "order": 7},
-                "odds_ratio": {"type": "number", "label": "OR", "min": 0, "min_value": 0, "default": 0, "order": 8},
-                "p_value": {"type": "number", "label": "P-value", "min": 0, "min_value": 0, "max": 1, "max_value": 1, "default": 1, "order": 9},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 6, "max_value": 6, "step": 0.5, "default": 0, "order": 10}
+                "cases_with_variant": {"type": "number", "label": "Cases+", "min": 0, "default": 0, "order": 4},
+                "cases_total": {"type": "number", "label": "Cases", "min": 1, "default": 1, "order": 5},
+                "controls_with_variant": {"type": "number", "label": "Ctrl+", "min": 0, "default": 0, "order": 6},
+                "controls_total": {"type": "number", "label": "Ctrl", "min": 1, "default": 1, "order": 7},
+                "odds_ratio": {"type": "number", "label": "OR", "min": 0, "default": 0, "order": 8},
+                "p_value": {"type": "number", "label": "P-value", "min": 0, "max": 1, "default": 1, "order": 9},
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 6, "step": 0.5, "default": 0, "order": 10}
               }
             },
             "order": 1
@@ -191,12 +193,12 @@ RETURNS JSONB AS $fn$
                 "study_label": {"type": "string", "label": "Study", "order": 1},
                 "pmid": {"type": "string", "label": "PMID", "validation": "pmid_format", "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$", "pattern_message": "PMID must be digits only", "order": 2},
                 "analysis_type": {"type": "select", "label": "Analysis", "options": [{"value": "burden", "label": "Burden test"}, {"value": "collapsing", "label": "Collapsing"}, {"value": "skat", "label": "SKAT"}, {"value": "skat_o", "label": "SKAT-O"}, {"value": "other", "label": "Other"}], "default": "burden", "order": 3},
-                "cases_with_variants": {"type": "number", "label": "Cases+", "min": 0, "min_value": 0, "default": 0, "order": 4},
-                "cases_total": {"type": "number", "label": "Cases", "min": 1, "min_value": 1, "default": 1, "order": 5},
-                "controls_with_variants": {"type": "number", "label": "Ctrl+", "min": 0, "min_value": 0, "default": 0, "order": 6},
-                "controls_total": {"type": "number", "label": "Ctrl", "min": 1, "min_value": 1, "default": 1, "order": 7},
-                "p_value": {"type": "number", "label": "P-value", "min": 0, "min_value": 0, "max": 1, "max_value": 1, "default": 1, "order": 8},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 6, "max_value": 6, "step": 0.5, "default": 0, "order": 9}
+                "cases_with_variants": {"type": "number", "label": "Cases+", "min": 0, "default": 0, "order": 4},
+                "cases_total": {"type": "number", "label": "Cases", "min": 1, "default": 1, "order": 5},
+                "controls_with_variants": {"type": "number", "label": "Ctrl+", "min": 0, "default": 0, "order": 6},
+                "controls_total": {"type": "number", "label": "Ctrl", "min": 1, "default": 1, "order": 7},
+                "p_value": {"type": "number", "label": "P-value", "min": 0, "max": 1, "default": 1, "order": 8},
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 6, "step": 0.5, "default": 0, "order": 9}
               }
             },
             "order": 2
@@ -229,7 +231,7 @@ RETURNS JSONB AS $fn$
                 "gene_function_description": {"type": "string", "label": "Function Description", "order": 3},
                 "disease_mechanism_relevance": {"type": "string", "label": "Disease Relevance", "order": 4},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 5},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 0.5, "order": 6},
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 0.5, "order": 6},
                 "explanation": {"type": "string", "label": "Explanation", "order": 7}
               }
             },
@@ -249,7 +251,7 @@ RETURNS JSONB AS $fn$
                 "interaction_method": {"type": "string", "label": "Method", "order": 4},
                 "disease_relevance": {"type": "string", "label": "Disease Relevance", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 0.5, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 0.5, "order": 7}
               }
             },
             "order": 2
@@ -268,7 +270,7 @@ RETURNS JSONB AS $fn$
                 "expression_method": {"type": "string", "label": "Method", "order": 4},
                 "disease_tissue_relevance": {"type": "string", "label": "Relevance", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 0.5, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 0.5, "order": 7}
               }
             },
             "order": 3
@@ -296,7 +298,7 @@ RETURNS JSONB AS $fn$
                 "functional_effect": {"type": "string", "label": "Effect", "order": 5},
                 "assay_method": {"type": "string", "label": "Assay", "order": 6},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 7},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 1, "order": 8}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 1, "order": 8}
               }
             },
             "order": 1
@@ -316,7 +318,7 @@ RETURNS JSONB AS $fn$
                 "functional_effect": {"type": "string", "label": "Effect", "order": 5},
                 "assay_method": {"type": "string", "label": "Assay", "order": 6},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 7},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 1, "max_value": 1, "step": 0.5, "default": 0.5, "order": 8}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 1, "step": 0.5, "default": 0.5, "order": 8}
               }
             },
             "order": 2
@@ -344,7 +346,7 @@ RETURNS JSONB AS $fn$
                 "phenotype_observed": {"type": "string", "label": "Phenotype", "order": 5},
                 "human_phenotype_match": {"type": "string", "label": "Human Match", "order": 6},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 7},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 4, "max_value": 4, "step": 0.5, "default": 2, "order": 8}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 4, "step": 0.5, "default": 2, "order": 8}
               }
             },
             "order": 1
@@ -363,7 +365,7 @@ RETURNS JSONB AS $fn$
                 "modification": {"type": "string", "label": "Modification", "order": 4},
                 "phenotype_observed": {"type": "string", "label": "Phenotype", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 1, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 1, "order": 7}
               }
             },
             "order": 2
@@ -390,7 +392,7 @@ RETURNS JSONB AS $fn$
                 "phenotype_rescued": {"type": "string", "label": "Phenotype Rescued", "order": 4},
                 "rescue_extent": {"type": "string", "label": "Rescue Extent", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 4, "max_value": 4, "step": 0.5, "default": 2, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 4, "step": 0.5, "default": 2, "order": 7}
               }
             },
             "order": 1
@@ -409,7 +411,7 @@ RETURNS JSONB AS $fn$
                 "rescue_method": {"type": "string", "label": "Method", "order": 4},
                 "phenotype_rescued": {"type": "string", "label": "Phenotype Rescued", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 4, "max_value": 4, "step": 0.5, "default": 2, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 4, "step": 0.5, "default": 2, "order": 7}
               }
             },
             "order": 2
@@ -428,7 +430,7 @@ RETURNS JSONB AS $fn$
                 "rescue_method": {"type": "string", "label": "Method", "order": 4},
                 "phenotype_rescued": {"type": "string", "label": "Phenotype Rescued", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 1, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 1, "order": 7}
               }
             },
             "order": 3
@@ -447,7 +449,7 @@ RETURNS JSONB AS $fn$
                 "rescue_method": {"type": "string", "label": "Method", "order": 4},
                 "phenotype_rescued": {"type": "string", "label": "Phenotype Rescued", "order": 5},
                 "score_status": {"type": "select", "label": "Status", "options": [{"value": "score", "label": "Score"}, {"value": "review", "label": "Review"}], "default": "score", "order": 6},
-                "points": {"type": "number", "label": "Points", "min": 0, "min_value": 0, "max": 2, "max_value": 2, "step": 0.5, "default": 1, "order": 7}
+                "points": {"type": "number", "label": "Points", "min": 0, "max": 2, "step": 0.5, "default": 1, "order": 7}
               }
             },
             "order": 4
@@ -479,25 +481,25 @@ $fields$::jsonb)
         || CASE WHEN jsonb_typeof(s->'ui_configuration'->'layout'->'tabs') = 'array' THEN
             jsonb_build_object('ui_configuration', jsonb_set(
                 s->'ui_configuration', '{layout,tabs}',
-                (SELECT jsonb_agg(
+                (SELECT COALESCE(jsonb_agg(
                     CASE WHEN jsonb_typeof(tab->'sections') = 'array' THEN jsonb_set(
                         tab, '{sections}',
-                        (SELECT jsonb_agg(
+                        (SELECT COALESCE(jsonb_agg(
                             sec || COALESCE($ui${
                                 "Classification Summary": {"fields": ["evidence_summary", "replicated_over_time"]},
                                 "Models": {"help_text": "Non-human model organisms and cell culture (Models & Rescue: max 4 pts combined)"},
                                 "Rescue": {"help_text": "Rescue experiments (Models & Rescue: max 4 pts combined)"}
                             }$ui$::jsonb -> (sec->>'name'), '{}'::jsonb)
-                            ORDER BY j)
+                            ORDER BY j), '[]'::jsonb)
                          FROM jsonb_array_elements(tab->'sections') WITH ORDINALITY AS y(sec, j)))
                     ELSE tab END
-                    ORDER BY i)
+                    ORDER BY i), '[]'::jsonb)
                  FROM jsonb_array_elements(s->'ui_configuration'->'layout'->'tabs')
                       WITH ORDINALITY AS x(tab, i))))
         ELSE '{}'::jsonb END
-        || CASE WHEN with_model THEN jsonb_build_object(
-            'scoring_configuration',
-            COALESCE(s->'scoring_configuration', '{}'::jsonb) || jsonb_build_object('point_model', $model$
+        || CASE WHEN with_model
+                 AND (s->'scoring_configuration'->'point_model' IS NULL
+                      OR s->'scoring_configuration'->'point_model' = $old$
 {
   "name": "ClinGen SOP v11",
   "total_cap": 18,
@@ -525,6 +527,98 @@ $fields$::jsonb)
           "key": "case_control",
           "cap": 6,
           "combine": "max",
+          "types": [
+            {"path": "case_control.single_variant_analysis", "default": 0, "range": [0, 6]},
+            {"path": "case_control.aggregate_variant_analysis", "default": 0, "range": [0, 6]}
+          ]
+        }
+      ]
+    },
+    {
+      "key": "experimental_evidence",
+      "cap": 6,
+      "categories": [
+        {
+          "key": "function",
+          "cap": 2,
+          "types": [
+            {"path": "function.biochemical_function", "default": 0.5, "range": [0, 2]},
+            {"path": "function.protein_interaction", "default": 0.5, "range": [0, 2]},
+            {"path": "function.expression", "default": 0.5, "range": [0, 2]}
+          ]
+        },
+        {
+          "key": "functional_alteration",
+          "cap": 2,
+          "types": [
+            {"path": "functional_alteration.patient_cells", "default": 1, "range": [0, 2]},
+            {"path": "functional_alteration.non_patient_cells", "default": 0.5, "range": [0, 1]}
+          ]
+        },
+        {
+          "key": "models",
+          "cap": 4,
+          "types": [
+            {"path": "models.non_human_model_organism", "default": 2, "range": [0, 4]},
+            {"path": "models.cell_culture_model", "default": 1, "range": [0, 2]}
+          ]
+        },
+        {
+          "key": "rescue",
+          "cap": 4,
+          "types": [
+            {"path": "rescue.human", "default": 2, "range": [0, 4]},
+            {"path": "rescue.non_human_model_organism", "default": 2, "range": [0, 4]},
+            {"path": "rescue.cell_culture", "default": 1, "range": [0, 2]},
+            {"path": "rescue.patient_cells", "default": 1, "range": [0, 2]}
+          ]
+        }
+      ]
+    }
+  ],
+  "overrides": [
+    {"when": "contradictory_evidence", "class": "disputed", "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."}
+  ],
+  "bands": [
+    {"class": "definitive", "min": 12, "requires": "replicated_over_time", "description": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship."},
+    {"class": "strong", "min": 12, "description": "Total score 12-18 points supports STRONG gene-disease relationship."},
+    {"class": "moderate", "min": 7, "description": "Total score 7-11 points supports MODERATE gene-disease relationship."},
+    {"class": "limited", "min": 0.1, "description": "Total score 1-6 points supports LIMITED gene-disease relationship."},
+    {"class": "no_known", "min": 0, "description": "No evidence supporting a gene-disease relationship."},
+    {"class": "disputed", "min": -1, "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."},
+    {"class": "refuted", "description": "Evidence refutes the gene-disease relationship."}
+  ]
+}
+$old$::jsonb)
+        THEN jsonb_build_object(
+            'scoring_configuration',
+            COALESCE(s->'scoring_configuration', '{}'::jsonb) || jsonb_build_object('point_model', $model$
+{
+  "name": "ClinGen SOP v11",
+  "total_cap": 18,
+  "sections": [
+    {
+      "key": "genetic_evidence",
+      "cap": 12,
+      "categories": [
+        {
+          "key": "case_level",
+          "cap": 12,
+          "types": [
+            {"path": "case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
+            {"path": "case_level.autosomal_dominant_or_x_linked.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 1.5]},
+            {"path": "case_level.autosomal_recessive.predicted_or_proven_null", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 1.5, "range": [0, 3]},
+            {"path": "case_level.autosomal_recessive.other_variant_type", "rule": "case_row", "points_key": "proband_counted_points", "blank_at": 0.1, "range": [0, 3]}
+          ]
+        },
+        {
+          "key": "segregation",
+          "cap": 3,
+          "types": [{"path": "segregation", "rule": "segregation", "range": [0, 3]}]
+        },
+        {
+          "key": "case_control",
+          "cap": 12,
           "types": [
             {"path": "case_control.single_variant_analysis", "default": 0, "range": [0, 6]},
             {"path": "case_control.aggregate_variant_analysis", "default": 0, "range": [0, 6]}
