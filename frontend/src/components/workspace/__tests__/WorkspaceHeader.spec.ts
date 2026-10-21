@@ -56,6 +56,13 @@ describe('WorkspaceHeader', () => {
     expect(w.emitted('retry')).toHaveLength(1)
   })
 
+  it('says next to Submit why it is blocked', () => {
+    const reason = 'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
+    expect(mountHeader().find('[data-testid="ws-blockers"]').exists()).toBe(false)
+    const w = mountHeader({ canSubmit: false, blockers: [reason] })
+    expect(w.find('[data-testid="ws-blockers"]').text()).toBe(reason)
+  })
+
   it('disables submit when not allowed and both actions when read-only', () => {
     expect(
       mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]').attributes('disabled')

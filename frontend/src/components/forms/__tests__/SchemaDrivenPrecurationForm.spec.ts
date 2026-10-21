@@ -365,14 +365,18 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
-  it('does not cancel when Escape closes an open select menu', async () => {
+  it('leaves Escape in a field or select to that control', async () => {
     const wrapper = mountForm()
     await flushPromises()
     const vm = internals(wrapper)
-    const input = document.createElement('input')
-    input.setAttribute('aria-expanded', 'true')
-    input.addEventListener('keydown', e => vm.handleKeydown(e))
-    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    for (const html of ['<input>', '<input role="combobox" aria-expanded="false">']) {
+      const form = document.createElement('form')
+      form.innerHTML = html
+      form.addEventListener('keydown', e => vm.handleKeydown(e))
+      form.firstElementChild!.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })
+      )
+    }
     expect(wrapper.emitted('cancel')).toBeUndefined()
   })
 
