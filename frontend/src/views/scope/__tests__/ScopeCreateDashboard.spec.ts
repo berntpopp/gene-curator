@@ -11,6 +11,7 @@ import ScopeCreate from '@/views/scope/ScopeCreate.vue'
 import ScopeDashboard from '@/views/scope/ScopeDashboard.vue'
 import { useScopesStore } from '@/stores/scopes'
 import { usersApi } from '@/api/users'
+import { snackbarState } from '@/composables/useNotifications'
 
 const { routerPush, routerReplace, routerBack, routeState, logger } = vi.hoisted(() => ({
   routerPush: vi.fn(),
@@ -101,7 +102,7 @@ describe('ScopeCreate', () => {
     await nextTick()
     expect(vm.nameExists).toBe(true)
     expect(logger.warn).toHaveBeenCalledWith('Scope name already exists', expect.anything())
-    expect(vm.snackbarColor).toBe('warning')
+    expect(snackbarState.color).toBe('warning')
     ;(vm.scopeData as { name: string }).name = 'x'
     await nextTick()
     expect(vm.nameExists).toBe(false)
@@ -167,7 +168,7 @@ describe('ScopeCreate', () => {
       'Failed to invite member',
       expect.objectContaining({ user_id: 'u2' })
     )
-    expect(vm.snackbarMessage).toBe('Scope created successfully!')
+    expect(snackbarState.message).toBe('Scope created successfully!')
     vi.advanceTimersByTime(1000)
     expect(routerPush).toHaveBeenCalledWith({
       name: 'scope-dashboard',
@@ -184,8 +185,8 @@ describe('ScopeCreate', () => {
     vm.valid = true
     ;(vm.scopeData as { default_workflow_pair_id: string }).default_workflow_pair_id = 'wp-1'
     await call(vm, 'handleSubmit')
-    expect(vm.snackbarMessage).toBe('Failed to create scope: Scope exists')
-    expect(vm.snackbarColor).toBe('error')
+    expect(snackbarState.message).toBe('Failed to create scope: Scope exists')
+    expect(snackbarState.color).toBe('error')
     expect(vm.loading).toBe(false)
   })
 

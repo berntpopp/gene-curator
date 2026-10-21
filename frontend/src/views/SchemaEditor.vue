@@ -244,6 +244,7 @@
   import { errorMessage } from '@/stores/apiError'
   import { showError } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
+  import { useConfirm } from '@/composables/useConfirm'
 
   interface ApiError {
     message?: string
@@ -386,9 +387,17 @@
     }
   }
 
+  const { confirm } = useConfirm()
+
   const deleteSchema = async () => {
     if (!schema.value) return
-    if (confirm(`Are you sure you want to delete "${schema.value.name}"?`)) {
+    if (
+      await confirm({
+        title: `Delete "${schema.value.name}"?`,
+        confirmText: 'Delete',
+        destructive: true
+      })
+    ) {
       try {
         await schemasStore.deleteSchema(schemaId.value)
         router.push({ name: 'SchemaManagement' })

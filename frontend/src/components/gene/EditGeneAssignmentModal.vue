@@ -32,176 +32,161 @@
 -->
 
 <template>
-  <v-dialog v-model="isOpen" max-width="600" persistent @keydown.escape="handleCancel">
-    <v-card>
-      <!-- Header -->
-      <v-card-title class="d-flex align-center pa-4">
-        <v-icon start color="primary" size="28">mdi-pencil</v-icon>
-        <span class="text-h6">Edit Gene Assignment</span>
-        <v-spacer />
-        <v-btn
-          aria-label="Close"
-          icon="mdi-close"
-          variant="text"
-          density="compact"
-          @click="handleCancel"
-        />
-      </v-card-title>
-
-      <v-divider />
-
-      <v-card-text class="pa-4">
-        <!-- Gene Info Card -->
-        <v-card variant="tonal" color="primary" class="mb-4">
-          <v-card-text class="py-3">
-            <div class="d-flex align-center justify-space-between">
-              <div class="d-flex align-center">
-                <v-icon color="primary" class="mr-3">mdi-dna</v-icon>
-                <div>
-                  <div class="text-subtitle-1 font-weight-bold">{{ gene?.gene_symbol }}</div>
-                  <div v-if="gene?.gene_hgnc_id" class="text-caption text-medium-emphasis">
-                    {{ gene.gene_hgnc_id }}
-                  </div>
-                </div>
+  <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="md">
+    <template #title
+      ><v-icon start color="primary" size="28">mdi-pencil</v-icon>
+      <span class="text-h6">Edit Gene Assignment</span>
+      <v-spacer />
+      <v-btn
+        aria-label="Close"
+        icon="mdi-close"
+        variant="text"
+        density="compact"
+        @click="handleCancel"
+    /></template>
+    <v-card variant="tonal" color="primary" class="mb-4">
+      <v-card-text class="py-3">
+        <div class="d-flex align-center justify-space-between">
+          <div class="d-flex align-center">
+            <v-icon color="primary" class="mr-3">mdi-dna</v-icon>
+            <div>
+              <div class="text-subtitle-1 font-weight-bold">{{ gene?.gene_symbol }}</div>
+              <div v-if="gene?.gene_hgnc_id" class="text-caption text-medium-emphasis">
+                {{ gene.gene_hgnc_id }}
               </div>
-              <!-- Revalidate Button -->
-              <v-btn
-                variant="outlined"
-                size="small"
-                color="primary"
-                :loading="isRevalidating"
-                @click="handleRevalidateGene"
-              >
-                <v-icon start size="small">mdi-refresh</v-icon>
-                Revalidate
-              </v-btn>
             </div>
-          </v-card-text>
-        </v-card>
-
-        <!-- Validation Result Alert -->
-        <v-expand-transition>
-          <v-alert
-            v-if="validationResult"
-            :type="validationResult.is_valid ? 'success' : 'warning'"
-            variant="tonal"
-            density="compact"
-            closable
-            class="mb-4"
-            @click:close="validationResult = null"
+          </div>
+          <!-- Revalidate Button -->
+          <v-btn
+            variant="outlined"
+            size="small"
+            color="primary"
+            :loading="isRevalidating"
+            @click="handleRevalidateGene"
           >
-            <div v-if="validationResult.is_valid">
-              <strong>Gene annotation is valid</strong>
-              <div v-if="validationResult.approved_symbol" class="text-caption">
-                Approved symbol: {{ validationResult.approved_symbol }}
-              </div>
-            </div>
-            <div v-else>
-              <strong>Validation issues found</strong>
-              <ul v-if="validationResult.warnings?.length" class="mb-0 pl-4">
-                <li v-for="(warning, i) in validationResult.warnings" :key="i" class="text-caption">
-                  {{ warning }}
-                </li>
-              </ul>
-              <ul v-if="validationResult.errors?.length" class="mb-0 pl-4">
-                <li
-                  v-for="(error, i) in validationResult.errors"
-                  :key="i"
-                  class="text-caption text-error"
-                >
-                  {{ error }}
-                </li>
-              </ul>
-            </div>
-          </v-alert>
-        </v-expand-transition>
-
-        <!-- Edit Form -->
-        <v-form ref="formRef" v-model="formValid">
-          <!-- Priority Selection -->
-          <div class="mb-4">
-            <div class="text-subtitle-2 mb-2">
-              <v-icon start size="small" color="primary">mdi-flag</v-icon>
-              Priority Level
-            </div>
-            <v-btn-toggle v-model="formData.priority" mandatory color="primary" variant="outlined">
-              <v-btn
-                v-for="option in priorityOptions"
-                :key="option.value"
-                :value="option.value"
-                size="small"
-              >
-                <v-icon start size="small" :color="getPriorityColor(option.value)">mdi-flag</v-icon>
-                {{ option.title }}
-              </v-btn>
-            </v-btn-toggle>
-          </div>
-
-          <!-- Due Date Picker -->
-          <div class="mb-4">
-            <div class="text-subtitle-2 mb-2">
-              <v-icon start size="small" color="primary">mdi-calendar</v-icon>
-              Due Date
-            </div>
-            <v-text-field
-              v-model="formData.due_date"
-              type="date"
-              variant="outlined"
-              density="compact"
-              clearable
-              hint="Optional deadline for this assignment"
-              persistent-hint
-            />
-          </div>
-
-          <!-- Assignment Notes -->
-          <div>
-            <div class="text-subtitle-2 mb-2">
-              <v-icon start size="small" color="primary">mdi-note-text</v-icon>
-              Assignment Notes
-            </div>
-            <v-textarea
-              v-model="formData.assignment_notes"
-              variant="outlined"
-              density="compact"
-              rows="3"
-              counter="1000"
-              placeholder="Add notes about this gene assignment..."
-              :rules="[v => !v || v.length <= 1000 || 'Max 1000 characters']"
-            />
-          </div>
-        </v-form>
-
-        <!-- Change Preview -->
-        <v-expand-transition>
-          <v-alert v-if="hasChanges" type="info" variant="tonal" density="compact" class="mt-3">
-            <div class="d-flex align-center">
-              <v-icon start size="small">mdi-information</v-icon>
-              <span>You have unsaved changes</span>
-            </div>
-          </v-alert>
-        </v-expand-transition>
+            <v-icon start size="small">mdi-refresh</v-icon>
+            Revalidate
+          </v-btn>
+        </div>
       </v-card-text>
-
-      <v-divider />
-
-      <!-- Actions -->
-      <v-card-actions class="pa-4">
-        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
-        <v-spacer />
-        <v-btn
-          color="primary"
-          variant="flat"
-          :disabled="!hasChanges"
-          :loading="isSaving"
-          @click="handleSubmit"
-        >
-          <v-icon start>mdi-content-save</v-icon>
-          Save changes
-        </v-btn>
-      </v-card-actions>
     </v-card>
-  </v-dialog>
+
+    <!-- Validation Result Alert -->
+    <v-expand-transition>
+      <v-alert
+        v-if="validationResult"
+        :type="validationResult.is_valid ? 'success' : 'warning'"
+        variant="tonal"
+        density="compact"
+        closable
+        class="mb-4"
+        @click:close="validationResult = null"
+      >
+        <div v-if="validationResult.is_valid">
+          <strong>Gene annotation is valid</strong>
+          <div v-if="validationResult.approved_symbol" class="text-caption">
+            Approved symbol: {{ validationResult.approved_symbol }}
+          </div>
+        </div>
+        <div v-else>
+          <strong>Validation issues found</strong>
+          <ul v-if="validationResult.warnings?.length" class="mb-0 pl-4">
+            <li v-for="(warning, i) in validationResult.warnings" :key="i" class="text-caption">
+              {{ warning }}
+            </li>
+          </ul>
+          <ul v-if="validationResult.errors?.length" class="mb-0 pl-4">
+            <li
+              v-for="(error, i) in validationResult.errors"
+              :key="i"
+              class="text-caption text-error"
+            >
+              {{ error }}
+            </li>
+          </ul>
+        </div>
+      </v-alert>
+    </v-expand-transition>
+
+    <!-- Edit Form -->
+    <v-form ref="formRef" v-model="formValid">
+      <!-- Priority Selection -->
+      <div class="mb-4">
+        <div class="text-subtitle-2 mb-2">
+          <v-icon start size="small" color="primary">mdi-flag</v-icon>
+          Priority Level
+        </div>
+        <v-btn-toggle v-model="formData.priority" mandatory color="primary" variant="outlined">
+          <v-btn
+            v-for="option in priorityOptions"
+            :key="option.value"
+            :value="option.value"
+            size="small"
+          >
+            <v-icon start size="small" :color="getPriorityColor(option.value)">mdi-flag</v-icon>
+            {{ option.title }}
+          </v-btn>
+        </v-btn-toggle>
+      </div>
+
+      <!-- Due Date Picker -->
+      <div class="mb-4">
+        <div class="text-subtitle-2 mb-2">
+          <v-icon start size="small" color="primary">mdi-calendar</v-icon>
+          Due Date
+        </div>
+        <v-text-field
+          v-model="formData.due_date"
+          type="date"
+          variant="outlined"
+          density="compact"
+          clearable
+          hint="Optional deadline for this assignment"
+          persistent-hint
+        />
+      </div>
+
+      <!-- Assignment Notes -->
+      <div>
+        <div class="text-subtitle-2 mb-2">
+          <v-icon start size="small" color="primary">mdi-note-text</v-icon>
+          Assignment Notes
+        </div>
+        <v-textarea
+          v-model="formData.assignment_notes"
+          variant="outlined"
+          density="compact"
+          rows="3"
+          counter="1000"
+          placeholder="Add notes about this gene assignment..."
+          :rules="[v => !v || v.length <= 1000 || 'Max 1000 characters']"
+        />
+      </div>
+    </v-form>
+
+    <!-- Change Preview -->
+    <v-expand-transition>
+      <v-alert v-if="hasChanges" type="info" variant="tonal" density="compact" class="mt-3">
+        <div class="d-flex align-center">
+          <v-icon start size="small">mdi-information</v-icon>
+          <span>You have unsaved changes</span>
+        </div>
+      </v-alert>
+    </v-expand-transition>
+    <template #actions>
+      <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="!hasChanges"
+        :loading="isSaving"
+        @click="handleSubmit"
+      >
+        <v-icon start>mdi-content-save</v-icon>
+        Save changes
+      </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
@@ -212,6 +197,7 @@
   import type { ApiErrorLike } from '@/components/forms/types'
   import { getPriorityColor, priorityOptions } from '@/components/dynamic/assignmentDisplay'
   import type { GeneRow } from './types'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   // ============================================
   // PROPS & EMITS

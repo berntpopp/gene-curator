@@ -29,96 +29,89 @@
 -->
 
 <template>
-  <v-dialog v-model="isOpen" max-width="600" persistent>
-    <v-card>
-      <v-card-title class="d-flex align-center">
-        <v-icon start color="primary">mdi-account-plus</v-icon>
-        Invite member to scope
-      </v-card-title>
+  <BaseDialog v-model="isOpen" persistent size="md">
+    <template #title
+      ><v-icon start color="primary">mdi-account-plus</v-icon> Invite member to scope</template
+    >
+    <v-form ref="formRef" v-model="formValid">
+      <UserSearchAutocomplete
+        v-model="selectedUser"
+        :scope-id="scopeId"
+        :exclude-user-ids="existingMemberIds"
+        label="Search for user"
+        placeholder="Type name, email, or institution..."
+        @keydown.escape="keepDialogOpenWhileMenuOpen"
+      />
 
-      <v-card-text>
-        <v-form ref="formRef" v-model="formValid">
-          <UserSearchAutocomplete
-            v-model="selectedUser"
-            :scope-id="scopeId"
-            :exclude-user-ids="existingMemberIds"
-            label="Search for user"
-            placeholder="Type name, email, or institution..."
-          />
-
-          <!-- Selected User Preview -->
-          <v-alert v-if="selectedUser" type="info" variant="tonal" class="mt-3" density="compact">
-            <div class="d-flex align-center">
-              <v-avatar size="32" color="primary" class="mr-3">
-                <span class="text-caption font-weight-bold">
-                  {{ getInitials(selectedUser.name) }}
-                </span>
-              </v-avatar>
-              <div>
-                <div class="font-weight-medium">
-                  {{ selectedUser.name || selectedUser.email }}
-                </div>
-                <div class="text-caption text-medium-emphasis">{{ selectedUser.email }}</div>
-              </div>
+      <!-- Selected User Preview -->
+      <v-alert v-if="selectedUser" type="info" variant="tonal" class="mt-3" density="compact">
+        <div class="d-flex align-center">
+          <v-avatar size="32" color="primary" class="mr-3">
+            <span class="text-caption font-weight-bold">
+              {{ getInitials(selectedUser.name) }}
+            </span>
+          </v-avatar>
+          <div>
+            <div class="font-weight-medium">
+              {{ selectedUser.name || selectedUser.email }}
             </div>
-          </v-alert>
+            <div class="text-caption text-medium-emphasis">{{ selectedUser.email }}</div>
+          </div>
+        </div>
+      </v-alert>
 
-          <!-- Role Selection -->
-          <v-select
-            v-model="selectedRole"
-            :items="roleOptions"
-            label="Role"
-            :rules="roleRules"
-            class="mt-4"
-            variant="outlined"
-          >
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps" :title="undefined">
-                <template #prepend>
-                  <v-icon :icon="item.icon" :color="item.color" />
-                </template>
-                <v-list-item-title>{{ item.title }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.description }}</v-list-item-subtitle>
-              </v-list-item>
+      <!-- Role Selection -->
+      <v-select
+        v-model="selectedRole"
+        :items="roleOptions"
+        label="Role"
+        :rules="roleRules"
+        class="mt-4"
+        variant="outlined"
+      >
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps" :title="undefined">
+            <template #prepend>
+              <v-icon :icon="item.icon" :color="item.color" />
             </template>
+            <v-list-item-title>{{ item.title }}</v-list-item-title>
+            <v-list-item-subtitle>{{ item.description }}</v-list-item-subtitle>
+          </v-list-item>
+        </template>
 
-            <template #selection="{ item }">
-              <v-chip :color="item.color" variant="tonal" size="small">
-                <v-icon start :icon="item.icon" size="small" />
-                {{ item.title }}
-              </v-chip>
-            </template>
-          </v-select>
+        <template #selection="{ item }">
+          <v-chip :color="item.color" variant="tonal" size="small">
+            <v-icon start :icon="item.icon" size="small" />
+            {{ item.title }}
+          </v-chip>
+        </template>
+      </v-select>
 
-          <!-- Optional Notes -->
-          <v-textarea
-            v-model="notes"
-            label="Notes (optional)"
-            rows="2"
-            variant="outlined"
-            placeholder="Welcome message or additional context..."
-            counter="200"
-            :rules="notesRules"
-          />
-        </v-form>
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
-          :disabled="!canSubmit"
-          :loading="submitting"
-          @click="handleSubmit"
-        >
-          <v-icon start>mdi-send</v-icon>
-          Send invitation
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+      <!-- Optional Notes -->
+      <v-textarea
+        v-model="notes"
+        label="Notes (optional)"
+        rows="2"
+        variant="outlined"
+        placeholder="Welcome message or additional context..."
+        counter="200"
+        :rules="notesRules"
+      />
+    </v-form>
+    <template #actions>
+      <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="!canSubmit"
+        :loading="submitting"
+        @click="handleSubmit"
+      >
+        <v-icon start>mdi-send</v-icon>
+        Send invitation
+      </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
@@ -128,6 +121,8 @@
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
+  import { useConfirm } from '@/composables/useConfirm'
 
   /** User picked in the search autocomplete */
   interface InviteCandidate {
@@ -181,6 +176,7 @@
   // STATE
   // ============================================
 
+  const { confirm } = useConfirm()
   const formRef = ref<{ reset: () => void } | null>(null)
   const formValid = ref(false)
   const submitting = ref(false)
@@ -271,9 +267,22 @@
   /**
    * Handle cancel button
    */
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    const hasInput = selectedUser.value || notes.value
+    if (
+      hasInput &&
+      !(await confirm({ title: 'Discard invitation?', confirmText: 'Discard', destructive: true }))
+    )
+      return
     resetForm()
     isOpen.value = false
+  }
+
+  /** Escape that only closes the autocomplete menu must not reach the dialog. */
+  const keepDialogOpenWhileMenuOpen = (event: Event) => {
+    if ((event.target as HTMLElement).getAttribute('aria-expanded') === 'true') {
+      event.stopPropagation()
+    }
   }
 
   /**

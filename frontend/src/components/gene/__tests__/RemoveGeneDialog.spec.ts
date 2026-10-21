@@ -42,4 +42,15 @@ describe('RemoveGeneDialog', () => {
     const cancel = wrapper.findAll('button').find(b => b.text().trim() === 'Cancel')!
     expect(cancel.attributes('disabled')).toBeDefined()
   })
+
+  it('ignores cancel (Escape) while the removal is in progress', () => {
+    const wrapper = mountDialog({ isRemoving: true })
+    wrapper.findComponent({ name: 'BaseDialog' }).vm.$emit('cancel')
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+
+    return wrapper.setProps({ isRemoving: false }).then(() => {
+      wrapper.findComponent({ name: 'BaseDialog' }).vm.$emit('cancel')
+      expect(wrapper.emitted('cancel')).toHaveLength(1)
+    })
+  })
 })

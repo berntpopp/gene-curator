@@ -147,35 +147,19 @@
     />
 
     <!-- Confirm Remove Member Dialog -->
-    <v-dialog v-model="showRemoveDialog" max-width="500">
-      <v-card>
-        <v-card-title>Remove member</v-card-title>
-
-        <v-card-text>
-          Are you sure you want to remove
-          <strong>{{
-            memberToRemove?.user_full_name ||
-            memberToRemove?.user_username ||
-            memberToRemove?.user_email
-          }}</strong>
-          from this scope?
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="showRemoveDialog = false">Cancel</v-btn>
-          <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
+    <BaseDialog v-model="showRemoveDialog" size="md" title="Remove member">
+      Are you sure you want to remove
+      <strong>{{
+        memberToRemove?.user_full_name ||
+        memberToRemove?.user_username ||
+        memberToRemove?.user_email
+      }}</strong>
+      from this scope?
       <template #actions>
-        <v-btn color="white" variant="text" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
+        <v-btn @click="showRemoveDialog = false">Cancel</v-btn>
+        <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
+      </template></BaseDialog
+    >
   </v-card>
 </template>
 
@@ -189,6 +173,8 @@
   import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
   import { scopeService } from '@/services/scopeService'
   import type { Schema } from '@/types/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
+  import { showSnackbar } from '@/composables/useNotifications'
 
   type ScopeMember = Schema<'ScopeMembershipResponse'>
   type ScopeRole = Schema<'ScopeRole'>
@@ -231,11 +217,6 @@
   const removing = ref(false)
 
   const memberToRemove = ref<ScopeMember | null>(null)
-
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
 
   /**
    * Existing member IDs (for excluding from search)
@@ -389,9 +370,7 @@
    * Show notification snackbar
    */
   const showNotification = (message: string, color = 'success') => {
-    snackbarMessage.value = message
-    snackbarColor.value = color
-    showSnackbar.value = true
+    showSnackbar(message, color)
   }
 
   // ============================================

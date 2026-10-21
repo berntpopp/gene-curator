@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import SchemaDrivenPrecurationForm from '../SchemaDrivenPrecurationForm.vue'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const push = vi.hoisted(() => vi.fn())
 const replace = vi.hoisted(() => vi.fn())
@@ -87,8 +90,7 @@ function mountForm(props: Record<string, unknown> = {}) {
 describe('SchemaDrivenPrecurationForm', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    // happy-dom does not implement confirm()
-    window.confirm = vi.fn(() => true)
+    confirmMock.mockResolvedValue(true)
   })
 
   it('creates a precuration on first draft save and navigates to its editor', async () => {
@@ -276,11 +278,11 @@ describe('SchemaDrivenPrecurationForm', () => {
     const vm = internals(wrapper)
 
     vm.handleEvidenceChange({ a: 1 })
-    vi.mocked(window.confirm).mockReturnValueOnce(false)
-    vm.handleCancel()
+    confirmMock.mockResolvedValueOnce(false)
+    await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toBeUndefined()
 
-    vm.handleCancel()
+    await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
     expect(recovery.clearRecovery).toHaveBeenCalled()
   })
@@ -295,7 +297,7 @@ describe('SchemaDrivenPrecurationForm', () => {
 
     // No evidence entered yet, so Escape cancels without asking for confirmation.
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Escape' }))
-    expect(window.confirm).not.toHaveBeenCalled()
+    expect(confirmMock).not.toHaveBeenCalled()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 })

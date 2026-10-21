@@ -22,6 +22,8 @@ import CurationDetailView from '@/views/curation/CurationDetailView.vue'
 import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
 import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
 
+const openDialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
+
 describe('CurationDetailView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -78,7 +80,9 @@ describe('CurationDetailView', () => {
       workflow_pair_id: 'wp',
       ...curation
     } as never)
-    const wrapper = mount(CurationDetailView, { global: { stubs: { DynamicForm: true } } })
+    const wrapper = mount(CurationDetailView, {
+      global: { stubs: { DynamicForm: true, VDialog: openDialogStub } }
+    })
     await flushPromises()
     return wrapper
   }
@@ -160,5 +164,17 @@ describe('CurationDetailView', () => {
   it('gives an empty ClinGen draft the ClinGen view', async () => {
     const wrapper = await load({ status: 'draft', evidence_data: {} })
     expect(wrapper.findComponent(CurationEvidenceReadonly).exists()).toBe(true)
+  })
+
+  it('opens the submit and delete confirmation dialogs with the gene name', async () => {
+    const wrapper = await load({ can_review: true, can_delete: true })
+    const vm = wrapper.vm as unknown as { showSubmitDialog: boolean; showDeleteDialog: boolean }
+    vm.showSubmitDialog = true
+    await flushPromises()
+    expect(wrapper.text()).toContain('Submit this curation for PKD1 for review?')
+    vm.showSubmitDialog = false
+    vm.showDeleteDialog = true
+    await flushPromises()
+    expect(wrapper.text()).toContain('This action cannot be undone.')
   })
 })

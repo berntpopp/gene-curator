@@ -40,6 +40,17 @@ export default defineConfigWithVueTs(
       'vue/block-lang': ['error', { script: { lang: 'ts' } }],
       // Use useLogger()/logService (AGENTS.md); only the logging layer may touch console
       'no-console': 'error',
+      'no-restricted-globals': ['error', 'confirm', 'alert', 'prompt'],
+      'no-restricted-properties': [
+        'error',
+        ...['window', 'globalThis'].flatMap(object =>
+          ['confirm', 'alert', 'prompt'].map(property => ({
+            object,
+            property,
+            message: 'Use useConfirm() / the shared snackbar instead of native dialogs'
+          }))
+        )
+      ],
       'no-debugger': 'error',
       // ESLint 9 started flagging unused catch bindings; keep the v8 behaviour
       '@typescript-eslint/no-unused-vars': ['error', { caughtErrors: 'none' }],

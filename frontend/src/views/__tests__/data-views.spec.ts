@@ -15,6 +15,9 @@ import { useGenesStore } from '@/stores/genes'
 import { useAuthStore } from '@/stores/auth'
 import { useSchemasStore } from '@/stores/schemas'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
@@ -204,10 +207,7 @@ describe('SchemaManagement', () => {
     schemas.schemas = [schemaRow] as never
     vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
     const deleteSchema = vi.spyOn(schemas, 'deleteSchema').mockResolvedValue(undefined as never)
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     const wrapper = mount(SchemaManagement, opts())
     await flushPromises()
 
@@ -223,10 +223,7 @@ describe('SchemaManagement', () => {
     const schemas = useSchemasStore()
     vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
     const deleteSchema = vi.spyOn(schemas, 'deleteSchema').mockResolvedValue(undefined as never)
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => false)
-    )
+    confirmMock.mockResolvedValue(false)
     const wrapper = mount(SchemaManagement, opts())
     await flushPromises()
 

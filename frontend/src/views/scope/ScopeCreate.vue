@@ -199,73 +199,53 @@
     </v-row>
 
     <!-- Add Member Dialog for Initial Members -->
-    <v-dialog v-model="showAddMemberDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start color="primary">mdi-account-plus</v-icon>
-          Add initial member
-        </v-card-title>
+    <BaseDialog v-model="showAddMemberDialog" size="md">
+      <template #title
+        ><v-icon start color="primary">mdi-account-plus</v-icon> Add initial member</template
+      >
+      <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+        Search for existing users to invite when this scope is created.
+      </v-alert>
 
-        <v-card-text>
-          <v-alert type="info" variant="tonal" density="compact" class="mb-4">
-            Search for existing users to invite when this scope is created.
-          </v-alert>
+      <!-- Simple user search for scope creation -->
+      <v-autocomplete
+        v-model="selectedMember"
+        :items="userSearchResults"
+        :loading="searchingUsers"
+        item-title="displayName"
+        item-value="id"
+        label="Search for user"
+        placeholder="Type name or email..."
+        return-object
+        clearable
+        no-filter
+        @update:search="onUserSearch"
+      >
+        <template #item="{ item, props }">
+          <v-list-item v-bind="props" :title="undefined">
+            <v-list-item-title>{{ item.name || item.email }}</v-list-item-title>
+            <v-list-item-subtitle>{{ item.email }}</v-list-item-subtitle>
+          </v-list-item>
+        </template>
+      </v-autocomplete>
 
-          <!-- Simple user search for scope creation -->
-          <v-autocomplete
-            v-model="selectedMember"
-            :items="userSearchResults"
-            :loading="searchingUsers"
-            item-title="displayName"
-            item-value="id"
-            label="Search for user"
-            placeholder="Type name or email..."
-            return-object
-            clearable
-            no-filter
-            @update:search="onUserSearch"
-          >
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props" :title="undefined">
-                <v-list-item-title>{{ item.name || item.email }}</v-list-item-title>
-                <v-list-item-subtitle>{{ item.email }}</v-list-item-subtitle>
-              </v-list-item>
+      <!-- Role selection -->
+      <v-select v-model="memberRole" :items="roleOptions" label="Role" class="mt-3">
+        <template #item="{ item, props }">
+          <v-list-item v-bind="props">
+            <template #prepend>
+              <v-icon :icon="getRoleIcon(item)" :color="getRoleColor(item)" />
             </template>
-          </v-autocomplete>
-
-          <!-- Role selection -->
-          <v-select v-model="memberRole" :items="roleOptions" label="Role" class="mt-3">
-            <template #item="{ item, props }">
-              <v-list-item v-bind="props">
-                <template #prepend>
-                  <v-icon :icon="getRoleIcon(item)" :color="getRoleColor(item)" />
-                </template>
-              </v-list-item>
-            </template>
-          </v-select>
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="cancelAddMember">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            :disabled="!selectedMember || !memberRole"
-            @click="addPendingMember"
-          >
-            Add
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Snackbar for notifications -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
+          </v-list-item>
+        </template>
+      </v-select>
       <template #actions>
-        <v-btn color="white" variant="text" @click="showSnackbar = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
+        <v-btn variant="text" @click="cancelAddMember">Cancel</v-btn>
+        <v-btn color="primary" :disabled="!selectedMember || !memberRole" @click="addPendingMember">
+          Add
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-container>
 </template>
 
@@ -279,7 +259,9 @@
   import { usersApi } from '@/api/users'
   import { useWorkflowPairs } from '@/components/scope/useWorkflowPairs'
   import ScopeNamingHelp from './ScopeNamingHelp.vue'
+  import { showError, showSnackbar } from '@/composables/useNotifications'
   import { getInitials, displayNameRules } from './ScopeCreate.utils'
+  import BaseDialog from '@/components/BaseDialog.vue'
   import type {
     ErrorLike,
     PendingMember,
@@ -337,20 +319,11 @@
     default_workflow_pair_id: null
   })
 
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
-
   const {
     workflowPairs,
     loading: loadingWorkflowPairs,
     loadWorkflowPairs
-  } = useWorkflowPairs(message => {
-    snackbarMessage.value = message
-    snackbarColor.value = 'error'
-    showSnackbar.value = true
-  })
+  } = useWorkflowPairs(message => showError(message))
 
   // Initial members
   const showAddMemberDialog = ref(false)
@@ -525,9 +498,7 @@
    * Show notification snackbar
    */
   const showNotification = (message: string, color = 'success') => {
-    snackbarMessage.value = message
-    snackbarColor.value = color
-    showSnackbar.value = true
+    showSnackbar(message, color)
   }
 
   // ============================================

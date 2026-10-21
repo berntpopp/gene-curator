@@ -1,41 +1,37 @@
 <template>
-  <v-dialog v-model="open" max-width="400">
-    <v-card v-if="user">
-      <v-card-title class="text-h5"> Reset password for {{ user.name }} </v-card-title>
-      <v-card-text>
-        <v-form ref="form" @submit.prevent="submit">
-          <v-text-field
-            v-model="password"
-            label="New password"
-            type="password"
-            autocomplete="new-password"
-            :rules="passwordRules"
-            variant="outlined"
-            :hint="`${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} characters`"
-          />
-          <v-text-field
-            v-model="confirm"
-            label="Confirm password"
-            type="password"
-            autocomplete="new-password"
-            :rules="[matches]"
-            variant="outlined"
-          />
-        </v-form>
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="open = false"> Cancel </v-btn>
-        <v-btn color="primary" @click="submit"> Reset </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <BaseDialog v-if="user" v-model="open" size="sm">
+    <template #title>Reset password for {{ user.name }}</template>
+    <v-form ref="form" @submit.prevent="submit">
+      <v-text-field
+        v-model="password"
+        label="New password"
+        type="password"
+        autocomplete="new-password"
+        :rules="passwordRules"
+        variant="outlined"
+        :hint="`${PASSWORD_MIN_LENGTH}-${PASSWORD_MAX_LENGTH} characters`"
+      />
+      <v-text-field
+        v-model="confirm"
+        label="Confirm password"
+        type="password"
+        autocomplete="new-password"
+        :rules="[matches]"
+        variant="outlined"
+      />
+    </v-form>
+    <template #actions>
+      <v-btn variant="text" @click="open = false"> Cancel </v-btn>
+      <v-btn color="primary" @click="submit"> Reset </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
   import { passwordRules, PASSWORD_MIN_LENGTH, PASSWORD_MAX_LENGTH } from '@/config/password'
   import type { UserRecord } from '@/views/user-management/userManagementHelpers'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   defineProps<{ user: UserRecord | null }>()
   const emit = defineEmits<{ submit: [password: string] }>()

@@ -161,4 +161,30 @@ describe('GeneCatalogueView', () => {
     await flushPromises()
     expect(geneCatalogueAPI.getCatalogue).toHaveBeenCalledTimes(1)
   })
+
+  it('opens the quick info dialog for a gene and navigates from it', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
+    const wrapper = mount(GeneCatalogueView, {
+      global: {
+        stubs: {
+          RouterLink: true,
+          VDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
+        }
+      }
+    })
+    await flushPromises()
+    const vm = vmOf(wrapper)
+    ;(vm.showQuickInfo as (e: unknown) => void)({
+      ...entry,
+      scope_curations: [
+        { scope_id: 's1', scope_name: 'Kidney', classification: 'definitive', is_public: true }
+      ]
+    })
+    await flushPromises()
+    expect(wrapper.text()).toContain('HGNC:1100')
+    expect(wrapper.text()).toContain('Associated Diseases (1)')
+    const view = wrapper.findAll('button').find(b => b.text().includes('View'))
+    await view?.trigger('click')
+    expect(push).toHaveBeenCalledWith({ name: 'GeneDetail', params: { id: 'g1' } })
+  })
 })

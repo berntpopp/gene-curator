@@ -296,6 +296,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+  import { useConfirm } from '@/composables/useConfirm'
 
   /** Row shape shared by the table and the card view (transformed from the store). */
   interface CurationRow {
@@ -510,11 +511,20 @@
     router.push(`/scopes/${props.scopeId}/curations/${curation.curation_id}/edit`)
   }
 
+  const { confirm } = useConfirm()
+
   /**
    * Delete curation using store action
    */
   async function deleteCuration(curation: CurationRow) {
-    if (!confirm(`Delete curation for ${curation.gene_symbol}?`)) return
+    if (
+      !(await confirm({
+        title: `Delete curation for ${curation.gene_symbol}?`,
+        confirmText: 'Delete',
+        destructive: true
+      }))
+    )
+      return
 
     try {
       await curationsStore.deleteCuration(curation.curation_id)

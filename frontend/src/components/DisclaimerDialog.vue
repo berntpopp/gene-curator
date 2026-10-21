@@ -1,131 +1,126 @@
 <template>
-  <v-dialog
+  <BaseDialog
     v-model="dialogVisible"
     persistent
-    scrollable
-    max-width="700"
     class="disclaimer-dialog"
     role="alertdialog"
     aria-labelledby="disclaimer-title"
     aria-describedby="disclaimer-content"
+    size="lg"
   >
-    <v-card>
-      <v-card-title id="disclaimer-title" class="text-h5 d-flex align-center text-primary">
-        <v-icon color="warning" class="mr-2" aria-hidden="true">mdi-alert-circle</v-icon>
-        Research use disclaimer
-      </v-card-title>
+    <template #title
+      ><span id="disclaimer-title" class="d-flex align-center text-primary"
+        ><v-icon color="warning" class="mr-2" aria-hidden="true">mdi-alert-circle</v-icon> Research
+        use disclaimer</span
+      ></template
+    >
+    <div id="disclaimer-content">
+      <p class="mb-4 text-h6 font-weight-medium">
+        Gene Curator is intended for research and informational purposes only.
+      </p>
 
-      <v-card-text id="disclaimer-content" class="pb-0">
-        <p class="mb-4 text-h6 font-weight-medium">
-          Gene Curator is intended for research and informational purposes only.
-        </p>
+      <ul class="disclaimer-summary mb-4 text-body-1" role="list">
+        <li class="mb-2">
+          <strong>Gene Curator is NOT a clinical diagnostic tool</strong> and does not replace
+          professional medical advice.
+        </li>
+        <li class="mb-2">
+          Classifications and scores require expert review before any clinical use.
+        </li>
+        <li class="mb-2">
+          You are responsible for data governance, privacy compliance and IRB approval when handling
+          patient data.
+        </li>
+      </ul>
 
-        <ul class="disclaimer-summary mb-4 text-body-1" role="list">
-          <li class="mb-2">
-            <strong>Gene Curator is NOT a clinical diagnostic tool</strong> and does not replace
-            professional medical advice.
-          </li>
-          <li class="mb-2">
-            Classifications and scores require expert review before any clinical use.
-          </li>
-          <li class="mb-2">
-            You are responsible for data governance, privacy compliance and IRB approval when
-            handling patient data.
-          </li>
-        </ul>
+      <v-expansion-panels variant="accordion" class="mb-2">
+        <v-expansion-panel title="Full disclaimer">
+          <v-expansion-panel-text>
+            <p class="mb-3 text-body-1">
+              This platform is designed to facilitate systematic curation and evaluation of
+              gene-disease relationships to support research, knowledge discovery, and
+              evidence-based clinical genetics.
+            </p>
 
-        <v-expansion-panels variant="accordion" class="mb-2">
-          <v-expansion-panel title="Full disclaimer">
-            <v-expansion-panel-text>
-              <p class="mb-3 text-body-1">
-                This platform is designed to facilitate systematic curation and evaluation of
-                gene-disease relationships to support research, knowledge discovery, and
-                evidence-based clinical genetics.
-              </p>
+            <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">
+              Important Limitations:
+            </h3>
 
-              <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">
-                Important Limitations:
-              </h3>
+            <ul class="mb-4 text-body-1" role="list">
+              <li class="mb-2">
+                <strong>Gene Curator is NOT a clinical diagnostic tool</strong> and should not
+                replace professional medical advice, diagnosis, or treatment.
+              </li>
+              <li class="mb-2">
+                Gene-disease relationship classifications, evidence assessments, and scoring
+                verdicts may contain inaccuracies, errors, or limitations and require expert review.
+              </li>
+              <li class="mb-2">
+                All curations should be independently validated by qualified medical genetics
+                professionals and domain experts before being used in any clinical context.
+              </li>
+              <li class="mb-2">
+                Gene Curator does not establish a doctor-patient relationship and is not a
+                substitute for consulting with healthcare providers or clinical genetics services.
+              </li>
+              <li class="mb-2">
+                Evidence collection, methodology application, and classification verdicts are
+                subject to the judgment of individual curators and institutional policies.
+              </li>
+            </ul>
 
-              <ul class="mb-4 text-body-1" role="list">
-                <li class="mb-2">
-                  <strong>Gene Curator is NOT a clinical diagnostic tool</strong> and should not
-                  replace professional medical advice, diagnosis, or treatment.
-                </li>
-                <li class="mb-2">
-                  Gene-disease relationship classifications, evidence assessments, and scoring
-                  verdicts may contain inaccuracies, errors, or limitations and require expert
-                  review.
-                </li>
-                <li class="mb-2">
-                  All curations should be independently validated by qualified medical genetics
-                  professionals and domain experts before being used in any clinical context.
-                </li>
-                <li class="mb-2">
-                  Gene Curator does not establish a doctor-patient relationship and is not a
-                  substitute for consulting with healthcare providers or clinical genetics services.
-                </li>
-                <li class="mb-2">
-                  Evidence collection, methodology application, and classification verdicts are
-                  subject to the judgment of individual curators and institutional policies.
-                </li>
-              </ul>
+            <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">Data Responsibility:</h3>
 
-              <h3 class="text-subtitle-1 font-weight-bold mb-3 text-primary">
-                Data Responsibility:
-              </h3>
+            <p class="mb-4 text-body-1">By using Gene Curator, you acknowledge that:</p>
 
-              <p class="mb-4 text-body-1">By using Gene Curator, you acknowledge that:</p>
+            <ul class="mb-4 text-body-1" role="list">
+              <li class="mb-2">
+                You understand these limitations and assume full responsibility for how you
+                interpret and use information generated by this platform.
+              </li>
+              <li class="mb-2">
+                You are responsible for ensuring proper data governance, privacy compliance, and
+                institutional review board (IRB) approval when handling patient data or protected
+                health information (PHI).
+              </li>
+              <li class="mb-2">
+                Gene Curator is schema-agnostic and supports multiple curation methodologies
+                (ClinGen, GenCC, institutional). You are responsible for selecting and applying
+                appropriate standards for your use case.
+              </li>
+            </ul>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
 
-              <ul class="mb-4 text-body-1" role="list">
-                <li class="mb-2">
-                  You understand these limitations and assume full responsibility for how you
-                  interpret and use information generated by this platform.
-                </li>
-                <li class="mb-2">
-                  You are responsible for ensuring proper data governance, privacy compliance, and
-                  institutional review board (IRB) approval when handling patient data or protected
-                  health information (PHI).
-                </li>
-                <li class="mb-2">
-                  Gene Curator is schema-agnostic and supports multiple curation methodologies
-                  (ClinGen, GenCC, institutional). You are responsible for selecting and applying
-                  appropriate standards for your use case.
-                </li>
-              </ul>
-            </v-expansion-panel-text>
-          </v-expansion-panel>
-        </v-expansion-panels>
+      <v-divider class="my-4"></v-divider>
 
-        <v-divider class="my-4"></v-divider>
-
-        <p class="text-body-2 text-medium-emphasis">
-          <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
-          For questions about Gene Curator's intended use, supported methodologies, or limitations,
-          please refer to the documentation or contact your institutional administrator.
-        </p>
-      </v-card-text>
-
-      <v-card-actions class="pt-2 pb-4 px-6">
-        <v-spacer></v-spacer>
-        <v-btn
-          color="primary"
-          variant="elevated"
-          size="large"
-          aria-label="Accept disclaimer and continue to application"
-          @click="acknowledgeDisclaimer"
-        >
-          <v-icon left class="mr-2">mdi-check-circle</v-icon>
-          I Understand and Agree
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+      <p class="text-body-2 text-medium-emphasis">
+        <v-icon size="small" class="mr-1">mdi-information-outline</v-icon>
+        For questions about Gene Curator's intended use, supported methodologies, or limitations,
+        please refer to the documentation or contact your institutional administrator.
+      </p>
+    </div>
+    <template #actions>
+      <v-spacer></v-spacer>
+      <v-btn
+        color="primary"
+        variant="elevated"
+        size="large"
+        aria-label="Accept disclaimer and continue to application"
+        @click="acknowledgeDisclaimer"
+      >
+        <v-icon left class="mr-2">mdi-check-circle</v-icon>
+        I Understand and Agree
+      </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useLogger } from '@/composables/useLogger'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   const logger = useLogger()
 

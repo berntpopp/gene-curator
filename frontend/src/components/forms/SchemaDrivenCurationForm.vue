@@ -152,6 +152,7 @@
   import FormActions from '@/components/forms/FormActions.vue'
   import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
+  import { useConfirm } from '@/composables/useConfirm'
 
   type CurationSchema = Schema<'CurationSchema'>
 
@@ -379,12 +380,21 @@
     logger.debug('Redo performed')
   }
 
+  const { confirm } = useConfirm()
+
   /**
    * Cancel editing
    */
-  function handleCancel() {
+  async function handleCancel() {
     if (Object.keys(evidenceData.value).length > 0) {
-      if (!confirm('Discard unsaved changes?')) return
+      if (
+        !(await confirm({
+          title: 'Discard unsaved changes?',
+          confirmText: 'Discard',
+          destructive: true
+        }))
+      )
+        return
     }
     clearRecovery()
     clearHistory()

@@ -3,6 +3,9 @@ import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import SchemaDrivenCurationForm from '../SchemaDrivenCurationForm.vue'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const addToast = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
@@ -93,7 +96,7 @@ interface SchemaCurationVm {
   isDraft: boolean
   curationStatus: string
   formatRelativeTime(timestamp: string | null): string
-  handleCancel(): void
+  handleCancel(): void | Promise<void>
   handleKeydown(event: KeyboardEvent): void
 }
 
@@ -127,7 +130,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     precurationsStore.precurations = []
     recovery.lastSaved!.value = null
     utils.isLegacyFormat.mockReturnValue(false)
-    window.confirm = vi.fn(() => true)
+    confirmMock.mockResolvedValue(true)
   })
 
   it('loads an existing curation, its linked precuration and lock version', async () => {
@@ -300,6 +303,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(internals(wrapper).evidenceData).toEqual({ b: 2 })
 
     clingen.vm.$emit('cancel')
+    await flushPromises()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 
@@ -346,11 +350,11 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     const vm = internals(wrapper)
     vm.evidenceData = { a: 1 }
 
-    vi.mocked(window.confirm).mockReturnValueOnce(false)
-    vm.handleCancel()
+    confirmMock.mockResolvedValueOnce(false)
+    await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toBeUndefined()
 
-    vm.handleCancel()
+    await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
 

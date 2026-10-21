@@ -1,19 +1,11 @@
 <template>
-  <v-dialog :model-value="modelValue" max-width="480" persistent>
-    <v-card>
-      <v-card-title>Restore unsaved changes?</v-card-title>
-
-      <v-card-text>
-        Restore unsaved changes{{ when ? ` from ${when}` : '' }}? This replaces the current form.
-      </v-card-text>
-
-      <v-card-actions>
-        <v-spacer />
-        <v-btn variant="text" @click="$emit('discard')">Discard</v-btn>
-        <v-btn color="primary" variant="flat" @click="$emit('restore')">Restore</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+  <BaseDialog :model-value="modelValue" persistent size="md" title="Restore unsaved changes?">
+    Restore unsaved changes{{ when ? ` from ${when}` : '' }}? This replaces the current form.
+    <template #actions>
+      <v-btn variant="text" @click="$emit('discard')">Discard</v-btn>
+      <v-btn color="primary" variant="flat" @click="$emit('restore')">Restore</v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
@@ -31,6 +23,7 @@
 
   import { computed } from 'vue'
   import { formatDate } from '@/utils/format'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   const props = defineProps<{
     modelValue: boolean

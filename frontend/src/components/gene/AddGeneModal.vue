@@ -28,324 +28,310 @@
 -->
 
 <template>
-  <v-dialog v-model="isOpen" max-width="700" persistent @keydown.escape="handleCancel">
-    <v-card>
-      <!-- Header -->
-      <v-card-title class="d-flex align-center pa-4">
-        <v-icon start color="primary" size="28">mdi-dna</v-icon>
-        <span class="text-h6">{{
-          scopeId ? 'Add genes to this scope' : 'Add Genes to Catalog'
-        }}</span>
-        <v-spacer />
-        <v-btn
-          aria-label="Close"
-          icon="mdi-close"
-          variant="text"
-          density="compact"
-          @click="handleCancel"
-        />
-      </v-card-title>
+  <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="lg">
+    <template #title
+      ><v-icon start color="primary" size="28">mdi-dna</v-icon>
+      <span class="text-h6">{{
+        scopeId ? 'Add genes to this scope' : 'Add Genes to Catalog'
+      }}</span>
+      <v-spacer />
+      <v-btn
+        aria-label="Close"
+        icon="mdi-close"
+        variant="text"
+        density="compact"
+        @click="handleCancel"
+    /></template>
+    <!-- Mode Selection Tabs -->
+    <v-tabs v-model="mode" class="mb-4" color="primary">
+      <v-tab value="single">
+        <v-icon start>mdi-magnify</v-icon>
+        Search gene
+      </v-tab>
+      <v-tab value="bulk">
+        <v-icon start>mdi-file-upload</v-icon>
+        Bulk import
+      </v-tab>
+    </v-tabs>
 
-      <v-divider />
-
-      <v-card-text class="pa-4">
-        <!-- Mode Selection Tabs -->
-        <v-tabs v-model="mode" class="mb-4" color="primary">
-          <v-tab value="single">
-            <v-icon start>mdi-magnify</v-icon>
-            Search gene
-          </v-tab>
-          <v-tab value="bulk">
-            <v-icon start>mdi-file-upload</v-icon>
-            Bulk import
-          </v-tab>
-        </v-tabs>
-
-        <v-window v-model="mode">
-          <!-- Single Gene Search Mode -->
-          <v-window-item value="single">
-            <v-form v-model="singleFormValid">
-              <!-- Gene Search Autocomplete -->
-              <v-autocomplete
-                v-model="selectedGene"
-                v-model:search="searchQuery"
-                :items="searchResults"
-                :loading="isSearching"
-                item-title="symbol"
-                item-value="hgnc_id"
-                return-object
-                label="Search for gene"
-                placeholder="Type gene symbol, HGNC ID, or name..."
-                prepend-inner-icon="mdi-magnify"
-                clearable
-                :rules="[v => !!v || 'Please select a gene']"
-                :no-data-text="noDataText"
-                variant="outlined"
-                density="comfortable"
-                hide-no-data
-                @update:search="handleSearchUpdate"
-              >
-                <!-- Custom item template -->
-                <template #item="{ props: listItemProps, item }">
-                  <v-list-item v-bind="listItemProps" :title="undefined">
-                    <template #prepend>
-                      <v-icon color="primary" class="mr-2">mdi-dna</v-icon>
-                    </template>
-                    <v-list-item-title class="font-weight-bold">
-                      {{ item.symbol }}
-                      <v-chip
-                        v-if="item.status === 'Approved'"
-                        size="x-small"
-                        color="success"
-                        variant="tonal"
-                        class="ml-2"
-                      >
-                        Approved
-                      </v-chip>
-                    </v-list-item-title>
-                    <v-list-item-subtitle>
-                      <span class="text-caption">{{ item.hgnc_id }}</span>
-                      <span v-if="item.name" class="mx-2">|</span>
-                      <span v-if="item.name" class="text-caption">{{ item.name }}</span>
-                    </v-list-item-subtitle>
-                    <v-list-item-subtitle v-if="item.location" class="text-caption">
-                      <v-icon size="x-small" class="mr-1">mdi-map-marker</v-icon>
-                      {{ item.location }}
-                    </v-list-item-subtitle>
-                  </v-list-item>
+    <v-window v-model="mode">
+      <!-- Single Gene Search Mode -->
+      <v-window-item value="single">
+        <v-form v-model="singleFormValid">
+          <!-- Gene Search Autocomplete -->
+          <v-autocomplete
+            v-model="selectedGene"
+            v-model:search="searchQuery"
+            :items="searchResults"
+            :loading="isSearching"
+            item-title="symbol"
+            item-value="hgnc_id"
+            return-object
+            label="Search for gene"
+            placeholder="Type gene symbol, HGNC ID, or name..."
+            prepend-inner-icon="mdi-magnify"
+            clearable
+            :rules="[v => !!v || 'Please select a gene']"
+            :no-data-text="noDataText"
+            variant="outlined"
+            density="comfortable"
+            hide-no-data
+            @update:search="handleSearchUpdate"
+          >
+            <!-- Custom item template -->
+            <template #item="{ props: listItemProps, item }">
+              <v-list-item v-bind="listItemProps" :title="undefined">
+                <template #prepend>
+                  <v-icon color="primary" class="mr-2">mdi-dna</v-icon>
                 </template>
-
-                <!-- Selected gene display -->
-                <template #selection="{ item }">
-                  <v-chip color="primary" variant="tonal">
-                    <v-icon start size="small">mdi-dna</v-icon>
-                    {{ item.symbol }}
-                    <span class="text-caption ml-2">({{ item.hgnc_id }})</span>
+                <v-list-item-title class="font-weight-bold">
+                  {{ item.symbol }}
+                  <v-chip
+                    v-if="item.status === 'Approved'"
+                    size="x-small"
+                    color="success"
+                    variant="tonal"
+                    class="ml-2"
+                  >
+                    Approved
                   </v-chip>
-                </template>
+                </v-list-item-title>
+                <v-list-item-subtitle>
+                  <span class="text-caption">{{ item.hgnc_id }}</span>
+                  <span v-if="item.name" class="mx-2">|</span>
+                  <span v-if="item.name" class="text-caption">{{ item.name }}</span>
+                </v-list-item-subtitle>
+                <v-list-item-subtitle v-if="item.location" class="text-caption">
+                  <v-icon size="x-small" class="mr-1">mdi-map-marker</v-icon>
+                  {{ item.location }}
+                </v-list-item-subtitle>
+              </v-list-item>
+            </template>
 
-                <!-- Loading indicator -->
-                <template #append-inner>
-                  <v-progress-circular
-                    v-if="isSearching"
-                    size="20"
-                    width="2"
-                    indeterminate
-                    color="primary"
-                  />
-                </template>
-              </v-autocomplete>
+            <!-- Selected gene display -->
+            <template #selection="{ item }">
+              <v-chip color="primary" variant="tonal">
+                <v-icon start size="small">mdi-dna</v-icon>
+                {{ item.symbol }}
+                <span class="text-caption ml-2">({{ item.hgnc_id }})</span>
+              </v-chip>
+            </template>
 
-              <!-- Selected Gene Details Preview -->
-              <v-expand-transition>
-                <v-card v-if="selectedGene" variant="outlined" class="mt-4 pa-4" color="success">
-                  <div class="d-flex align-center mb-2">
-                    <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
-                    <span class="text-subtitle-1 font-weight-bold">Gene Details (from HGNC)</span>
-                  </div>
-
-                  <v-row dense>
-                    <v-col cols="6">
-                      <div class="text-caption text-medium-emphasis">HGNC ID</div>
-                      <div class="font-weight-medium">{{ selectedGene.hgnc_id }}</div>
-                    </v-col>
-                    <v-col cols="6">
-                      <div class="text-caption text-medium-emphasis">Symbol</div>
-                      <div class="font-weight-medium">{{ selectedGene.symbol }}</div>
-                    </v-col>
-                    <v-col v-if="selectedGene.name" cols="12">
-                      <div class="text-caption text-medium-emphasis">Name</div>
-                      <div class="font-weight-medium">{{ selectedGene.name }}</div>
-                    </v-col>
-                    <v-col v-if="selectedGene.location" cols="6">
-                      <div class="text-caption text-medium-emphasis">Location</div>
-                      <div class="font-weight-medium">{{ selectedGene.location }}</div>
-                    </v-col>
-                    <v-col v-if="selectedGene.chromosome" cols="6">
-                      <div class="text-caption text-medium-emphasis">Chromosome</div>
-                      <div class="font-weight-medium">{{ selectedGene.chromosome }}</div>
-                    </v-col>
-                    <v-col v-if="selectedGene.alias_symbols?.length" cols="12">
-                      <div class="text-caption text-medium-emphasis">Aliases</div>
-                      <div>
-                        <v-chip
-                          v-for="alias in selectedGene.alias_symbols.slice(0, 5)"
-                          :key="alias"
-                          size="x-small"
-                          variant="outlined"
-                          class="mr-1 mb-1"
-                        >
-                          {{ alias }}
-                        </v-chip>
-                        <span
-                          v-if="selectedGene.alias_symbols.length > 5"
-                          class="text-caption text-medium-emphasis"
-                        >
-                          +{{ selectedGene.alias_symbols.length - 5 }} more
-                        </span>
-                      </div>
-                    </v-col>
-                  </v-row>
-                </v-card>
-              </v-expand-transition>
-
-              <v-alert type="info" variant="tonal" density="compact" class="mt-4">
-                <v-icon start size="small">mdi-information</v-icon>
-                Search uses the official HGNC database. Gene details are automatically populated.
-              </v-alert>
-            </v-form>
-          </v-window-item>
-
-          <!-- Bulk Import Mode -->
-          <v-window-item value="bulk">
-            <v-form v-model="bulkFormValid">
-              <v-textarea
-                v-model="bulkInput"
-                label="Gene List"
-                :rules="[v => !!v || 'Please enter at least one gene']"
-                hint="Enter gene symbols or HGNC IDs, one per line or comma-separated"
-                persistent-hint
-                rows="6"
-                variant="outlined"
-                placeholder="BRCA1&#10;BRCA2&#10;TP53&#10;or: HGNC:1100, HGNC:1101"
-                clearable
-                :disabled="isValidatingBulk"
+            <!-- Loading indicator -->
+            <template #append-inner>
+              <v-progress-circular
+                v-if="isSearching"
+                size="20"
+                width="2"
+                indeterminate
+                color="primary"
               />
+            </template>
+          </v-autocomplete>
 
-              <div class="d-flex align-center mt-3 mb-2">
-                <v-btn
-                  color="primary"
-                  variant="tonal"
-                  :loading="isValidatingBulk"
-                  :disabled="!bulkInput?.trim()"
-                  @click="validateBulkGenes"
-                >
-                  <v-icon start>mdi-check-all</v-icon>
-                  Validate genes
-                </v-btn>
-                <v-spacer />
-                <v-switch
-                  v-model="skipDuplicates"
-                  label="Skip existing genes"
-                  color="primary"
-                  density="compact"
-                  hide-details
-                />
+          <!-- Selected Gene Details Preview -->
+          <v-expand-transition>
+            <v-card v-if="selectedGene" variant="outlined" class="mt-4 pa-4" color="success">
+              <div class="d-flex align-center mb-2">
+                <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
+                <span class="text-subtitle-1 font-weight-bold">Gene Details (from HGNC)</span>
               </div>
 
-              <!-- Validation Results -->
-              <v-expand-transition>
-                <div v-if="bulkValidationResults.length > 0" class="mt-3">
-                  <v-alert
-                    :type="bulkValidationSummary.invalid > 0 ? 'warning' : 'success'"
-                    variant="tonal"
-                    density="compact"
-                    class="mb-3"
-                  >
-                    <div class="d-flex align-center">
-                      <v-icon start>{{
-                        bulkValidationSummary.invalid > 0 ? 'mdi-alert-circle' : 'mdi-check-circle'
-                      }}</v-icon>
-                      <span>
-                        {{ bulkValidationSummary.valid }} valid,
-                        {{ bulkValidationSummary.invalid }} invalid,
-                        {{ bulkValidationSummary.suggestions }} with suggestions
-                      </span>
-                    </div>
-                  </v-alert>
-
-                  <v-list density="compact" class="validation-results-list">
-                    <v-list-item
-                      v-for="(result, idx) in bulkValidationResults"
-                      :key="idx"
-                      :class="getValidationClass(result.status)"
+              <v-row dense>
+                <v-col cols="6">
+                  <div class="text-caption text-medium-emphasis">HGNC ID</div>
+                  <div class="font-weight-medium">{{ selectedGene.hgnc_id }}</div>
+                </v-col>
+                <v-col cols="6">
+                  <div class="text-caption text-medium-emphasis">Symbol</div>
+                  <div class="font-weight-medium">{{ selectedGene.symbol }}</div>
+                </v-col>
+                <v-col v-if="selectedGene.name" cols="12">
+                  <div class="text-caption text-medium-emphasis">Name</div>
+                  <div class="font-weight-medium">{{ selectedGene.name }}</div>
+                </v-col>
+                <v-col v-if="selectedGene.location" cols="6">
+                  <div class="text-caption text-medium-emphasis">Location</div>
+                  <div class="font-weight-medium">{{ selectedGene.location }}</div>
+                </v-col>
+                <v-col v-if="selectedGene.chromosome" cols="6">
+                  <div class="text-caption text-medium-emphasis">Chromosome</div>
+                  <div class="font-weight-medium">{{ selectedGene.chromosome }}</div>
+                </v-col>
+                <v-col v-if="selectedGene.alias_symbols?.length" cols="12">
+                  <div class="text-caption text-medium-emphasis">Aliases</div>
+                  <div>
+                    <v-chip
+                      v-for="alias in selectedGene.alias_symbols.slice(0, 5)"
+                      :key="alias"
+                      size="x-small"
+                      variant="outlined"
+                      class="mr-1 mb-1"
                     >
-                      <template #prepend>
-                        <v-icon :color="getValidationColor(result.status)" size="small">
-                          {{ getValidationIcon(result.status) }}
-                        </v-icon>
-                      </template>
-                      <v-list-item-title class="text-body-2">
-                        <span class="font-weight-medium">{{ result.input }}</span>
-                        <span v-if="result.gene" class="text-medium-emphasis">
-                          <v-icon size="x-small" class="mx-1">mdi-arrow-right</v-icon>
-                          {{ result.gene.symbol }} ({{ result.gene.hgnc_id }})
-                        </span>
-                      </v-list-item-title>
-                      <v-list-item-subtitle v-if="result.message" class="text-caption">
-                        {{ result.message }}
-                      </v-list-item-subtitle>
-                      <template #append>
-                        <div
-                          v-if="result.status === 'suggestion' && result.gene"
-                          class="d-flex align-center ga-1"
-                        >
-                          <v-btn
-                            size="x-small"
-                            variant="tonal"
-                            color="primary"
-                            @click="acceptSuggestion(idx)"
-                          >
-                            Accept
-                          </v-btn>
-                          <v-menu v-if="(result.alternatives?.length ?? 0) > 0">
-                            <template #activator="{ props: menuProps }">
-                              <v-btn v-bind="menuProps" size="x-small" variant="outlined">
-                                <v-icon size="small">mdi-chevron-down</v-icon>
-                                Others
-                              </v-btn>
-                            </template>
-                            <v-list density="compact">
-                              <v-list-subheader>Select correct gene</v-list-subheader>
-                              <v-list-item
-                                v-for="(alt, altIdx) in result.alternatives"
-                                :key="altIdx"
-                                @click="selectAlternative(idx, alt)"
-                              >
-                                <v-list-item-title class="text-body-2">
-                                  <strong>{{ alt.symbol }}</strong>
-                                  <span class="text-medium-emphasis ml-2">{{ alt.hgnc_id }}</span>
-                                </v-list-item-title>
-                                <v-list-item-subtitle
-                                  v-if="alt.name"
-                                  class="text-caption text-truncate"
-                                  style="max-width: 250px"
-                                >
-                                  {{ alt.name }}
-                                </v-list-item-subtitle>
-                              </v-list-item>
-                            </v-list>
-                          </v-menu>
-                        </div>
-                      </template>
-                    </v-list-item>
-                  </v-list>
+                      {{ alias }}
+                    </v-chip>
+                    <span
+                      v-if="selectedGene.alias_symbols.length > 5"
+                      class="text-caption text-medium-emphasis"
+                    >
+                      +{{ selectedGene.alias_symbols.length - 5 }} more
+                    </span>
+                  </div>
+                </v-col>
+              </v-row>
+            </v-card>
+          </v-expand-transition>
+
+          <v-alert type="info" variant="tonal" density="compact" class="mt-4">
+            <v-icon start size="small">mdi-information</v-icon>
+            Search uses the official HGNC database. Gene details are automatically populated.
+          </v-alert>
+        </v-form>
+      </v-window-item>
+
+      <!-- Bulk Import Mode -->
+      <v-window-item value="bulk">
+        <v-form v-model="bulkFormValid">
+          <v-textarea
+            v-model="bulkInput"
+            label="Gene List"
+            :rules="[v => !!v || 'Please enter at least one gene']"
+            hint="Enter gene symbols or HGNC IDs, one per line or comma-separated"
+            persistent-hint
+            rows="6"
+            variant="outlined"
+            placeholder="BRCA1&#10;BRCA2&#10;TP53&#10;or: HGNC:1100, HGNC:1101"
+            clearable
+            :disabled="isValidatingBulk"
+          />
+
+          <div class="d-flex align-center mt-3 mb-2">
+            <v-btn
+              color="primary"
+              variant="tonal"
+              :loading="isValidatingBulk"
+              :disabled="!bulkInput?.trim()"
+              @click="validateBulkGenes"
+            >
+              <v-icon start>mdi-check-all</v-icon>
+              Validate genes
+            </v-btn>
+            <v-spacer />
+            <v-switch
+              v-model="skipDuplicates"
+              label="Skip existing genes"
+              color="primary"
+              density="compact"
+              hide-details
+            />
+          </div>
+
+          <!-- Validation Results -->
+          <v-expand-transition>
+            <div v-if="bulkValidationResults.length > 0" class="mt-3">
+              <v-alert
+                :type="bulkValidationSummary.invalid > 0 ? 'warning' : 'success'"
+                variant="tonal"
+                density="compact"
+                class="mb-3"
+              >
+                <div class="d-flex align-center">
+                  <v-icon start>{{
+                    bulkValidationSummary.invalid > 0 ? 'mdi-alert-circle' : 'mdi-check-circle'
+                  }}</v-icon>
+                  <span>
+                    {{ bulkValidationSummary.valid }} valid,
+                    {{ bulkValidationSummary.invalid }} invalid,
+                    {{ bulkValidationSummary.suggestions }} with suggestions
+                  </span>
                 </div>
-              </v-expand-transition>
-            </v-form>
-          </v-window-item>
-        </v-window>
-      </v-card-text>
+              </v-alert>
 
-      <v-divider />
-
-      <!-- Actions -->
-      <v-card-actions class="pa-4">
-        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
-        <v-spacer />
-        <v-btn
-          color="primary"
-          variant="flat"
-          :disabled="!canSubmit"
-          :loading="isSubmitting"
-          @click="handleSubmit"
-        >
-          <v-icon start>mdi-plus</v-icon>
-          {{ submitButtonText }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+              <v-list density="compact" class="validation-results-list">
+                <v-list-item
+                  v-for="(result, idx) in bulkValidationResults"
+                  :key="idx"
+                  :class="getValidationClass(result.status)"
+                >
+                  <template #prepend>
+                    <v-icon :color="getValidationColor(result.status)" size="small">
+                      {{ getValidationIcon(result.status) }}
+                    </v-icon>
+                  </template>
+                  <v-list-item-title class="text-body-2">
+                    <span class="font-weight-medium">{{ result.input }}</span>
+                    <span v-if="result.gene" class="text-medium-emphasis">
+                      <v-icon size="x-small" class="mx-1">mdi-arrow-right</v-icon>
+                      {{ result.gene.symbol }} ({{ result.gene.hgnc_id }})
+                    </span>
+                  </v-list-item-title>
+                  <v-list-item-subtitle v-if="result.message" class="text-caption">
+                    {{ result.message }}
+                  </v-list-item-subtitle>
+                  <template #append>
+                    <div
+                      v-if="result.status === 'suggestion' && result.gene"
+                      class="d-flex align-center ga-1"
+                    >
+                      <v-btn
+                        size="x-small"
+                        variant="tonal"
+                        color="primary"
+                        @click="acceptSuggestion(idx)"
+                      >
+                        Accept
+                      </v-btn>
+                      <v-menu v-if="(result.alternatives?.length ?? 0) > 0">
+                        <template #activator="{ props: menuProps }">
+                          <v-btn v-bind="menuProps" size="x-small" variant="outlined">
+                            <v-icon size="small">mdi-chevron-down</v-icon>
+                            Others
+                          </v-btn>
+                        </template>
+                        <v-list density="compact">
+                          <v-list-subheader>Select correct gene</v-list-subheader>
+                          <v-list-item
+                            v-for="(alt, altIdx) in result.alternatives"
+                            :key="altIdx"
+                            @click="selectAlternative(idx, alt)"
+                          >
+                            <v-list-item-title class="text-body-2">
+                              <strong>{{ alt.symbol }}</strong>
+                              <span class="text-medium-emphasis ml-2">{{ alt.hgnc_id }}</span>
+                            </v-list-item-title>
+                            <v-list-item-subtitle
+                              v-if="alt.name"
+                              class="text-caption text-truncate"
+                              style="max-width: 250px"
+                            >
+                              {{ alt.name }}
+                            </v-list-item-subtitle>
+                          </v-list-item>
+                        </v-list>
+                      </v-menu>
+                    </div>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </div>
+          </v-expand-transition>
+        </v-form>
+      </v-window-item>
+    </v-window>
+    <template #actions>
+      <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="!canSubmit"
+        :loading="isSubmitting"
+        @click="handleSubmit"
+      >
+        <v-icon start>mdi-plus</v-icon>
+        {{ submitButtonText }}
+      </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
@@ -360,6 +346,7 @@
     getValidationIcon
   } from './bulkValidationDisplay'
   import { useAddGenes, type BulkValidationResult, type HgncGene } from './useAddGenes'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   // ============================================
   // PROPS & EMITS

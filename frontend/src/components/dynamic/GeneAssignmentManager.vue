@@ -158,166 +158,137 @@
     </v-card-text>
 
     <!-- Bulk Assignment Dialog -->
-    <v-dialog v-model="bulkAssignDialog" max-width="600">
-      <v-card>
-        <v-card-title>Bulk assignment</v-card-title>
-        <v-card-text>
-          <v-select
-            v-model="bulkAssignee"
-            :items="availableUsers"
-            item-title="name"
-            item-value="id"
-            label="Assign to User"
-            variant="outlined"
-            return-object
-          />
+    <BaseDialog v-model="bulkAssignDialog" size="md" title="Bulk assignment">
+      <v-select
+        v-model="bulkAssignee"
+        :items="availableUsers"
+        item-title="name"
+        item-value="id"
+        label="Assign to User"
+        variant="outlined"
+        return-object
+      />
 
-          <v-select
-            v-model="bulkPriority"
-            :items="priorityOptions"
-            label="Set Priority"
-            variant="outlined"
-          />
+      <v-select
+        v-model="bulkPriority"
+        :items="priorityOptions"
+        label="Set Priority"
+        variant="outlined"
+      />
 
-          <v-textarea
-            v-model="bulkComment"
-            label="Assignment Comment (Optional)"
-            variant="outlined"
-            rows="3"
-          />
+      <v-textarea
+        v-model="bulkComment"
+        label="Assignment Comment (Optional)"
+        variant="outlined"
+        rows="3"
+      />
 
-          <div class="text-body-2 mt-4">
-            <strong>{{ selectedAssignments.length }}</strong> assignments will be updated.
-          </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="bulkAssignDialog = false">Cancel</v-btn>
-          <v-btn
-            color="primary"
-            variant="flat"
-            :loading="bulkAssigning"
-            @click="executeBulkAssignment"
-          >
-            Assign
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <div class="text-body-2 mt-4">
+        <strong>{{ selectedAssignments.length }}</strong> assignments will be updated.
+      </div>
+      <template #actions>
+        <v-btn variant="text" @click="bulkAssignDialog = false">Cancel</v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="bulkAssigning"
+          @click="executeBulkAssignment"
+        >
+          Assign
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Edit Assignment Dialog -->
-    <v-dialog v-model="editDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-pencil</v-icon>
-          Edit assignment
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="editForm">
-            <v-select
-              v-model="editFormData.priority_level"
-              :items="priorityOptions"
-              item-title="title"
-              item-value="value"
-              label="Priority"
-              variant="outlined"
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="editDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" :loading="saving" @click="saveAssignment">
-            Save
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="editDialog" size="md">
+      <template #title><v-icon start>mdi-pencil</v-icon> Edit assignment</template>
+      <v-form ref="editForm">
+        <v-select
+          v-model="editFormData.priority_level"
+          :items="priorityOptions"
+          item-title="title"
+          item-value="value"
+          label="Priority"
+          variant="outlined"
+        />
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="editDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :loading="saving" @click="saveAssignment">
+          Save
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <!-- View Assignment Dialog -->
-    <v-dialog v-model="viewDialog" max-width="600">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-eye</v-icon>
-          Assignment details
-        </v-card-title>
-        <v-card-text v-if="selectedAssignment">
-          <v-list>
-            <v-list-item>
-              <v-list-item-title>Gene</v-list-item-title>
-              <v-list-item-subtitle>
-                {{ selectedAssignment.gene_symbol }} ({{ selectedAssignment.gene_hgnc_id }})
-              </v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Scope</v-list-item-title>
-              <v-list-item-subtitle>{{ selectedAssignment.scope_name }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Assignee</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedAssignment.curator_name || 'Unassigned'
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Priority</v-list-item-title>
-              <v-list-item-subtitle>
-                <v-chip :color="getPriorityColor(selectedAssignment.priority)" size="small">
-                  {{ selectedAssignment.priority }}
-                </v-chip>
-              </v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Assigned</v-list-item-title>
-              <v-list-item-subtitle>{{
-                formatDateTime(selectedAssignment.assigned_at)
-              }}</v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="viewDialog = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="viewDialog" size="md">
+      <template #title><v-icon start>mdi-eye</v-icon> Assignment details</template
+      ><template v-if="selectedAssignment">
+        <v-list>
+          <v-list-item>
+            <v-list-item-title>Gene</v-list-item-title>
+            <v-list-item-subtitle>
+              {{ selectedAssignment.gene_symbol }} ({{ selectedAssignment.gene_hgnc_id }})
+            </v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Scope</v-list-item-title>
+            <v-list-item-subtitle>{{ selectedAssignment.scope_name }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Assignee</v-list-item-title>
+            <v-list-item-subtitle>{{
+              selectedAssignment.curator_name || 'Unassigned'
+            }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Priority</v-list-item-title>
+            <v-list-item-subtitle>
+              <v-chip :color="getPriorityColor(selectedAssignment.priority)" size="small">
+                {{ selectedAssignment.priority }}
+              </v-chip>
+            </v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Assigned</v-list-item-title>
+            <v-list-item-subtitle>{{
+              formatDateTime(selectedAssignment.assigned_at)
+            }}</v-list-item-subtitle>
+          </v-list-item>
+        </v-list> </template
+      ><template #actions>
+        <v-btn variant="text" @click="viewDialog = false">Close</v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Reassign Dialog -->
-    <v-dialog v-model="reassignDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-account-plus</v-icon>
-          Reassign gene
-        </v-card-title>
-        <v-card-text>
-          <div class="text-body-2 mb-4">
-            Reassigning
-            <strong>{{ reassigningAssignment?.gene_symbol }}</strong>
-            from
-            <strong>{{ reassigningAssignment?.curator_name || 'Unassigned' }}</strong>
-          </div>
-          <v-form ref="reassignForm">
-            <v-select
-              v-model="reassignCuratorId"
-              :items="availableUsers"
-              item-title="name"
-              item-value="id"
-              label="New Curator"
-              variant="outlined"
-              :rules="[v => !!v || 'Please select a curator']"
-              required
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="reassignDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" :loading="reassigning" @click="executeReassign">
-            Reassign
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="reassignDialog" size="md">
+      <template #title><v-icon start>mdi-account-plus</v-icon> Reassign gene</template>
+      <div class="text-body-2 mb-4">
+        Reassigning
+        <strong>{{ reassigningAssignment?.gene_symbol }}</strong>
+        from
+        <strong>{{ reassigningAssignment?.curator_name || 'Unassigned' }}</strong>
+      </div>
+      <v-form ref="reassignForm">
+        <v-select
+          v-model="reassignCuratorId"
+          :items="availableUsers"
+          item-title="name"
+          item-value="id"
+          label="New Curator"
+          variant="outlined"
+          :rules="[v => !!v || 'Please select a curator']"
+          required
+        />
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="reassignDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :loading="reassigning" @click="executeReassign">
+          Reassign
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-card>
 </template>
 
@@ -331,6 +302,7 @@
   import { errorDetails } from './errorDetails'
   import { formatPriority, getPriorityColor, priorityOptions } from './assignmentDisplay'
   import type { Schema } from '@/types/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   const assignmentsStore = useAssignmentsStore()
   const scopesStore = useScopesStore()

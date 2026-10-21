@@ -180,108 +180,87 @@
     </v-card>
 
     <!-- Create/Edit User Dialog -->
-    <v-dialog v-model="userDialog" max-width="600">
-      <v-card>
-        <v-card-title class="text-h5">
-          {{ editingUser ? 'Edit User' : 'Create New User' }}
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="userForm" @submit.prevent="saveUser">
-            <v-row>
-              <v-col cols="12">
-                <v-text-field
-                  v-model="userFormData.name"
-                  label="Full Name"
-                  :rules="[rules.required]"
-                  variant="outlined"
-                  required
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-text-field
-                  v-model="userFormData.email"
-                  label="Email"
-                  type="email"
-                  :rules="[rules.required, rules.email]"
-                  variant="outlined"
-                  required
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-select
-                  v-model="userFormData.role"
-                  :items="roleOptions"
-                  label="Role"
-                  :rules="[rules.required]"
-                  :disabled="!!editingUser && isSelf(editingUser)"
-                  hint="Admins manage the platform. Curator/reviewer rights are granted per scope."
-                  persistent-hint
-                  variant="outlined"
-                  required
-                />
-              </v-col>
-              <v-col v-if="!editingUser" cols="12">
-                <v-text-field
-                  v-model="userFormData.password"
-                  label="Password"
-                  type="password"
-                  :rules="[rules.required, rules.minLength]"
-                  variant="outlined"
-                  hint="Minimum 8 characters"
-                  required
-                />
-              </v-col>
-              <v-col cols="12">
-                <v-switch
-                  v-model="userFormData.is_active"
-                  label="Active"
-                  color="success"
-                  :disabled="!!editingUser && isSelf(editingUser)"
-                  inset
-                />
-              </v-col>
-            </v-row>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="userDialog = false"> Cancel </v-btn>
-          <v-btn :loading="usersStore.loading" color="primary" @click="saveUser">
-            {{ editingUser ? 'Update' : 'Create' }}
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="userDialog" size="md">
+      <template #title>{{ editingUser ? 'Edit User' : 'Create New User' }}</template>
+      <v-form ref="userForm" @submit.prevent="saveUser">
+        <v-row>
+          <v-col cols="12">
+            <v-text-field
+              v-model="userFormData.name"
+              label="Full Name"
+              :rules="[rules.required]"
+              variant="outlined"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-text-field
+              v-model="userFormData.email"
+              label="Email"
+              type="email"
+              :rules="[rules.required, rules.email]"
+              variant="outlined"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-select
+              v-model="userFormData.role"
+              :items="roleOptions"
+              label="Role"
+              :rules="[rules.required]"
+              :disabled="!!editingUser && isSelf(editingUser)"
+              hint="Admins manage the platform. Curator/reviewer rights are granted per scope."
+              persistent-hint
+              variant="outlined"
+              required
+            />
+          </v-col>
+          <v-col v-if="!editingUser" cols="12">
+            <v-text-field
+              v-model="userFormData.password"
+              label="Password"
+              type="password"
+              :rules="[rules.required, rules.minLength]"
+              variant="outlined"
+              hint="Minimum 8 characters"
+              required
+            />
+          </v-col>
+          <v-col cols="12">
+            <v-switch
+              v-model="userFormData.is_active"
+              label="Active"
+              color="success"
+              :disabled="!!editingUser && isSelf(editingUser)"
+              inset
+            />
+          </v-col>
+        </v-row>
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="userDialog = false"> Cancel </v-btn>
+        <v-btn :loading="usersStore.loading" color="primary" @click="saveUser">
+          {{ editingUser ? 'Update' : 'Create' }}
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <ResetPasswordDialog v-model="resetDialog" :user="resetTarget" @submit="performResetPassword" />
 
     <UserDetailsDialog v-model="detailsDialog" :user="selectedUser" :activity="userActivity" />
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="deleteDialog" max-width="400">
-      <v-card>
-        <v-card-title class="text-h5 text-error"> Confirm delete </v-card-title>
-        <v-card-text>
-          Are you sure you want to delete user <strong>{{ userToDelete?.name }}</strong
-          >? This action cannot be undone.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="deleteDialog = false"> Cancel </v-btn>
-          <v-btn :loading="usersStore.loading" color="error" @click="performDeleteUser">
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Snackbar for messages -->
-    <v-snackbar v-model="snackbar.show" :color="snackbar.color" :timeout="4000">
-      {{ snackbar.message }}
+    <BaseDialog v-model="deleteDialog" size="sm" title="Confirm delete">
+      Are you sure you want to delete user <strong>{{ userToDelete?.name }}</strong
+      >? This action cannot be undone.
       <template #actions>
-        <v-btn variant="text" @click="snackbar.show = false"> Close </v-btn>
-      </template>
-    </v-snackbar>
+        <v-btn variant="text" @click="deleteDialog = false"> Cancel </v-btn>
+        <v-btn :loading="usersStore.loading" color="error" @click="performDeleteUser">
+          Delete
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-container>
 </template>
 
@@ -292,6 +271,8 @@
   import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
   import { formatDate, formatDateTime } from '@/utils/format'
+  import BaseDialog from '@/components/BaseDialog.vue'
+  import { showSnackbar } from '@/composables/useNotifications'
   import {
     getRoleColor,
     getRoleIcon,
@@ -344,13 +325,6 @@
   const resetDialog = ref(false)
   const resetTarget = ref<UserRecord | null>(null)
   const userForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
-
-  // Snackbar
-  const snackbar = ref({
-    show: false,
-    message: '',
-    color: 'success'
-  })
 
   // Form data
   const userFormData = ref<{
@@ -534,14 +508,6 @@
       resetDialog.value = false
     } catch (error) {
       showSnackbar('Failed to update password', 'error')
-    }
-  }
-
-  function showSnackbar(message: string, color = 'success') {
-    snackbar.value = {
-      show: true,
-      message,
-      color
     }
   }
 

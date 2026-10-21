@@ -13,6 +13,7 @@ import { schemasAPI } from '@/api/schemas'
 import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
 import ScopeSettings from '../ScopeSettings.vue'
+import { snackbarState } from '@/composables/useNotifications'
 
 vi.mock('@/api/scopes', () => ({
   scopesAPI: { updateScope: vi.fn(), deleteScope: vi.fn() }
@@ -30,8 +31,6 @@ interface SettingsInternals {
   isDirty: boolean
   deleteConfirmed: boolean
   showDeleteDialog: boolean
-  showSnackbar: boolean
-  snackbarMessage: string
   editableScope: { display_name: string }
   selectedWorkflowPairId: string | null
   canEditSettings: boolean
@@ -132,10 +131,10 @@ describe('ScopeSettings', () => {
 
   it('reports a failure to load workflow pairs', async () => {
     vi.mocked(schemasAPI.getWorkflowPairs).mockRejectedValueOnce(new Error('offline'))
-    const { vm } = await mountSettings()
+    await mountSettings()
 
-    expect(vm.showSnackbar).toBe(true)
-    expect(vm.snackbarMessage).toBe('Failed to load workflow pairs')
+    expect(snackbarState.show).toBe(true)
+    expect(snackbarState.message).toBe('Failed to load workflow pairs')
   })
 
   it('makes the form read-only for non-admins', async () => {
@@ -178,7 +177,7 @@ describe('ScopeSettings', () => {
       default_workflow_pair_id: 'wp-1'
     })
     expect(vm.isDirty).toBe(false)
-    expect(vm.snackbarMessage).toBe('Settings saved successfully')
+    expect(snackbarState.message).toBe('Settings saved successfully')
     expect(wrapper.emitted('updated')).toHaveLength(1)
   })
 
@@ -188,7 +187,7 @@ describe('ScopeSettings', () => {
 
     await vm.saveSettings()
 
-    expect(vm.snackbarMessage).toBe('Failed to save settings: conflict')
+    expect(snackbarState.message).toBe('Failed to save settings: conflict')
     expect(wrapper.emitted('updated')).toBeUndefined()
   })
 
@@ -251,7 +250,7 @@ describe('ScopeSettings', () => {
 
     await vm.deleteScope()
 
-    expect(vm.snackbarMessage).toBe('Failed to delete scope: Scope has schemas in use')
+    expect(snackbarState.message).toBe('Failed to delete scope: Scope has schemas in use')
     expect(wrapper.emitted('deleted')).toBeUndefined()
   })
 
@@ -261,6 +260,27 @@ describe('ScopeSettings', () => {
 
     await vm.deleteScope()
 
-    expect(vm.snackbarMessage).toBe('Failed to delete scope: timeout')
+    expect(snackbarState.message).toBe('Failed to delete scope: timeout')
+  })
+
+  it('ignores Escape on the delete dialog while the delete is in flight', async () => {
+    let finish: () => void = () => {}
+    vi.mocked(scopesAPI.deleteScope).mockReturnValueOnce(
+      new Promise<void>(resolve => {
+        finish = resolve
+      }) as never
+    )
+    const { wrapper, vm } = await mountSettings({ role: 'admin' })
+    vm.showDeleteDialog = true
+    const pending = vm.deleteScope()
+    await flushPromises()
+
+    const dialogs = wrapper.findAllComponents({ name: 'BaseDialog' })
+    dialogs.forEach(d => d.vm.$emit('cancel'))
+    expect(vm.showDeleteDialog).toBe(true)
+
+    finish()
+    await pending
+    expect(wrapper.emitted('deleted')).toHaveLength(1)
   })
 })

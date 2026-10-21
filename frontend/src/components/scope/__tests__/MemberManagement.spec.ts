@@ -12,6 +12,7 @@ import { scopeService } from '@/services/scopeService'
 import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
 import MemberManagement from '../MemberManagement.vue'
+import { snackbarState } from '@/composables/useNotifications'
 
 vi.mock('@/services/scopeService', () => ({
   scopeService: { fetchMembers: vi.fn() }
@@ -24,7 +25,6 @@ vi.mock('@/services/logService', () => ({
 interface MemberInternals {
   members: { user_id: string }[]
   existingMemberIds: string[]
-  snackbarMessage: string
   showRemoveDialog: boolean
   memberToRemove: { user_id: string } | null
   updateRole: (userId: string, role: string) => Promise<void>
@@ -111,9 +111,9 @@ describe('MemberManagement', () => {
 
   it('reports a failed member load', async () => {
     vi.mocked(scopeService.fetchMembers).mockRejectedValueOnce(new Error('403'))
-    const { vm } = await mountMembers()
+    await mountMembers()
 
-    expect(vm.snackbarMessage).toBe('Failed to load members')
+    expect(snackbarState.message).toBe('Failed to load members')
   })
 
   it('changes a role and reloads the list', async () => {
@@ -124,7 +124,7 @@ describe('MemberManagement', () => {
     await flushPromises()
 
     expect(update).toHaveBeenCalledWith('scope-1', 'u2', 'curator')
-    expect(vm.snackbarMessage).toBe('Member role updated successfully')
+    expect(snackbarState.message).toBe('Member role updated successfully')
     expect(scopeService.fetchMembers).toHaveBeenCalledTimes(2)
   })
 
@@ -134,7 +134,7 @@ describe('MemberManagement', () => {
 
     await vm.updateRole('u2', 'admin')
 
-    expect(vm.snackbarMessage).toBe('Failed to update member role')
+    expect(snackbarState.message).toBe('Failed to update member role')
   })
 
   it('asks for confirmation, then removes the member and reloads', async () => {
@@ -150,7 +150,7 @@ describe('MemberManagement', () => {
     expect(remove).toHaveBeenCalledWith('scope-1', 'u2')
     expect(vm.showRemoveDialog).toBe(false)
     expect(vm.memberToRemove).toBeNull()
-    expect(vm.snackbarMessage).toBe('Member removed successfully')
+    expect(snackbarState.message).toBe('Member removed successfully')
   })
 
   it('keeps the confirmation open and reports a failed removal', async () => {
@@ -161,7 +161,7 @@ describe('MemberManagement', () => {
     await vm.removeMember()
 
     expect(vm.showRemoveDialog).toBe(true)
-    expect(vm.snackbarMessage).toBe('Failed to remove member')
+    expect(snackbarState.message).toBe('Failed to remove member')
   })
 
   it('does nothing when no member is selected for removal', async () => {
@@ -179,7 +179,7 @@ describe('MemberManagement', () => {
     await vm.handleInvited({ userName: 'Grace Hopper', id: 'm-9' })
     await flushPromises()
 
-    expect(vm.snackbarMessage).toBe('Invitation sent to Grace Hopper')
+    expect(snackbarState.message).toBe('Invitation sent to Grace Hopper')
     expect(scopeService.fetchMembers).toHaveBeenCalledTimes(2)
   })
 
@@ -188,6 +188,6 @@ describe('MemberManagement', () => {
 
     await vm.handleInvited({ userEmail: 'new@example.org' })
 
-    expect(vm.snackbarMessage).toBe('Invitation sent to new@example.org')
+    expect(snackbarState.message).toBe('Invitation sent to new@example.org')
   })
 })

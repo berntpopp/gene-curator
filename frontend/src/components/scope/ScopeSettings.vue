@@ -172,77 +172,64 @@
     </v-card-text>
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="500" persistent>
-      <v-card>
-        <v-card-title class="text-error">
-          <v-icon start color="error">mdi-alert</v-icon>
-          Delete scope
-        </v-card-title>
-        <v-card-text>
-          <p class="mb-3">
-            Are you sure you want to delete <strong>{{ scope.display_name || scope.name }}</strong
-            >?
-          </p>
+    <BaseDialog
+      v-model="showDeleteDialog"
+      persistent
+      size="md"
+      @cancel="!deleting && (showDeleteDialog = false)"
+    >
+      <template #title><v-icon start color="error">mdi-alert</v-icon> Delete scope</template>
+      <p class="mb-3">
+        Are you sure you want to delete <strong>{{ scope.display_name || scope.name }}</strong
+        >?
+      </p>
 
-          <!-- Show assignment warning if scope has active assignments -->
-          <v-alert
-            v-if="hasActiveAssignments"
-            type="error"
-            variant="tonal"
-            density="compact"
-            class="mb-3"
+      <!-- Show assignment warning if scope has active assignments -->
+      <v-alert
+        v-if="hasActiveAssignments"
+        type="error"
+        variant="tonal"
+        density="compact"
+        class="mb-3"
+      >
+        <template #prepend>
+          <v-icon>mdi-dna</v-icon>
+        </template>
+        <div>
+          <strong
+            >{{ activeGeneCount }} gene assignment{{ activeGeneCount !== 1 ? 's' : '' }}</strong
           >
-            <template #prepend>
-              <v-icon>mdi-dna</v-icon>
-            </template>
-            <div>
-              <strong
-                >{{ activeGeneCount }} gene assignment{{ activeGeneCount !== 1 ? 's' : '' }}</strong
-              >
-              will be permanently deleted along with all associated precurations, curations, and
-              reviews.
-            </div>
-          </v-alert>
+          will be permanently deleted along with all associated precurations, curations, and
+          reviews.
+        </div>
+      </v-alert>
 
-          <v-alert v-else type="warning" variant="tonal" density="compact" class="mb-3">
-            This action cannot be undone. All scope memberships will be removed.
-          </v-alert>
+      <v-alert v-else type="warning" variant="tonal" density="compact" class="mb-3">
+        This action cannot be undone. All scope memberships will be removed.
+      </v-alert>
 
-          <!-- Require confirmation checkbox if there are active assignments -->
-          <v-checkbox
-            v-if="hasActiveAssignments"
-            v-model="deleteConfirmed"
-            label="I understand that all gene data in this scope will be permanently deleted"
-            color="error"
-            density="compact"
-            hide-details
-          />
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" :disabled="deleting" @click="showDeleteDialog = false"
-            >Cancel</v-btn
-          >
-          <v-btn
-            color="error"
-            variant="flat"
-            :loading="deleting"
-            :disabled="hasActiveAssignments && !deleteConfirmed"
-            @click="deleteScope"
-          >
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
-
-    <!-- Success/Error Snackbar -->
-    <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
-      {{ snackbarMessage }}
+      <!-- Require confirmation checkbox if there are active assignments -->
+      <v-checkbox
+        v-if="hasActiveAssignments"
+        v-model="deleteConfirmed"
+        label="I understand that all gene data in this scope will be permanently deleted"
+        color="error"
+        density="compact"
+        hide-details
+      />
       <template #actions>
-        <v-btn variant="text" @click="showSnackbar = false">Close</v-btn>
-      </template>
-    </v-snackbar>
+        <v-btn variant="text" :disabled="deleting" @click="showDeleteDialog = false">Cancel</v-btn>
+        <v-btn
+          color="error"
+          variant="flat"
+          :loading="deleting"
+          :disabled="hasActiveAssignments && !deleteConfirmed"
+          @click="deleteScope"
+        >
+          Delete
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-card>
 </template>
 
@@ -255,6 +242,8 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { logService } from '@/services/logService'
   import { useWorkflowPairs } from './useWorkflowPairs'
+  import BaseDialog from '@/components/BaseDialog.vue'
+  import { showError, showSuccess } from '@/composables/useNotifications'
 
   /** Scope fields this panel reads and edits */
   interface SettingsScope {
@@ -306,11 +295,6 @@
     institution: '',
     is_public: false
   })
-
-  // Snackbar
-  const showSnackbar = ref(false)
-  const snackbarMessage = ref('')
-  const snackbarColor = ref('success')
 
   const {
     workflowPairs,
@@ -408,18 +392,6 @@
     } finally {
       deleting.value = false
     }
-  }
-
-  function showSuccess(message: string) {
-    snackbarMessage.value = message
-    snackbarColor.value = 'success'
-    showSnackbar.value = true
-  }
-
-  function showError(message: string) {
-    snackbarMessage.value = message
-    snackbarColor.value = 'error'
-    showSnackbar.value = true
   }
 
   function initializeFromScope() {

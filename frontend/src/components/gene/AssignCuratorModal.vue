@@ -30,231 +30,213 @@
 -->
 
 <template>
-  <v-dialog v-model="isOpen" max-width="700" persistent @keydown.escape="handleCancel">
-    <v-card>
-      <!-- Header -->
-      <v-card-title class="d-flex align-center pa-4">
-        <v-icon start color="primary" size="28">mdi-account-arrow-right</v-icon>
-        <span class="text-h6">Assign Genes to Curator</span>
-        <v-spacer />
-        <v-btn
-          aria-label="Close"
-          icon="mdi-close"
-          variant="text"
-          density="compact"
-          @click="handleCancel"
-        />
-      </v-card-title>
+  <BaseDialog v-model="isOpen" persistent size="lg" @cancel="handleCancel">
+    <template #title
+      ><v-icon start color="primary" size="28">mdi-account-arrow-right</v-icon>
+      <span class="text-h6">Assign Genes to Curator</span>
+      <v-spacer />
+      <v-btn
+        aria-label="Close"
+        icon="mdi-close"
+        variant="text"
+        density="compact"
+        @click="handleCancel"
+    /></template>
+    <v-form ref="formRef" v-model="formValid">
+      <!-- Step 1: Gene Selection -->
+      <div class="section-header mb-2">
+        <v-icon start size="small" color="primary">mdi-numeric-1-circle</v-icon>
+        <span class="text-subtitle-1 font-weight-medium">Select Genes</span>
+      </div>
 
-      <v-divider />
+      <v-autocomplete
+        v-model="selectedGenes"
+        :items="availableGenes"
+        :loading="loadingGenes"
+        item-title="approved_symbol"
+        item-value="id"
+        label="Select genes to assign"
+        placeholder="Search or select genes..."
+        prepend-inner-icon="mdi-dna"
+        variant="outlined"
+        multiple
+        chips
+        closable-chips
+        :rules="[v => v?.length > 0 || 'Select at least one gene']"
+        :no-data-text="
+          loadingGenes ? 'Loading genes...' : 'No genes without a curator in this scope'
+        "
+        return-object
+        density="comfortable"
+        class="mb-4"
+      >
+        <template #chip="{ item, props: chipProps }">
+          <v-chip v-bind="chipProps" color="primary" variant="tonal" size="small">
+            <v-icon start size="x-small">mdi-dna</v-icon>
+            {{ item.approved_symbol }}
+          </v-chip>
+        </template>
 
-      <v-card-text class="pa-4">
-        <v-form ref="formRef" v-model="formValid">
-          <!-- Step 1: Gene Selection -->
-          <div class="section-header mb-2">
-            <v-icon start size="small" color="primary">mdi-numeric-1-circle</v-icon>
-            <span class="text-subtitle-1 font-weight-medium">Select Genes</span>
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps" :title="undefined">
+            <template #prepend>
+              <v-checkbox-btn :model-value="isGeneSelected(item)" />
+            </template>
+            <v-list-item-title class="font-weight-medium">
+              {{ item.approved_symbol }}
+            </v-list-item-title>
+            <v-list-item-subtitle v-if="item.hgnc_id" class="text-caption">
+              {{ item.hgnc_id }}
+            </v-list-item-subtitle>
+          </v-list-item>
+        </template>
+
+        <template #prepend-item>
+          <v-list-item @click="toggleSelectAll">
+            <template #prepend>
+              <v-checkbox-btn :model-value="allGenesSelected" :indeterminate="someGenesSelected" />
+            </template>
+            <v-list-item-title class="font-weight-medium">
+              {{ allGenesSelected ? 'Deselect All' : 'Select All' }}
+            </v-list-item-title>
+          </v-list-item>
+        </template>
+      </v-autocomplete>
+
+      <!-- Step 2: Curator Selection -->
+      <div class="section-header mb-2">
+        <v-icon start size="small" color="primary">mdi-numeric-2-circle</v-icon>
+        <span class="text-subtitle-1 font-weight-medium">Assign to Curator</span>
+      </div>
+
+      <v-autocomplete
+        v-model="selectedCurator"
+        :items="availableCurators"
+        :loading="loadingCurators"
+        item-title="displayName"
+        item-value="user_id"
+        label="Select curator"
+        placeholder="Search for a curator..."
+        prepend-inner-icon="mdi-account"
+        variant="outlined"
+        :rules="[v => !!v || 'Please select a curator']"
+        :no-data-text="loadingCurators ? 'Loading curators...' : 'No curators available'"
+        return-object
+        density="comfortable"
+        class="mb-4"
+      >
+        <template #item="{ item, props: itemProps }">
+          <v-list-item v-bind="itemProps" :title="undefined">
+            <template #prepend>
+              <v-avatar size="36" :color="getAvatarColor(item.email)">
+                <span class="text-body-2 font-weight-bold text-white">
+                  {{ getInitials(item.full_name || item.email) }}
+                </span>
+              </v-avatar>
+            </template>
+            <v-list-item-title>
+              {{ item.full_name || item.email }}
+            </v-list-item-title>
+            <v-list-item-subtitle class="d-flex align-center">
+              <v-chip :color="getRoleColor(item.role)" size="x-small" class="mr-2">
+                {{ item.role }}
+              </v-chip>
+              <span class="text-caption text-medium-emphasis">{{ item.email }}</span>
+            </v-list-item-subtitle>
+          </v-list-item>
+        </template>
+
+        <template #selection="{ item }">
+          <div class="d-flex align-center">
+            <v-avatar size="24" :color="getAvatarColor(item.email)" class="mr-2">
+              <span class="text-caption font-weight-bold text-white">
+                {{ getInitials(item.full_name || item.email) }}
+              </span>
+            </v-avatar>
+            <span>{{ item.full_name || item.email }}</span>
           </div>
+        </template>
+      </v-autocomplete>
 
-          <v-autocomplete
-            v-model="selectedGenes"
-            :items="availableGenes"
-            :loading="loadingGenes"
-            item-title="approved_symbol"
-            item-value="id"
-            label="Select genes to assign"
-            placeholder="Search or select genes..."
-            prepend-inner-icon="mdi-dna"
-            variant="outlined"
-            multiple
-            chips
-            closable-chips
-            :rules="[v => v?.length > 0 || 'Select at least one gene']"
-            :no-data-text="
-              loadingGenes ? 'Loading genes...' : 'No genes without a curator in this scope'
-            "
-            return-object
-            density="comfortable"
-            class="mb-4"
-          >
-            <template #chip="{ item, props: chipProps }">
-              <v-chip v-bind="chipProps" color="primary" variant="tonal" size="small">
-                <v-icon start size="x-small">mdi-dna</v-icon>
-                {{ item.approved_symbol }}
+      <!-- Step 3: Optional Settings -->
+      <v-expansion-panels variant="accordion" class="mb-2">
+        <v-expansion-panel>
+          <v-expansion-panel-title>
+            <v-icon start size="small" color="primary">mdi-cog</v-icon>
+            <span class="text-subtitle-2">Additional Options</span>
+            <template #actions>
+              <v-chip v-if="hasOptionalSettings" size="x-small" color="primary" variant="tonal">
+                {{ optionalSettingsCount }} set
               </v-chip>
             </template>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-row dense>
+              <v-col cols="12" sm="6">
+                <v-select
+                  v-model="priority"
+                  :items="priorityOptions"
+                  label="Priority"
+                  variant="outlined"
+                  density="compact"
+                  hint="Assignment priority level"
+                  persistent-hint
+                >
+                </v-select>
+              </v-col>
+              <v-col cols="12">
+                <v-textarea
+                  v-model="notes"
+                  label="Assignment Notes"
+                  variant="outlined"
+                  density="compact"
+                  rows="2"
+                  counter="500"
+                  placeholder="Add context or instructions for the curator..."
+                  :rules="[v => !v || v.length <= 500 || 'Max 500 characters']"
+                />
+              </v-col>
+            </v-row>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
 
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps" :title="undefined">
-                <template #prepend>
-                  <v-checkbox-btn :model-value="isGeneSelected(item)" />
-                </template>
-                <v-list-item-title class="font-weight-medium">
-                  {{ item.approved_symbol }}
-                </v-list-item-title>
-                <v-list-item-subtitle v-if="item.hgnc_id" class="text-caption">
-                  {{ item.hgnc_id }}
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-
-            <template #prepend-item>
-              <v-list-item @click="toggleSelectAll">
-                <template #prepend>
-                  <v-checkbox-btn
-                    :model-value="allGenesSelected"
-                    :indeterminate="someGenesSelected"
-                  />
-                </template>
-                <v-list-item-title class="font-weight-medium">
-                  {{ allGenesSelected ? 'Deselect All' : 'Select All' }}
-                </v-list-item-title>
-              </v-list-item>
-              <v-divider />
-            </template>
-          </v-autocomplete>
-
-          <!-- Step 2: Curator Selection -->
-          <div class="section-header mb-2">
-            <v-icon start size="small" color="primary">mdi-numeric-2-circle</v-icon>
-            <span class="text-subtitle-1 font-weight-medium">Assign to Curator</span>
-          </div>
-
-          <v-autocomplete
-            v-model="selectedCurator"
-            :items="availableCurators"
-            :loading="loadingCurators"
-            item-title="displayName"
-            item-value="user_id"
-            label="Select curator"
-            placeholder="Search for a curator..."
-            prepend-inner-icon="mdi-account"
-            variant="outlined"
-            :rules="[v => !!v || 'Please select a curator']"
-            :no-data-text="loadingCurators ? 'Loading curators...' : 'No curators available'"
-            return-object
-            density="comfortable"
-            class="mb-4"
-          >
-            <template #item="{ item, props: itemProps }">
-              <v-list-item v-bind="itemProps" :title="undefined">
-                <template #prepend>
-                  <v-avatar size="36" :color="getAvatarColor(item.email)">
-                    <span class="text-body-2 font-weight-bold text-white">
-                      {{ getInitials(item.full_name || item.email) }}
-                    </span>
-                  </v-avatar>
-                </template>
-                <v-list-item-title>
-                  {{ item.full_name || item.email }}
-                </v-list-item-title>
-                <v-list-item-subtitle class="d-flex align-center">
-                  <v-chip :color="getRoleColor(item.role)" size="x-small" class="mr-2">
-                    {{ item.role }}
-                  </v-chip>
-                  <span class="text-caption text-medium-emphasis">{{ item.email }}</span>
-                </v-list-item-subtitle>
-              </v-list-item>
-            </template>
-
-            <template #selection="{ item }">
-              <div class="d-flex align-center">
-                <v-avatar size="24" :color="getAvatarColor(item.email)" class="mr-2">
-                  <span class="text-caption font-weight-bold text-white">
-                    {{ getInitials(item.full_name || item.email) }}
-                  </span>
-                </v-avatar>
-                <span>{{ item.full_name || item.email }}</span>
-              </div>
-            </template>
-          </v-autocomplete>
-
-          <!-- Step 3: Optional Settings -->
-          <v-expansion-panels variant="accordion" class="mb-2">
-            <v-expansion-panel>
-              <v-expansion-panel-title>
-                <v-icon start size="small" color="primary">mdi-cog</v-icon>
-                <span class="text-subtitle-2">Additional Options</span>
-                <template #actions>
-                  <v-chip v-if="hasOptionalSettings" size="x-small" color="primary" variant="tonal">
-                    {{ optionalSettingsCount }} set
-                  </v-chip>
-                </template>
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <v-row dense>
-                  <v-col cols="12" sm="6">
-                    <v-select
-                      v-model="priority"
-                      :items="priorityOptions"
-                      label="Priority"
-                      variant="outlined"
-                      density="compact"
-                      hint="Assignment priority level"
-                      persistent-hint
-                    >
-                    </v-select>
-                  </v-col>
-                  <v-col cols="12">
-                    <v-textarea
-                      v-model="notes"
-                      label="Assignment Notes"
-                      variant="outlined"
-                      density="compact"
-                      rows="2"
-                      counter="500"
-                      placeholder="Add context or instructions for the curator..."
-                      :rules="[v => !v || v.length <= 500 || 'Max 500 characters']"
-                    />
-                  </v-col>
-                </v-row>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
-
-          <!-- Assignment Preview -->
-          <v-expand-transition>
-            <v-card
-              v-if="selectedGenes.length > 0 && selectedCurator"
-              variant="outlined"
-              class="mt-4 pa-3"
-              color="success"
-            >
-              <div class="d-flex align-center mb-2">
-                <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
-                <span class="text-subtitle-2">Assignment Preview</span>
-              </div>
-              <div class="text-body-2">
-                <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
-                <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
-                <span v-if="priority !== 'medium'">
-                  at <strong>{{ priority }}</strong> priority
-                </span>
-              </div>
-            </v-card>
-          </v-expand-transition>
-        </v-form>
-      </v-card-text>
-
-      <v-divider />
-
-      <!-- Actions -->
-      <v-card-actions class="pa-4">
-        <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
-        <v-spacer />
-        <v-btn
-          color="primary"
-          variant="flat"
-          :disabled="!canSubmit"
-          :loading="isAssigning"
-          @click="handleSubmit"
+      <!-- Assignment Preview -->
+      <v-expand-transition>
+        <v-card
+          v-if="selectedGenes.length > 0 && selectedCurator"
+          variant="outlined"
+          class="mt-4 pa-3"
+          color="success"
         >
-          <v-icon start>mdi-account-check</v-icon>
-          Assign {{ selectedGenes.length > 0 ? `(${selectedGenes.length})` : '' }}
-        </v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+          <div class="d-flex align-center mb-2">
+            <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
+            <span class="text-subtitle-2">Assignment Preview</span>
+          </div>
+          <div class="text-body-2">
+            <strong>{{ selectedGenes.length }} gene(s)</strong> will be assigned to
+            <strong>{{ selectedCurator.full_name || selectedCurator.email }}</strong>
+            <span v-if="priority !== 'medium'">
+              at <strong>{{ priority }}</strong> priority
+            </span>
+          </div>
+        </v-card>
+      </v-expand-transition>
+    </v-form>
+    <template #actions>
+      <v-btn variant="text" @click="handleCancel">Cancel</v-btn>
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="!canSubmit"
+        :loading="isAssigning"
+        @click="handleSubmit"
+      >
+        <v-icon start>mdi-account-check</v-icon>
+        Assign {{ selectedGenes.length > 0 ? `(${selectedGenes.length})` : '' }}
+      </v-btn>
+    </template></BaseDialog
+  >
 </template>
 
 <script setup lang="ts">
@@ -268,6 +250,7 @@
   import { priorityOptions } from '@/components/dynamic/assignmentDisplay'
   import type { CuratorOption } from './types'
   import { getAvatarColor, getInitials, toCuratorOption } from './curatorDisplay'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   // ============================================
   // PROPS & EMITS

@@ -385,160 +385,149 @@
     </v-container>
 
     <!-- Quick Info Dialog -->
-    <v-dialog v-model="quickInfoDialog" max-width="700px">
-      <v-card v-if="selectedGene">
-        <v-card-title class="d-flex align-center">
-          <v-avatar size="40" color="primary" variant="tonal" class="mr-3">
-            <v-icon>mdi-dna</v-icon>
-          </v-avatar>
-          <div>
-            <span class="text-h5">{{ selectedGene.approved_symbol }}</span>
-            <div class="text-caption text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
+    <BaseDialog v-model="quickInfoDialog" v-if="selectedGene" size="lg">
+      <template #title
+        ><v-avatar size="40" color="primary" variant="tonal" class="mr-3">
+          <v-icon>mdi-dna</v-icon>
+        </v-avatar>
+        <div>
+          <span class="text-h5">{{ selectedGene.approved_symbol }}</span>
+          <div class="text-caption text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
+        </div>
+        <v-spacer />
+        <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
+          <v-icon>mdi-close</v-icon>
+        </v-btn></template
+      >
+      <!-- Gene Info Summary -->
+      <v-row class="mb-4">
+        <v-col cols="6" sm="3">
+          <div class="text-caption text-medium-emphasis">Location</div>
+          <div class="font-weight-medium">
+            {{ selectedGene.chromosome || 'Unknown' }}
+            <span v-if="selectedGene.location" class="text-caption">
+              ({{ selectedGene.location }})
+            </span>
           </div>
-          <v-spacer />
-          <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
-            <v-icon>mdi-close</v-icon>
-          </v-btn>
-        </v-card-title>
+        </v-col>
+        <v-col cols="6" sm="3">
+          <div class="text-caption text-medium-emphasis">Curations</div>
+          <div class="font-weight-medium">{{ selectedGene.total_curations }}</div>
+        </v-col>
+        <v-col cols="6" sm="3">
+          <div class="text-caption text-medium-emphasis">Scopes</div>
+          <div class="font-weight-medium">{{ selectedGene.scope_count }}</div>
+        </v-col>
+        <v-col cols="6" sm="3">
+          <div class="text-caption text-medium-emphasis">Best Score</div>
+          <div class="font-weight-bold" :class="getScoreColorClass(getBestScore(selectedGene))">
+            {{ formatScore(getBestScore(selectedGene)) || '-' }}
+          </div>
+        </v-col>
+      </v-row>
 
-        <v-divider />
+      <!-- Scope Curations List -->
+      <div class="text-subtitle-2 mb-2">
+        <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
+        Curations by Scope
+      </div>
 
-        <v-card-text class="pa-4">
-          <!-- Gene Info Summary -->
-          <v-row class="mb-4">
-            <v-col cols="6" sm="3">
-              <div class="text-caption text-medium-emphasis">Location</div>
-              <div class="font-weight-medium">
-                {{ selectedGene.chromosome || 'Unknown' }}
-                <span v-if="selectedGene.location" class="text-caption">
-                  ({{ selectedGene.location }})
+      <v-list density="compact" class="rounded border">
+        <v-list-item
+          v-for="curation in selectedGene.scope_curations"
+          :key="curation.scope_id"
+          :class="{ 'border-b': true }"
+        >
+          <template #prepend>
+            <v-avatar size="32" color="surface-variant">
+              <v-icon size="small">
+                {{ curation.is_public ? 'mdi-earth' : 'mdi-lock' }}
+              </v-icon>
+            </v-avatar>
+          </template>
+
+          <v-list-item-title class="d-flex align-center flex-wrap ga-2">
+            <span class="font-weight-medium">{{ curation.scope_display_name }}</span>
+            <ClassificationMark
+              v-if="curation.classification"
+              :classification="curation.classification"
+            />
+          </v-list-item-title>
+
+          <v-list-item-subtitle class="mt-1">
+            <div class="d-flex flex-wrap ga-4 text-caption">
+              <!-- Score -->
+              <span v-if="curation.total_score !== null" class="d-flex align-center">
+                <v-icon size="x-small" class="mr-1" color="primary">mdi-chart-bar</v-icon>
+                <strong>{{ formatScore(curation.total_score) }}</strong>
+                <span class="text-medium-emphasis ml-1">
+                  (G: {{ formatScore(curation.genetic_score) }}, E:
+                  {{ formatScore(curation.experimental_score) }})
                 </span>
-              </div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="text-caption text-medium-emphasis">Curations</div>
-              <div class="font-weight-medium">{{ selectedGene.total_curations }}</div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="text-caption text-medium-emphasis">Scopes</div>
-              <div class="font-weight-medium">{{ selectedGene.scope_count }}</div>
-            </v-col>
-            <v-col cols="6" sm="3">
-              <div class="text-caption text-medium-emphasis">Best Score</div>
-              <div class="font-weight-bold" :class="getScoreColorClass(getBestScore(selectedGene))">
-                {{ formatScore(getBestScore(selectedGene)) || '-' }}
-              </div>
-            </v-col>
-          </v-row>
+              </span>
 
-          <!-- Scope Curations List -->
-          <div class="text-subtitle-2 mb-2">
-            <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
-            Curations by Scope
-          </div>
+              <!-- Disease -->
+              <span v-if="curation.disease_name" class="d-flex align-center">
+                <v-icon size="x-small" class="mr-1" color="warning">mdi-virus</v-icon>
+                {{ curation.disease_name }}
+              </span>
 
-          <v-list density="compact" class="rounded border">
-            <v-list-item
-              v-for="curation in selectedGene.scope_curations"
-              :key="curation.scope_id"
-              :class="{ 'border-b': true }"
+              <!-- MOI -->
+              <span v-if="curation.mode_of_inheritance" class="d-flex align-center">
+                <v-icon size="x-small" class="mr-1" color="info">mdi-family-tree</v-icon>
+                {{ curation.mode_of_inheritance }}
+              </span>
+
+              <!-- Date -->
+              <span class="d-flex align-center text-medium-emphasis">
+                <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
+                {{ formatDate(curation.activated_at) }}
+              </span>
+            </div>
+          </v-list-item-subtitle>
+
+          <template #append>
+            <v-btn
+              aria-label="Open scope dashboard"
+              icon
+              size="x-small"
+              variant="text"
+              color="primary"
+              @click="navigateToScope(curation)"
             >
-              <template #prepend>
-                <v-avatar size="32" color="surface-variant">
-                  <v-icon size="small">
-                    {{ curation.is_public ? 'mdi-earth' : 'mdi-lock' }}
-                  </v-icon>
-                </v-avatar>
-              </template>
+              <v-icon size="small">mdi-arrow-right</v-icon>
+              <v-tooltip activator="parent" location="left">View Scope</v-tooltip>
+            </v-btn>
+          </template>
+        </v-list-item>
+      </v-list>
 
-              <v-list-item-title class="d-flex align-center flex-wrap ga-2">
-                <span class="font-weight-medium">{{ curation.scope_display_name }}</span>
-                <ClassificationMark
-                  v-if="curation.classification"
-                  :classification="curation.classification"
-                />
-              </v-list-item-title>
-
-              <v-list-item-subtitle class="mt-1">
-                <div class="d-flex flex-wrap ga-4 text-caption">
-                  <!-- Score -->
-                  <span v-if="curation.total_score !== null" class="d-flex align-center">
-                    <v-icon size="x-small" class="mr-1" color="primary">mdi-chart-bar</v-icon>
-                    <strong>{{ formatScore(curation.total_score) }}</strong>
-                    <span class="text-medium-emphasis ml-1">
-                      (G: {{ formatScore(curation.genetic_score) }}, E:
-                      {{ formatScore(curation.experimental_score) }})
-                    </span>
-                  </span>
-
-                  <!-- Disease -->
-                  <span v-if="curation.disease_name" class="d-flex align-center">
-                    <v-icon size="x-small" class="mr-1" color="warning">mdi-virus</v-icon>
-                    {{ curation.disease_name }}
-                  </span>
-
-                  <!-- MOI -->
-                  <span v-if="curation.mode_of_inheritance" class="d-flex align-center">
-                    <v-icon size="x-small" class="mr-1" color="info">mdi-family-tree</v-icon>
-                    {{ curation.mode_of_inheritance }}
-                  </span>
-
-                  <!-- Date -->
-                  <span class="d-flex align-center text-medium-emphasis">
-                    <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
-                    {{ formatDate(curation.activated_at) }}
-                  </span>
-                </div>
-              </v-list-item-subtitle>
-
-              <template #append>
-                <v-btn
-                  aria-label="Open scope dashboard"
-                  icon
-                  size="x-small"
-                  variant="text"
-                  color="primary"
-                  @click="navigateToScope(curation)"
-                >
-                  <v-icon size="small">mdi-arrow-right</v-icon>
-                  <v-tooltip activator="parent" location="left">View Scope</v-tooltip>
-                </v-btn>
-              </template>
-            </v-list-item>
-          </v-list>
-
-          <!-- Diseases Summary -->
-          <div v-if="selectedGene.diseases.length > 0" class="mt-4">
-            <div class="text-subtitle-2 mb-2">
-              <v-icon start size="small">mdi-virus</v-icon>
-              Associated Diseases ({{ selectedGene.diseases.length }})
-            </div>
-            <div class="d-flex flex-wrap ga-1">
-              <v-chip
-                v-for="disease in selectedGene.diseases"
-                :key="disease"
-                size="small"
-                variant="outlined"
-                color="warning"
-              >
-                {{ disease }}
-              </v-chip>
-            </div>
-          </div>
-        </v-card-text>
-
-        <v-divider />
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="quickInfoDialog = false">Close</v-btn>
-          <v-btn color="primary" variant="elevated" @click="navigateToGene(selectedGene)">
-            <v-icon start>mdi-open-in-new</v-icon>
-            View gene details
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+      <!-- Diseases Summary -->
+      <div v-if="selectedGene.diseases.length > 0" class="mt-4">
+        <div class="text-subtitle-2 mb-2">
+          <v-icon start size="small">mdi-virus</v-icon>
+          Associated Diseases ({{ selectedGene.diseases.length }})
+        </div>
+        <div class="d-flex flex-wrap ga-1">
+          <v-chip
+            v-for="disease in selectedGene.diseases"
+            :key="disease"
+            size="small"
+            variant="outlined"
+            color="warning"
+          >
+            {{ disease }}
+          </v-chip>
+        </div>
+      </div>
+      <template #actions>
+        <v-btn variant="text" @click="quickInfoDialog = false">Close</v-btn>
+        <v-btn color="primary" variant="elevated" @click="navigateToGene(selectedGene)">
+          <v-icon start>mdi-open-in-new</v-icon>
+          View gene details
+        </v-btn>
+      </template></BaseDialog
+    >
   </div>
 </template>
 
@@ -557,6 +546,7 @@
     getScoreColorClass
   } from './GeneCatalogueView.utils'
   import { EMPTY, formatDate } from '@/utils/format'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   type CatalogueEntry = Schema<'GeneCatalogueEntry'>
   type ScopeCuration = Schema<'ScopeCurationSummary'>

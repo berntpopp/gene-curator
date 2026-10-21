@@ -122,54 +122,49 @@
     </v-card>
 
     <!-- Create Schema Dialog -->
-    <v-dialog v-model="createSchemaDialog" max-width="600">
-      <v-card>
-        <v-card-title>Create new {{ TERMINOLOGY.TEMPLATE }}</v-card-title>
-        <v-card-text>
-          <v-form ref="createForm">
-            <v-text-field
-              v-model="newSchema.name"
-              label="Schema Name"
-              variant="outlined"
-              :rules="[v => !!v || 'Name is required']"
-              required
-            />
+    <BaseDialog v-model="createSchemaDialog" size="md">
+      <template #title>Create new {{ TERMINOLOGY.TEMPLATE }}</template>
+      <v-form ref="createForm">
+        <v-text-field
+          v-model="newSchema.name"
+          label="Schema Name"
+          variant="outlined"
+          :rules="[v => !!v || 'Name is required']"
+          required
+        />
 
-            <v-textarea
-              v-model="newSchema.description"
-              label="Description"
-              variant="outlined"
-              rows="3"
-            />
+        <v-textarea
+          v-model="newSchema.description"
+          label="Description"
+          variant="outlined"
+          rows="3"
+        />
 
-            <v-select
-              v-model="newSchema.type"
-              :items="schemaTypes"
-              label="Schema Type"
-              variant="outlined"
-              :rules="[v => !!v || 'Type is required']"
-              required
-            />
+        <v-select
+          v-model="newSchema.type"
+          :items="schemaTypes"
+          label="Schema Type"
+          variant="outlined"
+          :rules="[v => !!v || 'Type is required']"
+          required
+        />
 
-            <v-text-field
-              v-model="newSchema.version"
-              label="Version"
-              variant="outlined"
-              placeholder="1.0.0"
-              :rules="[v => !!v || 'Version is required']"
-              required
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="createSchemaDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" :loading="creating" @click="createSchema">
-            Create
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        <v-text-field
+          v-model="newSchema.version"
+          label="Version"
+          variant="outlined"
+          placeholder="1.0.0"
+          :rules="[v => !!v || 'Version is required']"
+          required
+        />
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="createSchemaDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :loading="creating" @click="createSchema">
+          Create
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-container>
 </template>
 
@@ -184,6 +179,8 @@
   import { errorMessage } from '@/stores/apiError'
   import { transformSchemas, type TransformedSchema, formatType } from '@/utils/schemaTransformer'
   import { curationStatusColor } from '@/config/status'
+  import { useConfirm } from '@/composables/useConfirm'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -307,8 +304,16 @@
     }
   }
 
+  const { confirm } = useConfirm()
+
   const deleteSchema = async (schema: SchemaRow) => {
-    if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
+    if (
+      await confirm({
+        title: `Delete "${schema.name}"?`,
+        confirmText: 'Delete',
+        destructive: true
+      })
+    ) {
       try {
         await schemasStore.deleteSchema(schema.id)
         logger.info('Schema deleted', { schemaId: schema.id, schemaName: schema.name })
