@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import EditGeneAssignmentModal from '../EditGeneAssignmentModal.vue'
-import { assignmentsAPI, genesAPI } from '@/api'
+import { assignmentsAPI } from '@/api'
 import type { GeneRow } from '../types'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -10,12 +10,10 @@ const addToast = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/api', () => ({
-  assignmentsAPI: { updateAssignment: vi.fn() },
-  genesAPI: { validateGene: vi.fn() }
+  assignmentsAPI: { updateAssignment: vi.fn() }
 }))
 
 const updateAssignment = vi.mocked(assignmentsAPI.updateAssignment)
-const validateGene = vi.mocked(genesAPI.validateGene)
 
 const gene: GeneRow = {
   assignment_id: 'a-1',
@@ -26,9 +24,9 @@ const gene: GeneRow = {
   curator_name: 'Ada',
   priority: 'medium',
   assignment_notes: 'old note',
-  status: 'assigned',
+  stage: 'precuration',
   due_date: '2025-06-01T00:00:00Z',
-  progress: 0
+  updated_at: '2026-10-20T00:00:00Z'
 }
 
 const dialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
@@ -37,9 +35,7 @@ const dialogStub = { props: ['modelValue'], template: '<div v-if="modelValue"><s
 interface EditVm {
   formData: { priority: string; due_date: string | null; assignment_notes: string }
   hasChanges: boolean
-  validationResult: { is_valid: boolean } | null
   handleSubmit(): Promise<void>
-  handleRevalidateGene(): Promise<void>
 }
 
 function internals(wrapper: { vm: unknown }): EditVm {
@@ -60,7 +56,6 @@ async function mountModal(props: Record<string, unknown> = {}) {
 describe('EditGeneAssignmentModal', () => {
   beforeEach(() => {
     updateAssignment.mockReset()
-    validateGene.mockReset()
     addToast.mockReset()
     logger.error.mockReset()
   })
@@ -149,41 +144,11 @@ describe('EditGeneAssignmentModal', () => {
     expect(logger.error).toHaveBeenCalledWith('Failed to update assignment', { error: 'x' })
   })
 
-  it('revalidates the gene and reports valid and invalid results', async () => {
-    validateGene.mockResolvedValueOnce({ is_valid: true, approved_symbol: 'BRCA1' } as never)
+  it('labels the due date and offers no revalidate action', async () => {
     const wrapper = await mountModal()
 
-    await internals(wrapper).handleRevalidateGene()
-    expect(validateGene).toHaveBeenCalledWith('g-1')
-    expect(addToast).toHaveBeenCalledWith('BRCA1 annotation is valid', 'success')
-    expect(wrapper.emitted('revalidated')?.[0]).toEqual([
-      { is_valid: true, approved_symbol: 'BRCA1' }
-    ])
-
-    validateGene.mockResolvedValueOnce({ is_valid: false, warnings: ['old symbol'] } as never)
-    await internals(wrapper).handleRevalidateGene()
-    expect(addToast).toHaveBeenCalledWith('BRCA1 has validation warnings', 'warning')
-    expect(internals(wrapper).validationResult).toEqual({
-      is_valid: false,
-      warnings: ['old symbol']
-    })
-  })
-
-  it('reports a failed revalidation', async () => {
-    validateGene.mockRejectedValue({ message: 'down', response: { data: { detail: 'Upstream' } } })
-    const wrapper = await mountModal()
-
-    await internals(wrapper).handleRevalidateGene()
-
-    expect(addToast).toHaveBeenCalledWith('Failed to revalidate: Upstream', 'error')
-  })
-
-  it('does not revalidate a gene without an id', async () => {
-    const wrapper = await mountModal({ gene: { ...gene, gene_id: '' } })
-
-    await internals(wrapper).handleRevalidateGene()
-
-    expect(validateGene).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Due date')
+    expect(wrapper.text()).not.toContain('Revalidate')
   })
 
   it('treats a missing priority as medium and an empty date as none', async () => {

@@ -1,63 +1,5 @@
 <template>
   <div>
-    <!-- Toolbar -->
-    <v-toolbar flat color="transparent">
-      <v-text-field
-        v-model="search"
-        prepend-inner-icon="mdi-magnify"
-        label="Search genes"
-        variant="outlined"
-        density="compact"
-        hide-details
-        clearable
-        class="mr-4"
-        style="max-width: 400px"
-      />
-
-      <v-select
-        v-model="filterStatus"
-        :items="statusOptions"
-        label="Status"
-        variant="outlined"
-        density="compact"
-        hide-details
-        clearable
-        class="mr-4"
-        style="max-width: 200px"
-      />
-
-      <v-select
-        v-model="filterCurator"
-        :items="curatorOptions"
-        item-title="name"
-        item-value="id"
-        label="Curator"
-        variant="outlined"
-        density="compact"
-        hide-details
-        clearable
-        class="mr-4"
-        style="max-width: 200px"
-      />
-
-      <v-spacer />
-
-      <v-btn-toggle v-model="viewMode" mandatory density="compact" class="mr-2">
-        <v-btn value="table" icon="mdi-table" aria-label="Table view" />
-        <v-btn value="cards" icon="mdi-view-grid" aria-label="Card view" />
-      </v-btn-toggle>
-
-      <v-btn v-if="canReassign" variant="outlined" class="mr-2" @click="showAddModal = true">
-        <v-icon start>mdi-dna</v-icon>
-        Add genes
-      </v-btn>
-
-      <v-btn v-if="canReassign" color="primary" @click="openAssignModal(selectedIds)">
-        <v-icon start>mdi-account-arrow-right</v-icon>
-        Assign to Curator{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
-      </v-btn>
-    </v-toolbar>
-
     <v-alert v-if="noMethodology" type="warning" variant="tonal" class="mb-4">
       This scope has no methodology yet, so precuration and curation cannot be started.
       <template v-if="canManageScope">
@@ -68,154 +10,122 @@
       <template v-else>Ask a scope admin to choose one.</template>
     </v-alert>
 
-    <!-- Table View -->
-    <TableSkeleton
-      v-if="viewMode === 'table'"
-      :loading="loading"
-      :items="filteredGenes"
+    <ScopeStageStrip
+      class="mb-3"
+      :counts="stageCounts"
+      :model-value="stageFilter"
+      @update:model-value="setStage"
+    />
+
+    <GeneBulkBar
+      v-if="canReassign"
+      class="mb-3"
+      :selected="selectedRows"
+      @assign="openAssignModal(selectedRows.filter(r => !r.curator_id).map(r => r.gene_id))"
+      @clear="selectedIds = []"
+      @changed="onBulkChanged"
+    />
+
+    <DataTable
+      v-model:search="table.search.value"
+      v-model:filters="table.filters.value"
+      v-model:page="table.page.value"
+      v-model:items-per-page="table.itemsPerPage.value"
+      v-model:sort-by="table.sortBy.value"
+      v-model:density="table.density.value"
       :headers="tableHeaders"
-      :skeleton-count="10"
+      :items="pageRows"
+      :items-length="filteredGenes.length"
+      :loading="loading"
+      :filter-defs="filterDefs"
     >
-      <template #header.select>
+      <template #toolbar-actions>
+        <v-btn
+          v-if="canReassign && filteredGenes.length"
+          size="small"
+          variant="text"
+          data-testid="select-all"
+          @click="selectedIds = filteredGenes.map(g => g.gene_id)"
+        >
+          Select all {{ filteredGenes.length }}
+        </v-btn>
+        <v-btn
+          v-if="canReassign"
+          size="small"
+          color="primary"
+          variant="flat"
+          data-testid="add-genes"
+          @click="showAddModal = true"
+        >
+          Add genes
+        </v-btn>
+      </template>
+
+      <template #item.select="{ item }">
         <v-checkbox-btn
-          :model-value="allSelected"
-          :indeterminate="selectedIds.length > 0 && !allSelected"
+          v-model="selectedIds"
+          :value="item.gene_id"
           density="compact"
-          aria-label="Select all genes"
-          @update:model-value="toggleAll"
+          :aria-label="`Select ${item.gene_symbol}`"
         />
       </template>
-      <template #item="{ item: slotItem }">
-        <tr v-for="item in [toGene(slotItem)]" :key="item.assignment_id">
-          <td>
-            <v-checkbox-btn
-              v-model="selectedIds"
-              :value="item.gene_id"
-              density="compact"
-              :aria-label="`Select ${item.gene_symbol}`"
-            />
-          </td>
-          <td>
-            <div class="d-flex align-center">
-              <v-icon icon="mdi-dna" size="small" class="mr-2" />
-              <a
-                href="#"
-                class="text-decoration-none font-weight-medium gene-link"
-                @click.prevent="viewGene(item)"
-              >
-                {{ item.gene_symbol }}
-              </a>
-            </div>
-          </td>
-          <td>
-            <v-chip v-if="item.curator_name" size="small" color="primary" variant="tonal">
-              <v-icon start size="small">mdi-account</v-icon>
-              {{ item.curator_name }}
-            </v-chip>
-            <v-chip v-else size="small" variant="outlined">Unassigned</v-chip>
-          </td>
-          <td>
-            <v-chip :color="getPriorityColor(item.priority)" size="small" variant="tonal">
-              <v-icon start size="small">{{ getPriorityIcon(item.priority) }}</v-icon>
-              {{ getPriorityLabel(item.priority) }}
-            </v-chip>
-          </td>
-          <td>
-            <v-chip :color="getStatusColor(item.status)" size="small">
-              {{ getStatusLabel(item.status, !!item.curator_name) }}
-            </v-chip>
-          </td>
-          <td>
-            <GeneWorkflowCell :gene="item" :workflow="workflow" />
-          </td>
-          <td>
-            <v-progress-linear
-              :model-value="item.progress || 0"
-              :color="getProgressColor(item.progress)"
-              height="8"
-              rounded
-            />
-            <div class="text-body-small text-center mt-1">{{ item.progress || 0 }}%</div>
-          </td>
-          <td>
-            <GeneRowActions
-              :gene="item"
-              :workflow="workflow"
-              :can-assign-genes="canAssignGenes"
-              :can-reassign="canReassign"
-              :can-remove-genes="canRemoveGenes"
-              :start-blocked-reason="startBlockedReason"
-              @start-precuration="startPrecuration"
-              @complete-precuration="completePrecuration"
-              @view-curation="viewCuration"
-              @start-curation="startCuration"
-              @reassign="reassignGene"
-              @edit-assignment="editGeneAssignment"
-              @remove="confirmRemoveGene"
-            />
-          </td>
-        </tr>
+      <template #item.gene_symbol="{ item }">
+        <a href="#" class="gene-link" @click.prevent="viewGene(item)">{{ item.gene_symbol }}</a>
+        <div class="text-body-small text-medium-emphasis">{{ item.gene_hgnc_id }}</div>
       </template>
-    </TableSkeleton>
-
-    <!-- Card View -->
-    <v-row v-else-if="viewMode === 'cards'">
-      <template v-if="loading">
-        <!-- Loading skeletons -->
-        <v-col v-for="n in 6" :key="`skeleton-${n}`" cols="12" sm="6" md="4">
-          <v-skeleton-loader type="card" />
-        </v-col>
+      <template #item.curator_name="{ item }">
+        <span :class="{ 'text-medium-emphasis': !item.curator_name }">
+          {{ item.curator_name || 'Unassigned' }}
+        </span>
       </template>
-
-      <template v-else>
-        <!-- Gene cards -->
-        <v-col v-for="gene in filteredGenes" :key="gene.assignment_id" cols="12" sm="6" md="4">
-          <GeneCard
-            :gene="gene"
-            :workflow="workflow"
-            :start-blocked-reason="startBlockedReason"
-            @view="viewGene"
-            @start-precuration="startPrecuration"
-            @complete-precuration="completePrecuration"
-            @start-curation="startCuration"
-          />
-        </v-col>
+      <template #item.stage="{ item }">
+        <v-chip size="small" :color="stageColor(item.stage)" variant="tonal">
+          {{ stageTitle(item.stage) }}
+        </v-chip>
       </template>
-    </v-row>
-
-    <!-- Empty State -->
-    <v-alert
-      v-if="!loading && filteredGenes.length === 0"
-      type="info"
-      variant="tonal"
-      border="start"
-      class="mt-4"
-    >
-      <v-alert-title>
-        <v-icon size="large" class="mr-2">mdi-inbox</v-icon>
-        No genes {{ search || filterStatus || filterCurator ? 'match your filters' : 'assigned' }}
-      </v-alert-title>
-      <div v-if="!search && !filterStatus && !filterCurator">
-        Start by assigning genes to curators in this scope.
-      </div>
-      <div v-else>Try adjusting your search or filter criteria.</div>
-      <template #append>
-        <v-btn
-          v-if="canAssignGenes && !search && !filterStatus"
-          color="primary"
-          @click="openAssignModal()"
-        >
-          <v-icon start>mdi-plus</v-icon>
-          Assign genes
-        </v-btn>
-        <v-btn v-else variant="outlined" @click="clearFilters">Clear filters</v-btn>
+      <template #item.priority="{ item }">{{ getPriorityLabel(item.priority) }}</template>
+      <template #item.updated_at="{ item }">{{ formatDate(item.updated_at) }}</template>
+      <template #item.actions="{ item }">
+        <GeneRowActions
+          :gene="item"
+          :workflow="workflow"
+          :can-assign-genes="canAssignGenes"
+          :can-reassign="canReassign"
+          :can-remove-genes="canRemoveGenes"
+          :start-blocked-reason="startBlockedReason"
+          @start-precuration="startPrecuration"
+          @complete-precuration="completePrecuration"
+          @view-curation="viewCuration"
+          @start-curation="startCuration"
+          @reassign="reassignGene"
+          @edit-assignment="editGeneAssignment"
+          @remove="confirmRemoveGene"
+        />
       </template>
-    </v-alert>
+      <template #no-data>
+        <div data-testid="table-empty" class="pa-6 text-center text-medium-emphasis">
+          <template v-if="rows.length">
+            No genes match the filters.
+            <v-btn variant="text" size="small" @click="clearFilters">Clear filters</v-btn>
+          </template>
+          <template v-else>
+            No genes in this scope yet.
+            <v-btn
+              v-if="canReassign"
+              variant="text"
+              size="small"
+              color="primary"
+              @click="showAddModal = true"
+            >
+              Add genes
+            </v-btn>
+          </template>
+        </div>
+      </template>
+    </DataTable>
 
-    <!-- Add Genes Modal (replaces drawer for better UX) -->
     <AddGeneModal v-model="showAddModal" :scope-id="scopeId" @added="handleGenesAdded" />
 
-    <!-- Assign Curator Modal (replaces drawer for better UX) -->
     <AssignCuratorModal
       v-model="showAssignModal"
       :scope-id="scopeId"
@@ -223,15 +133,14 @@
       @assigned="handleGenesAssigned"
     />
 
-    <!-- Gene Detail Modal -->
     <GeneDetailModal
       v-model="showGeneDetailModal"
       :hgnc-id="selectedGeneForDetail?.gene_hgnc_id"
       :gene-symbol="selectedGeneForDetail?.gene_symbol"
       :gene-id="selectedGeneForDetail?.gene_id"
+      :scope-context="detailContext"
     />
 
-    <!-- Reassign Gene Modal -->
     <ReassignGeneModal
       v-model="showReassignModal"
       :scope-id="scopeId"
@@ -239,16 +148,13 @@
       @reassigned="handleGeneReassigned"
     />
 
-    <!-- Edit Gene Assignment Modal -->
     <EditGeneAssignmentModal
       v-model="showEditModal"
       :scope-id="scopeId"
       :gene="selectedGeneForEdit"
       @updated="handleGeneEdited"
-      @revalidated="handleGeneRevalidated"
     />
 
-    <!-- Remove Gene Confirmation Dialog -->
     <RemoveGeneDialog
       v-model="showRemoveConfirm"
       :gene-symbol="selectedGeneForRemoval?.gene_symbol"
@@ -261,21 +167,8 @@
 
 <script setup lang="ts">
   /**
-   * GeneList Component
-   *
-   * Displays genes assigned to a scope with filtering, sorting, and actions.
-   * Supports both table and card views for responsive design.
-   *
-   * - Search by gene symbol/name
-   * - Filter by status and curator
-   * - Table/card view toggle
-   * - Add genes modal with HGNC search and bulk upload
-   * - Assign curator modal with multi-gene selection
-   * - Start precuration/curation workflow
-   * - Progress tracking
-   *
-   * @example
-   * <GeneList :scope-id="scopeId" />
+   * GeneList: the genes of a scope on the shared DataTable (search, filters, sort and page in
+   * the URL), with the stage strip as a filter and a bulk bar for the selected genes.
    */
 
   import { ref, computed, onMounted } from 'vue'
@@ -286,27 +179,23 @@
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
-  import TableSkeleton from '@/components/skeletons/TableSkeleton.vue'
+  import DataTable from '@/components/common/DataTable.vue'
+  import ScopeStageStrip from '@/components/scope/ScopeStageStrip.vue'
+  import GeneBulkBar from './GeneBulkBar.vue'
   import AddGeneModal from '@/components/gene/AddGeneModal.vue'
   import AssignCuratorModal from '@/components/gene/AssignCuratorModal.vue'
   import GeneDetailModal from '@/components/gene/GeneDetailModal.vue'
   import ReassignGeneModal from '@/components/gene/ReassignGeneModal.vue'
   import EditGeneAssignmentModal from '@/components/gene/EditGeneAssignmentModal.vue'
-  import GeneCard from './GeneCard.vue'
   import GeneRowActions from './GeneRowActions.vue'
-  import GeneWorkflowCell from './GeneWorkflowCell.vue'
   import RemoveGeneDialog from './RemoveGeneDialog.vue'
   import { useGeneWorkflowStatus } from './useGeneWorkflowStatus'
   import { useScopeGenes } from './useScopeGenes'
-  import {
-    getPriorityColor,
-    getPriorityIcon,
-    getPriorityLabel,
-    getProgressColor,
-    getStatusColor,
-    getStatusLabel
-  } from './geneDisplay'
-  import { CURATION_STATUS } from '@/config/status'
+  import { getPriorityLabel } from './geneDisplay'
+  import { GENE_STAGES, stageTitle, type GeneStage } from './geneStage'
+  import { useTableUrlState } from '@/composables/useTableUrlState'
+  import { formatDate } from '@/utils/format'
+  import { priorityOptions } from '@/components/dynamic/assignmentDisplay'
   import type { ApiErrorLike } from '@/components/forms/types'
   import type { GeneRow } from './types'
 
@@ -327,17 +216,30 @@
   const workflow = useGeneWorkflowStatus(() => props.scopeId)
   const { genePrecurations, geneCurations, isPrecurationApproved } = workflow
 
-  const {
-    loading,
-    search,
-    filterStatus,
-    filterCurator,
-    curatorOptions,
-    filteredGenes,
-    fetchGenes,
-    clearFilters
-  } = useScopeGenes(() => props.scopeId, workflow)
-  const viewMode = ref('table')
+  const table = useTableUrlState({ filterKeys: ['stage', 'curator', 'priority'] })
+  const { loading, rows, stageCounts, curatorOptions, filteredGenes, pageRows, fetchGenes } =
+    useScopeGenes(() => props.scopeId, workflow, table)
+
+  const filterDefs = computed(() => [
+    {
+      key: 'stage',
+      label: 'Stage',
+      options: GENE_STAGES.map(s => ({ value: s.value, title: s.title }))
+    },
+    { key: 'curator', label: 'Curator', options: curatorOptions.value },
+    { key: 'priority', label: 'Priority', options: priorityOptions }
+  ])
+  const stageFilter = computed(() => table.filters.value.stage as string | undefined)
+  const stageColor = (stage: GeneStage) => GENE_STAGES.find(s => s.value === stage)?.color
+  const setStage = (stage?: GeneStage) =>
+    (table.filters.value = {
+      ...table.filters.value,
+      ...(stage ? { stage } : { stage: undefined as never })
+    })
+  const clearFilters = () => {
+    table.search.value = ''
+    table.filters.value = {}
+  }
 
   // Modal state
   const showAddModal = ref(false)
@@ -361,25 +263,15 @@
     showAssignModal.value = true
   }
 
-  // Table headers
-  const tableHeaders = [
-    { title: '', key: 'select', sortable: false },
-    { title: 'Gene Symbol', key: 'gene_symbol', sortable: true },
-    { title: 'Curator', key: 'curator_name', sortable: true },
-    { title: 'Priority', key: 'priority', sortable: true },
-    { title: 'Status', key: 'status', sortable: true },
-    { title: 'Workflow', key: 'workflow', sortable: false },
-    { title: 'Progress', key: 'progress', sortable: true },
+  const tableHeaders = computed(() => [
+    ...(canReassign.value ? [{ title: 'Select', key: 'select', sortable: false }] : []),
+    { title: 'Gene', key: 'gene_symbol' },
+    { title: 'Curator', key: 'curator_name' },
+    { title: 'Stage', key: 'stage' },
+    { title: 'Priority', key: 'priority' },
+    { title: 'Updated', key: 'updated_at' },
     { title: 'Actions', key: 'actions', sortable: false }
-  ]
-
-  // Status options
-  const statusOptions = [
-    { title: 'Assigned', value: 'assigned' },
-    { title: 'In Progress', value: 'in_progress' },
-    { title: CURATION_STATUS.in_review.label, value: 'in_review' },
-    { title: 'Completed', value: 'completed' }
-  ]
+  ])
 
   // Permissions: curate rights come from the scope membership; only the application admin may
   // deactivate assignments (backend rule in gene_assignments.py)
@@ -398,13 +290,26 @@
     noMethodology.value ? 'This scope has no methodology yet' : null
   )
 
-  // Row selection for bulk "Assign to Curator"
   const selectedIds = ref<string[]>([])
-  const allSelected = computed(
-    () => filteredGenes.value.length > 0 && selectedIds.value.length === filteredGenes.value.length
-  )
-  function toggleAll(on: unknown) {
-    selectedIds.value = on ? filteredGenes.value.map(g => g.gene_id) : []
+  const selectedRows = computed(() => rows.value.filter(r => selectedIds.value.includes(r.gene_id)))
+  const detailContext = computed(() => {
+    const g = selectedGeneForDetail.value
+    const row = g && rows.value.find(r => r.gene_id === g.gene_id)
+    return row
+      ? {
+          curator: row.curator_name,
+          stage: stageTitle(row.stage),
+          curationLink: row.curation_id
+            ? `/scopes/${props.scopeId}/curations/${row.curation_id}`
+            : ''
+        }
+      : undefined
+  })
+
+  /** After a bulk run only the genes that failed stay selected. */
+  function onBulkChanged(failedGeneIds: string[]) {
+    refresh()
+    selectedIds.value = failedGeneIds
   }
 
   /** Reload after a change and let the parent refresh its statistics. */
@@ -412,11 +317,6 @@
     selectedIds.value = []
     fetchGenes()
     emit('changed')
-  }
-
-  /** TableSkeleton passes its rows through an untyped item slot. */
-  function toGene(value: unknown): GeneRow {
-    return value as GeneRow
   }
 
   /**
@@ -593,17 +493,6 @@
     refresh()
   }
 
-  /**
-   * Handle gene revalidated
-   */
-  function handleGeneRevalidated(result: { external_data?: unknown } | null | undefined) {
-    logger.debug('Gene revalidated', { result })
-    // Optionally refresh genes if data changed
-    if (result?.external_data) {
-      refresh()
-    }
-  }
-
   // Lifecycle
   onMounted(() => {
     fetchGenes()
@@ -611,28 +500,14 @@
 </script>
 
 <style scoped>
-  /* Table row hover */
-  tr:hover {
-    background-color: rgba(var(--v-theme-on-surface), 0.04);
-  }
-
-  /* Card hover effect */
-  .v-card:hover {
-    transform: translateY(-2px);
-    transition: transform 0.2s ease;
-  }
-
-  /* Link styling */
-  a {
-    color: rgb(var(--v-theme-primary));
-  }
-
-  a:hover {
-    text-decoration: underline;
-  }
-
-  /* Gene link in table */
   .gene-link {
-    cursor: pointer;
+    color: rgb(var(--v-theme-secondary));
+    font-family: 'IBM Plex Mono', monospace;
+    font-weight: 500;
+    text-decoration: none;
+  }
+
+  .gene-link:hover {
+    text-decoration: underline;
   }
 </style>
