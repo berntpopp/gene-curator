@@ -19,9 +19,9 @@ const table = normalizeField({
   }
 })
 
-function mountTable(modelValue: unknown, frame = createWorkspaceFrame()) {
+function mountTable(modelValue: unknown, frame = createWorkspaceFrame(), disabled = false) {
   const wrapper = mount(EvidenceTableField, {
-    props: { fieldSchema: table, label: 'Function', modelValue },
+    props: { fieldSchema: table, label: 'Function', modelValue, disabled },
     global: { provide: { [WORKSPACE_FRAME as symbol]: frame } }
   })
   return { wrapper, frame }
@@ -93,8 +93,7 @@ describe('EvidenceTableField PMID cells', () => {
   })
 
   it('does not look up in a read-only table', async () => {
-    const { wrapper } = mountTable([{ id: 'r1', pmid: '123' }])
-    await wrapper.setProps({ disabled: true })
+    const { wrapper } = mountTable([{ id: 'r1', pmid: '123' }], undefined, true)
     await blurPmid(wrapper, '123')
     expect(validatePMIDs).not.toHaveBeenCalled()
   })
@@ -107,5 +106,37 @@ describe('EvidenceTableField PMID cells', () => {
     expect(rows).toHaveLength(2)
     // A new row starts with the configured default points
     expect(rows[1]).toMatchObject({ pmid: '', points: 0.5 })
+  })
+
+  it('checks PMIDs loaded with a saved draft, without any blur (#267)', async () => {
+    const notFound = { is_valid: false, error: 'Publication not found in Europe PMC' }
+    const known = { is_valid: true, publication: { title: 'T', authors: ['Smith J'], year: 2020 } }
+    validatePMIDs.mockResolvedValue({ results: [notFound, known] })
+    const { wrapper, frame } = mountTable([
+      { id: 'r1', pmid: '99999999' },
+      { id: 'r2', pmid: '123' },
+      { id: 'r3', pmid: 'PMID: 99999999' }
+    ])
+    await flushPromises()
+    // A repeated PMID is looked up once, in one batch
+    expect(validatePMIDs).toHaveBeenCalledTimes(1)
+    expect(validatePMIDs.mock.calls[0]![0]).toEqual(['99999999', '123'])
+    expect(frame.blockers.value).toEqual([
+      'Fix 2 unknown PMIDs before submitting: PMID 99999999, PMID: 99999999 not found in Europe PMC'
+    ])
+    expect(wrapper.find('.pmid-note').exists()).toBe(true)
+
+    // Rows replaced from outside: only the new PMID is looked up; known ones don't block
+    validatePMIDs.mockResolvedValue({ results: [known] })
+    await wrapper.setProps({
+      modelValue: [
+        { id: 'r2', pmid: '123' },
+        { id: 'r4', pmid: '456' }
+      ]
+    })
+    await flushPromises()
+    expect(validatePMIDs).toHaveBeenCalledTimes(2)
+    expect(validatePMIDs.mock.calls[1]![0]).toEqual(['456'])
+    expect(frame.blockers.value).toEqual([])
   })
 })

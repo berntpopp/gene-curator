@@ -170,6 +170,12 @@
     { immediate: true }
   )
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
+  // PMIDs loaded with a saved draft or replaced from outside are checked too, not only on blur
+  watch(
+    () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
+    pmids => !props.disabled && lookup.checkAll(pmids),
+    { immediate: true }
+  )
   // Removing a row cancels its own lookup
   watch(
     () => rows.value.map(rowKey),
