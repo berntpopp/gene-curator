@@ -72,7 +72,9 @@
             <v-chip :color="statusColor" size="small" variant="outlined" class="mb-1">
               {{ statusDisplay }}
             </v-chip>
-            <div class="text-caption text-medium-emphasis">{{ sopVersion }}</div>
+            <div v-if="schemaLabel" class="text-caption text-medium-emphasis">
+              {{ schemaLabel }}
+            </div>
             <div v-if="curationId" class="text-caption">ID: {{ curationId.slice(0, 8) }}...</div>
           </div>
         </v-col>
@@ -110,7 +112,7 @@
       disease?: DiseaseInfo
       classification?: string | null
       moi?: string
-      sopVersion?: string
+      schema?: { name: string; version: string } | null
       expertPanel?: string | null
       curationId?: string | null
       status?: string
@@ -120,11 +122,15 @@
       disease: () => ({}),
       classification: null,
       moi: 'Unknown',
-      sopVersion: 'SOP v11',
+      schema: null,
       expertPanel: null,
       curationId: null,
       status: 'draft'
     }
+  )
+
+  const schemaLabel = computed(() =>
+    props.schema ? `${props.schema.name} v${props.schema.version}` : ''
   )
 
   const moiColorMap: Record<string, string> = {

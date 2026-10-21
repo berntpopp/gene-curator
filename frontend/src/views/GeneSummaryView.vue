@@ -107,7 +107,6 @@
               <div class="text-caption text-grey mt-4">
                 <v-icon size="x-small">mdi-clock-outline</v-icon>
                 Last updated: {{ formatDate(summary.last_updated) }}
-                <v-chip size="x-small" class="ml-2"> ClinGen SOP v11 </v-chip>
               </div>
             </div>
           </v-card-text>

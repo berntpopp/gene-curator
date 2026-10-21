@@ -36,7 +36,7 @@
                 <div class="text-h5 font-weight-bold">
                   {{ catalogueStore.summary.totalScopes }}
                 </div>
-                <div class="text-caption">Clinical Scopes</div>
+                <div class="text-caption">Scopes</div>
               </v-card>
             </v-col>
           </v-row>

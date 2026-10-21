@@ -35,7 +35,7 @@
       id: 'what-is-gene-curator',
       question: 'What is Gene Curator?',
       answer:
-        'Gene Curator is a platform for gene-disease curation. Curation is organised in scopes, each with its own members, genes and workflow. Curation follows a configurable schema, for example ClinGen SOP v11 or GenCC.'
+        'Gene Curator is a platform for gene-disease curation. Curation is organised in scopes, each with its own members, genes and workflow. Curation follows a configurable schema, for example the ClinGen SOP or GenCC.'
     },
     {
       id: 'roles',
@@ -51,7 +51,7 @@
     },
     {
       id: 'clingen-classification',
-      question: 'How does the ClinGen SOP v11 classification work?',
+      question: 'How does the ClinGen SOP classification work?',
       answer:
         'The evidence score sets the classification. Limited is 1 to 6 points, Moderate 7 to 11 points and Strong 12 to 18 points. Definitive requires Strong-level points plus replication over time, with no contradictory evidence. Contradictory evidence gives Disputed.'
     },
