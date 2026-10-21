@@ -283,21 +283,28 @@ def _check_rules(rules: Any, names: set[str]) -> list[Diagnostic]:
 
 
 def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
-    """The W4E interpreter shape: sections > categories > types, bands first match wins."""
-    out: list[Diagnostic] = []
+    """The W4E interpreter shape: sections > categories > types, bands first match wins.
+
+    Anything the scorer indexes directly is required, or every scoring call fails.
+    """
+    out = _need(model, path, {"sections": list, "bands": list})
     if "total_cap" in model and not _is_number(model["total_cap"]):
         out.append(("error", f"{path}.total_cap", "total_cap must be a number"))
     sections = _as(list, model.get("sections"))
     out += _check_nodes(sections, f"{path}.sections", "Section")
-    for i, section in _dicts(sections):
+    for i, section in _items(sections, f"{path}.sections", out):
+        out += _need(section, f"{path}.sections[{i}]", {"key": str, "categories": list})
         cats = _as(list, section.get("categories"))
         cat_path = f"{path}.sections[{i}].categories"
         out += _check_nodes(cats, cat_path, "Category")
-        for j, cat in _dicts(cats):
+        for j, cat in _items(cats, cat_path, out):
+            out += _need(cat, f"{cat_path}[{j}]", {"key": str, "types": list})
             if cat.get("combine", "sum") not in ("sum", "max"):
                 msg = "combine must be 'sum' or 'max'"
                 out.append(("error", f"{cat_path}[{j}].combine", msg))
-            for k, item in _dicts(_as(list, cat.get("types"))):
+            types_path = f"{cat_path}[{j}].types"
+            for k, item in _items(_as(list, cat.get("types")), types_path, out):
+                out += _need(item, f"{types_path}[{k}]", {"path": str})
                 rng = item.get("range")
                 if rng is not None and not (
                     isinstance(rng, list)
@@ -306,14 +313,40 @@ def _check_point_model(model: dict[str, Any], path: str) -> list[Diagnostic]:
                     and rng[0] <= rng[1]
                 ):
                     msg = "range must be [min, max] numbers with min <= max"
-                    out.append(("error", f"{cat_path}[{j}].types[{k}].range", msg))
-    bands = [b for b in _as(list, model.get("bands")) if isinstance(b, dict)]
-    lows: list[Any] = [b["min"] for b in bands if "min" in b]
+                    out.append(("error", f"{types_path}[{k}].range", msg))
+    overrides = _as(list, model.get("overrides"))
+    for i, override in _items(overrides, f"{path}.overrides", out):
+        out += _need(override, f"{path}.overrides[{i}]", {"when": str, "class": str})
+    bands = _items(_as(list, model.get("bands")), f"{path}.bands", out)
+    for i, band in bands:
+        out += _need(band, f"{path}.bands[{i}]", {"class": str})
+    lows: list[Any] = [band["min"] for _, band in bands if "min" in band]
     # first match wins, so thresholds must not increase down the list
     if not all(_is_number(low) for low in lows) or lows != sorted(lows, reverse=True):
         msg = "Band min must be numeric and must not increase (first match wins)"
         out.append(("error", f"{path}.bands", msg))
     return out
+
+
+def _need(node: dict[str, Any], path: str, keys: dict[str, type]) -> list[Diagnostic]:
+    """An error per required key that is missing or of the wrong type."""
+    return [
+        ("error", f"{path}.{key}", f"'{key}' is required and must be a {kind.__name__}")
+        for key, kind in keys.items()
+        if not isinstance(node.get(key), kind)
+    ]
+
+
+def _items(
+    items: list[Any], path: str, out: list[Diagnostic]
+) -> list[tuple[int, dict[str, Any]]]:
+    """(index, item) for the dict items; every other item is an error at its index."""
+    out += [
+        ("error", f"{path}[{i}]", "Must be an object")
+        for i, item in enumerate(items)
+        if not isinstance(item, dict)
+    ]
+    return _dicts(items)
 
 
 def _dicts(items: list[Any]) -> list[tuple[int, dict[str, Any]]]:

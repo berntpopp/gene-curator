@@ -142,6 +142,7 @@ class TestPointModel:
             },
             {"key": "experimental", "cap": 6.0, "categories": []},
         ],
+        "overrides": [{"when": "contradictory", "class": "disputed"}],
         # as templates/clingen_sop_v11.json orders them
         "bands": [
             {"class": "definitive", "min": 12, "requires": "replicated_over_time"},
@@ -151,39 +152,74 @@ class TestPointModel:
             {"class": "refuted"},
         ],
     }
+    P = "scoring_configuration.point_model"
 
     def scoring(self, **changes: Any) -> list[str]:
-        cfg = {"engine": "clingen_sop_v11", "point_model": {**self.MODEL, **changes}}
-        return [p for p, _ in errors(scoring_configuration=cfg)]
+        model = {k: v for k, v in {**self.MODEL, **changes}.items() if v is not None}
+        cfg = {"engine": "clingen_sop_v11", "point_model": model}
+        return [p.removeprefix(self.P) for p, _ in errors(scoring_configuration=cfg)]
+
+    def section(self, **cat: Any) -> list[dict[str, Any]]:
+        return [{"key": "s", "categories": [{"key": "c", "types": [], **cat}]}]
 
     def test_valid_point_model(self) -> None:
         assert self.scoring() == []
 
+    @pytest.mark.parametrize("key", ["sections", "bands"])
+    @pytest.mark.parametrize("value", [None, {"a": 1}])
+    def test_sections_and_bands_are_required_lists(self, key: str, value: Any) -> None:
+        assert self.scoring(**{key: value}) == [f".{key}"]
+
+    def test_scorer_indexed_keys_are_required(self) -> None:
+        sections = [
+            "junk",
+            {"categories": [{"types": [{}]}, {"key": "c"}]},
+            {"key": "s"},
+        ]
+        assert self.scoring(sections=sections) == [
+            ".sections[0]",
+            ".sections[1].key",
+            ".sections[1].categories[0].key",
+            ".sections[1].categories[0].types[0].path",
+            ".sections[1].categories[1].types",
+            ".sections[2].categories",
+        ]
+
+    def test_overrides_and_bands_need_their_keys(self) -> None:
+        overrides = [{"class": "disputed"}, "junk"]
+        bands = [{"min": 1}, 5]
+        assert self.scoring(overrides=overrides, bands=bands) == [
+            ".overrides[1]",
+            ".overrides[0].when",
+            ".bands[1]",
+            ".bands[0].class",
+        ]
+
     def test_caps_must_be_numeric_and_keys_unique(self) -> None:
         sections = [
-            {"key": "a", "cap": "12", "categories": [{"key": "c"}, {"key": "c"}]},
-            "junk",
-            {"key": "a", "cap": True},
+            {"key": "a", "cap": "12", "categories": []},
+            {"key": "a", "cap": True, "categories": []},
         ]
         assert self.scoring(total_cap="18", sections=sections) == [
-            "scoring_configuration.point_model.total_cap",
-            "scoring_configuration.point_model.sections[0].cap",
-            "scoring_configuration.point_model.sections[2].cap",
-            "scoring_configuration.point_model.sections[2].key",
-            "scoring_configuration.point_model.sections[0].categories[1].key",
+            ".total_cap",
+            ".sections[0].cap",
+            ".sections[1].cap",
+            ".sections[1].key",
+        ]
+        cats = [{"key": "c", "types": []}, {"key": "c", "types": []}]
+        assert self.scoring(sections=[{"key": "s", "categories": cats}]) == [
+            ".sections[0].categories[1].key"
         ]
 
     @pytest.mark.parametrize("rng", [[3, 0], [0], ["0", 1], "0..3"])
     def test_type_range_must_be_ordered_pair(self, rng: Any) -> None:
-        cat = {"key": "c", "combine": "avg", "types": [{"path": "p", "range": rng}]}
-        assert self.scoring(sections=[{"key": "s", "categories": [cat]}]) == [
-            "scoring_configuration.point_model.sections[0].categories[0].combine",
-            "scoring_configuration.point_model.sections[0].categories[0].types[0].range",
+        sections = self.section(combine="avg", types=[{"path": "p", "range": rng}])
+        assert self.scoring(sections=sections) == [
+            ".sections[0].categories[0].combine",
+            ".sections[0].categories[0].types[0].range",
         ]
 
-    @pytest.mark.parametrize(
-        "bands",
-        [[{"min": 1}, {"min": 7}], [{"min": "1"}], [{"class": "x", "min": None}]],
-    )
-    def test_bands_must_not_increase(self, bands: list[Any]) -> None:
-        assert self.scoring(bands=bands) == ["scoring_configuration.point_model.bands"]
+    @pytest.mark.parametrize("mins", [[1, 7], ["1"], [None]])
+    def test_bands_must_not_increase(self, mins: list[Any]) -> None:
+        bands = [{"class": f"b{i}", "min": m} for i, m in enumerate(mins)]
+        assert self.scoring(bands=bands) == [".bands"]
