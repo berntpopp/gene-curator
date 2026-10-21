@@ -371,7 +371,8 @@
   import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
   import { evidenceCountsText } from '@/components/curation/evidenceCounts'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
-  import { computeScores, classifyScores, type EvidenceData } from './curationScores'
+  import type { EvidenceData } from './curationScores'
+  import { useCurationClassification } from './useCurationClassification'
   import BaseDialog from '@/components/BaseDialog.vue'
 
   interface CurationRecord {
@@ -444,20 +445,7 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
-  // Calculate scores from evidence_data
-  const scores = computed(() => computeScores(curation.value?.evidence_data))
-
-  // Classification based on score
-  const classification = computed(() => {
-    const evidence = curation.value?.evidence_data as
-      { contradictory_evidence?: unknown[]; replicated_over_time?: boolean } | undefined
-    return classifyScores(
-      scores.value.total,
-      scores.value.genetic,
-      (evidence?.contradictory_evidence?.length ?? 0) > 0,
-      evidence?.replicated_over_time === true
-    )
-  })
+  const { scores, classification } = useCurationClassification(() => curation.value?.evidence_data)
 
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => {

@@ -223,4 +223,21 @@ describe('ClinGenCurationForm', () => {
     expect(wrapper.text()).toContain('Renal cysts')
     expect(wrapper.text()).toContain('AD')
   })
+
+  it('does not flip to Disputed for an empty contradictory row', () => {
+    const blank = { ...withCaseLevel, contradictory_evidence: [{ pmid: '', description: ' ' }] }
+    wrapper = mount(ClinGenCurationForm, { props: { gene, initialData: blank } })
+    expect(wrapper.findComponent(ScoreSummary).props('classification')).not.toBe('Disputed')
+
+    const filled = { ...withCaseLevel, contradictory_evidence: [{ pmid: '12345678' }] }
+    const other = mount(ClinGenCurationForm, { props: { gene, initialData: filled } })
+    expect(other.findComponent(ScoreSummary).props('classification')).toBe('Disputed')
+    other.unmount()
+  })
+
+  it('lets the action bar wrap on narrow screens', () => {
+    wrapper = mount(ClinGenCurationForm, { props: { gene } })
+    const bar = findButton(wrapper, 'Submit for review').element.parentElement
+    expect(bar?.classList.contains('flex-wrap')).toBe(true)
+  })
 })

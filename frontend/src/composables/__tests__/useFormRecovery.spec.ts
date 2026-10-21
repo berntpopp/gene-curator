@@ -227,4 +227,27 @@ describe('useFormRecovery', () => {
     auth.clearAuth()
     expect(localStorage.getItem('form_recovery_user-1_test-form')).toBeNull()
   })
+
+  describe('dropIfSaved', () => {
+    it('closes the dialog and forgets a snapshot equal to the saved data (key order aside)', () => {
+      localStorage.setItem(KEY, saved({ a: 1, b: { c: 2, d: 3 } }))
+      const { api } = mountRecovery(ref({}))
+      expect(api.showRecoveryDialog.value).toBe(true)
+
+      api.dropIfSaved({ b: { d: 3, c: 2 }, a: 1 })
+
+      expect(api.showRecoveryDialog.value).toBe(false)
+      expect(localStorage.getItem(KEY)).toBeNull()
+    })
+
+    it('keeps offering a snapshot that differs from the saved data', () => {
+      localStorage.setItem(KEY, saved({ a: 2 }))
+      const { api } = mountRecovery(ref({}))
+
+      api.dropIfSaved({ a: 1 })
+
+      expect(api.showRecoveryDialog.value).toBe(true)
+      expect(localStorage.getItem(KEY)).not.toBeNull()
+    })
+  })
 })

@@ -19,6 +19,7 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
+from app.crud.precuration_required import MissingRequiredFieldsError
 from app.models import CurationStatus, UserNew
 from app.schemas.precuration import (
     Precuration,
@@ -349,6 +350,11 @@ def submit_precuration(
             submit_data=submit_in,
             user_id=current_user.id,
         )
+    except MissingRequiredFieldsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail={"message": str(e), "fields": e.fields},
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

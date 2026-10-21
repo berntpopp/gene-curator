@@ -31,6 +31,7 @@ from app.schemas.curation import (
     CurationSubmit,
     CurationSummary,
     CurationUpdate,
+    disease_fields,
 )
 from app.scoring.clingen import ClinGenEngine
 
@@ -46,10 +47,7 @@ def get_disease_fields(
     evidence: dict[str, Any] | None, precuration_evidence: dict[str, Any] | None
 ) -> dict[str, Any]:
     """Prefer curation disease fields, falling back to the linked precuration."""
-    return {
-        key: (evidence or {}).get(key) or (precuration_evidence or {}).get(key)
-        for key in ("disease_name", "mondo_id", "mode_of_inheritance")
-    }
+    return disease_fields(evidence, precuration_evidence)
 
 
 def _update_computed_scores(curation: CurationNew) -> None:

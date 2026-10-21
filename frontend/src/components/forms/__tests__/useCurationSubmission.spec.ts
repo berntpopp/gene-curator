@@ -10,7 +10,8 @@ const curationsStore = vi.hoisted(() => ({
   saveDraft: vi.fn(),
   createCuration: vi.fn(),
   submitCuration: vi.fn(),
-  updateCuration: vi.fn()
+  updateCuration: vi.fn(),
+  error: null as { message: string } | null
 }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
@@ -87,6 +88,30 @@ describe('useCurationSubmission', () => {
 
       expect(s.onSaved).not.toHaveBeenCalled()
       expect(s.lockVersion.value).toBe(3)
+    })
+
+    it('shows the API error, never a success toast, when the save is refused (403)', async () => {
+      curationsStore.saveDraft.mockResolvedValue(null)
+      curationsStore.error = { message: 'Not enough permissions' }
+      const { api, s } = setup('cur-1')
+
+      await api.handleSaveDraft()
+
+      expect(addToast).toHaveBeenCalledWith('Not enough permissions', 'error')
+      expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
+      expect(s.clearRecovery).not.toHaveBeenCalled()
+      curationsStore.error = null
+    })
+
+    it('shows the API detail when submit fails', async () => {
+      curationsStore.submitCuration.mockRejectedValue({
+        response: { data: { detail: 'Curation is not in draft' } }
+      })
+      const { api } = setup('cur-1')
+
+      await api.handleSubmit()
+
+      expect(addToast).toHaveBeenCalledWith('Curation is not in draft', 'error')
     })
 
     it('creates a curation and navigates to its editor when there is none yet', async () => {

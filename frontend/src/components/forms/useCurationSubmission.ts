@@ -4,6 +4,7 @@ import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useLogger } from '@/composables/useLogger'
 import type { ClinGenEvidenceData } from '@/components/clingen/types'
+import { apiDetail } from './apiDetail'
 import type { ApiErrorLike } from './types'
 
 export type EvidenceData = Record<string, unknown>
@@ -74,10 +75,16 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       const id = curationId()
       if (id) {
         const updated = (await curationsStore.saveDraft(id, payload)) as CurationRecord | undefined
-        if (updated) {
-          lockVersion.value = updated.lock_version as number
-          options.onSaved()
+        if (!updated) {
+          // The store swallows save errors and returns nothing: surface them, no success toast
+          notificationsStore.addToast(
+            curationsStore.error?.message || 'Failed to save draft',
+            'error'
+          )
+          return
         }
+        lockVersion.value = updated.lock_version as number
+        options.onSaved()
       } else {
         // Create new curation as draft
         const created = (await curationsStore.createCuration(
@@ -94,7 +101,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       clearRecovery()
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to save draft', 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
     } finally {
       savingDraft.value = false
     }
@@ -127,7 +134,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       options.onSubmit()
     } catch (error) {
       logger.error('Failed to submit curation', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to submit curation', 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to submit curation'), 'error')
     } finally {
       submitting.value = false
     }
@@ -161,7 +168,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       options.onSubmit()
     } catch (error) {
       logger.error('Failed to submit ClinGen curation', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to submit curation', 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to submit curation'), 'error')
     } finally {
       submitting.value = false
     }
@@ -179,10 +186,16 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           evidence_data: { ...clingenEvidenceData },
           lock_version: lockVersion.value
         })) as CurationRecord | undefined
-        if (updated) {
-          lockVersion.value = updated.lock_version as number
-          options.onSaved()
+        if (!updated) {
+          // The store swallows save errors and returns nothing: surface them, no success toast
+          notificationsStore.addToast(
+            curationsStore.error?.message || 'Failed to save draft',
+            'error'
+          )
+          return
         }
+        lockVersion.value = updated.lock_version as number
+        options.onSaved()
       } else {
         // Create new curation as draft
         const created = (await curationsStore.createCuration(
@@ -199,7 +212,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       clearRecovery()
     } catch (error) {
       logger.error('Failed to save ClinGen draft', { error: (error as ApiErrorLike).message })
-      notificationsStore.addToast('Failed to save draft', 'error')
+      notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
     } finally {
       savingDraft.value = false
     }

@@ -39,6 +39,27 @@ class TestDefinitiveAndContradictory:
         dis = {**rep, "contradictory_evidence": [{"pmid": "1"}]}
         assert engine.calculate_scores(dis, {}).verdict == "disputed"
 
+    def test_empty_contradictory_row_does_not_dispute(self, engine: ClinGenEngine):
+        null = {"pmid": "12345678", "proband_counted_points": 3.0}
+        case = {
+            "autosomal_dominant_or_x_linked": {"predicted_or_proven_null": [null] * 4}
+        }
+        base = {"genetic_evidence": {"case_level": case}, "experimental_evidence": {}}
+        blank = {"pmid": "", "description": "  ", "tags": [], "note": None}
+        fresh = {
+            "label": "",
+            "pmid": "",
+            "evidence_type": "population",
+            "description": "",
+            "impact": "note",
+            "explanation": "",
+        }
+        for rows in ([blank], [{}], [blank, {}], [fresh]):
+            ev = {**base, "contradictory_evidence": rows}
+            assert engine.calculate_scores(ev, {}).verdict == "strong"
+        ev = {**base, "contradictory_evidence": [blank, {"pmid": "1"}]}
+        assert engine.calculate_scores(ev, {}).verdict == "disputed"
+
     def test_rationale_uses_sop_v11_ranges(self, engine: ClinGenEngine):
         text = engine._generate_rationale(1, 0, 1, "limited")
         assert "1-6 points" in text

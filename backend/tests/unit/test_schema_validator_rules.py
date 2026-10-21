@@ -483,3 +483,56 @@ class TestGenerateJsonSchema:
             "properties": {"x": {"type": "number"}},
             "required": ["x"],
         }
+
+
+_MONDO_DEFS = {
+    "entity_definition": {
+        "type": "object",
+        "properties": {"mondo_id": {"type": "string", "validation": "mondo_id_format"}},
+    }
+}
+_MONDO_RULES = {
+    "mondo_id_format": {
+        "type": "regex",
+        "pattern": "^MONDO:[0-9]{7}$",
+        "message": "MONDO ID must look like MONDO:0000000",
+    }
+}
+
+
+class TestNamedRegexRules:
+    def _validate(self, validator, mondo_id):
+        return validator.validate_evidence_data(
+            {"entity_definition": {"mondo_id": mondo_id}},
+            {"field_definitions": _MONDO_DEFS, "validation_rules": _MONDO_RULES},
+        )
+
+    def test_bad_mondo_id_gets_the_format_message_not_the_detail_hint(self, validator):
+        result = self._validate(validator, "MONDO:12")
+
+        assert [e["message"] for e in result.errors] == [
+            "MONDO ID must look like MONDO:0000000"
+        ]
+        assert not any("detailed description" in w["message"] for w in result.warnings)
+
+    def test_valid_mondo_id_passes(self, validator):
+        assert self._validate(validator, "MONDO:0000123").is_valid
+
+
+def test_disease_fields_read_nested_and_flat_shapes():
+    from app.schemas.curation import disease_fields
+
+    nested = {"entity_definition": {"disease_name": "D", "mondo_id": "M"}}
+    flat = {"disease_name": "F", "mode_of_inheritance": "AD"}
+
+    assert disease_fields({}, nested) == {
+        "disease_name": "D",
+        "mondo_id": "M",
+        "mode_of_inheritance": None,
+    }
+    assert disease_fields(flat, nested) == {
+        "disease_name": "F",
+        "mondo_id": "M",
+        "mode_of_inheritance": "AD",
+    }
+    assert disease_fields(None, None)["disease_name"] is None

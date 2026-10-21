@@ -109,7 +109,7 @@
               <div class="font-weight-medium mb-2">Form Validation Errors</div>
               <ul class="pl-4">
                 <li v-for="item in validationResult.errors" :key="item.field">
-                  <strong>{{ item.field }}:</strong> {{ item.message }}
+                  <strong>{{ labelFor(item.field) }}:</strong> {{ item.message }}
                 </li>
               </ul>
             </v-alert>
@@ -142,7 +142,7 @@
               <div class="font-weight-medium mb-2">Form Warnings</div>
               <ul class="pl-4">
                 <li v-for="warning in validationResult.warnings" :key="warning.field">
-                  <strong>{{ warning.field }}:</strong> {{ warning.message }}
+                  <strong>{{ labelFor(warning.field) }}:</strong> {{ warning.message }}
                 </li>
               </ul>
             </v-alert>
@@ -191,6 +191,7 @@
   import ScoreDisplay from './ScoreDisplay.vue'
   import { useFormTabs } from './composables/useFormTabs'
   import { errorDetails } from './errorDetails'
+  import { labelForPath } from './fieldLabels'
   import { toFormValidation } from './validationResult'
   import type {
     FieldSchema,
@@ -246,12 +247,17 @@
   let fieldUpdateTimer: ReturnType<typeof setTimeout> | undefined
   let tabUpdateTimer: ReturnType<typeof setTimeout> | undefined
 
-  const loading = computed(() => validationStore.loading)
+  // Spinner only for the initial schema load: validation toggles store.loading on every
+  // keystroke and must never unmount the form.
+  const loading = computed(
+    () => validationStore.loading && !validationStore.getJsonSchema(props.schemaId)
+  )
   const error = computed(() => validationStore.error)
   // The store is untyped JS; an unloaded schema is treated as an empty document
   const jsonSchema = computed<JsonSchemaDocument>(
     () => validationStore.getJsonSchema(props.schemaId) ?? {}
   )
+  const labelFor = (path?: string) => (path ? labelForPath(jsonSchema.value, path) : '')
   const validationResult = computed(() => {
     const raw = validationStore.getValidationResult('form')
     return raw ? toFormValidation(raw) : undefined
@@ -271,6 +277,20 @@
   const showScoring = computed(() => {
     return jsonSchema.value?.scoring_configuration?.engine != null
   })
+
+  // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
+  // the user already edited, i.e. the form no longer matches the previously seen initial data.
+  let userEdited = false // the parent mirrors edits into initialData, so compare alone is not enough
+  let seenInitial = JSON.stringify(props.initialData)
+  watch(
+    () => JSON.stringify(props.initialData),
+    next => {
+      if (next !== seenInitial && !userEdited && JSON.stringify(formData.value) === seenInitial) {
+        formData.value = JSON.parse(next)
+      }
+      seenInitial = next
+    }
+  )
 
   const hasChanges = computed(() => {
     return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
@@ -306,6 +326,7 @@
 
   const updateField = (fieldName: string, value: unknown) => {
     clearFieldBackendError(fieldName)
+    userEdited = true
     formData.value[fieldName] = value
     // Trigger validation debounced
     clearTimeout(fieldUpdateTimer)
@@ -334,6 +355,7 @@
    */
   const handleTabFieldUpdate = (fieldPath: string, value: unknown) => {
     clearFieldBackendError(fieldPath)
+    userEdited = true
 
     // Handle nested paths using dot notation
     if (fieldPath.includes('.')) {

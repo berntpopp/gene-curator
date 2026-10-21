@@ -14,6 +14,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
+from app.crud.precuration_required import (
+    MissingRequiredFieldsError,
+    missing_required_fields,
+)
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -26,6 +30,7 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
+from app.schemas.curation import disease_fields
 from app.schemas.precuration import (
     PrecurationApprovalResult,
     PrecurationCreate,
@@ -189,11 +194,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 scope_name=row.scope_name,
                 status=row.PrecurationNew.status,
                 workflow_stage=row.PrecurationNew.workflow_stage,
-                mondo_id=row.PrecurationNew.evidence_data.get("mondo_id"),
-                disease_name=row.PrecurationNew.evidence_data.get("disease_name"),
-                mode_of_inheritance=row.PrecurationNew.evidence_data.get(
-                    "mode_of_inheritance"
-                ),
+                **disease_fields(row.PrecurationNew.evidence_data, None),
                 is_draft=row.PrecurationNew.is_draft,
                 created_at=row.PrecurationNew.created_at,
                 updated_at=row.PrecurationNew.updated_at,
@@ -318,6 +319,15 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew:
         """Submit precuration for review via workflow engine."""
+        schema = db_obj.precuration_schema
+        missing = missing_required_fields(
+            schema.field_definitions if schema else None,
+            db_obj.evidence_data,
+            schema.validation_rules if schema else None,
+        )
+        if missing:
+            raise MissingRequiredFieldsError(missing)
+
         # Validate lumping/splitting consistency
         evidence = db_obj.evidence_data or {}
         if evidence.get("lumping_splitting_applicable"):

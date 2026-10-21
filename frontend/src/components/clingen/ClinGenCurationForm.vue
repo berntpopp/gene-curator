@@ -120,7 +120,7 @@
 
           <!-- Form Actions -->
           <v-divider />
-          <v-card-actions class="pa-4">
+          <v-card-actions class="pa-4 flex-wrap ga-2">
             <v-btn variant="outlined" @click="handleCancel">
               <v-icon start>mdi-close</v-icon>
               Cancel
@@ -214,6 +214,7 @@
   import SummarySection from './sections/SummarySection.vue'
   import GeneticEvidenceSection from './sections/GeneticEvidenceSection.vue'
   import ExperimentalEvidenceSection from './sections/ExperimentalEvidenceSection.vue'
+  import { hasContent } from './hasContent'
   import ContradictoryEvidenceSection from './sections/ContradictoryEvidenceSection.vue'
   import LumpingSplittingSection from './sections/LumpingSplittingSection.vue'
   import ScoreSummary from './ScoreSummary.vue'
@@ -295,8 +296,8 @@
 
   const expertPanel = computed(() => props.precurationData?.expert_panel || 'Not specified')
 
-  const hasContradictoryEvidence = computed(
-    () => (evidenceData.value.contradictory_evidence?.length ?? 0) > 0
+  const hasContradictoryEvidence = computed(() =>
+    hasContent(evidenceData.value.contradictory_evidence)
   )
 
   // Score calculations

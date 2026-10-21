@@ -35,7 +35,9 @@ class SchemaValidationResult:
             self.field_validations[field] = {"errors": [], "warnings": []}
         self.field_validations[field]["errors"].append(error)
 
-    def check_pattern(self, field: str, pattern: str, value: str) -> None:
+    def check_pattern(
+        self, field: str, pattern: str, value: str, config: dict[str, Any] | None = None
+    ) -> bool:
         """Error if value does not match pattern; a bad pattern is a schema error."""
         try:
             matched = re.match(pattern, value)
@@ -43,9 +45,15 @@ class SchemaValidationResult:
             self.add_error(
                 field, "Schema has an invalid regex pattern", "configuration"
             )
-            return
+            return False
         if not matched:
-            self.add_error(field, "Text does not match required pattern", "pattern")
+            self.add_error(
+                field,
+                (config or {}).get("pattern_message")
+                or "Text does not match required pattern",
+                "pattern",
+            )
+        return bool(matched)
 
     def add_warning(
         self, field: str, message: str, warning_type: str = "quality"

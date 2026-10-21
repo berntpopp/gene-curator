@@ -414,6 +414,7 @@
 <script setup lang="ts">
   import { ref, computed, type Component } from 'vue'
   import { componentRegistry } from './componentRegistry'
+  import { humanize } from './fieldLabels'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationRules } from './composables/useValidationRules'
   import DynamicNestedField from './DynamicNestedField.vue'
@@ -565,7 +566,10 @@
 
     return (
       props.fieldSchema.enum?.map(value => ({
-        title: value,
+        title:
+          typeof value === 'string' && /^[a-z0-9]+(_[a-z0-9]+)+$/.test(value)
+            ? humanize(value)
+            : value,
         value
       })) || []
     )
