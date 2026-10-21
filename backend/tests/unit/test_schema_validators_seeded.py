@@ -2,6 +2,7 @@
 
 from app.crud.schema_validators import (
     FieldDefinitionsValidator,
+    ScoringConfigurationValidator,
     WorkflowStatesValidator,
 )
 
@@ -35,3 +36,40 @@ class TestSeededWorkflowStates:
         schema = {"workflow_states": {"entry": {"label": "Entry"}, "active": {}}}
 
         assert self.validator.validate(schema) == []
+
+
+class TestStricterSeededFormats:
+    def test_section_fields_are_validated(self) -> None:
+        bad = {
+            "field_definitions": {"sections": [{"fields": [{"id": "x", "label": "X"}]}]}
+        }
+        good = {
+            "field_definitions": {
+                "sections": [
+                    {
+                        "fields": [
+                            {"id": "x", "type": "external_reference", "label": "X"}
+                        ]
+                    }
+                ]
+            }
+        }
+
+        assert len(FieldDefinitionsValidator().validate(bad)) == 1
+        assert FieldDefinitionsValidator().validate(good) == []
+
+    def test_state_keyed_map_values_must_be_dicts(self) -> None:
+        validator = WorkflowStatesValidator()
+
+        assert validator.validate({"workflow_states": {"draft": 5}})
+        assert validator.validate({"workflow_states": {"transitions": {"a": ["b"]}}})
+
+    def test_unknown_scoring_engine_is_reported(self) -> None:
+        validator = ScoringConfigurationValidator()
+
+        found = validator.validate({"scoring_configuration": {"engine": "nope"}})
+        assert [m.severity for m in found] == ["warning"]
+        assert (
+            validator.validate({"scoring_configuration": {"engine": "clingen_sop_v11"}})
+            == []
+        )

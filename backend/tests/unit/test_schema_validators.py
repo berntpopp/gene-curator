@@ -652,7 +652,7 @@ class TestIntegrationScenarios:
             },
             "workflow_states": ["draft", "submitted", "published"],
             "ui_configuration": {"sections": [{"title": "Classification"}]},
-            "scoring_configuration": {"engine": "gencc"},
+            "scoring_configuration": {"engine": "gencc_based"},
         }
 
         messages = self.chain.validate(schema)

@@ -119,6 +119,16 @@ describe('WorkflowManagement', () => {
     expect(fetchPairs).toHaveBeenCalledWith({ active_only: false })
   })
 
+  it('offers only active schemas in the create-pair dropdowns', async () => {
+    const { schemas, vm } = await mountView()
+    schemas.schemas = [
+      { id: 'a', name: 'A', schema_type: 'curation', is_active: true },
+      { id: 'b', name: 'B', schema_type: 'curation', is_active: false }
+    ] as never
+    await nextTick()
+    expect((vm.curationSchemas as { id: string }[]).map(x => x.id)).toEqual(['a'])
+  })
+
   it('shows an inactive pair as Inactive', async () => {
     const { wrapper, schemas } = await mountView()
     schemas.workflowPairs = [{ ...pair, is_active: false }] as never

@@ -110,6 +110,34 @@ class TestWorkflowPairs:
         assert response.status_code == 400
         assert "Precuration schema must be" in response.json()["detail"]
 
+    def test_create_and_update_reject_inactive_schemas(
+        self, client: TestClient, db_session: Session, schema_pair, admin_token: str
+    ):
+        precur, cur = schema_pair
+        off = insert_schema(
+            db_session, name="Off", schema_type="curation", is_active=False
+        )
+        pair = insert_pair(db_session, precur, cur, name="live")
+        body = {
+            "name": "n",
+            "version": "1.0",
+            "precuration_schema_id": str(precur.id),
+            "curation_schema_id": str(off.id),
+        }
+
+        created = client.post(
+            f"{BASE}/workflow-pairs", json=body, headers=auth(admin_token)
+        )
+        updated = client.put(
+            f"{BASE}/workflow-pairs/{pair.id}",
+            json={"curation_schema_id": str(off.id)},
+            headers=auth(admin_token),
+        )
+
+        assert created.status_code == 400
+        assert "inactive" in created.json()["detail"]
+        assert updated.status_code == 400
+
     def test_create_rejects_missing_schema(
         self, client: TestClient, schema_pair, admin_token: str
     ):

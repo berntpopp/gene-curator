@@ -351,10 +351,13 @@
   // workflowStages are static configuration in workflowStore
   const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
-  const precurationSchemas = computed(
-    (): SchemaOption[] => schemasStore.getPrecurationSchemas || []
+  // Admin pages load inactive schemas too, but a pair may only reference active ones
+  const precurationSchemas = computed((): SchemaOption[] =>
+    (schemasStore.getPrecurationSchemas || []).filter(s => s.is_active)
   )
-  const curationSchemas = computed((): SchemaOption[] => schemasStore.getCurationSchemas || [])
+  const curationSchemas = computed((): SchemaOption[] =>
+    (schemasStore.getCurationSchemas || []).filter(s => s.is_active)
+  )
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {

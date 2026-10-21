@@ -28,6 +28,15 @@ from app.scoring.registry import scoring_registry
 router = APIRouter()
 
 
+def _require_active_schemas(db: Session, *schema_ids: UUID | None) -> None:
+    for schema_id in schema_ids:
+        schema = schema_crud.get(db, id=schema_id) if schema_id else None
+        if schema and not schema.is_active:
+            raise HTTPException(
+                status_code=400, detail=f"Schema '{schema.name}' is inactive"
+            )
+
+
 # ========================================
 # CURATION SCHEMAS ENDPOINTS
 # ========================================
@@ -272,6 +281,8 @@ def create_workflow_pair(
             detail="Curation schema must be of type 'curation' or 'combined'",
         )
 
+    _require_active_schemas(db, precuration_schema.id, curation_schema.id)
+
     workflow_pair = workflow_pair_crud.create_with_owner(
         db, obj_in=workflow_pair_in, owner_id=current_user.id
     )
@@ -310,6 +321,11 @@ def update_workflow_pair(
     if not workflow_pair:
         raise HTTPException(status_code=404, detail="Workflow pair not found")
 
+    _require_active_schemas(
+        db,
+        workflow_pair_in.precuration_schema_id,
+        workflow_pair_in.curation_schema_id,
+    )
     workflow_pair = workflow_pair_crud.update(
         db, db_obj=workflow_pair, obj_in=workflow_pair_in
     )

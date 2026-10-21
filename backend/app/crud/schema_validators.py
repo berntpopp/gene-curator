@@ -112,6 +112,8 @@ class FieldDefinitionsValidator(SchemaValidator):
         "string",
         "integer",
         "enum",
+        "textarea",
+        "external_reference",
     ]
 
     @property
@@ -151,7 +153,21 @@ class FieldDefinitionsValidator(SchemaValidator):
         # Validate each field definition
         for field_name, field_config in field_defs.items():
             if field_name == "sections" and isinstance(field_config, list):
-                continue  # sectioned layout (seeded precuration schema), not a field
+                # sectioned layout (seeded precuration schema): check each section's fields
+                for section in field_config:
+                    fields = (
+                        section.get("fields", []) if isinstance(section, dict) else []
+                    )
+                    for field_def in fields:
+                        key = (
+                            field_def.get("id", "?")
+                            if isinstance(field_def, dict)
+                            else "?"
+                        )
+                        messages.extend(
+                            self._validate_single_field(str(key), field_def)
+                        )
+                continue
             messages.extend(self._validate_single_field(field_name, field_config))
 
         return messages
@@ -246,8 +262,19 @@ class WorkflowStatesValidator(SchemaValidator):
                     for s in workflow_states["states"]
                     if isinstance(s, dict)
                 ]
-            else:
+            elif "transitions" not in workflow_states and all(
+                isinstance(v, dict) for v in workflow_states.values()
+            ):
                 # State-keyed map (seeded SOP schemas): custom state names, nothing required
+                return messages
+            else:
+                messages.append(
+                    ValidationMessage(
+                        severity="error",
+                        message="workflow_states must list states or map state names to objects",
+                        field_path="workflow_states",
+                    )
+                )
                 return messages
         elif isinstance(workflow_states, list):
             state_names = workflow_states
@@ -373,6 +400,18 @@ class ScoringConfigurationValidator(SchemaValidator):
                     field_path="scoring_configuration.engine",
                 )
             )
+        else:
+            from app.scoring.registry import scoring_registry
+
+            # Warning, not error: seed 014 names the unregistered engine "clingen"
+            if scoring_registry.get_engine(str(scoring_config["engine"])) is None:
+                messages.append(
+                    ValidationMessage(
+                        severity="warning",
+                        message=f"Unknown scoring engine: {scoring_config['engine']}",
+                        field_path="scoring_configuration.engine",
+                    )
+                )
 
         return messages
 
