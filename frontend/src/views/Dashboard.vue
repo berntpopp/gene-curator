@@ -20,7 +20,7 @@
         <v-card>
           <v-card-title class="d-flex align-center">
             <v-icon start>mdi-domain</v-icon>
-            My Clinical Scopes
+            {{ TERMINOLOGY.SCOPES }}
             <v-spacer />
             <v-btn variant="text" size="small" to="/scopes"> View All </v-btn>
           </v-card-title>
@@ -78,7 +78,7 @@
 
               <v-btn v-if="isAdmin" color="warning" variant="outlined" block to="/admin/schemas">
                 <v-icon start>mdi-cog</v-icon>
-                Schema Management
+                {{ TERMINOLOGY.TEMPLATES }}
               </v-btn>
             </div>
           </v-card-text>
@@ -89,6 +89,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { useLogger } from '@/composables/useLogger'
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
   import { ref, computed, onMounted } from 'vue'

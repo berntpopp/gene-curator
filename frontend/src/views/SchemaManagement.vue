@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">Schema Management</h1>
+        <h1 class="text-h4 font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
         <p class="text-body-1 text-medium-emphasis mt-1">
           Manage curation methodologies and schema definitions
         </p>
@@ -11,7 +11,7 @@
       <v-spacer />
       <v-btn color="primary" variant="flat" size="large" @click="createSchemaDialog = true">
         <v-icon start>mdi-plus</v-icon>
-        New Schema
+        New {{ TERMINOLOGY.TEMPLATE }}
       </v-btn>
     </div>
 
@@ -19,7 +19,7 @@
     <v-card>
       <v-card-title>
         <v-icon start>mdi-file-document-outline</v-icon>
-        Schemas ({{ filteredSchemas.length }})
+        {{ TERMINOLOGY.TEMPLATES }} ({{ filteredSchemas.length }})
       </v-card-title>
 
       <v-card-text class="pb-0">
@@ -27,7 +27,7 @@
           <v-col cols="12" sm="6" md="4">
             <v-text-field
               v-model="searchQuery"
-              placeholder="Search schemas..."
+              placeholder="Search templates..."
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
               density="compact"
@@ -123,7 +123,7 @@
     <!-- Create Schema Dialog -->
     <v-dialog v-model="createSchemaDialog" max-width="600">
       <v-card>
-        <v-card-title>Create New Schema</v-card-title>
+        <v-card-title>Create New {{ TERMINOLOGY.TEMPLATE }}</v-card-title>
         <v-card-text>
           <v-form ref="createForm">
             <v-text-field
@@ -173,6 +173,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'

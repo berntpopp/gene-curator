@@ -2,7 +2,7 @@
   <v-card :color="cardColor" variant="tonal">
     <v-card-title class="d-flex align-center">
       <v-icon start :color="classificationColor">mdi-chart-line</v-icon>
-      <span class="text-subtitle-1">ClinGen SOP v11 Score</span>
+      <span class="text-subtitle-1">ClinGen Score</span>
       <v-spacer />
       <v-chip :color="classificationColor" size="small" variant="elevated" class="font-weight-bold">
         {{ breakdown.classification }}

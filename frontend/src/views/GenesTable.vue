@@ -4,7 +4,7 @@
     <v-container>
       <v-row align="center" justify="space-between" class="mb-4">
         <v-col cols="12" md="6">
-          <h1 class="text-h4 mb-2">Gene Database</h1>
+          <h1 class="text-h4 mb-2">{{ TERMINOLOGY.GENES }}</h1>
           <p class="text-subtitle-1 text-medium-emphasis">Browse and search genetic information</p>
         </v-col>
       </v-row>
@@ -140,6 +140,7 @@
 </template>
 
 <script setup lang="ts">
+  import { TERMINOLOGY } from '@/config/terminology'
   import { ref, computed, onMounted, watch } from 'vue'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'

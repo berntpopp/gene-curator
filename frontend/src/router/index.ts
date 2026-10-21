@@ -1,6 +1,7 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { logService } from '@/services/logService'
+import { TERMINOLOGY } from '@/config/terminology'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -62,7 +63,7 @@ const routes: RouteRecordRaw[] = [
     name: 'Login',
     component: Login,
     meta: {
-      title: 'Login',
+      title: TERMINOLOGY.SIGN_IN,
       requiresGuest: true
     }
   },
@@ -93,11 +94,11 @@ const routes: RouteRecordRaw[] = [
     name: 'scopes',
     component: ScopeList,
     meta: {
-      title: 'Clinical Scopes',
+      title: TERMINOLOGY.SCOPES,
       requiresAuth: true,
       showInMainMenu: true,
       icon: 'mdi-folder-multiple',
-      label: 'Scopes',
+      label: TERMINOLOGY.SCOPES,
       order: 1
     }
   },
@@ -201,11 +202,11 @@ const routes: RouteRecordRaw[] = [
     name: 'GeneCatalogue',
     component: GeneCatalogueView,
     meta: {
-      title: 'Gene Catalogue',
+      title: TERMINOLOGY.GENE_CATALOG,
       requiresAuth: false,
       showInMainMenu: true,
       icon: 'mdi-dna',
-      label: 'Gene Catalogue',
+      label: TERMINOLOGY.GENE_CATALOG,
       order: 2
     }
   },
@@ -214,12 +215,12 @@ const routes: RouteRecordRaw[] = [
     name: 'GeneAdmin',
     component: GenesTable,
     meta: {
-      title: 'Gene Database',
+      title: TERMINOLOGY.GENES,
       requiresAuth: true,
       requiredRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-dna',
-      label: 'Genes',
+      label: TERMINOLOGY.GENES,
       order: 4
     }
   },
@@ -271,12 +272,12 @@ const routes: RouteRecordRaw[] = [
     name: 'SchemaManagement',
     component: SchemaManagement,
     meta: {
-      title: 'Schema Management',
+      title: TERMINOLOGY.TEMPLATES,
       requiresAuth: true,
       requiredRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-file-document-outline',
-      label: 'Templates',
+      label: TERMINOLOGY.TEMPLATES,
       order: 1
     }
   },
@@ -296,12 +297,12 @@ const routes: RouteRecordRaw[] = [
     name: 'WorkflowManagement',
     component: WorkflowManagement,
     meta: {
-      title: 'Workflow Management',
+      title: TERMINOLOGY.WORKFLOWS,
       requiresAuth: true,
       requiredRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-sitemap-outline',
-      label: 'Workflows',
+      label: TERMINOLOGY.WORKFLOWS,
       order: 2
     }
   },
