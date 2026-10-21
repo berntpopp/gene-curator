@@ -5628,9 +5628,7 @@ export interface components {
              * Scope Summaries
              * @description Per-scope summary details
              */
-            scope_summaries: {
-                [key: string]: unknown;
-            }[];
+            scope_summaries: components["schemas"]["ScopeSummary"][];
             /**
              * Last Updated
              * Format: date-time
@@ -5700,9 +5698,7 @@ export interface components {
              * Scope Summaries
              * @description Per-scope summary details
              */
-            scope_summaries: {
-                [key: string]: unknown;
-            }[];
+            scope_summaries: components["schemas"]["ScopeSummary"][];
             /**
              * Last Updated
              * Format: date-time
@@ -8059,6 +8055,90 @@ export interface components {
              * @description Curations activated in last 30 days
              */
             activations_last_30_days: number;
+        };
+        /**
+         * ScopeSummary
+         * @description Summary of curation for a single scope
+         */
+        ScopeSummary: {
+            /**
+             * Scope Id
+             * Format: uuid
+             * @description Scope UUID
+             */
+            scope_id: string;
+            /**
+             * Scope Name
+             * @description Scope name (e.g., kidney-genetics)
+             */
+            scope_name: string;
+            /**
+             * Is Public
+             * @description Whether scope is public
+             */
+            is_public: boolean;
+            /**
+             * Classification
+             * @description Classification: definitive, strong, moderate, limited, no_known, disputed, refuted
+             */
+            classification?: string | null;
+            /**
+             * Curation Id
+             * @description Curation this row links to
+             */
+            curation_id?: string | null;
+            /**
+             * Disease Name
+             * @description Disease of the curation
+             */
+            disease_name?: string | null;
+            /**
+             * Mode Of Inheritance
+             * @description Mode of inheritance
+             */
+            mode_of_inheritance?: string | null;
+            /**
+             * Stage
+             * @description Workflow stage of the curation
+             */
+            stage?: string | null;
+            /**
+             * In Progress
+             * @description True for a member's not-yet-active curation
+             * @default false
+             */
+            in_progress: boolean;
+            /**
+             * Genetic Score
+             * @description Total genetic evidence score
+             */
+            genetic_score: number;
+            /**
+             * Experimental Score
+             * @description Total experimental evidence score
+             */
+            experimental_score: number;
+            /**
+             * Total Score
+             * @description Combined total score
+             */
+            total_score: number;
+            /**
+             * Last Updated
+             * Format: date-time
+             * @description Last curation update timestamp
+             */
+            last_updated: string;
+            /**
+             * Curator Count
+             * @description Number of curators involved
+             */
+            curator_count: number;
+            /**
+             * Evidence Count
+             * @description Total evidence items
+             */
+            evidence_count: number;
         };
         /**
          * ScopeUpdate
