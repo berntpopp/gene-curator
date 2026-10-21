@@ -183,6 +183,7 @@
   import { useSchemasStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
+  import { errorMessage } from '@/stores/apiError'
   import {
     transformSchemas,
     type TransformedSchema,
@@ -318,7 +319,7 @@
         error: err.message,
         stack: err.stack
       })
-      showError('Failed to duplicate schema')
+      showError(errorMessage(error, 'Failed to duplicate schema'))
     }
   }
 
@@ -336,7 +337,7 @@
           error: err.message,
           stack: err.stack
         })
-        showError('Failed to delete schema')
+        showError(errorMessage(error, 'Failed to delete schema'))
       }
     }
   }
@@ -349,13 +350,13 @@
     creating.value = true
     try {
       const { type, ...basics } = newSchema.value
-      // Created as an inactive skeleton; the fields are defined in the schema editor
+      // Created as an inactive skeleton that passes backend validation; edit it in the schema editor
       await schemasStore.createSchema({
         ...basics,
         schema_type: type as string,
-        field_definitions: {},
-        workflow_states: {},
-        ui_configuration: {},
+        field_definitions: { example_field: { type: 'string', title: 'Example field' } },
+        workflow_states: ['draft', 'submitted'],
+        ui_configuration: { sections: [] },
         is_active: false,
         use_dynamic_form: true
       })
@@ -376,7 +377,7 @@
         error: err.message,
         stack: err.stack
       })
-      showError('Failed to create schema')
+      showError(errorMessage(error, 'Failed to create schema'))
     } finally {
       creating.value = false
     }

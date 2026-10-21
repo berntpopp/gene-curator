@@ -108,6 +108,10 @@ class FieldDefinitionsValidator(SchemaValidator):
         "date",
         "select",
         "multiselect",
+        # JSON-schema style used by the seeded schemas and accepted by the renderer
+        "string",
+        "integer",
+        "enum",
     ]
 
     @property
@@ -146,6 +150,8 @@ class FieldDefinitionsValidator(SchemaValidator):
 
         # Validate each field definition
         for field_name, field_config in field_defs.items():
+            if field_name == "sections" and isinstance(field_config, list):
+                continue  # sectioned layout (seeded precuration schema), not a field
             messages.extend(self._validate_single_field(field_name, field_config))
 
         return messages
@@ -179,17 +185,15 @@ class FieldDefinitionsValidator(SchemaValidator):
             )
             return messages  # Can't continue if not a dict
 
-        # Check required properties
-        required_props = {"type": "type", "label": "label"}
-        for prop_name, prop_label in required_props.items():
-            if prop_name not in field_config:
-                messages.append(
-                    ValidationMessage(
-                        severity="error",
-                        message=f"Field '{field_name}' missing required property: {prop_label}",
-                        field_path=f"{field_path}.{prop_name}",
-                    )
+        # Only `type` is required; the renderer labels fields title -> label -> field key
+        if "type" not in field_config:
+            messages.append(
+                ValidationMessage(
+                    severity="error",
+                    message=f"Field '{field_name}' missing required property: type",
+                    field_path=f"{field_path}.type",
                 )
+            )
 
         # Validate field type
         if "type" in field_config:
@@ -233,14 +237,18 @@ class WorkflowStatesValidator(SchemaValidator):
 
         workflow_states = schema_data["workflow_states"]
 
-        # Seeded schemas use {"states": [{"name": ...}], "transitions": {...}};
-        # a plain list of state names is also accepted.
+        # Seeded schemas use {"states": [{"name": ...}], "transitions": {...}} or a map
+        # keyed by state name ({"entry": {...}}); a plain list of names is also accepted.
         if isinstance(workflow_states, dict):
-            state_names = [
-                s.get("name")
-                for s in workflow_states.get("states", [])
-                if isinstance(s, dict)
-            ]
+            if "states" in workflow_states:
+                state_names = [
+                    s.get("name")
+                    for s in workflow_states["states"]
+                    if isinstance(s, dict)
+                ]
+            else:
+                # State-keyed map (seeded SOP schemas): custom state names, nothing required
+                return messages
         elif isinstance(workflow_states, list):
             state_names = workflow_states
         else:
@@ -253,7 +261,6 @@ class WorkflowStatesValidator(SchemaValidator):
             )
             return messages
 
-        # Check for required states
         required_states = ["draft", "submitted"]
         for state in required_states:
             if state not in state_names:

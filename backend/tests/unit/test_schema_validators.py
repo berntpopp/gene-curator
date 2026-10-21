@@ -204,15 +204,11 @@ class TestFieldDefinitionsValidator:
         assert "missing required property" in messages[0].message
         assert "type" in messages[0].message
 
-    def test_missing_field_label(self) -> None:
-        """Test error when field is missing label."""
+    def test_missing_field_label_is_allowed(self) -> None:
+        """#207: the renderer falls back to the field key, so label is optional."""
         schema = {"field_definitions": {"gene": {"type": "text"}}}
 
-        messages = self.validator.validate(schema)
-
-        assert len(messages) == 1
-        assert "missing required property" in messages[0].message
-        assert "label" in messages[0].message
+        assert self.validator.validate(schema) == []
 
     def test_invalid_field_type(self) -> None:
         """Test error when field has invalid type."""
@@ -233,7 +229,7 @@ class TestFieldDefinitionsValidator:
         """Test detection of errors across multiple fields."""
         schema = {
             "field_definitions": {
-                "field1": {"type": "text"},  # Missing label
+                "field1": {"label": "Field 1"},  # Missing type
                 "field2": {"label": "Field 2"},  # Missing type
                 "field3": {"type": "invalid", "label": "Field 3"},  # Invalid type
             }

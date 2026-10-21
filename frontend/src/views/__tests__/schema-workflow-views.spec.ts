@@ -291,11 +291,13 @@ describe('SchemaManagement', () => {
     expect(showSuccess).toHaveBeenCalledWith('Schema "ClinGen curation" duplicated successfully')
   })
 
-  it('reports a failed duplicate', async () => {
+  it('reports a failed duplicate with the backend reason', async () => {
     const { vm, schemas } = await mountView()
-    vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue(new Error('dup'))
+    vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue({
+      response: { data: { detail: 'Schema with this name and version already exists' } }
+    })
     await call(vm, 'duplicateSchema', row)
-    expect(showError).toHaveBeenCalledWith('Failed to duplicate schema')
+    expect(showError).toHaveBeenCalledWith('Schema with this name and version already exists')
   })
 
   it('reports a failed delete', async () => {
@@ -306,7 +308,7 @@ describe('SchemaManagement', () => {
       vi.fn(() => true)
     )
     await call(vm, 'deleteSchema', row)
-    expect(showError).toHaveBeenCalledWith('Failed to delete schema')
+    expect(showError).toHaveBeenCalledWith('in use')
     vi.unstubAllGlobals()
   })
 
@@ -323,9 +325,9 @@ describe('SchemaManagement', () => {
       description: 'd',
       version: '1.0.0',
       schema_type: 'curation',
-      field_definitions: {},
-      workflow_states: {},
-      ui_configuration: {},
+      field_definitions: { example_field: { type: 'string', title: 'Example field' } },
+      workflow_states: ['draft', 'submitted'],
+      ui_configuration: { sections: [] },
       is_active: false,
       use_dynamic_form: true
     })
@@ -346,7 +348,7 @@ describe('SchemaManagement', () => {
     vm.newSchema = { name: 'Fresh', description: '', type: 'curation', version: '1.0.0' }
     await flushPromises()
     await call(vm, 'createSchema')
-    expect(showError).toHaveBeenCalledWith('Failed to create schema')
+    expect(showError).toHaveBeenCalledWith('bad')
   })
 
   it('formats dates and tolerates a missing one', async () => {
