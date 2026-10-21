@@ -125,7 +125,6 @@ def test_pending_membership_grants_nothing(
 
 
 # --- review visibility and the real request-changes flow -------------------
-from datetime import timedelta  # noqa: E402
 
 from app.crud.workflow_engine import WorkflowEngine  # noqa: E402
 from tests.api.scopes.factories import (  # noqa: E402
@@ -259,15 +258,10 @@ def test_reassigned_reviewer_and_other_reviewers_after_request_changes(
     r = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
     engine.submit_peer_review(db_session, r.review_id, rev.id, "request_changes")
     assert _kinds(client, other) == []  # curator owns the next move
-    # curator resubmits, same reviewer reassigned: their new PENDING review shows
+    # curator resubmits: the earlier reviewer is re-assigned automatically
     engine.execute_transition(
         db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
     )
-    new = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
-    db_session.get(Review, new.review_id).assigned_at = datetime.now(UTC) + timedelta(
-        minutes=1
-    )
-    db_session.commit()
     assert _kinds(client, rev) == ["review"]
 
 

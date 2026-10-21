@@ -16,6 +16,7 @@ from app.crud.review_round import (
     REVIEW_ROLES,
     all_reviews_approved,
     check_review_open,
+    has_pending_review,
     holds_review_capability,
     in_current_round,
     pending_reviews,
@@ -338,6 +339,8 @@ class WorkflowEngine:
 
         if not holds_review_capability(db, reviewer_id, curation_result.scope_id):
             raise ValueError("User is not allowed to review in this scope")
+        if has_pending_review(db, item_id, reviewer_id):
+            raise ValueError("Reviewer already has a pending review")
         # Create review assignment
         review = Review(
             curation_id=item_id,

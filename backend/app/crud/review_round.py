@@ -89,6 +89,15 @@ def reassign_earlier_reviewers(
             Review.curation_id == curation.id,
             Review.assigned_at < curation.submitted_at,
             Review.reviewer_id != curation.created_by,
+            # same condition as holds_review_capability: still a reviewer here
+            Review.reviewer_id.in_(
+                select(ScopeMembership.user_id).where(
+                    ScopeMembership.scope_id == curation.scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
+                    ScopeMembership.role.in_(REVIEW_ROLES),
+                )
+            ),
         )
         .distinct()
     ).all()
@@ -134,6 +143,21 @@ def holds_review_capability(db: Session, user_id: UUID, scope_id: UUID) -> bool:
                 ScopeMembership.is_active,
                 ScopeMembership.accepted_at.isnot(None),
                 ScopeMembership.role.in_(REVIEW_ROLES),
+            )
+        )
+        is not None
+    )
+
+
+def has_pending_review(db: Session, curation_id: UUID, reviewer_id: UUID) -> bool:
+    """The reviewer already has a PENDING review in the open round."""
+    return (
+        db.scalar(
+            select(Review.id).where(
+                Review.curation_id == curation_id,
+                Review.reviewer_id == reviewer_id,
+                Review.status == ReviewStatus.PENDING,
+                in_current_round,
             )
         )
         is not None

@@ -15,6 +15,7 @@ from app.models.models import (
     Review,
     ReviewStatus,
     Scope,
+    ScopeMembership,
     UserNew,
     WorkflowStage,
 )
@@ -486,3 +487,52 @@ def test_reassign_without_a_submission_is_a_noop(
 ) -> None:
     curation = _review_setup(db_session, creator, scope)
     assert reassign_earlier_reviewers(db_session, curation, creator.id) == []
+
+
+def test_demoted_reviewer_is_not_reassigned_and_approval_still_works(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    db_session.query(ScopeMembership).filter(ScopeMembership.user_id == b.id).update(
+        {"role": "curator"}
+    )
+    db_session.commit()
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    pending = {
+        r["reviewer_id"]
+        for r in engine.get_workflow_state(
+            db_session, curation.id, "curation"
+        ).pending_reviews
+    }
+    assert pending == {a.id}  # B lost the REVIEW capability
+    review = (
+        db_session.query(Review)
+        .filter(Review.reviewer_id == a.id, Review.status == ReviewStatus.PENDING)
+        .one()
+    )
+    assert engine.submit_peer_review(db_session, review.id, a.id, "approve")[
+        "auto_transitioned"
+    ]
+
+
+def test_manual_assign_after_auto_reassign_does_not_duplicate(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, _b, ra, _rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    with pytest.raises(ValueError, match="already has a pending review"):
+        engine.assign_peer_reviewer(
+            db_session, curation.id, "curation", a.id, creator.id
+        )
+    pending = db_session.query(Review).filter(
+        Review.curation_id == curation.id,
+        Review.reviewer_id == a.id,
+        Review.status == ReviewStatus.PENDING,
+    )
+    assert pending.count() == 1
+    notes = db_session.query(NotificationNew).filter(
+        NotificationNew.user_id == a.id, NotificationNew.title == "New review assigned"
+    )
+    assert notes.count() == 2  # first round + the automatic one, no third
