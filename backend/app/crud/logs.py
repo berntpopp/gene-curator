@@ -6,7 +6,7 @@ supporting request correlation, filtering, and statistics.
 """
 
 from collections.abc import Sequence
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import and_, func, or_, text
@@ -158,7 +158,7 @@ async def get_log_statistics(db: AsyncSession) -> dict[str, Any]:
     logs_by_level = {row[0]: row[1] for row in level_result.all()}
 
     # Logs by hour (last 24 hours)
-    last_24h = datetime.utcnow() - timedelta(hours=24)
+    last_24h = datetime.now(UTC) - timedelta(hours=24)
     hour_query = (
         select(
             func.date_trunc("hour", SystemLog.timestamp).label("hour"),
@@ -258,7 +258,7 @@ async def get_recent_errors(
     Returns:
         List of recent error/critical SystemLog records
     """
-    cutoff_time = datetime.utcnow() - timedelta(hours=hours)
+    cutoff_time = datetime.now(UTC) - timedelta(hours=hours)
     query = (
         select(SystemLog)
         .where(
