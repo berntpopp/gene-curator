@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { logService } from '@/services/logService'
 import { TERMINOLOGY } from '@/config/terminology'
+import { safeRedirect } from '@/utils/safeRedirect'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -393,7 +394,8 @@ router.beforeEach(async to => {
 
   // Handle guest-only routes (login, register)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {
-    return { name: 'Home' }
+    // Honour ?redirect= only for same-origin paths
+    return safeRedirect(to.query.redirect) ?? { name: 'Home' }
   }
 
   // Handle protected routes

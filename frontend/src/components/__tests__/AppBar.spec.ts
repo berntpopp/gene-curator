@@ -87,31 +87,35 @@ describe('AppBar', () => {
     display.mdAndUp = ref(true)
   })
 
-  it('toggles the theme, persists it and logs the change', async () => {
+  it('cycles system -> light -> dark -> system, persisting each choice without deprecation warnings', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mountAppBar()
-
     const toggle = wrapper?.find('.ml-2')
-    await toggle?.trigger('click')
 
-    expect(localStorage.getItem('theme')).toBe('dark')
-    expect(logger.info).toHaveBeenCalledWith('Theme toggled', { theme: 'dark' })
+    expect(toggle?.attributes('aria-label')).toBe('Theme: system. Switch to light theme')
+    expect(toggle?.html()).toContain('mdi-theme-light-dark')
 
-    await toggle?.trigger('click')
-
-    expect(localStorage.getItem('theme')).toBe('light')
+    for (const [next, label, icon] of [
+      ['light', 'Theme: light. Switch to dark theme', 'mdi-white-balance-sunny'],
+      ['dark', 'Theme: dark. Switch to system theme', 'mdi-weather-night'],
+      ['system', 'Theme: system. Switch to light theme', 'mdi-theme-light-dark']
+    ]) {
+      await toggle?.trigger('click')
+      expect(localStorage.getItem('theme')).toBe(next)
+      expect(logger.info).toHaveBeenLastCalledWith('Theme changed', { theme: next })
+      expect(toggle?.attributes('aria-label')).toBe(label)
+      expect(toggle?.html()).toContain(icon)
+    }
+    expect(warn).not.toHaveBeenCalled()
   })
 
-  it('labels the theme toggle with its target theme and shows that theme icon', async () => {
+  it('starts from the saved theme', () => {
+    localStorage.setItem('theme', 'dark')
     mountAppBar()
-    const toggle = wrapper?.find('.ml-2')
 
-    expect(toggle?.attributes('aria-label')).toBe('Switch to dark theme')
-    expect(toggle?.html()).toContain('mdi-weather-night')
-
-    await toggle?.trigger('click')
-
-    expect(toggle?.attributes('aria-label')).toBe('Switch to light theme')
-    expect(toggle?.html()).toContain('mdi-white-balance-sunny')
+    expect(wrapper?.find('.ml-2').attributes('aria-label')).toBe(
+      'Theme: dark. Switch to system theme'
+    )
   })
 
   it('hides navigation and user menu while a stored token has no user loaded yet', () => {

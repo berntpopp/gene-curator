@@ -28,6 +28,9 @@
                 variant="text"
                 size="small"
                 class="text-body-small"
+                :aria-label="
+                  disclaimerStore.isAcknowledged ? 'Disclaimer, acknowledged' : 'Disclaimer'
+                "
                 @click="showDisclaimer"
               >
                 <v-icon size="small" class="mr-1">mdi-scale-balance</v-icon>

@@ -42,4 +42,14 @@ describe('FAQ accuracy', () => {
     expect(text).toContain('Limited is 1 to 6 points')
     expect(text).toContain('Disputed')
   })
+
+  it('describes assignment edits and approval accurately', async () => {
+    const wrapper = mount(FAQ)
+    for (const title of wrapper.findAll('.v-expansion-panel-title')) await title.trigger('click')
+    const html = wrapper.html()
+    expect(html).toContain('priority, due date and notes')
+    expect(html).not.toContain('priority only')
+    expect(html).not.toContain('Start Curation becomes available')
+    expect(html).toContain('curation draft is created automatically')
+  })
 })
