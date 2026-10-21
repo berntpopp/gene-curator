@@ -24,7 +24,11 @@ vi.mock('@/composables/useHgncSearch', async () => {
   }
 })
 vi.mock('@/api', () => ({
-  genesAPI: { createGene: vi.fn(), bulkCreateGenes: vi.fn() },
+  genesAPI: {
+    createGene: vi.fn(),
+    bulkCreateGenes: vi.fn(),
+    searchGenes: vi.fn().mockResolvedValue([])
+  },
   assignmentsAPI: { createAssignment: vi.fn(), bulkAssignGenes: vi.fn() }
 }))
 
@@ -179,7 +183,8 @@ describe('AddGeneModal', () => {
       results: [{ status: 'suggestion', gene: brca2 }]
     })
     vi.mocked(genesAPI.bulkCreateGenes).mockResolvedValue({
-      created_genes: [],
+      created_genes: [{ id: 'g-2' }],
+      skipped_genes: [],
       total_created: 1,
       total_skipped: 0,
       total_errors: 0
@@ -200,7 +205,10 @@ describe('AddGeneModal', () => {
       validate_hgnc: true,
       skip_duplicates: true
     })
-    expect(addToast).toHaveBeenCalledWith('Added 1 genes (0 skipped, 0 failed)', 'success')
+    expect(addToast).toHaveBeenCalledWith(
+      'Added 0 genes to the scope (0 already in scope, 0 failed)',
+      'success'
+    )
   })
 
   it('lets the user pick an alternative for a suggestion', async () => {

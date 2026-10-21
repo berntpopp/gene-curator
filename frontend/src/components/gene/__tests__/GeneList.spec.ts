@@ -9,7 +9,10 @@ const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(),
 const addToast = vi.hoisted(() => vi.fn())
 const push = vi.hoisted(() => vi.fn())
 const authState = vi.hoisted(() => ({ isAdmin: false }))
-const scopeState = vi.hoisted(() => ({ currentUserRole: 'admin' as string | null }))
+const scopeState = vi.hoisted(() => ({
+  currentUserRole: 'admin' as string | null,
+  currentScope: null as { default_workflow_pair_id: string | null } | null
+}))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
@@ -121,6 +124,7 @@ describe('GeneList', () => {
     )
     authState.isAdmin = false
     scopeState.currentUserRole = 'admin'
+    scopeState.currentScope = { default_workflow_pair_id: 'wp-1' }
     getAssignments.mockResolvedValue(assignments as never)
     getPrecurations.mockResolvedValue({ precurations: [] } as never)
     getCurations.mockResolvedValue({ curations: [] } as never)
@@ -471,7 +475,7 @@ describe('GeneList', () => {
 
       vm.handleGenesAdded()
       expect(addToast).toHaveBeenCalledWith(
-        'Genes added to catalog. You can now assign them to curators.',
+        'Genes added to this scope. You can now assign them to curators.',
         'success'
       )
       vm.handleGenesAssigned()
@@ -504,6 +508,65 @@ describe('GeneList', () => {
 
       row.vm.$emit('reassign', { gene_id: 'g-1' })
       expect(internals(wrapper).showReassignModal).toBe(true)
+    })
+  })
+  describe('selection and change events', () => {
+    it('opens the assign modal with the selected genes', async () => {
+      const wrapper = await mountList()
+      const vm = internals(wrapper) as unknown as { selectedIds: string[] }
+      vm.selectedIds = ['g-2']
+      await flushPromises()
+
+      expect(wrapper.text()).toContain('Assign to Curator (1)')
+      const assign = wrapper.findAll('button').find(b => b.text().includes('Assign to Curator'))
+      await assign?.trigger('click')
+
+      expect(internals(wrapper).showAssignModal).toBe(true)
+      expect(internals(wrapper).preSelectedGeneIds).toEqual(['g-2'])
+    })
+
+    it('emits changed and clears the selection after a change', async () => {
+      const wrapper = await mountList()
+      const vm = internals(wrapper) as unknown as {
+        selectedIds: string[]
+        toggleAll(on: boolean): void
+      }
+      vm.toggleAll(true)
+      expect(vm.selectedIds).toEqual(['g-1', 'g-2'])
+
+      internals(wrapper).handleGenesAssigned()
+
+      expect(wrapper.emitted('changed')).toHaveLength(1)
+      expect(vm.selectedIds).toEqual([])
+    })
+  })
+
+  describe('scope without a methodology', () => {
+    it('shows one banner and blocks starting a precuration', async () => {
+      scopeState.currentScope = { default_workflow_pair_id: null }
+      const wrapper = await mountList()
+
+      expect(wrapper.text()).toContain('This scope has no methodology yet')
+      expect(wrapper.text()).toContain('Choose one in Settings')
+      expect(wrapper.findComponent(GeneRowActions).props('startBlockedReason')).toBe(
+        'This scope has no methodology yet'
+      )
+
+      internals(wrapper).startPrecuration(assignments[0])
+      expect(push).not.toHaveBeenCalled()
+    })
+
+    it('tells non-admins to ask a scope admin', async () => {
+      scopeState.currentScope = { default_workflow_pair_id: null }
+      scopeState.currentUserRole = 'curator'
+      const wrapper = await mountList()
+
+      expect(wrapper.text()).toContain('Ask a scope admin')
+    })
+
+    it('shows no banner when the scope has a workflow pair', async () => {
+      const wrapper = await mountList()
+      expect(wrapper.text()).not.toContain('no methodology')
     })
   })
 })

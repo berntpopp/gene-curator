@@ -39,8 +39,8 @@ class ScopeBase(BaseModel):
 class ScopeCreate(ScopeBase):
     """Schema for creating a new scope."""
 
-    default_workflow_pair_id: UUID | None = Field(
-        None, description="Default workflow pair for this scope"
+    default_workflow_pair_id: UUID = Field(
+        ..., description="Workflow pair (methodology) for this scope"
     )
 
 
@@ -89,6 +89,9 @@ class ScopeListStats(BaseModel):
     total_genes: int = Field(
         default=0, description="Total genes assigned to this scope"
     )
+    completed_genes: int = Field(
+        default=0, description="Genes with an active curation (never above total_genes)"
+    )
     member_count: int = Field(
         default=0, description="Number of active members in this scope"
     )
@@ -119,6 +122,12 @@ class ScopeStatistics(BaseModel):
     total_curations: int = Field(..., description="Total curations in this scope")
     total_reviews: int = Field(..., description="Total reviews in this scope")
     active_curations: int = Field(..., description="Active curations in this scope")
+    completed_genes: int = Field(
+        default=0, description="Genes with an active curation (never above total genes)"
+    )
+    pending_invitations: int = Field(
+        default=0, description="Members invited but not yet accepted"
+    )
 
     # Status breakdowns
     draft_curations: int = Field(..., description="Curations in draft state")

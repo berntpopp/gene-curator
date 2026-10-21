@@ -16,6 +16,7 @@ from app.models import (
     Gene,
     GeneScopeAssignment,
     PrecurationNew,
+    ScopeMembership,
     UserNew,
 )
 from app.schemas.gene_assignment import (
@@ -250,9 +251,14 @@ class CRUDGeneScopeAssignment(
         return result
 
     def create_assignment(
-        self, db: Session, *, obj_in: GeneScopeAssignmentCreate, assigned_by: UUID
+        self,
+        db: Session,
+        *,
+        obj_in: GeneScopeAssignmentCreate,
+        assigned_by: UUID,
+        commit: bool = True,
     ) -> GeneScopeAssignment:
-        """Create new gene-scope assignment."""
+        """Create new gene-scope assignment (commit=False only flushes, for bulk runs)."""
         # Check if assignment already exists
         existing = self.get_by_gene_and_scope(
             db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id
@@ -266,24 +272,20 @@ class CRUDGeneScopeAssignment(
 
         # Map schema field 'priority_level' to model field 'priority'
         if "priority_level" in obj_in_data:
-            priority = obj_in_data.pop("priority_level")
-            # Map "medium" (schema) to "normal" (model default)
-            if priority == "medium":
-                priority = "normal"
-            obj_in_data["priority"] = priority
+            obj_in_data["priority"] = obj_in_data.pop("priority_level")
 
         if existing:
             # (gene, scope) is unique: revive the deactivated row instead of inserting
             for field, value in obj_in_data.items():
                 setattr(existing, field, value)
             existing.is_active = True
+            db_obj = existing
+        else:
+            db_obj = GeneScopeAssignment(**obj_in_data)
+            db.add(db_obj)
+        db.flush()
+        if commit:
             db.commit()
-            db.refresh(existing)
-            return existing
-
-        db_obj = GeneScopeAssignment(**obj_in_data)
-        db.add(db_obj)
-        db.commit()
         db.refresh(db_obj)
         return db_obj
 
@@ -304,9 +306,6 @@ class CRUDGeneScopeAssignment(
         if "priority_level" in update_data:
             priority = update_data.pop("priority_level")
             if priority is not None:
-                # Map "medium" (schema) to "normal" (model default)
-                if priority == "medium":
-                    priority = "normal"
                 update_data["priority"] = priority
 
         # Apply updates to the model
@@ -501,12 +500,36 @@ class CRUDGeneScopeAssignment(
         gene_ids: list[UUID],
         scope_id: UUID,
         curator_id: UUID | None = None,
+        priority_level: str = "medium",
+        assignment_notes: str | None = None,
         assigned_by: UUID,
     ) -> dict[str, Any]:
-        """Bulk assign multiple genes to a scope."""
+        """Bulk assign multiple genes to a scope.
+
+        A gene already active in the scope without a curator gets the curator
+        (and priority) set instead of being skipped. The whole run is one
+        transaction: any failure rolls everything back and raises ValueError.
+        """
         created_assignments = []
         skipped_assignments = []
-        errors = []
+        updated: list[GeneScopeAssignment] = []
+
+        if curator_id:
+            curator = db.get(UserNew, curator_id)
+            if not curator:
+                raise ValueError("Curator not found")
+            # No admin bypass: the assignee must be an accepted curator/admin member
+            is_curator = db.scalar(
+                select(ScopeMembership.id).where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.user_id == curator_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.isnot(None),
+                    ScopeMembership.role.in_(["curator", "admin"]),
+                )
+            )
+            if not is_curator:
+                raise ValueError("Curator does not have access to this scope")
 
         for gene_id in gene_ids:
             try:
@@ -514,6 +537,16 @@ class CRUDGeneScopeAssignment(
                 existing = self.get_by_gene_and_scope(
                     db, gene_id=gene_id, scope_id=scope_id
                 )
+                if (
+                    existing
+                    and existing.is_active
+                    and curator_id
+                    and existing.assigned_curator_id is None
+                ):
+                    existing.assigned_curator_id = curator_id
+                    existing.priority = priority_level
+                    updated.append(existing)
+                    continue
                 if existing and existing.is_active:
                     skipped_assignments.append(
                         {
@@ -528,26 +561,32 @@ class CRUDGeneScopeAssignment(
                     gene_id=gene_id,
                     scope_id=scope_id,
                     assigned_curator_id=curator_id,
-                    priority_level="medium",
-                    assignment_notes=None,
+                    priority_level=priority_level,
+                    assignment_notes=assignment_notes,
                 )
 
                 assignment = self.create_assignment(
-                    db, obj_in=assignment_data, assigned_by=assigned_by
+                    db, obj_in=assignment_data, assigned_by=assigned_by, commit=False
                 )
                 created_assignments.append(assignment)
 
             except Exception as e:
-                errors.append({"gene_id": gene_id, "error": str(e)})
+                db.rollback()
+                raise ValueError(
+                    f"Bulk assignment failed for gene {gene_id}: {e}"
+                ) from e
+
+        db.commit()
+        created_assignments.extend(updated)
 
         return {
             "created_assignments": created_assignments,
             "skipped_assignments": skipped_assignments,
-            "errors": errors,
+            "errors": [],
             "total_processed": len(gene_ids),
             "total_created": len(created_assignments),
             "total_skipped": len(skipped_assignments),
-            "total_errors": len(errors),
+            "total_errors": 0,
         }
 
     def get_curator_workload(
@@ -569,7 +608,7 @@ class CRUDGeneScopeAssignment(
         # Count by priority level
         priority_counts: dict[str, int] = {}
         for assignment in assignments:
-            priority = assignment.priority or "normal"
+            priority = assignment.priority or "medium"
             priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
         # Count active work

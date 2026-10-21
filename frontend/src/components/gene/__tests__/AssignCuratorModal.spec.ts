@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import AssignCuratorModal from '../AssignCuratorModal.vue'
-import { assignmentsAPI, genesAPI } from '@/api'
+import { assignmentsAPI } from '@/api'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
 const addToast = vi.hoisted(() => vi.fn())
@@ -14,18 +14,28 @@ vi.mock('@/composables/useRoleColors', () => ({
   useRoleColors: () => ({ getRoleColor: () => 'grey' })
 }))
 vi.mock('@/api', () => ({
-  genesAPI: { getGenes: vi.fn() },
-  assignmentsAPI: { getAssignmentsByScope: vi.fn(), createAssignment: vi.fn() }
+  assignmentsAPI: { getAssignmentsByScope: vi.fn(), bulkAssignGenes: vi.fn() }
 }))
 
-const getGenes = vi.mocked(genesAPI.getGenes)
 const getAssignmentsByScope = vi.mocked(assignmentsAPI.getAssignmentsByScope)
-const createAssignment = vi.mocked(assignmentsAPI.createAssignment)
+const bulkAssignGenes = vi.mocked(assignmentsAPI.bulkAssignGenes)
 
-const catalogue = [
-  { id: 'g-1', approved_symbol: 'BRCA1', hgnc_id: 'HGNC:1100' },
-  { id: 'g-2', approved_symbol: 'TP53', hgnc_id: 'HGNC:11998' },
-  { id: 'g-3', approved_symbol: 'MLH1', hgnc_id: 'HGNC:7127' }
+const scopeAssignments = [
+  { gene_id: 'g-1', gene_symbol: 'BRCA1', gene_hgnc_id: 'HGNC:1100', is_active: true },
+  {
+    gene_id: 'g-2',
+    gene_symbol: 'TP53',
+    gene_hgnc_id: 'HGNC:11998',
+    is_active: true,
+    assigned_curator_id: 'u-1'
+  },
+  {
+    gene_id: 'g-3',
+    gene_symbol: 'MLH1',
+    gene_hgnc_id: 'HGNC:7127',
+    is_active: true,
+    assigned_curator_id: null
+  }
 ]
 
 const members = [
@@ -69,29 +79,23 @@ async function mountModal(props: Record<string, unknown> = {}) {
 
 describe('AssignCuratorModal', () => {
   beforeEach(() => {
-    getGenes.mockReset()
     getAssignmentsByScope.mockReset()
-    createAssignment.mockReset()
+    bulkAssignGenes.mockReset()
     fetchMembers.mockReset()
     addToast.mockReset()
     logger.error.mockReset()
-    getGenes.mockResolvedValue({ genes: catalogue } as never)
-    getAssignmentsByScope.mockResolvedValue([{ gene_id: 'g-2' }] as never)
+    getAssignmentsByScope.mockResolvedValue(scopeAssignments as never)
     fetchMembers.mockResolvedValue(members)
   })
 
-  it('offers only catalogue genes not yet assigned in this scope', async () => {
+  it('offers only scope genes that have no curator yet', async () => {
     const wrapper = await mountModal()
 
-    expect(getGenes).toHaveBeenCalledWith({ limit: 500 })
-    expect(internals(wrapper).availableGenes.map(g => g.id)).toEqual(['g-1', 'g-3'])
-  })
-
-  it('treats every catalogue gene as available when there are no assignments yet', async () => {
-    getAssignmentsByScope.mockRejectedValue(new Error('none'))
-    const wrapper = await mountModal()
-
-    expect(internals(wrapper).availableGenes).toHaveLength(3)
+    expect(getAssignmentsByScope).toHaveBeenCalledWith('scope-1', { limit: 1000 })
+    expect(internals(wrapper).availableGenes).toEqual([
+      { id: 'g-1', approved_symbol: 'BRCA1', hgnc_id: 'HGNC:1100' },
+      { id: 'g-3', approved_symbol: 'MLH1', hgnc_id: 'HGNC:7127' }
+    ])
   })
 
   it('loads only curator-capable members', async () => {
@@ -103,7 +107,7 @@ describe('AssignCuratorModal', () => {
   })
 
   it('reports a failed gene load', async () => {
-    getGenes.mockRejectedValue({ message: 'down' })
+    getAssignmentsByScope.mockRejectedValue({ message: 'down' })
     await mountModal()
 
     expect(logger.error).toHaveBeenCalledWith('Failed to fetch available genes', { error: 'down' })
@@ -152,28 +156,41 @@ describe('AssignCuratorModal', () => {
     expect(vm.hasOptionalSettings).toBeTruthy()
   })
 
-  it('creates one assignment per selected gene with mapped priority and notes', async () => {
-    createAssignment.mockResolvedValue({} as never)
+  it('assigns all selected genes in one request', async () => {
+    bulkAssignGenes.mockResolvedValue({ total_created: 2 } as never)
     const wrapper = await mountModal()
     const vm = internals(wrapper)
 
     vm.selectedGenes = [{ id: 'g-1' }, { id: 'g-3' }]
     vm.selectedCurator = { user_id: 'u-1', full_name: 'Ada Lovelace' } as never
-    vm.priority = 'normal'
+    vm.priority = 'high'
     vm.notes = 'please'
     await flushPromises()
     await vm.handleSubmit()
 
-    expect(createAssignment).toHaveBeenCalledTimes(2)
-    expect(createAssignment).toHaveBeenCalledWith({
-      gene_id: 'g-1',
+    expect(bulkAssignGenes).toHaveBeenCalledTimes(1)
+    expect(bulkAssignGenes).toHaveBeenCalledWith({
+      gene_ids: ['g-1', 'g-3'],
       scope_id: 'scope-1',
       assigned_curator_id: 'u-1',
-      priority_level: 'medium',
+      priority_level: 'high',
       assignment_notes: 'please'
     })
     expect(addToast).toHaveBeenCalledWith('2 gene(s) assigned to Ada Lovelace', 'success')
     expect(wrapper.emitted('assigned')).toHaveLength(1)
+  })
+
+  it('warns when some genes were skipped', async () => {
+    bulkAssignGenes.mockResolvedValue({ total_created: 1 } as never)
+    const wrapper = await mountModal()
+    const vm = internals(wrapper)
+
+    vm.selectedGenes = [{ id: 'g-1' }, { id: 'g-3' }]
+    vm.selectedCurator = { user_id: 'u-1', full_name: 'Ada' } as never
+    await flushPromises()
+    await vm.handleSubmit()
+
+    expect(addToast).toHaveBeenCalledWith('1 gene(s) assigned to Ada (1 skipped)', 'warning')
   })
 
   it('does nothing without a curator or genes', async () => {
@@ -183,11 +200,11 @@ describe('AssignCuratorModal', () => {
     expect(vm.canSubmit).toBeFalsy()
     await vm.handleSubmit()
 
-    expect(createAssignment).not.toHaveBeenCalled()
+    expect(bulkAssignGenes).not.toHaveBeenCalled()
   })
 
   it('reports a failed assignment with the server detail', async () => {
-    createAssignment.mockRejectedValue({ message: 'x', response: { data: { detail: 'Quota' } } })
+    bulkAssignGenes.mockRejectedValue({ message: 'x', response: { data: { detail: 'Quota' } } })
     const wrapper = await mountModal()
     const vm = internals(wrapper)
 

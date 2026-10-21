@@ -66,7 +66,7 @@ class GeneScopeAssignmentInDBBase(BaseModel):
     workflow_pair_id: UUID | None = Field(None, description="Workflow pair ID")
     is_active: bool = Field(default=True, description="Whether assignment is active")
     priority: str = Field(
-        "normal", description="Assignment priority (high, normal, low)"
+        "medium", description="Assignment priority (high, medium, low)"
     )
     due_date: datetime | None = Field(None, description="Due date for assignment")
     assignment_notes: str | None = Field(None, description="Notes about the assignment")

@@ -27,6 +27,20 @@ vi.mock('vue-router', async importOriginal => ({
 }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/api/users', () => ({ usersApi: { searchUsers: vi.fn() } }))
+vi.mock('@/api/schemas', () => ({
+  schemasAPI: {
+    getWorkflowPairs: vi.fn().mockResolvedValue([
+      {
+        id: 'wp-1',
+        name: 'ClinGen',
+        version: '11',
+        precuration_schema_id: 'a',
+        curation_schema_id: 'b'
+      }
+    ]),
+    getSchemas: vi.fn().mockResolvedValue([])
+  }
+}))
 
 let pinia: ReturnType<typeof createPinia>
 const opts = () => ({
@@ -93,6 +107,20 @@ describe('ScopeCreate', () => {
     expect(vm.nameExists).toBe(false)
   })
 
+  it('requires a methodology and offers the loaded workflow pairs', async () => {
+    const { wrapper } = await mountView()
+    const select = wrapper
+      .findAllComponents({ name: 'VSelect' })
+      .find(c => c.props('label') === 'Methodology')
+
+    expect(select?.props('items')).toEqual([
+      expect.objectContaining({ id: 'wp-1', displayName: 'ClinGen (11)' })
+    ])
+    const rule = (select?.props('rules') as Array<(v: unknown) => unknown>)[0]
+    expect(rule?.(null)).toBe('Choose a methodology')
+    expect(rule?.('wp-1')).toBe(true)
+  })
+
   it('does not submit an invalid form', async () => {
     const { store, vm } = await mountView()
     const create = vi.spyOn(store, 'createScope').mockResolvedValue({ id: 's9' } as never)
@@ -117,7 +145,8 @@ describe('ScopeCreate', () => {
       display_name: 'Kidney Genetics',
       description: '',
       institution: '',
-      is_public: true
+      is_public: true,
+      default_workflow_pair_id: 'wp-1'
     }
     vm.pendingMembers = [
       { user: { id: 'u1' }, role: 'curator' },
@@ -129,7 +158,8 @@ describe('ScopeCreate', () => {
       display_name: 'Kidney Genetics',
       description: '',
       institution: '',
-      is_public: true
+      is_public: true,
+      default_workflow_pair_id: 'wp-1'
     })
     expect(invite).toHaveBeenCalledTimes(2)
     expect(invite).toHaveBeenCalledWith('s9', { user_id: 'u1', role: 'curator' })
@@ -152,6 +182,7 @@ describe('ScopeCreate', () => {
       response: { data: { detail: 'Scope exists' } }
     })
     vm.valid = true
+    ;(vm.scopeData as { default_workflow_pair_id: string }).default_workflow_pair_id = 'wp-1'
     await call(vm, 'handleSubmit')
     expect(vm.snackbarMessage).toBe('Failed to create scope: Scope exists')
     expect(vm.snackbarColor).toBe('error')
@@ -290,6 +321,60 @@ describe('ScopeDashboard', () => {
       name: 'scope-dashboard',
       params: { scopeId: 's1', tab: 'curations' }
     })
+  })
+
+  it('shows pending invitations next to the member count', async () => {
+    const { store, vm, wrapper } = await mountView()
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
+      member_count: 2,
+      pending_invitations: 1
+    } as never)
+    await call(vm, 'fetchScopeData')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('1 invited')
+  })
+
+  it('never shows more completed genes than total genes', async () => {
+    const { store, vm } = await mountView()
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
+      total_genes_assigned: 1,
+      active_curations: 3
+    } as never)
+    await call(vm, 'fetchScopeData')
+
+    expect(vm.completedGenes).toBe(1)
+    expect(vm.curationProgress).toBe(100)
+  })
+
+  it('refetches the statistics when the gene list reports a change', async () => {
+    const { wrapper, fetchStatistics } = await mountView('admin', 'genes')
+    fetchStatistics.mockClear()
+
+    wrapper.findComponent({ name: 'GeneList' }).vm.$emit('changed')
+    await flushPromises()
+
+    expect(fetchStatistics).toHaveBeenCalledWith('s1')
+  })
+
+  it('keeps a deep-linked members tab while the role is still loading', async () => {
+    routeState.params = { scopeId: 's1', tab: 'members' }
+    const store = useScopesStore()
+    vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
+      store.currentScope = scope as never
+      return scope as never
+    })
+    vi.spyOn(store, 'fetchUserRole').mockImplementation(async () => {
+      await new Promise(resolve => setTimeout(resolve, 20))
+      store.currentUserRole = 'admin'
+      return 'admin'
+    })
+    vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
+    const wrapper = mount(ScopeDashboard, opts())
+    await new Promise(resolve => setTimeout(resolve, 50))
+    await flushPromises()
+    expect(routerPush).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Members')
   })
 
   it('treats missing statistics as zero progress', async () => {

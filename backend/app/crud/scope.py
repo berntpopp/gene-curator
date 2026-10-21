@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
+from app.crud.scope_counts import get_counts_for_scopes
 from app.models import (
     ActiveCuration,
     CurationNew,
@@ -146,32 +147,11 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
 
         scopes = db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
+        counts = get_counts_for_scopes(db, [sc.id for sc in scopes])
         result = []
         for scope in scopes:
-            # Get gene count for this scope
-            gene_count = (
-                db.execute(
-                    select(func.count(GeneScopeAssignment.id)).where(
-                        GeneScopeAssignment.scope_id == scope.id,
-                        GeneScopeAssignment.is_active,
-                    )
-                ).scalar()
-                or 0
-            )
+            c = counts[scope.id]
 
-            # Get member count for this scope
-            member_count = (
-                db.execute(
-                    select(func.count(ScopeMembership.id)).where(
-                        ScopeMembership.scope_id == scope.id,
-                        ScopeMembership.is_active,
-                        ScopeMembership.accepted_at.isnot(None),
-                    )
-                ).scalar()
-                or 0
-            )
-
-            # Convert scope to dict and add counts
             scope_dict = {
                 "id": scope.id,
                 "name": scope.name,
@@ -185,8 +165,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                 "created_at": scope.created_at,
                 "updated_at": scope.updated_at,
                 "created_by": scope.created_by,
-                "gene_count": gene_count,
-                "member_count": member_count,
+                "gene_count": c["total"],
+                "completed_genes": c["completed"],
+                "member_count": c["members"],
             }
             result.append(scope_dict)
 
@@ -223,33 +204,23 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         if not scope:
             return None
 
-        # Get basic statistics
         stats = self.get_detailed_statistics(db, scope_id=scope_id)
 
         return {**scope.__dict__, "statistics": stats}
 
     def get_detailed_statistics(self, db: Session, *, scope_id: UUID) -> dict[str, Any]:
         """Get detailed statistics for a scope."""
-        # Gene assignment counts
-        gene_stats_row = db.execute(
-            select(
-                func.count(GeneScopeAssignment.id).label("total_genes_assigned"),
-                func.count(GeneScopeAssignment.assigned_curator_id).label(
-                    "genes_with_curator"
-                ),
-            ).where(
-                GeneScopeAssignment.scope_id == scope_id,
-                GeneScopeAssignment.is_active,  # Fixed: use == instead of is
+        counts = get_counts_for_scopes(db, [scope_id])[scope_id]
+        total_genes, completed_genes = counts["total"], counts["completed"]
+        genes_with_curator = (
+            db.scalar(
+                select(func.count(GeneScopeAssignment.assigned_curator_id)).where(
+                    GeneScopeAssignment.scope_id == scope_id,
+                    GeneScopeAssignment.is_active,
+                )
             )
-        ).first()
-
-        # Handle None case
-        if not gene_stats_row:
-            gene_stats = type(
-                "obj", (), {"total_genes_assigned": 0, "genes_with_curator": 0}
-            )()
-        else:
-            gene_stats = gene_stats_row
+            or 0
+        )
 
         # Curation stage counts
         precuration_count = (
@@ -261,7 +232,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             or 0
         )
 
-        # Count curations excluding archived
         curation_count = (
             db.execute(
                 select(func.count(CurationNew.id)).where(
@@ -319,7 +289,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             .where(CurationNew.scope_id == scope_id)
         ).first()
 
-        # Handle None case
         if not review_stats_row:
             review_stats = type(
                 "obj",
@@ -334,7 +303,6 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             review_stats = review_stats_row
 
         # Team metrics
-        # Total scope members (from scope_memberships table)
         member_count = (
             db.execute(
                 select(func.count(ScopeMembership.id)).where(
@@ -343,6 +311,17 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
                     ScopeMembership.accepted_at.isnot(None),
                 )
             ).scalar()
+            or 0
+        )
+
+        pending_invitations = (
+            db.scalar(
+                select(func.count(ScopeMembership.id)).where(
+                    ScopeMembership.scope_id == scope_id,
+                    ScopeMembership.is_active,
+                    ScopeMembership.accepted_at.is_(None),
+                )
+            )
             or 0
         )
 
@@ -407,8 +386,9 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         )
 
         return {
-            "total_genes_assigned": gene_stats.total_genes_assigned or 0,
-            "genes_with_curator": gene_stats.genes_with_curator or 0,
+            "total_genes_assigned": total_genes,
+            "completed_genes": completed_genes,
+            "genes_with_curator": genes_with_curator,
             "total_precurations": precuration_count,
             "total_curations": curation_count,
             "total_reviews": review_count,
@@ -429,6 +409,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
             ),
             # Team metrics
             "member_count": member_count,  # Total accepted members
+            "pending_invitations": pending_invitations,
             "active_curators": curator_count,  # Curators with assignments
             "active_reviewers": reviewer_count,  # Reviewers with reviews
             # Verdict distribution

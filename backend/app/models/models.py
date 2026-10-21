@@ -632,8 +632,8 @@ class GeneScopeAssignment(Base):
     # Assignment details
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
     priority: Mapped[str] = mapped_column(
-        String(20), default="normal"
-    )  # high, normal, low
+        String(20), default="medium"
+    )  # high, medium, low
     due_date: Mapped[dt | None] = mapped_column(Date)
     assignment_notes: Mapped[str | None] = mapped_column(Text)
 

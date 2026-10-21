@@ -24,8 +24,9 @@ from app.core.database import get_db
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.scope import scope_crud
+from app.crud.scope_counts import get_counts_for_scopes
 from app.crud.scope_membership import scope_membership_crud
-from app.models import Scope, User
+from app.models import Scope, User, WorkflowPair
 from app.schemas.scope import (
     Scope as ScopeResponse,
     ScopeCreate,
@@ -81,6 +82,13 @@ def create_scope(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Scope with name '{scope_in.name}' already exists. Please choose a different name.",
+        )
+
+    pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
+    if not pair or not pair.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workflow pair not found or inactive",
         )
 
     # Create scope
@@ -184,6 +192,7 @@ def list_scopes(
         for scope_data in scopes_with_counts:
             stats = ScopeListStats(
                 total_genes=scope_data.pop("gene_count", 0),
+                completed_genes=scope_data.pop("completed_genes", 0),
                 member_count=scope_data.pop("member_count", 0),
             )
             scope_item = ScopeListItem(
@@ -204,38 +213,16 @@ def list_scopes(
     # Apply pagination
     paginated_scopes = scopes[skip : skip + limit]
 
-    # Get counts for each scope
-    from sqlalchemy import func, select
-
-    from app.models import GeneScopeAssignment, ScopeMembership
-
+    counts = get_counts_for_scopes(db, [sc.id for sc in paginated_scopes])
     result = []
     for scope in paginated_scopes:
-        # Get gene count for this scope
-        gene_count = (
-            db.execute(
-                select(func.count(GeneScopeAssignment.id)).where(
-                    GeneScopeAssignment.scope_id == scope.id,
-                    GeneScopeAssignment.is_active,
-                )
-            ).scalar()
-            or 0
-        )
-
-        # Get member count for this scope
-        member_count = (
-            db.execute(
-                select(func.count(ScopeMembership.id)).where(
-                    ScopeMembership.scope_id == scope.id,
-                    ScopeMembership.is_active,
-                    ScopeMembership.accepted_at.isnot(None),
-                )
-            ).scalar()
-            or 0
-        )
-
+        c = counts[scope.id]
         # Create stats object for frontend compatibility
-        stats = ScopeListStats(total_genes=gene_count, member_count=member_count)
+        stats = ScopeListStats(
+            total_genes=c["total"],
+            completed_genes=c["completed"],
+            member_count=c["members"],
+        )
 
         scope_item = ScopeListItem(
             id=scope.id,

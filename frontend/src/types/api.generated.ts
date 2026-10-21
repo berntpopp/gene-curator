@@ -5096,8 +5096,8 @@ export interface components {
             is_active: boolean;
             /**
              * Priority
-             * @description Assignment priority (high, normal, low)
-             * @default normal
+             * @description Assignment priority (high, medium, low)
+             * @default medium
              */
             priority: string;
             /**
@@ -5380,8 +5380,8 @@ export interface components {
             is_active: boolean;
             /**
              * Priority
-             * @description Assignment priority (high, normal, low)
-             * @default normal
+             * @description Assignment priority (high, medium, low)
+             * @default medium
              */
             priority: string;
             /**
@@ -7391,9 +7391,10 @@ export interface components {
             };
             /**
              * Default Workflow Pair Id
-             * @description Default workflow pair for this scope
+             * Format: uuid
+             * @description Workflow pair (methodology) for this scope
              */
-            default_workflow_pair_id?: string | null;
+            default_workflow_pair_id: string;
         };
         /**
          * ScopeCurationSummary
@@ -7603,6 +7604,12 @@ export interface components {
              * @default 0
              */
             total_genes: number;
+            /**
+             * Completed Genes
+             * @description Genes with an active curation (never above total_genes)
+             * @default 0
+             */
+            completed_genes: number;
             /**
              * Member Count
              * @description Number of active members in this scope
@@ -7898,6 +7905,18 @@ export interface components {
              * @description Active curations in this scope
              */
             active_curations: number;
+            /**
+             * Completed Genes
+             * @description Genes with an active curation (never above total genes)
+             * @default 0
+             */
+            completed_genes: number;
+            /**
+             * Pending Invitations
+             * @description Members invited but not yet accepted
+             * @default 0
+             */
+            pending_invitations: number;
             /**
              * Draft Curations
              * @description Curations in draft state

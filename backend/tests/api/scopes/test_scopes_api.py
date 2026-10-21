@@ -1,18 +1,25 @@
 """API tests for /api/v1/scopes (creation, listing, detail, update, delete)."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import GeneScopeAssignment, Scope, ScopeMembership, UserNew
+from app.models.models import (
+    GeneScopeAssignment,
+    Scope,
+    ScopeMembership,
+    UserNew,
+    WorkflowPair,
+)
 from tests.api.scopes.factories import (
     auth_headers,
     make_gene,
     make_member,
     make_scope,
     make_user,
+    make_workflow_pair,
 )
 
 pytestmark = pytest.mark.unit
@@ -20,8 +27,9 @@ pytestmark = pytest.mark.unit
 BASE = "/api/v1/scopes"
 
 
-def _create_payload(name: str | None = None) -> dict[str, object]:
+def _create_payload(db: Session, name: str | None = None) -> dict[str, object]:
     return {
+        "default_workflow_pair_id": str(make_workflow_pair(db).id),
         "name": name or f"new-scope-{uuid4().hex[:8]}",
         "display_name": "New Scope",
         "description": "Created in a test",
@@ -42,7 +50,7 @@ def test_create_scope_makes_creator_an_accepted_active_admin(
     access, so the creator would be locked out of their own scope.
     """
     response = client.post(
-        f"{BASE}/", json=_create_payload(), headers=auth_headers(owner)
+        f"{BASE}/", json=_create_payload(db_session), headers=auth_headers(owner)
     )
 
     assert response.status_code == 201
@@ -63,11 +71,11 @@ def test_create_scope_makes_creator_an_accepted_active_admin(
 
 
 def test_creator_can_use_new_scope_immediately(
-    client: TestClient, owner: UserNew
+    client: TestClient, db_session: Session, owner: UserNew
 ) -> None:
     """The creator's accepted membership must pass scope-gated endpoints."""
     created = client.post(
-        f"{BASE}/", json=_create_payload(), headers=auth_headers(owner)
+        f"{BASE}/", json=_create_payload(db_session), headers=auth_headers(owner)
     ).json()
 
     members = client.get(f"{BASE}/{created['id']}/members", headers=auth_headers(owner))
@@ -81,11 +89,11 @@ def test_creator_can_use_new_scope_immediately(
 
 
 def test_create_scope_rejects_duplicate_name(
-    client: TestClient, owner: UserNew, scope_with_admin: Scope
+    client: TestClient, db_session: Session, owner: UserNew, scope_with_admin: Scope
 ) -> None:
     response = client.post(
         f"{BASE}/",
-        json=_create_payload(name=scope_with_admin.name),
+        json=_create_payload(db_session, name=scope_with_admin.name),
         headers=auth_headers(owner),
     )
 
@@ -93,14 +101,45 @@ def test_create_scope_rejects_duplicate_name(
     assert "already exists" in response.json()["detail"]
 
 
-def test_create_scope_requires_authentication(client: TestClient) -> None:
-    response = client.post(f"{BASE}/", json=_create_payload())
+def test_create_scope_requires_authentication(
+    client: TestClient, db_session: Session
+) -> None:
+    response = client.post(f"{BASE}/", json=_create_payload(db_session))
 
     assert response.status_code in (401, 403)
 
 
-def test_create_scope_validates_name(client: TestClient, owner: UserNew) -> None:
-    payload = _create_payload()
+def test_create_scope_requires_a_methodology(
+    client: TestClient, owner: UserNew
+) -> None:
+    payload = {"name": "no-method", "display_name": "X", "description": "y"}
+
+    response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
+
+    assert response.status_code == 422
+
+
+def test_create_scope_rejects_unknown_or_inactive_methodology(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    unknown = _create_payload(db_session)
+    unknown["default_workflow_pair_id"] = str(uuid4())
+    inactive = _create_payload(db_session)
+    pair = db_session.get(WorkflowPair, UUID(str(inactive["default_workflow_pair_id"])))
+    assert pair is not None
+    pair.is_active = False
+    db_session.commit()
+
+    for payload in (unknown, inactive):
+        response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
+        assert response.status_code == 400
+        assert "Workflow pair" in response.json()["detail"]
+
+
+def test_create_scope_validates_name(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    payload = _create_payload(db_session)
     payload["name"] = "Bad Name With Spaces"
 
     response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
@@ -138,7 +177,7 @@ def test_list_scopes_returns_only_member_scopes_with_counts(
     assert str(other.id) not in ids
     item = next(i for i in response.json() if i["id"] == str(scope_with_admin.id))
     # owner (admin) and viewer are both accepted members of scope_with_admin
-    assert item["stats"] == {"total_genes": 1, "member_count": 2}
+    assert item["stats"] == {"total_genes": 1, "completed_genes": 0, "member_count": 2}
 
 
 def test_list_scopes_carries_the_callers_scope_role(

@@ -12,6 +12,7 @@ export interface ScopeFormData {
   description: string
   institution: string
   is_public: boolean
+  default_workflow_pair_id: string | null
 }
 
 export interface UserRecord {

@@ -50,3 +50,5 @@ audit/**/data/
 # Design mock-ups (HTML sources, PNG renders); local reference only, the markdown docs are tracked
 docs/design/**/renders/
 docs/design/**/source/
+
+__pycache__/

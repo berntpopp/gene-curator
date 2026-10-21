@@ -22,6 +22,11 @@ export interface AddGenesOptions {
  * Create catalogue genes (single or bulk from validated HGNC results) and
  * optionally assign them to the current scope.
  */
+const errorDetail = (e: unknown): string =>
+  ((e as ApiErrorLike).response as { data?: { detail?: string } } | undefined)?.data?.detail ||
+  (e as ApiErrorLike).message ||
+  ''
+
 export function useAddGenes(options: AddGenesOptions) {
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
@@ -45,9 +50,11 @@ export function useAddGenes(options: AddGenesOptions) {
 
     logger.debug('Adding single gene', { gene_data: geneData })
 
-    const result = await genesAPI.createGene(geneData)
+    // The catalogue is shared: reuse the gene when its HGNC ID already exists (#189)
+    const existing = (await genesAPI.searchGenes({ hgnc_id: gene.hgnc_id }))[0]
+    const result = existing ?? (await genesAPI.createGene(geneData))
 
-    logger.info('Gene added successfully', {
+    logger.info(existing ? 'Gene already in catalogue' : 'Gene added successfully', {
       gene_id: result.id,
       hgnc_id: result.hgnc_id,
       symbol: result.approved_symbol
@@ -72,6 +79,14 @@ export function useAddGenes(options: AddGenesOptions) {
           'success'
         )
       } catch (assignError) {
+        const detail = errorDetail(assignError)
+        if (detail.includes('already assigned')) {
+          notificationStore.addToast(
+            `Gene ${result.approved_symbol} is already in this scope`,
+            'info'
+          )
+          return
+        }
         // Gene was added but assignment failed - still report success for gene creation
         logger.warn('Gene added but scope assignment failed', {
           gene_id: result.id,
@@ -129,22 +144,31 @@ export function useAddGenes(options: AddGenesOptions) {
 
     // If scopeId is provided and genes were created, assign them to the scope
     const targetScopeId = scopeId()
-    if (targetScopeId && result.created_genes.length > 0) {
+    if (targetScopeId) {
       try {
-        const geneIds = result.created_genes.map(g => g.id)
-        await assignmentsAPI.bulkAssignGenes({
-          gene_ids: geneIds,
-          scope_id: targetScopeId,
-          assigned_curator_id: null, // Unassigned
-          priority_level: 'medium'
-        })
+        // Genes skipped as duplicates are already in the catalogue: assign them too
+        const found = await Promise.all(
+          result.skipped_genes.map(
+            async s => (await genesAPI.searchGenes({ hgnc_id: s.hgnc_id }))[0]
+          )
+        )
+        const geneIds = [...result.created_genes, ...found.filter(g => !!g)].map(g => g.id)
+        const assigned = geneIds.length
+          ? await assignmentsAPI.bulkAssignGenes({
+              gene_ids: geneIds,
+              scope_id: targetScopeId,
+              assigned_curator_id: null, // Unassigned
+              priority_level: 'medium'
+            })
+          : null
         logger.info('Bulk genes assigned to scope', {
           gene_count: geneIds.length,
           scope_id: targetScopeId
         })
+        const failed = result.total_errors + (assigned?.total_errors ?? 0)
         notificationStore.addToast(
-          `Added and assigned ${result.total_created} genes (${result.total_skipped} skipped, ${result.total_errors} failed)`,
-          result.total_errors > 0 ? 'warning' : 'success'
+          `Added ${assigned?.total_created ?? 0} genes to the scope (${assigned?.total_skipped ?? 0} already in scope, ${failed} failed)`,
+          failed > 0 ? 'warning' : 'success'
         )
       } catch (assignError) {
         logger.warn('Genes added but scope assignment failed', {
@@ -153,7 +177,7 @@ export function useAddGenes(options: AddGenesOptions) {
           error: (assignError as ApiErrorLike).message
         })
         notificationStore.addToast(
-          `Added ${result.total_created} genes but scope assignment failed: ${((assignError as ApiErrorLike).response as { data?: { detail?: string } } | undefined)?.data?.detail || (assignError as ApiErrorLike).message}`,
+          `Added ${result.total_created} genes but scope assignment failed: ${errorDetail(assignError)}`,
           'warning'
         )
       }

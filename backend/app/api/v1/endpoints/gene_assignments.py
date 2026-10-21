@@ -86,7 +86,7 @@ def get_gene_assignments(
         scope_ids=visible,
         curator_id=curator_id,
         gene_id=gene_id,
-        priority="normal" if priority_level == "medium" else priority_level,
+        priority=priority_level,
         has_curator=has_curator,
         is_active=is_active,
     )
@@ -156,7 +156,6 @@ def create_gene_assignment(
         assignment_model = gene_assignment_crud.create_assignment(
             db, obj_in=assignment_in, assigned_by=current_user.id
         )
-        # Convert model to schema
         return GeneScopeAssignment.model_validate(assignment_model)
     except ValueError as e:
         raise HTTPException(
@@ -370,9 +369,7 @@ def bulk_create_gene_assignments(
     """
     Bulk create gene-scope assignments. Available to all authenticated users with scope access.
     """
-    # All authenticated users can bulk create assignments in their scopes
-    # Check scope access
-    if not ScopePermissionService.has_scope_access(
+    if not ScopePermissionService.can_edit_gene_assignment(
         db, current_user, bulk_request.scope_id
     ):
         raise HTTPException(
@@ -380,13 +377,20 @@ def bulk_create_gene_assignments(
             detail="Not enough permissions for this scope",
         )
 
-    result = gene_assignment_crud.bulk_assign_genes(
-        db,
-        gene_ids=bulk_request.gene_ids,
-        scope_id=bulk_request.scope_id,
-        curator_id=bulk_request.assigned_curator_id,
-        assigned_by=current_user.id,
-    )
+    try:
+        result = gene_assignment_crud.bulk_assign_genes(
+            db,
+            gene_ids=bulk_request.gene_ids,
+            scope_id=bulk_request.scope_id,
+            curator_id=bulk_request.assigned_curator_id,
+            priority_level=bulk_request.priority_level,
+            assignment_notes=bulk_request.assignment_notes,
+            assigned_by=current_user.id,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
 
     return BulkGeneScopeAssignmentResponse(**result)
 
@@ -668,7 +672,6 @@ def get_scope_assignment_overview(
         include_inactive=False,
     )
 
-    # Calculate overview statistics
     total_assignments = len(assignments)
     assigned_genes = sum(1 for a in assignments if a.assigned_curator_id is not None)
     unassigned_genes = total_assignments - assigned_genes
@@ -684,9 +687,6 @@ def get_scope_assignment_overview(
     priority_counts: dict[str, int] = {"high": 0, "medium": 0, "low": 0}
     for assignment in assignments:
         priority = assignment.priority or "medium"
-        # Map "normal" to "medium" for display
-        if priority == "normal":
-            priority = "medium"
         priority_counts[priority] = priority_counts.get(priority, 0) + 1
 
     # Work status

@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 from app.crud.scope import scope_crud
 from app.models.models import Scope, UserNew
 from app.schemas.scope import ScopeCreate, ScopeUpdate
+from tests.api.scopes.factories import make_workflow_pair
 from tests.postgres.conftest import set_test_user_context
 
 pytestmark = pytest.mark.postgres
@@ -75,7 +76,7 @@ def test_scope(db: Session, admin_user: UserNew) -> Scope:
         institution="Test Institution",
         is_public=False,
         scope_config={"test": "config"},
-        default_workflow_pair_id=None,
+        default_workflow_pair_id=make_workflow_pair(db).id,
     )
     scope = scope_crud.create_scope(db, scope_data, admin_user.id)
     return scope
@@ -93,7 +94,7 @@ class TestScopeCRUD:
             institution="Test Institution",
             is_public=False,
             scope_config={"key": "value"},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -123,7 +124,7 @@ class TestScopeCRUD:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         with pytest.raises(IntegrityError):
@@ -144,7 +145,7 @@ class TestScopeCRUD:
                 institution=None,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
 
     def test_get_scope_by_id(self, db: Session, test_scope: Scope) -> None:
@@ -190,7 +191,7 @@ class TestScopeCRUD:
                 institution=None,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
@@ -215,7 +216,7 @@ class TestScopeCRUD:
                 institution=None,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
@@ -244,7 +245,7 @@ class TestScopeCRUD:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
         inactive_scope = scope_crud.create_scope(db, inactive_scope_data, admin_user.id)
 
@@ -272,7 +273,7 @@ class TestScopeCRUD:
             is_public=True,
             scope_config={"updated": "config"},
             is_active=None,
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         updated_scope = scope_crud.update_scope(db, test_scope.id, update_data)
@@ -348,7 +349,7 @@ class TestScopeCRUD:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
         scope_id = scope.id
@@ -429,7 +430,7 @@ class TestScopeCRUD:
                 institution=None,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
             scope = scope_crud.create_scope(db, scope_data, admin_user.id)
             assert scope.name == name
@@ -443,7 +444,7 @@ class TestScopeCRUD:
                 institution=None,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
             scope = scope_crud.create_scope(db, scope_data, admin_user.id)
             assert scope.name == expected_name
@@ -460,7 +461,7 @@ class TestScopeCRUD:
                     institution=None,
                     is_public=False,
                     scope_config={},
-                    default_workflow_pair_id=None,
+                    default_workflow_pair_id=make_workflow_pair(db).id,
                 )
 
     def test_scope_config_jsonb_storage(self, db: Session, admin_user: UserNew) -> None:
@@ -478,7 +479,7 @@ class TestScopeCRUD:
             institution=None,
             is_public=False,
             scope_config=complex_config,
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -501,7 +502,7 @@ class TestScopeCRUD:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -528,7 +529,7 @@ class TestScopeCRUD:
                 institution=institution,
                 is_public=False,
                 scope_config={},
-                default_workflow_pair_id=None,
+                default_workflow_pair_id=make_workflow_pair(db).id,
             )
             scope_crud.create_scope(db, scope_data, admin_user.id)
 
@@ -578,7 +579,7 @@ class TestScopeEdgeCases:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)
@@ -601,7 +602,7 @@ class TestScopeEdgeCases:
             institution=None,
             is_public=False,
             scope_config={},
-            default_workflow_pair_id=None,
+            default_workflow_pair_id=make_workflow_pair(db).id,
         )
 
         scope = scope_crud.create_scope(db, scope_data, admin_user.id)

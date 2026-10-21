@@ -41,12 +41,12 @@ describe('geneDisplay', () => {
   })
 
   describe('priority display', () => {
-    it('maps high, medium/normal and low priorities', () => {
+    it('maps high, medium and low priorities', () => {
       expect(getPriorityColor('high')).toBe('error')
-      expect(getPriorityColor('normal')).toBe('warning')
+      expect(getPriorityColor('medium')).toBe('warning')
       expect(getPriorityIcon('high')).toBe('mdi-flag')
       expect(getPriorityIcon('low')).toBe('mdi-flag-outline')
-      expect(getPriorityLabel('normal')).toBe('Medium')
+      expect(getPriorityLabel('medium')).toBe('Medium')
       expect(getPriorityLabel('low')).toBe('Low')
     })
 
