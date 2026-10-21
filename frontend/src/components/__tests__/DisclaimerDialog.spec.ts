@@ -40,22 +40,24 @@ describe('DisclaimerDialog', () => {
     expect(document.body.textContent).toContain('NOT a clinical diagnostic tool')
   })
 
-  it('acknowledges after a short delay and closes', async () => {
+  it('acknowledges immediately and closes', async () => {
     const w = mountDialog()
     const button = document.querySelector<HTMLButtonElement>(`[aria-label="${ACCEPT_LABEL}"]`)
 
     button?.click()
     await w.vm.$nextTick()
 
-    expect(w.emitted('acknowledged')).toBeUndefined()
-    expect(logger.info).toHaveBeenCalledWith('User acknowledging disclaimer')
-
-    vi.advanceTimersByTime(300)
-    await w.vm.$nextTick()
-
     expect(w.emitted('acknowledged')).toHaveLength(1)
     expect(w.emitted('update:modelValue')?.at(-1)).toEqual([false])
-    expect(logger.info).toHaveBeenCalledWith('Disclaimer acknowledged successfully')
+    expect(logger.info).toHaveBeenCalledWith('Disclaimer acknowledged')
+  })
+
+  it('keeps the full text behind an expansion and scrolls inside the dialog', () => {
+    mountDialog()
+
+    expect(document.querySelector('.v-dialog--scrollable')).not.toBeNull()
+    expect(document.body.textContent).toContain('Full disclaimer')
+    expect(document.querySelectorAll('.disclaimer-summary li')).toHaveLength(3)
   })
 
   it('reflects the modelValue prop in the dialog visibility', async () => {

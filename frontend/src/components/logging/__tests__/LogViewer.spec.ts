@@ -30,10 +30,20 @@ vi.mock('@/stores/logStore', async () => {
   return { useLogStore: () => store }
 })
 
-const drawer = vi.hoisted(() => ({ close: vi.fn() }))
+const drawer = vi.hoisted(() => ({
+  close: vi.fn(),
+  startOpen: true,
+  isOpen: null as null | { value: boolean }
+}))
 vi.mock('@/composables/useDrawerState', async () => {
   const { ref } = await import('vue')
-  return { useDrawerState: () => ({ isOpen: ref(true), close: drawer.close }) }
+  return {
+    useDrawerState: () => {
+      const isOpen = ref(drawer.startOpen)
+      drawer.isOpen = isOpen
+      return { isOpen, close: drawer.close }
+    }
+  }
 })
 
 import { useLogStore } from '@/stores/logStore'
@@ -97,6 +107,18 @@ function buttonByTitle(title: string) {
 }
 
 describe('LogViewer', () => {
+  it('opens its drawer when mounted while the store already says visible', () => {
+    // App.vue mounts the viewer lazily (v-if) after the store flag flipped
+    drawer.startOpen = false
+    store.isViewerVisible = true
+    mountViewer()
+
+    expect(drawer.isOpen?.value).toBe(true)
+
+    drawer.startOpen = true
+    store.isViewerVisible = false
+  })
+
   beforeEach(() => {
     store.logs = [...entries]
     store.logCount = entries.length

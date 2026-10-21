@@ -90,6 +90,16 @@ describe('UserMenu', () => {
     }
   }
 
+  it('loads notifications once the user becomes authenticated after mount', async () => {
+    const { auth, fetchSpy } = await mountMenu(null)
+    expect(fetchSpy).not.toHaveBeenCalled()
+
+    auth.isAuthenticated = true
+    await flushPromises()
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('shows a login button and no menu for guests', async () => {
     const { wrapper, vm, fetchSpy } = await mountMenu(null)
 

@@ -1,54 +1,107 @@
 <template>
   <div class="main-navigation">
-    <!-- Simple nav items (no dropdown) -->
-    <template v-for="item in simpleItems" :key="item.name">
-      <v-btn :to="item.to" text>
-        <v-icon v-if="item.icon" start>{{ item.icon }}</v-icon>
-        {{ item.label }}
-      </v-btn>
+    <!-- Below md: one menu button opens a drawer with the same entries -->
+    <template v-if="!mdAndUp">
+      <v-app-bar-nav-icon aria-label="Open menu" @click="drawer = !drawer" />
+      <v-navigation-drawer v-model="drawer" temporary location="end">
+        <v-list>
+          <BaseNavigationItem
+            v-for="item in simpleItems"
+            :key="item.name"
+            :to="item.to"
+            :icon="item.icon"
+            :label="item.label"
+            :badge="item.badge"
+            badge-color="warning"
+          />
+          <template v-if="curationItems.length > 0">
+            <v-list-subheader>{{ curationLabel }}</v-list-subheader>
+            <BaseNavigationItem
+              v-for="item in curationItems"
+              :key="item.name"
+              :to="item.to"
+              :icon="item.icon"
+              :label="item.label"
+              :badge="item.badge"
+              :badge-color="item.badgeColor"
+            />
+          </template>
+          <template v-if="curationSetupItems.length > 0">
+            <v-list-subheader>{{ curationSetupLabel }}</v-list-subheader>
+            <BaseNavigationItem
+              v-for="item in curationSetupItems"
+              :key="item.name"
+              :to="item.to"
+              :icon="item.icon"
+              :label="item.label"
+            />
+          </template>
+        </v-list>
+        <template #append>
+          <v-divider />
+          <v-list v-if="isAuthenticated">
+            <BaseNavigationItem :to="{ name: 'UserProfile' }" icon="mdi-account" label="Profile" />
+            <BaseNavigationItem icon="mdi-logout" label="Logout" @click="handleLogout" />
+          </v-list>
+          <v-list v-else>
+            <BaseNavigationItem :to="{ name: 'Login' }" icon="mdi-login" label="Sign in" />
+          </v-list>
+        </template>
+      </v-navigation-drawer>
     </template>
 
-    <!-- Curation Dropdown -->
-    <v-menu v-if="curationItems.length > 0" offset-y>
-      <template #activator="{ props }">
-        <v-btn text v-bind="props">
-          <v-icon start>mdi-clipboard-check</v-icon>
-          {{ curationLabel }}
-          <v-icon end>mdi-menu-down</v-icon>
+    <template v-else>
+      <!-- Simple nav items (no dropdown) -->
+      <template v-for="item in simpleItems" :key="item.name">
+        <v-btn :to="item.to" text>
+          <v-icon v-if="item.icon" start>{{ item.icon }}</v-icon>
+          {{ item.label }}
+          <v-badge v-if="item.badge" :content="item.badge" color="warning" inline />
         </v-btn>
       </template>
-      <v-list>
-        <BaseNavigationItem
-          v-for="item in curationItems"
-          :key="item.name"
-          :to="item.to"
-          :icon="item.icon"
-          :label="item.label"
-          :badge="item.badge"
-          :badge-color="item.badgeColor"
-        />
-      </v-list>
-    </v-menu>
 
-    <!-- Curation Setup Dropdown (Admin only) -->
-    <v-menu v-if="curationSetupItems.length > 0" offset-y>
-      <template #activator="{ props }">
-        <v-btn text v-bind="props">
-          <v-icon start>mdi-cog-outline</v-icon>
-          {{ curationSetupLabel }}
-          <v-icon end>mdi-menu-down</v-icon>
-        </v-btn>
-      </template>
-      <v-list>
-        <BaseNavigationItem
-          v-for="item in curationSetupItems"
-          :key="item.name"
-          :to="item.to"
-          :icon="item.icon"
-          :label="item.label"
-        />
-      </v-list>
-    </v-menu>
+      <!-- Curation Dropdown -->
+      <v-menu v-if="curationItems.length > 0" offset-y>
+        <template #activator="{ props }">
+          <v-btn text v-bind="props">
+            <v-icon start>mdi-clipboard-check</v-icon>
+            {{ curationLabel }}
+            <v-icon end>mdi-menu-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list>
+          <BaseNavigationItem
+            v-for="item in curationItems"
+            :key="item.name"
+            :to="item.to"
+            :icon="item.icon"
+            :label="item.label"
+            :badge="item.badge"
+            :badge-color="item.badgeColor"
+          />
+        </v-list>
+      </v-menu>
+
+      <!-- Curation Setup Dropdown (Admin only) -->
+      <v-menu v-if="curationSetupItems.length > 0" offset-y>
+        <template #activator="{ props }">
+          <v-btn text v-bind="props">
+            <v-icon start>mdi-cog-outline</v-icon>
+            {{ curationSetupLabel }}
+            <v-icon end>mdi-menu-down</v-icon>
+          </v-btn>
+        </template>
+        <v-list>
+          <BaseNavigationItem
+            v-for="item in curationSetupItems"
+            :key="item.name"
+            :to="item.to"
+            :icon="item.icon"
+            :label="item.label"
+          />
+        </v-list>
+      </v-menu>
+    </template>
   </div>
 </template>
 
@@ -64,14 +117,13 @@
    * - Role-based access control
    * - Dropdown support (Curation, Curation Setup)
    * - Consistent terminology
-   * - Responsive-ready
-   *
-   * @see src/composables/useNavigation.js
+   * - Below md the same items render in a temporary drawer
    */
 
   import { computed, ref, watch, onMounted, onUnmounted } from 'vue'
   import { useRouter, type RouteRecordNormalized } from 'vue-router'
   import { storeToRefs } from 'pinia'
+  import { useDisplay } from 'vuetify'
   import { useAuthStore } from '@/stores/auth'
   import { useWorkflowStore } from '@/stores/workflow'
   import { TERMINOLOGY } from '@/config/terminology'
@@ -93,6 +145,8 @@
   const metaOf = (route: RouteRecordNormalized): NavRouteMeta => route.meta as NavRouteMeta
 
   const router = useRouter()
+  const { mdAndUp } = useDisplay()
+  const drawer = ref(false)
   const authStore = useAuthStore()
   const { isAuthenticated } = storeToRefs(authStore)
   const workflowStore = useWorkflowStore()
@@ -153,7 +207,11 @@
         to: { name: route.name },
         icon: metaOf(route).icon,
         label: metaOf(route).label || metaOf(route).title || '',
-        order: metaOf(route).order || 999
+        order: metaOf(route).order || 999,
+        badge:
+          route.name === 'review-queue' && pendingReviewCount.value > 0
+            ? pendingReviewCount.value
+            : null
       }))
       .sort((a, b) => a.order - b.order)
   })
@@ -211,6 +269,12 @@
    */
   const curationLabel = computed(() => TERMINOLOGY.CURATION || 'Curation')
   const curationSetupLabel = computed(() => TERMINOLOGY.CURATION_SETUP || 'Curation Setup')
+
+  async function handleLogout() {
+    drawer.value = false
+    await authStore.logout()
+    router.push({ name: 'Home' })
+  }
 
   /**
    * Check if user has access to a route
