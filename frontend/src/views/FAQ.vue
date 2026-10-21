@@ -101,7 +101,7 @@
       id: 'assignments',
       question: 'Where are gene assignments managed?',
       answer:
-        'My Work (/assignments) lists only the genes assigned to you. The All assignments table is for platform admins and scope admins. There you can edit an assignment, which changes its priority, due date and notes, or reassign a gene to another curator in the scope.'
+        'My work lists only the genes assigned to you. The All assignments table (Assignments in the admin menu, /assignments) is for platform admins and scope admins. There you can edit an assignment, which changes its priority, due date and notes, or reassign a gene to another curator in the scope.'
     },
     {
       id: 'notifications',

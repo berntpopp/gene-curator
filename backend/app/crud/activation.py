@@ -23,8 +23,8 @@ def activate_item(db: Session, item: Any, user_id: UUID) -> None:
             CurationNew.status == CurationStatus.ACTIVE,
             CurationNew.id != item.id,
         ):
-            # workflow_stage stays 'active': the enum has no archived/terminal stage
             old.status = CurationStatus.ARCHIVED
+            old.workflow_stage = WorkflowStage.ARCHIVED
             old.updated_by = user_id
         db.flush()
     if hasattr(item, "status"):  # after the flush: partial unique index on active

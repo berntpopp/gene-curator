@@ -353,6 +353,113 @@ class TestValidateSchemaDefinition:
 
 
 class TestGenerateJsonSchema:
+    def test_sections_skip_malformed_entries(self, validator: SchemaValidator):
+        schema = validator.generate_json_schema(
+            {
+                "field_definitions": {
+                    "sections": [
+                        "junk",
+                        {
+                            "fields": [
+                                "x",
+                                {"type": "text"},
+                                {"id": "ok", "type": "text"},
+                            ]
+                        },
+                        {"fields": None},
+                    ]
+                }
+            }
+        )
+        assert set(schema["properties"]) == {"ok"}
+
+    def test_sectioned_field_definitions_are_flattened(
+        self, validator: SchemaValidator
+    ):
+        # Shape seeded by migration 016 (ClinGen Precuration)
+        schema = validator.generate_json_schema(
+            {
+                "field_definitions": {
+                    "sections": [
+                        {
+                            "id": "disease_entity",
+                            "fields": [
+                                {
+                                    "id": "disease_name",
+                                    "type": "text",
+                                    "required": True,
+                                },
+                                {"id": "note", "type": "textarea", "required": False},
+                            ],
+                        },
+                        {
+                            "id": "inheritance",
+                            "fields": [
+                                {
+                                    "id": "mode_of_inheritance",
+                                    "type": "select",
+                                    "options": [
+                                        {"value": "AD", "label": "Autosomal Dominant"}
+                                    ],
+                                }
+                            ],
+                        },
+                    ]
+                }
+            }
+        )
+        assert set(schema["properties"]) == {
+            "disease_name",
+            "note",
+            "mode_of_inheritance",
+        }
+        assert schema["required"] == ["disease_name"]
+        assert schema["properties"]["mode_of_inheritance"]["enumOptions"] == [
+            {"value": "AD", "label": "Autosomal Dominant"}
+        ]
+
+    def test_select_emits_labelled_enum_options_and_keeps_enum(
+        self, validator: SchemaValidator
+    ):
+        schema = validator.generate_json_schema(
+            {
+                "field_definitions": {
+                    "moi": {
+                        "type": "select",
+                        "options": [
+                            "autosomal_dominant",
+                            "AD",
+                            {"value": "x_linked", "label": "X-linked (custom)"},
+                            {"value": "other_thing"},
+                        ],
+                    },
+                    "tags": {"type": "multiselect", "options": ["a_b"]},
+                    "rows": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "kind": {"type": "select", "options": ["case_level"]}
+                            },
+                        },
+                    },
+                }
+            }
+        )
+        moi = schema["properties"]["moi"]
+        assert moi["enum"] == ["autosomal_dominant", "AD", "x_linked", "other_thing"]
+        assert moi["enumOptions"] == [
+            {"value": "autosomal_dominant", "label": "Autosomal dominant"},
+            {"value": "AD", "label": "AD"},
+            {"value": "x_linked", "label": "X-linked (custom)"},
+            {"value": "other_thing", "label": "Other thing"},
+        ]
+        assert schema["properties"]["tags"]["enumOptions"] == [
+            {"value": "a_b", "label": "A b"}
+        ]
+        nested = schema["properties"]["rows"]["items"]["properties"]["kind"]
+        assert nested["enumOptions"] == [{"value": "case_level", "label": "Case level"}]
+
     def test_carries_ui_and_scoring_configuration(self, validator: SchemaValidator):
         schema = validator.generate_json_schema(
             {
@@ -430,8 +537,10 @@ class TestGenerateJsonSchema:
         )
 
         props = schema["properties"]
-        assert props["kind"] == {"type": "string", "enum": ["a", "b"]}
-        assert props["tags"] == {"type": "array", "items": {"enum": ["x", "y"]}}
+        assert props["kind"]["enum"] == ["a", "b"]
+        assert [o["value"] for o in props["kind"]["enumOptions"]] == ["a", "b"]
+        assert props["tags"]["items"] == {"enum": ["x", "y"]}
+        assert [o["label"] for o in props["tags"]["enumOptions"]] == ["X", "Y"]
 
     def test_array_items_and_item_schema(self, validator: SchemaValidator):
         schema = validator.generate_json_schema(

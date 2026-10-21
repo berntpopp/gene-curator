@@ -73,6 +73,50 @@ afterEach(() => {
 })
 
 describe('ScopeCreate', () => {
+  it('puts display name first, derives the URL name live and stops once it is edited', async () => {
+    const wrapper = mount(ScopeCreate, opts())
+    await flushPromises()
+    const labels = wrapper.findAllComponents({ name: 'VTextField' }).map(c => c.props('label'))
+    expect(labels.indexOf('Display name')).toBeLessThan(labels.indexOf('URL name'))
+
+    const [display, slug] = ['Display name', 'URL name'].map(l =>
+      wrapper.findAllComponents({ name: 'VTextField' }).find(c => c.props('label') === l)!
+    )
+    await display!.find('input').setValue('Kidney Genetics')
+    expect(slug!.props('modelValue')).toBe('kidney-genetics')
+    expect(wrapper.text()).not.toContain('is required')
+
+    await slug!.find('input').setValue('kidney')
+    await display!.find('input').setValue('Kidney Genetics Two')
+    expect(slug!.props('modelValue')).toBe('kidney')
+  })
+
+  it('shows no validation errors on load and makes Create the flat primary button', async () => {
+    const wrapper = mount(ScopeCreate, opts())
+    await flushPromises()
+    expect(wrapper.find('.v-messages__message.text-error, .v-input--error').exists()).toBe(false)
+    const buttons = wrapper.findAllComponents({ name: 'VBtn' })
+    const create = buttons.find(b => b.text() === 'Create scope')!
+    const cancel = buttons.find(b => b.text() === 'Cancel')!
+    expect(create.props('variant')).toBe('flat')
+    expect(create.props('color')).toBe('primary')
+    expect(create.props('disabled')).toBe(false)
+    expect(cancel.props('variant')).toBe('text')
+    expect(wrapper.text()).not.toContain('Scope naming guidelines')
+  })
+
+  it('validates on submit: an empty form is not sent and shows the errors', async () => {
+    const { store, wrapper } = await mountView()
+    const create = vi.spyOn(store, 'createScope')
+    await wrapper
+      .findAll('button')
+      .find(b => b.text() === 'Create scope')!
+      .trigger('click')
+    await flushPromises()
+    expect(create).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Display name is required')
+  })
+
   const mountView = async () => {
     const store = useScopesStore()
     const fetchUserScopes = vi.spyOn(store, 'fetchUserScopes').mockResolvedValue(undefined as never)
@@ -154,6 +198,7 @@ describe('ScopeCreate', () => {
       { user: { id: 'u1' }, role: 'curator' },
       { user: { id: 'u2' }, role: 'viewer' }
     ]
+    await nextTick() // let the inputs pick up the values before the form validates
     await call(vm, 'handleSubmit')
     expect(create).toHaveBeenCalledWith({
       name: 'kidney-genetics',
@@ -169,7 +214,7 @@ describe('ScopeCreate', () => {
       'Failed to invite member',
       expect.objectContaining({ user_id: 'u2' })
     )
-    expect(snackbarState.message).toBe('Scope created successfully!')
+    expect(snackbarState.message).toBe('Scope created')
     vi.advanceTimersByTime(1000)
     expect(routerPush).toHaveBeenCalledWith({
       name: 'scope-dashboard',
@@ -183,8 +228,12 @@ describe('ScopeCreate', () => {
       message: 'Request failed',
       response: { data: { detail: 'Scope exists' } }
     })
-    vm.valid = true
-    ;(vm.scopeData as { default_workflow_pair_id: string }).default_workflow_pair_id = 'wp-1'
+    Object.assign(vm.scopeData as object, {
+      name: 'kidney-genetics',
+      display_name: 'Kidney Genetics',
+      default_workflow_pair_id: 'wp-1'
+    })
+    await nextTick()
     await call(vm, 'handleSubmit')
     expect(snackbarState.message).toBe('Failed to create scope: Scope exists')
     expect(snackbarState.color).toBe('error')

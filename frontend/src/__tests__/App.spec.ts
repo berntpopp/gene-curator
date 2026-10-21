@@ -39,6 +39,7 @@ const stubs = {
   MessageSnackbar: true,
   LogViewer: true,
   DisclaimerDialog: true,
+  CommandPalette: true,
   'router-view': true
 }
 
