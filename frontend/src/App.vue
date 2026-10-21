@@ -121,8 +121,28 @@
 
 <style>
   /* Global styles */
+  :root {
+    --font-sans: 'IBM Plex Sans', system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+  }
+
   .v-application {
-    font-family: 'Roboto', sans-serif;
+    font-family: var(--font-sans);
+  }
+
+  .v-table,
+  .v-data-table,
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .mono {
+    font-family: var(--font-mono);
+  }
+
+  :focus-visible {
+    outline: 2px solid #0b7a83;
+    outline-offset: 1px;
   }
 
   /* Visually hidden until focused */
@@ -152,11 +172,6 @@
   .error-container {
     text-align: center;
     padding: 2rem;
-  }
-
-  /* Table styles */
-  .gene-table .v-data-table__wrapper {
-    border-radius: 8px;
   }
 
   /* Responsive adjustments */
