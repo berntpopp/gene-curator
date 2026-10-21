@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy.engine import make_url
 
 from app.api.v1.api import api_router
 from app.core.api_config import get_cors_config, get_feature_flags
@@ -36,7 +37,9 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     logger.info(
         "Starting Gene Curator API...",
         environment=settings.ENVIRONMENT,
-        database_url=settings.DATABASE_URL,
+        database_url=make_url(settings.DATABASE_URL).render_as_string(
+            hide_password=True
+        ),
         clingen_sop_version=settings.CLINGEN_SOP_VERSION,
     )
     yield
@@ -141,10 +144,12 @@ async def health_check() -> dict[str, str | float]:
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Global exception caught", error=exc)
     # ServerErrorMiddleware sits outside CORSMiddleware, so add the headers here
-    headers: dict[str, str] = {}
+    rid = getattr(request.state, "request_id", None)
+    headers: dict[str, str] = {"X-Request-ID": rid} if rid else {}
     origin = request.headers.get("origin")
     if origin and origin in cors_config.allow_origins:
-        headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Vary"] = "Origin"
         if cors_config.expose_headers:
             headers["Access-Control-Expose-Headers"] = ", ".join(
                 cors_config.expose_headers
@@ -157,7 +162,7 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         content={
             "detail": "Internal server error",
             "type": "internal_error",
-            "request_id": id(request),
+            "request_id": rid,
         },
     )
 
