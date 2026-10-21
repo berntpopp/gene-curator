@@ -1,7 +1,7 @@
 <template>
   <v-footer color="surface" class="footer-bar">
-    <v-container>
-      <v-row align="center" justify="center">
+    <v-container class="py-1">
+      <v-row align="center" justify="center" dense>
         <v-col cols="12" md="6" class="text-center text-md-left">
           <span class="text-body-small"> © {{ currentYear }} Gene Curator - Halbritter Lab </span>
         </v-col>
