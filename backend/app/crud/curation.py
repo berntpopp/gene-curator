@@ -39,6 +39,25 @@ from app.scoring.clingen import ClinGenEngine
 logger = get_logger(__name__)
 
 
+class OpenCurationExistsError(ValueError):
+    """The gene already has an open (not active or archived) curation in the scope."""
+
+    def __init__(self, curation_id: UUID) -> None:
+        super().__init__("This gene already has an open curation in this scope")
+        self.curation_id = curation_id
+
+
+def open_curation_id(db: Session, gene_id: UUID, scope_id: UUID) -> UUID | None:
+    """The gene's open (not active or archived) curation in the scope, if any."""
+    return db.scalar(
+        select(CurationNew.id).where(
+            CurationNew.gene_id == gene_id,
+            CurationNew.scope_id == scope_id,
+            CurationNew.status.notin_([CurationStatus.ACTIVE, CurationStatus.ARCHIVED]),
+        )
+    )
+
+
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
     return datetime.now(UTC)
@@ -269,6 +288,11 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             raise ValueError(
                 f"WorkflowPair with id {obj_in.workflow_pair_id} not found"
             )
+
+        # One open curation per gene and scope (approval already created a draft, #398)
+        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id)
+        if open_id:
+            raise OpenCurationExistsError(open_id)
 
         # 4-eyes: curation needs an approved precuration, unless it re-curates an active one
         approved = select(PrecurationNew.id).where(

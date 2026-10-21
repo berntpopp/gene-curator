@@ -173,9 +173,20 @@ def _owner_scalar(sql: str, *params: object) -> object:
         return row[0] if row else None
 
 
+def _activate_curation(w: W) -> None:
+    """The gene's fixture curation is open; approval only drafts a curation when none is."""
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curations SET status = 'active', workflow_stage = 'active' "
+            "WHERE id = %s",
+            (str(w.cur),),
+        )
+
+
 def test_reviewer_approves_precuration_and_the_curation_is_created(
     client: TestClient, w: W
 ) -> None:
+    _activate_curation(w)
     r = client.post(f"/api/v1/precurations/{w.pre}/approve", headers=_h(w.bob))
     assert r.status_code == 200, r.text
     assert r.json()["curation_created"] is True
@@ -392,6 +403,7 @@ def test_reviewer_cannot_insert_forged_curations(client: TestClient, w: W) -> No
         assert isinstance(err.value.orig, psycopg2.errors.InsufficientPrivilege)
 
     denied()  # the precuration is not approved
+    _activate_curation(w)
     assert client.post(
         f"/api/v1/precurations/{w.pre}/approve", headers=_h(w.bob)
     ).is_success
@@ -606,6 +618,10 @@ def test_platform_admin_without_membership_gets_403_not_500_on_create(
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE precurations SET status = 'approved' WHERE id = %s", (str(w.pre),)
+        )
+        # The gene's open curation would refuse the create (409) before RLS is reached
+        cur.execute(
+            "UPDATE curations SET status = 'archived' WHERE id = %s", (str(w.cur),)
         )
     r = client.post(
         "/api/v1/curations/",

@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
+from app.crud.curation import open_curation_id
 from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.precuration_required import (
     MissingRequiredFieldsError,
@@ -431,7 +432,10 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         db_obj.updated_at = _utc_now()
 
         curation = None
-        if create_curation:
+        # One open curation per gene and scope: an open one (e.g. a re-curation) stays the only one
+        if create_curation and not open_curation_id(
+            db, db_obj.gene_id, db_obj.scope_id
+        ):
             # Get workflow pair for data mapping
             workflow_pair = self._get_workflow_pair_for_precuration(db, db_obj)
 

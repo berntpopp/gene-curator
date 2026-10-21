@@ -85,6 +85,22 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     return id
   }
 
+  /**
+   * Submit a curation this form just created. Only a refused submit moves to its edit page, so a
+   * reload reopens it; on success the URL stays, because App.vue remounts the view on any URL
+   * change and the unmounted view would never receive `submit` to open the detail page.
+   */
+  async function submitCreated(created: CurationRecord): Promise<string> {
+    createdId = created.id
+    lockVersion.value = created.lock_version ?? 0
+    try {
+      return await submitAt(created.id, lockVersion.value)
+    } catch (error) {
+      await openCreated(created.id)
+      throw error
+    }
+  }
+
   /** A 409 shows the conflict banner and the store's conflict text, not a generic error. */
   function reportSubmitError(error: unknown) {
     if (curationsStore.error?.isConflict) {
@@ -165,11 +181,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload(evidenceData.value)
         )) as CurationRecord
-        createdId = created.id
-        // A reload after a refused submit must open this curation, not create another
-        await openCreated(created.id)
-        lockVersion.value = created.lock_version ?? 0
-        submittedId = await submitAt(created.id, lockVersion.value)
+        submittedId = await submitCreated(created)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')
@@ -207,11 +219,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
-        createdId = created.id
-        // A reload after a refused submit must open this curation, not create another
-        await openCreated(created.id)
-        lockVersion.value = created.lock_version ?? 0
-        submittedId = await submitAt(created.id, lockVersion.value)
+        submittedId = await submitCreated(created)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')

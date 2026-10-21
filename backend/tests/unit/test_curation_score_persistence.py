@@ -4,7 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from app.crud.curation import curation_crud
-from app.models.models import CurationNew, PrecurationNew
+from app.models.models import CurationNew, CurationStatus, PrecurationNew
 
 pytestmark = pytest.mark.unit
 
@@ -82,6 +82,9 @@ def test_evidence_writes_persist_engine_result(
     }
     user_id = test_curation.created_by
     if operation == "create":
+        # An open curation blocks a new one
+        test_curation.status = CurationStatus.ARCHIVED
+        db_session.commit()
         result = curation_crud.create_curation(
             db_session,
             obj_in=CurationCreate(

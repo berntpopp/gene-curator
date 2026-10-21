@@ -20,7 +20,7 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
-from app.crud.curation import curation_crud
+from app.crud.curation import OpenCurationExistsError, curation_crud
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import holds_review_capability
 from app.models import CurationNew, CurationStatus, UserNew
@@ -81,15 +81,13 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
 def _can_user_edit_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
-    """Check if user can edit this curation."""
-    # Admin can edit draft/rejected curations regardless of scope role
-    if user.role == "admin":
-        return curation.status in [CurationStatus.DRAFT, CurationStatus.REJECTED]
-
-    # Must be editable status
+    """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         return False
-
+    if user.role == "admin":
+        return True
+    if curation.created_by != user.id:
+        return False
     # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
     scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
     return scope_role in ["admin", "curator"]
@@ -337,6 +335,11 @@ def create_curation(
             obj_in=curation_in,
             user_id=current_user.id,
         )
+    except OpenCurationExistsError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail={"message": str(e), "curation_id": str(e.curation_id)},
+        ) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
