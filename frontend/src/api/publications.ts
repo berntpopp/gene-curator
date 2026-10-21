@@ -23,10 +23,14 @@ export const publicationsAPI = {
    * //   results: [{ pmid, is_valid, publication, error }]
    * // }
    */
-  async validatePMIDs(pmids: string[]): Promise<Schema<'PMIDValidationResponse'>> {
+  async validatePMIDs(
+    pmids: string[],
+    signal?: AbortSignal
+  ): Promise<Schema<'PMIDValidationResponse'>> {
     const response = await apiClient.post<Schema<'PMIDValidationResponse'>>(
       '/publications/validate',
-      { pmids }
+      { pmids },
+      ...(signal ? [{ signal }] : [])
     )
     return response.data
   },
