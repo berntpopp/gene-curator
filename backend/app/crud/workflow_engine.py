@@ -119,8 +119,7 @@ class WorkflowEngine:
         if item.created_by == user_id:
             errors.append("4-eyes principle violation: Cannot review your own work")
 
-        # Check review permissions for curations
-        if item_type == "curation" and not self._has_review_permissions(db, user, item):
+        if not self._has_review_permissions(db, user, item):
             errors.append("Insufficient permissions for peer review")
 
         return errors
@@ -170,7 +169,7 @@ class WorkflowEngine:
             )
 
         # 4-eyes principle validation
-        if self._requires_peer_review(current_stage, target_stage):
+        if self._requires_peer_review(current_stage, target_stage, item_type):
             errors.extend(
                 self._validate_4_eyes_principle(db, user, user_id, item, item_type)
             )
@@ -647,20 +646,13 @@ class WorkflowEngine:
         return False
 
     def _requires_peer_review(
-        self, current_stage: WorkflowStage, target_stage: WorkflowStage
+        self, current_stage: WorkflowStage, target_stage: WorkflowStage, item_type: str
     ) -> bool:
-        """
-        Check if transition requires peer review (4-eyes principle).
-
-        Note: The 4-eyes principle applies at APPROVAL time (REVIEW -> ACTIVE),
-        not at SUBMISSION time (CURATION -> REVIEW). A curator can submit their
-        own work for review, but a different reviewer must approve it.
-        """
-        peer_review_transitions = [
-            # Only approval requires 4-eyes - a different person must approve
-            (WorkflowStage.REVIEW, WorkflowStage.ACTIVE),
-        ]
-        return (current_stage, target_stage) in peer_review_transitions
+        """Review decisions (4-eyes): anything leaving REVIEW, and approving a precuration
+        (-> CURATION). Submitting one's own work (-> REVIEW) is not a decision."""
+        return current_stage == WorkflowStage.REVIEW or (
+            item_type == "precuration" and target_stage == WorkflowStage.CURATION
+        )
 
     def _has_review_permissions(self, db: Session, user: UserNew, item: Any) -> bool:
         """Review needs the REVIEW capability in the item's scope (no admin bypass)."""
@@ -765,8 +757,9 @@ class WorkflowEngine:
         # Update workflow stage and status (when returning from review)
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.CURATION
-        if hasattr(item, "status"):
-            item.status = CurationStatus.DRAFT
+        if hasattr(item, "status"):  # an approved precuration, or a curation sent back
+            is_pre = isinstance(item, PrecurationNew)
+            item.status = CurationStatus.APPROVED if is_pre else CurationStatus.DRAFT
         db.flush()
         return {"success": True, "message": "Transitioned to curation"}
 
