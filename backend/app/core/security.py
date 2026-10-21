@@ -23,7 +23,10 @@ def _secret(password: str) -> bytes:
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return bcrypt.checkpw(_secret(plain_password), hashed_password.encode())
+    try:
+        return bcrypt.checkpw(_secret(plain_password), hashed_password.encode())
+    except ValueError:  # malformed stored hash must not become a 500
+        return False
 
 
 def get_password_hash(password: str) -> str:

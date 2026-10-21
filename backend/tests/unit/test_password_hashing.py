@@ -30,3 +30,8 @@ def test_round_trip_and_unique_salts() -> None:
 def test_passwords_over_72_bytes_do_not_raise() -> None:
     long = "x" * 100
     assert verify_password(long, get_password_hash(long))
+
+
+@pytest.mark.parametrize("stored", ["", "notahash", "$2b$12$abc"])
+def test_malformed_stored_hash_returns_false(stored: str) -> None:
+    assert verify_password("secret", stored) is False
