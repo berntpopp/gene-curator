@@ -185,20 +185,17 @@ describe('SchemaManagement', () => {
     expect(wrapper.text()).toContain('ClinGen precuration')
   })
 
-  it('explains that the feature is unavailable when the endpoint returns 404', async () => {
-    vi.spyOn(useSchemasStore(), 'fetchSchemas').mockRejectedValue({ response: { status: 404 } })
+  it('reports a load failure, also for a 404', async () => {
+    const fetch = vi.spyOn(useSchemasStore(), 'fetchSchemas')
+    fetch.mockRejectedValue({ response: { status: 404 } })
     mount(SchemaManagement, opts())
     await flushPromises()
-    expect(showError).toHaveBeenCalledWith(
-      'Schema management is not yet available. This feature is under development.'
-    )
-  })
-
-  it('reports a generic load failure for other errors', async () => {
-    vi.spyOn(useSchemasStore(), 'fetchSchemas').mockRejectedValue(new Error('500'))
+    expect(showError).toHaveBeenCalledWith('Failed to load schemas')
+    showError.mockClear()
+    fetch.mockRejectedValue(new Error('500'))
     mount(SchemaManagement, opts())
     await flushPromises()
-    expect(showError).toHaveBeenCalledWith('Failed to load schemas. Please refresh.')
+    expect(showError).toHaveBeenCalledWith('Failed to load schemas')
   })
 
   it('deletes a schema after confirmation and reports success', async () => {

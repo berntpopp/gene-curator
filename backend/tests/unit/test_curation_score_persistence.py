@@ -1,4 +1,4 @@
-"""calculate_score must report and persist the engine's real score keys."""
+"""Writes persist engine scores; score previews are read-only."""
 
 import pytest
 from sqlalchemy.orm import Session
@@ -11,7 +11,7 @@ pytestmark = pytest.mark.unit
 _NULL = {"pmid": "12345678", "proband_counted_points": 1.5}
 
 
-def test_calculate_score_reports_and_persists_genetic_score(
+def test_calculate_score_reports_without_persisting_genetic_score(
     db_session: Session, test_curation: CurationNew
 ) -> None:
     test_curation.evidence_data = {
@@ -25,8 +25,184 @@ def test_calculate_score_reports_and_persists_genetic_score(
         "experimental_evidence": {},
     }
 
+    db_session.commit()
+    before = dict(test_curation.computed_scores)
     result = curation_crud.calculate_score(db_session, test_curation)
 
     assert result.genetic_score == pytest.approx(3.0)
-    assert test_curation.computed_scores["genetic_evidence_total"] == pytest.approx(3.0)
-    assert test_curation.computed_scores["total_score"] == pytest.approx(3.0)
+    assert result.total_score == pytest.approx(3.0)
+    assert not db_session.is_modified(test_curation)
+    db_session.expire(test_curation)
+    assert test_curation.computed_scores == before
+    assert test_curation.computed_verdict is None
+
+
+def test_scope_list_reads_persisted_engine_scores(
+    db_session: Session, test_curation: CurationNew
+) -> None:
+    test_curation.computed_scores = {
+        "total_score": 7,
+        "genetic_evidence_total": 5,
+        "experimental_evidence_total": 2,
+    }
+    test_curation.computed_verdict = "moderate"
+    db_session.commit()
+    summaries, _ = curation_crud.get_multi_filtered(db_session)
+    summary = next(row for row in summaries if row.id == test_curation.id)
+    assert summary.computed_verdict == "Moderate"
+    assert summary.computed_scores == {
+        "total_score": 7,
+        "genetic_score": 5,
+        "experimental_score": 2,
+    }
+
+
+@pytest.mark.parametrize("operation", ["create", "update", "draft", "submit"])
+def test_evidence_writes_persist_engine_result(
+    db_session: Session, test_curation: CurationNew, operation: str
+) -> None:
+    from unittest.mock import patch
+
+    from app.schemas.curation import (
+        CurationCreate,
+        CurationDraftSave,
+        CurationSubmit,
+        CurationUpdate,
+    )
+    from app.schemas.workflow_engine import WorkflowValidationResult
+    from app.scoring.clingen import ClinGenEngine
+
+    evidence = {
+        "genetic_evidence": {
+            "case_control": {"single_variant_analysis": [{"points": 2}]}
+        }
+    }
+    user_id = test_curation.created_by
+    if operation == "create":
+        result = curation_crud.create_curation(
+            db_session,
+            obj_in=CurationCreate(
+                gene_id=test_curation.gene_id,
+                scope_id=test_curation.scope_id,
+                workflow_pair_id=test_curation.workflow_pair_id,
+                evidence_data=evidence,
+            ),
+            user_id=user_id,
+        )
+    elif operation == "update":
+        test_curation.is_draft = False
+        result = curation_crud.update_with_lock(
+            db_session,
+            db_obj=test_curation,
+            obj_in=CurationUpdate(
+                lock_version=test_curation.lock_version, evidence_data=evidence
+            ),
+            user_id=user_id,
+        )
+    elif operation == "draft":
+        result = curation_crud.save_draft(
+            db_session,
+            db_obj=test_curation,
+            draft_data=CurationDraftSave(evidence_data=evidence),
+            user_id=user_id,
+        )
+    else:
+        test_curation.evidence_data = evidence
+        db_session.commit()
+        with (
+            patch(
+                "app.crud.curation.workflow_engine.validate_transition",
+                return_value=WorkflowValidationResult(is_valid=True),
+            ),
+            patch(
+                "app.crud.curation.workflow_engine.execute_transition",
+                side_effect=lambda *args: db_session.commit(),
+            ),
+        ):
+            result = curation_crud.submit_for_review(
+                db_session,
+                db_obj=test_curation,
+                submit_data=CurationSubmit(lock_version=test_curation.lock_version),
+                user_id=user_id,
+            )
+    assert result is not None
+    db_session.expire(result)
+    expected = ClinGenEngine().calculate_scores(evidence, {})
+    assert result.computed_scores["total_score"] == expected.total_score
+    assert result.computed_scores["genetic_evidence_total"] == 2
+    assert result.computed_verdict == expected.verdict
+    assert result.computed_summary == expected.verdict_rationale
+
+
+def test_draft_can_save_unscored_rows(
+    db_session: Session, test_curation: CurationNew
+) -> None:
+    from app.schemas.curation import CurationDraftSave
+
+    evidence = {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {
+                    "predicted_or_proven_null": [{"proband_counted_points": None}],
+                    "other_variant_type": [{"proband_counted_points": None}],
+                }
+            },
+            "segregation": [{"points": None}],
+            "case_control": {
+                "single_variant_analysis": [{"points": None}],
+                "aggregate_variant_analysis": [{"points": None}],
+            },
+        },
+        "experimental_evidence": {"function": {"expression": [{"points": None}]}},
+    }
+    result = curation_crud.save_draft(
+        db_session,
+        db_obj=test_curation,
+        draft_data=CurationDraftSave(evidence_data=evidence),
+        user_id=test_curation.created_by,
+    )
+    assert result.evidence_data == evidence
+    assert result.computed_scores["total_score"] == 0
+
+
+def test_recompute_all_scores_is_idempotent(
+    db_session: Session, test_curation: CurationNew, test_user_admin: object
+) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    test_curation.evidence_data = {
+        "genetic_evidence": {
+            "case_level": {
+                "autosomal_dominant_or_x_linked": {
+                    "predicted_or_proven_null": [_NULL, _NULL]
+                }
+            }
+        },
+        "experimental_evidence": {},
+    }
+    test_curation.computed_verdict = None
+    test_curation.computed_scores = {"raw_scores": {}}
+    db_session.commit()
+    updated_at = test_curation.updated_at
+
+    assert recompute_all_scores(db_session) >= 1
+    db_session.refresh(test_curation)
+    first = (
+        test_curation.computed_verdict,
+        test_curation.computed_scores["total_score"],
+    )
+    assert first == ("limited", 3.0)
+    recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert first == (
+        test_curation.computed_verdict,
+        test_curation.computed_scores["total_score"],
+    )
+    assert test_curation.updated_at == updated_at
+
+
+def test_recompute_requires_an_admin(db_session: Session) -> None:
+    from app.services.recompute_scores import recompute_all_scores
+
+    with pytest.raises(RuntimeError, match="admin"):
+        recompute_all_scores(db_session)

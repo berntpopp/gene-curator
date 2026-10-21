@@ -53,19 +53,20 @@ export function calculateGeneticScore(ge: GeneticEvidence): GeneticBreakdown {
   }
 
   if (ge.case_control) {
-    if (ge.case_control.single_variant_analysis) {
-      caseControlTotal += sumPoints(ge.case_control.single_variant_analysis)
-    }
-    if (ge.case_control.aggregate_variant_analysis) {
-      caseControlTotal += sumPoints(ge.case_control.aggregate_variant_analysis)
-    }
+    caseControlTotal = caseControlScore(
+      sumPoints(ge.case_control.single_variant_analysis),
+      sumPoints(ge.case_control.aggregate_variant_analysis)
+    )
   }
 
   return {
     caseLevel: Math.min(caseLevelTotal, 12),
     segregation: Math.min(segregationTotal, 3),
     caseControl: Math.min(caseControlTotal, 6),
-    total: Math.min(caseLevelTotal + segregationTotal + caseControlTotal, 12)
+    total: Math.min(
+      Math.min(caseLevelTotal, 12) + Math.min(segregationTotal, 3) + caseControlTotal,
+      12
+    )
   }
 }
 
@@ -112,11 +113,20 @@ export function calculateExperimentalScore(exp: ExperimentalEvidence): Experimen
 }
 
 /** Classification from the total score; contradictory evidence overrides to "Disputed". */
-export function classifyScore(total: number, hasContradictory: boolean): string {
+export function classifyScore(
+  total: number,
+  hasContradictory: boolean,
+  replicatedOverTime = false
+): string {
   if (hasContradictory) return 'Disputed'
-  if (total >= 12) return 'Definitive'
-  if (total >= 7) return 'Strong'
-  if (total >= 2) return 'Moderate'
+  // Definitive = Strong points plus replication over time.
+  if (total >= 12) return replicatedOverTime ? 'Definitive' : 'Strong'
+  if (total >= 7) return 'Moderate'
   if (total >= 0.1) return 'Limited'
   return 'No Known Disease Relationship'
+}
+
+/** Use the stronger case-control method, capped at six points. */
+export function caseControlScore(single: number, aggregate: number): number {
+  return Math.min(Math.max(single, aggregate), 6)
 }

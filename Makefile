@@ -161,6 +161,9 @@ diff-cover: ## Changed lines must be >= $(DIFF_COVER_MIN)% covered (uses whichev
 		uvx diff-cover@9.7.1 $$r --compare-branch=$(BASE) --fail-under=$(DIFF_COVER_MIN) || exit 1; \
 	done
 
+recompute-scores: ## One-off: recompute persisted curation scores via the engine (run once after deploy)
+	cd backend && uv run python -m app.services.recompute_scores
+
 api-types: ## Regenerate frontend/src/types/api.generated.ts from the backend OpenAPI schema
 	cd backend && uv run python -c "import json; from app.main import app; print(json.dumps(app.openapi()))" 2>/dev/null > ../frontend/openapi.json
 	cd frontend && npx --yes openapi-typescript@7.13.0 openapi.json -o src/types/api.generated.ts && rm openapi.json

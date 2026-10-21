@@ -73,14 +73,14 @@ describe('calculateGeneticScore', () => {
     })
   })
 
-  it('adds single-variant and aggregate case-control points before capping', () => {
+  it('uses the larger case-control subtotal', () => {
     const ge: GeneticEvidence = {
       case_control: {
         single_variant_analysis: [{ points: 2 }],
         aggregate_variant_analysis: [{ points: 1.5 }]
       }
     }
-    expect(calculateGeneticScore(ge).caseControl).toBeCloseTo(3.5)
+    expect(calculateGeneticScore(ge).caseControl).toBeCloseTo(2)
   })
 })
 
@@ -121,11 +121,11 @@ describe('calculateExperimentalScore', () => {
 
 describe('classifyScore', () => {
   it.each([
-    [12, 'Definitive'],
-    [11.99, 'Strong'],
-    [7, 'Strong'],
-    [6.99, 'Moderate'],
-    [2, 'Moderate'],
+    [12, 'Strong'],
+    [11.99, 'Moderate'],
+    [7, 'Moderate'],
+    [6.99, 'Limited'],
+    [2, 'Limited'],
     [1.99, 'Limited'],
     [0.1, 'Limited'],
     [0.09, 'No Known Disease Relationship'],
@@ -134,8 +134,18 @@ describe('classifyScore', () => {
     expect(classifyScore(total, false)).toBe(expected)
   })
 
+  it('returns Definitive only for Strong points with replication over time', () => {
+    expect(classifyScore(12, false, true)).toBe('Definitive')
+    expect(classifyScore(11.99, false, true)).toBe('Moderate')
+    expect(classifyScore(18, true, true)).toBe('Disputed')
+  })
+
   it('returns Disputed whenever contradictory evidence is present', () => {
     expect(classifyScore(18, true)).toBe('Disputed')
     expect(classifyScore(0, true)).toBe('Disputed')
   })
+})
+
+it('applies category caps before the genetic total', () => {
+  expect(calculateGeneticScore({ segregation: [{ points: 20 }] }).total).toBe(3)
 })
