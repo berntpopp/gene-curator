@@ -77,45 +77,15 @@ describe('AppBar', () => {
     expect(wrapper?.find('.v-img').attributes('alt') ?? '').toBe('')
   })
 
-  it('hides version, theme toggle and user menu below md', () => {
+  it('hides version and user menu below md but keeps the theme toggle (#325)', () => {
     display.mdAndUp = ref(false)
     mountAppBar()
 
     expect(wrapper?.text()).not.toContain('Version')
-    expect(wrapper?.find('.ml-2').exists()).toBe(false)
+    expect(wrapper?.findComponent({ name: 'ThemeToggle' }).exists()).toBe(true)
+    expect(wrapper?.find('button[aria-label^="Theme:"]').exists()).toBe(true)
     expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
     display.mdAndUp = ref(true)
-  })
-
-  it('cycles system -> light -> dark -> system, persisting each choice without deprecation warnings', async () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
-    mountAppBar()
-    const toggle = wrapper?.find('.ml-2')
-
-    expect(toggle?.attributes('aria-label')).toBe('Theme: system. Switch to light theme')
-    expect(toggle?.html()).toContain('mdi-theme-light-dark')
-
-    for (const [next, label, icon] of [
-      ['light', 'Theme: light. Switch to dark theme', 'mdi-white-balance-sunny'],
-      ['dark', 'Theme: dark. Switch to system theme', 'mdi-weather-night'],
-      ['system', 'Theme: system. Switch to light theme', 'mdi-theme-light-dark']
-    ]) {
-      await toggle?.trigger('click')
-      expect(localStorage.getItem('theme')).toBe(next)
-      expect(logger.info).toHaveBeenLastCalledWith('Theme changed', { theme: next })
-      expect(toggle?.attributes('aria-label')).toBe(label)
-      expect(toggle?.html()).toContain(icon)
-    }
-    expect(warn).not.toHaveBeenCalled()
-  })
-
-  it('starts from the saved theme', () => {
-    localStorage.setItem('theme', 'dark')
-    mountAppBar()
-
-    expect(wrapper?.find('.ml-2').attributes('aria-label')).toBe(
-      'Theme: dark. Switch to system theme'
-    )
   })
 
   it('hides navigation and user menu while a stored token has no user loaded yet', () => {

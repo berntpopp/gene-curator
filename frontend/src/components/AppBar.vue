@@ -27,14 +27,8 @@
     <!-- While a stored token is still being verified, show neither guest nor user nav -->
     <MainNavigation v-if="authReady" />
 
-    <!-- Theme Toggle -->
-    <v-tooltip v-if="mdAndUp" :text="themeLabel" location="bottom">
-      <template #activator="{ props }">
-        <v-btn v-bind="props" :aria-label="themeLabel" icon class="ml-2" @click="toggleTheme">
-          <v-icon>{{ MODE_ICON[mode] }}</v-icon>
-        </v-btn>
-      </template>
-    </v-tooltip>
+    <!-- Theme toggle stays reachable at every width -->
+    <ThemeToggle class="ml-2" />
 
     <!-- User Menu -->
     <UserMenu v-if="mdAndUp && authReady" />
@@ -66,14 +60,12 @@
    */
 
   import { ref, computed } from 'vue'
-  import { useDisplay, useTheme } from 'vuetify'
+  import { useDisplay } from 'vuetify'
   import { useAuthStore } from '@/stores/auth'
-  import { useLogger } from '@/composables/useLogger'
   import MainNavigation from '@/components/navigation/MainNavigation.vue'
+  import ThemeToggle from '@/components/navigation/ThemeToggle.vue'
   import UserMenu from '@/components/navigation/UserMenu.vue'
 
-  const logger = useLogger()
-  const theme = useTheme()
   const { mdAndUp } = useDisplay()
   const authStore = useAuthStore()
   const authReady = computed(() => !authStore.token || !!authStore.user)
@@ -81,29 +73,6 @@
   // Version info
   const version = ref('0.4.1')
   const buildHash = ref('dev')
-
-  // Theme mode (persisted in localStorage, restored in main.ts before Vuetify init)
-  type ThemeMode = 'light' | 'dark' | 'system'
-  const NEXT_MODE: Record<ThemeMode, ThemeMode> = { system: 'light', light: 'dark', dark: 'system' }
-  const MODE_ICON: Record<ThemeMode, string> = {
-    system: 'mdi-theme-light-dark',
-    light: 'mdi-white-balance-sunny',
-    dark: 'mdi-weather-night'
-  }
-  const saved = localStorage.getItem('theme')
-  const mode = ref<ThemeMode>(saved === 'light' || saved === 'dark' ? saved : 'system')
-
-  const themeLabel = computed(
-    () => `Theme: ${mode.value}. Switch to ${NEXT_MODE[mode.value]} theme`
-  )
-
-  /** Cycle system -> light -> dark -> system */
-  const toggleTheme = () => {
-    mode.value = NEXT_MODE[mode.value]
-    void theme.change(mode.value)
-    localStorage.setItem('theme', mode.value)
-    logger.info('Theme changed', { theme: mode.value })
-  }
 </script>
 
 <style scoped>
