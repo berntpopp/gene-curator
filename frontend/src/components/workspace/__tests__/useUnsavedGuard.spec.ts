@@ -5,7 +5,7 @@ import { createRouter, createMemoryHistory, RouterView } from 'vue-router'
 const confirm = vi.hoisted(() => vi.fn())
 vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm }) }))
 
-import { useUnsavedGuard } from '../useUnsavedGuard'
+import { useUnsavedGuard, reloadDiscardingChanges } from '../useUnsavedGuard'
 
 const dirty = ref(false)
 const mounted: { unmount: () => void }[] = []
@@ -74,5 +74,18 @@ describe('useUnsavedGuard', () => {
     expect(fire()).toBe(true)
     app.unmount()
     expect(fire()).toBe(false)
+  })
+
+  it('reloads without the leave prompt once the user chose to discard (conflict)', async () => {
+    const reload = vi.fn()
+    vi.stubGlobal('location', { ...window.location, reload })
+    await setup()
+    dirty.value = true
+    reloadDiscardingChanges()
+    const e = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(false)
+    expect(reload).toHaveBeenCalledOnce()
+    vi.unstubAllGlobals()
   })
 })
