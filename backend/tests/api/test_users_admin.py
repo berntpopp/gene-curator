@@ -64,3 +64,25 @@ def test_last_login_is_timezone_aware_utc(db_session: Session) -> None:
     db_session.refresh(user)
     stamp = user.last_login.replace(tzinfo=user.last_login.tzinfo or UTC)
     assert abs(datetime.now(UTC) - stamp) < timedelta(seconds=5)
+
+
+@pytest.mark.parametrize(
+    ("method", "path"),
+    [
+        ("put", "/me"),
+        ("get", "/me"),
+        ("put", "/not-a-uuid/password"),
+        ("put", "/not-a-uuid/activate"),
+        ("put", "/not-a-uuid/deactivate"),
+        ("delete", "/not-a-uuid"),
+        ("get", "/not-a-uuid/activity"),
+    ],
+)
+def test_non_uuid_user_id_is_422(
+    client: TestClient, test_user_admin: UserNew, method: str, path: str
+) -> None:
+    body = {"json": {"new_password": "long-enough-1"}} if method == "put" else {}
+    r = client.request(
+        method, f"{URL}{path}", headers=auth_headers(test_user_admin), **body
+    )
+    assert r.status_code == 422

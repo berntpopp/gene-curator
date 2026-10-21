@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.models import CurationStatus, PrecurationNew, UserNew, WorkflowStage
+from app.schemas.precuration import PrecurationReject
 from tests.api.scopes.factories import auth_headers, make_member, make_user
 
 pytestmark = pytest.mark.unit
@@ -115,7 +116,9 @@ def test_viewer_endpoint_direct(
     db_session.commit()
     endpoint = getattr(precurations, f"{action}_precuration")
     kwargs = (
-        {"rejection_data": {"reason": "Needs changes"}} if action == "reject" else {}
+        {"rejection_data": PrecurationReject(reason="Needs changes")}
+        if action == "reject"
+        else {}
     )
     with pytest.raises(HTTPException) as error:
         endpoint(
@@ -154,10 +157,28 @@ def test_authorized_precuration_decision_direct(
     )
     db_session.commit()
     kwargs = (
-        {"rejection_data": {"reason": "Needs changes"}} if action == "reject" else {}
+        {"rejection_data": PrecurationReject(reason="Needs changes")}
+        if action == "reject"
+        else {}
     )
     getattr(precurations, f"{action}_precuration")(
         precuration_id=test_precuration.id, db=db_session, current_user=user, **kwargs
     )
     db_session.refresh(test_precuration)
     assert test_precuration.status == expected
+
+
+@pytest.mark.parametrize(("length", "expected"), [(2000, 200), (2001, 422)])
+def test_reject_reason_is_bounded_like_review_text(
+    client: TestClient,
+    test_precuration: PrecurationNew,
+    test_user_admin: UserNew,
+    length: int,
+    expected: int,
+):
+    response = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/reject",
+        json={"reason": "x" * length},
+        headers=auth_headers(test_user_admin),
+    )
+    assert response.status_code == expected, response.text

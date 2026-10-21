@@ -4,7 +4,6 @@ Full CRUD with RLS integration and scope-based access control.
 Follows patterns from curations.py.
 """
 
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -31,6 +30,7 @@ from app.schemas.precuration import (
     PrecurationCreate,
     PrecurationDraftSave,
     PrecurationListResponse,
+    PrecurationReject,
     PrecurationSubmit,
     PrecurationUpdate,
 )
@@ -500,7 +500,7 @@ def approve_precuration(
 @api_endpoint()
 def reject_precuration(
     precuration_id: UUID,
-    rejection_data: dict[str, Any],
+    rejection_data: PrecurationReject,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Precuration:
@@ -519,14 +519,12 @@ def reject_precuration(
     # Verify scope access
     require(db, current_user, precuration.scope_id, REVIEW)
 
-    reason = rejection_data.get("reason", "No reason provided")
-
     try:
         rejected = precuration_crud.reject(
             db,
             db_obj=precuration,
             user_id=current_user.id,
-            reason=reason,
+            reason=rejection_data.reason,
         )
     except (StaleDataError, DBAPIError) as e:
         db.rollback()
