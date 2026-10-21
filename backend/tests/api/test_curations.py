@@ -549,7 +549,7 @@ class TestCanReviewPermission:
     - Returns False for own curations (4-eyes principle)
     """
 
-    def test_can_review_true_for_in_review_curation(
+    def test_can_review_false_for_platform_admin_without_membership(
         self,
         client: TestClient,
         admin_token: str,
@@ -560,7 +560,7 @@ class TestCanReviewPermission:
         test_user_curator,
         test_user_admin,
     ):
-        """can_review is True when curation is in_review and created by another user."""
+        """No REVIEW capability by role: platform admins need a reviewer/admin membership."""
         # Arrange — create in_review curation created by curator (not admin)
         curation = CurationNew(
             id=uuid4(),
@@ -584,7 +584,7 @@ class TestCanReviewPermission:
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert data["can_review"] is True
+        assert data["can_review"] is False
 
     def test_can_review_false_for_draft_curation(
         self,

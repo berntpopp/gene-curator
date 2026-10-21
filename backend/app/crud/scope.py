@@ -10,6 +10,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.crud.base import CRUDBase
+from app.crud.review_round import in_current_round
 from app.crud.scope_counts import get_counts_for_scopes
 from app.models import (
     ActiveCuration,
@@ -276,7 +277,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         review_stats_row = db.execute(
             select(
                 func.count(Review.id)
-                .filter(Review.status == "pending")
+                .filter(Review.status == "pending", in_current_round)
                 .label("pending_reviews"),
                 func.count(Review.id)
                 .filter(Review.status == "approved")

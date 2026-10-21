@@ -20,6 +20,7 @@ from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.curation import curation_crud
 from app.crud.precuration import precuration_crud
+from app.crud.review_round import holds_review_capability
 from app.models import CurationNew, CurationStatus, UserNew
 from app.schemas.curation import (
     Curation,
@@ -92,13 +93,8 @@ def _can_user_review_curation(
     if curation.status != CurationStatus.IN_REVIEW:
         return False
 
-    # Admin can always review (others' work)
-    if user.role == "admin":
-        return True
-
-    # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
-    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
-    return scope_role in ["admin", "curator", "reviewer"]
+    # REVIEW capability by membership; platform admins get no bypass
+    return holds_review_capability(db, user.id, curation.scope_id)
 
 
 def _can_user_delete_curation(

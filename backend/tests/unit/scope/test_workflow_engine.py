@@ -94,10 +94,8 @@ def test_validate_transition_unknown_user(
 
 def test_role_requirements_cover_backwards_transitions(engine: WorkflowEngine) -> None:
     permissive = ["curator", "admin"]
-    assert engine._get_role_requirements(S.REVIEW, S.CURATION) == [
-        *permissive,
-        "reviewer",
-    ]
+    # review decisions need the REVIEW capability: reviewers and scope admins only
+    assert engine._get_role_requirements(S.REVIEW, S.CURATION) == ["reviewer", "admin"]
     assert engine._get_role_requirements(S.CURATION, S.PRECURATION) == permissive
     assert engine._get_role_requirements(S.ACTIVE, S.REVIEW) == ["admin"]
     # Unmapped pairs fall back to admin-only
@@ -121,7 +119,11 @@ def test_admin_is_always_authorized(
     admin = make_user(db_session, role="admin")
 
     assert engine._check_role_authorization(db_session, admin, ["curator"], scope.id)
-    assert engine._has_review_permissions(db_session, admin, _Item(scope.id))
+    # ...except review decisions: platform admins hold no REVIEW capability by role
+    assert not engine._has_review_permissions(db_session, admin, _Item(scope.id))
+    assert not engine._check_role_authorization(
+        db_session, admin, ["reviewer", "admin"], scope.id
+    )
 
 
 def test_scope_curator_is_authorized_for_curation_transition(
@@ -198,12 +200,12 @@ def test_review_permission_requires_eligible_scope_role(
     assert not engine._has_review_permissions(db_session, viewer, _Item(scope.id))
 
 
-def test_item_without_scope_skips_membership_check(
+def test_item_without_scope_cannot_be_reviewed(
     db_session: Session, engine: WorkflowEngine
 ) -> None:
     anyone = make_user(db_session)
 
-    assert engine._has_review_permissions(db_session, anyone, _Item(None))
+    assert not engine._has_review_permissions(db_session, anyone, _Item(None))
 
 
 def test_four_eyes_blocks_creator_approving_own_work(
