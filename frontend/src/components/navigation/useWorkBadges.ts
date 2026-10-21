@@ -1,25 +1,18 @@
-import { computed, watch, onMounted, onUnmounted } from 'vue'
+import { watch, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import { useWorkflowStore } from '@/stores/workflow'
+import { useWorkCountsStore } from '@/stores/workCounts'
 import { usePrecurationsStore } from '@/stores/precurations'
 
-/** Pending-review count for nav badges; polls while signed in. Mount in one nav at a time. */
-export function useReviewBadge() {
+/** My work and Review badge counts (one /me/work request); polls while signed in. Mount in one nav at a time. */
+export function useWorkBadges() {
   const router = useRouter()
   const { isAuthenticated } = storeToRefs(useAuthStore())
-  const workflowStore = useWorkflowStore()
-  const pendingReviewCount = computed(() => workflowStore.pendingReviewCount)
+  const counts = useWorkCountsStore()
   let badgeRefreshInterval: ReturnType<typeof setInterval> | null = null
 
-  async function refreshBadgeCount() {
-    try {
-      await workflowStore.fetchPendingReviewCount()
-    } catch {
-      // Silent fail for badge refresh — don't break navigation
-    }
-  }
+  const refreshBadgeCount = () => counts.fetch()
 
   // Hidden tabs do not poll; coming back refreshes at once
   function refreshWhenVisible() {
@@ -40,7 +33,7 @@ export function useReviewBadge() {
       badgeRefreshInterval = null
       document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
-    workflowStore.pendingReviewCount = 0
+    counts.reset()
   }
 
   onMounted(() => {
@@ -72,5 +65,5 @@ export function useReviewBadge() {
     stopBadgeRefresh()
   })
 
-  return pendingReviewCount
+  return counts
 }

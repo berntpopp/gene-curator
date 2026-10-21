@@ -35,6 +35,7 @@ const stubs = {
   AppBar: true,
   SideRail: true,
   BottomTabs: true,
+  PhoneHeader: true,
   FooterBar: true,
   MessageSnackbar: true,
   LogViewer: true,
@@ -94,6 +95,21 @@ describe('App', () => {
     await flushPromises()
     expect(wrapper.findComponent({ name: 'BottomTabs' }).exists()).toBe(true)
     expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(false)
+    expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(true) // guest: brand bar
+    display.mdAndUp = ref(true)
+    wrapper.unmount()
+  })
+
+  it('replaces the brand bar with the page header for signed-in phones', async () => {
+    display.mdAndUp = ref(false)
+    vi.mocked(useAuthStore).mockReturnValue({
+      initialize: authInitialize,
+      isAuthenticated: true
+    } as never)
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'PhoneHeader' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(false)
     display.mdAndUp = ref(true)
     wrapper.unmount()
   })

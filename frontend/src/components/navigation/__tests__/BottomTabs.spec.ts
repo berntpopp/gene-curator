@@ -5,7 +5,7 @@ import { VLayout } from 'vuetify/components'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
-import { useWorkflowStore } from '@/stores/workflow'
+import { useWorkCountsStore } from '@/stores/workCounts'
 import { showInfo } from '@/composables/useNotifications'
 import BottomTabs from '../BottomTabs.vue'
 
@@ -81,7 +81,7 @@ describe('BottomTabs', () => {
   beforeEach(() => {
     document.body.innerHTML = ''
     setActivePinia(createPinia())
-    vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(undefined as never)
+    vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined as never)
   })
 
   it('renders nothing for signed-out users', async () => {
@@ -92,12 +92,18 @@ describe('BottomTabs', () => {
 
   it('is a labelled landmark with one tab per primary destination plus Account', async () => {
     signIn('user')
-    useWorkflowStore().pendingReviewCount = 3
+    Object.assign(useWorkCountsStore(), { review: 3, needsYou: 5 })
     const { wrapper } = await mountTabs()
 
     expect(wrapper.find('nav').attributes('aria-label')).toBe('Primary')
     const labels = wrapper.findAll('.v-btn').map(b => b.attributes('aria-label') ?? b.text())
-    expect(labels).toEqual(['My work', 'Review, 3 pending', 'Gene Catalogue', 'Scopes', 'Account'])
+    expect(labels).toEqual([
+      'My work, 5 pending',
+      'Review, 3 pending',
+      'Gene Catalogue',
+      'Scopes',
+      'Account'
+    ])
     // the visible text is the short tab label so five tabs fit at 390 px
     expect(wrapper.findAll('.v-btn span').map(s => s.text())).toContain('Genes')
     wrapper.unmount()

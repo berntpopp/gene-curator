@@ -2,7 +2,7 @@ import { computed } from 'vue'
 import { useRouter, type RouteRecordNormalized } from 'vue-router'
 import { storeToRefs } from 'pinia'
 import { useAuthStore } from '@/stores/auth'
-import { useReviewBadge } from './useReviewBadge'
+import { useWorkBadges } from './useWorkBadges'
 
 interface RailMeta {
   icon?: string
@@ -20,13 +20,19 @@ interface RailMeta {
 /**
  * Route-driven nav entries shared by the side rail and the phone bottom tabs:
  * `showInMainMenu` for primary destinations, `showInDropdown: 'curationSetup'` for admin.
- * Also starts review-count polling, so mount one nav at a time.
+ * Also starts badge polling, so mount one nav at a time.
  */
+/** Route name -> badge count */
+const BADGE: Record<string, (c: { needsYou: number; review: number }) => number> = {
+  GeneAssignments: c => c.needsYou,
+  'review-queue': c => c.review
+}
+
 export function useNavEntries() {
   const router = useRouter()
   const authStore = useAuthStore()
   const { isAuthenticated } = storeToRefs(authStore)
-  const pendingReviewCount = useReviewBadge()
+  const counts = useWorkBadges()
   // While a stored token is still being verified, show neither guest nor user entries
   const authReady = computed(() => !authStore.token || !!authStore.user)
 
@@ -48,10 +54,7 @@ export function useNavEntries() {
         label: (r.meta as RailMeta).label ?? '',
         tabOrder: (r.meta as RailMeta).tabOrder ?? (r.meta as RailMeta).order ?? 999,
         tabLabel: (r.meta as RailMeta).tabLabel ?? (r.meta as RailMeta).label ?? '',
-        badge:
-          r.name === 'review-queue' && pendingReviewCount.value > 0
-            ? pendingReviewCount.value
-            : null
+        badge: (BADGE[r.name as string]?.(counts) ?? 0) || null
       }))
 
   const primary = computed(() => entries(m => m.showInMainMenu === true))
