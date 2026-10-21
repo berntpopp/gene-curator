@@ -370,6 +370,75 @@ def test_publish_leaves_old_curations_on_their_version(
     )
 
 
+def test_derive_records_pointer_and_setting_does_not_leak(
+    client: TestClient, w: W
+) -> None:
+    created: list[str] = []
+    try:
+        r = client.post(
+            f"/api/v1/schemas/curation-schemas/{w.schema}/versions/{w.v1}/derive",
+            json={"name": f"derived-{w.scope}", "version": "1"},
+            headers=_h(w.admin),
+        )
+        assert r.status_code == 201, r.text
+        created.append(r.json()["id"])
+        assert r.json()["is_active"] is False
+        (v,) = client.get(
+            f"/api/v1/schemas/curation-schemas/{created[0]}/versions",
+            headers=_h(w.alice),
+        ).json()
+        assert (v["derived_from_version_id"], v["created_by"]) == (w.v1, str(w.admin))
+
+        # set_config(..., true) ends with the transaction: a later schema gets no pointer
+        source = client.get(
+            f"/api/v1/schemas/curation-schemas/{w.schema}", headers=_h(w.admin)
+        ).json()
+        r = client.post(
+            "/api/v1/schemas/curation-schemas",
+            json={**source, "name": f"plain-{w.scope}", "schema_hash": None},
+            headers=_h(w.admin),
+        )
+        assert r.status_code == 200, r.text
+        created.append(r.json()["id"])
+        (plain,) = client.get(
+            f"/api/v1/schemas/curation-schemas/{created[1]}/versions",
+            headers=_h(w.admin),
+        ).json()
+        assert plain["derived_from_version_id"] is None
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            for sid in created:
+                cur.execute("DELETE FROM audit_log WHERE schema_id = %s", (sid,))
+                cur.execute("DELETE FROM curation_schemas WHERE id = %s", (sid,))
+
+
+def test_non_admin_derive_is_refused_by_rls(db: Session, w: W) -> None:
+    set_test_user_context(db, str(w.alice))
+    db.execute(
+        text("SELECT set_config('app.derived_from_version_id', :v, true)"),
+        {"v": w.v1},
+    )
+    with pytest.raises(DBAPIError, match="row-level security"), db.begin_nested():
+        db.execute(
+            text(
+                "INSERT INTO curation_schemas (name, version, schema_type, "
+                "field_definitions, workflow_states, ui_configuration, schema_hash, "
+                "created_by) VALUES ('rls-derive', '1', 'curation', '{}', '{}', '{}', "
+                "repeat('7', 64), :u)"
+            ),
+            {"u": w.alice},
+        )
+
+
+def test_derived_pointer_is_immutable(owner_session: Session) -> None:
+    vid = owner_session.scalar(text("SELECT id FROM methodology_versions LIMIT 1"))
+    _fails(
+        owner_session,
+        "UPDATE methodology_versions SET derived_from_version_id = id WHERE id = :v",
+        v=vid,
+    )
+
+
 # ---------------------------------------------------------------------------
 # (d) the migration backfills legacy rows and is idempotent
 # ---------------------------------------------------------------------------

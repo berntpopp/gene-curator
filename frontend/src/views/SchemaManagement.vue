@@ -102,7 +102,7 @@
               @click="editSchema(item)"
             />
             <v-btn
-              aria-label="Duplicate schema"
+              aria-label="Derive schema from latest version"
               icon="mdi-content-copy"
               size="small"
               variant="text"
@@ -286,21 +286,21 @@
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
       const duplicated = await schemasStore.duplicateSchema(schema.id)
-      logger.info('Schema duplicated', {
+      logger.info('Schema derived', {
         originalId: schema.id,
         duplicatedId: duplicated.id,
         schemaName: schema.name
       })
-      showSuccess(`Schema "${schema.name}" duplicated successfully`)
+      showSuccess(`Derived a new draft from "${schema.name}"`)
     } catch (error) {
       const err = error as ApiError
-      logger.error('Failed to duplicate schema', {
+      logger.error('Failed to derive schema', {
         schemaId: schema.id,
         schemaName: schema.name,
         error: err.message,
         stack: err.stack
       })
-      showError(errorMessage(error, 'Failed to duplicate schema'))
+      showError(errorMessage(error, 'Failed to derive schema'))
     }
   }
 

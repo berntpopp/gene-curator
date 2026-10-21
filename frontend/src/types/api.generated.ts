@@ -690,7 +690,7 @@ export interface paths {
         };
         /**
          * List Methodology Versions
-         * @description List a schema's methodology versions, newest first. Requires platform admin.
+         * @description List a schema's methodology versions, newest first.
          */
         get: operations["list_methodology_versions_api_v1_schemas_curation_schemas__schema_id__versions_get"];
         put?: never;
@@ -701,6 +701,28 @@ export interface paths {
          *     Existing curations keep the version they were created with; new ones get this one.
          */
         post: operations["publish_methodology_version_api_v1_schemas_curation_schemas__schema_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schemas/curation-schemas/{schema_id}/versions/{version_id}/derive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Derive Methodology
+         * @description Create an inactive schema from a published version. Requires platform admin.
+         *
+         *     The new schema's v1 records the version it was derived from.
+         */
+        post: operations["derive_methodology_api_v1_schemas_curation_schemas__schema_id__versions__version_id__derive_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -739,6 +761,26 @@ export interface paths {
          * @description Get scoring engines compatible with a schema.
          */
         get: operations["get_compatible_scoring_engines_api_v1_schemas_curation_schemas__schema_id__compatible_engines_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schemas/methodology-versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Methodology Version
+         * @description Get one methodology version (forms render the version a curation is pinned to).
+         */
+        get: operations["get_methodology_version_api_v1_schemas_methodology_versions__version_id__get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6706,6 +6748,16 @@ export interface components {
             is_public: boolean;
         };
         /**
+         * MethodologyDerive
+         * @description Name and version of the inactive schema derived from a methodology version.
+         */
+        MethodologyDerive: {
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+        };
+        /**
          * MethodologyVersion
          * @description An immutable, numbered snapshot of a curation schema.
          */
@@ -10650,6 +10702,42 @@ export interface operations {
             };
         };
     };
+    derive_methodology_api_v1_schemas_curation_schemas__schema_id__versions__version_id__derive_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schema_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MethodologyDerive"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationSchema"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     validate_curation_schema_api_v1_schemas_curation_schemas__schema_id__validate_post: {
         parameters: {
             query?: never;
@@ -10699,6 +10787,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": string[];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_methodology_version_api_v1_schemas_methodology_versions__version_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodologyVersion"];
                 };
             };
             /** @description Validation Error */

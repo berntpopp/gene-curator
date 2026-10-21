@@ -51,6 +51,31 @@ export const schemasAPI = {
   },
 
   /**
+   * Published methodology versions of a schema, newest first
+   */
+  async getVersions(id: string): Promise<Schema<'MethodologyVersion'>[]> {
+    const response = await apiClient.get<Schema<'MethodologyVersion'>[]>(
+      `/schemas/curation-schemas/${id}/versions`
+    )
+    return response.data
+  },
+
+  /**
+   * Derive a new inactive schema from a published version (records provenance)
+   */
+  async deriveSchema(
+    id: string,
+    versionId: string,
+    body: Schema<'MethodologyDerive'>
+  ): Promise<Schema<'CurationSchema'>> {
+    const response = await apiClient.post<Schema<'CurationSchema'>>(
+      `/schemas/curation-schemas/${id}/versions/${versionId}/derive`,
+      body
+    )
+    return response.data
+  },
+
+  /**
    * Validate a stored curation schema (field definitions, scoring, validation rules)
    */
   async validateCurationSchema(id: string): Promise<Schema<'SchemaValidationResult'>> {
