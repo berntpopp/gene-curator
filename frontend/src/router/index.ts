@@ -24,7 +24,7 @@ declare module 'vue-router' {
 const Home = () => import('@/views/Home.vue')
 const Login = () => import('@/views/Login.vue')
 const Register = () => import('@/views/Register.vue')
-const Dashboard = () => import('@/views/Dashboard.vue')
+const MyWork = () => import('@/views/MyWork.vue')
 const ScopeList = () => import('@/views/scope/ScopeList.vue')
 const ScopeCreate = () => import('@/views/scope/ScopeCreate.vue')
 const ScopeDashboard = () => import('@/views/scope/ScopeDashboard.vue')
@@ -53,8 +53,8 @@ const routes: RouteRecordRaw[] = [
     path: '/',
     name: 'Home',
     component: Home,
-    // Signed-in users land on their dashboard; Home is the public landing page
-    beforeEnter: () => (useAuthStore().isAuthenticated ? { name: 'Dashboard' } : true),
+    // Signed-in users land on My work; Home is the public landing page
+    beforeEnter: () => (useAuthStore().isAuthenticated ? { name: 'MyWork' } : true),
     meta: {
       title: 'Gene Curator'
     }
@@ -78,18 +78,20 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/dashboard',
-    name: 'Dashboard',
-    component: Dashboard,
+    path: '/my-work',
+    name: 'MyWork',
+    component: MyWork,
     meta: {
-      title: 'Dashboard',
+      title: 'My work',
       requiresAuth: true,
-      showInUserMenu: true,
-      icon: 'mdi-view-dashboard',
-      label: 'Dashboard',
+      showInMainMenu: true,
+      icon: 'mdi-clipboard-list',
+      label: 'My work',
       order: 1
     }
   },
+  // The dashboard is replaced by My work; keep the old URL and route name working
+  { path: '/dashboard', name: 'Dashboard', redirect: { name: 'MyWork' } },
   {
     path: '/scopes',
     name: 'scopes',
@@ -253,12 +255,8 @@ const routes: RouteRecordRaw[] = [
     name: 'GeneAssignments',
     component: GeneAssignments,
     meta: {
-      title: 'My Work',
-      requiresAuth: true,
-      showInMainMenu: true,
-      icon: 'mdi-clipboard-list',
-      label: 'My work',
-      order: 1
+      title: 'Assignments',
+      requiresAuth: true
     }
   },
   {
