@@ -176,8 +176,18 @@ describe('AssignCuratorModal', () => {
       priority_level: 'high',
       assignment_notes: 'please'
     })
-    expect(addToast).toHaveBeenCalledWith('2 gene(s) assigned to Ada Lovelace', 'success')
+    expect(addToast).toHaveBeenCalledWith('2 genes assigned to Ada Lovelace', 'success')
     expect(wrapper.emitted('assigned')).toHaveLength(1)
+  })
+
+  it('words the assignment preview with a correct plural', async () => {
+    const wrapper = await mountModal()
+    const vm = internals(wrapper)
+    vm.selectedGenes = [vm.availableGenes[0]!]
+    vm.selectedCurator = { user_id: 'u-1', full_name: 'Ada Lovelace' } as never
+    await flushPromises()
+    expect(wrapper.text()).toContain('1 gene will be assigned')
+    expect(wrapper.text()).not.toContain('gene(s)')
   })
 
   it('warns when some genes were skipped', async () => {
@@ -190,7 +200,7 @@ describe('AssignCuratorModal', () => {
     await flushPromises()
     await vm.handleSubmit()
 
-    expect(addToast).toHaveBeenCalledWith('1 gene(s) assigned to Ada (1 skipped)', 'warning')
+    expect(addToast).toHaveBeenCalledWith('1 gene assigned to Ada (1 skipped)', 'warning')
   })
 
   it('does nothing without a curator or genes', async () => {
