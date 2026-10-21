@@ -27,65 +27,56 @@
 -->
 
 <template>
-  <v-card>
-    <v-card-title class="d-flex align-center">
-      <v-icon start>mdi-account-group</v-icon>
-      Scope members
-    </v-card-title>
-    <div v-if="canInviteMembers" class="d-flex justify-end px-4">
-      <v-btn color="primary" prepend-icon="mdi-account-plus" @click="showInviteDialog = true">
+  <v-card variant="flat" border>
+    <div class="d-flex align-center px-4 pt-4">
+      <h2 class="text-title-medium">Scope members</h2>
+      <v-spacer />
+      <v-btn
+        v-if="canInviteMembers"
+        color="primary"
+        variant="flat"
+        prepend-icon="mdi-account-plus"
+        @click="showInviteDialog = true"
+      >
         Invite member
       </v-btn>
     </div>
+    <p v-if="!canEditMemberRoles" class="px-4 text-body-medium text-medium-emphasis">
+      Only scope admins can manage members.
+    </p>
 
     <v-card-text>
-      <!-- Loading state -->
       <v-progress-linear v-if="loading" indeterminate />
 
-      <!-- Members list -->
       <v-list v-else-if="members.length > 0">
         <v-list-item v-for="member in members" :key="member.user_id">
           <template #prepend>
-            <v-avatar :color="getRoleColor(member.role)">
-              <v-icon :icon="getRoleIcon(member.role)" color="white"></v-icon>
+            <v-avatar color="surface-variant" size="36" class="text-body-small">
+              {{ initials(member) }}
             </v-avatar>
           </template>
 
-          <v-list-item-title>
-            {{ member.user_full_name || member.user_username || member.user_email }}
-          </v-list-item-title>
+          <v-list-item-title>{{ displayName(member) }}</v-list-item-title>
 
           <v-list-item-subtitle>
             {{ member.user_email }}
-            <span v-if="member.user_orcid" class="text-body-small ml-2">
-              (ORCID: {{ member.user_orcid }})
+            <a
+              v-if="member.user_orcid"
+              class="ml-2 text-primary"
+              :href="`https://orcid.org/${member.user_orcid}`"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              ORCID {{ member.user_orcid }}
+            </a>
+            <span v-if="member.is_pending" class="ml-2 text-warning">
+              Invited {{ member.invited_at.slice(0, 10) }}
             </span>
           </v-list-item-subtitle>
 
           <template #append>
-            <!-- Pending/Invited chip -->
-            <v-chip
-              v-if="member.is_pending"
-              color="warning"
-              variant="outlined"
-              size="small"
-              class="mr-2"
-              prepend-icon="mdi-clock-outline"
-            >
-              Invited
-            </v-chip>
+            <span class="text-body-medium mr-2">{{ roleLabel(member.role) }}</span>
 
-            <!-- Role chip -->
-            <v-chip
-              :color="getRoleColor(member.role)"
-              :prepend-icon="getRoleIcon(member.role)"
-              size="small"
-              class="mr-2"
-            >
-              {{ member.role }}
-            </v-chip>
-
-            <!-- Actions (admin only) -->
             <v-menu v-if="canEditMemberRoles && member.user_id !== currentUserId">
               <template #activator="{ props: activatorProps }">
                 <v-btn
@@ -98,29 +89,27 @@
               </template>
 
               <v-list>
-                <v-list-subheader>Change Role</v-list-subheader>
+                <v-list-subheader>Change role</v-list-subheader>
 
                 <v-list-item
                   v-for="role in availableRoles"
                   :key="role"
                   :active="member.role === role"
-                  @click="updateRole(member.user_id, role)"
+                  @click="requestRoleChange(member, role)"
                 >
-                  <template #prepend>
-                    <v-icon :icon="getRoleIcon(role)" :color="getRoleColor(role)"></v-icon>
-                  </template>
-                  <v-list-item-title>{{ role }}</v-list-item-title>
+                  <v-list-item-title>{{ roleLabel(role) }}</v-list-item-title>
                 </v-list-item>
 
                 <v-divider />
 
                 <v-list-item
                   v-if="canRemoveMembers"
-                  prepend-icon="mdi-delete"
                   base-color="error"
                   @click="confirmRemoveMember(member)"
                 >
-                  <v-list-item-title>Remove Member</v-list-item-title>
+                  <v-list-item-title>
+                    {{ member.is_pending ? 'Revoke invitation' : 'Remove member' }}
+                  </v-list-item-title>
                 </v-list-item>
               </v-list>
             </v-menu>
@@ -128,10 +117,7 @@
         </v-list-item>
       </v-list>
 
-      <!-- Empty state -->
-      <v-alert v-else type="info" variant="tonal" icon="mdi-information">
-        No members found. Invite members to get started.
-      </v-alert>
+      <p v-else class="text-medium-emphasis">No members found. Invite members to get started.</p>
     </v-card-text>
 
     <!-- Invite Member Dialog (Reusable Component) -->
@@ -142,20 +128,26 @@
       @invited="handleInvited"
     />
 
-    <!-- Confirm Remove Member Dialog -->
-    <BaseDialog v-model="showRemoveDialog" size="md" title="Remove member">
-      Are you sure you want to remove
-      <strong>{{
-        memberToRemove?.user_full_name ||
-        memberToRemove?.user_username ||
-        memberToRemove?.user_email
-      }}</strong>
-      from this scope?
-      <template #actions>
-        <v-btn @click="showRemoveDialog = false">Cancel</v-btn>
-        <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
-      </template></BaseDialog
+    <BaseDialog
+      v-model="showRemoveDialog"
+      size="md"
+      :title="memberToRemove?.is_pending ? 'Revoke invitation?' : 'Remove member?'"
     >
+      <template v-if="memberToRemove?.is_pending">
+        <strong>{{ memberToRemove && displayName(memberToRemove) }}</strong> will no longer be able
+        to accept the invitation.
+      </template>
+      <template v-else>
+        <strong>{{ memberToRemove && displayName(memberToRemove) }}</strong> loses access to this
+        scope. Their gene assignments are not changed; reassign them from the Genes tab.
+      </template>
+      <template #actions>
+        <v-btn variant="text" @click="showRemoveDialog = false">Cancel</v-btn>
+        <v-btn color="error" variant="flat" :loading="removing" @click="removeMember">
+          {{ memberToRemove?.is_pending ? 'Revoke invitation' : 'Remove member' }}
+        </v-btn>
+      </template>
+    </BaseDialog>
   </v-card>
 </template>
 
@@ -163,7 +155,8 @@
   import { ref, computed, onMounted } from 'vue'
   import { useScopesStore } from '@/stores/scopes'
   import { useAuthStore } from '@/stores/auth'
-  import { useRoleColors } from '@/composables/useRoleColors'
+  import { useConfirm } from '@/composables/useConfirm'
+  import { TERMINOLOGY } from '@/config/terminology'
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
   import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
@@ -196,7 +189,7 @@
 
   const scopeStore = useScopesStore()
   const authStore = useAuthStore()
-  const { getRoleColor, getRoleIcon } = useRoleColors()
+  const { confirm } = useConfirm()
   const logger = useLogger()
 
   const userRole = computed(() => scopeStore.currentUserRole)
@@ -228,6 +221,29 @@
   const currentUserId = computed(() => authStore.user?.id)
 
   const availableRoles: ScopeRole[] = ['admin', 'curator', 'reviewer', 'viewer']
+
+  const roleLabel = (role: string) =>
+    (TERMINOLOGY as Record<string, string>)[role.toUpperCase()] ?? role
+
+  const displayName = (m: ScopeMember) => m.user_full_name || m.user_username || m.user_email || ''
+
+  const initials = (m: ScopeMember) =>
+    displayName(m)
+      .split(/[\s@.]+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0]!.toUpperCase())
+      .join('')
+
+  /** A role change is easy to misclick in a menu, so ask first. */
+  const requestRoleChange = async (member: ScopeMember, role: ScopeRole) => {
+    if (member.role === role) return
+    const ok = await confirm({
+      title: `Change ${displayName(member)}'s role to ${role}?`,
+      confirmText: 'Change role'
+    })
+    if (ok) await updateRole(member.user_id, role)
+  }
 
   // ============================================
   // METHODS

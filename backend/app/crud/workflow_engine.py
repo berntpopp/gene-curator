@@ -59,10 +59,10 @@ class WorkflowEngine:
                 WorkflowStage.ACTIVE,
                 WorkflowStage.CURATION,
             ],  # Can send back to curation
-            # Active state
             WorkflowStage.ACTIVE: [
                 WorkflowStage.REVIEW
             ],  # Can be sent back for re-review
+            WorkflowStage.ARCHIVED: [],  # terminal
         }
 
     def _load_item_for_validation(

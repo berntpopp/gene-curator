@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getInitials, displayNameRules } from '@/views/scope/ScopeCreate.utils'
+import { getInitials, displayNameRules, slugify } from '@/views/scope/ScopeCreate.utils'
 
 describe('getInitials', () => {
   it('returns ? for empty names', () => {
@@ -22,5 +22,26 @@ describe('displayNameRules', () => {
     expect(minLength?.('abcd')).toBe(true)
     expect(maxLength?.('x'.repeat(101))).toBe('Maximum 100 characters allowed')
     expect(maxLength?.('x'.repeat(100))).toBe(true)
+  })
+})
+
+describe('slugify', () => {
+  it('lowercases, dashes words and drops everything else', () => {
+    expect(slugify('Kidney Genetics')).toBe('kidney-genetics')
+    expect(slugify('  Ciliopathies -- & Cystic (PKD)! ')).toBe('ciliopathies-cystic-pkd')
+    expect(slugify('Ärzte 2')).toBe('arzte-2')
+    expect(slugify('Müller Lab')).toBe('muller-lab')
+    expect(slugify('')).toBe('')
+  })
+  it('caps at 64 chars without a trailing dash', () => {
+    const out = slugify(`${'a'.repeat(63)} bbb`)
+    expect(out).toBe('a'.repeat(63))
+    expect(slugify('x'.repeat(100))).toHaveLength(64)
+  })
+  it('prefixes a leading digit so the slug starts with a letter', () => {
+    expect(slugify('2024 Lab')).toBe('s-2024-lab')
+  })
+  it('returns empty for emoji-only names', () => {
+    expect(slugify('🧬🧬')).toBe('')
   })
 })

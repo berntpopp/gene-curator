@@ -14,3 +14,15 @@ export const displayNameRules = [
   (v: string) => (v && v.length >= 4) || 'Minimum 4 characters required',
   (v: string) => (v && v.length <= 100) || 'Maximum 100 characters allowed'
 ]
+
+/** "Kidney Genetics" -> "kidney-genetics": ASCII-folded words joined by single dashes, max 64, starts with a letter */
+export const slugify = (text: string): string => {
+  const slug = text
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+  const lettered = /^\d/.test(slug) ? `s-${slug}` : slug
+  return lettered.slice(0, 64).replace(/-+$/, '')
+}
