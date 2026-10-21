@@ -197,3 +197,48 @@ def test_precuration_send_back_points_to_reject(
     assert "/reject" in sent.json()["detail"]
     db_session.refresh(pre)
     assert (pre.workflow_stage, pre.status) == (S.REVIEW, CurationStatus.SUBMITTED)
+
+
+def test_precuration_is_never_activated(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    pre = make_precuration(
+        db_session,
+        scope=scope_with_admin,
+        gene=make_gene(db_session),
+        creator=curator,
+        stage=S.REVIEW,
+    )
+    pre.status = CurationStatus.SUBMITTED
+    db_session.commit()
+    sent = _transition(client, reviewer, "precuration", pre.id, target_stage="active")
+    assert sent.status_code == 400
+    assert "not activated" in sent.json()["detail"]
+    db_session.refresh(pre)
+    assert (pre.workflow_stage, pre.status) == (S.REVIEW, CurationStatus.SUBMITTED)
+
+
+def test_curation_in_review_cannot_go_back_to_precuration(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    curation = make_curation(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
+    )
+    sent = _transition(
+        client, reviewer, "curation", curation.id, target_stage="precuration"
+    )
+    assert sent.status_code == 400
+    assert "request changes" in sent.json()["detail"]
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (
+        S.REVIEW,
+        CurationStatus.IN_REVIEW,
+    )

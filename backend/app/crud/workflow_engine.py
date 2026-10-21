@@ -139,13 +139,11 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
-        # Check if transition is valid
         if target_stage not in self.valid_transitions.get(current_stage, []):
             errors.append(
                 f"Invalid transition from {current_stage.value} to {target_stage.value}"
             )
 
-        # Get user for permission checks
         user = (
             db.execute(select(UserNew).where(UserNew.id == user_id)).scalars().first()
         )
@@ -205,12 +203,10 @@ class WorkflowEngine:
     ) -> WorkflowTransition:
         """Execute a workflow state transition."""
 
-        # Get current item and stage
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
         if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
 
-        # Validate transition
         validation = self.validate_transition(
             db, current_stage, target_stage, user_id, item_id, item_type
         )
@@ -689,12 +685,11 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
-        if item_type == "precuration":
-            errors.extend(
-                self._precuration_decision_errors(
-                    db, current_stage, target_stage, item_id
-                )
+        errors.extend(
+            self._review_exit_errors(
+                db, item_type, current_stage, target_stage, item_id
             )
+        )
 
         # Add specific validation logic based on stages
         if target_stage == WorkflowStage.REVIEW and item_type == "curation":
@@ -721,12 +716,26 @@ class WorkflowEngine:
         return {"errors": errors, "warnings": warnings, "requirements": requirements}
 
     @staticmethod
-    def _precuration_decision_errors(
-        db: Session, current: WorkflowStage, target: WorkflowStage, item_id: UUID
+    def _review_exit_errors(
+        db: Session,
+        item_type: str,
+        current: WorkflowStage,
+        target: WorkflowStage,
+        item_id: UUID,
     ) -> list[str]:
-        """Approve only what was submitted; a send-back needs its reason, which only /reject takes."""
-        if current == WorkflowStage.REVIEW and target == WorkflowStage.PRECURATION:
+        """Moves the endpoint must not make: they leave an inconsistent item or lose the reason.
+        Precurations are approved only once submitted."""
+        back = current == WorkflowStage.REVIEW and target == WorkflowStage.PRECURATION
+        if item_type == "curation":
+            return (
+                ["To send a curation back, request changes (stage curation)"]
+                if back
+                else []
+            )
+        if back:
             return [f"Send a precuration back with POST /precurations/{item_id}/reject"]
+        if target == WorkflowStage.ACTIVE:
+            return ["A precuration is approved to curation, not activated"]
         pre = db.get(PrecurationNew, item_id)
         submitted = (CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW)
         if target == WorkflowStage.CURATION and pre and pre.status not in submitted:
@@ -742,7 +751,6 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to precuration stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.PRECURATION
         db.flush()
@@ -775,10 +783,8 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to review stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.REVIEW
-        # Update status
         if hasattr(item, "status"):
             item.status = CurationStatus.IN_REVIEW
         if isinstance(item, CurationNew):
@@ -813,7 +819,6 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition back to entry stage."""
-        # Update workflow stage
         if hasattr(item, "workflow_stage"):
             item.workflow_stage = WorkflowStage.ENTRY
         db.flush()

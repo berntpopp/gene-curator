@@ -85,10 +85,6 @@ export const precurationsAPI = {
   /**
    * Submit precuration for review at its current version (no approval without a reviewer, D1)
    *
-   * This is a simplified workflow path that skips peer review.
-   * Use when precuration doesn't require 4-eyes principle validation.
-   * After completion, curation can begin immediately.
-   *
    * @param id - Precuration UUID
    */
   async completePrecuration(id: string): Promise<Schema<'Precuration'>> {
