@@ -19,7 +19,7 @@
     />
 
     <ReviewFeedbackPanel
-      v-if="curationId && !loading && !isActive"
+      v-if="curationId && !loading && !isActive && !notFound"
       :curation-id="curationId"
       :scope-id="scopeId"
       :me="myId"
@@ -44,6 +44,19 @@
       :failed="guard.failed.value"
       @retry="loadData"
     />
+    <v-alert
+      v-else-if="notFound"
+      data-testid="curation-not-found"
+      type="warning"
+      variant="tonal"
+      prominent
+    >
+      <v-alert-title>Curation not found</v-alert-title>
+      This curation does not exist, or you are not a member of its scope.
+      <template #append>
+        <v-btn variant="outlined" :to="{ name: 'Home' }">Go home</v-btn>
+      </template>
+    </v-alert>
     <div v-else :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
       <div class="ws-main">
         <!-- The one skeleton: until the schema is resolved and the form reports ready -->
@@ -205,6 +218,10 @@
 
   // State
   const loading = ref(true)
+  // The API hides curations and scopes the user may not see (404/403): show that, not an empty form
+  const notFound = ref(false)
+  const hidden = (error: unknown) =>
+    [403, 404].includes((error as { response?: { status?: number } }).response?.status ?? 0)
   const formReady = ref(false)
   const selectedSchemaId = ref<string | undefined>(undefined)
   const curation = ref<CurationFormRecord | null>(null)
@@ -365,6 +382,7 @@
   async function loadData() {
     loading.value = true
     formReady.value = false
+    notFound.value = false
     try {
       // Starting a curation needs a curator role; opening an existing one does not
       if (!curationId.value) {
@@ -429,7 +447,8 @@
       })
     } catch (error) {
       logger.error('Failed to load curation data', { error: (error as ErrorLike).message })
-      notificationsStore.addToast('Failed to load data', 'error')
+      if (hidden(error)) notFound.value = true
+      else notificationsStore.addToast('Failed to load data', 'error')
     } finally {
       loading.value = false
     }
@@ -440,6 +459,7 @@
       scope.value = (await scopesStore.fetchScope(scopeId.value)) as ScopeRecord
     } catch (error) {
       logger.error('Failed to load scope', { error: (error as ErrorLike).message })
+      if (hidden(error)) notFound.value = true
     }
   }
 

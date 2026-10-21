@@ -271,6 +271,29 @@ describe('CurationFormView', () => {
     expect(toast).toHaveBeenCalledWith('Failed to load data', 'error')
   })
 
+  it.each([404, 403])(
+    'shows not found, never an empty form, when the curation load is %i',
+    async status => {
+      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+      const { wrapper } = await mountView(({ curations }) => {
+        vi.spyOn(curations, 'fetchCurationById').mockRejectedValue({ response: { status } })
+      })
+      expect(wrapper.find('[data-testid="curation-not-found"]').exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'SchemaDrivenCurationForm' }).exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'CurationSchemaSelect' }).exists()).toBe(false)
+      expect(wrapper.text()).not.toContain('No Curation Schema Available')
+    }
+  )
+
+  it('shows not found when the scope is hidden from the user', async () => {
+    routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+    const { wrapper } = await mountView(({ scopes, curations }) => {
+      vi.spyOn(scopes, 'fetchScope').mockRejectedValue({ response: { status: 404 } })
+      vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({} as never)
+    })
+    expect(wrapper.find('[data-testid="curation-not-found"]').exists()).toBe(true)
+  })
+
   it('opens the saved curation after a submit, using the store as the source of the id', async () => {
     const toast = vi.spyOn(useNotificationsStore(), 'addToast')
     const { vm, curations } = await mountView()
