@@ -178,6 +178,7 @@
     submit: []
     cancel: []
     saved: []
+    ready: []
   }>()
 
   const logger = useLogger()
@@ -521,6 +522,7 @@
       await loadPrecurationData()
     }
     ready.value = true
+    emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,
       curationId: props.curationId,
