@@ -212,7 +212,13 @@
     />
 
     <BaseDialog v-model="showReject" title="Request changes" size="md">
-      <v-textarea v-model="rejectReason" label="Feedback for the curator" rows="3" />
+      <v-textarea
+        v-model="rejectReason"
+        label="Feedback for the curator"
+        rows="3"
+        :maxlength="REVIEW_TEXT_MAX"
+        :counter="REVIEW_TEXT_MAX"
+      />
       <v-alert v-if="rejectError" type="error" variant="tonal">{{ rejectError }}</v-alert>
       <template #actions>
         <v-btn variant="text" @click="showReject = false">Cancel</v-btn>
@@ -243,6 +249,7 @@
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { REVIEW_TEXT_MAX } from '@/components/review/reviewModel'
   import { curationStatusLabel } from '@/config/status'
   import { useLogger } from '@/composables/useLogger'
   import { useConfirm } from '@/composables/useConfirm'
