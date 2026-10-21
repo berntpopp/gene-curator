@@ -471,3 +471,108 @@ def test_diff_is_for_scope_members_only(
         f"/api/v1/curations/{test_curation.id}/diff", headers=_auth(pending)
     )
     assert response.status_code == 403
+
+
+def _accept(
+    client: TestClient, user: UserNew, curation: CurationNew, path: str = "cases[b]"
+) -> dict:
+    response = client.post(
+        _url(curation),
+        json={"item_path": path, "kind": "accepted"},
+        headers=_auth(user),
+    )
+    assert response.status_code == 201, response.text
+    return response.json()
+
+
+def test_the_curations_creator_cannot_withdraw_or_restore_a_reviewers_accept(
+    client: TestClient,
+    reviewer: UserNew,
+    test_user_curator: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    made = _accept(client, reviewer, test_curation)
+    url = _url(test_curation, f"/{made['id']}")
+    for status in ("resolved", "open"):
+        response = client.patch(
+            url, json={"status": status}, headers=_auth(test_user_curator)
+        )
+        assert response.status_code == 403
+    withdrawn = client.patch(url, json={"status": "resolved"}, headers=_auth(reviewer))
+    assert withdrawn.status_code == 200
+
+
+@pytest.mark.parametrize("role", ["reviewer", "admin"])
+def test_nobody_accepts_items_on_their_own_curation(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    test_curation: CurationNew,
+    role: str,
+) -> None:
+    """4-eyes (D1): a reviewer or scope admin who created the curation may not accept its items."""
+    author = _member(db_session, test_scope, role)
+    test_curation.created_by = author.id
+    db_session.commit()
+    response = client.post(
+        _url(test_curation),
+        json={"item_path": "a", "kind": "accepted"},
+        headers=_auth(author),
+    )
+    assert response.status_code == 403
+    # they can still ask a question of their own work's reviewers? no: queries are allowed
+    query = client.post(
+        _url(test_curation),
+        json={"item_path": "a", "body": "note"},
+        headers=_auth(author),
+    )
+    assert query.status_code == 201
+
+
+def test_a_creator_cannot_withdraw_an_accept_even_as_a_reviewer(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    made = _accept(client, reviewer, test_curation)
+    test_curation.created_by = reviewer.id  # now the reviewer is the creator
+    db_session.commit()
+    response = client.patch(
+        _url(test_curation, f"/{made['id']}"),
+        json={"status": "resolved"},
+        headers=_auth(reviewer),
+    )
+    assert response.status_code == 403
+
+
+def test_baseline_is_the_requesters_own_latest_review_then_anyones_then_the_previous_submission(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    now = datetime.now(UTC)
+    other = _member(db_session, test_scope, "reviewer")
+    third = _member(db_session, test_scope, "reviewer")
+    _snapshot(
+        db_session, test_curation, {"score": 1}, "submitted", now - timedelta(days=9)
+    )
+    _decision(db_session, test_curation, reviewer, now - timedelta(days=8))
+    _snapshot(db_session, test_curation, {"score": 2}, "draft", now - timedelta(days=7))
+    _decision(db_session, test_curation, other, now - timedelta(days=6))
+    _snapshot(db_session, test_curation, {"score": 3}, "draft", now - timedelta(days=5))
+    test_curation.evidence_data = {"score": 4}
+    db_session.commit()
+
+    mine = _diff(client, reviewer, test_curation)
+    theirs = _diff(client, other, test_curation)
+    newcomer = _diff(client, third, test_curation)
+
+    assert mine["baseline"]["source"] == "review"
+    assert mine["items"][0]["before"] == 1  # what the first reviewer saw
+    assert theirs["items"][0]["before"] == 2  # the second reviewer saw a later version
+    assert newcomer["baseline"]["source"] == "any_review"
+    assert newcomer["items"][0]["before"] == 2  # latest decision by anyone

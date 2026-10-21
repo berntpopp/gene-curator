@@ -33,6 +33,7 @@ class World:
     scope_off: UUID
     curation: UUID
     curation_off: UUID
+    curation_own: UUID  # created by the reviewer (4-eyes)
     curator: UUID  # created the curation
     other_curator: UUID
     reviewer: UUID
@@ -57,6 +58,7 @@ def world() -> Generator[World, None, None]:
             "scope_off",
             "curation",
             "curation_off",
+            "curation_own",
             "curator",
             "other_curator",
             "reviewer",
@@ -138,7 +140,11 @@ def world() -> Generator[World, None, None]:
         )
         cur.execute("SELECT id FROM workflow_pairs LIMIT 1")
         pair = cur.fetchone()[0]
-        for key, scope_key in (("curation", "scope"), ("curation_off", "scope_off")):
+        for key, scope_key in (
+            ("curation", "scope"),
+            ("curation_off", "scope_off"),
+            ("curation_own", "scope"),
+        ):
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, created_by, "
                 "evidence_data) VALUES (%s, %s, %s, %s, %s, %s)",
@@ -147,7 +153,7 @@ def world() -> Generator[World, None, None]:
                     str(ids["gene"]),
                     str(ids[scope_key]),
                     str(pair),
-                    str(ids["curator"]),
+                    str(ids["reviewer" if key == "curation_own" else "curator"]),
                     json.dumps({"score": 1}),
                 ),
             )
@@ -160,15 +166,15 @@ def world() -> Generator[World, None, None]:
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
             "DELETE FROM review_item_comments WHERE curation_id = ANY(%s::uuid[])",
-            ([str(w.curation), str(w.curation_off)],),
+            ([str(w.curation), str(w.curation_off), str(w.curation_own)],),
         )
         cur.execute(
             "DELETE FROM reviews WHERE curation_id = ANY(%s::uuid[])",
-            ([str(w.curation), str(w.curation_off)],),
+            ([str(w.curation), str(w.curation_off), str(w.curation_own)],),
         )
         cur.execute(
             "DELETE FROM curations WHERE id = ANY(%s::uuid[])",
-            ([str(w.curation), str(w.curation_off)],),
+            ([str(w.curation), str(w.curation_off), str(w.curation_own)],),
         )
         cur.execute("DELETE FROM genes WHERE id = %s", (str(ids["gene"]),))
         cur.execute(
@@ -190,7 +196,7 @@ def world() -> Generator[World, None, None]:
         ]
         cur.execute(
             "DELETE FROM audit_log WHERE user_id = ANY(%s::uuid[]) OR entity_id = ANY(%s::uuid[])",
-            (users, [str(w.curation), str(w.curation_off)]),
+            (users, [str(w.curation), str(w.curation_off), str(w.curation_own)]),
         )
         cur.execute("DELETE FROM users WHERE id = ANY(%s::uuid[])", (users,))
 
@@ -492,3 +498,71 @@ def test_accepted_items_are_reviewer_only_under_rls(world: World, db: Session) -
     assert insert(world.scope_admin) is True
     assert insert(world.curator) is False  # may reply with a query, never accept
     assert insert(world.viewer) is False
+
+
+def _accepted_row(world: World) -> UUID:
+    row = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO review_item_comments (id, curation_id, item_path, body, author_id, kind) "
+            "VALUES (%s, %s, 'cases[a]', 'Accepted', %s, 'accepted')",
+            (str(row), str(world.curation), str(world.reviewer)),
+        )
+    return row
+
+
+def test_the_curations_creator_cannot_change_an_accepted_row(
+    world: World, db: Session
+) -> None:
+    row = _accepted_row(world)
+    assert _update(db, world.curator, row, "status = 'resolved'") in (0, -1)
+    as_user(db, world.reviewer)
+    status = db.execute(
+        text("SELECT status FROM review_item_comments WHERE id = :i"), {"i": str(row)}
+    ).scalar_one()
+    assert status == "open"
+    # the reviewer who made it may withdraw it, and the creator may still resolve queries
+    assert _update(db, world.reviewer, row, "status = 'resolved'") == 1
+    assert _update(db, world.curator, world.comment, "status = 'resolved'") == 1
+
+
+def test_a_reviewer_cannot_accept_items_on_their_own_curation(
+    world: World, db: Session
+) -> None:
+    def accept(user: UUID, curation: UUID) -> bool:
+        as_user(db, user)
+        try:
+            with db.begin_nested():
+                db.execute(
+                    text(
+                        "INSERT INTO review_item_comments "
+                        "(curation_id, item_path, body, author_id, kind) "
+                        "VALUES (:c, 'a', 'Accepted', :a, 'accepted')"
+                    ),
+                    {"c": str(curation), "a": str(user)},
+                )
+            return True
+        except DBAPIError:
+            return False
+
+    assert accept(world.reviewer, world.curation_own) is False
+    assert accept(world.reviewer, world.curation) is True
+    # scope admins get no exception on their own work either
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curations SET created_by = %s WHERE id = %s",
+            (str(world.scope_admin), str(world.curation_own)),
+        )
+    assert accept(world.scope_admin, world.curation_own) is False
+
+
+def test_security_definer_helpers_pin_their_search_path() -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT proname, proconfig FROM pg_proc WHERE proname IN "
+            "('can_view_review_comments', 'can_write_review_comments', 'can_accept_review_items')"
+        )
+        rows = cur.fetchall()
+    assert len(rows) == 3
+    for name, config in rows:
+        assert "search_path=public, pg_temp" in (config or []), name

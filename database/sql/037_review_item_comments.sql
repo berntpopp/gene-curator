@@ -7,7 +7,7 @@
 -- RLS (FORCE, no platform-admin bypass; only accepted, active memberships in an active scope):
 --   SELECT  members of the curation's scope
 --   INSERT  scope reviewers and admins, and the curation's creator when they are a scope curator
---           (author_id must be the caller); kind 'accepted' only for reviewers and admins
+--           (author_id must be the caller); kind 'accepted' only for reviewers and admins who did not create the curation
 --   UPDATE  author edits (policy 1); the same people who may insert may resolve (policy 2);
 --           a trigger stops non-authors from touching anything but status, and nobody from
 --           re-assigning authorship or the anchor
@@ -44,7 +44,7 @@ RETURNS BOOLEAN AS $$
         FROM curations c JOIN scopes s ON s.id = c.scope_id AND s.is_active
         WHERE c.id = curation_uuid AND is_scope_member(c.scope_id)
     )
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 CREATE OR REPLACE FUNCTION can_write_review_comments(curation_uuid UUID)
 RETURNS BOOLEAN AS $$
@@ -58,9 +58,10 @@ RETURNS BOOLEAN AS $$
                   AND c.created_by = get_current_user_uuid())
           )
     )
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
--- Accepting an item is a review decision: reviewers and scope admins only (a curator may reply).
+-- Accepting an item is a review decision: reviewers and scope admins only, never on their own
+-- curation (a curator may reply).
 CREATE OR REPLACE FUNCTION can_accept_review_items(curation_uuid UUID)
 RETURNS BOOLEAN AS $$
     SELECT EXISTS (
@@ -68,8 +69,9 @@ RETURNS BOOLEAN AS $$
         FROM curations c JOIN scopes s ON s.id = c.scope_id AND s.is_active
         WHERE c.id = curation_uuid
           AND get_user_scope_role(c.scope_id) IN ('admin', 'reviewer')
+          AND c.created_by IS DISTINCT FROM get_current_user_uuid()  -- 4-eyes (D1), no admin exception
     )
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 ALTER TABLE review_item_comments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE review_item_comments FORCE ROW LEVEL SECURITY;
@@ -95,8 +97,14 @@ CREATE POLICY review_item_comments_update_author_policy ON review_item_comments
 DROP POLICY IF EXISTS review_item_comments_update_resolve_policy ON review_item_comments;
 CREATE POLICY review_item_comments_update_resolve_policy ON review_item_comments
     FOR UPDATE
-    USING (can_write_review_comments(curation_id))
-    WITH CHECK (can_write_review_comments(curation_id));
+    USING (
+        can_write_review_comments(curation_id)
+        AND (kind = 'query' OR can_accept_review_items(curation_id))
+    )
+    WITH CHECK (
+        can_write_review_comments(curation_id)
+        AND (kind = 'query' OR can_accept_review_items(curation_id))
+    );
 
 CREATE OR REPLACE FUNCTION review_item_comments_guard()
 RETURNS TRIGGER AS $$

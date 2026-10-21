@@ -71,11 +71,12 @@ class DiffItem(BaseModel):
 
 
 class DiffBaseline(BaseModel):
-    """The version the reviewer last saw: as of their last review decision, else the earlier submission."""
+    """The version the reviewer last saw: their own last review decision, else anyone's latest decision,
+    else the earlier submission."""
 
     audit_id: int
     as_of: datetime
-    source: Literal["review", "previous_submission"]
+    source: Literal["review", "any_review", "previous_submission"]
 
 
 class CurationDiff(BaseModel):

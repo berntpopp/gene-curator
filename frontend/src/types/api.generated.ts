@@ -4682,7 +4682,8 @@ export interface components {
         };
         /**
          * DiffBaseline
-         * @description The version the reviewer last saw: as of their last review decision, else the earlier submission.
+         * @description The version the reviewer last saw: their own last review decision, else anyone's latest decision,
+         *     else the earlier submission.
          */
         DiffBaseline: {
             /** Audit Id */
@@ -4696,7 +4697,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "review" | "previous_submission";
+            source: "review" | "any_review" | "previous_submission";
         };
         /** DiffItem */
         DiffItem: {

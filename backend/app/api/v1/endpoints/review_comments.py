@@ -51,6 +51,14 @@ def _require_writer(db: Session, user: UserNew, curation: CurationNew) -> None:
             raise _DENIED from None
 
 
+def _require_accepter(db: Session, user: UserNew, curation: CurationNew) -> None:
+    """Accepting (or withdrawing an accept) is a review decision: REVIEW capability, and never on
+    one's own curation (4-eyes, D1; scope admins get no exception)."""
+    require(db, user, curation.scope_id, REVIEW)
+    if curation.created_by == user.id:
+        raise _DENIED
+
+
 def _commit(db: Session) -> None:
     try:
         db.commit()
@@ -91,7 +99,7 @@ def create_review_comment(
 ) -> ReviewItemComment:
     curation = _curation(db, curation_id)
     if payload.kind == "accepted":
-        require(db, current_user, curation.scope_id, REVIEW)  # a decision, not a reply
+        _require_accepter(db, current_user, curation)
     else:
         _require_writer(db, current_user, curation)
     if payload.review_id is not None:
@@ -128,7 +136,10 @@ def update_review_comment(
             raise _DENIED
         comment.body = payload.body
     if payload.status is not None:
-        _require_writer(db, current_user, curation)
+        if comment.kind == "accepted":
+            _require_accepter(db, current_user, curation)
+        else:
+            _require_writer(db, current_user, curation)
         comment.status = payload.status
     _commit(db)
     db.refresh(comment)
@@ -156,18 +167,25 @@ def _submissions(db: Session, curation_id: UUID) -> list[AuditLogNew]:
 
 
 def _baseline(
-    db: Session, curation_id: UUID
+    db: Session, curation_id: UUID, user_id: UUID
 ) -> tuple[AuditLogNew, str, datetime] | None:
-    """The version the reviewer last saw. The audit trigger stores the row after each update, so
-    the last submission equals the current evidence; the useful baseline is the state at the last
-    completed review decision, else the submission before the latest one."""
-    decided = db.scalars(
+    """The version the requester last saw. The audit trigger stores the row after each update, so
+    the last submission equals the current evidence; the useful baseline is the state at the
+    requester's own last review decision, else anyone's latest decision, else the submission
+    before the latest one."""
+    decided_q = (
         select(Review.reviewed_at)
         .where(Review.curation_id == curation_id, Review.reviewed_at.isnot(None))
         .order_by(Review.reviewed_at.desc())
         .limit(1)
-    ).first()
-    if decided is not None:
+    )
+    for source, query in (
+        ("review", decided_q.where(Review.reviewer_id == user_id)),
+        ("any_review", decided_q),
+    ):
+        decided = db.scalars(query).first()
+        if decided is None:
+            continue
         row = db.scalars(
             select(AuditLogNew)
             .where(
@@ -179,7 +197,7 @@ def _baseline(
             .limit(1)
         ).first()
         if row is not None:
-            return row, "review", decided
+            return row, source, decided
     submissions = _submissions(db, curation_id)
     if len(submissions) >= 2:
         return submissions[1], "previous_submission", submissions[1].timestamp
@@ -197,7 +215,7 @@ def curation_diff(
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
     current = curation.evidence_data or {}
-    found = _baseline(db, curation_id)
+    found = _baseline(db, curation_id, current_user.id)
     if found is None:
         return CurationDiff.model_validate(
             {"baseline": None, "items": diff_evidence({}, current)}
