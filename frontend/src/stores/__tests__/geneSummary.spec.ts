@@ -149,4 +149,37 @@ describe('useGeneSummaryStore', () => {
       expect(store.fullSummaries.size).toBe(0)
     })
   })
+
+  describe('loadSummary', () => {
+    it('signed out: public summary only', async () => {
+      const store = useGeneSummaryStore()
+      api.getPublicSummary.mockResolvedValue({ gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
+
+      await expect(store.loadSummary('g1', false)).resolves.toEqual({ gene_id: 'g1' })
+      expect(api.getFullSummary).not.toHaveBeenCalled()
+    })
+
+    it('signed in: full summary, so private scopes are included', async () => {
+      const store = useGeneSummaryStore()
+      api.getFullSummary.mockResolvedValue({ gene_id: 'g1' } as Schema<'GeneSummaryFull'>)
+
+      await expect(store.loadSummary('g1', true)).resolves.toEqual({ gene_id: 'g1' })
+      expect(api.getPublicSummary).not.toHaveBeenCalled()
+    })
+
+    it('signed in with no visible curations (404) is an empty result, not an error', async () => {
+      const store = useGeneSummaryStore()
+      api.getFullSummary.mockRejectedValue({ response: { status: 404 } })
+
+      await expect(store.loadSummary('g1', true)).resolves.toBeNull()
+      expect(store.error).toBeNull()
+    })
+
+    it('rethrows other failures', async () => {
+      const store = useGeneSummaryStore()
+      api.getFullSummary.mockRejectedValue({ response: { status: 500 } })
+
+      await expect(store.loadSummary('g1', true)).rejects.toBeTruthy()
+    })
+  })
 })

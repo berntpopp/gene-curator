@@ -87,6 +87,21 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
     },
 
     /**
+     * Summary for the page viewer: signed-in users get private scopes too.
+     * "No visible curations" (public: null, full: 404) is an empty result, not an error.
+     */
+    async loadSummary(geneId: string, authenticated: boolean) {
+      if (!authenticated) return this.fetchPublicSummary(geneId)
+      try {
+        return await this.fetchFullSummary(geneId)
+      } catch (error) {
+        if (toApiError(error).response?.status !== 404) throw error
+        this.error = null
+        return null
+      }
+    },
+
+    /**
      * Manually recompute gene summary (admin only)
      */
     async recomputeSummary(geneId: string) {
