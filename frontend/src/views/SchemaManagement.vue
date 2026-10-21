@@ -60,6 +60,7 @@
       </v-card-text>
 
       <v-data-table
+        style="min-height: 400px"
         :headers="tableHeaders"
         :items="filteredSchemas"
         :loading="loading"

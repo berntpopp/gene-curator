@@ -379,11 +379,6 @@
             </tr>
           </template>
 
-          <!-- Loading -->
-          <template #loading>
-            <v-skeleton-loader type="table-row@10" />
-          </template>
-
           <!-- No data -->
           <template #no-data>
             <div class="text-center py-8">

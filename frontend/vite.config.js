@@ -28,7 +28,13 @@ export default defineConfig({
     }
   },
   build: {
-    outDir: 'dist'
+    outDir: 'dist',
+    rolldownOptions: {
+      output: {
+        // Icon paths are ~20 KB gzip; a separate chunk loads in parallel and keeps the entry small.
+        advancedChunks: { groups: [{ name: 'icons', test: /src\/plugins\/iconPaths|@mdi\/js/ }] }
+      }
+    }
   },
   test: {
     globals: true,

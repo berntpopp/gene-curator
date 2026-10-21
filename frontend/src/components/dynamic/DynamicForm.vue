@@ -550,7 +550,6 @@
     top: 80px;
     max-height: calc(100vh - 100px);
     overflow-y: auto;
-    transition: all 0.3s ease;
   }
 
   @media (max-width: 1280px) {
