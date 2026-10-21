@@ -100,6 +100,15 @@ class TestTextField:
         assert "Text has leading/trailing whitespace" in warnings
         assert "Consider providing more detailed description" in warnings
 
+    def test_id_fields_get_no_brevity_hint(self, validator: SchemaValidator):
+        result = _run(
+            validator, {"mondo_id": "MONDO:0004975"}, {"mondo_id": {"type": "text"}}
+        )
+
+        assert "Consider providing more detailed description" not in _messages(
+            result, "warnings"
+        )
+
     def test_quality_checks_can_be_disabled(self, validator: SchemaValidator):
         result = _run(
             validator,

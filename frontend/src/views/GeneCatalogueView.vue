@@ -161,19 +161,19 @@
 
           <!-- Location Column -->
           <template #item.location="{ item }">
-            <div v-if="item.chromosome" class="d-flex align-center">
+            <div v-if="item.chromosome || item.location" class="d-flex align-center">
               <v-icon size="x-small" color="info" class="mr-1">mdi-map-marker</v-icon>
               <div>
-                <span class="font-weight-medium">{{ item.chromosome }}</span>
-                <div v-if="item.location" class="text-body-small text-medium-emphasis">
+                <span class="font-weight-medium">{{ item.chromosome || item.location }}</span>
+                <div
+                  v-if="item.chromosome && item.location"
+                  class="text-body-small text-medium-emphasis"
+                >
                   {{ item.location }}
                 </div>
               </div>
             </div>
-            <span v-else class="text-medium-emphasis">
-              <v-icon size="x-small" class="mr-1">mdi-help-circle-outline</v-icon>
-              Unknown
-            </span>
+            <span v-else class="text-medium-emphasis">{{ EMPTY }}</span>
           </template>
 
           <!-- Best Score Column -->

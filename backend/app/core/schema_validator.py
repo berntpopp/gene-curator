@@ -231,14 +231,14 @@ class SchemaValidator:
         if pattern and not result.check_pattern(field_name, pattern, value, config):
             return  # a format error makes the "more detail" hint noise
 
-        # Content quality checks
         if config.get("quality_checks", True):
             if len(value.strip()) != len(value):
                 result.add_warning(
                     field_name, "Text has leading/trailing whitespace", "quality"
                 )
 
-            if len(value) > 0 and len(value.split()) < 3:
+            idlike = pattern or field_name.endswith("_id")  # single token by nature
+            if value and len(value.split()) < 3 and not idlike:
                 result.add_warning(
                     field_name,
                     "Consider providing more detailed description",
