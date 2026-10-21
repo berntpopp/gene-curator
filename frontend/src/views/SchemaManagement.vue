@@ -3,7 +3,7 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-headline-large font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
+        <h1 class="page-title text-headline-large font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
         <p class="text-body-large text-medium-emphasis mt-1">
           Manage curation methodologies and schema definitions
         </p>

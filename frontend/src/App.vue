@@ -1,5 +1,5 @@
 <template>
-  <v-app>
+  <v-app :class="{ 'has-phone-header': !mdAndUp && authStore.isAuthenticated }">
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
     <SideRail v-if="mdAndUp && authStore.isAuthenticated" />
     <PhoneHeader v-else-if="!mdAndUp && authStore.isAuthenticated" />
@@ -186,6 +186,22 @@
   .error-container {
     text-align: center;
     padding: 2rem;
+  }
+
+  /* PhoneHeader shows the route title below md: keep the view h1 for screen readers only */
+  @media (max-width: 959.98px) {
+    .has-phone-header .page-title {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      margin: -1px;
+      padding: 0;
+      border: 0;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      clip-path: inset(50%);
+      white-space: nowrap;
+    }
   }
 
   /* Responsive adjustments */

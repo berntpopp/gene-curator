@@ -4,7 +4,7 @@
     <v-container>
       <v-row align="center" justify="space-between" class="mb-4">
         <v-col cols="12" md="6">
-          <h1 class="text-headline-large mb-2">Gene Catalogue</h1>
+          <h1 class="page-title text-headline-large mb-2">Gene Catalogue</h1>
           <p class="text-body-large text-medium-emphasis">
             Browse curated genes across all clinical scopes
           </p>
