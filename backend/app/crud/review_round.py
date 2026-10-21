@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, true
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import REVIEW, ROLE_CAPABILITIES
@@ -21,6 +21,7 @@ from app.models import (
     Review,
     ReviewStatus,
     ScopeMembership,
+    UserNew,
     WorkflowStage,
 )
 
@@ -73,6 +74,32 @@ def all_reviews_approved(db: Session, curation_id: UUID) -> bool:
         )
     ).scalar()
     return not blocked
+
+
+def approving_reviewers(db: Session, curation: CurationNew) -> int:
+    """Distinct reviewers who approved in the open round; the author never counts (D1)."""
+    return (
+        db.scalar(
+            select(func.count(func.distinct(Review.reviewer_id))).where(
+                Review.curation_id == curation.id,
+                # this round by submitted_at only: legacy 'submitted' rows are in review too
+                Review.assigned_at >= curation.submitted_at
+                if curation.submitted_at
+                else true(),
+                Review.status == ReviewStatus.APPROVED,
+                Review.recommendation == "approve",
+                Review.reviewer_id != curation.created_by,
+            )
+        )
+        or 0
+    )
+
+
+def reviewers_required(workflow_states: dict[str, Any]) -> int:
+    """`workflow_states.review.reviewers_required` (1-5); anything else means 1."""
+    review = workflow_states.get("review")
+    n = review.get("reviewers_required") if isinstance(review, dict) else None
+    return n if type(n) is int and 1 <= n <= 5 else 1
 
 
 def reassign_earlier_reviewers(
@@ -212,3 +239,88 @@ def record_review_decision(
     review.reviewed_at = func.now()  # DB clock, like audit timestamps
     review.updated_by = reviewer_id
     db.flush()
+
+
+def eligible_peer_reviewers(
+    db: Session,
+    scope_id: UUID | None = None,
+    exclude_user_id: UUID | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Get eligible peer reviewers for assignment.
+
+    Filters:
+    - Active users only
+    - If scope_id provided, must be member of that scope with reviewer-capable role
+    - Excludes exclude_user_id (4-eyes principle)
+
+    Returns users with pending review count.
+    """
+    # Eligible roles within a scope for reviewing
+    eligible_scope_roles = REVIEW_ROLES
+
+    # Base query for active users
+    query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712
+
+    # Exclude current user (4-eyes principle)
+    if exclude_user_id:
+        query = query.filter(UserNew.id != exclude_user_id)
+
+    # Filter by scope membership if scope_id provided
+    if scope_id:
+        # Subquery to get user IDs with eligible roles in the scope
+        scope_member_ids = (
+            db.query(ScopeMembership.user_id)
+            .filter(
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active == True,  # noqa: E712
+                ScopeMembership.accepted_at.isnot(None),
+                ScopeMembership.role.in_(eligible_scope_roles),
+            )
+            .subquery()
+        )
+        query = query.filter(UserNew.id.in_(select(scope_member_ids)))
+
+    users = query.order_by(UserNew.name).all()
+
+    # Get pending review counts and scope roles
+    result = []
+    for user in users:
+        pending_count = (
+            db.query(func.count(Review.id))
+            .filter(
+                Review.reviewer_id == user.id,
+                Review.status == ReviewStatus.PENDING,
+                in_current_round,
+            )
+            .scalar()
+            or 0
+        )
+
+        # Get scope roles for this user
+        scope_roles_query = db.query(ScopeMembership.role).filter(
+            ScopeMembership.user_id == user.id,
+            ScopeMembership.is_active == True,  # noqa: E712
+        )
+        if scope_id:
+            scope_roles_query = scope_roles_query.filter(
+                ScopeMembership.scope_id == scope_id
+            )
+
+        scope_roles = list({r[0] for r in scope_roles_query.all()})
+
+        result.append(
+            {
+                "id": user.id,
+                "name": user.name or user.email.split("@")[0],
+                "email": user.email,
+                "role": user.role.value if hasattr(user.role, "value") else user.role,
+                "institution": user.institution,
+                "expertise_areas": user.expertise_areas or [],
+                "is_active": user.is_active,
+                "pending_review_count": pending_count,
+                "scope_roles": scope_roles,
+            }
+        )
+
+    return result

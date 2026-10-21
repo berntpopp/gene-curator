@@ -228,3 +228,47 @@ def test_resubmission_notifies_pending_reviewer_with_scoped_link(
     assert all(
         note.link == f"/scopes/{scope.id}/curations/{curation.id}" for note in notes
     )
+
+
+def test_failed_notification_on_the_gating_approval_rolls_back(
+    db_session: Session,
+    engine: WorkflowEngine,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+):
+    """reviewers_required: 2 (#268): the second approval activates; a failed notification
+    undoes the activation and that approval, the first one stays."""
+    from tests.api.scopes.factories import make_member, make_user
+    from tests.unit.scope.test_workflow_config import _pin
+
+    curation = make_curation(
+        db_session, scope=scope, gene=make_gene(db_session), creator=creator
+    )
+    _pin(db_session, curation, {"review": {"reviewers_required": 2}})
+    engine.execute_transition(
+        db_session, curation.id, "curation", S.ACTIVE, reviewer.id
+    )
+    second = make_user(db_session)
+    make_member(db_session, scope, second, "reviewer")
+    with (
+        patch.object(
+            engine,
+            "_emit_transition_notification",
+            side_effect=RuntimeError("Notifications failed"),
+        ),
+        pytest.raises(RuntimeError, match="Notifications failed"),
+    ):
+        engine.execute_transition(
+            db_session, curation.id, "curation", S.ACTIVE, second.id
+        )
+    db_session.expire_all()
+    assert (curation.workflow_stage, curation.status) == (
+        S.REVIEW,
+        CurationStatus.IN_REVIEW,
+    )
+    assert db_session.scalars(select(ActiveCuration)).all() == []
+    approvals = db_session.scalars(
+        select(Review.reviewer_id).where(Review.status == ReviewStatus.APPROVED)
+    ).all()
+    assert approvals == [reviewer.id]
