@@ -218,3 +218,22 @@ def test_cleanup_reports_result(
     assert response.json()["deleted"] == 3
     assert cleanup.await_args is not None
     assert cleanup.await_args.kwargs["days"] == 30
+
+
+def test_search_logs_accepts_real_model_rows(
+    client: TestClient, admin_token: str, monkeypatch: MonkeyPatch
+) -> None:
+    # SystemLog rows have `logger`/`path` and a UUID user_id, not `logger_name`/`endpoint`.
+    from uuid import uuid4
+
+    row = _model_row("real")
+    row.user_id = uuid4()
+    monkeypatch.setattr(crud_logs, "get_logs", AsyncMock(return_value=[row]))
+
+    response = client.get(f"{BASE}/", headers=_auth(admin_token))
+
+    assert response.status_code == 200, response.text
+    body = response.json()[0]
+    assert body["logger_name"] == "app.test"
+    assert body["endpoint"] == "/api/v1/x"
+    assert body["user_id"] == str(row.user_id)

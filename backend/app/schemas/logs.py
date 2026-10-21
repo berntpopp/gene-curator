@@ -5,7 +5,7 @@ Pydantic schemas for system log API endpoints.
 from datetime import datetime
 from typing import Any, ClassVar
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 
 class LogEntry(BaseModel):
@@ -16,7 +16,12 @@ class LogEntry(BaseModel):
     level: str = Field(
         ..., description="Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)"
     )
-    logger_name: str = Field(..., description="Logger name (module path)")
+    # ORM rows (SystemLog) expose `logger` and `path`; dict/stub rows use the API names.
+    logger_name: str = Field(
+        ...,
+        validation_alias=AliasChoices("logger_name", "logger"),
+        description="Logger name (module path)",
+    )
     message: str = Field(..., description="Log message")
     request_id: str | None = Field(None, description="Request correlation ID")
     user_id: str | None = Field(None, description="User UUID")
@@ -27,12 +32,22 @@ class LogEntry(BaseModel):
     context: dict[str, Any] | None = Field(
         None, description="Additional context (JSONB)"
     )
-    endpoint: str | None = Field(None, description="API endpoint")
+    endpoint: str | None = Field(
+        None,
+        validation_alias=AliasChoices("endpoint", "path"),
+        description="API endpoint",
+    )
     method: str | None = Field(None, description="HTTP method")
     status_code: int | None = Field(None, description="HTTP status code")
 
+    @field_validator("user_id", mode="before")
+    @classmethod
+    def _user_id_to_str(cls, v: object) -> object:
+        return None if v is None else str(v)
+
     class Config:
         from_attributes = True
+        populate_by_name = True
         json_schema_extra: ClassVar[dict[str, Any]] = {
             "example": {
                 "id": 12345,
