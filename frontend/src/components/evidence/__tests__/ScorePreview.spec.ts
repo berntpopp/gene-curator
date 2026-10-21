@@ -18,7 +18,7 @@ describe('ScorePreview', () => {
   it('shows the empty state with no evidence and a zero-score classification', () => {
     const wrapper = mount(ScorePreview)
 
-    expect(wrapper.text()).toContain('No Known Disease Relationship')
+    expect(wrapper.text()).toContain('No known disease relationship')
     expect(wrapper.text()).toContain('No evidence items added yet')
     expect(wrapper.text()).toContain('0.00')
   })
