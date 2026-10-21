@@ -140,7 +140,8 @@ describe('PasteGenesDialog', () => {
     const w2 = await resolved()
     await w2.find('[data-testid=add]').trigger('click')
     await flushPromises()
-    expect(addToast).toHaveBeenCalledWith('0 genes added, 2 failed', 'warning')
+    expect(addToast).toHaveBeenCalledWith('0 genes added, 2 failed', 'error')
+    expect(w2.emitted('added')).toBeUndefined()
   })
 
   it('goes back to the list to edit it, and cancels', async () => {

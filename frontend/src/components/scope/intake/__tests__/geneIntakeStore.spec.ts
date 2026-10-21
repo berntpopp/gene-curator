@@ -64,7 +64,7 @@ describe('geneIntake store', () => {
       { hgnc_id: 'HGNC:3', approved_symbol: 'C', details: undefined }
     ])
     expect(bulkAssign.mock.calls[0]![0].gene_ids).toEqual(['g1', 'new1', 'old3'])
-    expect(r).toEqual({ added: 2, alreadyInScope: 0, failed: 1 })
+    expect(r).toEqual({ added: 2, alreadyInScope: 0, failed: 2 })
   })
 
   it('does not call the assignment endpoint when nothing could be created', async () => {
@@ -141,5 +141,32 @@ describe('geneIntake store', () => {
     ])
     expect(bulkAssign).not.toHaveBeenCalled()
     expect(r.added).toBe(0)
+  })
+
+  it.each([
+    ['lookup throws', () => search.mockRejectedValue(new Error('x')), 2],
+    [
+      'lookup finds only some',
+      () =>
+        search
+          .mockResolvedValueOnce([{ id: 'o3', hgnc_id: 'HGNC:3' }] as never)
+          .mockResolvedValue([]),
+      1
+    ]
+  ])('keeps added + alreadyInScope + failed equal to picks when %s', async (_n, setup, failed) => {
+    bulkCreate.mockResolvedValue({
+      created_genes: [{ id: 'n1' }],
+      skipped_genes: [{ hgnc_id: 'HGNC:3' }, { hgnc_id: 'HGNC:4' }],
+      total_errors: 0
+    } as never)
+    setup()
+    bulkAssign.mockImplementation(
+      async ({ gene_ids }) =>
+        ({ total_created: gene_ids.length, total_skipped: 0, total_errors: 0 }) as never
+    )
+    const picks = [1, 3, 4].map(i => ({ hgnc_id: `HGNC:${i}`, symbol: `G${i}`, gene_id: null }))
+    const r = await useGeneIntakeStore().addToScope('s1', picks)
+    expect(r.added + r.alreadyInScope + r.failed).toBe(3)
+    expect(r.failed).toBe(failed)
   })
 })

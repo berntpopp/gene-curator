@@ -176,12 +176,15 @@
     busy.value = true
     try {
       const r = await store.addToScope(props.scopeId, picks.value)
+      const total = !r.added && !r.alreadyInScope && r.failed
       const parts = [`${pluralize(r.added, 'gene')} added`]
       if (r.alreadyInScope) parts.push(`${r.alreadyInScope} already in scope`)
       if (r.failed) parts.push(`${r.failed} failed`)
-      notifications.addToast(parts.join(', '), r.failed ? 'warning' : 'success')
-      emit('added')
-      close()
+      notifications.addToast(parts.join(', '), total ? 'error' : r.failed ? 'warning' : 'success')
+      if (!total) {
+        emit('added')
+        close()
+      }
     } catch (e) {
       logger.error('Adding genes to scope failed', { error: (e as Error).message })
       notifications.addToast('Could not add the genes to the scope', 'error')

@@ -61,8 +61,15 @@ export const useGeneIntakeStore = defineStore('geneIntake', () => {
           skip_duplicates: true
         })
         failed += created.total_errors
-        ids.push(...created.created_genes.map(g => g.id))
-        ids.push(...(await lookup(created.skipped_genes.map(s => s.hgnc_id as string))))
+        const skipped = created.skipped_genes.map(s => s.hgnc_id as string)
+        let found: string[] = []
+        try {
+          found = await lookup(skipped)
+        } catch {
+          // created genes still proceed; only the skipped ones are unresolved
+        }
+        failed += skipped.length - found.length
+        ids.push(...created.created_genes.map(g => g.id), ...found)
       } catch {
         failed += chunk.length
       }
