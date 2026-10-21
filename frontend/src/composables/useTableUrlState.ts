@@ -70,7 +70,10 @@ export function useTableUrlState(
   let timer: ReturnType<typeof setTimeout> | undefined
   watch(
     () => str('q'),
-    q => (typed.value = q ?? '')
+    q => {
+      clearTimeout(timer)
+      typed.value = q ?? ''
+    }
   )
   onScopeDispose(() => clearTimeout(timer))
   const search = computed({

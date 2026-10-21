@@ -128,5 +128,15 @@ describe('useTableUrlState', () => {
     expect(router.currentRoute.value.query.cls).toEqual(['c'])
   })
 
+  it('drops a pending search write when q changes through the router', async () => {
+    vi.useFakeTimers()
+    const { api, router } = await setup('/t?q=old')
+    api.search.value = 'typed'
+    await router.push('/t?q=back')
+    await vi.advanceTimersByTimeAsync(400)
+    expect(api.search.value).toBe('back')
+    expect(router.currentRoute.value.query.q).toBe('back')
+  })
+
   afterEach(() => vi.useRealTimers())
 })

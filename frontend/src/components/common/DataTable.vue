@@ -14,7 +14,7 @@
         @update:model-value="emit('update:search', $event ?? '')"
       />
       <div class="data-table__chips">
-        <v-menu v-for="f in filterDefs" :key="f.key">
+        <v-menu v-for="f in filterDefs" :key="f.key" :close-on-content-click="!f.multiple">
           <template #activator="{ props: menu }">
             <v-chip
               v-bind="menu"
@@ -105,7 +105,7 @@
       :loading="loading"
       :page="page"
       :items-per-page="itemsPerPage"
-      :items-per-page-options="[10, 25, 50, 100]"
+      :items-per-page-options="PAGE_SIZES"
       :sort-by="sortBy"
       fixed-header
       hover
@@ -128,6 +128,7 @@
 
 <script setup lang="ts" generic="T extends Record<string, unknown>">
   import { computed, ref, useSlots } from 'vue'
+  import { PAGE_SIZES } from '@/composables/useTableUrlState'
   import type { Density, FilterValue, SortItem } from '@/composables/useTableUrlState'
 
   interface Header {
