@@ -61,6 +61,28 @@ def test_precuration_approve_maps_denied_update_to_403(
         )
 
 
+def test_precuration_reject_maps_denied_update_to_403(
+    client: TestClient, db_session: Session, test_precuration: PrecurationNew
+):
+    reviewer = make_user(db_session)
+    make_member(
+        db_session,
+        db_session.get(Scope, test_precuration.scope_id),
+        reviewer,
+        "reviewer",
+    )
+    with patch(
+        "app.api.v1.endpoints.precurations.precuration_crud.reject",
+        side_effect=StaleDataError("0 rows matched"),
+    ):
+        r = client.post(
+            f"/api/v1/precurations/{test_precuration.id}/reject",
+            json={"reason": "x"},
+            headers=auth_headers(reviewer),
+        )
+    assert r.status_code == 403, r.text
+
+
 @pytest.mark.parametrize(
     ("error", "expected"),
     [

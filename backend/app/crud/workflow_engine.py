@@ -444,7 +444,6 @@ class WorkflowEngine:
             raise ValueError(f"Invalid decision. Must be one of: {valid_decisions}")
 
         try:
-            # Update review
             review.status = {
                 "approve": ReviewStatus.APPROVED,
                 "request_changes": ReviewStatus.NEEDS_REVISION,
@@ -457,8 +456,6 @@ class WorkflowEngine:
 
             db.flush()
 
-            # Notify the curation creator of the review decision
-
             curation = (
                 db.execute(
                     select(CurationNew).where(CurationNew.id == review.curation_id)
@@ -469,9 +466,7 @@ class WorkflowEngine:
             self._return_to_curator(db, curation, decision)
 
             if curation and curation.created_by and curation.created_by != reviewer_id:
-                gene_symbol = "Unknown"
-                if hasattr(curation, "gene") and curation.gene:
-                    gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
+                gene_symbol = getattr(curation.gene, "approved_symbol", "Unknown")
 
                 notification_config = {
                     "reject": (
@@ -515,8 +510,10 @@ class WorkflowEngine:
                 )
             else:
                 db.commit()
-        except Exception:
+        except Exception as e:
             db.rollback()
+            if isinstance(e, StaleDataError | DBAPIError):
+                raise_if_rls_denied(e, "Not authorized to submit this review")
             raise
 
         return {

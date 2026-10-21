@@ -1,10 +1,13 @@
 """Unit tests for WorkflowEngine peer review, eligible reviewers and statistics."""
 
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.crud.review_round import reassign_earlier_reviewers
 from app.crud.workflow_engine import WorkflowEngine
@@ -536,3 +539,24 @@ def test_manual_assign_after_auto_reassign_does_not_duplicate(
         NotificationNew.user_id == a.id, NotificationNew.title == "New review assigned"
     )
     assert notes.count() == 2  # first round + the automatic one, no third
+
+
+def test_denied_review_submission_is_403_not_500(
+    db_session: Session,
+    engine: WorkflowEngine,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+) -> None:
+    curation = _review_setup(db_session, creator, scope)
+    request = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", reviewer.id, creator.id
+    )
+    with (
+        patch.object(db_session, "commit", side_effect=StaleDataError("0 rows")),
+        pytest.raises(HTTPException) as raised,
+    ):
+        engine.submit_peer_review(
+            db_session, request.review_id, reviewer.id, "request_changes"
+        )
+    assert raised.value.status_code == 403

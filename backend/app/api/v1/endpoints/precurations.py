@@ -521,12 +521,17 @@ def reject_precuration(
 
     reason = rejection_data.get("reason", "No reason provided")
 
-    rejected = precuration_crud.reject(
-        db,
-        db_obj=precuration,
-        user_id=current_user.id,
-        reason=reason,
-    )
+    try:
+        rejected = precuration_crud.reject(
+            db,
+            db_obj=precuration,
+            user_id=current_user.id,
+            reason=reason,
+        )
+    except (StaleDataError, DBAPIError) as e:
+        db.rollback()
+        raise_if_rls_denied(e, "Not authorized to reject this precuration")
+        raise
 
     return Precuration.model_validate(rejected)
 
