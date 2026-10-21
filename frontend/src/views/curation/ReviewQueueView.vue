@@ -17,7 +17,7 @@
     <v-card class="mb-4" variant="outlined">
       <v-card-text>
         <v-row dense>
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
             <v-select
               v-model="selectedScope"
               :items="scopeOptions"
@@ -31,15 +31,26 @@
               prepend-inner-icon="mdi-folder-outline"
             />
           </v-col>
-          <v-col cols="12" md="4">
+          <v-col cols="12" md="3">
             <v-text-field
               v-model="searchQuery"
-              label="Search by gene or curator"
+              data-testid="queue-search"
+              label="Search gene, disease or curator"
               variant="outlined"
               density="compact"
               hide-details
               clearable
               prepend-inner-icon="mdi-magnify"
+            />
+          </v-col>
+          <v-col cols="12" md="2">
+            <v-switch
+              v-model="mineOnly"
+              data-testid="assigned-to-me"
+              label="Assigned to me"
+              density="compact"
+              hide-details
+              color="primary"
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -69,30 +80,27 @@
     </template>
 
     <!-- Empty State -->
-    <v-alert
+    <div
       v-else-if="filteredCurations.length === 0"
-      type="success"
-      variant="tonal"
-      border="start"
-      class="mt-4"
+      class="text-center py-8"
+      data-testid="queue-empty"
     >
-      <v-alert-title>
-        <v-icon size="large" class="mr-2">mdi-check-circle</v-icon>
-        {{ searchQuery || selectedScope ? 'No matching curations' : 'No reviews waiting' }}
-      </v-alert-title>
-      <div v-if="!searchQuery && !selectedScope">
-        There are no curations waiting for your review at this time.
-      </div>
-      <div v-else>Try adjusting your filters to see more results.</div>
-      <template v-if="searchQuery || selectedScope" #append>
-        <v-btn variant="outlined" @click="clearFilters">Clear filters</v-btn>
-      </template>
-    </v-alert>
+      <p class="text-body-large mb-2">
+        {{
+          searchQuery || selectedScope || mineOnly
+            ? 'No matching curations'
+            : 'No reviews waiting'
+        }}
+      </p>
+      <v-btn v-if="searchQuery || selectedScope || mineOnly" variant="text" @click="clearFilters">
+        Clear filters
+      </v-btn>
+    </div>
 
     <!-- Review Cards -->
     <v-row v-else>
       <v-col v-for="curation in filteredCurations" :key="curation.id" cols="12">
-        <v-card variant="outlined" hover>
+        <v-card variant="outlined" hover data-testid="review-row">
           <v-card-text>
             <v-row align="center">
               <!-- Gene & Disease Info -->
@@ -154,7 +162,7 @@
               <!-- Submitted Time & Actions -->
               <v-col cols="12" md="3" class="text-right">
                 <div class="text-body-small text-medium-emphasis mb-2">
-                  Submitted {{ formatRelativeTime(curation.updated_at) }}
+                  Updated {{ formatRelativeTime(curation.updated_at) }}
                 </div>
                 <div v-if="curation.kind === 'precuration'" class="d-flex justify-end ga-2">
                   <v-btn
@@ -241,6 +249,7 @@
   import { useConfirm } from '@/composables/useConfirm'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useScopesStore } from '@/stores/scopes'
+  import { useReviewStore } from '@/stores/review'
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
@@ -269,6 +278,7 @@
   const scopesStore = useScopesStore()
   const workCounts = useWorkCountsStore()
   const { confirm } = useConfirm()
+  const reviewStore = useReviewStore()
 
   // State
   const loading = ref(true)
@@ -278,6 +288,8 @@
   const searchQuery = ref('')
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
+  const mineOnly = ref(false)
+  const mineIds = ref<Set<string> | null>(null)
   const itemsPerPage = 10
   const busyId = ref<string | null>(null)
   const showReject = ref(false)
@@ -298,15 +310,11 @@
 
   const pendingCount = computed(() => curations.value.length)
 
-  const filteredCurations = computed<ReviewItem[]>(() => {
+  // One filtered, sorted list: the page slices it and the page count measures it
+  const filtered = computed<ReviewItem[]>(() => {
     let result = [...curations.value]
-
-    // Filter by scope
-    if (selectedScope.value) {
-      result = result.filter(c => c.scope_id === selectedScope.value)
-    }
-
-    // Filter by search query
+    if (selectedScope.value) result = result.filter(c => c.scope_id === selectedScope.value)
+    if (mineOnly.value && mineIds.value) result = result.filter(c => mineIds.value!.has(c.id))
     if (searchQuery.value) {
       const query = searchQuery.value.toLowerCase()
       result = result.filter(
@@ -316,9 +324,7 @@
           c.disease_name?.toLowerCase().includes(query)
       )
     }
-
-    // Sort
-    result.sort((a, b) => {
+    return result.sort((a, b) => {
       switch (sortBy.value) {
         case 'submitted_asc':
           return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
@@ -331,31 +337,29 @@
           return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
       }
     })
+  })
 
-    // Paginate
+  const filteredCurations = computed<ReviewItem[]>(() => {
     const start = (currentPage.value - 1) * itemsPerPage
-    return result.slice(start, start + itemsPerPage)
+    return filtered.value.slice(start, start + itemsPerPage)
   })
 
-  const totalPages = computed<number>(() => {
-    let result = [...curations.value]
-    if (selectedScope.value) {
-      result = result.filter(c => c.scope_id === selectedScope.value)
-    }
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase()
-      result = result.filter(
-        c =>
-          c.gene_symbol?.toLowerCase().includes(query) ||
-          c.curator_name?.toLowerCase().includes(query)
-      )
-    }
-    return Math.ceil(result.length / itemsPerPage)
-  })
+  const totalPages = computed<number>(() => Math.ceil(filtered.value.length / itemsPerPage))
 
   // Watch for filter changes to reset pagination
-  watch([selectedScope, searchQuery], () => {
+  watch([selectedScope, searchQuery, mineOnly], () => {
     currentPage.value = 1
+  })
+
+  // "Assigned to me": ids of my pending review assignments, read on first use
+  watch(mineOnly, async on => {
+    if (!on || mineIds.value) return
+    try {
+      mineIds.value = await reviewStore.fetchMyPending()
+    } catch {
+      mineOnly.value = false
+      notificationStore.addToast('Could not load your assigned reviews', 'error')
+    }
   })
 
   // Methods
@@ -525,6 +529,7 @@
   function clearFilters() {
     selectedScope.value = null
     searchQuery.value = ''
+    mineOnly.value = false
   }
 
   // Lifecycle

@@ -6,6 +6,10 @@ vi.mock('@/api', () => ({
   curationsAPI: { getCurations: vi.fn() }
 }))
 
+vi.mock('@/api/reviewComments', () => ({
+  reviewCommentsAPI: { myPendingItemIds: vi.fn() }
+}))
+
 vi.mock('@/api/precurations', () => ({
   precurationsAPI: {
     getPrecurations: vi.fn(),
@@ -16,6 +20,7 @@ vi.mock('@/api/precurations', () => ({
 
 import { curationsAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
+import { reviewCommentsAPI } from '@/api/reviewComments'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { useScopesStore } from '@/stores/scopes'
 import { useNotificationsStore } from '@/stores/notifications'
@@ -57,7 +62,7 @@ describe('ReviewQueueView', () => {
     expect(wrapper.findAll('.v-skeleton-loader').length).toBe(3)
   })
 
-  it('shows the all-caught-up empty state when nothing is pending', async () => {
+  it('shows a plain empty state when nothing is pending', async () => {
     vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
     const wrapper = mount(ReviewQueueView)
     await flushPromises()
@@ -71,6 +76,8 @@ describe('ReviewQueueView', () => {
       expect.objectContaining({ pending_review: true })
     )
     expect(wrapper.text()).toContain('No reviews waiting')
+    expect(wrapper.find('.v-alert--variant-tonal.text-success').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('caught up')
   })
 
   it('shows the scope display name instead of the machine name', async () => {
@@ -291,5 +298,65 @@ describe('ReviewQueueView status label', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('In review')
     expect(wrapper.text()).not.toContain('Awaiting Review')
+  })
+
+  describe('filters, pages and labels (#244)', () => {
+    const many = (n: number, o: (i: number) => Record<string, unknown> = () => ({})) =>
+      Array.from({ length: n }, (_, i) => row({ id: `c${i}`, gene_symbol: `G${i}`, ...o(i) }))
+
+    it('gives the same match count and page count for a disease search', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+        curations: many(25, i => ({
+          disease_name: i < 12 ? 'Polycystic kidney' : 'Breast cancer'
+        })),
+        total: 25
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      await wrapper.find('[data-testid=queue-search] input').setValue('polycystic')
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(10)
+      expect(wrapper.find('.v-pagination').exists()).toBe(true)
+      expect(wrapper.findComponent({ name: 'VPagination' }).props('length')).toBe(2)
+    })
+
+    it('labels the date as last updated, not submitted', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+        curations: [row({})],
+        total: 1
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      expect(wrapper.text()).toContain('Updated ')
+      expect(wrapper.text()).not.toContain('Submitted')
+    })
+
+    it('narrows the queue to my assigned reviews with the toggle', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+        curations: many(3),
+        total: 3
+      } as never)
+      vi.mocked(reviewCommentsAPI.myPendingItemIds).mockResolvedValue(['c1'])
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(3)
+      await wrapper.find('[data-testid=assigned-to-me] input').setValue(true)
+      await flushPromises()
+      const rows = wrapper.findAll('[data-testid=review-row]')
+      expect(rows).toHaveLength(1)
+      expect(rows[0]!.text()).toContain('G1')
+    })
+
+    it('shows the matching-filters empty state with a clear action', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+        curations: many(2),
+        total: 2
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      await wrapper.find('[data-testid=queue-search] input').setValue('zzz')
+      await flushPromises()
+      expect(wrapper.text()).toContain('No matching curations')
+    })
   })
 })
