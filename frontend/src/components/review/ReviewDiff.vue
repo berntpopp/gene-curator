@@ -55,7 +55,7 @@
         <dl class="item__fields">
           <template v-for="f in g.fields" :key="f.name">
             <dt v-if="f.name" class="mono">{{ f.name }}</dt>
-            <dd>
+            <dd :class="{ full: !f.name }">
               <del v-if="f.change !== 'added'" class="del">{{ formatValue(f.before) }}</del>
               <ins v-if="f.change !== 'removed'" class="ins">{{ formatValue(f.after) }}</ins>
             </dd>
@@ -115,7 +115,12 @@
     const b = review.diff?.baseline
     if (!loaded.value) return ''
     if (!b) return 'First review: all items new.'
-    const what = b.source === 'review' ? 'your last review' : 'the previous submission'
+    const what =
+      b.source === 'review'
+        ? props.reviewer
+          ? 'your last review'
+          : 'the last review'
+        : 'the previous submission'
     return `Showing changes since ${what} on ${formatDate(b.as_of)}.`
   })
 
@@ -201,8 +206,7 @@
     overflow-wrap: anywhere;
   }
 
-  .item__fields dd:has(:only-child),
-  .item__fields dt:first-child:empty {
+  .item__fields dd.full {
     grid-column: 1 / -1;
   }
 

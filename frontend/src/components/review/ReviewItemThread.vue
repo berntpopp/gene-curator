@@ -2,7 +2,7 @@
   <div class="thread" data-testid="thread">
     <ul v-if="queries.length" class="thread__list">
       <li v-for="q in queries" :key="q.id" :class="{ thread__resolved: q.status === 'resolved' }">
-        <strong>{{ author(q.author_id) }}</strong>
+        <strong class="thread__author">{{ author(q.author_id) }}</strong>
         <span class="text-medium-emphasis">
           {{ formatDateTime(q.created_at) }}{{ q.status === 'resolved' ? ' · resolved' : '' }}
         </span>
@@ -88,6 +88,10 @@
 
   .thread__list li + li {
     margin-top: 8px;
+  }
+
+  .thread__author {
+    margin-right: 8px;
   }
 
   .thread__resolved {

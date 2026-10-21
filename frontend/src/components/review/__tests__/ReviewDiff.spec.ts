@@ -182,6 +182,15 @@ describe('ReviewDiff', () => {
   })
 })
 
+describe('ReviewDiff baseline wording', () => {
+  it('does not say "your" review to a curator', async () => {
+    const w = await mountDiff({ me: 'alice', reviewer: false })
+    expect(w.find('[data-testid=baseline]').text()).toBe(
+      'Showing changes since the last review on 2026-10-15.'
+    )
+  })
+})
+
 describe('ReviewDiff outside review', () => {
   it('stays hidden without comments and shows once there are some', async () => {
     let w = await mountDiff({ onlyWithComments: true })
