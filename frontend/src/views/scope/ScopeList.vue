@@ -9,7 +9,7 @@
 <template>
   <v-container fluid>
     <div class="d-flex align-center mb-4">
-      <h1 class="text-headline-large">{{ TERMINOLOGY.SCOPES }}</h1>
+      <h1 class="page-title text-headline-large">{{ TERMINOLOGY.SCOPES }}</h1>
       <v-spacer />
       <div class="text-right">
         <v-btn color="primary" variant="flat" @click="navigateToCreate">New scope</v-btn>

@@ -2,7 +2,7 @@
   <v-container fluid>
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-headline-large font-weight-bold">My Work</h1>
+        <h1 class="page-title text-headline-large font-weight-bold">My Work</h1>
         <p class="text-body-large text-medium-emphasis mt-1">Genes assigned to you</p>
       </div>
       <v-spacer />

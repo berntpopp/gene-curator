@@ -188,6 +188,18 @@
     padding: 2rem;
   }
 
+  /* PhoneHeader shows the route title below md: keep the view h1 for screen readers only */
+  @media (max-width: 959.98px) {
+    .page-title {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      overflow: hidden;
+      clip: rect(0 0 0 0);
+      white-space: nowrap;
+    }
+  }
+
   /* Responsive adjustments */
   @media (max-width: 768px) {
     .v-container {

@@ -1,7 +1,7 @@
 <template>
   <v-container fluid>
     <div class="mb-4">
-      <h1 class="text-headline-medium font-weight-bold">My work</h1>
+      <h1 class="page-title text-headline-medium font-weight-bold">My work</h1>
       <p class="text-body-medium text-medium-emphasis">
         Across your scopes. Sorted by what blocks others first.
       </p>

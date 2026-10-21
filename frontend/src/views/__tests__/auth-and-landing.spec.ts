@@ -267,7 +267,7 @@ describe('Register', () => {
       role: 'user',
       is_active: true
     })
-    expect(showSuccess).toHaveBeenCalled()
+    expect(showSuccess).toHaveBeenCalledWith('Account created')
     expect(routerPush).toHaveBeenCalledWith({ name: 'Home' })
   })
 
@@ -287,6 +287,17 @@ describe('Register', () => {
 
     expect(showError).toHaveBeenCalledWith('Registration failed. Please try again.')
     expect(routerPush).not.toHaveBeenCalled()
+  })
+})
+
+describe('Register look', () => {
+  it('is a flat bordered card like Login: no shadow, no gradient or blur', () => {
+    const wrapper = mount(Register, mountOpts(createPinia()))
+    const card = wrapper.find('.v-card')
+    expect(card.classes()).toContain('v-card--variant-flat')
+    expect(card.classes()).toContain('v-card--border')
+    expect(card.classes().join(' ')).not.toMatch(/elevation/)
+    expect(wrapper.find('h1').text()).toBe('Create account')
   })
 })
 
