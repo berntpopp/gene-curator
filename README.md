@@ -57,6 +57,13 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.6.0
+
+Run `make db-migrate` (migrations 042-047) before restarting the backend, then recompute stored
+scores once: `cd backend && uv run python -m app.services.recompute_scores`. It logs every curation
+whose total or class changes (SOP v11 corrections); custom point models are untouched, and published
+methodology versions are immutable. Details: [docs/releases/v0.6.0.md](docs/releases/v0.6.0.md).
+
 ### Upgrading to v0.5.0
 
 Run `make db-migrate` (migrations 036-041) before restarting the backend. Curation and precuration
