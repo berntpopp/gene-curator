@@ -9,6 +9,7 @@ from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, UserNew, UserRoleNew
 from app.scoring.clingen import ClinGenEngine
+from app.scoring.point_limits import scoring_configuration
 
 logger = get_logger(__name__)
 
@@ -45,18 +46,27 @@ def recompute_all_scores(db: Session) -> int:
         set_rls_context(db, admin)
     engine = ClinGenEngine()
     cols = (CurationNew.id, CurationNew.evidence_data, CurationNew.computed_scores)
-    curations = db.execute(select(*cols, CurationNew.computed_verdict)).all()
+    pin = (CurationNew.workflow_pair_id, CurationNew.methodology_version_id)
+    curations = db.execute(select(*cols, CurationNew.computed_verdict, *pin)).all()
     updated = unchanged = 0
     skipped: list[str] = []
     failed = 0
-    for curation_id, evidence, old_scores, old_verdict in curations:
+    for (
+        curation_id,
+        evidence,
+        old_scores,
+        old_verdict,
+        pair_id,
+        version_id,
+    ) in curations:
         if _has_unscored_keys(evidence):
             skipped.append(
                 str(curation_id)
             )  # never overwrite with an unjustified verdict
             continue
         try:
-            result = engine.calculate_scores(evidence or {}, {})
+            config = scoring_configuration(db, pair_id, version_id)
+            result = engine.calculate_scores(evidence or {}, config)
         except Exception:  # one bad legacy row must not abort the backfill
             failed += 1
             logger.error(

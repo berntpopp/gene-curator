@@ -35,6 +35,7 @@ from app.schemas.curation import (
     disease_fields,
 )
 from app.scoring.clingen import ClinGenEngine
+from app.scoring.point_limits import scoring_configuration
 
 logger = get_logger(__name__)
 
@@ -70,9 +71,14 @@ def get_disease_fields(
     return disease_fields(evidence, precuration_evidence)
 
 
-def _computed(evidence_data: dict[str, Any]) -> dict[str, Any]:
-    """Engine output to persist in the same statement as the evidence write."""
-    result = ClinGenEngine().calculate_scores(evidence_data, {})
+def _computed(
+    db: Session, curation: CurationNew, evidence_data: dict[str, Any]
+) -> dict[str, Any]:
+    """Score with the row's pinned version (latest on create), persisted with the evidence."""
+    config = scoring_configuration(
+        db, curation.workflow_pair_id, curation.methodology_version_id
+    )
+    result = ClinGenEngine().calculate_scores(evidence_data, config)
     return {
         "computed_scores": {**result.scores, **result.evidence_breakdown},
         "computed_verdict": result.verdict,
@@ -80,9 +86,9 @@ def _computed(evidence_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _update_computed_scores(curation: CurationNew) -> None:
+def _update_computed_scores(db: Session, curation: CurationNew) -> None:
     """Persist engine output in the same transaction as the evidence write."""
-    for key, value in _computed(curation.evidence_data).items():
+    for key, value in _computed(db, curation, curation.evidence_data).items():
         setattr(curation, key, value)
 
 
@@ -333,7 +339,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             created_at=now,
             updated_at=now,
         )
-        _update_computed_scores(db_obj)
+        _update_computed_scores(db, db_obj)
         db.add(db_obj)
         db.commit()
         db.refresh(db_obj)
@@ -363,7 +369,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
         if obj_in.evidence_data is not None:
             values["evidence_data"] = obj_in.evidence_data
-            values.update(_computed(obj_in.evidence_data))
+            values.update(_computed(db, db_obj, obj_in.evidence_data))
         if not update_if_version(
             db, CurationNew, db_obj.id, obj_in.lock_version, values
         ):
@@ -387,7 +393,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         """Save curation as draft with auto-save timestamp. None if lock_version is stale."""
         values = {
             "evidence_data": draft_data.evidence_data,
-            **_computed(draft_data.evidence_data),
+            **_computed(db, db_obj, draft_data.evidence_data),
             "is_draft": True,
             "auto_saved_at": _utc_now(),
             "updated_by": user_id,
@@ -429,7 +435,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj.is_draft = False
         db_obj.submitted_at = _utc_now()
         db_obj.submitted_by = user_id
-        _update_computed_scores(db_obj)
+        _update_computed_scores(db, db_obj)
         db.add(db_obj)
         workflow_engine.execute_transition(
             db,
@@ -460,11 +466,11 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         if scoring_engine is None:
             scoring_engine = ClinGenEngine()
 
-        # Calculate score using the correct method name and signature
-        # schema_config is empty dict as we're using ClinGen defaults
         result = scoring_engine.calculate_scores(
             evidence_data=db_obj.evidence_data,
-            schema_config={},
+            schema_config=scoring_configuration(
+                db, db_obj.workflow_pair_id, db_obj.methodology_version_id
+            ),
             scope_context=None,
         )
 

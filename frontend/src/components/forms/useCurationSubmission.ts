@@ -21,6 +21,8 @@ export interface CurationSubmissionOptions {
   geneId: () => string | null | undefined
   scopeId: () => string
   workflowPairId: () => string | null | undefined
+  /** Precuration a new curation links to (a re-curation carries its source's). */
+  precurationId?: () => string | null
   evidenceData: Ref<EvidenceData>
   lockVersion: Ref<number>
   canSubmit: () => boolean
@@ -74,7 +76,14 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     const gene_id = geneId()
     const workflow_pair_id = workflowPairId()
     if (!gene_id || !workflow_pair_id) throw new Error('A gene and a workflow pair are required')
-    return { gene_id, scope_id: scopeId(), workflow_pair_id, evidence_data: evidence }
+    const precuration_id = options.precurationId?.()
+    return {
+      gene_id,
+      scope_id: scopeId(),
+      workflow_pair_id,
+      ...(precuration_id && { precuration_id }),
+      evidence_data: evidence
+    }
   }
 
   /** Submit at a known version and keep the version the server answers with. */
