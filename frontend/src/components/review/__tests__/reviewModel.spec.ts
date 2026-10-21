@@ -73,32 +73,133 @@ describe('groupDiff, first review (whole sections added)', () => {
     tags: ['a', 'b']
   }
 
-  it('lists the filled leaves of an added section as rows, not one JSON blob', () => {
-    const [g] = groupDiff([
+  it('splits an added section into its records and scalars, filled leaves only', () => {
+    const groups = groupDiff([
       { path: 'genetic_evidence', change: 'added', before: null, after: section }
     ])
-    expect(g!.key).toBe('genetic_evidence')
-    expect(g!.change).toBe('added')
-    expect(g!.fields.map(f => [f.name, f.after])).toEqual([
-      ['case_level.ad.null_variants[0].proband', 'P1'],
-      ['case_level.ad.null_variants[0].pmid', '123'],
-      ['case_level.ad.null_variants[0].points', 99],
-      ['summary', 'text'],
-      ['tags', 'a, b']
+    expect(groups.map(g => g.key)).toEqual([
+      'genetic_evidence.case_level.ad.null_variants[0]',
+      'genetic_evidence.summary',
+      'genetic_evidence.tags'
     ])
-    expect(g!.fields.every(f => f.change === 'added' && f.before === undefined)).toBe(true)
+    expect(groups[0]!.change).toBe('added')
+    expect(groups[0]!.fields.map(f => [f.name, f.after])).toEqual([
+      ['proband', 'P1'],
+      ['pmid', '123'],
+      ['points', 99]
+    ])
+    expect(groups[2]!.fields).toEqual([
+      { name: '', label: '', change: 'added', before: undefined, after: 'a, b' }
+    ])
+    expect(groups.flatMap(g => g.fields).every(f => f.before === undefined)).toBe(true)
   })
 
   it('shows removed sections as rows of their old values', () => {
     const [g] = groupDiff([{ path: 's', change: 'removed', before: { a: 1 }, after: null }])
-    expect(g!.fields).toEqual([{ name: 'a', change: 'removed', before: 1, after: undefined }])
+    expect(g!.key).toBe('s.a')
+    expect(g!.fields).toEqual([
+      { name: '', label: '', change: 'removed', before: 1, after: undefined }
+    ])
   })
 
-  it('keeps one "none" row for an empty section', () => {
-    const [g] = groupDiff([
-      { path: 'contradictory_evidence', change: 'added', before: null, after: [] }
+  it('drops empty sections and blank values', () => {
+    expect(
+      groupDiff([
+        { path: 'contradictory_evidence', change: 'added', before: null, after: [] },
+        { path: 'notes', change: 'added', before: null, after: null }
+      ])
+    ).toEqual([])
+  })
+})
+
+describe('groupDiff, readable names', () => {
+  const pnull = 'case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null'
+  const fields = {
+    genetic_evidence: {
+      properties: {
+        case_level: {
+          properties: {
+            autosomal_dominant_or_x_linked: {
+              title: 'Autosomal dominant or X-linked',
+              properties: {
+                predicted_or_proven_null: {
+                  title: 'Predicted or proven null variant',
+                  item_schema: {
+                    proband_label: { type: 'string' },
+                    pmid: { title: 'PMID' },
+                    variant_type: {
+                      options: [{ value: 'nonsense', label: 'Nonsense' }, 'frameshift']
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
+  it('names a record by the schema title and its label field, fields by schema or key', () => {
+    const [g] = groupDiff(
+      [
+        {
+          path: 'genetic_evidence',
+          change: 'added',
+          before: null,
+          after: {
+            [pnull.split('.')[0]!]: {
+              autosomal_dominant_or_x_linked: {
+                predicted_or_proven_null: [
+                  {
+                    pmid: '1',
+                    proband_label: 'C1',
+                    variant_type: 'nonsense',
+                    proband_counted_points: 1.5
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ],
+      { fields }
+    )
+    expect(g!.label).toBe('Predicted or proven null variant · C1')
+    expect(g!.context).toBe('Genetic evidence › Case level › Autosomal dominant or X-linked')
+    expect(g!.fields.map(f => f.label)).toEqual([
+      'PMID',
+      'Proband label',
+      'Variant type',
+      'Proband counted points'
     ])
-    expect(g!.fields).toEqual([{ name: '', change: 'added', before: undefined, after: 'none' }])
+    expect(g!.fields[2]!.options).toHaveLength(2)
+  })
+
+  it('names a changed record from the current evidence, else by its position', () => {
+    const items: Item[] = [
+      { path: `genetic_evidence.${pnull}[0].pmid`, change: 'changed', before: '1', after: '2' },
+      { path: 'g.cases[3].x', change: 'changed', before: 1, after: 2 },
+      { path: 'g.cases[abc].x', change: 'changed', before: 1, after: 2 }
+    ]
+    const evidence = {
+      genetic_evidence: {
+        case_level: {
+          autosomal_dominant_or_x_linked: { predicted_or_proven_null: [{ proband_label: 'C7' }] }
+        }
+      },
+      g: { cases: [{ id: 'abc', label: 'Mouse' }] }
+    }
+    expect(groupDiff(items, { fields, evidence }).map(g => g.label)).toEqual([
+      'Predicted or proven null variant · C7',
+      'Cases #4',
+      'Cases · Mouse'
+    ])
+    expect(groupDiff(items).map(g => g.label)).toEqual([
+      'Predicted or proven null #1',
+      'Cases #4',
+      'Cases'
+    ])
   })
 })
 
@@ -109,6 +210,15 @@ describe('formatValue', () => {
     expect(formatValue(2)).toBe('2')
     expect(formatValue('abc')).toBe('abc')
     expect(formatValue({ a: 1 })).toBe('{"a":1}')
+  })
+
+  it('uses enum labels from the schema and Yes/No', () => {
+    const options = [{ value: 'nonsense', label: 'Nonsense' }, 'frameshift']
+    expect(formatValue('nonsense', options)).toBe('Nonsense')
+    expect(formatValue('frameshift', options)).toBe('frameshift')
+    expect(formatValue(true)).toBe('Yes')
+    expect(formatValue(false)).toBe('No')
+    expect(formatValue('')).toBe('none')
   })
 })
 

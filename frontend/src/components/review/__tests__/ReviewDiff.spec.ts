@@ -218,3 +218,88 @@ describe('store shared with the dialogs', () => {
     expect(useReviewStore().diff?.items).toHaveLength(3)
   })
 })
+
+describe('ReviewDiff, first review of a ClinGen curation (#390)', () => {
+  const pnullDef = {
+    type: 'array',
+    item_schema: {
+      proband_label: { type: 'string' },
+      variant_type: { type: 'enum', options: [{ value: 'nonsense', label: 'Nonsense' }] },
+      pmid: { type: 'string' },
+      score_status: { type: 'enum', options: [{ value: 'score', label: 'Score' }] },
+      proband_counted_points: { type: 'number' },
+      explanation: { type: 'string' }
+    }
+  }
+  const fields = {
+    genetic_evidence: {
+      properties: {
+        case_level: {
+          properties: {
+            autosomal_dominant_or_x_linked: { properties: { predicted_or_proven_null: pnullDef } }
+          }
+        }
+      }
+    }
+  }
+  const record = {
+    pmid: '11111111',
+    explanation: null,
+    score_status: 'score',
+    variant_type: 'nonsense',
+    proband_label: 'C1',
+    proband_counted_points: 1.5
+  }
+
+  it('groups by evidence item with labels from the schema and hides empty values', async () => {
+    setActivePinia(createPinia())
+    api.getDiff.mockResolvedValue({
+      baseline: null,
+      items: [
+        {
+          path: 'genetic_evidence',
+          change: 'added',
+          before: null,
+          after: {
+            case_level: { autosomal_dominant_or_x_linked: { predicted_or_proven_null: [record] } }
+          }
+        }
+      ]
+    } as never)
+    api.list.mockResolvedValue([] as never)
+    const w = mount(ReviewDiff, {
+      props: {
+        curationId: 'cur',
+        me: 'bob',
+        creatorId: 'alice',
+        reviewer: true,
+        canReply: true,
+        context: { fields }
+      }
+    })
+    await flushPromises()
+
+    const [item, ...rest] = w.findAll('[data-testid=item]')
+    expect(rest).toHaveLength(0)
+    const text = item!.text()
+    expect(item!.find('.item__label').text()).toBe('Predicted or proven null · C1')
+    expect(text).toContain('Genetic evidence › Case level › Autosomal dominant or x linked')
+    expect(item!.findAll('dt').map(d => d.text())).toEqual([
+      'Pmid',
+      'Score status',
+      'Variant type',
+      'Proband label',
+      'Proband counted points'
+    ])
+    expect(item!.findAll('dd').map(d => d.text())).toEqual([
+      '11111111',
+      'Score',
+      'Nonsense',
+      'C1',
+      '1.5'
+    ])
+    for (const raw of ['case_level', '[0]', 'proband_label', 'score_status', 'Explanation']) {
+      expect(text).not.toContain(raw)
+    }
+  })
+})

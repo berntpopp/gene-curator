@@ -1,12 +1,32 @@
 /** Pure helpers for the review diff: grouping by evidence item, per-item state, approve rules. */
 import type { Schema } from '@/types/api'
+import { humanize } from '@/components/dynamic/fieldLabels'
 
 type DiffItem = Schema<'DiffItem'>
 type Comment = Schema<'ReviewComment'>
 
+/** A curation schema field definition, as far as the diff needs it (labels, enum options). */
+export interface FieldDef {
+  title?: string
+  label?: string
+  properties?: Record<string, FieldDef>
+  item_schema?: Record<string, FieldDef>
+  items?: FieldDef
+  options?: (string | { value: unknown; label?: string })[]
+}
+
+/** Where readable names come from: the schema's `field_definitions` and the current evidence. */
+export interface DiffContext {
+  /** Untyped JSON from the API; read as `FieldDef`s. */
+  fields?: Record<string, unknown> | null
+  evidence?: unknown
+}
+
 export interface DiffField {
-  /** Field below the item ('' when the whole item was added or removed). */
+  /** Field below the item ('' for a scalar item, whose label is the item's). */
   name: string
+  label: string
+  options?: FieldDef['options']
   change: DiffItem['change']
   before: unknown
   after: unknown
@@ -15,6 +35,8 @@ export interface DiffField {
 export interface DiffGroup {
   key: string
   label: string
+  /** The sections the item sits in, e.g. `Genetic evidence › Case level`. */
+  context: string
   change: DiffItem['change']
   fields: DiffField[]
 }
@@ -25,19 +47,44 @@ export function itemKey(path: string): string {
   return end === -1 ? path : path.slice(0, end + 1)
 }
 
-const words = (s: string) => {
-  const t = s.replace(/_/g, ' ')
-  return t.charAt(0).toUpperCase() + t.slice(1)
-}
-
 export function itemLabel(key: string): string {
   const m = key.match(/^(.*?)(\[[^\]]*\])?$/)
-  const parts = (m?.[1] ?? key).split('.').map(words)
+  const parts = (m?.[1] ?? key).split('.').map(humanize)
   return parts.join(' › ') + (m?.[2] ? ` ${m[2]}` : '')
 }
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
+
+const segments = (path: string) => path.replace(/\[[^\]]*\]/g, '').split('.')
+
+/** Schema definition of a path; list records step into `item_schema` (or `items`). */
+function fieldAt(fields: DiffContext['fields'], path: string): FieldDef | undefined {
+  let props = (fields ?? undefined) as Record<string, FieldDef> | undefined
+  let node: FieldDef | undefined
+  for (const s of segments(path)) {
+    node = props?.[s]
+    props = node?.properties ?? node?.item_schema ?? node?.items?.properties
+  }
+  return node
+}
+
+const fieldLabel = (fields: DiffContext['fields'], path: string) => {
+  const node = fieldAt(fields, path)
+  return node?.title || node?.label || humanize(segments(path).pop() ?? path)
+}
+
+/** The value at a diff path (`a.b[0].c`, `[id]` matching a record's id) in the evidence. */
+function valueAt(root: unknown, path: string): unknown {
+  let v = root
+  for (const [, key, index] of path.matchAll(/([^.[\]]+)|\[([^\]]*)\]/g)) {
+    if (key !== undefined) v = isRecord(v) ? v[key] : undefined
+    else if (Array.isArray(v))
+      v = /^\d+$/.test(index!) ? v[+index!] : v.find(r => isRecord(r) && r.id === index)
+    else v = undefined
+  }
+  return v
+}
 
 /** Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped. */
 function leaves(v: unknown, path = ''): [string, unknown][] {
@@ -53,38 +100,67 @@ function leaves(v: unknown, path = ''): [string, unknown][] {
   return v === null || v === undefined || v === '' ? [] : [[path, v]]
 }
 
-/** Added or removed whole values become one row per filled field instead of a JSON blob. */
-function expand(it: DiffItem): DiffField[] | null {
-  const value = it.change === 'added' ? it.after : it.change === 'removed' ? it.before : undefined
-  if (typeof value !== 'object' || value === null) return null
-  const rows = leaves(value)
-  const side = (v: unknown) =>
-    it.change === 'added' ? { before: undefined, after: v } : { before: v, after: undefined }
-  return rows.length
-    ? rows.map(([name, v]) => ({ name, change: it.change, ...side(v) }))
-    : [{ name: '', change: it.change, ...side('none') }]
+/** Added or removed values become one row per filled leaf, so a new section splits into its records. */
+function rows(it: DiffItem): [string, unknown, unknown][] {
+  if (it.change === 'changed') return [[it.path, it.before, it.after]]
+  const added = it.change === 'added'
+  return leaves(added ? it.after : it.before).map(([p, v]) => [
+    !p ? it.path : p.startsWith('[') ? it.path + p : `${it.path}.${p}`,
+    added ? undefined : v,
+    added ? v : undefined
+  ])
 }
 
-export function groupDiff(items: DiffItem[]): DiffGroup[] {
+// The record's own name: its `label` / `*_label` field (every SOP v11 list item has one).
+const isNameField = (name: string) => name === 'label' || name.endsWith('_label')
+
+function name(g: DiffGroup, ctx: DiffContext): { label: string; context: string } {
+  const list = g.key.replace(/\[[^\]]*\]$/, '')
+  const sections = segments(list).map((_, i, all) =>
+    fieldLabel(ctx.fields, all.slice(0, i + 1).join('.'))
+  )
+  const label = sections.pop() ?? g.key
+  if (list === g.key) return { label, context: sections.join(' › ') }
+  const row = g.fields.find(f => isNameField(f.name))
+  const record = valueAt(ctx.evidence, g.key)
+  const own =
+    row?.after ??
+    row?.before ??
+    (isRecord(record) ? Object.entries(record).find(([k]) => isNameField(k))?.[1] : null)
+  const index = g.key.match(/\[(\d+)\]$/)?.[1]
+  const suffix = own ? ` · ${String(own)}` : index !== undefined ? ` #${+index + 1}` : ''
+  return { label: label + suffix, context: sections.join(' › ') }
+}
+
+export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[] {
   const groups = new Map<string, DiffGroup>()
   for (const it of items) {
-    const key = itemKey(it.path)
-    let g = groups.get(key)
-    if (!g) groups.set(key, (g = { key, label: itemLabel(key), change: it.change, fields: [] }))
-    const base = it.path.slice(key.length).replace(/^\./, '')
-    const rows = expand(it)
-    if (rows) {
-      g.fields.push(...rows.map(r => ({ ...r, name: [base, r.name].filter(Boolean).join('.') })))
-    } else {
-      g.fields.push({ name: base, change: it.change, before: it.before, after: it.after })
+    for (const [path, before, after] of rows(it)) {
+      const key = itemKey(path)
+      let g = groups.get(key)
+      if (!g) groups.set(key, (g = { key, label: '', context: '', change: it.change, fields: [] }))
+      const field = path.slice(key.length).replace(/^\./, '')
+      const def = field ? fieldAt(ctx.fields, path) : undefined
+      g.fields.push({
+        name: field,
+        label: field ? fieldLabel(ctx.fields, path) : '',
+        ...(def?.options ? { options: def.options } : {}),
+        change: it.change,
+        before,
+        after
+      })
+      if (g.change !== it.change) g.change = 'changed'
     }
-    if (g.fields.some(f => f.change !== g.fields[0]!.change)) g.change = 'changed'
   }
-  return [...groups.values()]
+  return [...groups.values()].map(g => Object.assign(g, name(g, ctx)))
 }
 
-export function formatValue(v: unknown): string {
-  if (v === null || v === undefined) return 'none'
+/** A value for people: enum labels from the schema, Yes/No, `none` for nothing. */
+export function formatValue(v: unknown, options?: FieldDef['options']): string {
+  if (v === null || v === undefined || v === '') return 'none'
+  const option = options?.find(o => (typeof o === 'string' ? o : o.value) === v)
+  if (typeof option === 'object' && option.label) return option.label
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 

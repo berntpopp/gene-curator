@@ -253,6 +253,7 @@
             :reviewer="canReview"
             :can-reply="canReview || isCreator"
             :only-with-comments="curation.status !== 'in_review'"
+            :context="{ fields: schemaFields, evidence: curation.evidence_data }"
           />
 
           <!-- Score Breakdown -->
@@ -464,6 +465,7 @@
   )
   // ClinGen schemas (by scoring engine) get the read-only evidence view
   const isClinGenSchema = ref(false)
+  const schemaFields = ref<Record<string, unknown> | null>(null)
   const pageTitle = computed(() =>
     curation.value?.gene_symbol
       ? [curation.value.gene_symbol, curation.value.disease_name].filter(Boolean).join(' – ')
@@ -520,6 +522,7 @@
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
         isClinGenSchema.value = schema.scoring_configuration?.engine === 'clingen_sop_v11'
+        schemaFields.value = schema.field_definitions
       }
       logger.debug('Curation schema loaded', {
         workflow_pair_id: curation.value.workflow_pair_id,
