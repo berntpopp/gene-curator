@@ -138,12 +138,12 @@ describe('GenesTable', () => {
     expect(wrapper.text()).toContain('PKD1')
   })
 
-  it('shows an error notification when loading genes fails', async () => {
+  it('swallows a failed load (the store error is shown, no toast)', async () => {
     useAuthStore().isAuthenticated = true
     vi.spyOn(useGenesStore(), 'fetchGenes').mockRejectedValue(new Error('boom'))
     mount(GenesTable, opts())
     await flushPromises()
-    expect(showError).toHaveBeenCalledWith('Failed to load genes. Please try again.')
+    expect(showError).not.toHaveBeenCalled()
   })
 
   it('debounces the search box and runs a search with the typed query', async () => {

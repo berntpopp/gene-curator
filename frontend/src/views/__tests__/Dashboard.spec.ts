@@ -74,7 +74,10 @@ describe('Dashboard view', () => {
     expect(wrapper.text()).toContain('Request failed')
     expect(wrapper.text()).not.toContain('No scopes assigned')
 
-    vi.mocked(store.fetchUserScopes).mockResolvedValueOnce(undefined as never)
+    vi.mocked(store.fetchUserScopes).mockImplementationOnce(async () => {
+      store.error = null
+      return undefined as never
+    })
     await wrapper.find('button.retry').trigger('click')
     await flushPromises()
     expect(store.fetchUserScopes).toHaveBeenCalledTimes(2)
