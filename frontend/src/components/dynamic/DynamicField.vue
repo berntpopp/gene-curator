@@ -8,7 +8,7 @@
       :label="fieldSchema.title || fieldSchema.label || getFieldLabel()"
       :hint="fieldSchema.description || fieldSchema.hint"
       :required="fieldSchema.required"
-      :disabled="disabled"
+      :disabled="isDisabled"
       @update:model-value="updateValue"
     />
 
@@ -27,7 +27,7 @@
       :rules="validationRules"
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :hint="needsHintTruncation ? undefined : fieldSchema.hint"
       :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
@@ -89,7 +89,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :rows="fieldSchema.rows || 3"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :hint="needsHintTruncation ? undefined : fieldSchema.hint"
       :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
@@ -152,7 +152,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       :clearable="!fieldSchema.required"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :hint="needsHintTruncation ? undefined : fieldSchema.hint"
       :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
@@ -216,7 +216,7 @@
       :min="fieldSchema.minimum"
       :max="fieldSchema.maximum"
       :step="fieldSchema.type === 'integer' ? 1 : fieldSchema.step || 0.1"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :hint="needsHintTruncation ? undefined : fieldSchema.hint"
       :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
@@ -286,7 +286,7 @@
         :label="getFieldLabel()"
         :rules="validationRules"
         :error-messages="getErrorMessages()"
-        :disabled="disabled"
+        :disabled="isDisabled"
         :hint="fieldSchema.hint"
         :persistent-hint="hasHint"
         hide-details="auto"
@@ -314,7 +314,7 @@
       :error-messages="getErrorMessages()"
       :required="fieldSchema.required"
       type="date"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :hint="needsHintTruncation ? undefined : fieldSchema.hint"
       :persistent-hint="hasHint && !needsHintTruncation"
       @update:model-value="updateValue"
@@ -365,6 +365,18 @@
       </template>
     </v-text-field>
 
+    <!-- Registry editor for the field type (evidence_table) -->
+    <component
+      :is="typeEditor"
+      v-else-if="typeEditor"
+      :field-schema="fieldSchema"
+      :label="getFieldLabel()"
+      :model-value="modelValue"
+      :disabled="isDisabled"
+      :error-messages="getErrorMessages()"
+      @update:model-value="updateValue"
+    />
+
     <!-- Object and Array Fields (rendered recursively) -->
     <DynamicNestedField
       v-else-if="(fieldSchema.type === 'array' || fieldSchema.type === 'object') && canRenderNested"
@@ -372,7 +384,7 @@
       :label="getFieldLabel()"
       :model-value="modelValue"
       :depth="depth"
-      :disabled="disabled"
+      :disabled="isDisabled"
       :error-messages="getErrorMessages()"
       @update:model-value="emit('update:model-value', $event)"
       @component-fallback="emit('component-fallback', $event)"
@@ -397,7 +409,7 @@
       :variant="variant"
       :hint="'Field type not recognized - using text input'"
       persistent-hint
-      :disabled="disabled"
+      :disabled="isDisabled"
       @update:model-value="updateValue"
     />
 
@@ -413,7 +425,7 @@
 
 <script setup lang="ts">
   import { ref, computed, type Component } from 'vue'
-  import { componentRegistry } from './componentRegistry'
+  import { componentRegistry, fieldTypes } from './componentRegistry'
   import { humanize } from './fieldLabels'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationRules } from './composables/useValidationRules'
@@ -488,6 +500,9 @@
 
     return comp
   })
+
+  const typeEditor = computed(() => fieldTypes[props.fieldSchema.type ?? '']?.editor)
+  const isDisabled = computed(() => props.disabled || !!props.fieldSchema.readOnly)
 
   /**
    * Check if nested rendering is allowed based on current depth.

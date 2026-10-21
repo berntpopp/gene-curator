@@ -38,7 +38,18 @@ export interface FieldSchema {
   /** Item definition of an `array` type; only `properties` is used */
   items?: { properties?: Record<string, FieldSchema> }
   itemTitle?: string
+  /** Shown but not editable (e.g. inherited from the previous stage) */
+  readOnly?: boolean
+  /** `evidence_table` columns; each column is a field */
+  columns?: Record<string, FieldSchema>
+  /** Show only when the condition holds */
+  visible_when?: Condition
+  /** Required when the condition holds (in addition to `required`) */
+  required_when?: Condition
 }
+
+/** `{ path: value }` (equals) or `{ path: [values] }` (in); every entry must hold */
+export type Condition = Record<string, unknown>
 
 export interface FieldValidationMessage {
   message: string

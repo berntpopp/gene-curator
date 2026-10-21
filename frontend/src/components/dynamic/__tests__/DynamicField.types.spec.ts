@@ -15,6 +15,7 @@ vi.mock('@/composables/useLogger', () => ({
 }))
 
 vi.mock('../componentRegistry', () => ({
+  fieldTypes: {},
   componentRegistry: {
     KnownWidget: { name: 'KnownWidget', template: '<div class="known-widget" />' }
   }
