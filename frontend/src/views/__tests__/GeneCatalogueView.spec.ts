@@ -10,6 +10,7 @@ vi.mock('@/stores/scopes', () => ({
   useScopesStore: () => ({ userScopes: [], fetchUserScopes: scopesApi.fetchUserScopes })
 }))
 
+import { useAuthStore } from '@/stores/auth'
 import GeneCatalogueView from '../GeneCatalogueView.vue'
 
 const scopes = [
@@ -160,5 +161,13 @@ describe('GeneCatalogueView', () => {
     await wrapper.find('[data-testid="table-retry"]').trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-testid="table-error"]').exists()).toBe(false)
+  })
+
+  it('loads the signed-in user scopes once authentication settles, not only at mount', async () => {
+    await mountView()
+    expect(scopesApi.fetchUserScopes).not.toHaveBeenCalled()
+    useAuthStore().isAuthenticated = true
+    await flushPromises()
+    expect(scopesApi.fetchUserScopes).toHaveBeenCalledTimes(1)
   })
 })

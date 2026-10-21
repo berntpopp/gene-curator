@@ -153,9 +153,15 @@
     () => ready.value && load()
   )
 
+  // Authentication settles after mount (/me), so follow it instead of reading it once.
+  watch(
+    () => auth.isAuthenticated,
+    signedIn => signedIn && scopesStore.fetchUserScopes().catch(() => []),
+    { immediate: true }
+  )
+
   onMounted(async () => {
-    const mine = auth.isAuthenticated ? scopesStore.fetchUserScopes().catch(() => []) : null
-    await Promise.all([store.loadScopes(), mine])
+    await store.loadScopes()
     ready.value = true
   })
 </script>
