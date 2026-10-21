@@ -14,18 +14,14 @@
     @keydown.enter.prevent="handleEnter"
   >
     <template #chip="{ item, props: chipProps }">
-      <v-chip
-        v-bind="chipProps"
-        :color="getChipColor(item.value)"
-        :prepend-icon="getChipIcon(item.value)"
-      >
+      <v-chip v-bind="chipProps" :color="getChipColor(item)" :prepend-icon="getChipIcon(item)">
         <template #default>
-          {{ item.value }}
-          <v-tooltip v-if="getTermName(item.value)" location="top" activator="parent">
+          {{ item }}
+          <v-tooltip v-if="getTermName(item)" location="top" activator="parent">
             <div class="text-caption">
-              <strong>{{ getTermName(item.value) }}</strong>
-              <div v-if="getTermDefinition(item.value)" class="text-caption mt-1">
-                {{ getTermDefinition(item.value) }}
+              <strong>{{ getTermName(item) }}</strong>
+              <div v-if="getTermDefinition(item)" class="text-caption mt-1">
+                {{ getTermDefinition(item) }}
               </div>
             </div>
           </v-tooltip>

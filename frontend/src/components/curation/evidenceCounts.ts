@@ -2,6 +2,7 @@ type Rows = Record<string, unknown> | unknown[] | null | undefined
 
 export function rows(node: unknown): Record<string, unknown>[] {
   if (Array.isArray(node)) return node as Record<string, unknown>[]
+  if (node && typeof node === 'object' && 'points' in node) return [node as Record<string, unknown>]
   if (node && typeof node === 'object') return Object.values(node).flatMap(rows)
   return []
 }

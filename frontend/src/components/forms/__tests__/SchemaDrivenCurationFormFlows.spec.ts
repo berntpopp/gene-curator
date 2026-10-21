@@ -153,6 +153,21 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(vm.precurationData).toEqual({ disease_name: 'Cancer' })
   })
 
+  it('reuses the store curation when its id matches instead of refetching', async () => {
+    curationsStore.currentCuration = {
+      id: 'cur-1',
+      evidence_data: { panel: 'y' },
+      lock_version: 2,
+      status: 'draft'
+    }
+
+    const wrapper = await mountForm({ curationId: 'cur-1' })
+
+    expect(curationsStore.fetchCurationById).not.toHaveBeenCalled()
+    expect(internals(wrapper).evidenceData).toEqual({ panel: 'y' })
+    expect(internals(wrapper).lockVersion).toBe(2)
+  })
+
   it('migrates legacy evidence formats when loading a curation', async () => {
     curationsStore.fetchCurationById.mockResolvedValue({
       evidence_data: { old: true },

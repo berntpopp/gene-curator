@@ -20,14 +20,26 @@ function pointsOf(value: unknown): number {
   return parseFloat(String(value)) || 0
 }
 
-export function sumPoints(items: EvidenceItem[] | undefined): number {
-  if (!Array.isArray(items)) return 0
-  return items.reduce((sum, item) => sum + pointsOf(item.points), 0)
+/** Items of a stored node: arrays as-is, a legacy `{points}` dict as one item, else none (matches the backend). */
+export function asRows(node: unknown): EvidenceItem[] {
+  if (Array.isArray(node)) return node.filter(i => i && typeof i === 'object')
+  if (node && typeof node === 'object' && 'points' in node) return [node as EvidenceItem]
+  return []
 }
 
-export function sumProbandPoints(items: EvidenceItem[] | undefined): number {
-  if (!Array.isArray(items)) return 0
-  return items.reduce((sum, item) => sum + pointsOf(item.proband_counted_points), 0)
+/** Rewrites legacy `{points}` dicts to `[dict]` throughout, so edits and saves use list shape. */
+export function normalizeLegacy<T>(node: T): T {
+  if (Array.isArray(node) || !node || typeof node !== 'object') return node
+  if ('points' in node) return [node] as unknown as T
+  return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, normalizeLegacy(v)])) as T
+}
+
+export function sumPoints(items: unknown): number {
+  return asRows(items).reduce((sum, item) => sum + pointsOf(item.points), 0)
+}
+
+export function sumProbandPoints(items: unknown): number {
+  return asRows(items).reduce((sum, item) => sum + pointsOf(item.proband_counted_points), 0)
 }
 
 export function calculateGeneticScore(ge: GeneticEvidence): GeneticBreakdown {

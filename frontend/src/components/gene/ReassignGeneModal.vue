@@ -103,24 +103,24 @@
             <template #item="{ item, props: itemProps }">
               <v-list-item v-bind="itemProps" :title="undefined">
                 <template #prepend>
-                  <v-avatar size="36" :color="getAvatarColor(item.raw.email)">
+                  <v-avatar size="36" :color="getAvatarColor(item.email)">
                     <span class="text-body-2 font-weight-bold text-white">
-                      {{ getInitials(item.raw.full_name || item.raw.email) }}
+                      {{ getInitials(item.full_name || item.email) }}
                     </span>
                   </v-avatar>
                 </template>
                 <v-list-item-title>
-                  {{ item.raw.full_name || item.raw.email }}
+                  {{ item.full_name || item.email }}
                 </v-list-item-title>
                 <v-list-item-subtitle class="d-flex align-center">
-                  <v-chip :color="getRoleColor(item.raw.role)" size="x-small" class="mr-2">
-                    {{ item.raw.role }}
+                  <v-chip :color="getRoleColor(item.role)" size="x-small" class="mr-2">
+                    {{ item.role }}
                   </v-chip>
-                  <span class="text-caption text-medium-emphasis">{{ item.raw.email }}</span>
+                  <span class="text-caption text-medium-emphasis">{{ item.email }}</span>
                 </v-list-item-subtitle>
                 <template #append>
                   <v-chip
-                    v-if="item.raw.user_id === gene?.curator_id"
+                    v-if="item.user_id === gene?.curator_id"
                     size="x-small"
                     color="grey"
                     variant="outlined"
@@ -133,12 +133,12 @@
 
             <template #selection="{ item }">
               <div class="d-flex align-center">
-                <v-avatar size="24" :color="getAvatarColor(item.raw.email)" class="mr-2">
+                <v-avatar size="24" :color="getAvatarColor(item.email)" class="mr-2">
                   <span class="text-caption font-weight-bold text-white">
-                    {{ getInitials(item.raw.full_name || item.raw.email) }}
+                    {{ getInitials(item.full_name || item.email) }}
                   </span>
                 </v-avatar>
-                <span>{{ item.raw.full_name || item.raw.email }}</span>
+                <span>{{ item.full_name || item.email }}</span>
               </div>
             </template>
           </v-autocomplete>

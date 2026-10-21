@@ -206,3 +206,42 @@ def test_recompute_requires_an_admin(db_session: Session) -> None:
 
     with pytest.raises(RuntimeError, match="admin"):
         recompute_all_scores(db_session)
+
+
+def test_recompute_continues_past_a_failing_curation(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.scoring.clingen import ClinGenEngine
+    from app.services.recompute_scores import recompute_all_scores
+
+    def boom(self: object, *args: object, **kwargs: object) -> None:
+        raise ValueError("bad shape")
+
+    monkeypatch.setattr(ClinGenEngine, "calculate_scores", boom)
+    test_curation.evidence_data = {"genetic_evidence": []}
+    db_session.commit()
+    with pytest.raises(RuntimeError, match="1 of"):
+        recompute_all_scores(db_session)
+
+
+def test_recompute_skips_unscored_keys_and_counts_unchanged(
+    db_session: Session, test_curation: CurationNew, test_user_admin: object
+) -> None:
+    from app.services.recompute_scores import _has_unscored_keys, recompute_all_scores
+
+    assert _has_unscored_keys({"genetic_evidence_score": 3})
+    assert _has_unscored_keys({"genetic_evidence": {"case_level_ad_xl": {}}})
+    assert _has_unscored_keys("x")
+    assert not _has_unscored_keys({"genetic_evidence": [], "evidence_summary": {}})
+    assert not _has_unscored_keys(None)
+
+    test_curation.evidence_data = {"genetic_evidence_score": 3}
+    test_curation.computed_verdict = "keep"
+    db_session.commit()
+    recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_verdict == "keep"
+    recompute_all_scores(db_session)  # second run: unchanged branch
