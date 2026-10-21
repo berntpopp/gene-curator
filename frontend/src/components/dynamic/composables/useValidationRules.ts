@@ -37,8 +37,8 @@ export function useValidationRules(fieldSchemaGetter: () => FieldSchema): {
 export function rulesFor(fieldSchema: FieldSchema): ValidationRule[] {
   const rules: ValidationRule[] = []
 
-  // 1. Required rule (VALD-01)
-  if (fieldSchema.required === true) {
+  // 1. Required rule (VALD-01); a checkbox is always answered, false is an answer
+  if (fieldSchema.required === true && fieldSchema.type !== 'boolean') {
     rules.push(value => {
       // Check for null, undefined, empty string
       if (isEmpty(value)) {

@@ -117,15 +117,7 @@ class SchemaValidator:
         return result
 
     def generate_json_schema(self, schema_definition: dict[str, Any]) -> dict[str, Any]:
-        """
-        Generate a JSON Schema from a curation schema definition.
-
-        Args:
-            schema_definition: The curation schema definition
-
-        Returns:
-            JSON Schema for validation
-        """
+        """JSON Schema (plus layout and scoring) for a curation schema definition."""
         fields = flatten_sections(schema_definition.get("field_definitions", {}))
         json_schema: dict[str, Any] = {
             "$schema": "http://json-schema.org/draft-07/schema#",
@@ -133,7 +125,10 @@ class SchemaValidator:
             "properties": {
                 n: self._convert_field_to_json_schema(c) for n, c in fields.items()
             },
-            "required": [n for n, c in fields.items() if c.get("required", False)],
+            # A conditional field is only required while shown; the form resolves that
+            "required": [
+                n for n, c in fields.items() if c.get("required") and not _when(c)
+            ],
         }
         # The form renderer needs layout/tabs and scoring next to the properties
         for key in ("ui_configuration", "scoring_configuration"):
@@ -159,6 +154,7 @@ class SchemaValidator:
             if (
                 required
                 and field_value in (None, "")
+                and field_config.get("type") != "boolean"  # unset checkbox is false
                 and is_visible(field_config, evidence_data)
             ):
                 result.add_error(field_name, "Required field is missing", "required")
@@ -864,23 +860,14 @@ class SchemaValidator:
 
         json_schema_prop: dict[str, Any] = {}
 
-        # Map field types to JSON Schema types
+        # Map field types to JSON Schema types (anything else is a string)
         type_mapping = {
-            "text": "string",
-            "string": "string",
             "number": "number",
             "boolean": "boolean",
             "array": "array",
             "object": "object",
-            "date": "string",
-            "select": "string",
             "multiselect": "array",
-            "email": "string",
-            "url": "string",
-            "pmid": "string",
-            "hgnc_id": "string",
             "score": "number",
-            "enum": "string",
         }
 
         json_schema_prop["type"] = type_mapping.get(field_type, "string")
@@ -958,11 +945,18 @@ class SchemaValidator:
             ):
                 json_schema_prop["required"] = field_config["required"]
 
+        if _when(field_config):
+            json_schema_prop["visible_when"] = _when(field_config)
+
         # Add description
         if "description" in field_config:
             json_schema_prop["description"] = field_config["description"]
 
         return json_schema_prop
+
+
+def _when(config: dict[str, Any]) -> Any:
+    return config.get("visible_when", config.get("show_when"))
 
 
 # Create singleton instance

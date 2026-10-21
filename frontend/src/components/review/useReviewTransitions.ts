@@ -5,7 +5,7 @@ import { useNotificationsStore } from '@/stores/notifications'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { readableApiError } from '@/utils/apiErrorText'
 
-/** Approve (-> active) and request changes (-> back to curation) for a curation in review. */
+/** Approve (-> active, or recorded while more approvals are needed) and request changes (-> back to curation) for a curation in review. */
 export function useReviewTransitions(curationId: () => string, reload: () => Promise<void>) {
   const logger = useLogger()
   const notifications = useNotificationsStore()
@@ -27,15 +27,15 @@ export function useReviewTransitions(curationId: () => string, reload: () => Pro
   async function transition(
     target_stage: 'active' | 'curation',
     notes: string | null,
-    doneMessage: string
+    doneMessage: (toStage: string) => string
   ) {
     busy.value = true
     error.value = null
     try {
-      await workflowAPI.transitionCuration(curationId(), { target_stage, notes })
+      const done = await workflowAPI.transitionCuration(curationId(), { target_stage, notes })
       showApprove.value = false
       showReject.value = false
-      notifications.addToast(doneMessage, 'success')
+      notifications.addToast(doneMessage(done.to_stage), 'success')
       workCounts.fetch()
       await reload()
     } catch (err) {
@@ -53,8 +53,13 @@ export function useReviewTransitions(curationId: () => string, reload: () => Pro
     error,
     open,
     approve: (note: string) =>
-      transition('active', note || null, 'Curation approved and activated'),
+      // With reviewers_required > 1 an approval can leave the curation in review
+      transition('active', note || null, to =>
+        to === 'active'
+          ? 'Curation approved and activated'
+          : 'Approval recorded; more reviewers must approve'
+      ),
     reject: (feedback: string) =>
-      transition('curation', feedback, 'Curation returned to curator for changes')
+      transition('curation', feedback, () => 'Curation returned to curator for changes')
   }
 }

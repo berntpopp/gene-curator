@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { createPinia, setActivePinia } from 'pinia'
 
 const transitionCuration = vi.hoisted(() => vi.fn())
+const addToast = vi.hoisted(() => vi.fn())
+vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/api', () => ({ workflowAPI: { transitionCuration } }))
 vi.mock('@/stores/workCounts', () => ({ useWorkCountsStore: () => ({ fetch: vi.fn() }) }))
 vi.mock('@/composables/useLogger', () => ({
@@ -49,5 +51,25 @@ describe('useReviewTransitions errors', () => {
     transitionCuration.mockRejectedValue({})
     await t.approve('')
     expect(t.error.value).toBe('Request failed')
+  })
+})
+
+describe('useReviewTransitions approve message', () => {
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    addToast.mockReset()
+  })
+
+  it.each([
+    ['review', 'Approval recorded; more reviewers must approve'],
+    ['active', 'Curation approved and activated']
+  ])('says what the API did when it moved to %s', async (to_stage, message) => {
+    transitionCuration.mockResolvedValue({ to_stage })
+    const t = useReviewTransitions(
+      () => 'c1',
+      async () => {}
+    )
+    await t.approve('')
+    expect(addToast).toHaveBeenCalledWith(message, 'success')
   })
 })

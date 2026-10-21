@@ -41,3 +41,52 @@ describe('missingRequiredLabels', () => {
     expect(missingRequiredLabels(flat, { a: {} })).toEqual(['B'])
   })
 })
+
+describe('missingRequiredLabels with conditional fields', () => {
+  // Seeded lumping & splitting section: decision/rationale only when applicable is checked
+  const lumping = {
+    sections: [
+      {
+        id: 'lumping_splitting',
+        fields: [
+          { id: 'applicable', label: 'Applicable', type: 'boolean', required: true },
+          { id: 'decision', label: 'Decision', required: true, show_when: { applicable: true } },
+          {
+            id: 'rationale',
+            label: 'Rationale',
+            required: true,
+            visible_when: { applicable: true }
+          }
+        ]
+      }
+    ]
+  }
+
+  it('treats an unset checkbox as false and skips fields hidden by it', () => {
+    expect(missingRequiredLabels(lumping, {})).toEqual([])
+    expect(missingRequiredLabels(lumping, { applicable: false })).toEqual([])
+  })
+
+  it('requires the conditional fields once their condition holds', () => {
+    expect(missingRequiredLabels(lumping, { applicable: true })).toEqual(['Decision', 'Rationale'])
+    // strict equality, as the backend: a truthy non-boolean is not `true`
+    expect(missingRequiredLabels(lumping, { applicable: 'true' })).toEqual([])
+  })
+
+  it('resolves paths listed only in required_fields against their field config', () => {
+    const plain = {
+      sections: [
+        {
+          id: 'l',
+          fields: [
+            { id: 'applicable', label: 'Applicable', type: 'boolean' },
+            { id: 'decision', label: 'Decision', show_when: { applicable: true } }
+          ]
+        }
+      ]
+    }
+    const rules = { required_fields: ['applicable', 'decision'] }
+    expect(missingRequiredLabels(plain, {}, rules)).toEqual([])
+    expect(missingRequiredLabels(plain, { applicable: true }, rules)).toEqual(['Decision'])
+  })
+})
