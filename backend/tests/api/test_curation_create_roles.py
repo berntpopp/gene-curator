@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import Gene, Scope, WorkflowPair
+from app.models.models import Gene, PrecurationNew, Scope, WorkflowPair
 from tests.api.scopes.factories import auth_headers, make_member, make_user
 
 pytestmark = pytest.mark.unit
@@ -28,6 +28,7 @@ def test_create_curation_by_scope_role(
     test_scope: Scope,
     test_gene: Gene,
     test_workflow_pair: WorkflowPair,
+    approved_precuration: PrecurationNew,
     scope_role: str,
     expected: int,
 ):
