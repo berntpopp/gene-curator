@@ -24,7 +24,13 @@ vi.mock('@/stores/invitations', async () => {
   return { useInvitationsStore: () => store }
 })
 
+vi.mock('@/stores/scopes', () => {
+  const store = { fetchUserScopes: vi.fn(() => Promise.resolve([])) }
+  return { useScopesStore: () => store }
+})
+
 import { useInvitationsStore } from '@/stores/invitations'
+import { useScopesStore } from '@/stores/scopes'
 import { snackbarState } from '@/composables/useNotifications'
 
 interface TestInvitationsStore {
@@ -142,6 +148,7 @@ describe('PendingInvitations', () => {
     await flushPromises()
 
     expect(store.acceptInvitation).toHaveBeenCalledWith('inv-1', 'scope-1')
+    expect(useScopesStore().fetchUserScopes).toHaveBeenCalled()
     expect(snackbarState.message).toBe('Joined Pathways Team as curator')
     expect(snackbarState.color).toBe('success')
   })

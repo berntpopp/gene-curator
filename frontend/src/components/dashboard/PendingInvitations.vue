@@ -109,6 +109,7 @@
 <script setup lang="ts">
   import { computed, onMounted, reactive } from 'vue'
   import { useInvitationsStore } from '@/stores/invitations'
+  import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
@@ -125,6 +126,7 @@
   // ============================================
 
   const invitationsStore = useInvitationsStore()
+  const scopesStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
   const logger = useLogger()
 
@@ -194,6 +196,7 @@
 
     try {
       await invitationsStore.acceptInvitation(invitation.id, invitation.scope_id)
+      await scopesStore.fetchUserScopes() // dashboard scope list must show the new scope
 
       showNotification(
         `Joined ${invitation.scope_display_name || invitation.scope_name} as ${invitation.role}`,
