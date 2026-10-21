@@ -484,10 +484,12 @@ def test_pending_invitation_and_inactive_scope_get_nothing(
     )
 
 
+# alice resubmits her own curation; dave, a co-curator, advances it through the workflow
+@pytest.mark.parametrize("who", ["alice", "dave"])
 def test_curator_resubmits_after_changes_requested_and_reviewer_approves(
-    client: TestClient, w: W
+    client: TestClient, w: W, who: str
 ) -> None:
-    """Monkey test: the resubmit re-requests bob's review as alice; RLS used to deny it (403)."""
+    """Monkey test: the resubmit re-requests bob's review as the curator; RLS denied it (403)."""
     move = f"/api/v1/workflow/curation/{w.cur}/transition"
     r = client.post(
         move, json={"target_stage": "curation", "notes": "fix"}, headers=_h(w.bob)
@@ -498,19 +500,24 @@ def test_curator_resubmits_after_changes_requested_and_reviewer_approves(
             'UPDATE curations SET evidence_data = \'{"notes": "x"}\' WHERE id = %s',
             (str(w.cur),),
         )
-    lock = _owner_scalar("SELECT lock_version FROM curations WHERE id = %s", str(w.cur))
-    r = client.post(
-        f"/api/v1/curations/{w.cur}/submit",
-        json={"lock_version": lock},
-        headers=_h(w.alice),
-    )
+    if who == "alice":
+        lock = _owner_scalar(
+            "SELECT lock_version FROM curations WHERE id = %s", str(w.cur)
+        )
+        r = client.post(
+            f"/api/v1/curations/{w.cur}/submit",
+            json={"lock_version": lock},
+            headers=_h(w.alice),
+        )
+    else:
+        r = client.post(move, json={"target_stage": "review"}, headers=_h(w.dave))
     assert r.status_code == 200, r.text
     review = _owner_scalar(
         "SELECT id FROM reviews WHERE curation_id = %s AND status = 'pending' "
         "AND reviewer_id = %s AND assigned_by = %s",
         str(w.cur),
         str(w.bob),
-        str(w.alice),
+        str(getattr(w, who)),
     )
     assert review is not None
     r = client.post(
@@ -526,35 +533,53 @@ def test_curator_resubmits_after_changes_requested_and_reviewer_approves(
 
 
 @pytest.mark.parametrize(
-    ("reviewer", "extra"),
+    ("reviewer", "status", "change"),
     [
-        ("dave", ""),  # never reviewed this curation
-        ("alice", ""),  # herself (4-eyes)
-        ("bob", "approved"),  # a decision, not a pending request
+        ("bob", "pending", None),  # control: the legitimate re-request
+        ("dave", "pending", None),  # never reviewed this curation
+        ("alice", "pending", None),  # herself (4-eyes)
+        ("bob", "approved", None),  # a decision, not a pending request
+        ("bob", "pending", "UPDATE scope_memberships SET role = 'viewer'"),  # demoted
+        ("bob", "pending", "UPDATE scope_memberships SET is_active = false"),
+        ("bob", "pending", "future"),  # dated into later rounds
     ],
 )
-def test_author_cannot_forge_reviews(w: W, reviewer: str, extra: str) -> None:
+def test_curator_cannot_forge_reviews(
+    w: W, reviewer: str, status: str, change: str | None
+) -> None:
     with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curations SET status = 'in_review' WHERE id = %s", (str(w.cur),)
+        )
         cur.execute(
             "INSERT INTO reviews (curation_id, reviewer_id, assigned_by, status) "
             "VALUES (%s, %s, %s, 'needs_revision')",
             (str(w.cur), str(w.bob), str(w.bob)),
         )
+        if change and change != "future":
+            cur.execute(
+                f"{change} WHERE scope_id = %s AND user_id = %s",
+                (str(w.scope), str(w.bob)),
+            )
+    insert = text(
+        "INSERT INTO reviews (curation_id, reviewer_id, assigned_by, status, "
+        "assigned_at) VALUES (:c, :r, :a, CAST(:s AS review_status), "
+        "now() + CAST(:ahead AS interval))"
+    )
+    values = {
+        "c": w.cur,
+        "r": getattr(w, reviewer),
+        "a": w.alice,
+        "s": status,
+        "ahead": "1 day" if change == "future" else "0",
+    }
     with Session(database.engine) as db:
         set_rls_context(db, db.get_one(UserNew, w.alice))
+        if (reviewer, status, change) == ("bob", "pending", None):
+            assert db.execute(insert, values).rowcount == 1
+            return
         with pytest.raises(DBAPIError) as err:
-            db.execute(
-                text(
-                    "INSERT INTO reviews (curation_id, reviewer_id, assigned_by, status) "
-                    "VALUES (:c, :r, :a, CAST(:s AS review_status))"
-                ),
-                {
-                    "c": w.cur,
-                    "r": getattr(w, reviewer),
-                    "a": w.alice,
-                    "s": extra or "pending",
-                },
-            )
+            db.execute(insert, values)
         assert isinstance(err.value.orig, psycopg2.errors.InsufficientPrivilege)
 
 
