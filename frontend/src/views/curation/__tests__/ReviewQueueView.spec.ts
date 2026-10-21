@@ -16,7 +16,9 @@ vi.mock('@/api/precurations', () => ({
 
 import { curationsAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
+import { useScopesStore } from '@/stores/scopes'
 import { useNotificationsStore } from '@/stores/notifications'
+import { confirmState } from '@/composables/useConfirm'
 import ReviewQueueView from '@/views/curation/ReviewQueueView.vue'
 
 const row = (overrides: Record<string, unknown>) => ({
@@ -68,6 +70,20 @@ describe('ReviewQueueView', () => {
       expect.objectContaining({ pending_review: true })
     )
     expect(wrapper.text()).toContain('All caught up!')
+  })
+
+  it('shows the scope display name instead of the machine name', async () => {
+    useScopesStore().scopes = [
+      { id: 'sc1', name: 'mt2-scope', display_name: 'Cancer Panel' }
+    ] as never
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ scope_name: 'mt2-scope' })],
+      total: 1
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    expect(wrapper.text()).toContain('Cancer Panel')
+    expect(wrapper.text()).not.toContain('mt2-scope')
   })
 
   it('shows an error toast when loading fails', async () => {
@@ -196,9 +212,26 @@ describe('ReviewQueueView', () => {
       const wrapper = mount(ReviewQueueView)
       await flushPromises()
       await wrapper.find('[data-test="approve-precuration"]').trigger('click')
+      confirmState.settle(true)
       await flushPromises()
       expect(precurationsAPI.approvePrecuration).toHaveBeenCalledWith('p1')
       expect(wrapper.text()).not.toContain('PKD1')
+    })
+
+    it('does nothing when the approval confirmation is declined', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      await wrapper.find('[data-test="approve-precuration"]').trigger('click')
+      expect(confirmState.open).toBe(true)
+      confirmState.settle(false)
+      await flushPromises()
+      expect(precurationsAPI.approvePrecuration).not.toHaveBeenCalled()
+      expect(wrapper.text()).toContain('PKD1')
     })
 
     it('keeps the precuration and toasts when approval fails', async () => {
@@ -212,6 +245,7 @@ describe('ReviewQueueView', () => {
       const wrapper = mount(ReviewQueueView)
       await flushPromises()
       await wrapper.find('[data-test="approve-precuration"]').trigger('click')
+      confirmState.settle(true)
       await flushPromises()
       expect(addToast).toHaveBeenCalledWith(expect.stringContaining('Failed'), 'error')
       expect(wrapper.text()).toContain('PKD1')
