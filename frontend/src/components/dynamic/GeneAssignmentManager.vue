@@ -99,7 +99,7 @@
         <template #item.gene_symbol="{ item }">
           <div>
             <div class="font-weight-medium">{{ item.gene_symbol }}</div>
-            <div class="text-caption">{{ item.gene_hgnc_id }}</div>
+            <div class="text-body-small">{{ item.gene_hgnc_id }}</div>
           </div>
         </template>
 
@@ -116,7 +116,7 @@
                 <v-icon>mdi-account</v-icon>
               </v-avatar>
               <div>
-                <div class="text-body-2">{{ item.curator_name }}</div>
+                <div class="text-body-medium">{{ item.curator_name }}</div>
               </div>
             </div>
           </div>
@@ -183,7 +183,7 @@
         rows="3"
       />
 
-      <div class="text-body-2 mt-4">
+      <div class="text-body-medium mt-4">
         <strong>{{ selectedAssignments.length }}</strong> assignments will be updated.
       </div>
       <template #actions>
@@ -264,7 +264,7 @@
     <!-- Reassign Dialog -->
     <BaseDialog v-model="reassignDialog" size="md">
       <template #title><v-icon start>mdi-account-plus</v-icon> Reassign gene</template>
-      <div class="text-body-2 mb-4">
+      <div class="text-body-medium mb-4">
         Reassigning
         <strong>{{ reassigningAssignment?.gene_symbol }}</strong>
         from

@@ -36,7 +36,7 @@
           <v-icon>mdi-information</v-icon>
         </template>
         <div class="font-weight-medium">{{ selectedSchema.name }}</div>
-        <div class="text-body-2">{{ selectedSchema.description }}</div>
+        <div class="text-body-medium">{{ selectedSchema.description }}</div>
       </v-alert>
     </v-card-text>
 

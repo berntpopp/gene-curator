@@ -151,7 +151,7 @@
           </v-card-actions>
           <div
             v-if="!canSubmit && !readonly"
-            class="text-caption text-medium-emphasis px-4 pb-3 text-end"
+            class="text-body-small text-medium-emphasis px-4 pb-3 text-end"
           >
             Add at least one scored evidence item to submit
           </div>
@@ -173,7 +173,7 @@
 
           <!-- Keyboard Shortcuts -->
           <v-card class="mt-4" variant="text">
-            <v-card-text class="text-caption text-medium-emphasis">
+            <v-card-text class="text-body-small text-medium-emphasis">
               <div><kbd>Ctrl</kbd>+<kbd>S</kbd> Save Draft</div>
               <div><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Submit</div>
             </v-card-text>

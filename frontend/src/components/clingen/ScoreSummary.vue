@@ -1,6 +1,6 @@
 <template>
   <v-card class="score-summary" variant="outlined">
-    <v-card-title class="text-subtitle-1 pb-0">
+    <v-card-title class="text-body-large pb-0">
       <v-icon start size="small">mdi-counter</v-icon>
       Score summary
     </v-card-title>
@@ -93,7 +93,9 @@
           <!-- Total Row -->
           <tr class="total-row">
             <td class="font-weight-bold">TOTAL</td>
-            <td class="text-right font-weight-bold text-h6">{{ totalScore.toFixed(2) }}</td>
+            <td class="text-right font-weight-bold text-title-large">
+              {{ totalScore.toFixed(2) }}
+            </td>
             <td class="text-right font-weight-bold">18</td>
           </tr>
         </tbody>
@@ -116,11 +118,11 @@
       <!-- Classification Thresholds Reference -->
       <v-expansion-panels variant="accordion" class="mt-3">
         <v-expansion-panel>
-          <v-expansion-panel-title class="text-caption">
+          <v-expansion-panel-title class="text-body-small">
             Classification Thresholds
           </v-expansion-panel-title>
           <v-expansion-panel-text>
-            <div class="d-flex flex-column ga-1 text-caption">
+            <div class="d-flex flex-column ga-1 text-body-small">
               <div class="d-flex justify-space-between">
                 <span><ClassificationMark classification="definitive" /></span>
                 <span>12-18 points + replication over time</span>

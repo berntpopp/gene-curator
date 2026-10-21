@@ -31,7 +31,7 @@
   <BaseDialog v-model="isOpen" persistent size="md" @cancel="handleCancel">
     <template #title
       ><v-icon start color="primary" size="28">mdi-account-switch</v-icon>
-      <span class="text-h6">Reassign Gene</span>
+      <span class="text-title-large">Reassign Gene</span>
       <v-spacer />
       <v-btn
         aria-label="Close"
@@ -45,8 +45,8 @@
         <div class="d-flex align-center">
           <v-icon color="primary" class="mr-3">mdi-dna</v-icon>
           <div>
-            <div class="text-subtitle-1 font-weight-bold">{{ gene?.gene_symbol }}</div>
-            <div v-if="gene?.gene_hgnc_id" class="text-caption text-medium-emphasis">
+            <div class="text-body-large font-weight-bold">{{ gene?.gene_symbol }}</div>
+            <div v-if="gene?.gene_hgnc_id" class="text-body-small text-medium-emphasis">
               {{ gene.gene_hgnc_id }}
             </div>
           </div>
@@ -56,7 +56,7 @@
 
     <!-- Current Curator -->
     <div class="mb-4">
-      <div class="text-subtitle-2 text-medium-emphasis mb-2">Current Curator</div>
+      <div class="text-title-small text-medium-emphasis mb-2">Current Curator</div>
       <v-chip v-if="gene?.curator_name" color="grey" variant="tonal" size="default">
         <v-icon start size="small">mdi-account</v-icon>
         {{ gene.curator_name }}
@@ -71,7 +71,7 @@
 
     <!-- New Curator Selection -->
     <v-form ref="formRef" v-model="formValid">
-      <div class="text-subtitle-2 mb-2">
+      <div class="text-title-small mb-2">
         <v-icon start size="small" color="primary">mdi-account-arrow-right</v-icon>
         Reassign to
       </div>
@@ -96,7 +96,7 @@
           <v-list-item v-bind="itemProps" :title="undefined">
             <template #prepend>
               <v-avatar size="36" :color="getAvatarColor(item.email)">
-                <span class="text-body-2 font-weight-bold text-white">
+                <span class="text-body-medium font-weight-bold text-white">
                   {{ getInitials(item.full_name || item.email) }}
                 </span>
               </v-avatar>
@@ -108,7 +108,7 @@
               <v-chip :color="getRoleColor(item.role)" size="x-small" class="mr-2">
                 {{ item.role }}
               </v-chip>
-              <span class="text-caption text-medium-emphasis">{{ item.email }}</span>
+              <span class="text-body-small text-medium-emphasis">{{ item.email }}</span>
             </v-list-item-subtitle>
             <template #append>
               <v-chip
@@ -126,7 +126,7 @@
         <template #selection="{ item }">
           <div class="d-flex align-center">
             <v-avatar size="24" :color="getAvatarColor(item.email)" class="mr-2">
-              <span class="text-caption font-weight-bold text-white">
+              <span class="text-body-small font-weight-bold text-white">
                 {{ getInitials(item.full_name || item.email) }}
               </span>
             </v-avatar>
@@ -366,7 +366,7 @@
 </script>
 
 <style scoped>
-  .text-subtitle-2 {
+  .text-title-small {
     display: flex;
     align-items: center;
   }

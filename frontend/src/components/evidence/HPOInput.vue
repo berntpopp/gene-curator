@@ -18,9 +18,9 @@
         <template #default>
           {{ item }}
           <v-tooltip v-if="getTermName(item)" location="top" activator="parent">
-            <div class="text-caption">
+            <div class="text-body-small">
               <strong>{{ getTermName(item) }}</strong>
-              <div v-if="getTermDefinition(item)" class="text-caption mt-1">
+              <div v-if="getTermDefinition(item)" class="text-body-small mt-1">
                 {{ getTermDefinition(item) }}
               </div>
             </div>
@@ -46,7 +46,7 @@
         </template>
         <v-card max-width="500">
           <v-card-text>
-            <div class="text-caption mb-2">HPO Validation Summary</div>
+            <div class="text-body-small mb-2">HPO Validation Summary</div>
             <v-row dense>
               <v-col cols="6">
                 <v-chip color="success" size="small" block>
@@ -74,10 +74,10 @@
                       class="px-0"
                       density="compact"
                     >
-                      <v-list-item-title class="text-caption">
+                      <v-list-item-title class="text-body-small">
                         {{ term }}
                       </v-list-item-title>
-                      <v-list-item-subtitle class="text-caption">
+                      <v-list-item-subtitle class="text-body-small">
                         {{ getTermName(term) }}
                       </v-list-item-subtitle>
                     </v-list-item>
@@ -91,10 +91,10 @@
     </template>
 
     <template #details>
-      <div v-if="isValidating" class="text-caption text-medium-emphasis">
+      <div v-if="isValidating" class="text-body-small text-medium-emphasis">
         Validating {{ internalTerms.length }} HPO term(s)...
       </div>
-      <div v-else-if="hasValidResults" class="text-caption">
+      <div v-else-if="hasValidResults" class="text-body-small">
         <span v-if="validCount > 0" class="text-success"> {{ validCount }} valid </span>
         <span v-if="invalidCount > 0" class="text-error">
           {{ invalidCount > 0 && validCount > 0 ? ', ' : '' }}{{ invalidCount }} invalid

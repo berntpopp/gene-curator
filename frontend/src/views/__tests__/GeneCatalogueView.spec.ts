@@ -58,7 +58,7 @@ describe('GeneCatalogueView', () => {
     )
     const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
     await flushPromises()
-    const tiles = () => wrapper.findAll('.text-h5.font-weight-bold').map(t => t.text())
+    const tiles = () => wrapper.findAll('.text-headline-small.font-weight-bold').map(t => t.text())
     expect(tiles()).toEqual(['—', '—', '—'])
     release({
       entries: [],

@@ -248,6 +248,8 @@
       event.preventDefault()
       if (canRedo.value) redo()
     } else if (event.key === 'Escape') {
+      // Escape that closes an open select/autocomplete menu must not cancel the form
+      if ((event.target as HTMLElement | null)?.getAttribute?.('aria-expanded') === 'true') return
       handleCancel()
     }
   }

@@ -4,8 +4,8 @@
     <v-container>
       <v-row align="center" justify="space-between" class="mb-4">
         <v-col cols="12" md="6">
-          <h1 class="text-h4 mb-2">{{ TERMINOLOGY.GENES }}</h1>
-          <p class="text-subtitle-1 text-medium-emphasis">Browse and search genetic information</p>
+          <h1 class="text-headline-large mb-2">{{ TERMINOLOGY.GENES }}</h1>
+          <p class="text-body-large text-medium-emphasis">Browse and search genetic information</p>
         </v-col>
       </v-row>
     </v-container>
@@ -97,7 +97,7 @@
             >
               {{ item.approved_symbol }}
             </router-link>
-            <div class="text-caption text-medium-emphasis">
+            <div class="text-body-small text-medium-emphasis">
               {{ item.hgnc_id }}
             </div>
           </template>
@@ -106,7 +106,7 @@
           <template #item.location="{ item }">
             <div class="d-flex flex-column">
               <span class="font-weight-medium">{{ item.chromosome || '—' }}</span>
-              <span class="text-caption text-medium-emphasis">
+              <span class="text-body-small text-medium-emphasis">
                 {{ item.location || '' }}
               </span>
             </div>
@@ -121,8 +121,8 @@
           <template #no-data>
             <div class="text-center py-8">
               <v-icon size="64" class="mb-4 text-medium-emphasis"> mdi-database-search </v-icon>
-              <h3 class="text-h6 mb-2">No genes found</h3>
-              <p class="text-body-2 text-medium-emphasis">
+              <h3 class="text-title-large mb-2">No genes found</h3>
+              <p class="text-body-medium text-medium-emphasis">
                 {{
                   isSearching
                     ? 'Try adjusting your search criteria'

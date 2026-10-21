@@ -8,7 +8,7 @@
       <v-row>
         <!-- Genetic Evidence -->
         <v-col cols="12" md="6">
-          <div class="text-subtitle-1 font-weight-medium mb-3">
+          <div class="text-body-large font-weight-medium mb-3">
             <v-icon start color="primary">mdi-dna</v-icon>
             Genetic Evidence
             <v-chip size="small" class="ml-2" color="primary" variant="tonal">
@@ -47,7 +47,7 @@
 
         <!-- Experimental Evidence -->
         <v-col cols="12" md="6">
-          <div class="text-subtitle-1 font-weight-medium mb-3">
+          <div class="text-body-large font-weight-medium mb-3">
             <v-icon start>mdi-flask</v-icon>
             Experimental Evidence
             <v-chip size="small" class="ml-2" variant="tonal">

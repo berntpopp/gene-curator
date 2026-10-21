@@ -17,7 +17,7 @@
           <!-- Biochemical Function -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Biochemical Function</span>
+              <span class="text-title-small">Biochemical Function</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -35,7 +35,7 @@
           <!-- Protein Interaction -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Protein Interaction</span>
+              <span class="text-title-small">Protein Interaction</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -53,7 +53,7 @@
           <!-- Expression -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Expression</span>
+              <span class="text-title-small">Expression</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -86,7 +86,7 @@
           <!-- Patient Cells -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Patient Cells</span>
+              <span class="text-title-small">Patient Cells</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -104,7 +104,7 @@
           <!-- Non-patient Cells -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Non-patient Cells</span>
+              <span class="text-title-small">Non-patient Cells</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1</v-chip>
               <v-spacer />
@@ -137,7 +137,7 @@
           <!-- Non-human Model Organism -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Non-human Model Organism</span>
+              <span class="text-title-small">Non-human Model Organism</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
@@ -155,7 +155,7 @@
           <!-- Cell Culture Model -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Cell Culture Model</span>
+              <span class="text-title-small">Cell Culture Model</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -188,7 +188,7 @@
           <!-- Human Rescue -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Human</span>
+              <span class="text-title-small">Human</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
@@ -206,7 +206,7 @@
           <!-- Non-human Organism Rescue -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Non-human Model Organism</span>
+              <span class="text-title-small">Non-human Model Organism</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
@@ -224,7 +224,7 @@
           <!-- Cell Culture Rescue -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Cell Culture</span>
+              <span class="text-title-small">Cell Culture</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
@@ -246,7 +246,7 @@
           <!-- Patient Cells Rescue -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Patient Cells</span>
+              <span class="text-title-small">Patient Cells</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />

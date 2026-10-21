@@ -30,8 +30,8 @@
                 <v-col cols="12" md="4">
                   <v-card variant="tonal" color="primary">
                     <v-card-text>
-                      <div class="text-caption">Scopes Curating</div>
-                      <div class="text-h4">{{ summary.public_scopes_count }}</div>
+                      <div class="text-body-small">Scopes Curating</div>
+                      <div class="text-headline-large">{{ summary.public_scopes_count }}</div>
                     </v-card-text>
                   </v-card>
                 </v-col>
@@ -39,8 +39,10 @@
                 <v-col cols="12" md="4">
                   <v-card variant="tonal" :color="consensusColor">
                     <v-card-text>
-                      <div class="text-caption">Consensus Classification</div>
-                      <div class="text-h6">{{ summary.consensus_classification || '—' }}</div>
+                      <div class="text-body-small">Consensus Classification</div>
+                      <div class="text-title-large">
+                        {{ summary.consensus_classification || '—' }}
+                      </div>
                     </v-card-text>
                   </v-card>
                 </v-col>
@@ -48,8 +50,8 @@
                 <v-col cols="12" md="4">
                   <v-card variant="tonal" :color="summary.has_conflicts ? 'warning' : 'success'">
                     <v-card-text>
-                      <div class="text-caption">Agreement</div>
-                      <div class="text-h6">
+                      <div class="text-body-small">Agreement</div>
+                      <div class="text-title-large">
                         <v-icon>{{
                           summary.has_conflicts ? 'mdi-alert' : 'mdi-check-circle'
                         }}</v-icon>
@@ -89,7 +91,7 @@
 
               <!-- Per-Scope Summaries -->
               <div class="mt-4">
-                <h3 class="text-h6 mb-3">Scope-Specific Curations</h3>
+                <h3 class="text-title-large mb-3">Scope-Specific Curations</h3>
                 <v-row>
                   <v-col
                     v-for="(scope, index) in scopeSummaries"
@@ -104,7 +106,7 @@
               </div>
 
               <!-- Last Updated -->
-              <div class="text-caption text-grey mt-4">
+              <div class="text-body-small text-grey mt-4">
                 <v-icon size="x-small">mdi-clock-outline</v-icon>
                 Last updated: {{ formatDateTime(summary.last_updated) }}
               </div>

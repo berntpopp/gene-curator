@@ -372,4 +372,23 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     await flushPromises()
     expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
   })
+
+  it('Escape cancels unless it closes an open select menu', async () => {
+    const wrapper = await mountForm({ geneId: 'g-1', workflowPairId: 'wp-1' })
+    const vm = internals(wrapper)
+    const press = (expanded: string) => {
+      const input = document.createElement('input')
+      input.setAttribute('aria-expanded', expanded)
+      input.addEventListener('keydown', e => vm.handleKeydown(e))
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    }
+
+    press('true')
+    await flushPromises()
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+
+    press('false')
+    await flushPromises()
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+  })
 })

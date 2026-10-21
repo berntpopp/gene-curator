@@ -2,7 +2,7 @@
   <v-container fluid>
     <div v-if="loading" class="text-center py-12">
       <v-progress-circular indeterminate color="primary" size="64" />
-      <div class="mt-4 text-h6">Loading schema...</div>
+      <div class="mt-4 text-title-large">Loading schema...</div>
     </div>
 
     <div v-else-if="schema">
@@ -16,10 +16,10 @@
           @click="router.push({ name: 'SchemaManagement' })"
         />
         <div>
-          <h1 class="text-h4 font-weight-bold">
+          <h1 class="text-headline-large font-weight-bold">
             {{ isEditing ? 'Edit' : 'View' }} Schema: {{ schema.name }}
           </h1>
-          <p class="text-body-1 text-medium-emphasis mt-1">
+          <p class="text-body-large text-medium-emphasis mt-1">
             {{ schema.schema_type }} schema v{{ schema.version }}
           </p>
         </div>
@@ -140,7 +140,7 @@
                 :error-messages="jsonError ? [jsonError] : []"
                 @input="validateJson"
               />
-              <div v-if="isEditing" class="text-caption text-medium-emphasis mt-2">
+              <div v-if="isEditing" class="text-body-small text-medium-emphasis mt-2">
                 Define the fields of this schema as a JSON object keyed by field name
               </div>
             </v-card-text>

@@ -53,7 +53,7 @@
       </template>
 
       <template v-if="needsHintTruncation" #details>
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
             <a
@@ -115,7 +115,7 @@
       </template>
 
       <template v-if="needsHintTruncation" #details>
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
             <a
@@ -177,7 +177,7 @@
       </template>
 
       <template v-if="needsHintTruncation" #details>
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
             <a
@@ -242,7 +242,7 @@
       </template>
 
       <template v-if="needsHintTruncation" #details>
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
             <a
@@ -340,7 +340,7 @@
       </template>
 
       <template v-if="needsHintTruncation" #details>
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           <span v-if="!hintExpanded">
             {{ truncatedHint }}
             <a
@@ -404,7 +404,7 @@
     <!-- Help Text -->
     <div
       v-if="fieldSchema.description && !fieldSchema.hint"
-      class="text-caption text-medium-emphasis mt-1"
+      class="text-body-small text-medium-emphasis mt-1"
     >
       {{ fieldSchema.description }}
     </div>

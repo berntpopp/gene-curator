@@ -19,7 +19,7 @@
       <!-- Curator -->
       <div class="d-flex align-center mb-2">
         <v-icon icon="mdi-account" size="small" class="mr-2" />
-        <span class="text-caption">
+        <span class="text-body-small">
           {{ gene.curator_name || 'Unassigned' }}
         </span>
       </div>
@@ -34,7 +34,7 @@
 
       <!-- Progress -->
       <div class="mb-2">
-        <div class="text-caption mb-1">Progress</div>
+        <div class="text-body-small mb-1">Progress</div>
         <v-progress-linear
           :model-value="gene.progress || 0"
           :color="getProgressColor(gene.progress)"

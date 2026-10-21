@@ -143,7 +143,7 @@ describe('DynamicNestedField', () => {
         errorMessages: ['Too short', 'Missing']
       })
 
-      expect(wrapper.find('.text-error.text-caption').text()).toBe('Too short, Missing')
+      expect(wrapper.find('.text-error.text-body-small').text()).toBe('Too short, Missing')
     })
 
     it('reloads its items when the model value changes from outside', async () => {
@@ -192,7 +192,7 @@ describe('DynamicNestedField', () => {
     it('shows validation messages below the block', () => {
       const wrapper = mountField({ fieldSchema: objectSchema, errorMessages: ['Invalid'] })
 
-      expect(wrapper.find('.text-error.text-caption').text()).toBe('Invalid')
+      expect(wrapper.find('.text-error.text-body-small').text()).toBe('Invalid')
     })
   })
 

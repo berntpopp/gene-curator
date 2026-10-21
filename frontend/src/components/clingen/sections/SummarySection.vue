@@ -5,24 +5,31 @@
       <v-card-text>
         <v-row align="center">
           <v-col cols="12" md="6">
-            <ClassificationMark :classification="classification" class="text-h5 font-weight-bold" />
-            <div class="text-body-2 mt-1">Gene-Disease Validity Classification</div>
+            <ClassificationMark
+              :classification="classification"
+              class="text-headline-small font-weight-bold"
+            />
+            <div class="text-body-medium mt-1">Gene-Disease Validity Classification</div>
           </v-col>
           <v-col cols="12" md="6" class="text-md-right">
             <div class="d-flex align-center justify-md-end ga-4">
               <div class="text-center">
-                <div class="text-h5 font-weight-bold">{{ geneticScore.toFixed(1) }}</div>
-                <div class="text-caption">Genetic</div>
+                <div class="text-headline-small font-weight-bold">
+                  {{ geneticScore.toFixed(1) }}
+                </div>
+                <div class="text-body-small">Genetic</div>
               </div>
               <v-icon size="24">mdi-plus</v-icon>
               <div class="text-center">
-                <div class="text-h5 font-weight-bold">{{ experimentalScore.toFixed(1) }}</div>
-                <div class="text-caption">Experimental</div>
+                <div class="text-headline-small font-weight-bold">
+                  {{ experimentalScore.toFixed(1) }}
+                </div>
+                <div class="text-body-small">Experimental</div>
               </div>
               <v-icon size="24">mdi-equal</v-icon>
               <div class="text-center">
-                <div class="text-h4 font-weight-bold">{{ totalScore.toFixed(1) }}</div>
-                <div class="text-caption">Total</div>
+                <div class="text-headline-large font-weight-bold">{{ totalScore.toFixed(1) }}</div>
+                <div class="text-body-small">Total</div>
               </div>
             </div>
           </v-col>
@@ -32,7 +39,7 @@
 
     <!-- Score Summary Table (ClinGen Style) -->
     <v-card class="mb-4" variant="outlined">
-      <v-card-title class="text-subtitle-1">
+      <v-card-title class="text-body-large">
         <v-icon start size="small">mdi-table</v-icon>
         Evidence score summary
       </v-card-title>
@@ -211,7 +218,9 @@
             <tr class="total-row">
               <td colspan="3" class="font-weight-bold text-right">Total Score</td>
               <td class="text-center font-weight-bold">18</td>
-              <td class="text-center font-weight-bold text-h6">{{ totalScore.toFixed(2) }}</td>
+              <td class="text-center font-weight-bold text-title-large">
+                {{ totalScore.toFixed(2) }}
+              </td>
             </tr>
           </tbody>
         </v-table>
@@ -220,7 +229,7 @@
 
     <!-- Evidence Summary Text -->
     <v-card variant="outlined">
-      <v-card-title class="text-subtitle-1">
+      <v-card-title class="text-body-large">
         <v-icon start size="small">mdi-text</v-icon>
         Evidence summary
       </v-card-title>
@@ -234,7 +243,7 @@
           hide-details="auto"
           @update:model-value="$emit('update:evidence-summary', $event)"
         />
-        <div class="text-caption text-medium-emphasis mt-2">
+        <div class="text-body-small text-medium-emphasis mt-2">
           Provide a brief narrative explaining the overall evidence and classification rationale.
         </div>
       </v-card-text>

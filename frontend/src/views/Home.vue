@@ -11,8 +11,8 @@
             aspect-ratio="1"
             class="mx-auto mb-6"
           />
-          <h1 class="text-h3 mb-4 font-weight-bold">Gene Curator</h1>
-          <p class="text-h6 mb-6 text-medium-emphasis">
+          <h1 class="text-display-medium mb-4 font-weight-bold">Gene Curator</h1>
+          <p class="text-title-large mb-6 text-medium-emphasis">
             Advanced platform for genetic information curation and management with ClinGen
             compliance
           </p>
@@ -42,8 +42,8 @@
     <v-container class="py-8">
       <v-row v-if="statistics">
         <v-col cols="12" class="text-center mb-6">
-          <h2 class="text-h4 mb-2">Curation Overview</h2>
-          <p class="text-subtitle-1 text-medium-emphasis">
+          <h2 class="text-headline-large mb-2">Curation Overview</h2>
+          <p class="text-body-large text-medium-emphasis">
             Current state of gene curations across all scopes
           </p>
         </v-col>
@@ -53,10 +53,10 @@
             <v-icon :color="stat.color" size="48" class="mb-3">
               {{ stat.icon }}
             </v-icon>
-            <div class="text-h4 font-weight-bold mb-1">
+            <div class="text-headline-large font-weight-bold mb-1">
               {{ stat.value }}
             </div>
-            <div class="text-subtitle-1 text-medium-emphasis">
+            <div class="text-body-large text-medium-emphasis">
               {{ stat.title }}
             </div>
           </v-card>
@@ -67,7 +67,7 @@
       <v-row v-else>
         <v-col cols="12" class="text-center">
           <v-progress-circular indeterminate color="primary" size="64" />
-          <p class="mt-4 text-subtitle-1">Loading statistics...</p>
+          <p class="mt-4 text-body-large">Loading statistics...</p>
         </v-col>
       </v-row>
     </v-container>
@@ -76,8 +76,8 @@
     <v-container class="py-8">
       <v-row>
         <v-col cols="12" class="text-center mb-6">
-          <h2 class="text-h4 mb-2">Key Features</h2>
-          <p class="text-subtitle-1 text-medium-emphasis">
+          <h2 class="text-headline-large mb-2">Key Features</h2>
+          <p class="text-body-large text-medium-emphasis">
             Comprehensive tools for genetic data management
           </p>
         </v-col>
@@ -88,8 +88,8 @@
               <v-icon :color="feature.color" size="64" class="mb-4">
                 {{ feature.icon }}
               </v-icon>
-              <h3 class="text-h6 mb-3">{{ feature.title }}</h3>
-              <p class="text-body-2 text-medium-emphasis">
+              <h3 class="text-title-large mb-3">{{ feature.title }}</h3>
+              <p class="text-body-medium text-medium-emphasis">
                 {{ feature.description }}
               </p>
             </v-card-text>

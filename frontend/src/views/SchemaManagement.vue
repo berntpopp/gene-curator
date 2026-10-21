@@ -3,8 +3,8 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
-        <p class="text-body-1 text-medium-emphasis mt-1">
+        <h1 class="text-headline-large font-weight-bold">{{ TERMINOLOGY.TEMPLATES }}</h1>
+        <p class="text-body-large text-medium-emphasis mt-1">
           Manage curation methodologies and schema definitions
         </p>
       </div>
@@ -70,7 +70,7 @@
         <template #item.name="{ item }">
           <div>
             <div class="font-weight-medium">{{ item.name }}</div>
-            <div class="text-caption">{{ item.description }}</div>
+            <div class="text-body-small">{{ item.description }}</div>
           </div>
         </template>
 

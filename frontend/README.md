@@ -1,6 +1,6 @@
 # Gene Curator frontend
 
-Vue 3 + TypeScript + Vuetify 3 (Vite, Pinia, Node 24). Setup, commands, architecture and rules live
+Vue 3 + TypeScript + Vuetify 4 (Vite, Pinia, Node 24). Setup, commands, architecture and rules live
 in the repository's [AGENTS.md](../AGENTS.md); the quick version:
 
 ```bash

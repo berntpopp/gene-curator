@@ -64,7 +64,7 @@
           </v-list-item-subtitle>
 
           <!-- Expiration info -->
-          <v-list-item-subtitle v-if="invitation.expires_at" class="text-caption">
+          <v-list-item-subtitle v-if="invitation.expires_at" class="text-body-small">
             <v-icon size="x-small" class="mr-1">mdi-clock-outline</v-icon>
             <span v-if="invitation.is_expired" class="text-error"> Expired </span>
             <span v-else> Expires {{ formatExpiryTime(invitation.expires_at) }} </span>
@@ -100,7 +100,7 @@
       <!-- Empty state -->
       <div v-else class="text-center py-4 text-medium-emphasis">
         <v-icon size="48" class="mb-2" color="success">mdi-check-circle</v-icon>
-        <div class="text-body-2">No pending invitations</div>
+        <div class="text-body-medium">No pending invitations</div>
       </div>
     </v-card-text>
   </v-card>

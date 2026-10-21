@@ -92,12 +92,12 @@
           </td>
           <td>
             <ClassificationMark v-if="item.classification" :classification="item.classification" />
-            <span v-else class="text-caption text-medium-emphasis">—</span>
+            <span v-else class="text-body-small text-medium-emphasis">—</span>
           </td>
           <td>
             <div class="d-flex align-center">
-              <span class="text-h6 font-weight-bold mr-1">{{ item.score || 0 }}</span>
-              <span class="text-caption text-medium-emphasis">/ 18</span>
+              <span class="text-title-large font-weight-bold mr-1">{{ item.score || 0 }}</span>
+              <span class="text-body-small text-medium-emphasis">/ 18</span>
             </div>
           </td>
           <td>{{ formatDate(item.updated_at) }}</td>
@@ -177,7 +177,7 @@
               <!-- Curator -->
               <div class="d-flex align-center mb-2">
                 <v-icon icon="mdi-account" size="small" class="mr-2" />
-                <span class="text-caption">
+                <span class="text-body-small">
                   {{ curation.curator_name || 'Unassigned' }}
                 </span>
               </div>
@@ -190,10 +190,12 @@
 
               <!-- Score -->
               <div class="mb-2">
-                <div class="text-caption mb-1">ClinGen Score</div>
+                <div class="text-body-small mb-1">ClinGen Score</div>
                 <div class="d-flex align-center">
-                  <span class="text-h4 font-weight-bold mr-2">{{ curation.score || 0 }}</span>
-                  <span class="text-caption text-medium-emphasis">/ 18 points</span>
+                  <span class="text-headline-large font-weight-bold mr-2">{{
+                    curation.score || 0
+                  }}</span>
+                  <span class="text-body-small text-medium-emphasis">/ 18 points</span>
                 </div>
                 <v-progress-linear
                   :model-value="(curation.score / 18) * 100"
@@ -205,7 +207,7 @@
               </div>
 
               <!-- Updated -->
-              <div class="text-caption text-medium-emphasis">
+              <div class="text-body-small text-medium-emphasis">
                 Updated {{ formatRelativeTime(curation.updated_at) }}
               </div>
             </v-card-text>

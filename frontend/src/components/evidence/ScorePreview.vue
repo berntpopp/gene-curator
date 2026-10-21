@@ -2,7 +2,7 @@
   <v-card :color="cardColor" variant="tonal">
     <v-card-title class="d-flex align-center">
       <v-icon start :color="classificationColor">mdi-chart-line</v-icon>
-      <span class="text-subtitle-1">ClinGen Score</span>
+      <span class="text-body-large">ClinGen Score</span>
       <v-spacer />
       <ClassificationMark :classification="breakdown.classification" />
     </v-card-title>
@@ -11,10 +11,10 @@
       <!-- Total Score Display -->
       <div class="text-center mb-4">
         <div class="d-flex align-center justify-center ga-2">
-          <div :class="`text-h2 font-weight-bold text-${classificationColor}`">
+          <div :class="`text-display-large font-weight-bold text-${classificationColor}`">
             {{ breakdown.total_score.toFixed(2) }}
           </div>
-          <div class="text-caption text-medium-emphasis">
+          <div class="text-body-small text-medium-emphasis">
             <div>out of</div>
             <div class="font-weight-bold">18.00</div>
           </div>
@@ -28,7 +28,7 @@
           class="mt-2"
         >
           <template #default>
-            <div class="text-caption font-weight-bold">{{ progressPercentage.toFixed(0) }}%</div>
+            <div class="text-body-small font-weight-bold">{{ progressPercentage.toFixed(0) }}%</div>
           </template>
         </v-progress-linear>
       </div>
@@ -38,8 +38,8 @@
         <v-col cols="6">
           <v-card variant="outlined" density="compact">
             <v-card-text class="text-center pa-2">
-              <div class="text-caption text-medium-emphasis">Genetic Evidence</div>
-              <div class="text-h6 font-weight-bold text-primary">
+              <div class="text-body-small text-medium-emphasis">Genetic Evidence</div>
+              <div class="text-title-large font-weight-bold text-primary">
                 {{ breakdown.genetic_total.toFixed(2) }}
               </div>
               <v-progress-linear
@@ -49,15 +49,15 @@
                 rounded
                 class="mt-1"
               />
-              <div class="text-caption text-medium-emphasis mt-1">max 12.00</div>
+              <div class="text-body-small text-medium-emphasis mt-1">max 12.00</div>
             </v-card-text>
           </v-card>
         </v-col>
         <v-col cols="6">
           <v-card variant="outlined" density="compact">
             <v-card-text class="text-center pa-2">
-              <div class="text-caption text-medium-emphasis">Experimental Evidence</div>
-              <div class="text-h6 font-weight-bold text-primary">
+              <div class="text-body-small text-medium-emphasis">Experimental Evidence</div>
+              <div class="text-title-large font-weight-bold text-primary">
                 {{ breakdown.experimental_total.toFixed(2) }}
               </div>
               <v-progress-linear
@@ -66,7 +66,7 @@
                 rounded
                 class="mt-1"
               />
-              <div class="text-caption text-medium-emphasis mt-1">max 6.00</div>
+              <div class="text-body-small text-medium-emphasis mt-1">max 6.00</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -81,7 +81,7 @@
         density="compact"
         class="mt-3"
       >
-        <div class="text-caption">
+        <div class="text-body-small">
           <strong>{{ evidenceCount }}</strong> evidence item{{ evidenceCount !== 1 ? 's' : '' }}
           added
           <span v-if="!isSufficientEvidence"> - Add more evidence for classification </span>
@@ -97,7 +97,7 @@
         density="compact"
         class="mt-3"
       >
-        <div class="text-caption">No evidence items added yet</div>
+        <div class="text-body-small">No evidence items added yet</div>
       </v-alert>
 
       <!-- Category Details (Expandable) -->
@@ -105,23 +105,23 @@
         <v-expansion-panel>
           <v-expansion-panel-title>
             <v-icon start size="small">mdi-view-list</v-icon>
-            <span class="text-caption">Detailed Breakdown</span>
+            <span class="text-body-small">Detailed Breakdown</span>
           </v-expansion-panel-title>
           <v-expansion-panel-text>
             <!-- Genetic Categories -->
             <div class="mb-2">
-              <div class="text-caption font-weight-bold text-primary mb-1">Genetic Evidence</div>
+              <div class="text-body-small font-weight-bold text-primary mb-1">Genetic Evidence</div>
               <v-row dense>
                 <v-col cols="6">
-                  <div class="text-caption">Case-Level</div>
+                  <div class="text-body-small">Case-Level</div>
                   <div class="font-weight-bold">{{ breakdown.case_level_score.toFixed(2) }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption">Segregation</div>
+                  <div class="text-body-small">Segregation</div>
                   <div class="font-weight-bold">{{ breakdown.segregation_score.toFixed(2) }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption">Case-Control</div>
+                  <div class="text-body-small">Case-Control</div>
                   <div class="font-weight-bold">{{ breakdown.case_control_score.toFixed(2) }}</div>
                 </v-col>
               </v-row>
@@ -131,24 +131,24 @@
 
             <!-- Experimental Categories -->
             <div>
-              <div class="text-caption font-weight-bold text-primary mb-1">
+              <div class="text-body-small font-weight-bold text-primary mb-1">
                 Experimental Evidence
               </div>
               <v-row dense>
                 <v-col cols="6">
-                  <div class="text-caption">Expression</div>
+                  <div class="text-body-small">Expression</div>
                   <div class="font-weight-bold">{{ breakdown.expression_score.toFixed(2) }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption">Function</div>
+                  <div class="text-body-small">Function</div>
                   <div class="font-weight-bold">{{ breakdown.function_score.toFixed(2) }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption">Models</div>
+                  <div class="text-body-small">Models</div>
                   <div class="font-weight-bold">{{ breakdown.models_score.toFixed(2) }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption">Rescue</div>
+                  <div class="text-body-small">Rescue</div>
                   <div class="font-weight-bold">{{ breakdown.rescue_score.toFixed(2) }}</div>
                 </v-col>
               </v-row>
@@ -250,7 +250,7 @@
   /* Ensure consistent spacing */
 
   /* Smooth transitions for score changes */
-  .text-h2 {
+  .text-display-large {
     transition: color 0.3s ease;
   }
 
@@ -263,7 +263,7 @@
     font-size: 0.875rem;
   }
 
-  .v-card--compact .text-h2 {
+  .v-card--compact .text-display-large {
     font-size: 2rem;
   }
 </style>

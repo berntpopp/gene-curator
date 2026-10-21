@@ -40,7 +40,7 @@
             <v-chip v-if="item.mondo_id" size="x-small" color="info" variant="outlined">
               {{ item.mondo_id }}
             </v-chip>
-            <span v-if="item.gene_symbols?.length" class="text-caption">
+            <span v-if="item.gene_symbols?.length" class="text-body-small">
               Genes: {{ item.gene_symbols.join(', ') }}
             </span>
           </div>
@@ -62,7 +62,7 @@
         <v-icon start size="small">mdi-flask</v-icon>
         {{ item.omim_id }}
         <v-tooltip v-if="item.name" location="top" activator="parent">
-          <div class="text-caption" style="max-width: 400px">
+          <div class="text-body-small" style="max-width: 400px">
             <strong>{{ item.name }}</strong>
             <div v-if="item.mondo_id" class="mt-1">MONDO: {{ item.mondo_id }}</div>
             <div v-if="item.gene_symbols?.length" class="mt-1">
@@ -109,7 +109,7 @@
       </div>
       <div v-if="detailDisease.description" class="mb-4">
         <strong>Description:</strong>
-        <p class="text-body-2 mt-1">{{ detailDisease.description }}</p>
+        <p class="text-body-medium mt-1">{{ detailDisease.description }}</p>
       </div>
 
       <div v-if="detailDisease.genes?.length" class="mb-4">
@@ -145,7 +145,7 @@
                   </template>
                   <v-list-item-title>{{ pheno.name }}</v-list-item-title>
                   <template #append>
-                    <span v-if="pheno.frequency" class="text-caption">
+                    <span v-if="pheno.frequency" class="text-body-small">
                       {{ pheno.frequency }}
                     </span>
                   </template>

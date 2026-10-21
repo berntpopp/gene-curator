@@ -80,12 +80,12 @@
           <v-card-text>
             <v-row>
               <v-col cols="12" md="6">
-                <div class="text-h6">{{ statistics.curations_last_30_days || 0 }}</div>
-                <div class="text-caption">Curations Created</div>
+                <div class="text-title-large">{{ statistics.curations_last_30_days || 0 }}</div>
+                <div class="text-body-small">Curations Created</div>
               </v-col>
               <v-col cols="12" md="6">
-                <div class="text-h6">{{ statistics.activations_last_30_days || 0 }}</div>
-                <div class="text-caption">Curations Activated</div>
+                <div class="text-title-large">{{ statistics.activations_last_30_days || 0 }}</div>
+                <div class="text-body-small">Curations Activated</div>
               </v-col>
             </v-row>
           </v-card-text>

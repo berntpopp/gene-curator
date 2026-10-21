@@ -3,8 +3,8 @@
     <v-row align="center" justify="center">
       <v-col cols="12" md="6" class="text-center">
         <v-icon color="medium-emphasis" size="96" class="mb-4"> mdi-file-question </v-icon>
-        <h1 class="text-h4 mb-4">Page Not Found</h1>
-        <p class="text-body-1 mb-6 text-medium-emphasis">
+        <h1 class="text-headline-large mb-4">Page Not Found</h1>
+        <p class="text-body-large mb-6 text-medium-emphasis">
           Nothing exists at <code>{{ route.fullPath }}</code
           >.
         </p>

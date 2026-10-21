@@ -3,8 +3,8 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">{{ TERMINOLOGY.WORKFLOWS }}</h1>
-        <p class="text-body-1 text-medium-emphasis mt-1">
+        <h1 class="text-headline-large font-weight-bold">{{ TERMINOLOGY.WORKFLOWS }}</h1>
+        <p class="text-body-large text-medium-emphasis mt-1">
           Manage workflow pairs and multi-stage curation pipelines
         </p>
       </div>
@@ -32,7 +32,7 @@
         <template #item.name="{ item }">
           <div>
             <div class="font-weight-medium">{{ item.name }}</div>
-            <div class="text-caption">{{ item.description }}</div>
+            <div class="text-body-small">{{ item.description }}</div>
           </div>
         </template>
 
@@ -97,18 +97,18 @@
         <v-row>
           <v-col v-for="stage in workflowStages" :key="stage.id" cols="12" sm="6" md="4">
             <v-card variant="outlined">
-              <v-card-title class="text-subtitle-1">
+              <v-card-title class="text-body-large">
                 <v-icon start>
                   {{ getStageIcon(stage.stage_type) }}
                 </v-icon>
                 {{ stage.name }}
               </v-card-title>
               <v-card-text>
-                <div class="text-body-2 mb-2">{{ stage.description }}</div>
-                <div class="text-caption text-medium-emphasis">
+                <div class="text-body-medium mb-2">{{ stage.description }}</div>
+                <div class="text-body-small text-medium-emphasis">
                   Required Roles: {{ stage.required_roles.join(', ') }}
                 </div>
-                <div class="text-caption text-medium-emphasis">Order: {{ stage.order }}</div>
+                <div class="text-body-small text-medium-emphasis">Order: {{ stage.order }}</div>
               </v-card-text>
             </v-card>
           </v-col>
@@ -123,7 +123,7 @@
         <v-list>
           <v-list-item>
             <v-list-item-title>Name</v-list-item-title>
-            <v-list-item-subtitle class="text-body-1">{{
+            <v-list-item-subtitle class="text-body-large">{{
               selectedWorkflow.name
             }}</v-list-item-subtitle>
           </v-list-item>
@@ -163,7 +163,7 @@
 
         <!-- Stage Pipeline -->
         <div class="mt-4">
-          <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
+          <div class="text-body-large font-weight-medium mb-2">Workflow Stages</div>
           <div class="d-flex align-center ga-2 flex-wrap">
             <v-chip v-for="stage in workflowStages" :key="stage.id" variant="outlined" size="small">
               <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
@@ -200,7 +200,7 @@
           hide-details
           class="mb-4"
         />
-        <div class="text-caption text-medium-emphasis">
+        <div class="text-body-small text-medium-emphasis">
           Linked schemas and stages cannot be changed after creation.
         </div>
       </v-form>

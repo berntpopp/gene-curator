@@ -7,11 +7,11 @@
           <div class="d-flex align-center">
             <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
             <div>
-              <div class="text-caption text-medium-emphasis">Gene</div>
-              <div class="text-h5 font-weight-bold">
+              <div class="text-body-small text-medium-emphasis">Gene</div>
+              <div class="text-headline-small font-weight-bold">
                 {{ gene?.approved_symbol || gene?.symbol || 'Unknown' }}
               </div>
-              <div v-if="gene?.hgnc_id" class="text-caption">{{ gene.hgnc_id }}</div>
+              <div v-if="gene?.hgnc_id" class="text-body-small">{{ gene.hgnc_id }}</div>
             </div>
           </div>
         </v-col>
@@ -21,11 +21,11 @@
           <div class="d-flex align-center">
             <v-icon size="32" class="mr-3">mdi-hospital</v-icon>
             <div>
-              <div class="text-caption text-medium-emphasis">Disease</div>
-              <div class="text-subtitle-1 font-weight-medium">
+              <div class="text-body-small text-medium-emphasis">Disease</div>
+              <div class="text-body-large font-weight-medium">
                 {{ disease?.name || 'Not specified' }}
               </div>
-              <div v-if="disease?.mondo_id" class="text-caption">
+              <div v-if="disease?.mondo_id" class="text-body-small">
                 <a
                   :href="`https://monarchinitiative.org/disease/${disease.mondo_id}`"
                   target="_blank"
@@ -45,7 +45,7 @@
           <div class="d-flex align-center">
             <v-icon size="32" color="info" class="mr-3">mdi-family-tree</v-icon>
             <div>
-              <div class="text-caption text-medium-emphasis">Mode of Inheritance</div>
+              <div class="text-body-small text-medium-emphasis">Mode of Inheritance</div>
               <v-chip size="small" variant="outlined">
                 {{ moiDisplay }}
               </v-chip>
@@ -57,7 +57,7 @@
         <v-col cols="12" md="2">
           <div class="d-flex align-center">
             <div>
-              <div class="text-caption text-medium-emphasis">Classification</div>
+              <div class="text-body-small text-medium-emphasis">Classification</div>
               <ClassificationMark :classification="classification" />
             </div>
           </div>
@@ -69,10 +69,10 @@
             <v-chip :color="statusColor" size="small" variant="outlined" class="mb-1">
               {{ statusDisplay }}
             </v-chip>
-            <div v-if="schemaLabel" class="text-caption text-medium-emphasis">
+            <div v-if="schemaLabel" class="text-body-small text-medium-emphasis">
               {{ schemaLabel }}
             </div>
-            <div v-if="curationId" class="text-caption">ID: {{ curationId.slice(0, 8) }}...</div>
+            <div v-if="curationId" class="text-body-small">ID: {{ curationId.slice(0, 8) }}...</div>
           </div>
         </v-col>
       </v-row>
@@ -81,7 +81,7 @@
       <v-row v-if="expertPanel && expertPanel !== 'Not specified'">
         <v-col cols="12">
           <v-divider class="my-2" />
-          <div class="d-flex align-center text-caption text-medium-emphasis">
+          <div class="d-flex align-center text-body-small text-medium-emphasis">
             <v-icon size="small" class="mr-2">mdi-account-group</v-icon>
             Expert Panel: {{ expertPanel }}
           </div>

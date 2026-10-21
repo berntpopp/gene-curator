@@ -2,7 +2,7 @@
   <v-container fluid>
     <div v-if="loading" class="text-center py-12">
       <v-progress-circular indeterminate color="primary" size="64" />
-      <div class="mt-4 text-h6">Loading assignment...</div>
+      <div class="mt-4 text-title-large">Loading assignment...</div>
     </div>
 
     <v-alert v-else-if="error" type="error" variant="tonal">
@@ -22,8 +22,10 @@
           @click="router.back()"
         />
         <div>
-          <h1 class="text-h4 font-weight-bold">{{ assignment.gene_symbol ?? 'Gene' }}</h1>
-          <p class="text-body-1 text-medium-emphasis mt-1">
+          <h1 class="text-headline-large font-weight-bold">
+            {{ assignment.gene_symbol ?? 'Gene' }}
+          </h1>
+          <p class="text-body-large text-medium-emphasis mt-1">
             {{ assignment.scope_display_name ?? assignment.scope_name }}
           </p>
         </div>
@@ -38,30 +40,30 @@
         <v-card-text>
           <v-row>
             <v-col cols="12" sm="6" md="3">
-              <div class="text-caption text-medium-emphasis">Gene</div>
+              <div class="text-body-small text-medium-emphasis">Gene</div>
               <router-link
                 :to="`/genes/${assignment.gene_id}`"
-                class="text-body-1 text-primary text-decoration-none"
+                class="text-body-large text-primary text-decoration-none"
               >
                 {{ assignment.gene_symbol }}
               </router-link>
-              <div class="text-body-2">{{ assignment.gene_hgnc_id }}</div>
+              <div class="text-body-medium">{{ assignment.gene_hgnc_id }}</div>
             </v-col>
             <v-col cols="12" sm="6" md="3">
-              <div class="text-caption text-medium-emphasis">Curator</div>
-              <div class="text-body-1">{{ assignment.curator_name ?? 'Unassigned' }}</div>
+              <div class="text-body-small text-medium-emphasis">Curator</div>
+              <div class="text-body-large">{{ assignment.curator_name ?? 'Unassigned' }}</div>
             </v-col>
             <v-col cols="12" sm="6" md="3">
-              <div class="text-caption text-medium-emphasis">Priority</div>
-              <div class="text-body-1 text-capitalize">{{ assignment.priority }}</div>
+              <div class="text-body-small text-medium-emphasis">Priority</div>
+              <div class="text-body-large text-capitalize">{{ assignment.priority }}</div>
             </v-col>
             <v-col cols="12" sm="6" md="3">
-              <div class="text-caption text-medium-emphasis">Due date</div>
-              <div class="text-body-1">
+              <div class="text-body-small text-medium-emphasis">Due date</div>
+              <div class="text-body-large">
                 {{ assignment.due_date ? formatDate(assignment.due_date) : 'No due date' }}
               </div>
-              <div class="text-caption text-medium-emphasis mt-2">Assigned</div>
-              <div class="text-body-1">{{ formatDate(assignment.assigned_at) }}</div>
+              <div class="text-body-small text-medium-emphasis mt-2">Assigned</div>
+              <div class="text-body-large">{{ formatDate(assignment.assigned_at) }}</div>
             </v-col>
           </v-row>
           <p v-if="assignment.assignment_notes" class="mt-4 mb-0">
@@ -70,7 +72,7 @@
         </v-card-text>
         <v-card-actions>
           <v-btn color="primary" variant="flat" :to="action.to">{{ action.label }}</v-btn>
-          <span v-if="action.stage" class="text-body-2 text-medium-emphasis ml-2">
+          <span v-if="action.stage" class="text-body-medium text-medium-emphasis ml-2">
             Stage: {{ action.stage }}
           </span>
         </v-card-actions>

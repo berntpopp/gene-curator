@@ -1,6 +1,6 @@
 <template>
   <div v-if="fieldSchema.type === 'array'">
-    <v-label class="text-body-2 font-weight-medium mb-2">
+    <v-label class="text-body-medium font-weight-medium mb-2">
       {{ label }}
       <span v-if="fieldSchema.required" class="text-error ml-1">*</span>
     </v-label>
@@ -14,7 +14,7 @@
         <div v-else>
           <div v-for="(item, index) in arrayValue" :key="index" class="mb-4 pa-4 border rounded">
             <div class="d-flex justify-space-between align-center mb-2">
-              <h4 class="text-subtitle-2">Item {{ index + 1 }}</h4>
+              <h4 class="text-title-small">Item {{ index + 1 }}</h4>
               <v-btn
                 aria-label="Remove item"
                 icon="mdi-delete"
@@ -55,14 +55,14 @@
       </v-card-text>
     </v-card>
 
-    <div v-if="errorMessages.length" class="text-error text-caption mt-1">
+    <div v-if="errorMessages.length" class="text-error text-body-small mt-1">
       {{ errorMessages.join(', ') }}
     </div>
   </div>
 
   <!-- Object Fields -->
   <div v-else>
-    <v-label class="text-body-2 font-weight-medium mb-2">
+    <v-label class="text-body-medium font-weight-medium mb-2">
       {{ label }}
       <span v-if="fieldSchema.required" class="text-error ml-1">*</span>
     </v-label>
@@ -91,7 +91,7 @@
       </v-card-text>
     </v-card>
 
-    <div v-if="errorMessages.length" class="text-error text-caption mt-1">
+    <div v-if="errorMessages.length" class="text-error text-body-small mt-1">
       {{ errorMessages.join(', ') }}
     </div>
   </div>

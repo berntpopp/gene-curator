@@ -18,7 +18,7 @@
           <!-- Predicted/Proven Null -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Predicted or Proven Null Variants</span>
+              <span class="text-title-small">Predicted or Proven Null Variants</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
@@ -40,7 +40,7 @@
           <!-- Other Variant Type -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Other Variant Types</span>
+              <span class="text-title-small">Other Variant Types</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
@@ -76,7 +76,7 @@
           <!-- Predicted/Proven Null (AR) -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Predicted or Proven Null Variants (Biallelic)</span>
+              <span class="text-title-small">Predicted or Proven Null Variants (Biallelic)</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
@@ -95,7 +95,7 @@
           <!-- Other Variant Type (AR) -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Other Variant Types (Biallelic)</span>
+              <span class="text-title-small">Other Variant Types (Biallelic)</span>
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
@@ -127,7 +127,7 @@
         </v-expansion-panel-title>
         <v-expansion-panel-text>
           <div class="d-flex align-center mb-2">
-            <span class="text-subtitle-2">Family Segregation Studies</span>
+            <span class="text-title-small">Family Segregation Studies</span>
             <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-3</v-chip>
             <v-spacer />
             <AddEvidenceButton
@@ -149,7 +149,7 @@
             <template #prepend>
               <v-icon size="small">mdi-information</v-icon>
             </template>
-            <div class="text-caption">
+            <div class="text-body-small">
               LOD Score Thresholds: 0.6-1.2 = 1pt, 1.2-2.4 = 2pts, >2.4 = 3pts (max)
             </div>
           </v-alert>
@@ -172,7 +172,7 @@
           <!-- Single Variant Analysis -->
           <div class="mb-4">
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Single Variant Analysis</span>
+              <span class="text-title-small">Single Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
               <AddEvidenceButton
@@ -195,7 +195,7 @@
           <!-- Aggregate Variant Analysis -->
           <div>
             <div class="d-flex align-center mb-2">
-              <span class="text-subtitle-2">Aggregate Variant Analysis</span>
+              <span class="text-title-small">Aggregate Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
               <AddEvidenceButton

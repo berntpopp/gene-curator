@@ -85,7 +85,7 @@
             density="compact"
           />
         </template>
-        <div class="text-caption" style="max-width: 400px">
+        <div class="text-body-small" style="max-width: 400px">
           <strong>{{ selectedItem.label }}</strong>
           <div class="mt-1">{{ selectedItem.definition || 'No definition' }}</div>
           <div v-if="selectedItem.synonyms?.length" class="mt-1">

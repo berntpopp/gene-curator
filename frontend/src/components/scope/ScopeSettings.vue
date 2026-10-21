@@ -16,7 +16,7 @@
     <v-card-text>
       <!-- Workflow Configuration Section -->
       <v-card variant="outlined" class="mb-4">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-body-large">
           <v-icon start size="small">mdi-sitemap</v-icon>
           Workflow configuration
         </v-card-title>
@@ -58,13 +58,13 @@
           <!-- Show linked schemas when workflow pair is selected -->
           <div v-if="selectedWorkflowPair" class="mt-4">
             <v-divider class="my-3" />
-            <div class="text-subtitle-2 mb-2">Linked Schemas</div>
+            <div class="text-title-small mb-2">Linked Schemas</div>
             <v-row dense>
               <v-col cols="12" md="6">
                 <v-card variant="tonal" color="primary">
                   <v-card-text class="py-2">
-                    <div class="text-caption text-medium-emphasis">Precuration Schema</div>
-                    <div class="text-body-2 font-weight-medium">
+                    <div class="text-body-small text-medium-emphasis">Precuration Schema</div>
+                    <div class="text-body-medium font-weight-medium">
                       {{ selectedWorkflowPair.precuration_schema_name || 'Not configured' }}
                     </div>
                   </v-card-text>
@@ -73,8 +73,8 @@
               <v-col cols="12" md="6">
                 <v-card variant="tonal">
                   <v-card-text class="py-2">
-                    <div class="text-caption text-medium-emphasis">Curation Schema</div>
-                    <div class="text-body-2 font-weight-medium">
+                    <div class="text-body-small text-medium-emphasis">Curation Schema</div>
+                    <div class="text-body-medium font-weight-medium">
                       {{ selectedWorkflowPair.curation_schema_name || 'Not configured' }}
                     </div>
                   </v-card-text>
@@ -87,7 +87,7 @@
 
       <!-- Basic Information Section -->
       <v-card variant="outlined" class="mb-4">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-body-large">
           <v-icon start size="small">mdi-information</v-icon>
           Basic information
         </v-card-title>
@@ -140,12 +140,14 @@
 
       <!-- Danger Zone - App admins only -->
       <v-card v-if="canDeleteScope" variant="outlined" class="mt-4" color="error">
-        <v-card-title class="text-subtitle-1">
+        <v-card-title class="text-body-large">
           <v-icon start size="small" color="error">mdi-alert-octagon</v-icon>
           Danger zone
         </v-card-title>
         <v-card-text>
-          <p class="text-body-2 mb-3">Deleting this scope is permanent and cannot be undone.</p>
+          <p class="text-body-medium mb-3">
+            Deleting this scope is permanent and cannot be undone.
+          </p>
 
           <!-- Show gene assignment info if scope has active assignments -->
           <v-alert
