@@ -44,7 +44,7 @@ describe('scoreSnapshot', () => {
       classification: 'Moderate',
       hasContradictory: true,
       geneticBreakdown: { caseLevel: 4, segregation: 1, caseControl: 0 },
-      experimentalBreakdown: { function: 0.5, functionalAlteration: 0, models: 1, rescue: 0.5 }
+      experimentalBreakdown: { function: 0.5, functionalAlteration: 0, modelsAndRescue: 1.5 }
     })
   })
 

@@ -17,8 +17,7 @@ export interface ScoreSnapshot {
   experimentalBreakdown?: {
     function: number
     functionalAlteration: number
-    models: number
-    rescue: number
+    modelsAndRescue: number
   }
 }
 

@@ -19,7 +19,8 @@ const store = vi.hoisted(() => ({
   getValidationResult: vi.fn(),
   generateJsonSchema: vi.fn(),
   validateEvidence: vi.fn(),
-  validateField: vi.fn()
+  validateField: vi.fn(),
+  clearValidationResult: vi.fn()
 }))
 
 vi.mock('@/stores', () => ({

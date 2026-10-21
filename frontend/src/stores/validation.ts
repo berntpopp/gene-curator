@@ -26,6 +26,10 @@ interface ValidationState {
 
 const inFlightSchemas = new Map<string, Promise<JsonSchemaDocument>>()
 
+// Latest validate-evidence request per result key (not state: never rendered)
+const latestRequest: Record<string, number> = {}
+const nextRequest = (key: string) => (latestRequest[key] = (latestRequest[key] ?? 0) + 1)
+
 export const useValidationStore = defineStore('validation', {
   state: (): ValidationState => ({
     supportedFieldTypes: [],
@@ -57,6 +61,7 @@ export const useValidationStore = defineStore('validation', {
       key: string = 'default',
       methodologyVersionId?: string
     ) {
+      const request = nextRequest(key)
       this.loading = true
       this.error = null
       try {
@@ -67,14 +72,17 @@ export const useValidationStore = defineStore('validation', {
           ...(methodologyVersionId && { methodology_version_id: methodologyVersionId })
         }
         const result = await validationAPI.validateEvidence(validationData)
+        // Replies can land out of order: only the latest request for the key may store its result
+        if (request !== latestRequest[key]) return null
 
         this.validationResults[key] = result
         return result
       } catch (error) {
+        if (request !== latestRequest[key]) return null
         this.error = errorMessage(error, 'Request failed')
         throw error
       } finally {
-        this.loading = false
+        if (request === latestRequest[key]) this.loading = false
       }
     },
 
@@ -166,6 +174,7 @@ export const useValidationStore = defineStore('validation', {
     },
 
     clearValidationResult(key: string) {
+      nextRequest(key) // a reply still in flight belongs to the record that was cleared
       if (this.validationResults[key]) {
         delete this.validationResults[key]
       }

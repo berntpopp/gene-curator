@@ -56,8 +56,7 @@ describe('storedScores', () => {
       genetic: 8.6,
       function: { biochemical: 0.5, proteinInteraction: 0.2, expression: 0.3 },
       functionalAlteration: 0.25,
-      models: 1,
-      rescue: 0.75,
+      modelsAndRescue: 1.75,
       experimental: 1,
       total: 9.6,
       caps: { genetic: 12, experimental: null },
@@ -72,7 +71,7 @@ describe('storedScores', () => {
     expect(legacy).toMatchObject({ traced: false, caps: { genetic: null, experimental: null } })
   })
 
-  it('splits a shared Models & Rescue category without exceeding its cap (#420)', () => {
+  it('reads the one capped Models & Rescue category (#420)', () => {
     const s = storedScores({
       trace: {
         sections: [
@@ -80,45 +79,16 @@ describe('storedScores', () => {
             key: 'experimental_evidence',
             score: 4,
             categories: [
-              {
-                key: 'models_and_rescue',
-                score: 4,
-                types: [
-                  { path: 'models.non_human_model_organism', score: 4 },
-                  { path: 'rescue.human', score: 2 },
-                  { path: 'rescue.cell_culture', score: 1 }
-                ]
-              }
+              ct('models_and_rescue', 4, [
+                ['non_human_model_organism', 4],
+                ['human', 3]
+              ])
             ]
           }
         ]
       }
     })
-    // 7 raw points under a cap of 4: models first, rescue gets what the cap leaves
-    expect([s.models, s.rescue]).toEqual([4, 0])
-  })
-
-  it('reads each kind of a shared category below the cap', () => {
-    const s = storedScores({
-      trace: {
-        sections: [
-          {
-            key: 'experimental_evidence',
-            score: 3,
-            categories: [
-              {
-                key: 'models_and_rescue',
-                score: 3,
-                types: [
-                  { path: 'models.cell_culture_model', score: 1 },
-                  { path: 'rescue.patient_cells', score: 2 }
-                ]
-              }
-            ]
-          }
-        ]
-      }
-    })
-    expect([s.models, s.rescue]).toEqual([1, 2])
+    // 7 raw points under a cap of 4: the capped category, not a per-kind split
+    expect(s.modelsAndRescue).toBe(4)
   })
 })

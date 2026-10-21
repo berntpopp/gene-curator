@@ -30,8 +30,7 @@ export function scoreSnapshot(
     experimentalBreakdown: {
       function: s.functionTotal,
       functionalAlteration: s.functionalAlteration,
-      models: s.models,
-      rescue: s.rescue
+      modelsAndRescue: s.modelsAndRescue
     }
   }
 }

@@ -23,7 +23,8 @@ vi.mock('@/stores', () => ({
     getJsonSchema: () => mockSchema,
     getValidationResult: () => null,
     generateJsonSchema: vi.fn(),
-    validateEvidence: vi.fn()
+    validateEvidence: vi.fn(),
+    clearValidationResult: vi.fn()
   })
 }))
 

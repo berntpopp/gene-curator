@@ -106,6 +106,36 @@ describe('useValidationStore', () => {
       expect(store.error).toBe('bad schema')
       expect(store.loading).toBe(false)
     })
+
+    it('keeps the newest reply when replies land out of order', async () => {
+      const store = useValidationStore()
+      const replies: Array<(r: Schema<'ValidationResponse'>) => void> = []
+      api.validateEvidence.mockImplementation(() => new Promise(r => replies.push(r)))
+
+      const older = store.validateEvidence({ v: 1 }, 's', 'form')
+      const newer = store.validateEvidence({ v: 2 }, 's', 'form')
+      replies[1]!(response(true))
+      await expect(newer).resolves.toEqual(response(true))
+      expect(store.loading).toBe(false)
+      replies[0]!(response(false))
+      await expect(older).resolves.toBeNull()
+
+      expect(store.validationResults.form).toEqual(response(true))
+    })
+
+    it('drops a reply that was in flight when the key was cleared', async () => {
+      const store = useValidationStore()
+      let reply: (r: unknown) => void = () => {}
+      api.validateEvidence.mockImplementation(() => new Promise((_, reject) => (reply = reject)))
+
+      const pending = store.validateEvidence({}, 's', 'form')
+      store.clearValidationResult('form')
+      reply(new Error('late'))
+
+      await expect(pending).resolves.toBeNull()
+      expect(store.error).toBeNull()
+      expect(store.validationResults.form).toBeUndefined()
+    })
   })
 
   describe('validateSchema and generateJsonSchema', () => {

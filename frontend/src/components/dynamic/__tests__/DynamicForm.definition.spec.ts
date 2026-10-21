@@ -14,7 +14,8 @@ const store = vi.hoisted(() => ({
   getValidationResult: vi.fn(() => null),
   generateJsonSchema: vi.fn(),
   validateEvidence: vi.fn(),
-  validateField: vi.fn()
+  validateField: vi.fn(),
+  clearValidationResult: vi.fn()
 }))
 
 vi.mock('@/stores', () => ({ useValidationStore: () => store }))
@@ -179,5 +180,29 @@ describe('DynamicForm from raw config', () => {
     expect(wrapper.find('.slot').text()).toBe('ScoreSummary')
     expect(wrapper.text()).toContain('B') // a tab with only a component section is kept
     expect(wrapper.findComponent({ name: 'ScoreDisplay' }).exists()).toBe(false)
+  })
+
+  it('validates once per pause in typing and clears the shared result on mount and unmount', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mount(DynamicForm, {
+        props: { schemaId: 's1', definition: { field_definitions: { note: { type: 'text' } } } }
+      })
+      expect(store.clearValidationResult).toHaveBeenCalledWith('form')
+      const form = vmOf(wrapper)
+      form.formData.note = 'a'
+      await flushPromises()
+      form.formData.note = 'ab'
+      await flushPromises()
+      expect(store.validateEvidence).not.toHaveBeenCalled()
+      await vi.advanceTimersByTimeAsync(500)
+      expect(store.validateEvidence).toHaveBeenCalledTimes(1)
+
+      store.clearValidationResult.mockClear()
+      wrapper.unmount()
+      expect(store.clearValidationResult).toHaveBeenCalledWith('form')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })

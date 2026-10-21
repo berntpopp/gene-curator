@@ -75,13 +75,10 @@
             <td class="text-right text-medium-emphasis">2</td>
           </tr>
           <tr>
-            <td class="pl-6">Models</td>
-            <td class="text-right">{{ experimentalBreakdown?.models?.toFixed(2) || '0.00' }}</td>
-            <td class="text-right text-medium-emphasis">4</td>
-          </tr>
-          <tr>
-            <td class="pl-6">Rescue</td>
-            <td class="text-right">{{ experimentalBreakdown?.rescue?.toFixed(2) || '0.00' }}</td>
+            <td class="pl-6">Models &amp; rescue</td>
+            <td class="text-right">
+              {{ experimentalBreakdown?.modelsAndRescue?.toFixed(2) || '0.00' }}
+            </td>
             <td class="text-right text-medium-emphasis">4</td>
           </tr>
           <tr class="subtotal-row">
@@ -187,8 +184,7 @@
       experimentalBreakdown: () => ({
         function: 0,
         functionalAlteration: 0,
-        models: 0,
-        rescue: 0
+        modelsAndRescue: 0
       })
     }
   )

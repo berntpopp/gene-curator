@@ -79,7 +79,7 @@ const score = (over: Partial<ScoreSnapshot> = {}): ScoreSnapshot => ({
   classification: 'Moderate',
   hasContradictory: false,
   geneticBreakdown: { caseLevel: 4, segregation: 2, caseControl: 0 },
-  experimentalBreakdown: { function: 1.5, functionalAlteration: 0, models: 0, rescue: 0 },
+  experimentalBreakdown: { function: 1.5, functionalAlteration: 0, modelsAndRescue: 0 },
   ...over
 })
 
