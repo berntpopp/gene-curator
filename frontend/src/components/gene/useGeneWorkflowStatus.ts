@@ -76,6 +76,20 @@ export function shouldReplaceCuration(
   return new Date(newCuration.updated_at) > new Date(existing.updated_at)
 }
 
+const PAGE_SIZE = 200 // Backend max limit is 200
+
+/** Walk every page so large scopes are never silently capped. */
+async function fetchAllPages(
+  fetchPage: (skip: number) => Promise<{ rows?: WorkflowRecord[]; total?: number }>
+): Promise<WorkflowRecord[]> {
+  const all: WorkflowRecord[] = []
+  for (;;) {
+    const { rows = [], total = 0 } = await fetchPage(all.length)
+    all.push(...rows)
+    if (rows.length === 0 || all.length >= total) return all
+  }
+}
+
 /**
  * Precuration and curation status per gene for one scope, with the
  * predicates and labels the gene list uses to choose workflow actions.
@@ -92,14 +106,18 @@ export function useGeneWorkflowStatus(scopeId: () => string) {
    */
   async function fetchPrecurationStatuses() {
     try {
-      const response = (await precurationsAPI.getPrecurations({
-        scope_id: scopeId(),
-        limit: 200 // Backend max limit is 200
-      })) as { precurations?: WorkflowRecord[] }
+      const precurations = await fetchAllPages(async skip => {
+        const r = (await precurationsAPI.getPrecurations({
+          scope_id: scopeId(),
+          skip,
+          limit: PAGE_SIZE
+        })) as { precurations?: WorkflowRecord[]; total?: number }
+        return { rows: r.precurations, total: r.total }
+      })
 
       // Build map of gene_id -> most recent precuration
       const precurationMap: Record<string, PrecurationStatus> = {}
-      for (const precuration of response.precurations || []) {
+      for (const precuration of precurations) {
         const existing = precurationMap[precuration.gene_id]
         // Keep the most recent or highest-status precuration
         if (!existing || shouldReplacePrecuration(existing, precuration)) {
@@ -127,14 +145,18 @@ export function useGeneWorkflowStatus(scopeId: () => string) {
    */
   async function fetchCurationStatuses() {
     try {
-      const response = (await curationsAPI.getCurations({
-        scope_id: scopeId(),
-        limit: 200 // Backend max limit is 200
-      })) as { curations?: WorkflowRecord[] }
+      const curations = await fetchAllPages(async skip => {
+        const r = (await curationsAPI.getCurations({
+          scope_id: scopeId(),
+          skip,
+          limit: PAGE_SIZE
+        })) as { curations?: WorkflowRecord[]; total?: number }
+        return { rows: r.curations, total: r.total }
+      })
 
       // Build map of gene_id -> most recent/highest priority curation
       const curationMap: Record<string, CurationStatus> = {}
-      for (const curation of response.curations || []) {
+      for (const curation of curations) {
         const existing = curationMap[curation.gene_id]
         // Keep the most recent or highest-status curation
         if (!existing || shouldReplaceCuration(existing, curation)) {
