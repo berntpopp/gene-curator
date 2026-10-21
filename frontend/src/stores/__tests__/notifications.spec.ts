@@ -5,6 +5,7 @@ import type { Schema } from '@/types/api'
 import { useNotificationsStore } from '@/stores/notifications'
 import { notificationsAPI } from '@/api/notifications'
 import { logService } from '@/services/logService'
+import { snackbarState } from '@/composables/useNotifications'
 
 vi.mock('@/api/notifications', () => ({
   notificationsAPI: {
@@ -238,49 +239,25 @@ describe('useNotificationsStore', () => {
   })
 
   describe('toasts', () => {
-    it('adds toasts with incrementing ids and auto-dismisses them', () => {
-      vi.useFakeTimers()
+    it('addToast shows the shared snackbar with matching colour and timeout', () => {
       const store = useNotificationsStore()
 
-      const first = store.addToast('Saved', 'success', 1000)
-      const second = store.addToast('Oops', 'error', 0)
+      store.addToast('Oops', 'error', 1234)
 
-      expect(second).toBe(first + 1)
-      expect(store.toasts[0]).toMatchObject({ message: 'Saved', type: 'success', visible: true })
-
-      vi.advanceTimersByTime(1000)
-      expect(store.toasts.map(t => t.id)).toEqual([second])
+      expect(snackbarState).toMatchObject({
+        show: true,
+        message: 'Oops',
+        color: 'error',
+        timeout: 1234
+      })
     })
 
     it('defaults to an info toast with a 5 second timeout', () => {
-      vi.useFakeTimers()
       const store = useNotificationsStore()
 
       store.addToast('Hello')
-      expect(store.toasts[0]).toMatchObject({ type: 'info', timeout: 5000 })
 
-      vi.advanceTimersByTime(5000)
-      expect(store.toasts).toEqual([])
-    })
-
-    it('removeToast removes a single toast and ignores unknown ids', () => {
-      const store = useNotificationsStore()
-      const id = store.addToast('a', 'info', 0)
-      store.addToast('b', 'info', 0)
-
-      store.removeToast(id)
-      store.removeToast(9999)
-
-      expect(store.toasts.map(t => t.message)).toEqual(['b'])
-    })
-
-    it('clearToasts empties the list', () => {
-      const store = useNotificationsStore()
-      store.addToast('a', 'info', 0)
-
-      store.clearToasts()
-
-      expect(store.toasts).toEqual([])
+      expect(snackbarState).toMatchObject({ color: 'info', timeout: 5000 })
     })
   })
 })

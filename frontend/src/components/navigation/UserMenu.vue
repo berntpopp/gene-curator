@@ -71,7 +71,7 @@
    * @see src/stores/notifications.js
    */
 
-  import { computed, onMounted } from 'vue'
+  import { computed, watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -157,13 +157,15 @@
   }
 
   /**
-   * Load notifications on mount (if authenticated)
+   * Load notifications whenever the user becomes authenticated (also after a cold reload)
    */
-  onMounted(() => {
-    if (authStore.isAuthenticated) {
-      notificationsStore.fetchNotifications()
-    }
-  })
+  watch(
+    isAuthenticated,
+    value => {
+      if (value) notificationsStore.fetchNotifications()
+    },
+    { immediate: true }
+  )
 </script>
 
 <style scoped>

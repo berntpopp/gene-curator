@@ -4,9 +4,11 @@
  * @see src/components/AppBar.vue
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
-import { mount, type VueWrapper } from '@vue/test-utils'
-import { defineComponent, h } from 'vue'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
+import { mount, RouterLinkStub, type VueWrapper } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '@/stores/auth'
 import AppBar from '../AppBar.vue'
 
 const logger = vi.hoisted(() => ({ debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }))
@@ -26,21 +28,32 @@ const passthrough = defineComponent({
   }
 })
 
-const router = { push: vi.fn() }
+const display = vi.hoisted(() => ({ mdAndUp: { value: true } }))
+vi.mock('vuetify', async importOriginal => ({
+  ...(await importOriginal<typeof import('vuetify')>()),
+  useDisplay: () => display
+}))
 
 let wrapper: VueWrapper | undefined
+
+let pinia = createPinia()
 
 function mountAppBar() {
   wrapper = mount(AppBar, {
     global: {
-      mocks: { $router: router },
-      stubs: { VAppBar: passthrough }
+      plugins: [pinia],
+      stubs: { VAppBar: passthrough, RouterLink: RouterLinkStub }
     }
   })
   return wrapper
 }
 
 describe('AppBar', () => {
+  beforeEach(() => {
+    pinia = createPinia()
+    setActivePinia(pinia)
+  })
+
   afterEach(() => {
     wrapper?.unmount()
     wrapper = undefined
@@ -54,12 +67,24 @@ describe('AppBar', () => {
     expect(wrapper?.text()).toContain('Version: 0.3.0 - Build: dev')
   })
 
-  it('navigates home from the title', async () => {
+  it('links logo and title to home with one keyboard-reachable link', () => {
     mountAppBar()
 
-    await wrapper?.find('.clickable').trigger('click')
+    const link = wrapper?.findComponent(RouterLinkStub)
+    expect(link?.props('to')).toBe('/')
+    expect(link?.attributes('aria-label')).toBe('Gene Curator home')
+    expect(link?.text()).toContain('Gene Curator')
+    expect(wrapper?.find('.v-img').attributes('alt') ?? '').toBe('')
+  })
 
-    expect(router.push).toHaveBeenCalledWith('/')
+  it('hides version, theme toggle and user menu below md', () => {
+    display.mdAndUp = ref(false)
+    mountAppBar()
+
+    expect(wrapper?.text()).not.toContain('Version')
+    expect(wrapper?.find('.ml-2').exists()).toBe(false)
+    expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
+    display.mdAndUp = ref(true)
   })
 
   it('toggles the theme, persists it and logs the change', async () => {
@@ -76,9 +101,26 @@ describe('AppBar', () => {
     expect(localStorage.getItem('theme')).toBe('light')
   })
 
-  it('labels the icon-only theme toggle for screen readers', () => {
+  it('labels the theme toggle with its target theme and shows that theme icon', async () => {
+    mountAppBar()
+    const toggle = wrapper?.find('.ml-2')
+
+    expect(toggle?.attributes('aria-label')).toBe('Switch to dark theme')
+    expect(toggle?.html()).toContain('mdi-weather-night')
+
+    await toggle?.trigger('click')
+
+    expect(toggle?.attributes('aria-label')).toBe('Switch to light theme')
+    expect(toggle?.html()).toContain('mdi-white-balance-sunny')
+  })
+
+  it('hides navigation and user menu while a stored token has no user loaded yet', () => {
+    const auth = useAuthStore()
+    auth.token = 't'
+    auth.user = null
     mountAppBar()
 
-    expect(wrapper?.find('.ml-2').attributes('aria-label')).toBe('Toggle theme')
+    expect(wrapper?.find('nav').exists()).toBe(false)
+    expect(wrapper?.findComponent({ name: 'UserMenu' }).exists()).toBe(false)
   })
 })
