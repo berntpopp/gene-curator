@@ -41,6 +41,8 @@ export function createWorkspaceFrame() {
   const submitBinding = shallowRef<SubmitBinding | null>(null)
   const baseline = ref<string | null>(null)
   const failed = ref(false)
+  // What was on screen when the current save started: edits typed during the request stay unsaved
+  let inflight: string | null = null
   const savedAt = ref<number | null>(null)
   const score = ref<ScoreSnapshot | null>(null)
   const meta = ref<{ disease?: string; moi?: string }>({})
@@ -61,25 +63,38 @@ export function createWorkspaceFrame() {
     baseline.value = snapshot()
   }
 
+  function markSaved() {
+    baseline.value = inflight ?? snapshot()
+    inflight = null
+  }
+
   function attachForm(binding: FormBinding) {
     form.value = binding
+    watch(
+      binding.saving,
+      on => {
+        if (on) inflight = snapshot()
+      },
+      { flush: 'sync' }
+    )
     watch(binding.savedAt, at => {
       if (at === null) return
       failed.value = false
       savedAt.value = at
-      markClean()
+      markSaved()
     })
   }
 
   async function save(): Promise<boolean> {
     const f = form.value
-    if (!f || f.saving.value || blockers.value.length) return false
+    if (!f || f.saving.value) return false
     const ok = await f.save().catch(() => false)
     failed.value = !ok
     if (ok) {
       savedAt.value ??= Date.now()
-      markClean()
+      markSaved()
     }
+    inflight = null
     return ok
   }
 

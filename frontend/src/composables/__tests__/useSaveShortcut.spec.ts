@@ -58,17 +58,30 @@ describe('useSaveShortcut', () => {
     document.body.append(dialog)
     const event = press(input)
     expect(save).not.toHaveBeenCalled()
-    expect(event.defaultPrevented).toBe(false)
+    // the browser's save-page dialog is still suppressed
+    expect(event.defaultPrevented).toBe(true)
   })
 
-  it('ignores other keys, modifiers and key repeat', () => {
+  it('ignores other keys and modifiers without touching them', () => {
     const save = vi.fn()
     mountShortcut(save)
-    press(document.body, { key: 'a' })
-    press(document.body, { shiftKey: true })
-    press(document.body, { altKey: true })
-    press(document.body, { repeat: true })
-    press(document.body, { ctrlKey: false })
+    for (const init of [{ key: 'a' }, { shiftKey: true }, { altKey: true }, { ctrlKey: false }]) {
+      expect(press(document.body, init).defaultPrevented).toBe(false)
+    }
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('does not save on key repeat but still suppresses the browser dialog', () => {
+    const save = vi.fn()
+    mountShortcut(save)
+    expect(press(document.body, { repeat: true }).defaultPrevented).toBe(true)
+    expect(save).not.toHaveBeenCalled()
+  })
+
+  it('suppresses the browser dialog while disabled too', () => {
+    const save = vi.fn()
+    mountShortcut(save, () => false)
+    expect(press(document.body).defaultPrevented).toBe(true)
     expect(save).not.toHaveBeenCalled()
   })
 

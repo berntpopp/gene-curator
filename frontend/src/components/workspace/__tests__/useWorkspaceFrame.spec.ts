@@ -92,18 +92,52 @@ describe('workspace frame save state', () => {
     expect(frame.meta.value.disease).toBe('Alport syndrome')
   })
 
-  it('refuses to save or submit while something blocks it, and says what', async () => {
+  it('keeps edits made while a save is in flight unsaved', async () => {
+    const evidence = ref<Record<string, unknown>>({ a: 1 })
+    const saving = ref(false)
+    const savedAt = ref<number | null>(null)
+    let finish!: () => void
+    const save = vi.fn(async () => {
+      saving.value = true
+      await new Promise<void>(r => (finish = r))
+      saving.value = false
+      return true
+    })
+    const frame = createWorkspaceFrame()
+    frame.attachForm({ evidence, saving, savedAt, save })
+    frame.markClean()
+    evidence.value = { a: 2 }
+    const pending = frame.save()
+    evidence.value = { a: 3 } // typed while the request runs
+    finish()
+    await pending
+    expect(frame.state.value).toBe('unsaved')
+    expect(frame.dirty.value).toBe(true)
+  })
+
+  it('also keeps in-flight edits unsaved when the form reports its own save', async () => {
+    const { frame, evidence, saving, savedAt } = setup()
+    evidence.value = { a: 2 }
+    saving.value = true
+    await nextTick()
+    evidence.value = { a: 3 }
+    saving.value = false
+    savedAt.value = 5
+    await nextTick()
+    expect(frame.state.value).toBe('unsaved')
+  })
+
+  it('blocks only submit on a blocker, never saving', async () => {
     const { frame, save } = setup()
     frame.attachSubmit({ canSubmit: ref(true), run: vi.fn() })
-    frame.setBlocker('t1', 'Row 2: PMID 99 was not found')
-    expect(frame.blockers.value).toEqual(['Row 2: PMID 99 was not found'])
-    expect(await frame.save()).toBe(false)
-    expect(save).not.toHaveBeenCalled()
-    expect(frame.state.value).not.toBe('failed')
+    frame.setBlocker('t1', 'PMID 99 not found in Europe PMC')
+    expect(frame.blockers.value).toEqual(['PMID 99 not found in Europe PMC'])
     expect(frame.canSubmit.value).toBe(false)
     expect(frame.submit()).toBe(false)
+    expect(await frame.save()).toBe(true)
+    expect(save).toHaveBeenCalledTimes(1)
     frame.setBlocker('t1', null)
     expect(frame.blockers.value).toEqual([])
-    expect(await frame.save()).toBe(true)
+    expect(frame.canSubmit.value).toBe(true)
   })
 })

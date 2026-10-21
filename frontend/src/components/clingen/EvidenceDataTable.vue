@@ -25,7 +25,7 @@
                   :readonly="readonly"
                   placeholder="PMID"
                   @change="commitInput(index, col.key, $event)"
-                  @blur="onPmidBlur(index, $event)"
+                  @blur="onPmidBlur(item, index, $event)"
                 />
                 <PubmedLinkButton v-if="item[col.key]" :pmid="item[col.key]" />
               </div>
@@ -181,9 +181,21 @@
   )
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
 
-  function onPmidBlur(index: number, event: Event) {
-    if (!props.readonly) lookup.check(index, (event.target as HTMLInputElement).value)
+  // Lookups are keyed by the row's id when it has one, so removing a row cancels its own lookup
+  const rowKey = (item: EvidenceItem, index: number): string | number =>
+    typeof item.id === 'string' || typeof item.id === 'number' ? item.id : index
+
+  function onPmidBlur(item: EvidenceItem, index: number, event: Event) {
+    if (!props.readonly) lookup.check(rowKey(item, index), (event.target as HTMLInputElement).value)
   }
+
+  watch(
+    () => props.items.map(rowKey),
+    (keys, before) => {
+      const live = new Set(keys)
+      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+    }
+  )
 
   function updateField(index: number, key: string, value: unknown) {
     const newItems = [...props.items]

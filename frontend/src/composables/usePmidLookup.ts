@@ -28,7 +28,7 @@ export function usePmidLookup() {
   const results = reactive<Record<string, PmidResult>>({})
   const cells = new Map<
     string | number,
-    { timer?: ReturnType<typeof setTimeout>; ctrl?: AbortController }
+    { timer?: ReturnType<typeof setTimeout>; ctrl?: AbortController; pmid?: string }
   >()
 
   function cancel(cell: string | number) {
@@ -37,6 +37,8 @@ export function usePmidLookup() {
     clearTimeout(c.timer)
     c.ctrl?.abort()
     cells.delete(cell)
+    // A cancelled lookup must not stay "loading" forever
+    if (c.pmid && results[c.pmid]?.status === 'loading') results[c.pmid] = { status: 'idle' }
   }
 
   function check(cell: string | number, raw: unknown) {
@@ -51,7 +53,10 @@ export function usePmidLookup() {
     if (known === 'found' || known === 'notfound') return
 
     results[pmid] = { status: 'loading' }
-    const state: { timer?: ReturnType<typeof setTimeout>; ctrl?: AbortController } = {}
+    const state: { timer?: ReturnType<typeof setTimeout>; ctrl?: AbortController; pmid?: string } =
+      {
+        pmid
+      }
     cells.set(cell, state)
     state.timer = setTimeout(async () => {
       const ctrl = (state.ctrl = new AbortController())
@@ -72,7 +77,9 @@ export function usePmidLookup() {
                   .filter(Boolean)
                   .join(' ')
               }
-            : { status: 'notfound' }
+            : // The API also answers 200 when Europe PMC times out or errors: only a real
+              // "not found" may block; anything else is a failed lookup (retried on the next blur)
+              { status: item?.error?.startsWith('Publication not found') ? 'notfound' : 'error' }
       } catch {
         if (!ctrl.signal.aborted) results[pmid] = { status: 'error' }
       }

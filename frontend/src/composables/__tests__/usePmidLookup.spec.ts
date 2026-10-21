@@ -94,7 +94,9 @@ describe('usePmidLookup', () => {
   })
 
   it('marks an unknown PMID as not found and does not look it up twice', async () => {
-    api.validatePMIDs.mockResolvedValue({ results: [{ pmid: '99', is_valid: false, error: 'x' }] })
+    api.validatePMIDs.mockResolvedValue({
+      results: [{ pmid: '99', is_valid: false, error: 'Publication not found: 99' }]
+    })
     const { lookup } = setup()
     lookup.check(0, '99')
     await vi.advanceTimersByTimeAsync(300)
@@ -114,7 +116,9 @@ describe('usePmidLookup', () => {
   })
 
   it('knows which of a set of PMIDs are unknown', async () => {
-    api.validatePMIDs.mockResolvedValue({ results: [{ pmid: '9', is_valid: false }] })
+    api.validatePMIDs.mockResolvedValue({
+      results: [{ pmid: '9', is_valid: false, error: 'Publication not found: 9' }]
+    })
     const { lookup } = setup()
     lookup.check(0, '9')
     await vi.advanceTimersByTimeAsync(300)
@@ -128,5 +132,55 @@ describe('usePmidLookup', () => {
     app.unmount()
     await vi.advanceTimersByTimeAsync(1000)
     expect(api.validatePMIDs).not.toHaveBeenCalled()
+  })
+
+  it('treats "not found or invalid response" from Europe PMC as not found', async () => {
+    api.validatePMIDs.mockResolvedValue({
+      results: [{ pmid: '8', is_valid: false, error: 'Publication not found or invalid response' }]
+    })
+    const { lookup } = setup()
+    lookup.check(0, '8')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(lookup.statusOf('8')).toBe('notfound')
+  })
+
+  it('does not call a timeout or 5xx from Europe PMC "not found": error, retried, never blocking', async () => {
+    api.validatePMIDs
+      .mockResolvedValueOnce({
+        results: [{ pmid: '6', is_valid: false, error: 'API error: HTTP 503' }]
+      })
+      .mockResolvedValueOnce(found('6'))
+    const { lookup } = setup()
+    lookup.check(0, '6')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(lookup.statusOf('6')).toBe('error')
+    expect(lookup.hasUnknown(['6'])).toBe(false)
+    lookup.check(0, '6') // not cached: the next blur asks again
+    await vi.advanceTimersByTimeAsync(300)
+    expect(api.validatePMIDs).toHaveBeenCalledTimes(2)
+    expect(lookup.statusOf('6')).toBe('found')
+  })
+
+  it('resets a lookup that was cancelled mid-flight to idle instead of leaving it loading', async () => {
+    api.validatePMIDs.mockImplementation(() => new Promise(() => {}))
+    const { lookup } = setup()
+    lookup.check('row-a', '31')
+    await vi.advanceTimersByTimeAsync(300)
+    expect(lookup.statusOf('31')).toBe('loading')
+    lookup.cancel('row-a')
+    expect(lookup.statusOf('31')).toBe('idle')
+  })
+
+  it('does not abort another cell when one is cancelled', async () => {
+    api.validatePMIDs.mockImplementation(() => new Promise(() => {}))
+    const { lookup } = setup()
+    lookup.check('row-a', '41')
+    lookup.check('row-b', '42')
+    await vi.advanceTimersByTimeAsync(300)
+    const [a, b] = api.validatePMIDs.mock.calls.map(c => c[1] as AbortSignal)
+    lookup.cancel('row-a')
+    expect(a!.aborted).toBe(true)
+    expect(b!.aborted).toBe(false)
+    expect(lookup.statusOf('42')).toBe('loading')
   })
 })

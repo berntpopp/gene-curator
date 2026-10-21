@@ -129,7 +129,7 @@ describe('EvidenceDataTable PMID lookup on blur (#319)', () => {
       }
     ]
   }
-  const unknown = { results: [{ pmid: '99', is_valid: false, error: 'not found' }] }
+  const unknown = { results: [{ pmid: '99', is_valid: false, error: 'Publication not found: 99' }] }
 
   function mountTable(pmid: string, frame = createWorkspaceFrame()) {
     const wrapper = mount(EvidenceDataTable, {
@@ -200,5 +200,26 @@ describe('EvidenceDataTable PMID lookup on blur (#319)', () => {
     await wrapper.find('input[placeholder="PMID"]').trigger('blur')
     await vi.advanceTimersByTimeAsync(500)
     expect(api.validatePMIDs).not.toHaveBeenCalled()
+  })
+
+  it("keeps another row's lookup running when a row is removed (keyed by row id)", async () => {
+    api.validatePMIDs.mockImplementation(() => new Promise(() => {}))
+    const wrapper = mount(EvidenceDataTable, {
+      props: {
+        items: [
+          { id: 'r1', pmid: '11' },
+          { id: 'r2', pmid: '22' }
+        ],
+        columns
+      }
+    })
+    const inputs = wrapper.findAll('input[placeholder="PMID"]')
+    await inputs[0]!.trigger('blur')
+    await inputs[1]!.trigger('blur')
+    await vi.advanceTimersByTimeAsync(300)
+    const signals = api.validatePMIDs.mock.calls.map(c => c[1] as AbortSignal)
+    await wrapper.setProps({ items: [{ id: 'r2', pmid: '22' }] })
+    expect(signals[0]!.aborted).toBe(true) // the removed row's lookup stops
+    expect(signals[1]!.aborted).toBe(false) // the surviving row's does not
   })
 })

@@ -19,13 +19,7 @@
       <div class="ws-actions">
         <SaveState v-if="state" :state="state" :saved-at="savedAt" @retry="emit('retry')" />
         <template v-if="!readonly">
-          <v-btn
-            data-testid="ws-save"
-            variant="outlined"
-            :loading="saving"
-            :disabled="saveBlocked"
-            @click="emit('save')"
-          >
+          <v-btn data-testid="ws-save" variant="outlined" :loading="saving" @click="emit('save')">
             Save draft
           </v-btn>
           <v-btn
@@ -63,7 +57,6 @@
     showSubmit: boolean
     canSubmit: boolean
     saving: boolean
-    saveBlocked?: boolean
   }>()
   const emit = defineEmits<{ save: []; submit: []; retry: [] }>()
 </script>
