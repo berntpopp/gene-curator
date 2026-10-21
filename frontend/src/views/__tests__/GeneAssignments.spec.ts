@@ -78,7 +78,7 @@ describe('GeneAssignments (My Work)', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Request failed')
+    expect(wrapper.text()).toContain('Failed to load your assignments')
     expect(wrapper.text()).not.toContain('No assignments')
     await wrapper.find('button.retry').trigger('click')
     await flushPromises()
@@ -93,5 +93,23 @@ describe('GeneAssignments (My Work)', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('All assignments')
     expect(wrapper.find('.manager-stub').exists()).toBe(true)
+  })
+  it('shows the all-assignments manager to scope admins', async () => {
+    const store = setup()
+    useScopesStore().scopes = [{ id: 's1', name: 'k', user_role: 'admin' }] as never
+    vi.spyOn(store, 'fetchCuratorAssignments').mockResolvedValue([])
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('.manager-stub').exists()).toBe(true)
+  })
+
+  it('does not blank My Work when only the shared store error is set', async () => {
+    const store = setup()
+    vi.spyOn(store, 'fetchCuratorAssignments').mockResolvedValue([mine] as never)
+    store.error = 'manager failed'
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('HNF1B')
+    expect(wrapper.text()).not.toContain('manager failed')
   })
 })

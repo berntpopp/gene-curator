@@ -121,7 +121,7 @@
     if (precuration.value) {
       return {
         label: 'Continue precuration',
-        to: { name: 'gene-precuration-create', params },
+        to: { name: 'scope-dashboard', params: { scopeId: params.scopeId, tab: 'genes' } },
         stage: precuration.value.workflow_stage ?? precuration.value.status
       }
     }

@@ -64,9 +64,6 @@
    * Filters schemas by type (curation/combined) and provides
    * a confirmation step before proceeding.
    *
-   * Named differently from SchemaSelector to avoid conflict with
-   * the existing workflow pair selector in components/dynamic/.
-   *
    * @example
    * <CurationSchemaSelect
    *   v-model="selectedSchemaId"

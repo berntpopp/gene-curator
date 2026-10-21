@@ -58,7 +58,7 @@
       </v-card-text>
     </v-card>
 
-    <template v-if="authStore.isAdmin">
+    <template v-if="canSeeAll">
       <h2 class="text-h5 font-weight-bold mt-8 mb-4">All assignments</h2>
       <GeneAssignmentManager />
     </template>
@@ -77,19 +77,22 @@
 
   const items = ref<Schema<'GeneScopeAssignmentSummary'>[]>([])
   const loading = ref(true)
-  const error = computed(() => assignmentsStore.error)
+  const error = ref<string | null>(null)
+  const canSeeAll = computed(
+    () => authStore.isAdmin || scopesStore.userScopes.some(s => s.user_role === 'admin')
+  )
 
   const scopeLabel = (item: { scope_id: string; scope_name: string }) =>
     scopesStore.scopes.find(s => s.id === item.scope_id)?.display_name ?? item.scope_name
 
   async function load() {
     loading.value = true
-    assignmentsStore.error = null
+    error.value = null
     try {
       const me = authStore.user?.id
       if (me) items.value = await assignmentsStore.fetchCuratorAssignments(me)
     } catch {
-      // the store records the message in assignmentsStore.error
+      error.value = 'Failed to load your assignments'
     } finally {
       loading.value = false
     }

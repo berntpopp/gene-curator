@@ -98,7 +98,12 @@ describe('AssignmentDetail', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    expect(actions(wrapper).map(a => a.text)).toEqual(['Continue precuration'])
+    expect(actions(wrapper)).toEqual([
+      {
+        text: 'Continue precuration',
+        to: { name: 'scope-dashboard', params: { scopeId: 's1', tab: 'genes' } }
+      }
+    ])
     expect(wrapper.text()).toContain('draft')
   })
 
