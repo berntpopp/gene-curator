@@ -34,7 +34,7 @@ CREATE POLICY review_reassign_insert_policy ON reviews
             SELECT 1 FROM curations c
             WHERE c.id = reviews.curation_id
               AND c.created_by = get_current_user_uuid()
-              AND c.workflow_stage = 'review'
+              AND c.status = 'in_review'
         )
         AND has_reviewed_curation(reviews.curation_id, reviews.reviewer_id)
     );
