@@ -52,6 +52,7 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
             ScopeMembership.user_id == user_id,
             ScopeMembership.scope_id == scope_id,
             ScopeMembership.is_active,
+            ScopeMembership.accepted_at.isnot(None),
         )
         .first()
     )
@@ -193,6 +194,7 @@ def list_curations(
             .filter(
                 ScopeMembership.user_id == current_user.id,
                 ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
             )
             .all()
         )
@@ -295,13 +297,20 @@ def create_curation(
 ) -> Curation:
     """
     Create a new curation.
-    Requires access to the target scope.
+    Requires curator or admin role in the target scope.
     """
     # Set RLS context
     set_rls_context(db, current_user)
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation_in.scope_id, "create")
+    if current_user.role != "admin" and _get_user_scope_role(
+        db, current_user.id, curation_in.scope_id
+    ) not in ["admin", "curator"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only curators and scope admins can create curations",
+        )
 
     try:
         curation = curation_crud.create_curation(

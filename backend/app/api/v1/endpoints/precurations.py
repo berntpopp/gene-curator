@@ -162,13 +162,15 @@ def create_precuration(
 ) -> Precuration:
     """
     Create a new precuration.
-    Requires access to the target scope.
+    Requires curator or admin access to the target scope.
     """
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration_in.scope_id)
+    _check_scope_access(
+        db, current_user, precuration_in.scope_id, required_roles=["admin", "curator"]
+    )
 
     try:
         precuration = precuration_crud.create_precuration(
@@ -211,7 +213,9 @@ def update_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
 
     # Check precuration is editable
     if precuration.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -257,6 +261,10 @@ def save_draft(
             detail="Precuration not found",
         )
 
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
+
     # Only creator or admin can save drafts
     if current_user.role != "admin" and precuration.created_by != current_user.id:
         raise HTTPException(
@@ -293,6 +301,10 @@ def submit_precuration(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Precuration not found",
         )
+
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["admin", "curator"]
+    )
 
     # Only creator or admin can submit
     if current_user.role != "admin" and precuration.created_by != current_user.id:
@@ -348,7 +360,9 @@ def complete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
+    )
 
     try:
         completed = precuration_crud.complete_precuration(
@@ -393,7 +407,9 @@ def approve_precuration(
         )
 
     # Verify scope access with reviewer role
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
+    )
 
     # 4-eyes principle: creator cannot approve their own precuration
     if precuration.created_by == current_user.id and current_user.role != "admin":
@@ -439,7 +455,9 @@ def reject_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["reviewer", "admin"]
+    )
 
     reason = rejection_data.get("reason", "No reason provided")
 
@@ -465,7 +483,7 @@ def delete_precuration(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> None:
-    """Soft delete a precuration (archive)."""
+    """Archive a precuration. Linked curations prevent deletion with HTTP 409."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -478,7 +496,9 @@ def delete_precuration(
         )
 
     # Verify scope access
-    _check_scope_access(db, current_user, precuration.scope_id)
+    _check_scope_access(
+        db, current_user, precuration.scope_id, required_roles=["curator", "admin"]
+    )
 
     # Only allow deletion of drafts (or by admin)
     if precuration.status != CurationStatus.DRAFT and current_user.role != "admin":
