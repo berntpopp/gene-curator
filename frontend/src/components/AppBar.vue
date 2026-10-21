@@ -13,7 +13,7 @@
         width="48"
       />
       <span>
-        <span class="text-h6">Gene Curator</span>
+        <span class="text-title-large">Gene Curator</span>
         <br v-if="mdAndUp" />
         <span v-if="mdAndUp" class="version-info">
           Version: {{ version }} - Build: {{ buildHash }}

@@ -32,8 +32,8 @@
         <!-- Header -->
         <div class="d-flex align-center mb-4">
           <div>
-            <h1 class="text-h4 mb-1">{{ TERMINOLOGY.SCOPES }}</h1>
-            <div class="text-subtitle-1 text-medium-emphasis">
+            <h1 class="text-headline-large mb-1">{{ TERMINOLOGY.SCOPES }}</h1>
+            <div class="text-body-large text-medium-emphasis">
               Browse and manage curation scopes
             </div>
           </div>
@@ -128,19 +128,21 @@
               </v-card-subtitle>
 
               <v-card-text>
-                <div class="text-caption text-truncate-2 mb-3">
+                <div class="text-body-small text-truncate-2 mb-3">
                   {{ scope.description || 'No description' }}
                 </div>
 
                 <!-- Statistics -->
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-dna" size="small" class="mr-1"></v-icon>
-                  <span class="text-caption"> {{ scope.stats?.total_genes || 0 }} genes </span>
+                  <span class="text-body-small"> {{ scope.stats?.total_genes || 0 }} genes </span>
                 </div>
 
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-account-group" size="small" class="mr-1"></v-icon>
-                  <span class="text-caption"> {{ scope.stats?.member_count || 0 }} members </span>
+                  <span class="text-body-small">
+                    {{ scope.stats?.member_count || 0 }} members
+                  </span>
                 </div>
 
                 <!-- Progress Bar -->
@@ -152,7 +154,7 @@
                   class="mb-2"
                 ></v-progress-linear>
 
-                <div class="text-caption text-medium-emphasis">
+                <div class="text-body-small text-medium-emphasis">
                   {{ calculateScopeProgress(scope) }}% complete
                 </div>
               </v-card-text>
@@ -183,7 +185,7 @@
               <!-- Due Date (if set) -->
               <v-card-text v-if="scope.due_date" class="pt-0">
                 <v-divider class="mb-2" />
-                <div class="d-flex align-center text-caption">
+                <div class="d-flex align-center text-body-small">
                   <v-icon icon="mdi-calendar" size="small" class="mr-1"></v-icon>
                   <span
                     >Due: {{ scope.due_date ? formatDate(scope.due_date) : 'No due date' }}</span
@@ -198,8 +200,8 @@
         <v-card v-else>
           <v-card-text class="text-center py-12">
             <v-icon icon="mdi-folder-outline" size="64" color="grey-lighten-1"></v-icon>
-            <div class="text-h6 mt-4 mb-2">No scopes found</div>
-            <div class="text-body-2 text-medium-emphasis mb-4">
+            <div class="text-title-large mt-4 mb-2">No scopes found</div>
+            <div class="text-body-medium text-medium-emphasis mb-4">
               Try adjusting your filters or create a new scope
             </div>
             <v-btn color="primary" prepend-icon="mdi-plus" @click="navigateToCreate">

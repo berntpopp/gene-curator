@@ -35,7 +35,7 @@
   <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="md">
     <template #title
       ><v-icon start color="primary" size="28">mdi-pencil</v-icon>
-      <span class="text-h6">Edit Gene Assignment</span>
+      <span class="text-title-large">Edit Gene Assignment</span>
       <v-spacer />
       <v-btn
         aria-label="Close"
@@ -50,8 +50,8 @@
           <div class="d-flex align-center">
             <v-icon color="primary" class="mr-3">mdi-dna</v-icon>
             <div>
-              <div class="text-subtitle-1 font-weight-bold">{{ gene?.gene_symbol }}</div>
-              <div v-if="gene?.gene_hgnc_id" class="text-caption text-medium-emphasis">
+              <div class="text-body-large font-weight-bold">{{ gene?.gene_symbol }}</div>
+              <div v-if="gene?.gene_hgnc_id" class="text-body-small text-medium-emphasis">
                 {{ gene.gene_hgnc_id }}
               </div>
             </div>
@@ -84,14 +84,14 @@
       >
         <div v-if="validationResult.is_valid">
           <strong>Gene annotation is valid</strong>
-          <div v-if="validationResult.approved_symbol" class="text-caption">
+          <div v-if="validationResult.approved_symbol" class="text-body-small">
             Approved symbol: {{ validationResult.approved_symbol }}
           </div>
         </div>
         <div v-else>
           <strong>Validation issues found</strong>
           <ul v-if="validationResult.warnings?.length" class="mb-0 pl-4">
-            <li v-for="(warning, i) in validationResult.warnings" :key="i" class="text-caption">
+            <li v-for="(warning, i) in validationResult.warnings" :key="i" class="text-body-small">
               {{ warning }}
             </li>
           </ul>
@@ -99,7 +99,7 @@
             <li
               v-for="(error, i) in validationResult.errors"
               :key="i"
-              class="text-caption text-error"
+              class="text-body-small text-error"
             >
               {{ error }}
             </li>
@@ -112,7 +112,7 @@
     <v-form ref="formRef" v-model="formValid">
       <!-- Priority Selection -->
       <div class="mb-4">
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           <v-icon start size="small" color="primary">mdi-flag</v-icon>
           Priority Level
         </div>
@@ -131,7 +131,7 @@
 
       <!-- Due Date Picker -->
       <div class="mb-4">
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           <v-icon start size="small" color="primary">mdi-calendar</v-icon>
           Due Date
         </div>
@@ -148,7 +148,7 @@
 
       <!-- Assignment Notes -->
       <div>
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           <v-icon start size="small" color="primary">mdi-note-text</v-icon>
           Assignment Notes
         </div>
@@ -466,7 +466,7 @@
   })
 </script>
 <style scoped>
-  .text-subtitle-2 {
+  .text-title-small {
     display: flex;
     align-items: center;
   }

@@ -48,7 +48,7 @@
       <v-list-item v-bind="props" :title="undefined" :subtitle="undefined">
         <template #prepend>
           <v-avatar size="36" color="primary">
-            <span class="text-caption font-weight-bold">
+            <span class="text-body-small font-weight-bold">
               {{ getInitials(item.name) }}
             </span>
           </v-avatar>
@@ -60,7 +60,9 @@
 
         <v-list-item-subtitle>
           <span>{{ item.email }}</span>
-          <span v-if="item.institution" class="ml-2 text-caption"> ({{ item.institution }}) </span>
+          <span v-if="item.institution" class="ml-2 text-body-small">
+            ({{ item.institution }})
+          </span>
         </v-list-item-subtitle>
       </v-list-item>
     </template>
@@ -69,7 +71,7 @@
     <template #selection="{ item }">
       <v-chip v-if="item" color="primary" variant="tonal" closable @click:close="clearSelection">
         <v-avatar start size="24" color="primary">
-          <span class="text-caption">{{ getInitials(item.name) }}</span>
+          <span class="text-body-small">{{ getInitials(item.name) }}</span>
         </v-avatar>
         {{ item.name || item.email }}
       </v-chip>

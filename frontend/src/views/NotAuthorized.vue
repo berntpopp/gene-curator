@@ -3,8 +3,8 @@
     <v-row align="center" justify="center">
       <v-col cols="12" md="6" class="text-center">
         <v-icon color="warning" size="96" class="mb-4"> mdi-lock-alert </v-icon>
-        <h1 class="text-h4 mb-4">Access Denied</h1>
-        <p class="text-body-1 mb-6 text-medium-emphasis">
+        <h1 class="text-headline-large mb-4">Access Denied</h1>
+        <p class="text-body-large mb-6 text-medium-emphasis">
           This page needs an administrator account.
         </p>
         <div class="d-flex justify-center align-center ga-4">

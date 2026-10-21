@@ -3,8 +3,8 @@
     <!-- Page Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">Dashboard</h1>
-        <p class="text-body-1 text-medium-emphasis mt-1">
+        <h1 class="text-headline-large font-weight-bold">Dashboard</h1>
+        <p class="text-body-large text-medium-emphasis mt-1">
           Welcome back, {{ authStore.user?.name || 'User' }}
         </p>
       </div>
@@ -48,7 +48,7 @@
             </div>
             <div v-else class="text-center py-8 text-medium-emphasis">
               <v-icon size="64" class="mb-4">mdi-domain</v-icon>
-              <div class="text-body-1">No scopes assigned</div>
+              <div class="text-body-large">No scopes assigned</div>
             </div>
           </v-card-text>
         </v-card>

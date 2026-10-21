@@ -31,7 +31,7 @@
   <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="lg">
     <template #title
       ><v-icon start color="primary" size="28">mdi-dna</v-icon>
-      <span class="text-h6">{{
+      <span class="text-title-large">{{
         scopeId ? 'Add genes to this scope' : 'Add Genes to Catalog'
       }}</span>
       <v-spacer />
@@ -97,11 +97,11 @@
                   </v-chip>
                 </v-list-item-title>
                 <v-list-item-subtitle>
-                  <span class="text-caption">{{ item.hgnc_id }}</span>
+                  <span class="text-body-small">{{ item.hgnc_id }}</span>
                   <span v-if="item.name" class="mx-2">|</span>
-                  <span v-if="item.name" class="text-caption">{{ item.name }}</span>
+                  <span v-if="item.name" class="text-body-small">{{ item.name }}</span>
                 </v-list-item-subtitle>
-                <v-list-item-subtitle v-if="item.location" class="text-caption">
+                <v-list-item-subtitle v-if="item.location" class="text-body-small">
                   <v-icon size="x-small" class="mr-1">mdi-map-marker</v-icon>
                   {{ item.location }}
                 </v-list-item-subtitle>
@@ -113,7 +113,7 @@
               <v-chip color="primary" variant="tonal">
                 <v-icon start size="small">mdi-dna</v-icon>
                 {{ item.symbol }}
-                <span class="text-caption ml-2">({{ item.hgnc_id }})</span>
+                <span class="text-body-small ml-2">({{ item.hgnc_id }})</span>
               </v-chip>
             </template>
 
@@ -134,32 +134,32 @@
             <v-card v-if="selectedGene" variant="outlined" class="mt-4 pa-4" color="success">
               <div class="d-flex align-center mb-2">
                 <v-icon color="success" class="mr-2">mdi-check-circle</v-icon>
-                <span class="text-subtitle-1 font-weight-bold">Gene Details (from HGNC)</span>
+                <span class="text-body-large font-weight-bold">Gene Details (from HGNC)</span>
               </div>
 
               <v-row dense>
                 <v-col cols="6">
-                  <div class="text-caption text-medium-emphasis">HGNC ID</div>
+                  <div class="text-body-small text-medium-emphasis">HGNC ID</div>
                   <div class="font-weight-medium">{{ selectedGene.hgnc_id }}</div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption text-medium-emphasis">Symbol</div>
+                  <div class="text-body-small text-medium-emphasis">Symbol</div>
                   <div class="font-weight-medium">{{ selectedGene.symbol }}</div>
                 </v-col>
                 <v-col v-if="selectedGene.name" cols="12">
-                  <div class="text-caption text-medium-emphasis">Name</div>
+                  <div class="text-body-small text-medium-emphasis">Name</div>
                   <div class="font-weight-medium">{{ selectedGene.name }}</div>
                 </v-col>
                 <v-col v-if="selectedGene.location" cols="6">
-                  <div class="text-caption text-medium-emphasis">Location</div>
+                  <div class="text-body-small text-medium-emphasis">Location</div>
                   <div class="font-weight-medium">{{ selectedGene.location }}</div>
                 </v-col>
                 <v-col v-if="selectedGene.chromosome" cols="6">
-                  <div class="text-caption text-medium-emphasis">Chromosome</div>
+                  <div class="text-body-small text-medium-emphasis">Chromosome</div>
                   <div class="font-weight-medium">{{ selectedGene.chromosome }}</div>
                 </v-col>
                 <v-col v-if="selectedGene.alias_symbols?.length" cols="12">
-                  <div class="text-caption text-medium-emphasis">Aliases</div>
+                  <div class="text-body-small text-medium-emphasis">Aliases</div>
                   <div>
                     <v-chip
                       v-for="alias in selectedGene.alias_symbols.slice(0, 5)"
@@ -172,7 +172,7 @@
                     </v-chip>
                     <span
                       v-if="selectedGene.alias_symbols.length > 5"
-                      class="text-caption text-medium-emphasis"
+                      class="text-body-small text-medium-emphasis"
                     >
                       +{{ selectedGene.alias_symbols.length - 5 }} more
                     </span>
@@ -258,14 +258,14 @@
                       {{ getValidationIcon(result.status) }}
                     </v-icon>
                   </template>
-                  <v-list-item-title class="text-body-2">
+                  <v-list-item-title class="text-body-medium">
                     <span class="font-weight-medium">{{ result.input }}</span>
                     <span v-if="result.gene" class="text-medium-emphasis">
                       <v-icon size="x-small" class="mx-1">mdi-arrow-right</v-icon>
                       {{ result.gene.symbol }} ({{ result.gene.hgnc_id }})
                     </span>
                   </v-list-item-title>
-                  <v-list-item-subtitle v-if="result.message" class="text-caption">
+                  <v-list-item-subtitle v-if="result.message" class="text-body-small">
                     {{ result.message }}
                   </v-list-item-subtitle>
                   <template #append>
@@ -295,13 +295,13 @@
                             :key="altIdx"
                             @click="selectAlternative(idx, alt)"
                           >
-                            <v-list-item-title class="text-body-2">
+                            <v-list-item-title class="text-body-medium">
                               <strong>{{ alt.symbol }}</strong>
                               <span class="text-medium-emphasis ml-2">{{ alt.hgnc_id }}</span>
                             </v-list-item-title>
                             <v-list-item-subtitle
                               v-if="alt.name"
-                              class="text-caption text-truncate"
+                              class="text-body-small text-truncate"
                               style="max-width: 250px"
                             >
                               {{ alt.name }}

@@ -135,7 +135,7 @@
               height="8"
               rounded
             />
-            <div class="text-caption text-center mt-1">{{ item.progress || 0 }}%</div>
+            <div class="text-body-small text-center mt-1">{{ item.progress || 0 }}%</div>
           </td>
           <td>
             <GeneRowActions

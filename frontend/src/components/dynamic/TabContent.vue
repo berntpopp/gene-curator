@@ -14,7 +14,7 @@
         </v-expansion-panel-title>
 
         <v-expansion-panel-text>
-          <div v-if="section.help_text" class="text-caption text-medium-emphasis mb-4">
+          <div v-if="section.help_text" class="text-body-small text-medium-emphasis mb-4">
             {{ section.help_text }}
           </div>
 

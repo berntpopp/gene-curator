@@ -5,7 +5,7 @@
       <v-row>
         <v-col cols="12" class="text-center py-12">
           <v-progress-circular indeterminate size="64" color="primary" />
-          <div class="text-h6 mt-4 text-medium-emphasis">Loading gene information...</div>
+          <div class="text-title-large mt-4 text-medium-emphasis">Loading gene information...</div>
         </v-col>
       </v-row>
     </template>
@@ -37,7 +37,7 @@
               aria-label="Go back"
               @click="handleCancel"
             />
-            <h1 class="text-h5">{{ formGene.symbol || 'Unknown gene' }}</h1>
+            <h1 class="text-headline-small">{{ formGene.symbol || 'Unknown gene' }}</h1>
             <span class="text-medium-emphasis ml-3">
               {{ scope?.display_name || 'Scope' }} &middot; Precuration
             </span>

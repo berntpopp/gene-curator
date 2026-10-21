@@ -5,14 +5,14 @@
         <v-icon>mdi-information</v-icon>
       </template>
       <div class="font-weight-medium">No Contradictory Evidence</div>
-      <div class="text-body-2 mt-1">
+      <div class="text-body-medium mt-1">
         Add evidence that contradicts the gene-disease association if applicable. This may affect
         the final classification.
       </div>
     </v-alert>
 
     <div class="d-flex align-center mb-3">
-      <span class="text-subtitle-1 font-weight-medium">Contradictory Evidence</span>
+      <span class="text-body-large font-weight-medium">Contradictory Evidence</span>
       <v-spacer />
       <v-btn v-if="!readonly" color="error" variant="tonal" size="small" @click="addEvidence">
         <v-icon start>mdi-plus</v-icon>
@@ -118,7 +118,7 @@
         <v-icon>mdi-alert</v-icon>
       </template>
       <div class="font-weight-medium">Classification Impact</div>
-      <div class="text-body-2 mt-1">
+      <div class="text-body-medium mt-1">
         The presence of contradictory evidence may result in a "Disputed" classification, regardless
         of the total score. Expert review is recommended.
       </div>

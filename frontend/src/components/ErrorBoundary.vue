@@ -6,7 +6,7 @@
         Something went wrong
       </v-alert-title>
 
-      <div class="text-body-2 mt-2">
+      <div class="text-body-medium mt-2">
         {{ error.message || 'An unexpected error occurred' }}
       </div>
 

@@ -48,8 +48,8 @@
             ></v-icon>
 
             <div>
-              <h1 class="text-h4 mb-1">{{ scope.display_name }}</h1>
-              <div class="text-subtitle-1 text-medium-emphasis">
+              <h1 class="text-headline-large mb-1">{{ scope.display_name }}</h1>
+              <div class="text-body-large text-medium-emphasis">
                 {{ scope.description }}
               </div>
             </div>
@@ -75,9 +75,9 @@
             <v-card-text>
               <div class="d-flex align-center mb-2">
                 <v-icon icon="mdi-dna" color="primary" class="mr-2"></v-icon>
-                <div class="text-overline">Total Genes</div>
+                <div class="text-label-medium">Total Genes</div>
               </div>
-              <div class="text-h4">{{ stat(scopeStats?.total_genes_assigned) }}</div>
+              <div class="text-headline-large">{{ stat(scopeStats?.total_genes_assigned) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -87,9 +87,9 @@
             <v-card-text>
               <div class="d-flex align-center mb-2">
                 <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
-                <div class="text-overline">Completed</div>
+                <div class="text-label-medium">Completed</div>
               </div>
-              <div class="text-h4">{{ stat(completedGenes) }}</div>
+              <div class="text-headline-large">{{ stat(completedGenes) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -99,9 +99,9 @@
             <v-card-text>
               <div class="d-flex align-center mb-2">
                 <v-icon icon="mdi-progress-clock" color="warning" class="mr-2"></v-icon>
-                <div class="text-overline">In Progress</div>
+                <div class="text-label-medium">In Progress</div>
               </div>
-              <div class="text-h4">{{ stat(inProgressCount) }}</div>
+              <div class="text-headline-large">{{ stat(inProgressCount) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -111,10 +111,13 @@
             <v-card-text>
               <div class="d-flex align-center mb-2">
                 <v-icon icon="mdi-account-group" color="info" class="mr-2"></v-icon>
-                <div class="text-overline">Members</div>
+                <div class="text-label-medium">Members</div>
               </div>
-              <div class="text-h4">{{ stat(scopeStats?.member_count) }}</div>
-              <div v-if="scopeStats?.pending_invitations" class="text-caption text-medium-emphasis">
+              <div class="text-headline-large">{{ stat(scopeStats?.member_count) }}</div>
+              <div
+                v-if="scopeStats?.pending_invitations"
+                class="text-body-small text-medium-emphasis"
+              >
                 {{ scopeStats.pending_invitations }} invited
               </div>
             </v-card-text>
@@ -127,7 +130,7 @@
         <v-col>
           <v-card>
             <v-card-text>
-              <div class="text-subtitle-1 mb-2">Curation Progress</div>
+              <div class="text-body-large mb-2">Curation Progress</div>
               <v-progress-linear
                 :model-value="curationProgress"
                 color="success"
@@ -136,7 +139,7 @@
               >
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
-              <div class="text-caption text-medium-emphasis mt-2">
+              <div class="text-body-small text-medium-emphasis mt-2">
                 {{ stat(completedGenes) }} of {{ stat(scopeStats?.total_genes_assigned) }} genes
                 curated
               </div>
@@ -426,7 +429,7 @@
   }
 
   /* Stats cards */
-  .v-card .text-h4 {
+  .v-card .text-headline-large {
     font-weight: 600;
     line-height: 1;
   }

@@ -4,8 +4,8 @@
       <v-col cols="12">
         <div class="d-flex justify-space-between align-center mb-6">
           <div>
-            <h1 class="text-h4 font-weight-bold">User Management</h1>
-            <p class="text-subtitle-1 text-medium-emphasis mt-1">
+            <h1 class="text-headline-large font-weight-bold">User Management</h1>
+            <p class="text-body-large text-medium-emphasis mt-1">
               Manage user accounts, roles, and permissions
             </p>
           </div>
@@ -21,7 +21,7 @@
       </v-col>
     </v-row>
 
-    <p class="text-body-2 text-medium-emphasis mb-4" data-test="user-summary">
+    <p class="text-body-medium text-medium-emphasis mb-4" data-test="user-summary">
       {{ statistics.total_users || 0 }} users ·
       {{ statistics.role_distribution?.admin || 0 }} admins ·
       {{ statistics.inactive_users || 0 }} inactive
@@ -75,7 +75,7 @@
             </v-avatar>
             <div>
               <div class="font-weight-medium">{{ item.name }}</div>
-              <div class="text-caption text-medium-emphasis">{{ item.email }}</div>
+              <div class="text-body-small text-medium-emphasis">{{ item.email }}</div>
             </div>
           </div>
         </template>
@@ -100,13 +100,13 @@
 
         <!-- Dates -->
         <template #item.created_at="{ item }">
-          <div class="text-body-2">
+          <div class="text-body-medium">
             {{ formatDate(item.created_at) }}
           </div>
         </template>
 
         <template #item.last_login="{ item }">
-          <div class="text-body-2">
+          <div class="text-body-medium">
             {{ item.last_login ? formatDateTime(item.last_login) : 'Never' }}
           </div>
         </template>

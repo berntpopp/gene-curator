@@ -21,7 +21,7 @@
     <!-- Loading State -->
     <div v-if="loading" class="d-flex flex-column align-center py-16">
       <v-progress-circular indeterminate color="primary" size="64" />
-      <div class="text-body-1 text-medium-emphasis mt-6">Loading gene information...</div>
+      <div class="text-body-large text-medium-emphasis mt-6">Loading gene information...</div>
     </div>
 
     <!-- Error State -->
@@ -62,7 +62,7 @@
         <v-icon size="32" color="primary" class="mr-3">mdi-dna</v-icon>
         <div class="flex-grow-1">
           <div class="d-flex align-center">
-            <h1 class="text-h4 font-weight-bold">
+            <h1 class="text-headline-large font-weight-bold">
               {{ hgncData?.symbol || localGene.approved_symbol }}
             </h1>
             <v-chip
@@ -75,7 +75,7 @@
               {{ hgncData.status }}
             </v-chip>
           </div>
-          <p class="text-body-1 text-medium-emphasis mt-1">
+          <p class="text-body-large text-medium-emphasis mt-1">
             {{ hgncData?.name || 'Loading gene details from HGNC...' }}
           </p>
         </div>
@@ -93,25 +93,25 @@
             <v-card-text>
               <v-row dense>
                 <v-col cols="6" sm="4">
-                  <div class="text-caption text-medium-emphasis">HGNC ID</div>
+                  <div class="text-body-small text-medium-emphasis">HGNC ID</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.hgnc_id || localGene.hgnc_id }}
                   </div>
                 </v-col>
                 <v-col cols="6" sm="4">
-                  <div class="text-caption text-medium-emphasis">Symbol</div>
+                  <div class="text-body-small text-medium-emphasis">Symbol</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.symbol || localGene.approved_symbol }}
                   </div>
                 </v-col>
                 <v-col cols="12" sm="4">
-                  <div class="text-caption text-medium-emphasis">Locus Type</div>
+                  <div class="text-body-small text-medium-emphasis">Locus Type</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.locus_type || '—' }}
                   </div>
                 </v-col>
                 <v-col cols="12" class="mt-2">
-                  <div class="text-caption text-medium-emphasis">Full Name</div>
+                  <div class="text-body-small text-medium-emphasis">Full Name</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.name || '—' }}
                   </div>
@@ -129,13 +129,13 @@
             <v-card-text>
               <v-row dense>
                 <v-col cols="6">
-                  <div class="text-caption text-medium-emphasis">Chromosome</div>
+                  <div class="text-body-small text-medium-emphasis">Chromosome</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.chromosome || localGene.chromosome || '—' }}
                   </div>
                 </v-col>
                 <v-col cols="6">
-                  <div class="text-caption text-medium-emphasis">Cytogenetic Band</div>
+                  <div class="text-body-small text-medium-emphasis">Cytogenetic Band</div>
                   <div class="font-weight-medium">
                     {{ hgncData?.location || localGene.location || '—' }}
                   </div>
@@ -154,7 +154,7 @@
               <template v-if="hasAliases">
                 <v-row dense>
                   <v-col v-if="aliasSymbols?.length" cols="12" sm="6">
-                    <div class="text-caption text-medium-emphasis mb-2">Alias Symbols</div>
+                    <div class="text-body-small text-medium-emphasis mb-2">Alias Symbols</div>
                     <div class="d-flex flex-wrap ga-1">
                       <v-chip
                         v-for="alias in aliasSymbols"
@@ -167,7 +167,7 @@
                     </div>
                   </v-col>
                   <v-col v-if="previousSymbols?.length" cols="12" sm="6">
-                    <div class="text-caption text-medium-emphasis mb-2">Previous Symbols</div>
+                    <div class="text-body-small text-medium-emphasis mb-2">Previous Symbols</div>
                     <div class="d-flex flex-wrap ga-1">
                       <v-chip
                         v-for="prev in previousSymbols"
@@ -182,7 +182,7 @@
                   </v-col>
                 </v-row>
               </template>
-              <div v-else class="text-body-2 text-medium-emphasis">
+              <div v-else class="text-body-medium text-medium-emphasis">
                 No alias or previous symbols recorded.
               </div>
             </v-card-text>
@@ -211,7 +211,7 @@
                 <v-icon start>mdi-open-in-new</v-icon>
                 View on HGNC
               </v-btn>
-              <div v-else class="text-body-2 text-medium-emphasis text-center py-2">
+              <div v-else class="text-body-medium text-medium-emphasis text-center py-2">
                 No external links available
               </div>
             </v-card-text>
@@ -225,19 +225,19 @@
             </v-card-title>
             <v-card-text>
               <div class="mb-3">
-                <div class="text-caption text-medium-emphasis">Record ID</div>
+                <div class="text-body-small text-medium-emphasis">Record ID</div>
                 <div class="font-weight-medium text-truncate" :title="localGene.id">
                   {{ localGene.id }}
                 </div>
               </div>
               <div class="mb-3">
-                <div class="text-caption text-medium-emphasis">Created</div>
+                <div class="text-body-small text-medium-emphasis">Created</div>
                 <div class="font-weight-medium">
                   {{ formatDateTime(localGene.created_at) }}
                 </div>
               </div>
               <div>
-                <div class="text-caption text-medium-emphasis">Last Updated</div>
+                <div class="text-body-small text-medium-emphasis">Last Updated</div>
                 <div class="font-weight-medium">
                   {{ formatDateTime(localGene.updated_at) }}
                 </div>

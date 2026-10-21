@@ -1,14 +1,14 @@
 <template>
   <div class="evidence-readonly">
     <v-card variant="tonal" class="mb-4">
-      <v-card-title class="text-subtitle-1">Evidence summary</v-card-title>
+      <v-card-title class="text-body-large">Evidence summary</v-card-title>
       <v-card-text class="evidence-summary">
         {{ evidence.evidence_summary || 'No evidence summary was written.' }}
       </v-card-text>
     </v-card>
     <GeneticEvidenceSection :model-value="genetic" :moi="moi" readonly />
     <ExperimentalEvidenceSection class="mt-4" :model-value="experimental" readonly />
-    <h3 class="text-subtitle-1 mt-4 mb-2">Contradictory evidence</h3>
+    <h3 class="text-body-large mt-4 mb-2">Contradictory evidence</h3>
     <ContradictoryEvidenceSection :model-value="evidence.contradictory_evidence ?? []" readonly />
   </div>
 </template>

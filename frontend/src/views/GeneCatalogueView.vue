@@ -4,8 +4,8 @@
     <v-container>
       <v-row align="center" justify="space-between" class="mb-4">
         <v-col cols="12" md="6">
-          <h1 class="text-h4 mb-2">Gene Catalogue</h1>
-          <p class="text-subtitle-1 text-medium-emphasis">
+          <h1 class="text-headline-large mb-2">Gene Catalogue</h1>
+          <p class="text-body-large text-medium-emphasis">
             Browse curated genes across all clinical scopes
           </p>
         </v-col>
@@ -15,28 +15,28 @@
             <v-col cols="4">
               <v-card variant="tonal" color="primary" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-dna</v-icon>
-                <div class="text-h5 font-weight-bold">
+                <div class="text-headline-small font-weight-bold">
                   {{ summaryValue(catalogueStore.summary.totalGenesCurated) }}
                 </div>
-                <div class="text-caption">Curated Genes</div>
+                <div class="text-body-small">Curated Genes</div>
               </v-card>
             </v-col>
             <v-col cols="4">
               <v-card variant="tonal" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-clipboard-check</v-icon>
-                <div class="text-h5 font-weight-bold">
+                <div class="text-headline-small font-weight-bold">
                   {{ summaryValue(catalogueStore.summary.totalCurations) }}
                 </div>
-                <div class="text-caption">Active Curations</div>
+                <div class="text-body-small">Active Curations</div>
               </v-card>
             </v-col>
             <v-col cols="4">
               <v-card variant="tonal" color="info" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-folder-multiple</v-icon>
-                <div class="text-h5 font-weight-bold">
+                <div class="text-headline-small font-weight-bold">
                   {{ summaryValue(catalogueStore.summary.totalScopes) }}
                 </div>
-                <div class="text-caption">Scopes</div>
+                <div class="text-body-small">Scopes</div>
               </v-card>
             </v-col>
           </v-row>
@@ -154,7 +154,7 @@
               </v-avatar>
               <div>
                 <div class="font-weight-bold">{{ item.approved_symbol }}</div>
-                <div class="text-caption text-medium-emphasis">{{ item.hgnc_id }}</div>
+                <div class="text-body-small text-medium-emphasis">{{ item.hgnc_id }}</div>
               </div>
             </div>
           </template>
@@ -165,7 +165,7 @@
               <v-icon size="x-small" color="info" class="mr-1">mdi-map-marker</v-icon>
               <div>
                 <span class="font-weight-medium">{{ item.chromosome }}</span>
-                <div v-if="item.location" class="text-caption text-medium-emphasis">
+                <div v-if="item.location" class="text-body-small text-medium-emphasis">
                   {{ item.location }}
                 </div>
               </div>
@@ -179,10 +179,13 @@
           <!-- Best Score Column -->
           <template #item.best_score="{ item }">
             <div v-if="getBestScore(item)" class="text-center">
-              <div class="text-h6 font-weight-bold" :class="getScoreColorClass(getBestScore(item))">
+              <div
+                class="text-title-large font-weight-bold"
+                :class="getScoreColorClass(getBestScore(item))"
+              >
                 {{ formatScore(getBestScore(item)) }}
               </div>
-              <div class="text-caption text-medium-emphasis">points</div>
+              <div class="text-body-small text-medium-emphasis">points</div>
             </div>
             <div v-else class="text-center text-medium-emphasis">
               <v-icon size="small">mdi-minus</v-icon>
@@ -198,7 +201,7 @@
               />
               <div
                 v-if="Object.keys(item.classifications).length > 1"
-                class="text-caption text-medium-emphasis mt-1"
+                class="text-body-small text-medium-emphasis mt-1"
               >
                 +{{ Object.keys(item.classifications).length - 1 }} more
               </div>
@@ -216,7 +219,7 @@
                 <v-icon start size="x-small">mdi-folder-multiple</v-icon>
                 {{ item.scope_count }}
               </v-chip>
-              <div class="text-caption text-medium-emphasis mt-1">
+              <div class="text-body-small text-medium-emphasis mt-1">
                 {{ item.total_curations }} curation{{ item.total_curations !== 1 ? 's' : '' }}
               </div>
             </div>
@@ -286,7 +289,7 @@
             <tr>
               <td :colspan="columns.length" class="pa-0">
                 <v-card flat color="surface-variant" class="ma-2">
-                  <v-card-title class="text-subtitle-1">
+                  <v-card-title class="text-body-large">
                     <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
                     Curations by Scope
                   </v-card-title>
@@ -320,7 +323,7 @@
                               {{ curation.disease_name }}
                               <span
                                 v-if="curation.mondo_id"
-                                class="text-caption text-medium-emphasis"
+                                class="text-body-small text-medium-emphasis"
                               >
                                 ({{ curation.mondo_id }})
                               </span>
@@ -338,7 +341,7 @@
                               Score: {{ formatScore(curation.total_score) }}
                               <span
                                 v-if="curation.genetic_score || curation.experimental_score"
-                                class="text-caption text-medium-emphasis"
+                                class="text-body-small text-medium-emphasis"
                               >
                                 (G: {{ formatScore(curation.genetic_score) }}, E:
                                 {{ formatScore(curation.experimental_score) }})
@@ -352,7 +355,7 @@
                             </span>
 
                             <!-- Activated date -->
-                            <span class="text-caption text-medium-emphasis">
+                            <span class="text-body-small text-medium-emphasis">
                               <v-icon size="x-small" class="mr-1">mdi-calendar-check</v-icon>
                               {{ formatDate(curation.activated_at) }}
                             </span>
@@ -370,8 +373,8 @@
           <template #no-data>
             <div class="text-center py-8">
               <v-icon size="64" class="mb-4 text-medium-emphasis"> mdi-clipboard-search </v-icon>
-              <h3 class="text-h6 mb-2">No curated genes found</h3>
-              <p class="text-body-2 text-medium-emphasis">
+              <h3 class="text-title-large mb-2">No curated genes found</h3>
+              <p class="text-body-medium text-medium-emphasis">
                 {{
                   catalogueStore.hasActiveFilters
                     ? 'Try adjusting your search criteria'
@@ -391,8 +394,8 @@
           <v-icon>mdi-dna</v-icon>
         </v-avatar>
         <div>
-          <span class="text-h5">{{ selectedGene.approved_symbol }}</span>
-          <div class="text-caption text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
+          <span class="text-headline-small">{{ selectedGene.approved_symbol }}</span>
+          <div class="text-body-small text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
         </div>
         <v-spacer />
         <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
@@ -402,24 +405,24 @@
       <!-- Gene Info Summary -->
       <v-row class="mb-4">
         <v-col cols="6" sm="3">
-          <div class="text-caption text-medium-emphasis">Location</div>
+          <div class="text-body-small text-medium-emphasis">Location</div>
           <div class="font-weight-medium">
             {{ selectedGene.chromosome || 'Unknown' }}
-            <span v-if="selectedGene.location" class="text-caption">
+            <span v-if="selectedGene.location" class="text-body-small">
               ({{ selectedGene.location }})
             </span>
           </div>
         </v-col>
         <v-col cols="6" sm="3">
-          <div class="text-caption text-medium-emphasis">Curations</div>
+          <div class="text-body-small text-medium-emphasis">Curations</div>
           <div class="font-weight-medium">{{ selectedGene.total_curations }}</div>
         </v-col>
         <v-col cols="6" sm="3">
-          <div class="text-caption text-medium-emphasis">Scopes</div>
+          <div class="text-body-small text-medium-emphasis">Scopes</div>
           <div class="font-weight-medium">{{ selectedGene.scope_count }}</div>
         </v-col>
         <v-col cols="6" sm="3">
-          <div class="text-caption text-medium-emphasis">Best Score</div>
+          <div class="text-body-small text-medium-emphasis">Best Score</div>
           <div class="font-weight-bold" :class="getScoreColorClass(getBestScore(selectedGene))">
             {{ formatScore(getBestScore(selectedGene)) || '-' }}
           </div>
@@ -427,7 +430,7 @@
       </v-row>
 
       <!-- Scope Curations List -->
-      <div class="text-subtitle-2 mb-2">
+      <div class="text-title-small mb-2">
         <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
         Curations by Scope
       </div>
@@ -455,7 +458,7 @@
           </v-list-item-title>
 
           <v-list-item-subtitle class="mt-1">
-            <div class="d-flex flex-wrap ga-4 text-caption">
+            <div class="d-flex flex-wrap ga-4 text-body-small">
               <!-- Score -->
               <span v-if="curation.total_score !== null" class="d-flex align-center">
                 <v-icon size="x-small" class="mr-1" color="primary">mdi-chart-bar</v-icon>
@@ -504,7 +507,7 @@
 
       <!-- Diseases Summary -->
       <div v-if="selectedGene.diseases.length > 0" class="mt-4">
-        <div class="text-subtitle-2 mb-2">
+        <div class="text-title-small mb-2">
           <v-icon start size="small">mdi-virus</v-icon>
           Associated Diseases ({{ selectedGene.diseases.length }})
         </div>

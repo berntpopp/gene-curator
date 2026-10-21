@@ -11,7 +11,7 @@
               aspect-ratio="1"
               class="mx-auto mb-4"
             />
-            <h1 class="text-h4">Create Account</h1>
+            <h1 class="text-headline-large">Create Account</h1>
           </v-card-title>
 
           <v-card-text>
@@ -90,7 +90,7 @@
               </v-btn>
 
               <div class="text-center">
-                <p class="text-body-2 mb-2">Already have an account?</p>
+                <p class="text-body-medium mb-2">Already have an account?</p>
                 <v-btn :to="{ name: 'Login' }" variant="text" color="primary"> Sign in </v-btn>
               </div>
             </v-form>

@@ -10,7 +10,7 @@
     <div class="drawer-container">
       <!-- Toolbar -->
       <v-toolbar color="primary" density="compact" class="drawer-header">
-        <v-toolbar-title class="text-subtitle-1">
+        <v-toolbar-title class="text-body-large">
           <v-icon start>mdi-text-box-search-outline</v-icon>
           Application logs
           <v-chip
@@ -164,7 +164,7 @@
                   <v-chip :color="getLogColor(log.level)" size="x-small" variant="flat">
                     {{ log.level }}
                   </v-chip>
-                  <span class="text-caption text-grey">
+                  <span class="text-body-small text-grey">
                     {{ formatTimestamp(log.timestamp) }}
                   </span>
                   <v-chip v-if="log.correlationId" size="x-small" variant="outlined" color="grey">
@@ -183,14 +183,14 @@
               </div>
 
               <!-- Log Message -->
-              <div class="log-message text-body-2 mb-1">
+              <div class="log-message text-body-medium mb-1">
                 {{ log.message }}
               </div>
 
               <!-- Log Data (if present) -->
               <v-expansion-panels v-if="log.data" variant="accordion" class="log-data">
                 <v-expansion-panel>
-                  <v-expansion-panel-title class="text-caption py-1">
+                  <v-expansion-panel-title class="text-body-small py-1">
                     <v-icon start size="small">mdi-code-json</v-icon>
                     Additional Data
                   </v-expansion-panel-title>

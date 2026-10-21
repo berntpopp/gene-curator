@@ -61,7 +61,7 @@
 
           <v-list-item-subtitle>
             {{ member.user_email }}
-            <span v-if="member.user_orcid" class="text-caption ml-2">
+            <span v-if="member.user_orcid" class="text-body-small ml-2">
               (ORCID: {{ member.user_orcid }})
             </span>
           </v-list-item-subtitle>

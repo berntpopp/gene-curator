@@ -11,7 +11,7 @@
             aria-label="Go back"
             @click="handleCancel"
           />
-          <h1 class="text-h4">
+          <h1 class="text-headline-large">
             {{ isEdit ? 'Edit Curation' : 'New Curation' }}
           </h1>
         </div>
@@ -65,7 +65,7 @@
             <v-icon>mdi-alert-circle</v-icon>
           </template>
           <div class="font-weight-medium">No Curation Schema Available</div>
-          <div class="text-body-2 mt-1">
+          <div class="text-body-medium mt-1">
             This scope does not have a curation schema configured. Please contact an administrator.
           </div>
         </v-alert>

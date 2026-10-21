@@ -11,13 +11,13 @@
       <!-- Score breakdown -->
       <v-row dense>
         <v-col cols="6">
-          <div class="text-caption text-grey">Genetic Score</div>
-          <div class="text-h6">{{ scopeSummary.genetic_score.toFixed(2) }}</div>
+          <div class="text-body-small text-grey">Genetic Score</div>
+          <div class="text-title-large">{{ scopeSummary.genetic_score.toFixed(2) }}</div>
         </v-col>
         <v-col cols="6">
           <v-col cols="6">
-            <div class="text-caption text-grey">Experimental Score</div>
-            <div class="text-h6">{{ scopeSummary.experimental_score.toFixed(2) }}</div>
+            <div class="text-body-small text-grey">Experimental Score</div>
+            <div class="text-title-large">{{ scopeSummary.experimental_score.toFixed(2) }}</div>
           </v-col>
         </v-col>
       </v-row>
@@ -25,8 +25,10 @@
       <!-- Total score -->
       <v-divider class="my-3" />
       <div class="d-flex justify-space-between align-center">
-        <span class="text-subtitle-2">Total Score</span>
-        <span class="text-h5 font-weight-bold">{{ scopeSummary.total_score.toFixed(2) }}</span>
+        <span class="text-title-small">Total Score</span>
+        <span class="text-headline-small font-weight-bold">{{
+          scopeSummary.total_score.toFixed(2)
+        }}</span>
       </div>
 
       <!-- Progress bar -->
@@ -40,7 +42,7 @@
 
       <!-- Metadata -->
       <v-divider class="my-3" />
-      <div class="text-caption text-grey">
+      <div class="text-body-small text-grey">
         <v-row dense>
           <v-col cols="6">
             <div>

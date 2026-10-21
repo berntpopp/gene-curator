@@ -32,7 +32,7 @@
   <BaseDialog v-model="isOpen" @cancel="close" size="md">
     <template #title
       ><v-icon start color="primary" size="28">mdi-dna</v-icon>
-      <span class="text-h6">
+      <span class="text-title-large">
         {{ geneData?.symbol || props.geneSymbol || 'Gene Details' }}
       </span>
       <v-chip
@@ -50,7 +50,9 @@
     <!-- Loading State -->
     <div v-if="loading" class="d-flex flex-column align-center py-8">
       <v-progress-circular indeterminate color="primary" size="48" />
-      <div class="text-body-2 text-medium-emphasis mt-4">Loading gene information from HGNC...</div>
+      <div class="text-body-medium text-medium-emphasis mt-4">
+        Loading gene information from HGNC...
+      </div>
     </div>
 
     <!-- Error State -->
@@ -63,25 +65,25 @@
     <template v-else-if="geneData">
       <!-- Basic Information Section -->
       <div class="mb-6">
-        <div class="text-subtitle-2 text-medium-emphasis mb-3 d-flex align-center">
+        <div class="text-title-small text-medium-emphasis mb-3 d-flex align-center">
           <v-icon size="small" class="mr-2">mdi-information</v-icon>
           Basic Information
         </div>
         <v-row dense>
           <v-col cols="6" sm="4">
-            <div class="text-caption text-medium-emphasis">HGNC ID</div>
+            <div class="text-body-small text-medium-emphasis">HGNC ID</div>
             <div class="font-weight-medium">{{ geneData.hgnc_id }}</div>
           </v-col>
           <v-col cols="6" sm="4">
-            <div class="text-caption text-medium-emphasis">Symbol</div>
+            <div class="text-body-small text-medium-emphasis">Symbol</div>
             <div class="font-weight-medium">{{ geneData.symbol }}</div>
           </v-col>
           <v-col cols="12" sm="4">
-            <div class="text-caption text-medium-emphasis">Locus Type</div>
+            <div class="text-body-small text-medium-emphasis">Locus Type</div>
             <div class="font-weight-medium">{{ geneData.locus_type || '—' }}</div>
           </v-col>
           <v-col cols="12">
-            <div class="text-caption text-medium-emphasis">Full Name</div>
+            <div class="text-body-small text-medium-emphasis">Full Name</div>
             <div class="font-weight-medium">{{ geneData.name || '—' }}</div>
           </v-col>
         </v-row>
@@ -89,17 +91,17 @@
 
       <!-- Location Section -->
       <div class="mb-6">
-        <div class="text-subtitle-2 text-medium-emphasis mb-3 d-flex align-center">
+        <div class="text-title-small text-medium-emphasis mb-3 d-flex align-center">
           <v-icon size="small" class="mr-2">mdi-map-marker</v-icon>
           Genomic Location
         </div>
         <v-row dense>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Chromosome</div>
+            <div class="text-body-small text-medium-emphasis">Chromosome</div>
             <div class="font-weight-medium">{{ geneData.chromosome || '—' }}</div>
           </v-col>
           <v-col cols="6">
-            <div class="text-caption text-medium-emphasis">Cytogenetic Band</div>
+            <div class="text-body-small text-medium-emphasis">Cytogenetic Band</div>
             <div class="font-weight-medium">{{ geneData.location || '—' }}</div>
           </v-col>
         </v-row>
@@ -107,13 +109,13 @@
 
       <!-- Aliases Section -->
       <div v-if="hasAliases" class="mb-6">
-        <div class="text-subtitle-2 text-medium-emphasis mb-3 d-flex align-center">
+        <div class="text-title-small text-medium-emphasis mb-3 d-flex align-center">
           <v-icon size="small" class="mr-2">mdi-tag-multiple</v-icon>
           Alternative Names
         </div>
         <v-row dense>
           <v-col v-if="geneData.alias_symbols?.length" cols="12" sm="6">
-            <div class="text-caption text-medium-emphasis">Alias Symbols</div>
+            <div class="text-body-small text-medium-emphasis">Alias Symbols</div>
             <div class="d-flex flex-wrap ga-1 mt-1">
               <v-chip
                 v-for="alias in geneData.alias_symbols"
@@ -126,7 +128,7 @@
             </div>
           </v-col>
           <v-col v-if="geneData.previous_symbols?.length" cols="12" sm="6">
-            <div class="text-caption text-medium-emphasis">Previous Symbols</div>
+            <div class="text-body-small text-medium-emphasis">Previous Symbols</div>
             <div class="d-flex flex-wrap ga-1 mt-1">
               <v-chip
                 v-for="prev in geneData.previous_symbols"
@@ -144,11 +146,13 @@
 
       <!-- No Aliases Message -->
       <div v-else class="mb-6">
-        <div class="text-subtitle-2 text-medium-emphasis mb-3 d-flex align-center">
+        <div class="text-title-small text-medium-emphasis mb-3 d-flex align-center">
           <v-icon size="small" class="mr-2">mdi-tag-multiple</v-icon>
           Alternative Names
         </div>
-        <div class="text-body-2 text-medium-emphasis">No alias or previous symbols recorded.</div>
+        <div class="text-body-medium text-medium-emphasis">
+          No alias or previous symbols recorded.
+        </div>
       </div>
     </template>
     <template #actions>

@@ -307,13 +307,13 @@ describe('ScopeDashboard', () => {
     const wrapper = mount(ScopeDashboard, opts())
     await flushPromises()
     const tiles = wrapper
-      .findAll('.text-h4')
+      .findAll('.text-headline-large')
       .map(t => t.text())
       .slice(1)
     expect(tiles).toEqual(['—', '—', '—', '—'])
     release({ total_genes_assigned: 10, member_count: 4 } as never)
     await flushPromises()
-    expect(wrapper.findAll('.text-h4')[1]?.text()).toBe('10')
+    expect(wrapper.findAll('.text-headline-large')[1]?.text()).toBe('10')
   })
 
   it('derives the in-progress count and curation progress from the statistics', async () => {

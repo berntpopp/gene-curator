@@ -9,16 +9,18 @@
               <v-avatar size="100" class="mb-4">
                 <v-icon size="60">mdi-account-circle</v-icon>
               </v-avatar>
-              <h1 class="text-h4 mb-2">{{ userProfile?.name || currentUser?.email }}</h1>
-              <div class="text-subtitle-1 text-medium-emphasis">
+              <h1 class="text-headline-large mb-2">
+                {{ userProfile?.name || currentUser?.email }}
+              </h1>
+              <div class="text-body-large text-medium-emphasis">
                 {{ userProfile?.email }}
               </div>
-              <div class="text-body-2 text-medium-emphasis">
+              <div class="text-body-medium text-medium-emphasis">
                 Member since {{ formatDate(userProfile?.created_at) }}
               </div>
             </div>
 
-            <h2 class="text-h6 mb-3">Scopes &amp; roles</h2>
+            <h2 class="text-title-large mb-3">Scopes &amp; roles</h2>
             <v-table v-if="scopes.length" density="comfortable">
               <thead>
                 <tr>
@@ -37,7 +39,7 @@
                 </tr>
               </tbody>
             </v-table>
-            <p v-else class="text-body-2 text-medium-emphasis">
+            <p v-else class="text-body-medium text-medium-emphasis">
               You are not a member of any scope yet.
             </p>
           </v-card-text>
@@ -45,7 +47,7 @@
 
         <!-- Password Change Card -->
         <v-card>
-          <v-card-title class="text-h6">
+          <v-card-title class="text-title-large">
             <v-icon start>mdi-lock</v-icon>
             Change password
           </v-card-title>

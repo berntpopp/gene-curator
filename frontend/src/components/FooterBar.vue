@@ -3,7 +3,7 @@
     <v-container>
       <v-row align="center" justify="center">
         <v-col cols="12" md="6" class="text-center text-md-left">
-          <span class="text-caption"> © {{ currentYear }} Gene Curator - Halbritter Lab </span>
+          <span class="text-body-small"> © {{ currentYear }} Gene Curator - Halbritter Lab </span>
         </v-col>
         <v-col cols="12" md="6" class="text-center text-md-right">
           <v-btn
@@ -14,7 +14,7 @@
             rel="noopener noreferrer"
             variant="text"
             size="small"
-            class="text-caption"
+            class="text-body-small"
           >
             <v-icon start size="small">{{ link.icon }}</v-icon>
             {{ link.title }}
@@ -27,7 +27,7 @@
                 v-bind="props"
                 variant="text"
                 size="small"
-                class="text-caption"
+                class="text-body-small"
                 @click="showDisclaimer"
               >
                 <v-icon size="small" class="mr-1">mdi-scale-balance</v-icon>
@@ -53,7 +53,7 @@
             v-if="showLogs"
             variant="text"
             size="small"
-            class="text-caption"
+            class="text-body-small"
             :title="`Open Log Viewer (Ctrl+Shift+L) - ${logStore.errorCount} errors`"
             @click="logStore.showViewer"
           >

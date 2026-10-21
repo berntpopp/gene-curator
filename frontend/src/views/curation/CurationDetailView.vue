@@ -8,7 +8,7 @@
             <v-btn aria-label="Go back" icon variant="text" class="mr-3" @click="goBack">
               <v-icon>mdi-arrow-left</v-icon>
             </v-btn>
-            <h1 class="text-h4 d-inline">{{ pageTitle }}</h1>
+            <h1 class="text-headline-large d-inline">{{ pageTitle }}</h1>
           </div>
           <div class="d-flex ga-2">
             <v-btn
@@ -49,27 +49,29 @@
             <v-card-text>
               <v-row align="center">
                 <v-col cols="12" md="4" class="text-center text-md-left">
-                  <div class="text-h2 font-weight-bold">
+                  <div class="text-display-large font-weight-bold">
                     {{ scores.total.toFixed(2) }}
                   </div>
-                  <div class="text-subtitle-1">Total Points</div>
+                  <div class="text-body-large">Total Points</div>
                 </v-col>
                 <v-col cols="12" md="4" class="text-center">
-                  <ClassificationMark :classification="classification" class="text-h6" />
-                  <div class="text-caption mt-2">Gene-Disease Validity Classification</div>
+                  <ClassificationMark :classification="classification" class="text-title-large" />
+                  <div class="text-body-small mt-2">Gene-Disease Validity Classification</div>
                 </v-col>
                 <v-col cols="12" md="4">
                   <div class="d-flex justify-center justify-md-end ga-6">
                     <div class="text-center">
-                      <div class="text-h5 font-weight-medium">{{ scores.genetic.toFixed(2) }}</div>
-                      <div class="text-caption">Genetic (max 12)</div>
+                      <div class="text-headline-small font-weight-medium">
+                        {{ scores.genetic.toFixed(2) }}
+                      </div>
+                      <div class="text-body-small">Genetic (max 12)</div>
                     </div>
                     <v-divider vertical />
                     <div class="text-center">
-                      <div class="text-h5 font-weight-medium">
+                      <div class="text-headline-small font-weight-medium">
                         {{ scores.experimental.toFixed(2) }}
                       </div>
-                      <div class="text-caption">Experimental (max 6)</div>
+                      <div class="text-body-small">Experimental (max 6)</div>
                     </div>
                   </div>
                 </v-col>
@@ -89,7 +91,7 @@
                   <v-row>
                     <v-col cols="12" md="6">
                       <div class="mb-4">
-                        <div class="text-caption text-medium-emphasis">Gene Symbol</div>
+                        <div class="text-body-small text-medium-emphasis">Gene Symbol</div>
                         <div class="d-flex align-center ga-2 mt-1">
                           <v-chip color="primary" variant="tonal" size="large">
                             <v-icon start>mdi-dna</v-icon>
@@ -108,13 +110,13 @@
                         </div>
                       </div>
                       <div class="mb-4">
-                        <div class="text-caption text-medium-emphasis">Disease Name</div>
-                        <div class="text-h6 mt-1">
+                        <div class="text-body-small text-medium-emphasis">Disease Name</div>
+                        <div class="text-title-large mt-1">
                           {{ curation.disease_name || 'Not specified' }}
                         </div>
                       </div>
                       <div v-if="curation.mondo_id" class="mb-4">
-                        <div class="text-caption text-medium-emphasis">MONDO ID</div>
+                        <div class="text-body-small text-medium-emphasis">MONDO ID</div>
                         <v-chip
                           :href="`https://monarchinitiative.org/disease/${curation.mondo_id}`"
                           target="_blank"
@@ -129,14 +131,14 @@
                     </v-col>
                     <v-col cols="12" md="6">
                       <div class="mb-4">
-                        <div class="text-caption text-medium-emphasis">Mode of Inheritance</div>
+                        <div class="text-body-small text-medium-emphasis">Mode of Inheritance</div>
                         <v-chip v-if="curation.mode_of_inheritance" variant="outlined" class="mt-1">
                           {{ formatInheritance(curation.mode_of_inheritance) }}
                         </v-chip>
-                        <span v-else class="text-body-1 mt-1">Not specified</span>
+                        <span v-else class="text-body-large mt-1">Not specified</span>
                       </div>
                       <div class="mb-4">
-                        <div class="text-caption text-medium-emphasis">Status</div>
+                        <div class="text-body-small text-medium-emphasis">Status</div>
                         <v-chip
                           :color="curationStatusColor(curation.status)"
                           variant="tonal"
@@ -146,8 +148,8 @@
                         </v-chip>
                       </div>
                       <div class="mb-4">
-                        <div class="text-caption text-medium-emphasis">Curator</div>
-                        <div class="text-body-1 mt-1">
+                        <div class="text-body-small text-medium-emphasis">Curator</div>
+                        <div class="text-body-large mt-1">
                           <v-icon start size="small">mdi-account</v-icon>
                           {{ curation.curator_name || 'Unassigned' }}
                         </div>
@@ -168,7 +170,7 @@
                 <v-card-text>
                   <div
                     v-if="curation.status === 'in_review'"
-                    class="text-body-2 text-medium-emphasis mb-3"
+                    class="text-body-medium text-medium-emphasis mb-3"
                   >
                     Submitted by {{ curation.curator_name || 'unknown' }}
                     {{ formatDateTime(curation.updated_at) }}
@@ -219,7 +221,7 @@
                     </v-btn>
                     <div
                       v-if="!canSubmitForReview && !canDelete && !canReview"
-                      class="text-body-2 text-medium-emphasis text-center py-2"
+                      class="text-body-medium text-medium-emphasis text-center py-2"
                     >
                       {{
                         isAuthorInReview
@@ -277,20 +279,20 @@
                 <v-card-text>
                   <v-row>
                     <v-col cols="12" md="3">
-                      <div class="text-caption text-medium-emphasis">Created At</div>
-                      <div class="text-body-1">{{ formatDateTime(curation.created_at) }}</div>
+                      <div class="text-body-small text-medium-emphasis">Created At</div>
+                      <div class="text-body-large">{{ formatDateTime(curation.created_at) }}</div>
                     </v-col>
                     <v-col cols="12" md="3">
-                      <div class="text-caption text-medium-emphasis">Updated At</div>
-                      <div class="text-body-1">{{ formatDateTime(curation.updated_at) }}</div>
+                      <div class="text-body-small text-medium-emphasis">Updated At</div>
+                      <div class="text-body-large">{{ formatDateTime(curation.updated_at) }}</div>
                     </v-col>
                     <v-col cols="12" md="3">
-                      <div class="text-caption text-medium-emphasis">Workflow Stage</div>
-                      <div class="text-body-1">{{ curation.workflow_stage }}</div>
+                      <div class="text-body-small text-medium-emphasis">Workflow Stage</div>
+                      <div class="text-body-large">{{ curation.workflow_stage }}</div>
                     </v-col>
                     <v-col cols="12" md="3">
-                      <div class="text-caption text-medium-emphasis">Version</div>
-                      <div class="text-body-1">{{ curation.lock_version }}</div>
+                      <div class="text-body-small text-medium-emphasis">Version</div>
+                      <div class="text-body-large">{{ curation.lock_version }}</div>
                     </v-col>
                   </v-row>
                 </v-card-text>
@@ -307,7 +309,7 @@
       <p>
         Submit this curation for <strong>{{ curation?.gene_symbol }}</strong> for review?
       </p>
-      <p class="text-body-2 text-medium-emphasis mt-2">
+      <p class="text-body-medium text-medium-emphasis mt-2">
         Once submitted, the curation will be locked for editing until the review is complete.
       </p>
       <template #actions>

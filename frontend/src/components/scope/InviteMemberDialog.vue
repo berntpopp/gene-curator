@@ -47,7 +47,7 @@
       <v-alert v-if="selectedUser" type="info" variant="tonal" class="mt-3" density="compact">
         <div class="d-flex align-center">
           <v-avatar size="32" color="primary" class="mr-3">
-            <span class="text-caption font-weight-bold">
+            <span class="text-body-small font-weight-bold">
               {{ getInitials(selectedUser.name) }}
             </span>
           </v-avatar>
@@ -55,7 +55,7 @@
             <div class="font-weight-medium">
               {{ selectedUser.name || selectedUser.email }}
             </div>
-            <div class="text-caption text-medium-emphasis">{{ selectedUser.email }}</div>
+            <div class="text-body-small text-medium-emphasis">{{ selectedUser.email }}</div>
           </div>
         </div>
       </v-alert>

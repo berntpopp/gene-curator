@@ -44,7 +44,7 @@
 
       <v-divider class="my-2" />
 
-      <div class="text-caption text-medium-emphasis">
+      <div class="text-body-small text-medium-emphasis">
         <strong>Examples:</strong>
         <ul>
           <li>kidney-genetics</li>

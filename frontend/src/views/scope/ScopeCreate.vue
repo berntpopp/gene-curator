@@ -134,10 +134,10 @@
 
             <div class="d-flex align-center mb-3">
               <v-icon start color="primary">mdi-account-group</v-icon>
-              <span class="text-subtitle-1 font-weight-medium">Initial Members (Optional)</span>
+              <span class="text-body-large font-weight-medium">Initial Members (Optional)</span>
             </div>
 
-            <p class="text-body-2 text-medium-emphasis mb-3">
+            <p class="text-body-medium text-medium-emphasis mb-3">
               Add team members who will be invited when the scope is created. You'll be added as an
               admin automatically.
             </p>
@@ -147,7 +147,7 @@
               <v-list-item v-for="member in pendingMembers" :key="member.user.id">
                 <template #prepend>
                   <v-avatar size="32" :color="getRoleColor(member.role)">
-                    <span class="text-caption">{{ getInitials(member.user.name) }}</span>
+                    <span class="text-body-small">{{ getInitials(member.user.name) }}</span>
                   </v-avatar>
                 </template>
 

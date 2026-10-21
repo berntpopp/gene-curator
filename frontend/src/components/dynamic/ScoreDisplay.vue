@@ -12,10 +12,10 @@
         <!-- Total score display with progress -->
         <div class="text-center mb-4">
           <div class="d-flex align-center justify-center ga-2">
-            <div :class="`text-h2 font-weight-bold text-${classificationColor}`">
+            <div :class="`text-display-large font-weight-bold text-${classificationColor}`">
               {{ totalScore.toFixed(2) }}
             </div>
-            <div class="text-caption text-medium-emphasis">
+            <div class="text-body-small text-medium-emphasis">
               <div>out of</div>
               <div class="font-weight-bold">{{ maxScore.toFixed(2) }}</div>
             </div>
@@ -29,7 +29,9 @@
             class="mt-2"
           >
             <template #default>
-              <div class="text-caption font-weight-bold">{{ progressPercentage.toFixed(0) }}%</div>
+              <div class="text-body-small font-weight-bold">
+                {{ progressPercentage.toFixed(0) }}%
+              </div>
             </template>
           </v-progress-linear>
         </div>
@@ -46,7 +48,7 @@
           icon="mdi-alert-circle"
           class="mb-3"
         >
-          <div class="text-caption">
+          <div class="text-body-small">
             <strong>Near threshold:</strong> Within 1 point of next classification
           </div>
         </v-alert>
@@ -56,7 +58,7 @@
           <v-expansion-panel>
             <v-expansion-panel-title>
               <v-icon start size="small">mdi-view-list</v-icon>
-              <span class="text-caption">Category Breakdown</span>
+              <span class="text-body-small">Category Breakdown</span>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-row dense>
@@ -64,11 +66,11 @@
                   <v-card variant="outlined">
                     <v-card-text class="d-flex align-center pa-2">
                       <div class="flex-grow-1">
-                        <div class="text-caption text-medium-emphasis">
+                        <div class="text-body-small text-medium-emphasis">
                           {{ formatCategory(category) }}
                         </div>
                         <div
-                          class="text-h6 font-weight-bold score-value"
+                          class="text-title-large font-weight-bold score-value"
                           :class="getScoreColorClass(score)"
                         >
                           {{ score.toFixed(2) }}
@@ -90,7 +92,7 @@
           <v-expansion-panel>
             <v-expansion-panel-title>
               <v-icon start size="small">mdi-information</v-icon>
-              <span class="text-caption">Classification Thresholds</span>
+              <span class="text-body-small">Classification Thresholds</span>
             </v-expansion-panel-title>
             <v-expansion-panel-text>
               <v-list density="compact">
@@ -258,7 +260,7 @@
   /* Gap utility */
 
   /* Smooth transitions for score changes (300ms per CONTEXT.md) */
-  .text-h2 {
+  .text-display-large {
     transition:
       color 0.3s ease,
       transform 0.3s ease;
@@ -273,7 +275,7 @@
   }
 
   /* Prevent layout shift during transitions */
-  .text-h2 {
+  .text-display-large {
     min-width: 80px;
     text-align: center;
   }

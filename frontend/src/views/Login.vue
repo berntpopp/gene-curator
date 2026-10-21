@@ -11,7 +11,7 @@
               aspect-ratio="1"
               class="mx-auto mb-4"
             />
-            <h1 class="text-h4">{{ TERMINOLOGY.SIGN_IN }}</h1>
+            <h1 class="text-headline-large">{{ TERMINOLOGY.SIGN_IN }}</h1>
           </v-card-title>
 
           <v-card-text>
@@ -75,7 +75,7 @@
               </v-btn>
 
               <div class="text-center">
-                <p class="text-body-2 mb-2">Don't have an account?</p>
+                <p class="text-body-medium mb-2">Don't have an account?</p>
                 <v-btn :to="{ name: 'Register' }" variant="text" color="primary">
                   Create account
                 </v-btn>
@@ -86,7 +86,7 @@
 
         <!-- Development Login Helper -->
         <v-card v-if="isDevelopment" class="mt-4 pa-4" variant="tonal" color="info">
-          <v-card-title class="text-subtitle-1">
+          <v-card-title class="text-body-large">
             <v-icon start>mdi-dev-to</v-icon>
             Development quick login
           </v-card-title>

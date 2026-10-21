@@ -2,8 +2,8 @@
   <v-container fluid>
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">My Work</h1>
-        <p class="text-body-1 text-medium-emphasis mt-1">Genes assigned to you</p>
+        <h1 class="text-headline-large font-weight-bold">My Work</h1>
+        <p class="text-body-large text-medium-emphasis mt-1">Genes assigned to you</p>
       </div>
       <v-spacer />
       <v-btn variant="outlined" class="mr-2" to="/review-queue">Review queue</v-btn>
@@ -59,7 +59,7 @@
     </v-card>
 
     <template v-if="canSeeAll">
-      <h2 class="text-h5 font-weight-bold mt-8 mb-4">All assignments</h2>
+      <h2 class="text-headline-small font-weight-bold mt-8 mb-4">All assignments</h2>
       <GeneAssignmentManager />
     </template>
   </v-container>

@@ -3,8 +3,8 @@
     <!-- Header -->
     <div class="d-flex align-center mb-6">
       <div>
-        <h1 class="text-h4 font-weight-bold">Review Queue</h1>
-        <p class="text-subtitle-1 text-medium-emphasis mt-1">Curations awaiting peer review</p>
+        <h1 class="text-headline-large font-weight-bold">Review Queue</h1>
+        <p class="text-body-large text-medium-emphasis mt-1">Curations awaiting peer review</p>
       </div>
       <v-spacer />
       <v-chip color="warning" variant="flat" size="large" class="px-4">
@@ -99,7 +99,7 @@
               <v-col cols="12" md="4">
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-dna" color="primary" class="mr-2" />
-                  <span class="text-h6 font-weight-bold">{{ curation.gene_symbol }}</span>
+                  <span class="text-title-large font-weight-bold">{{ curation.gene_symbol }}</span>
                   <v-chip
                     v-if="curation.kind === 'precuration'"
                     size="x-small"
@@ -110,10 +110,13 @@
                     Precuration
                   </v-chip>
                 </div>
-                <div v-if="curation.disease_name" class="text-body-2 text-medium-emphasis ml-7">
+                <div
+                  v-if="curation.disease_name"
+                  class="text-body-medium text-medium-emphasis ml-7"
+                >
                   {{ curation.disease_name }}
                 </div>
-                <div class="text-caption text-medium-emphasis ml-7 mt-1">
+                <div class="text-body-small text-medium-emphasis ml-7 mt-1">
                   <v-icon icon="mdi-folder-outline" size="small" class="mr-1" />
                   {{ curation.scope_name }}
                 </div>
@@ -123,7 +126,7 @@
               <v-col cols="12" md="3">
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-account" size="small" class="mr-2" />
-                  <span class="text-body-2">{{ curation.curator_name || 'Unknown' }}</span>
+                  <span class="text-body-medium">{{ curation.curator_name || 'Unknown' }}</span>
                 </div>
                 <div class="d-flex align-center">
                   <v-chip color="warning" size="small" variant="flat">
@@ -136,10 +139,10 @@
               <!-- Score Preview -->
               <v-col cols="12" md="2">
                 <div v-if="curation.kind !== 'precuration'" class="text-center">
-                  <div class="text-h4 font-weight-bold">
+                  <div class="text-headline-large font-weight-bold">
                     {{ curation.total_score || 0 }}
                   </div>
-                  <div class="text-caption text-medium-emphasis">/ 18 points</div>
+                  <div class="text-body-small text-medium-emphasis">/ 18 points</div>
                   <ClassificationMark
                     v-if="curation.classification"
                     :classification="curation.classification"
@@ -150,7 +153,7 @@
 
               <!-- Submitted Time & Actions -->
               <v-col cols="12" md="3" class="text-right">
-                <div class="text-caption text-medium-emphasis mb-2">
+                <div class="text-body-small text-medium-emphasis mb-2">
                   Submitted {{ formatRelativeTime(curation.updated_at) }}
                 </div>
                 <div v-if="curation.kind === 'precuration'" class="d-flex justify-end ga-2">

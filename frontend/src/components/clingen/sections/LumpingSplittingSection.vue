@@ -5,14 +5,14 @@
         <v-icon>mdi-information</v-icon>
       </template>
       <div class="font-weight-medium">Disease Entity Information</div>
-      <div class="text-body-2 mt-1">
+      <div class="text-body-medium mt-1">
         This information is inherited from the approved precuration and is read-only. To modify the
         disease entity definition, update the precuration.
       </div>
     </v-alert>
 
     <v-card variant="outlined">
-      <v-card-title class="text-subtitle-1">
+      <v-card-title class="text-body-large">
         <v-icon start size="small">mdi-hospital-box</v-icon>
         Disease entity
       </v-card-title>
@@ -67,7 +67,7 @@
         <!-- Phenotypes -->
         <v-row v-if="phenotypes && phenotypes.length > 0" class="mt-2">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">Associated Phenotypes</div>
+            <div class="text-title-small mb-2">Associated Phenotypes</div>
             <v-chip-group>
               <v-chip
                 v-for="(phenotype, index) in phenotypes"
@@ -84,7 +84,7 @@
         <!-- Curation Type (per ClinGen Lumping & Splitting guidelines) -->
         <v-row v-if="curationType" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" class="mr-1">mdi-format-list-bulleted-type</v-icon>
               Curation Type
             </div>
@@ -97,7 +97,7 @@
         <!-- Lumping & Splitting Rationale (multiple choice per ClinGen) -->
         <v-row v-if="rationaleChoices && rationaleChoices.length > 0" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" class="mr-1">mdi-lightbulb-outline</v-icon>
               Rationale Criteria
             </div>
@@ -132,7 +132,7 @@
         <!-- Included MIM Phenotypes -->
         <v-row v-if="includedMimPhenotypes && includedMimPhenotypes.length > 0" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" color="success" class="mr-1">mdi-check-circle</v-icon>
               Included MIM Phenotypes
             </div>
@@ -167,7 +167,7 @@
         <!-- Excluded MIM Phenotypes -->
         <v-row v-if="excludedMimPhenotypes && excludedMimPhenotypes.length > 0" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" color="warning" class="mr-1">mdi-close-circle</v-icon>
               Excluded MIM Phenotypes
             </div>
@@ -202,7 +202,7 @@
         <!-- Supporting PMIDs -->
         <v-row v-if="supportingPmids && supportingPmids.length > 0" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" class="mr-1">mdi-book-open-page-variant</v-icon>
               Supporting Literature
             </div>
@@ -215,7 +215,7 @@
         <!-- Rationale Notes -->
         <v-row v-if="rationaleNotes" class="mt-4">
           <v-col cols="12">
-            <div class="text-subtitle-2 mb-2">
+            <div class="text-title-small mb-2">
               <v-icon size="small" class="mr-1">mdi-note-text</v-icon>
               Rationale Notes
             </div>

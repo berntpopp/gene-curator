@@ -37,10 +37,10 @@
       </template>
 
       <template #details>
-        <div v-if="isValidating" class="text-caption text-medium-emphasis">
+        <div v-if="isValidating" class="text-body-small text-medium-emphasis">
           Validating {{ internalPMIDs.length }} PMID(s)...
         </div>
-        <div v-else-if="hasValidResults" class="text-caption">
+        <div v-else-if="hasValidResults" class="text-body-small">
           <span v-if="validCount > 0" class="text-success"> {{ validCount }} valid </span>
           <span v-if="invalidCount > 0" class="text-error">
             {{ invalidCount > 0 && validCount > 0 ? ', ' : '' }}{{ invalidCount }} invalid
@@ -52,7 +52,7 @@
     <!-- Validated Publications Display -->
     <v-expand-transition>
       <div v-if="validatedPublications.length > 0" class="mt-3">
-        <div class="text-subtitle-2 mb-2 d-flex align-center">
+        <div class="text-title-small mb-2 d-flex align-center">
           <v-icon size="small" color="success" class="mr-1">mdi-check-circle</v-icon>
           Validated Publications ({{ validatedPublications.length }})
           <v-spacer />
@@ -68,13 +68,13 @@
         <v-expand-transition>
           <v-list v-if="showDetails" density="compact" class="rounded border">
             <v-list-item v-for="pub in validatedPublications" :key="pub.pmid" class="py-2">
-              <v-list-item-title class="text-body-2 d-flex align-center flex-wrap">
+              <v-list-item-title class="text-body-medium d-flex align-center flex-wrap">
                 <v-chip size="x-small" color="primary" variant="tonal" class="mr-2 mb-1">
                   PMID:{{ pub.pmid }}
                 </v-chip>
                 <span class="font-weight-medium">{{ truncateTitle(pub.title) }}</span>
               </v-list-item-title>
-              <v-list-item-subtitle class="text-caption">
+              <v-list-item-subtitle class="text-body-small">
                 {{ formatAuthors(pub) }}
                 <span v-if="pub.journal" class="text-primary ml-1">
                   - {{ pub.journal }} ({{ pub.year || 'N/A' }})
@@ -94,7 +94,7 @@
                         <v-icon size="small">mdi-text</v-icon>
                       </v-btn>
                     </template>
-                    <div class="text-caption" style="max-width: 400px">
+                    <div class="text-body-small" style="max-width: 400px">
                       <strong>Abstract</strong>
                       <div class="mt-1">{{ truncateAbstract(pub.abstract) }}</div>
                     </div>
@@ -140,7 +140,7 @@
         @click:close="validationErrors = []"
       >
         <template #title>Invalid PMIDs</template>
-        <div class="text-body-2">
+        <div class="text-body-medium">
           The following could not be validated:
           <v-chip
             v-for="err in validationErrors"

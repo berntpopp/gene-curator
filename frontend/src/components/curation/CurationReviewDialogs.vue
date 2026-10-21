@@ -25,8 +25,8 @@
         <strong class="ml-2">{{ scores.experimental.toFixed(2) }}</strong>
       </div>
     </div>
-    <div class="text-caption text-medium-emphasis mb-2">{{ counts }}</div>
-    <div v-if="summary" class="text-body-2 mb-4 summary">{{ summary }}</div>
+    <div class="text-body-small text-medium-emphasis mb-2">{{ counts }}</div>
+    <div v-if="summary" class="text-body-medium mb-4 summary">{{ summary }}</div>
     <v-textarea
       v-model="approveComment"
       label="Approval Comments (optional)"
@@ -68,7 +68,7 @@
     />
     <v-alert v-if="errorDetail" type="error" variant="tonal">{{ errorDetail }}</v-alert>
     <template #actions>
-      <span v-if="!rejectComment" class="text-caption text-medium-emphasis">
+      <span v-if="!rejectComment" class="text-body-small text-medium-emphasis">
         Feedback is required
       </span>
       <v-btn variant="text" @click="rejectOpen = false">Cancel</v-btn>
