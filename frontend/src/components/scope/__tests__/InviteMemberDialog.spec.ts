@@ -118,6 +118,20 @@ describe('InviteMemberDialog', () => {
     expect(vm.selectedUser).toBeNull()
   })
 
+  it('routes the dialog Escape (cancel) through the discard confirmation', async () => {
+    confirmMock.mockResolvedValue(true)
+    const { wrapper, vm } = mountDialog()
+    vm.notes = 'typed'
+
+    wrapper.findComponent({ name: 'BaseDialog' }).vm.$emit('cancel')
+    await flushPromises()
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard invitation?' })
+    )
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
   it('resets the form each time the dialog opens', async () => {
     const { wrapper, vm } = mountDialog({ modelValue: false })
     vm.selectedRole = 'admin'

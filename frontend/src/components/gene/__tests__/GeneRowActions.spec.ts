@@ -40,7 +40,13 @@ function menuItems(wrapper: ReturnType<typeof mount>) {
 describe('GeneRowActions', () => {
   it('shows precuration start and admin actions when the user can manage genes', () => {
     const wrapper = mount(GeneRowActions, {
-      props: { gene, workflow: workflow(), canAssignGenes: true, canRemoveGenes: true },
+      props: {
+        gene,
+        workflow: workflow(),
+        canAssignGenes: true,
+        canReassign: true,
+        canRemoveGenes: true
+      },
       global: { stubs: inlineMenu }
     })
 
@@ -61,6 +67,16 @@ describe('GeneRowActions', () => {
     expect(text).toContain('Start Precuration')
     expect(text).not.toContain('Reassign')
     expect(text).not.toContain('Remove from Scope')
+  })
+
+  it('hides Reassign and Edit Assignment unless the user may reassign', () => {
+    const wrapper = mount(GeneRowActions, {
+      props: { gene, workflow: workflow(), canAssignGenes: true, canRemoveGenes: false },
+      global: { stubs: inlineMenu }
+    })
+
+    expect(wrapper.text()).not.toContain('Reassign')
+    expect(wrapper.text()).not.toContain('Edit Assignment')
   })
 
   it('offers Complete Precuration instead of Start when a precuration is pending', () => {
@@ -98,6 +114,7 @@ describe('GeneRowActions', () => {
           getCurationStatusLabel: () => 'Active'
         }),
         canAssignGenes: true,
+        canReassign: true,
         canRemoveGenes: true
       },
       global: { stubs: inlineMenu }

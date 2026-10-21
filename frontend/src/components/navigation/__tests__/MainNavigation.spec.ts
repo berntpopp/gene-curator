@@ -5,6 +5,8 @@
  * dropdowns, role/auth filtering, the review-queue badge and its refresh timer.
  * Internals are reached through the component instance.
  */
+import { precurationsAPI } from '@/api'
+import { usePrecurationsStore } from '@/stores/precurations'
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h, ref } from 'vue'
@@ -167,6 +169,21 @@ describe('MainNavigation', () => {
 
     wrapper.unmount()
     await vi.advanceTimersByTimeAsync(60000)
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+  })
+
+  it('refreshes the badge after navigation and after a precuration review action', async () => {
+    const { fetchSpy } = await mountNav({ role: 'user' })
+    fetchSpy.mockClear()
+
+    await router.push('/profile')
+    await flushPromises()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    const precurations = usePrecurationsStore()
+    vi.spyOn(precurationsAPI, 'approvePrecuration').mockResolvedValue({} as never)
+    await precurations.approvePrecuration('p1')
+    await flushPromises()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 

@@ -38,6 +38,7 @@ from app.schemas.gene_assignment import (
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
+_ADMINS = ["admin", "scope_admin"]
 
 
 # ========================================
@@ -244,9 +245,9 @@ def update_gene_assignment(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # Updating requires at least curator role in the scope
-    if not ScopePermissionService.can_edit_gene_assignment(
-        db, current_user, assignment.scope_id
+    # Editing an assignment is a scope-admin action, like reassigning
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, assignment.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -367,10 +368,10 @@ def bulk_create_gene_assignments(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkGeneScopeAssignmentResponse:
     """
-    Bulk create gene-scope assignments. Available to all authenticated users with scope access.
+    Bulk create gene-scope assignments. Scope admins and application admins only.
     """
-    if not ScopePermissionService.can_edit_gene_assignment(
-        db, current_user, bulk_request.scope_id
+    if not ScopePermissionService.has_scope_access(
+        db, current_user, bulk_request.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -417,10 +418,9 @@ def assign_curator_to_gene(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # All authenticated users can assign curators in their scopes
-    # Check scope access
+    # Reassigning is a scope-admin action (curators may not hand work around)
     if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment.scope_id
+        db, current_user, assignment.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
@@ -456,10 +456,9 @@ def unassign_curator_from_gene(
             status_code=status.HTTP_404_NOT_FOUND, detail="Assignment not found"
         )
 
-    # All authenticated users can unassign curators in their scopes
-    # Check scope access
+    # Reassigning is a scope-admin action (curators may not hand work around)
     if not ScopePermissionService.has_scope_access(
-        db, current_user, assignment.scope_id
+        db, current_user, assignment.scope_id, required_roles=_ADMINS
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"

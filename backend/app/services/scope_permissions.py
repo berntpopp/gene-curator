@@ -544,13 +544,3 @@ class ScopePermissionService:
             precuration.scope_id,
             required_roles=["admin", "curator", "reviewer", "scope_admin"],
         )
-
-    @staticmethod
-    def can_edit_gene_assignment(db: Session, user: UserNew, scope_id: UUID) -> bool:
-        """Check if user can edit gene assignments in scope.
-
-        Requires curator or admin role in the scope.
-        """
-        return ScopePermissionService.has_scope_access(
-            db, user, scope_id, required_roles=["admin", "curator", "scope_admin"]
-        )

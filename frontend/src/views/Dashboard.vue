@@ -1,7 +1,7 @@
 <template>
   <v-container fluid>
     <!-- Page Header -->
-    <div class="d-flex align-center mb-6">
+    <div class="d-flex flex-wrap align-center ga-2 mb-6">
       <div>
         <h1 class="text-headline-large font-weight-bold">Dashboard</h1>
         <p class="text-body-large text-medium-emphasis mt-1">

@@ -205,6 +205,12 @@ describe('GeneList', () => {
       let row = (await mountList()).findComponent(GeneRowActions)
       expect(row.props('canRemoveGenes')).toBe(false)
       expect(row.props('canAssignGenes')).toBe(true)
+      expect(row.props('canReassign')).toBe(true)
+
+      scopeState.currentUserRole = 'curator'
+      row = (await mountList()).findComponent(GeneRowActions)
+      expect(row.props('canAssignGenes')).toBe(true)
+      expect(row.props('canReassign')).toBe(false)
 
       authState.isAdmin = true
       scopeState.currentUserRole = 'viewer'

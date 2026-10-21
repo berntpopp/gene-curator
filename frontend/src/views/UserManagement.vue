@@ -22,8 +22,8 @@
     </v-row>
 
     <p class="text-body-medium text-medium-emphasis mb-4" data-test="user-summary">
-      {{ statistics.total_users || 0 }} users ·
-      {{ statistics.role_distribution?.admin || 0 }} admins ·
+      {{ pluralize(statistics.total_users || 0, 'user') }} ·
+      {{ pluralize(statistics.role_distribution?.admin || 0, 'admin') }} ·
       {{ statistics.inactive_users || 0 }} inactive
     </p>
 
@@ -271,6 +271,7 @@
   import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
   import { formatDate, formatDateTime } from '@/utils/format'
+  import { pluralize } from '@/utils/pluralize'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { showSnackbar } from '@/composables/useNotifications'
   import {

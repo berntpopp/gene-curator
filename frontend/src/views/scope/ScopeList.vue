@@ -135,7 +135,9 @@
                 <!-- Statistics -->
                 <div class="d-flex align-center mb-2">
                   <v-icon icon="mdi-dna" size="small" class="mr-1"></v-icon>
-                  <span class="text-body-small"> {{ scope.stats?.total_genes || 0 }} genes </span>
+                  <span class="text-body-small">
+                    {{ pluralize(scope.stats?.total_genes || 0, 'gene') }}
+                  </span>
                 </div>
 
                 <div class="d-flex align-center mb-2">
@@ -221,6 +223,7 @@
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { formatDate } from '@/utils/format'
+  import { pluralize } from '@/utils/pluralize'
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useLogger } from '@/composables/useLogger'
 

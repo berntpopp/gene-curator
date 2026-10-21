@@ -177,6 +177,56 @@ describe('GeneAssignmentManager', () => {
     api.assignCurator.mockResolvedValue(undefined)
   })
 
+  describe('admin-only actions', () => {
+    it('shows Edit and Reassign only for scopes the user administers', async () => {
+      stores.auth.isAdmin = false
+      stores.scopes.scopes = [
+        { ...scopeA, user_role: 'admin' },
+        { ...scopeB, user_role: 'curator' }
+      ]
+      const wrapper = mountManager()
+      await flushPromises()
+      const rows = wrapper.findAll('.row-stub')
+
+      expect(rows[0]!.find('[aria-label="Edit assignment"]').exists()).toBe(true)
+      expect(rows[0]!.find('[aria-label="Reassign gene"]').exists()).toBe(true)
+      expect(rows[1]!.find('[aria-label="Edit assignment"]').exists()).toBe(false)
+      expect(rows[1]!.find('[aria-label="Reassign gene"]').exists()).toBe(false)
+      expect(wrapper.text()).toContain('Bulk Assign')
+      stores.auth.isAdmin = true
+    })
+
+    it('hides Bulk Assign when the user administers no scope', async () => {
+      stores.auth.isAdmin = false
+      stores.scopes.scopes = [{ ...scopeA, user_role: 'curator' }]
+      const wrapper = mountManager()
+      await flushPromises()
+
+      expect(wrapper.text()).not.toContain('Bulk Assign')
+      stores.auth.isAdmin = true
+    })
+
+    it('disables Bulk Assign while a selected row is in a scope the user does not administer', async () => {
+      stores.auth.isAdmin = false
+      stores.scopes.scopes = [
+        { ...scopeA, user_role: 'admin' },
+        { ...scopeB, user_role: 'curator' }
+      ]
+      const wrapper = mountManager()
+      await flushPromises()
+      const bulk = () => buttonWithText(wrapper, 'Bulk Assign (1)')
+
+      wrapper.findComponent({ name: 'VDataTable' }).vm.$emit('update:modelValue', ['a2'])
+      await flushPromises()
+      expect(bulk().attributes('disabled')).toBeDefined()
+
+      wrapper.findComponent({ name: 'VDataTable' }).vm.$emit('update:modelValue', ['a1'])
+      await flushPromises()
+      expect(bulk().attributes('disabled')).toBeUndefined()
+      stores.auth.isAdmin = true
+    })
+  })
+
   describe('loading', () => {
     it('loads assignments, scopes, and users on mount', async () => {
       mountManager()

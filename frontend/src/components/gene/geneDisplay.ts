@@ -23,7 +23,9 @@ export function getStatusColor(status: string): string {
   return colors[status] || 'grey'
 }
 
-export function getStatusLabel(status: string): string {
+/** An 'assigned' row with no curator reads 'Unassigned', matching the curator column. */
+export function getStatusLabel(status: string, hasCurator = true): string {
+  if (status === 'assigned' && !hasCurator) return 'Unassigned'
   const labels: Record<string, string> = {
     assigned: 'Assigned',
     in_progress: 'In Progress',

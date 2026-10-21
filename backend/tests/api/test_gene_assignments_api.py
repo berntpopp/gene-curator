@@ -203,7 +203,7 @@ def test_get_assignment_forbidden_for_non_member(
 def test_update_assignment_changes_priority_and_notes(
     client: TestClient,
     db_session: Session,
-    curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
 ) -> None:
@@ -212,7 +212,7 @@ def test_update_assignment_changes_priority_and_notes(
     response = client.put(
         f"{BASE}/{row.id}",
         json={"priority_level": "low", "assignment_notes": "later"},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
 
     assert response.status_code == 200
@@ -343,7 +343,7 @@ def test_assignment_statistics_access_rules(
 def test_bulk_create_assignments(
     client: TestClient,
     db_session: Session,
-    curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
 ) -> None:
@@ -352,7 +352,7 @@ def test_bulk_create_assignments(
     response = client.post(
         f"{BASE}/bulk",
         json={"gene_ids": [str(test_gene.id)], "scope_id": str(test_scope.id)},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
 
     assert response.status_code == 200
@@ -380,6 +380,7 @@ def test_assign_and_unassign_curator(
     client: TestClient,
     db_session: Session,
     curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
     test_user_curator: UserNew,
@@ -389,14 +390,14 @@ def test_assign_and_unassign_curator(
     assigned = client.post(
         f"{BASE}/{row.id}/assign-curator",
         json={"curator_id": str(test_user_curator.id)},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
     assert assigned.status_code == 200
     db_session.refresh(row)
     assert row.assigned_curator_id == test_user_curator.id
 
     cleared = client.post(
-        f"{BASE}/{row.id}/unassign-curator", headers=_auth(curator_token)
+        f"{BASE}/{row.id}/unassign-curator", headers=_auth(admin_token)
     )
     assert cleared.status_code == 200
     db_session.refresh(row)
@@ -406,7 +407,7 @@ def test_assign_and_unassign_curator(
 def test_assign_curator_rejects_unknown_or_non_member_curator(
     client: TestClient,
     db_session: Session,
-    curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_scope: Scope,
 ) -> None:
@@ -416,7 +417,7 @@ def test_assign_curator_rejects_unknown_or_non_member_curator(
     non_member = client.post(
         f"{BASE}/{row.id}/assign-curator",
         json={"curator_id": str(outsider.id)},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
     assert non_member.status_code == 400
     assert "does not have access" in non_member.json()["detail"]
@@ -424,7 +425,7 @@ def test_assign_curator_rejects_unknown_or_non_member_curator(
     unknown = client.post(
         f"{BASE}/{row.id}/assign-curator",
         json={"curator_id": str(uuid4())},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
     assert unknown.status_code == 400
     assert unknown.json()["detail"] == "Curator not found"

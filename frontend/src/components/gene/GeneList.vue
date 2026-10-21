@@ -122,7 +122,7 @@
           </td>
           <td>
             <v-chip :color="getStatusColor(item.status)" size="small">
-              {{ getStatusLabel(item.status) }}
+              {{ getStatusLabel(item.status, !!item.curator_name) }}
             </v-chip>
           </td>
           <td>
@@ -142,6 +142,7 @@
               :gene="item"
               :workflow="workflow"
               :can-assign-genes="canAssignGenes"
+              :can-reassign="canReassign"
               :can-remove-genes="canRemoveGenes"
               :start-blocked-reason="startBlockedReason"
               @start-precuration="startPrecuration"
@@ -386,6 +387,7 @@
   )
   const canRemoveGenes = computed(() => authStore.isAdmin)
   const { canManageScope } = useScopePermissions(computed(() => scopeStore.currentUserRole))
+  const canReassign = computed(() => canManageScope.value || authStore.isAdmin)
 
   // A scope without a workflow pair has no schemas, so precuration would be a dead end (#197)
   const noMethodology = computed(

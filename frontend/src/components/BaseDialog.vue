@@ -42,7 +42,11 @@
   watch(
     () => props.modelValue,
     open => {
-      if (open) opener = document.activeElement as HTMLElement | null
+      if (!open) return
+      // A dialog opened from a row menu: the item that had focus unmounts, so return to the menu's activator
+      opener =
+        document.querySelector<HTMLElement>('[aria-haspopup="menu"][aria-expanded="true"]') ??
+        (document.activeElement as HTMLElement | null)
     },
     { flush: 'sync', immediate: true }
   )

@@ -138,7 +138,7 @@ describe('GenesTable', () => {
     await flushPromises()
 
     expect(fetchGenes).toHaveBeenCalledWith({ page: 1 })
-    expect(wrapper.text()).toContain('1 genes')
+    expect(wrapper.text()).toContain('1 gene')
     expect(wrapper.text()).toContain('PKD1')
   })
 
