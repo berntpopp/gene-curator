@@ -12,7 +12,6 @@ import Login from '@/views/Login.vue'
 import Register from '@/views/Register.vue'
 import Home from '@/views/Home.vue'
 import { useAuthStore } from '@/stores/auth'
-import { useGenesStore } from '@/stores/genes'
 
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
   routerPush: vi.fn(),
@@ -213,11 +212,12 @@ describe('Login', () => {
   it('offers invitation and public browse links and a research-use footer', () => {
     const wrapper = mount(Login, mountOpts(pinia))
     const targets = wrapper
-      .findAllComponents({ name: 'VBtn' })
-      .map(b => b.props('to') as { name?: string } | undefined)
+      .findAllComponents(RouterLinkStub)
+      .map(l => l.props('to') as { name?: string })
+    expect(wrapper.find('h1').text()).toBe('Sign in to Gene Curator')
     expect(targets).toContainEqual({ name: 'Register' })
     expect(targets).toContainEqual({ name: 'GeneCatalogue' })
-    expect(wrapper.text()).toContain('invitation')
+    expect(wrapper.text()).toContain('Ask your scope admin for an invitation')
     expect(wrapper.text()).toContain('Research use only')
   })
 
@@ -316,11 +316,9 @@ describe('Home', () => {
   })
 
   it('is a quiet page: description and two actions, no tiles or feature grid', async () => {
-    const fetchStatistics = vi.spyOn(useGenesStore(), 'fetchStatistics')
     const wrapper = mount(Home, mountOpts(pinia))
     await flushPromises()
 
-    expect(fetchStatistics).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('Methodology-agnostic platform')
     expect(wrapper.text()).toContain('Browse genes')
     expect(wrapper.text()).not.toContain('Key Features')

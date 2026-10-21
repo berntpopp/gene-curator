@@ -2,18 +2,21 @@
   <v-container fluid class="fill-height">
     <v-row align="center" justify="center">
       <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="pa-6" variant="flat" border>
-          <v-card-title class="text-center mb-4">
-            <v-img
-              src="/img/logo.png"
-              alt="Gene Curator Logo"
-              width="88"
-              aspect-ratio="1"
-              class="mx-auto mb-4"
-            />
-            <h1 class="text-headline-small">{{ TERMINOLOGY.SIGN_IN }}</h1>
-          </v-card-title>
+        <div class="text-center mb-6">
+          <v-img
+            src="/img/logo.png"
+            alt="Gene Curator Logo"
+            width="88"
+            aspect-ratio="1"
+            class="mx-auto mb-4"
+          />
+          <h1 class="text-headline-small mb-1">Sign in to Gene Curator</h1>
+          <p class="text-body-medium text-medium-emphasis">
+            Gene-disease curation for scoped teams.
+          </p>
+        </div>
 
+        <v-card class="pa-6" variant="flat" border>
           <v-card-text>
             <v-form ref="loginForm" @submit.prevent="handleLogin">
               <v-alert
@@ -74,22 +77,20 @@
               >
                 Sign in
               </v-btn>
-
-              <div class="text-center text-body-medium">
-                <p class="mb-1">
-                  Invited to a scope? Create an account with the invited email, then accept the
-                  invitation on your dashboard.
-                </p>
-                <v-btn :to="{ name: 'Register' }" variant="text" color="primary"
-                  >Create account</v-btn
-                >
-                <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="primary"
-                  >Browse genes</v-btn
-                >
-              </div>
             </v-form>
           </v-card-text>
         </v-card>
+
+        <div class="text-center text-body-medium mt-4">
+          <p class="mb-1">
+            No account? Ask your scope admin for an invitation, then
+            <router-link :to="{ name: 'Register' }">create an account</router-link>.
+          </p>
+          <p>
+            Just looking?
+            <router-link :to="{ name: 'GeneCatalogue' }">Browse curated genes</router-link>
+          </p>
+        </div>
 
         <p class="text-center text-body-small text-medium-emphasis mt-4">
           Research use only. Not for clinical decision-making.
@@ -97,10 +98,7 @@
 
         <!-- Development Login Helper -->
         <v-card v-if="isDevelopment" class="mt-4 pa-4" variant="tonal" color="info">
-          <v-card-title class="text-body-large">
-            <v-icon start>mdi-dev-to</v-icon>
-            Development quick login
-          </v-card-title>
+          <v-card-title class="text-body-large"> Development quick login </v-card-title>
           <v-card-text>
             <div class="d-flex flex-column ga-2">
               <v-btn
@@ -144,7 +142,6 @@
 </template>
 
 <script setup lang="ts">
-  import { TERMINOLOGY } from '@/config/terminology'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
