@@ -151,7 +151,6 @@ def create_gene(
     """
     require_anywhere(db, current_user, CREATE_GENE)
     gene_in = verified_gene(db, gene_in)
-
     try:
         gene = gene_crud.create_with_owner(db, obj_in=gene_in, owner_id=current_user.id)
         return gene  # type: ignore[return-value]
