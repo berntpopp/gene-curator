@@ -79,6 +79,7 @@ def test_request_changes_feedback_reaches_the_curator(
     ]
     assert entries[-1]["notes"] == "Add the segregation data"
     assert entries[-1]["executed_by"] == str(reviewer.id)
+    assert entries[-1]["executed_by_name"] == "Reviewer"
     assert trail.json()["total_transitions"] == 2
 
 

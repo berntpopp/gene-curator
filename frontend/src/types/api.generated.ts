@@ -9055,6 +9055,8 @@ export interface components {
              * Format: uuid
              */
             executed_by: string;
+            /** Executed By Name */
+            executed_by_name?: string | null;
             /**
              * Executed At
              * Format: date-time

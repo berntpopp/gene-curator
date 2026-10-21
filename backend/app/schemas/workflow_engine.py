@@ -232,6 +232,7 @@ class WorkflowAuditEntry(BaseModel):
     from_stage: WorkflowStage | None
     to_stage: WorkflowStage
     executed_by: UUID
+    executed_by_name: str | None = None
     executed_at: datetime
     notes: str | None
     metadata: dict[str, Any]

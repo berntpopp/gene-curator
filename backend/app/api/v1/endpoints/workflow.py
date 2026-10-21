@@ -424,6 +424,7 @@ def get_workflow_audit_trail(
                 if r.status == ReviewStatus.APPROVED
                 else WorkflowStage.CURATION,
                 executed_by=r.reviewer_id,
+                executed_by_name=r.reviewer.name or r.reviewer.email,
                 executed_at=r.reviewed_at,
                 notes=r.comments,
                 metadata={"decision": r.recommendation},

@@ -25,6 +25,7 @@ const entry = (o: Record<string, unknown>) =>
     from_stage: 'review',
     to_stage: 'curation',
     notes: 'Please fix',
+    executed_by_name: 'Bob Jones',
     executed_at: '2026-10-20T10:00:00Z',
     ...o
   }) as never
@@ -46,6 +47,8 @@ describe('review feedback store', () => {
     history.mockResolvedValue({ entries: [entry({})] } as never)
     const fb = await useReviewFeedbackStore().fetch('c1', 'alice')
     expect(fb.note).toBe('Please fix')
+    expect(fb.noteBy).toBe('Bob Jones')
+    expect(fb.noteAt).toBe('2026-10-20T10:00:00Z')
     expect(fb.queries.map(q => q.id)).toEqual(['q'])
     expect(fb.any).toBe(true)
   })
@@ -65,6 +68,7 @@ describe('review feedback store', () => {
     } as never)
     const fb = await useReviewFeedbackStore().fetch('c1', 'alice')
     expect(fb.note).toBeNull()
+    expect(fb.noteBy).toBeNull()
     expect(fb.any).toBe(false)
   })
 
