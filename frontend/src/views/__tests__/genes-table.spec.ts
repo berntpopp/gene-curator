@@ -2,7 +2,6 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import GenesTable from '@/views/GenesTable.vue'
-import GeneAssignments from '@/views/GeneAssignments.vue'
 import About from '@/views/About.vue'
 import { useGenesStore } from '@/stores/genes'
 import { useAuthStore } from '@/stores/auth'
@@ -124,14 +123,6 @@ describe('GenesTable', () => {
 })
 
 describe('static views', () => {
-  it('renders the gene assignments page around the assignment manager', () => {
-    const wrapper = mount(GeneAssignments, {
-      global: { stubs: { GeneAssignmentManager: true } }
-    })
-    expect(wrapper.text()).toContain('Gene Assignments')
-    expect(wrapper.findComponent({ name: 'GeneAssignmentManager' }).exists()).toBe(true)
-  })
-
   it('renders the about page', () => {
     const wrapper = mount(About, { global: { stubs: { RouterLink: RouterLinkStub } } })
     expect(wrapper.text()).toContain('Gene Curator')

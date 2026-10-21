@@ -5,7 +5,14 @@
       Gene Assignment Management
     </v-card-title>
 
-    <v-card-text>
+    <v-alert v-if="loadError" type="error" variant="tonal" class="mx-4">
+      {{ loadError }}
+      <template #append>
+        <v-btn class="retry" variant="text" @click="loadAll">Retry</v-btn>
+      </template>
+    </v-alert>
+
+    <v-card-text v-else>
       <!-- Assignment Filters -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6">
@@ -96,6 +103,7 @@
           <v-toolbar flat>
             <v-text-field
               v-model="searchQuery"
+              label="Search genes or assignees"
               placeholder="Search genes or assignees..."
               prepend-inner-icon="mdi-magnify"
               variant="outlined"
@@ -545,25 +553,17 @@
     viewDialog.value = true
   }
 
-  onMounted(async () => {
-    try {
-      const curatorId = authStore.user?.id
+  const loadError = ref<string | null>(null)
 
-      // Call existing methods with proper parameters
+  async function loadAll() {
+    loadError.value = null
+    try {
       const promises: Promise<unknown>[] = [
         assignmentsStore.fetchAssignments(),
         scopesStore.fetchUserScopes()
       ]
       // GET /users is admin-only; curators would only get a 403
       if (authStore.isAdmin) promises.push(usersStore.fetchUsers())
-
-      // Only fetch curator workload if user is logged in
-      if (curatorId) {
-        promises.push(assignmentsStore.fetchCuratorWorkload(curatorId))
-      } else {
-        logger.warn('No curator ID available for workload fetch')
-      }
-
       await Promise.all(promises)
 
       logger.info('GeneAssignmentManager mounted', {
@@ -573,9 +573,11 @@
       })
     } catch (err) {
       logger.error('Failed to load assignment data', errorDetails(err))
-      showError('Failed to load assignment data. Please refresh.')
+      loadError.value = assignmentsStore.error ?? 'Failed to load assignment data'
     }
-  })
+  }
+
+  onMounted(loadAll)
 </script>
 
 <style scoped>
