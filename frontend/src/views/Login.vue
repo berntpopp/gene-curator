@@ -2,16 +2,16 @@
   <v-container fluid class="fill-height">
     <v-row align="center" justify="center">
       <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="pa-6" elevation="8">
+        <v-card class="pa-6" variant="flat" border>
           <v-card-title class="text-center mb-4">
             <v-img
               src="/img/logo.png"
               alt="Gene Curator Logo"
-              width="64"
+              width="88"
               aspect-ratio="1"
               class="mx-auto mb-4"
             />
-            <h1 class="text-headline-large">{{ TERMINOLOGY.SIGN_IN }}</h1>
+            <h1 class="text-headline-small">{{ TERMINOLOGY.SIGN_IN }}</h1>
           </v-card-title>
 
           <v-card-text>
@@ -29,6 +29,7 @@
                 v-if="authStore.error"
                 type="error"
                 variant="tonal"
+                role="alert"
                 class="mb-4"
                 closable
                 @click:close="authStore.clearError"
@@ -40,7 +41,6 @@
                 v-model="credentials.email"
                 label="Email"
                 type="email"
-                prepend-inner-icon="mdi-email"
                 variant="outlined"
                 :rules="emailRules"
                 validate-on="blur"
@@ -54,7 +54,6 @@
                 v-model="credentials.password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
-                prepend-inner-icon="mdi-lock"
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 variant="outlined"
                 :rules="passwordRules"
@@ -76,15 +75,25 @@
                 Sign in
               </v-btn>
 
-              <div class="text-center">
-                <p class="text-body-medium mb-2">Don't have an account?</p>
-                <v-btn :to="{ name: 'Register' }" variant="text" color="primary">
-                  Create account
-                </v-btn>
+              <div class="text-center text-body-medium">
+                <p class="mb-1">
+                  Invited to a scope? Create an account with the invited email, then accept the
+                  invitation on your dashboard.
+                </p>
+                <v-btn :to="{ name: 'Register' }" variant="text" color="primary"
+                  >Create account</v-btn
+                >
+                <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="primary"
+                  >Browse genes</v-btn
+                >
               </div>
             </v-form>
           </v-card-text>
         </v-card>
+
+        <p class="text-center text-body-small text-medium-emphasis mt-4">
+          Research use only. Not for clinical decision-making.
+        </p>
 
         <!-- Development Login Helper -->
         <v-card v-if="isDevelopment" class="mt-4 pa-4" variant="tonal" color="info">
@@ -143,7 +152,6 @@
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { safeRedirect } from '@/utils/safeRedirect'
-  import { showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
   const route = useRoute()
@@ -194,8 +202,6 @@
 
       await authStore.login(credentials)
 
-      showSuccess('Login successful!')
-
       // Redirect to intended page or home
       router.push(safeRedirect(route.query.redirect) ?? { name: 'Home' })
     } catch (error) {
@@ -220,18 +226,3 @@
     await handleLogin()
   }
 </script>
-
-<style scoped>
-  .fill-height {
-    background: linear-gradient(
-      135deg,
-      rgb(var(--v-theme-surface)) 0%,
-      rgb(var(--v-theme-background)) 100%
-    );
-  }
-
-  .v-card {
-    backdrop-filter: blur(10px);
-    background: rgba(var(--v-theme-surface), 0.9);
-  }
-</style>
