@@ -14,6 +14,9 @@ import { useAuthStore } from '@/stores/auth'
 import MemberManagement from '../MemberManagement.vue'
 import { snackbarState } from '@/composables/useNotifications'
 
+const confirm = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm }) }))
+
 vi.mock('@/services/scopeService', () => ({
   scopeService: { fetchMembers: vi.fn() }
 }))
@@ -28,6 +31,7 @@ interface MemberInternals {
   showRemoveDialog: boolean
   memberToRemove: { user_id: string } | null
   updateRole: (userId: string, role: string) => Promise<void>
+  requestRoleChange: (member: { user_id: string; role: string }, role: string) => Promise<void>
   confirmRemoveMember: (member: { user_id: string; role: string }) => void
   removeMember: () => Promise<void>
   handleInvited: (payload: {
@@ -43,13 +47,14 @@ const members = [
     role: 'admin',
     user_full_name: 'Ada Lovelace',
     user_email: 'ada@example.org',
+    user_orcid: '0000-0002-1825-0097',
     is_pending: false
   },
   {
     user_id: 'u2',
     role: 'viewer',
     user_email: 'bob@example.org',
-    user_orcid: '0000-0001',
+    invited_at: '2026-10-01T09:30:00Z',
     is_pending: true
   }
 ]
@@ -60,6 +65,7 @@ describe('MemberManagement', () => {
   beforeEach(() => {
     pinia = createPinia()
     setActivePinia(pinia)
+    confirm.mockReset()
     vi.mocked(scopeService.fetchMembers).mockReset()
     vi.mocked(scopeService.fetchMembers).mockResolvedValue(members as never)
   })
@@ -84,8 +90,59 @@ describe('MemberManagement', () => {
     expect(scopeService.fetchMembers).toHaveBeenCalledWith('scope-1', { includePending: true })
     expect(wrapper.text()).toContain('Ada Lovelace')
     expect(wrapper.text()).toContain('bob@example.org')
-    expect(wrapper.text()).toContain('ORCID: 0000-0001')
-    expect(wrapper.text()).toContain('Invited')
+    expect(wrapper.text()).toContain('Invited 2026-10-01')
+  })
+
+  it('shows initials and one role label per row, and ORCID as a link', async () => {
+    const { wrapper } = await mountMembers()
+
+    const rows = wrapper.findAll('.v-list-item')
+    expect(rows[0]!.find('.v-avatar').text()).toBe('AL')
+    expect(rows[0]!.find('.v-avatar .v-icon').exists()).toBe(false)
+    expect(rows[0]!.text().match(/Admin/g)).toHaveLength(1)
+    const orcid = rows[0]!.find('a[href="https://orcid.org/0000-0002-1825-0097"]')
+    expect(orcid.exists()).toBe(true)
+    expect(orcid.attributes('target')).toBe('_blank')
+    expect(orcid.attributes('rel')).toContain('noopener')
+  })
+
+  it('explains to non-admins who manages members', async () => {
+    const viewer = await mountMembers('curator')
+    expect(viewer.wrapper.text()).toContain('Only scope admins can manage members.')
+    const admin = await mountMembers('admin')
+    expect(admin.wrapper.text()).not.toContain('Only scope admins can manage members.')
+  })
+
+  it('confirms before changing a role and skips when declined or unchanged', async () => {
+    const { store, vm } = await mountMembers()
+    const update = vi.spyOn(store, 'updateMemberRole').mockResolvedValue({} as never)
+    const bob = { user_id: 'u2', role: 'viewer' }
+
+    confirm.mockResolvedValueOnce(false)
+    await vm.requestRoleChange(bob, 'curator')
+    expect(update).not.toHaveBeenCalled()
+
+    await vm.requestRoleChange(bob, 'viewer')
+    expect(confirm).toHaveBeenCalledTimes(1)
+
+    confirm.mockResolvedValueOnce(true)
+    await vm.requestRoleChange(bob, 'curator')
+    expect(confirm).toHaveBeenLastCalledWith(
+      expect.objectContaining({ title: expect.stringContaining('curator') })
+    )
+    expect(update).toHaveBeenCalledWith('scope-1', 'u2', 'curator')
+  })
+
+  it('says what removal does to gene assignments, and revokes pending invitations', async () => {
+    const { vm } = await mountMembers()
+
+    vm.confirmRemoveMember({ user_id: 'u1', role: 'admin', is_pending: false } as never)
+    await flushPromises()
+    expect(document.body.textContent).toContain('gene assignments are not changed')
+
+    vm.confirmRemoveMember({ user_id: 'u2', role: 'viewer', is_pending: true } as never)
+    await flushPromises()
+    expect(document.body.textContent).toContain('Revoke invitation')
   })
 
   it('shows an empty state when the scope has no members', async () => {

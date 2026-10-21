@@ -498,6 +498,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             )
 
         db_obj.status = CurationStatus.ARCHIVED
+        db_obj.workflow_stage = WorkflowStage.ARCHIVED
         db_obj.updated_by = user_id
         db_obj.updated_at = _utc_now()
 
