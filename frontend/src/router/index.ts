@@ -100,7 +100,7 @@ const routes: RouteRecordRaw[] = [
       showInMainMenu: true,
       icon: 'mdi-folder-multiple',
       label: TERMINOLOGY.SCOPES,
-      order: 1
+      order: 3
     }
   },
   {
@@ -133,7 +133,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       showInMainMenu: true,
       icon: 'mdi-clipboard-check-outline',
-      label: 'Review Queue',
+      label: 'Review',
       order: 2
     }
   },
@@ -208,7 +208,7 @@ const routes: RouteRecordRaw[] = [
       showInMainMenu: true,
       icon: 'mdi-dna',
       label: TERMINOLOGY.GENE_CATALOG,
-      order: 2
+      order: 4
     }
   },
   {
@@ -254,7 +254,7 @@ const routes: RouteRecordRaw[] = [
       requiresAuth: true,
       showInMainMenu: true,
       icon: 'mdi-clipboard-list',
-      label: 'My Work',
+      label: 'My work',
       order: 1
     }
   },
