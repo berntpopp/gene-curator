@@ -40,7 +40,7 @@ const hits = {
       gene_symbol: 'PKD2',
       scope_id: 's1',
       scope_name: 'Kidney',
-      status: 'changes_requested'
+      status: 'in_review'
     }
   ],
   scopes: [{ id: 's1', name: 'kidney', display_name: 'Kidney genetics' }]
@@ -125,7 +125,16 @@ describe('CommandPalette', () => {
       options()
         .map(o => o.textContent)
         .join('|')
-    ).toContain('changes requested')
+    ).toContain('In review')
+  })
+
+  it('colours the curation status chip from config/status.ts', async () => {
+    await type('pkd')
+    const chip = options()
+      .find(o => o.textContent!.includes('PKD2 curation'))!
+      .querySelector('.v-chip')
+    expect(chip?.textContent).toContain('In review')
+    expect(chip?.className).toContain('text-warning')
   })
 
   it('moves with the arrow keys (wrapping), tracked by aria-activedescendant', async () => {
@@ -159,7 +168,7 @@ describe('CommandPalette', () => {
     }
     await click('Kidney genetics')
     expect(push).toHaveBeenLastCalledWith({ name: 'scope-dashboard', params: { scopeId: 's1' } })
-    await click('changes requested')
+    await click('In review')
     expect(push).toHaveBeenLastCalledWith({
       name: 'curation-detail',
       params: { scopeId: 's1', curationId: 'c1' }

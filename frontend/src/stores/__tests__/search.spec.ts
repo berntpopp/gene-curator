@@ -40,6 +40,13 @@ describe('search store', () => {
     expect(s.showHelp).toBe(false)
   })
 
+  it('typing after "?" leaves the shortcut list so results show again', () => {
+    const s = useSearchStore()
+    s.open({ help: true })
+    s.setQuery('pk')
+    expect(s.showHelp).toBe(false)
+  })
+
   it('debounces: one request after 200 ms of quiet, with the final text', async () => {
     const s = useSearchStore()
     s.setQuery('pk')

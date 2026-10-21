@@ -2,6 +2,8 @@ import { onScopeDispose } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useSearchStore } from '@/stores/search'
+import { TERMINOLOGY } from '@/config/terminology'
+import { navEntries } from './navEntries'
 
 export interface ShortcutInfo {
   keys: string[]
@@ -53,7 +55,10 @@ export function useShortcuts() {
       gAt = Date.now()
     } else if (e.key.toLowerCase() === 'w' && Date.now() - gAt < SEQUENCE_MS) {
       gAt = 0
-      void router.push({ name: 'Dashboard' })
+      const myWork = navEntries(router, auth).find(
+        e => e.meta.label?.toLowerCase() === TERMINOLOGY.MY_WORK.toLowerCase()
+      )
+      if (myWork) void router.push({ name: myWork.name })
     }
   }
 

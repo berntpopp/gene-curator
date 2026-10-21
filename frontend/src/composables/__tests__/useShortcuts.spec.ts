@@ -8,7 +8,11 @@ import { useAuthStore } from '@/stores/auth'
 vi.mock('@/api/search', () => ({ searchAPI: { search: vi.fn() } }))
 
 const push = vi.fn()
-vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
+const routes = [
+  { name: 'Dashboard', meta: { showInMainMenu: true, requiresAuth: true, label: 'Dashboard' } },
+  { name: 'GeneAssignments', meta: { showInMainMenu: true, requiresAuth: true, label: 'My work' } }
+]
+vi.mock('vue-router', () => ({ useRouter: () => ({ push, getRoutes: () => routes }) }))
 
 const press = (key: string, opts: KeyboardEventInit = {}, target: EventTarget = document.body) => {
   const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...opts })
@@ -75,7 +79,8 @@ describe('useShortcuts', () => {
     expect(push).not.toHaveBeenCalled()
     press('g')
     press('w')
-    expect(push).toHaveBeenCalledWith({ name: 'Dashboard' })
+    // the target is the rail's "My work" entry, not a hardcoded route name
+    expect(push).toHaveBeenCalledWith({ name: 'GeneAssignments' })
     push.mockClear()
     press('g')
     vi.advanceTimersByTime(1500)

@@ -56,7 +56,18 @@
             @click="activate(item)"
           >
             <span class="palette__title" :class="{ mono: item.mono }">{{ item.title }}</span>
-            <span class="palette__sub">{{ item.subtitle }}</span>
+            <span class="palette__sub">
+              <v-chip
+                v-if="item.status"
+                size="x-small"
+                variant="tonal"
+                :color="curationStatusColor(item.status)"
+                class="mr-2"
+              >
+                {{ curationStatusLabel(item.status) }}
+              </v-chip>
+              {{ item.subtitle }}
+            </span>
           </div>
         </div>
         <p v-if="empty" class="palette__note">No results for "{{ search.query.trim() }}"</p>
@@ -83,6 +94,8 @@
   import { useAuthStore } from '@/stores/auth'
   import { useSearchStore } from '@/stores/search'
   import { SHORTCUTS, useShortcuts } from '@/composables/useShortcuts'
+  import { navEntries } from '@/composables/navEntries'
+  import { curationStatusColor, curationStatusLabel } from '@/config/status'
 
   interface Item {
     key: string
@@ -90,18 +103,9 @@
     title: string
     subtitle: string
     mono?: boolean
+    status?: string
     to: RouteLocationRaw
   }
-  interface PaletteMeta {
-    label?: string
-    order?: number
-    requiresAuth?: boolean
-    requiresGuest?: boolean
-    requiredRoles?: string[]
-    showInMainMenu?: boolean
-    showInDropdown?: string
-  }
-
   const LISTBOX_ID = 'palette-listbox'
   const optionId = (i: number) => `palette-option-${i}`
 
@@ -114,25 +118,7 @@
   const active = ref(0)
   let returnTo: HTMLElement | null = null
 
-  const allowed = (m: PaletteMeta) =>
-    !(m.requiresAuth && !auth.isAuthenticated) &&
-    !(m.requiresGuest && auth.isAuthenticated) &&
-    (!m.requiredRoles || auth.hasAnyRole(m.requiredRoles))
-
-  const commands = computed(() => {
-    const text = search.query.trim().toLowerCase()
-    return router
-      .getRoutes()
-      .map(r => ({ name: r.name, meta: r.meta as PaletteMeta }))
-      .filter(
-        ({ meta }) =>
-          (meta.showInMainMenu || meta.showInDropdown === 'curationSetup') &&
-          meta.label &&
-          allowed(meta) &&
-          meta.label.toLowerCase().includes(text)
-      )
-      .sort((a, b) => (a.meta.order ?? 999) - (b.meta.order ?? 999))
-  })
+  const commands = computed(() => navEntries(router, auth, search.query.trim()))
 
   const groups = computed(() => {
     let index = 0
@@ -156,7 +142,8 @@
       (r?.curations ?? []).map(c => ({
         key: `c-${c.id}`,
         title: `${c.gene_symbol} curation`,
-        subtitle: `${c.status.replace(/_/g, ' ')} · ${c.scope_name}`,
+        subtitle: c.scope_name,
+        status: c.status,
         to: { name: 'curation-detail', params: { scopeId: c.scope_id, curationId: c.id } }
       }))
     )

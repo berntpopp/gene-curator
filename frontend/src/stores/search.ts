@@ -42,6 +42,7 @@ export const useSearchStore = defineStore('search', () => {
 
   function setQuery(value: string) {
     query.value = value
+    showHelp.value = false
     cancel()
     error.value = null
     const q = value.trim()
