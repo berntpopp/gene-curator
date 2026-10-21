@@ -3,7 +3,7 @@
     <!-- Below md: one menu button opens a drawer with the same entries -->
     <template v-if="!mdAndUp">
       <v-app-bar-nav-icon aria-label="Open menu" @click="drawer = !drawer" />
-      <v-navigation-drawer v-model="drawer" temporary location="end">
+      <v-navigation-drawer v-model="drawer" temporary color="surface" location="end">
         <v-list>
           <BaseNavigationItem
             v-for="item in simpleItems"
