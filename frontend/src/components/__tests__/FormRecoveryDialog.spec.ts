@@ -4,6 +4,7 @@
  * @see src/components/FormRecoveryDialog.vue
  */
 
+import { formatDate } from '@/utils/format'
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest'
 import { mount, type VueWrapper } from '@vue/test-utils'
 import FormRecoveryDialog from '../FormRecoveryDialog.vue'
@@ -67,7 +68,7 @@ describe('FormRecoveryDialog', () => {
     const old = agoMs(30 * 24 * 60 * 60 * 1000)
     mountDialog(old)
 
-    expect(document.body.textContent).toContain(new Date(old).toISOString().slice(0, 10))
+    expect(document.body.textContent).toContain(formatDate(old))
   })
 
   it('emits restore and discard from the action buttons', () => {

@@ -1,7 +1,7 @@
 <template>
   <ErrorBoundary @error="handleFormError">
     <!-- Schema and curation not loaded yet: one skeleton, no score card or verdict -->
-    <v-skeleton-loader v-if="!ready" type="article" />
+    <v-skeleton-loader v-if="!ready" type="card" />
 
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm

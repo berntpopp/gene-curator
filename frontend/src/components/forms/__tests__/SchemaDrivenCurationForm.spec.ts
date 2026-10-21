@@ -165,9 +165,11 @@ describe('SchemaDrivenCurationForm', () => {
         }
       })
       expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
+      expect(wrapper.find('clin-gen-curation-form-stub').exists()).toBe(false)
       expect(wrapper.find('.score-preview').exists()).toBe(false)
       await flushPromises()
       expect(wrapper.find('.v-skeleton-loader').exists()).toBe(false)
+      expect(wrapper.find('clin-gen-curation-form-stub').exists()).toBe(true)
     })
 
     it('should accept gene prop', () => {
