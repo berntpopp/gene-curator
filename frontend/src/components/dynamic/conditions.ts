@@ -18,6 +18,7 @@ export function conditionHolds(condition: Condition, data: unknown): boolean {
   })
 }
 
+// ponytail: only step/flat-level fields are resolved; DynamicNestedField children ignore conditions (resolve there when a nested config needs it)
 /** The field as the current data shows it: null when hidden, otherwise with `required` resolved */
 export function resolveField(field: FieldSchema, data: unknown): FieldSchema | null {
   if (field.visible_when && !conditionHolds(field.visible_when, data)) return null

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { mount, type DOMWrapper } from '@vue/test-utils'
+import { flushPromises, mount, type DOMWrapper } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
 import { normalizeField } from '../normalizeDefinition'
 
@@ -122,5 +122,56 @@ describe('EvidenceTableField', () => {
     const wrapper = mountTable({ modelValue: undefined, errorMessages: ['Add at least one row'] })
     expect(wrapper.text()).toContain('No rows yet')
     expect(wrapper.find('[role="alert"]').text()).toBe('Add at least one row')
+  })
+
+  it('keeps typed text when the rows are replaced mid-edit and commits it on blur', async () => {
+    const wrapper = mountTable()
+    const input = wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]')
+    await type(input, 'F-typed')
+    await wrapper.setProps({ modelValue: [{ ...row, family_label: 'F-server', pmid: '456' }] })
+    expect(input.element.value).toBe('F-typed')
+
+    await input.trigger('change')
+    expect(emitted(wrapper).at(-1)![0][0]).toMatchObject({ family_label: 'F-typed', pmid: '456' })
+  })
+
+  it('drops the draft on Escape without committing', async () => {
+    const wrapper = mountTable()
+    const input = wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]')
+    await type(input, 'oops')
+    await input.trigger('keydown', { key: 'Escape' })
+    expect(input.element.value).toBe('F1')
+    expect(emitted(wrapper)).toHaveLength(0)
+  })
+
+  describe('focus after row changes', () => {
+    // v-model harness: the parent writes emitted rows back
+    function mountBound(rows: Array<Record<string, unknown>>) {
+      const wrapper = mountTable({
+        modelValue: rows,
+        'onUpdate:modelValue': (next: unknown) => wrapper.setProps({ modelValue: next })
+      })
+      return wrapper
+    }
+    const active = () => document.activeElement?.getAttribute('aria-label')
+
+    it("moves focus to the new row's first cell after adding", async () => {
+      const wrapper = mountBound([row])
+      await wrapper.find('.add-row').trigger('click')
+      await flushPromises()
+      expect(active()).toBe('Family label, row 2')
+    })
+
+    it("moves focus to the next row's remove button, or Add row after the last", async () => {
+      const wrapper = mountBound([row, { ...row, id: 'r2' }])
+      await wrapper.find('[aria-label="Remove row 1"]').trigger('click')
+      await flushPromises()
+      expect(active()).toBe('Remove row 1')
+      expect(wrapper.findAll('tbody tr')).toHaveLength(1)
+
+      await wrapper.find('[aria-label="Remove row 1"]').trigger('click')
+      await flushPromises()
+      expect(document.activeElement?.classList.contains('add-row')).toBe(true)
+    })
   })
 })

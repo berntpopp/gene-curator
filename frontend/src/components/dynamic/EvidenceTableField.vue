@@ -1,5 +1,5 @@
 <template>
-  <div class="evidence-table-field">
+  <div ref="root" class="evidence-table-field">
     <v-table density="compact">
       <caption class="text-left text-body-medium font-weight-medium pb-2">
         {{
@@ -28,17 +28,20 @@
             <component
               :is="col.cell.is"
               v-bind="col.cell.props"
-              :model-value="row[col.key]"
+              :model-value="
+                draftKey(row, index, col.key) in drafts
+                  ? drafts[draftKey(row, index, col.key)]
+                  : row[col.key]
+              "
               :aria-label="`${col.label}, row ${index + 1}`"
               :rules="col.rules"
               :readonly="disabled"
               density="compact"
               variant="underlined"
               hide-details="auto"
-              @update:model-value="(v: unknown) => col.cell.lazy || commit(index, col.key, v)"
-              @change="
-                (e: Event) => col.cell.lazy && commit(index, col.key, inputValue(col.schema, e))
-              "
+              @update:model-value="(v: unknown) => onInput(row, index, col, v)"
+              @change="(e: Event) => col.cell.lazy && onChange(row, index, col, e)"
+              @keydown.escape="delete drafts[draftKey(row, index, col.key)]"
             />
           </td>
           <td v-if="!disabled">
@@ -56,7 +59,14 @@
     </v-table>
 
     <div v-if="!rows.length" class="text-body-small text-medium-emphasis py-2">No rows yet</div>
-    <v-btn v-if="!disabled" variant="outlined" size="small" prepend-icon="mdi-plus" @click="addRow">
+    <v-btn
+      v-if="!disabled"
+      class="add-row"
+      variant="outlined"
+      size="small"
+      prepend-icon="mdi-plus"
+      @click="addRow"
+    >
       Add row
     </v-btn>
     <div v-if="errorMessages?.length" class="text-error text-body-small mt-1" role="alert">
@@ -70,11 +80,12 @@
    * `evidence_table` field: one row per evidence item, columns are fields rendered with the
    * registry's compact cell editors. Text cells commit on change (blur/Enter), never per keystroke.
    */
-  import { computed } from 'vue'
+  import { computed, nextTick, reactive, ref } from 'vue'
   import { generateUUID } from '@/utils/uuidPolyfill'
   import { cellFor, emptyValue } from './componentRegistry'
   import { rulesFor } from './composables/useValidationRules'
   import { humanize } from './fieldLabels'
+  import type { CellDef } from './componentRegistry'
   import type { FieldSchema } from './types'
 
   type Row = Record<string, unknown>
@@ -111,25 +122,59 @@
     return raw === '' ? null : Number(raw)
   }
 
-  function commit(index: number, key: string, value: unknown) {
-    if (rows.value[index]?.[key] === value) return
+  interface Column {
+    key: string
+    schema: FieldSchema
+    cell: CellDef
+  }
+
+  const root = ref<HTMLElement | null>(null)
+  // Typed text of lazy cells, keyed by row and column: survives the rows being replaced
+  // (e.g. late initialData) until the cell commits on change or Escape drops it
+  const drafts = reactive<Record<string, unknown>>({})
+  const draftKey = (row: Row, index: number, key: string) => `${rowKey(row, index)}:${key}`
+
+  function onInput(row: Row, index: number, col: Column, value: unknown) {
+    if (col.cell.lazy) drafts[draftKey(row, index, col.key)] = value
+    else commit(rowKey(row, index), col.key, value)
+  }
+
+  function onChange(row: Row, index: number, col: Column, event: Event) {
+    delete drafts[draftKey(row, index, col.key)]
+    commit(rowKey(row, index), col.key, inputValue(col.schema, event))
+  }
+
+  // By row identity, not position: the rows may have been replaced since the edit began
+  function commit(key: string | number, column: string, value: unknown) {
+    const index = rows.value.findIndex((row, i) => rowKey(row, i) === key)
+    if (index < 0 || rows.value[index]![column] === value) return
     emit(
       'update:model-value',
-      rows.value.map((row, i) => (i === index ? { ...row, [key]: value } : row))
+      rows.value.map((row, i) => (i === index ? { ...row, [column]: value } : row))
     )
   }
+
+  const focus = (selector: string) =>
+    nextTick(() => root.value?.querySelector<HTMLElement>(selector)?.focus())
 
   function addRow() {
     const row: Row = { id: generateUUID() }
     for (const col of columns.value) row[col.key] = emptyValue(col.schema)
+    const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
+    const first = columns.value[0]
+    if (first) focus(`[aria-label="${first.label}, row ${position}"]`)
   }
 
   function removeRow(index: number) {
+    // The next row moves up into this position; without one, focus "Add row"
+    const next =
+      index < rows.value.length - 1 ? `[aria-label="Remove row ${index + 1}"]` : '.add-row'
     emit(
       'update:model-value',
       rows.value.filter((_, i) => i !== index)
     )
+    focus(next)
   }
 </script>
 
