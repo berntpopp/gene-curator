@@ -56,7 +56,7 @@ def test_requires_authentication(client: TestClient):
     assert client.get("/api/v1/search", params={"q": "abc"}).status_code in (401, 403)
 
 
-@pytest.mark.parametrize("q", ["", " a ", "x" * 101])
+@pytest.mark.parametrize("q", ["", " a ", "x" * 101, "a\x00b"])
 def test_rejects_bad_query(client, db_session, q):
     assert _search(client, make_user(db_session), q).status_code == 422
 

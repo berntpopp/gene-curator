@@ -64,7 +64,7 @@ def search(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> SearchResponse:
     q = q.strip()
-    if not MIN_Q <= len(q) <= MAX_Q:
+    if not MIN_Q <= len(q) <= MAX_Q or "\x00" in q:
         raise HTTPException(
             status_code=422, detail=f"q must be {MIN_Q}-{MAX_Q} characters"
         )
