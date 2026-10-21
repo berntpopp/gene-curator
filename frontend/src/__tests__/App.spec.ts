@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
-import { reactive, defineComponent, h, shallowRef, type Component } from 'vue'
+import { ref, reactive, defineComponent, h, shallowRef, type Component } from 'vue'
 import App from '../App.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useLogStore } from '@/stores/logStore'
@@ -34,10 +34,12 @@ interface DisclaimerState {
 const stubs = {
   AppBar: true,
   SideRail: true,
+  BottomTabs: true,
   FooterBar: true,
   MessageSnackbar: true,
   LogViewer: true,
   DisclaimerDialog: true,
+  CommandPalette: true,
   'router-view': true
 }
 
@@ -77,10 +79,22 @@ describe('App', () => {
     expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(false)
     expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(true)
 
+    expect(wrapper.findComponent({ name: 'BottomTabs' }).exists()).toBe(false)
+
     auth.isAuthenticated = true
     await flushPromises()
     expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(true)
     expect(wrapper.findComponent({ name: 'AppBar' }).exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('shows the bottom tabs, not the rail, below md', async () => {
+    display.mdAndUp = ref(false)
+    const wrapper = mount(App, { global: { stubs, mocks: { $route: { fullPath: '/' } } } })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'BottomTabs' }).exists()).toBe(true)
+    expect(wrapper.findComponent({ name: 'SideRail' }).exists()).toBe(false)
+    display.mdAndUp = ref(true)
     wrapper.unmount()
   })
 

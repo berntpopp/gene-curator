@@ -15,7 +15,7 @@ vi.mock('@/views/Home.vue', () => stub)
 vi.mock('@/views/Login.vue', () => stub)
 vi.mock('@/views/Register.vue', () => stub)
 vi.mock('@/views/FAQ.vue', () => stub)
-vi.mock('@/views/Dashboard.vue', () => stub)
+vi.mock('@/views/MyWork.vue', () => stub)
 vi.mock('@/views/NotAuthorized.vue', () => stub)
 vi.mock('@/views/NotFound.vue', () => stub)
 vi.mock('@/views/About.vue', () => stub)
@@ -57,7 +57,7 @@ describe('router guards', () => {
     await router.push('/dashboard')
 
     expect(router.currentRoute.value.name).toBe('Login')
-    expect(router.currentRoute.value.query).toEqual({ redirect: '/dashboard' })
+    expect(router.currentRoute.value.query).toEqual({ redirect: '/my-work' })
   })
 
   it('sends signed-in users away from guest-only pages', async () => {
@@ -65,7 +65,7 @@ describe('router guards', () => {
 
     await router.push('/login')
 
-    expect(router.currentRoute.value.name).toBe('Dashboard')
+    expect(router.currentRoute.value.name).toBe('MyWork')
   })
 
   it('sends a signed-in user on /login to the same-origin redirect target', async () => {
@@ -83,16 +83,31 @@ describe('router guards', () => {
 
       await router.push({ name: 'Login', query: { redirect: target } })
 
-      expect(router.currentRoute.value.name).toBe('Dashboard')
+      expect(router.currentRoute.value.name).toBe('MyWork')
     }
   )
 
-  it('sends signed-in users from the landing page to the dashboard', async () => {
+  it('sends signed-in users from the landing page to My work', async () => {
     useFakeAuth({ isAuthenticated: true })
 
     await router.push('/')
 
-    expect(router.currentRoute.value.name).toBe('Dashboard')
+    expect(router.currentRoute.value.name).toBe('MyWork')
+  })
+
+  it('lists All assignments in the admin section', () => {
+    expect(router.getRoutes().find(r => r.name === 'GeneAssignments')?.meta).toMatchObject({
+      showInDropdown: 'curationSetup',
+      label: 'Assignments'
+    })
+  })
+
+  it('keeps /dashboard working as a redirect to My work', async () => {
+    useFakeAuth({ isAuthenticated: true })
+
+    await router.push('/dashboard')
+
+    expect(router.currentRoute.value.name).toBe('MyWork')
   })
 
   it('still shows the landing page to anonymous users', async () => {
@@ -104,7 +119,7 @@ describe('router guards', () => {
   })
 
   it('lists My Work and Review Queue as top-level menu items', () => {
-    for (const name of ['GeneAssignments', 'review-queue']) {
+    for (const name of ['MyWork', 'review-queue']) {
       expect(router.getRoutes().find(r => r.name === name)?.meta).toMatchObject({
         showInMainMenu: true
       })

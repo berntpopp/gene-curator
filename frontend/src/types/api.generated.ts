@@ -2411,6 +2411,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/gene-catalogue/matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Catalogue Matrix
+         * @description Genes with a classification, stage and score per selected scope.
+         *
+         *     Scopes the caller cannot see are dropped silently. In-progress curations appear only
+         *     for scopes where the caller has an accepted membership; platform admins get no bypass.
+         */
+        get: operations["get_catalogue_matrix_api_v1_gene_catalogue_matrix_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/curations/{curation_id}/evidence": {
         parameters: {
             query?: never;
@@ -6463,6 +6486,99 @@ export interface components {
              */
             iri?: string | null;
         };
+        /**
+         * MatrixCell
+         * @description One gene in one scope: the active curation, else the member's in-progress one.
+         */
+        MatrixCell: {
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /** Classification */
+            classification?: string | null;
+            /**
+             * Stage
+             * @description Workflow stage of the curation
+             */
+            stage: string;
+            /**
+             * Status
+             * @description Curation status
+             */
+            status: string;
+            /** Total Score */
+            total_score?: number | null;
+            /**
+             * In Progress
+             * @description True when not yet active; only visible to scope members
+             */
+            in_progress: boolean;
+        };
+        /** MatrixResponse */
+        MatrixResponse: {
+            /**
+             * Scopes
+             * @description Requested scopes the caller may see, in request order
+             */
+            scopes: components["schemas"]["MatrixScope"][];
+            /** Rows */
+            rows: components["schemas"]["MatrixRow"][];
+            /** Total */
+            total: number;
+            /** Skip */
+            skip: number;
+            /** Limit */
+            limit: number;
+            /** Has Next */
+            has_next: boolean;
+            /** Has Prev */
+            has_prev: boolean;
+        };
+        /** MatrixRow */
+        MatrixRow: {
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /** Hgnc Id */
+            hgnc_id: string;
+            /** Approved Symbol */
+            approved_symbol: string;
+            /** Chromosome */
+            chromosome?: string | null;
+            /** Location */
+            location?: string | null;
+            /**
+             * Agreement
+             * @description Across active classifications: agree, disagree, single (only one classified scope) or none
+             * @enum {string}
+             */
+            agreement: "agree" | "disagree" | "single" | "none";
+            /** Cells */
+            cells?: components["schemas"]["MatrixCell"][];
+        };
+        /** MatrixScope */
+        MatrixScope: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
+            /** Is Public */
+            is_public: boolean;
+        };
         /** MyWorkResponse */
         MyWorkResponse: {
             /** Items */
@@ -9013,7 +9129,7 @@ export interface components {
          * WorkflowStage
          * @enum {string}
          */
-        WorkflowStage: "entry" | "precuration" | "curation" | "review" | "active";
+        WorkflowStage: "entry" | "precuration" | "curation" | "review" | "active" | "archived";
         /**
          * WorkflowStateInfo
          * @description Current workflow state information.
@@ -13485,6 +13601,45 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeFilterOption"][];
+                };
+            };
+        };
+    };
+    get_catalogue_matrix_api_v1_gene_catalogue_matrix_get: {
+        parameters: {
+            query: {
+                /** @description Scopes (columns) */
+                scope_ids: string[];
+                /** @description Gene symbol, HGNC ID or aliases (literal text) */
+                search?: string | null;
+                /** @description Only genes whose active classifications agree or disagree */
+                agreement?: ("agree" | "disagree") | null;
+                skip?: number;
+                limit?: number;
+                sort_order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatrixResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

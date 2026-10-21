@@ -224,6 +224,15 @@ describe('api client', () => {
     }
   )
 
+  it('does not log a cancelled request as an API error', async () => {
+    handler = config => Promise.reject(new axios.CanceledError('canceled', config))
+
+    await expect(apiClient.get('/search')).rejects.toBeInstanceOf(axios.CanceledError)
+
+    expect(logService.error).not.toHaveBeenCalled()
+    expect(logService.clearCorrelationId).toHaveBeenCalled()
+  })
+
   it('logs only the status and detail of an error, never the response body', async () => {
     handler = config =>
       Promise.reject(

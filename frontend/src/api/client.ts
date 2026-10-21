@@ -167,14 +167,16 @@ apiClient.interceptors.response.use(
       duration
     )
 
-    // Log detailed error information
-    logService.error('API Error', {
-      method: error.config?.method,
-      url: error.config?.url,
-      status,
-      error: error.message,
-      detail: errorDetail(error.response?.data)
-    })
+    // A request aborted on purpose (a stale palette search) is not an error
+    if (!axios.isCancel(error)) {
+      logService.error('API Error', {
+        method: error.config?.method,
+        url: error.config?.url,
+        status,
+        error: error.message,
+        detail: errorDetail(error.response?.data)
+      })
+    }
 
     clearCorrelationIdFor(originalRequest?.headers?.['X-Request-ID'])
 
