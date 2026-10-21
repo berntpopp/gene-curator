@@ -32,3 +32,23 @@ def test_500_has_no_cors_for_unknown_origin(boom_client):
     response = boom_client.get("/__boom", headers={"Origin": "https://evil.example"})
     assert response.status_code == 500
     assert "access-control-allow-origin" not in response.headers
+
+
+def test_500_exposes_configured_headers(boom_client):
+    origin = cors_config.allow_origins[0]
+    response = boom_client.get("/__boom", headers={"Origin": origin})
+    assert cors_config.expose_headers  # config must list the correlation header
+    assert response.headers["access-control-expose-headers"] == ", ".join(
+        cors_config.expose_headers
+    )
+
+
+def test_lifespan_runs_startup_and_shutdown(monkeypatch):
+    messages: list[str] = []
+    monkeypatch.setattr(
+        "app.main.logger",
+        type("L", (), {"info": lambda _s, m, **_k: messages.append(m)})(),
+    )
+    with TestClient(app):
+        assert messages == ["Starting Gene Curator API..."]
+    assert messages[-1] == "Shutting down Gene Curator API..."

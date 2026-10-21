@@ -5,6 +5,8 @@ Enhanced with YAML-based configuration and constants for better maintainability.
 """
 
 import time
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,11 +30,25 @@ logger = get_logger(__name__)
 # Load feature flags
 feature_flags = get_feature_flags()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
+    logger.info(
+        "Starting Gene Curator API...",
+        environment=settings.ENVIRONMENT,
+        database_url=settings.DATABASE_URL,
+        clingen_sop_version=settings.CLINGEN_SOP_VERSION,
+    )
+    yield
+    logger.info("Shutting down Gene Curator API...")
+
+
 # Create FastAPI application with configurable documentation URLs
 app = FastAPI(
     title=APP_NAME,
     description=APP_DESCRIPTION,
     version=APP_VERSION,
+    lifespan=lifespan,
     docs_url=(
         "/docs"
         if settings.ENVIRONMENT == "development"
@@ -129,6 +145,10 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
     origin = request.headers.get("origin")
     if origin and origin in cors_config.allow_origins:
         headers = {"Access-Control-Allow-Origin": origin, "Vary": "Origin"}
+        if cors_config.expose_headers:
+            headers["Access-Control-Expose-Headers"] = ", ".join(
+                cors_config.expose_headers
+            )
         if cors_config.allow_credentials:
             headers["Access-Control-Allow-Credentials"] = "true"
     return JSONResponse(
@@ -140,23 +160,6 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
             "request_id": id(request),
         },
     )
-
-
-# Startup event
-@app.on_event("startup")
-async def startup_event() -> None:
-    logger.info(
-        "Starting Gene Curator API...",
-        environment=settings.ENVIRONMENT,
-        database_url=settings.DATABASE_URL,
-        clingen_sop_version=settings.CLINGEN_SOP_VERSION,
-    )
-
-
-# Shutdown event
-@app.on_event("shutdown")
-async def shutdown_event() -> None:
-    logger.info("Shutting down Gene Curator API...")
 
 
 if __name__ == "__main__":
