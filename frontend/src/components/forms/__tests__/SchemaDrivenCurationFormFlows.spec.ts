@@ -528,7 +528,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
 
     it('shows the live backend score from validate-evidence', async () => {
       curationsStore.fetchCurationById.mockResolvedValue({
-        evidence_data: { contradictory_evidence: [{ description: 'x' }] },
+        evidence_data: { contradictory_evidence: [{ description: 'x', impact: 'disputed' }] },
         lock_version: 2
       })
       const { wrapper, frame } = await mountFramed()

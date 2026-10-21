@@ -2,8 +2,8 @@
 
 A point model (``scoring_configuration.point_model``, else the template file named after
 ``scoring_configuration.engine``) is ``{total_cap, sections: [{key, cap, categories:
-[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?}]}]}], overrides,
-bands}``. ``path`` is dotted and relative to the section's evidence.
+[{key, cap, combine?, types: [{path, default?, points_key?, rule?, range?}]}]}],
+overrides: [{when, field?, in?, class}], bands}``. ``path`` is dotted and relative to the section's evidence.
 """
 
 import json
@@ -102,7 +102,12 @@ def classify(
 ) -> dict[str, Any]:
     """First matching override (curator-asserted evidence), else first matching band."""
     for override in model.get("overrides", []):
-        if has_content(evidence.get(override["when"])):
+        value = evidence.get(override["when"])
+        if "field" in override:  # only rows whose field holds one of the "in" values
+            value = [
+                r for r in rows(value) if r.get(override["field"]) in override["in"]
+            ]
+        if has_content(value):
             return dict(override)
     for band in model["bands"]:
         if total >= band.get("min", float("-inf")) and (

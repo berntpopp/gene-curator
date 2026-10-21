@@ -74,12 +74,44 @@ def test_golden_parity_with_pre_interpreter_engine(case: dict) -> None:
         (
             18,
             {"replicated_over_time": True, "contradictory_evidence": [{"pmid": "1"}]},
+            "definitive",
+        ),
+        (
+            18,
+            {"contradictory_evidence": [{"pmid": "1", "impact": "disputed"}]},
             "disputed",
         ),
+        (12, {"contradictory_evidence": [{"pmid": "1", "impact": "note"}]}, "strong"),
     ],
 )
 def test_clingen_bands(total: float, flags: dict, expected: str) -> None:
     assert classify(CLINGEN, total, flags)["class"] == expected
+
+
+def test_row_field_override_passes_the_static_check() -> None:
+    from app.core.schema_rules import check_schema_definition
+
+    def errors(model: dict) -> list[str]:
+        schema = {
+            "field_definitions": {"gene": {"type": "text"}},
+            "workflow_states": ["draft", "submitted"],
+            "ui_configuration": {"sections": []},
+            "scoring_configuration": {
+                "engine": "clingen_sop_v11",
+                "point_model": model,
+            },
+        }
+        return [p for s, p, _ in check_schema_definition(schema) if s == "error"]
+
+    assert errors(CLINGEN) == []
+    bad = copy.deepcopy(CLINGEN)
+    bad["overrides"][0]["in"] = "disputed"  # a string would match substrings
+    assert errors(bad) == ["scoring_configuration.point_model.overrides[0].in"]
+    del bad["overrides"][0]["field"]
+    bad["overrides"][0]["in"] = [
+        "disputed"
+    ]  # without a field it would dispute on any row
+    assert errors(bad) == ["scoring_configuration.point_model.overrides[0].field"]
 
 
 def _row(type_def: dict, points: float) -> dict:

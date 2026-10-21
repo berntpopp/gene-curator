@@ -40,7 +40,9 @@ describe('FAQ accuracy', () => {
     await wrapper.find('#clingen-classification .v-expansion-panel-title').trigger('click')
     const text = wrapper.text()
     expect(text).toContain('Limited is 1 to 6 points')
-    expect(text).toContain('Disputed')
+    expect(text).toContain(
+      'Only contradictory evidence marked Impact: Disputed makes the class Disputed'
+    )
   })
 
   it('sends admins to the All assignments table, not "My Work (/assignments)"', async () => {

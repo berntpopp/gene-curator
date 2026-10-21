@@ -131,7 +131,7 @@
   import type { ApiErrorLike, PrecurationData } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
-  import { hasContent } from './hasContent'
+  import { hasContent, hasDisputingRow } from './hasContent'
   import { scoreSnapshot, type ScoreCalculations } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
@@ -199,7 +199,9 @@
     schemasStore.getSchemaById(props.schemaId)
   )
 
-  const hasContradictory = computed(() => hasContent(evidenceData.value.contradictory_evidence))
+  const hasContradictory = computed(() =>
+    hasDisputingRow(evidenceData.value.contradictory_evidence)
+  )
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
   const recoveryKey = computed(

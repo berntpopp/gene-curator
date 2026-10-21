@@ -68,7 +68,7 @@
     }
   ],
   "overrides": [
-    {"when": "contradictory_evidence", "class": "disputed", "description": "Conflicting or contradictory evidence present, resulting in DISPUTED classification."}
+    {"when": "contradictory_evidence", "field": "impact", "in": ["disputed"], "class": "disputed", "description": "Contradictory evidence with impact Disputed present, resulting in DISPUTED classification."}
   ],
   "bands": [
     {"class": "definitive", "min": 12, "requires": "replicated_over_time", "description": "Total score 12-18 points (Strong) with replication over time supports a DEFINITIVE gene-disease relationship."},

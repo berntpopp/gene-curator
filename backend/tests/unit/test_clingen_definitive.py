@@ -26,7 +26,7 @@ class TestDefinitiveAndContradictory:
         assert _classify(11.99, replicated_over_time=True) == "moderate"
 
     def test_contradictory_evidence_is_disputed(self):
-        contradictory = [{"pmid": "1"}]
+        contradictory = [{"pmid": "1", "impact": "disputed"}]
         assert _classify(18.0, contradictory_evidence=contradictory) == "disputed"
         assert (
             _classify(
@@ -44,7 +44,7 @@ class TestDefinitiveAndContradictory:
         assert engine.calculate_scores(base, {}).verdict == "strong"
         rep = {**base, "replicated_over_time": True}
         assert engine.calculate_scores(rep, {}).verdict == "definitive"
-        dis = {**rep, "contradictory_evidence": [{"pmid": "1"}]}
+        dis = {**rep, "contradictory_evidence": [{"pmid": "1", "impact": "disputed"}]}
         assert engine.calculate_scores(dis, {}).verdict == "disputed"
 
     def test_empty_contradictory_row_does_not_dispute(self, engine: ClinGenEngine):
@@ -65,7 +65,7 @@ class TestDefinitiveAndContradictory:
         for rows in ([blank], [{}], [blank, {}], [fresh]):
             ev = {**base, "contradictory_evidence": rows}
             assert engine.calculate_scores(ev, {}).verdict == "strong"
-        ev = {**base, "contradictory_evidence": [blank, {"pmid": "1"}]}
+        ev = {**base, "contradictory_evidence": [blank, {"impact": "disputed"}]}
         assert engine.calculate_scores(ev, {}).verdict == "disputed"
 
     def test_rationale_uses_sop_v11_ranges(self, engine: ClinGenEngine):
