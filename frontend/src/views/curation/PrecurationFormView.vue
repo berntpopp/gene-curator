@@ -1,6 +1,11 @@
 <template>
   <v-container>
-    <NoCurateAccess v-if="guard.denied.value" :scope-id="scopeId" />
+    <NoCurateAccess
+      v-if="guard.denied.value || guard.failed.value"
+      :scope-id="scopeId"
+      :failed="guard.failed.value"
+      @retry="init"
+    />
 
     <!-- Loading State -->
     <template v-else-if="loading">
@@ -243,7 +248,7 @@
   }
 
   // Lifecycle
-  onMounted(async () => {
+  async function init() {
     loading.value = true
     loadError.value = null
 
@@ -251,7 +256,7 @@
       // Starting a precuration needs a curator role; opening an existing one (read-only) does not
       if (!precurationId.value) {
         await guard.check()
-        if (guard.denied.value) return
+        if (!guard.allowed.value) return
       }
 
       // Load scope and schema first
@@ -279,7 +284,9 @@
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  onMounted(init)
 </script>
 
 <style scoped>

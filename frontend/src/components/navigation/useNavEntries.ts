@@ -52,7 +52,7 @@ export function useNavEntries() {
     { immediate: true }
   )
   const hasScopeRole = (roles: string[]) =>
-    authStore.isAdmin || scopesStore.scopes.some(s => roles.includes(s.user_role ?? ''))
+    scopesStore.scopes.some(s => roles.includes(s.user_role ?? ''))
 
   const allowed = (m: RailMeta) =>
     authReady.value &&

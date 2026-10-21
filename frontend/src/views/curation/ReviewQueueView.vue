@@ -285,7 +285,9 @@
   const scopes = ref<Array<{ id: string; name: string }>>([])
   const selectedScope = ref<string | null>(null)
   // My work deep-links here with ?q=<gene> so the item to review is the one listed
-  const searchQuery = ref((useRoute()?.query.q as string | undefined) ?? '')
+  const route = useRoute()
+  const queryText = (q: unknown) => String(([] as unknown[]).concat(q)[0] ?? '')
+  const searchQuery = ref(queryText(route?.query.q))
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
   const mineOnly = ref(false)
@@ -345,6 +347,14 @@
   })
 
   const totalPages = computed<number>(() => Math.ceil(filtered.value.length / itemsPerPage))
+
+  // A second deep link while the queue is open applies too
+  watch(
+    () => route?.query.q,
+    q => {
+      if (q !== undefined) searchQuery.value = queryText(q)
+    }
+  )
 
   // Watch for filter changes to reset pagination
   watch([selectedScope, searchQuery, mineOnly], () => {

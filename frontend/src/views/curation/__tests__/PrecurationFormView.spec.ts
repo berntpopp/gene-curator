@@ -144,6 +144,24 @@ describe('PrecurationFormView', () => {
       expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).exists()).toBe(false)
     })
 
+    it('never shows the form when the role lookup fails, and retries', async () => {
+      vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'BRCA1' } as never)
+      const fetchRole = vi
+        .spyOn(useScopesStore(), 'fetchUserRole')
+        .mockRejectedValue(new Error('500'))
+      const wrapper = mount(PrecurationFormView, {
+        global: { stubs: { SchemaDrivenPrecurationForm: true } }
+      })
+      await flushPromises()
+      expect(wrapper.text()).toContain('could not check')
+      expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).exists()).toBe(false)
+
+      fetchRole.mockResolvedValue('curator' as never)
+      await wrapper.find('[data-testid=retry-access]').trigger('click')
+      await flushPromises()
+      expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).exists()).toBe(true)
+    })
+
     it('shows a curator the form', async () => {
       const { wrapper } = await mountNew('curator')
       expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(false)

@@ -13,7 +13,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     requiresGuest?: boolean
     requiredRoles?: string[]
-    /** Menu entry only: scope roles (in any scope) that may see it; platform admins always can. */
+    /** Menu entry only: scope roles (in any scope) that may see it; platform admins get no bypass. */
     navScopeRoles?: string[]
     /** Menu entry only: application roles that may see it (the route itself stays reachable). */
     navAppRoles?: string[]

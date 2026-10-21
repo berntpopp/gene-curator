@@ -451,6 +451,20 @@ describe('CurationFormView', () => {
       expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(false)
     })
 
+    it('never shows the form when the role lookup fails, and retries', async () => {
+      const { wrapper, scopes, schemas } = await mountView(({ scopes, schemas }) => {
+        vi.spyOn(scopes, 'fetchUserRole').mockRejectedValue(new Error('500'))
+        schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+      })
+      expect(wrapper.text()).toContain('could not check')
+      expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(false)
+      vi.mocked(scopes.fetchUserRole).mockResolvedValue('curator' as never)
+      void schemas
+      await wrapper.find('[data-testid=retry-access]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(false)
+    })
+
     it('lets a curator through', async () => {
       const { wrapper } = await mountView(({ scopes, schemas }) => {
         vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)

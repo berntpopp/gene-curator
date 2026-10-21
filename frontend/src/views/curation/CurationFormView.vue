@@ -32,7 +32,12 @@
       </template>
     </v-alert>
 
-    <NoCurateAccess v-if="guard.denied.value" :scope-id="scopeId" />
+    <NoCurateAccess
+      v-if="guard.denied.value || guard.failed.value"
+      :scope-id="scopeId"
+      :failed="guard.failed.value"
+      @retry="loadData"
+    />
     <div v-else :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
       <div class="ws-main">
         <!-- The one skeleton: until the schema is resolved and the form reports ready -->
@@ -339,7 +344,7 @@
       // Starting a curation needs a curator role; opening an existing one does not
       if (!curationId.value) {
         await guard.check()
-        if (guard.denied.value) return
+        if (!guard.allowed.value) return
       }
 
       // Load schemas, workflow pairs, and scope in parallel

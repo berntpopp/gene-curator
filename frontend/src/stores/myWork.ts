@@ -30,26 +30,45 @@ export const useMyWorkStore = defineStore('myWork', () => {
     return new Map(scopes.scopes.map(s => [s.id, s.display_name || s.name]))
   }
 
-  /**
-   * The review actions of a precuration live in the review queue, so My work links there.
-   * A draft curation that a reviewer sent back reads "Address review feedback".
-   */
+  /** The review actions of a precuration live in the review queue, so My work links there. */
   async function decorate(list: WorkItem[]): Promise<WorkItem[]> {
     const names = await scopeNames()
+    return list.map(i => {
+      const row = { ...i, scope_name: names.get(i.scope_id) ?? i.scope_name }
+      if (i.kind === 'review' && i.item_type === 'precuration') {
+        row.link = `/review-queue?q=${encodeURIComponent(i.gene_symbol)}`
+      }
+      return row
+    })
+  }
+
+  let generation = 0
+  const LOOKUPS = 4
+
+  /**
+   * A draft curation that a reviewer sent back reads "Address review feedback". Looked up after the
+   * list is shown, four at a time; labels for a list that was since replaced are dropped.
+   * ponytail: /me/work should return a feedback flag so this needs no requests per draft (backend).
+   */
+  async function labelFeedback(gen: number) {
     const me = (useAuthStore().user as { id?: string } | null)?.id ?? ''
     const feedback = useReviewFeedbackStore()
-    return Promise.all(
-      list.map(async i => {
-        const row = { ...i, scope_name: names.get(i.scope_id) ?? i.scope_name }
-        if (i.kind === 'review' && i.item_type === 'precuration') {
-          row.link = `/review-queue?q=${encodeURIComponent(i.gene_symbol)}`
-        } else if (i.kind === 'draft' && i.item_type === 'curation') {
-          const fb = await feedback.fetch(i.item_id, me).catch(() => null)
-          if (fb?.any) row.verb = 'Address review feedback'
+    const drafts = items.value.filter(i => i.kind === 'draft' && i.item_type === 'curation')
+    let next = 0
+    const worker = async () => {
+      while (next < drafts.length) {
+        const row = drafts[next++]!
+        const fb = await feedback.fetch(row.item_id, me).catch(() => null)
+        if (fb?.any && gen === generation) {
+          items.value = items.value.map(i =>
+            i.item_id === row.item_id && i.kind === row.kind
+              ? { ...i, verb: 'Address review feedback' }
+              : i
+          )
         }
-        return row
-      })
-    )
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(LOOKUPS, drafts.length) }, worker))
   }
 
   async function fetchMyWork() {
@@ -58,6 +77,7 @@ export const useMyWorkStore = defineStore('myWork', () => {
     try {
       const data = await myWorkApi.getMyWork()
       items.value = await decorate(data.items)
+      void labelFeedback(++generation)
       counts.value = data.counts
     } catch (err) {
       error.value = errorMessage(err, 'Failed to load your work')

@@ -132,11 +132,16 @@ describe('SideRail', () => {
       }
     })
 
-    it('shows Review and Assignments to a platform admin', async () => {
+    it('gives a platform admin Assignments, but Review only with a real reviewer or admin membership', async () => {
       signIn('admin', 'viewer')
-      const wrapper = await mountRail()
-      expect(wrapper.text()).toContain('Review')
+      let wrapper = await mountRail()
       expect(wrapper.text()).toContain('Assignments')
+      expect(wrapper.text()).not.toContain('Review')
+      wrapper.unmount()
+
+      signIn('admin', 'reviewer')
+      wrapper = await mountRail()
+      expect(wrapper.text()).toContain('Review')
       wrapper.unmount()
     })
 
