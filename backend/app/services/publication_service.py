@@ -9,13 +9,16 @@ Design Principles:
 - Graceful degradation: Returns meaningful errors on API failures
 """
 
+import asyncio
 import contextlib
+import re
 from datetime import UTC, datetime as dt
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
 from app.models.models import Publication
@@ -391,3 +394,48 @@ class PublicationService:
             return result.publication
 
         return None
+
+
+# pmid_format as the forms accept it: optional "PMID:" prefix, 1-9 digits
+_PMID = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
+
+
+def evidence_pmids(evidence: Any) -> set[str]:
+    """Every well-formed PMID under a "pmid" key, at any depth (all evidence tables)."""
+    if isinstance(evidence, list):
+        return set().union(*(evidence_pmids(v) for v in evidence))
+    if not isinstance(evidence, dict):
+        return set()
+    found = set().union(*(evidence_pmids(v) for v in evidence.values()))
+    match = _PMID.match(str(evidence.get("pmid") or "").strip())
+    return found | {match.group(1)} if match else found
+
+
+def unknown_pmids(db: Session, pmids: set[str]) -> list[str]:
+    """PMIDs Europe PMC reports as not found. Cached ones are known; a failed lookup
+    (offline, timeout) does not count as unknown, same rule as the forms."""
+    cached = set(
+        db.scalars(select(Publication.pmid).where(Publication.pmid.in_(pmids)))
+    )
+    missing = sorted(pmids - cached)
+    if not missing:
+        return []
+    results = asyncio.run(_fetch_all(missing))
+    unknown = [
+        r.pmid for r in results if (r.error or "").startswith("Publication not found")
+    ]
+    failed = [r.pmid for r in results if not r.is_valid and r.pmid not in unknown]
+    if failed:
+        logger.warning("PMID lookup failed, not blocking submit", pmids=failed)
+    return unknown
+
+
+async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
+    # fetch_publication never touches the cache session
+    service = PublicationService(cast(AsyncSession, None))
+    try:
+        return list(
+            await asyncio.gather(*(service.fetch_publication(p) for p in pmids))
+        )
+    finally:
+        await service.close()
