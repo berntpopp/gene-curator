@@ -52,9 +52,10 @@
       <div class="d-flex justify-space-between align-center mb-4">
         <div class="d-flex ga-2">
           <v-btn
+            v-if="canAdministerAny"
             color="primary"
             variant="flat"
-            :disabled="!selectedAssignments.length"
+            :disabled="!selectedAssignments.length || !selectionAdministrable"
             @click="openBulkAssignDialog"
           >
             <v-icon start>mdi-account-multiple-plus</v-icon>
@@ -132,6 +133,7 @@
         <template #item.actions="{ item }">
           <div class="d-flex ga-1">
             <v-btn
+              v-if="canAdminister(item.scope_id)"
               aria-label="Edit assignment"
               icon="mdi-pencil"
               size="small"
@@ -139,6 +141,7 @@
               @click="editAssignment(item)"
             />
             <v-btn
+              v-if="canAdminister(item.scope_id)"
               aria-label="Reassign gene"
               icon="mdi-account-plus"
               size="small"
@@ -352,6 +355,19 @@
   const loading = computed(() => assignmentsStore.loading)
   const assignments = computed(() => assignmentsStore.assignments)
   const availableScopes = computed(() => scopesStore.scopes)
+
+  // Edit, reassign and bulk assign are scope-admin (or application admin) actions in the API
+  const canAdminister = (scopeId: string) =>
+    authStore.isAdmin || scopesStore.scopes.some(s => s.id === scopeId && s.user_role === 'admin')
+  const canAdministerAny = computed(
+    () => authStore.isAdmin || scopesStore.scopes.some(s => s.user_role === 'admin')
+  )
+  const selectionAdministrable = computed(() =>
+    selectedAssignments.value.every(id => {
+      const row = assignmentsStore.assignments.find(a => a.id === id)
+      return !!row && canAdminister(row.scope_id)
+    })
+  )
   const availableUsers = computed(() => usersStore.users.filter(user => user.is_active))
 
   // Error boundary for component-level errors
