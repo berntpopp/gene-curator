@@ -18,6 +18,16 @@ describe('AgreementBanner', () => {
     expect(wrapper.find('[role="status"]').exists()).toBe(true)
   })
 
+  it('names the count when more than two scopes agree', () => {
+    const wrapper = mountIt({
+      scopeCount: 3,
+      hasConflicts: false,
+      consensus: 'strong',
+      classifications: { strong: 3 }
+    })
+    expect(wrapper.text()).toContain('All 3 scopes agree')
+  })
+
   it('shows a disagreement banner listing the classifications', () => {
     const wrapper = mountIt({
       scopeCount: 3,
