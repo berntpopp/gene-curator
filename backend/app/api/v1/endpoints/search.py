@@ -8,7 +8,7 @@ list_scopes / list_curations). Three queries, whatever the limit.
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import Select, case, func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -44,7 +44,7 @@ def _rank(column: Any, q: str, prefix: str) -> Any:
     )
 
 
-def _visible(stmt: Select[Any], user: UserNew, scope_id_col: Any) -> Select[Any]:
+def _visible(stmt: Any, user: UserNew, scope_id_col: Any) -> Any:
     if user.role == "admin":
         return stmt
     member_of = select(ScopeMembership.scope_id).where(
