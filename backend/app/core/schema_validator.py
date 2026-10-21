@@ -9,6 +9,7 @@ from typing import Any
 
 from app.core.enum_options import enum_option, flatten_sections
 from app.core.schema_rules import (
+    VALID_FIELD_TYPES,
     apply_field_list_rules,
     check_schema_definition,
     is_visible,
@@ -44,6 +45,11 @@ class SchemaValidator:
             "pmid": self._validate_pmid_field,
             "hgnc_id": self._validate_hgnc_id_field,
             "score": self._validate_score_field,
+            # Seeded aliases (VALID_FIELD_TYPES); evidence_table is not checked per cell here
+            "textarea": self._validate_text_field,
+            "external_reference": self._validate_text_field,
+            "integer": self._validate_number_field,
+            "enum": self._validate_select_field,
         }
 
         self.business_rules = {
@@ -171,7 +177,7 @@ class SchemaValidator:
                 self.field_validators[field_type](
                     field_name, field_value, field_config, result
                 )
-            else:
+            elif field_type not in VALID_FIELD_TYPES:
                 result.add_warning(
                     field_name, f"Unknown field type: {field_type}", "configuration"
                 )
@@ -204,21 +210,13 @@ class SchemaValidator:
 
         pattern = config.get("pattern")
         if pattern and not result.check_pattern(field_name, pattern, value, config):
-            return  # a format error makes the "more detail" hint noise
+            return  # the format error already covers this value
 
-        if config.get("quality_checks", True):
-            if len(value.strip()) != len(value):
-                result.add_warning(
-                    field_name, "Text has leading/trailing whitespace", "quality"
-                )
-
-            idlike = pattern or field_name.endswith("_id")  # single token by nature
-            if value and len(value.split()) < 3 and not idlike:
-                result.add_warning(
-                    field_name,
-                    "Consider providing more detailed description",
-                    "completeness",
-                )
+        # No word-count hint: short values (names, IDs, table cells) are valid data
+        if config.get("quality_checks", True) and len(value.strip()) != len(value):
+            result.add_warning(
+                field_name, "Text has leading/trailing whitespace", "quality"
+            )
 
     def _validate_number_field(
         self,
