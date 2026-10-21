@@ -262,4 +262,25 @@ describe('ScopeSettings', () => {
 
     expect(snackbarState.message).toBe('Failed to delete scope: timeout')
   })
+
+  it('ignores Escape on the delete dialog while the delete is in flight', async () => {
+    let finish: () => void = () => {}
+    vi.mocked(scopesAPI.deleteScope).mockReturnValueOnce(
+      new Promise<void>(resolve => {
+        finish = resolve
+      }) as never
+    )
+    const { wrapper, vm } = await mountSettings({ role: 'admin' })
+    vm.showDeleteDialog = true
+    const pending = vm.deleteScope()
+    await flushPromises()
+
+    const dialogs = wrapper.findAllComponents({ name: 'BaseDialog' })
+    dialogs.forEach(d => d.vm.$emit('cancel'))
+    expect(vm.showDeleteDialog).toBe(true)
+
+    finish()
+    await pending
+    expect(wrapper.emitted('deleted')).toHaveLength(1)
+  })
 })

@@ -11,6 +11,9 @@ import { createPinia, setActivePinia } from 'pinia'
 import { useScopesStore } from '@/stores/scopes'
 import InviteMemberDialog from '../InviteMemberDialog.vue'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
@@ -24,7 +27,8 @@ interface InviteInternals {
   notesRules: ((v: string) => true | string)[]
   getInitials: (name: string | null | undefined) => string
   handleSubmit: () => Promise<void>
-  handleCancel: () => void
+  handleCancel: () => Promise<void>
+  keepDialogOpenWhileMenuOpen: (e: Event) => void
 }
 
 describe('InviteMemberDialog', () => {
@@ -99,11 +103,16 @@ describe('InviteMemberDialog', () => {
     await expect(vm.handleSubmit()).rejects.toThrow('already a member')
   })
 
-  it('cancels by emitting a closed state', () => {
+  it('cancels by emitting a closed state after confirming the discard', async () => {
+    confirmMock.mockResolvedValue(true)
     const { wrapper, vm } = mountDialog()
     vm.selectedUser = { id: 'u1' }
 
-    vm.handleCancel()
+    await vm.handleCancel()
+
+    expect(confirmMock).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Discard invitation?' })
+    )
 
     expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
     expect(vm.selectedUser).toBeNull()
@@ -135,5 +144,42 @@ describe('InviteMemberDialog', () => {
 
     expect(vm.notesRules[0]?.('x'.repeat(201))).toBe('Notes must be 200 characters or less')
     expect(vm.notesRules[0]?.('short')).toBe(true)
+  })
+
+  it('keeps the input when the discard is declined', async () => {
+    confirmMock.mockResolvedValue(false)
+    const { wrapper, vm } = mountDialog()
+    vm.notes = 'remember me'
+
+    await vm.handleCancel()
+
+    expect(vm.notes).toBe('remember me')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
+  it('closes without asking when the form is empty', async () => {
+    confirmMock.mockClear()
+    const { wrapper, vm } = mountDialog()
+
+    await vm.handleCancel()
+
+    expect(confirmMock).not.toHaveBeenCalled()
+    expect(wrapper.emitted('update:modelValue')?.at(-1)).toEqual([false])
+  })
+
+  it('stops an Escape that only closes the open autocomplete menu', () => {
+    const { vm } = mountDialog()
+    const input = document.createElement('input')
+    const event = new KeyboardEvent('keydown', { key: 'Escape' })
+    Object.defineProperty(event, 'target', { value: input })
+    const stop = vi.spyOn(event, 'stopPropagation')
+
+    input.setAttribute('aria-expanded', 'false')
+    vm.keepDialogOpenWhileMenuOpen(event)
+    expect(stop).not.toHaveBeenCalled()
+
+    input.setAttribute('aria-expanded', 'true')
+    vm.keepDialogOpenWhileMenuOpen(event)
+    expect(stop).toHaveBeenCalled()
   })
 })

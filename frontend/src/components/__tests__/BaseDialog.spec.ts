@@ -51,4 +51,16 @@ describe('BaseDialog', () => {
     expect(wrapper.text()).toContain('Edit')
     expect(wrapper.text()).toContain('Go')
   })
+
+  it('returns focus to the opener when it mounts already open', async () => {
+    const opener = document.createElement('button')
+    document.body.appendChild(opener)
+    opener.focus()
+    const wrapper = mountDialog({ modelValue: true })
+
+    ;(document.activeElement as HTMLElement).blur()
+    wrapper.findComponent(VDialog).vm.$emit('after-leave')
+
+    expect(document.activeElement).toBe(opener)
+  })
 })

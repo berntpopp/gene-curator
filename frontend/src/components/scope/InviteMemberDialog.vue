@@ -40,6 +40,7 @@
         :exclude-user-ids="existingMemberIds"
         label="Search for user"
         placeholder="Type name, email, or institution..."
+        @keydown.escape="keepDialogOpenWhileMenuOpen"
       />
 
       <!-- Selected User Preview -->
@@ -121,6 +122,7 @@
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { useConfirm } from '@/composables/useConfirm'
 
   /** User picked in the search autocomplete */
   interface InviteCandidate {
@@ -174,6 +176,7 @@
   // STATE
   // ============================================
 
+  const { confirm } = useConfirm()
   const formRef = ref<{ reset: () => void } | null>(null)
   const formValid = ref(false)
   const submitting = ref(false)
@@ -264,9 +267,22 @@
   /**
    * Handle cancel button
    */
-  const handleCancel = () => {
+  const handleCancel = async () => {
+    const hasInput = selectedUser.value || notes.value
+    if (
+      hasInput &&
+      !(await confirm({ title: 'Discard invitation?', confirmText: 'Discard', destructive: true }))
+    )
+      return
     resetForm()
     isOpen.value = false
+  }
+
+  /** Escape that only closes the autocomplete menu must not reach the dialog. */
+  const keepDialogOpenWhileMenuOpen = (event: Event) => {
+    if ((event.target as HTMLElement).getAttribute('aria-expanded') === 'true') {
+      event.stopPropagation()
+    }
   }
 
   /**

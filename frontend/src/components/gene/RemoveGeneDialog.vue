@@ -3,7 +3,7 @@
     :model-value="modelValue"
     persistent
     size="sm"
-    @cancel="emit('cancel')"
+    @cancel="!isRemoving && emit('cancel')"
     @update:model-value="emit('update:modelValue', $event)"
   >
     <template #title

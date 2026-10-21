@@ -44,7 +44,7 @@
     open => {
       if (open) opener = document.activeElement as HTMLElement | null
     },
-    { flush: 'sync' }
+    { flush: 'sync', immediate: true }
   )
 
   function restoreFocus() {

@@ -59,7 +59,14 @@ describe('OMIMAutocomplete', () => {
   })
 
   function mountOmim(props: Record<string, unknown> = {}) {
-    const wrapper = mount(OMIMAutocomplete, { props })
+    const wrapper = mount(OMIMAutocomplete, {
+      props,
+      global: {
+        stubs: {
+          VDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
+        }
+      }
+    })
     return { wrapper, vm: wrapper.vm as unknown as OmimInternals }
   }
 
@@ -162,5 +169,16 @@ describe('OMIMAutocomplete', () => {
     expect(mountOmim({ required: true, modelValue: '' }).vm.errorMessages).toEqual([
       'OMIM disease is required'
     ])
+  })
+
+  it('shows the loading bar on the first open, before any record has loaded', async () => {
+    vi.mocked(ontologyAPI.getOMIMDisease).mockReturnValueOnce(new Promise(() => {}))
+    const { wrapper, vm } = mountOmim()
+
+    void vm.loadOMIMDetails('OMIM:1')
+    await flushPromises()
+
+    expect(vm.detailDisease).toBeNull()
+    expect(wrapper.find('.v-progress-linear').exists()).toBe(true)
   })
 })

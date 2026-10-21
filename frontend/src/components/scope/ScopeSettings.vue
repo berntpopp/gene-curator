@@ -172,7 +172,12 @@
     </v-card-text>
 
     <!-- Delete Confirmation Dialog -->
-    <BaseDialog v-model="showDeleteDialog" persistent size="md">
+    <BaseDialog
+      v-model="showDeleteDialog"
+      persistent
+      size="md"
+      @cancel="!deleting && (showDeleteDialog = false)"
+    >
       <template #title><v-icon start color="error">mdi-alert</v-icon> Delete scope</template>
       <p class="mb-3">
         Are you sure you want to delete <strong>{{ scope.display_name || scope.name }}</strong

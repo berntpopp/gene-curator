@@ -92,68 +92,70 @@
   </v-autocomplete>
 
   <!-- Detail Dialog -->
-  <BaseDialog v-if="detailDisease" v-model="showDetailDialog" size="lg">
+  <BaseDialog v-model="showDetailDialog" size="lg">
     <template #title>
       <v-icon start color="warning">mdi-flask</v-icon>
-      {{ detailDisease.name }}
+      {{ detailDisease?.name }}
     </template>
     <v-progress-linear v-if="isLoadingDetails" indeterminate />
-    <div class="mb-4">
-      <v-chip size="small" color="warning" variant="tonal" class="mr-2">
-        {{ detailDisease.omim_id }}
-      </v-chip>
-      <v-chip v-if="detailDisease.mondo_id" size="small" color="info" variant="outlined">
-        {{ detailDisease.mondo_id }}
-      </v-chip>
-    </div>
-    <div v-if="detailDisease.description" class="mb-4">
-      <strong>Description:</strong>
-      <p class="text-body-2 mt-1">{{ detailDisease.description }}</p>
-    </div>
-
-    <div v-if="detailDisease.genes?.length" class="mb-4">
-      <strong>Associated Genes:</strong>
-      <div class="d-flex flex-wrap ga-1 mt-1">
-        <v-chip
-          v-for="gene in detailDisease.genes"
-          :key="gene.gene_id"
-          size="small"
-          color="primary"
-          variant="tonal"
-        >
-          {{ gene.symbol }}
+    <template v-if="detailDisease">
+      <div class="mb-4">
+        <v-chip size="small" color="warning" variant="tonal" class="mr-2">
+          {{ detailDisease.omim_id }}
+        </v-chip>
+        <v-chip v-if="detailDisease.mondo_id" size="small" color="info" variant="outlined">
+          {{ detailDisease.mondo_id }}
         </v-chip>
       </div>
-    </div>
+      <div v-if="detailDisease.description" class="mb-4">
+        <strong>Description:</strong>
+        <p class="text-body-2 mt-1">{{ detailDisease.description }}</p>
+      </div>
 
-    <div v-if="Object.keys(detailDisease.phenotypes || {}).length">
-      <strong>Phenotypes by Category:</strong>
-      <v-expansion-panels class="mt-2" variant="accordion">
-        <v-expansion-panel v-for="(phenos, category) in detailDisease.phenotypes" :key="category">
-          <v-expansion-panel-title>
-            {{ category }}
-            <v-chip size="x-small" class="ml-2">{{ phenos.length }}</v-chip>
-          </v-expansion-panel-title>
-          <v-expansion-panel-text>
-            <v-list density="compact">
-              <v-list-item v-for="pheno in phenos" :key="pheno.hpo_id" class="px-0">
-                <template #prepend>
-                  <v-chip size="x-small" color="success" variant="tonal">
-                    {{ pheno.hpo_id }}
-                  </v-chip>
-                </template>
-                <v-list-item-title>{{ pheno.name }}</v-list-item-title>
-                <template #append>
-                  <span v-if="pheno.frequency" class="text-caption">
-                    {{ pheno.frequency }}
-                  </span>
-                </template>
-              </v-list-item>
-            </v-list>
-          </v-expansion-panel-text>
-        </v-expansion-panel>
-      </v-expansion-panels>
-    </div>
+      <div v-if="detailDisease.genes?.length" class="mb-4">
+        <strong>Associated Genes:</strong>
+        <div class="d-flex flex-wrap ga-1 mt-1">
+          <v-chip
+            v-for="gene in detailDisease.genes"
+            :key="gene.gene_id"
+            size="small"
+            color="primary"
+            variant="tonal"
+          >
+            {{ gene.symbol }}
+          </v-chip>
+        </div>
+      </div>
+
+      <div v-if="Object.keys(detailDisease.phenotypes || {}).length">
+        <strong>Phenotypes by Category:</strong>
+        <v-expansion-panels class="mt-2" variant="accordion">
+          <v-expansion-panel v-for="(phenos, category) in detailDisease.phenotypes" :key="category">
+            <v-expansion-panel-title>
+              {{ category }}
+              <v-chip size="x-small" class="ml-2">{{ phenos.length }}</v-chip>
+            </v-expansion-panel-title>
+            <v-expansion-panel-text>
+              <v-list density="compact">
+                <v-list-item v-for="pheno in phenos" :key="pheno.hpo_id" class="px-0">
+                  <template #prepend>
+                    <v-chip size="x-small" color="success" variant="tonal">
+                      {{ pheno.hpo_id }}
+                    </v-chip>
+                  </template>
+                  <v-list-item-title>{{ pheno.name }}</v-list-item-title>
+                  <template #append>
+                    <span v-if="pheno.frequency" class="text-caption">
+                      {{ pheno.frequency }}
+                    </span>
+                  </template>
+                </v-list-item>
+              </v-list>
+            </v-expansion-panel-text>
+          </v-expansion-panel>
+        </v-expansion-panels>
+      </div>
+    </template>
     <template #actions>
       <v-btn
         color="warning"
