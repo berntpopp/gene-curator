@@ -39,6 +39,7 @@ def test_bulk_assign_curator_to_existing_unassigned_assignments(
             "scope_id": str(test_scope.id),
             "assigned_curator_id": str(test_user_curator.id),
             "priority_level": "high",
+            "assignment_notes": "bulk note",
         },
         headers=_auth(curator_token),
     )
@@ -47,6 +48,7 @@ def test_bulk_assign_curator_to_existing_unassigned_assignments(
     assert response.json()["total_created"] == 2
     for row in (first, second):
         db_session.refresh(row)
+        assert row.assignment_notes == "bulk note"
         assert row.assigned_curator_id == test_user_curator.id
         assert row.priority == "high"
 

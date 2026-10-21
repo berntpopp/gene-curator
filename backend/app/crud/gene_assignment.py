@@ -545,6 +545,8 @@ class CRUDGeneScopeAssignment(
                 ):
                     existing.assigned_curator_id = curator_id
                     existing.priority = priority_level
+                    if assignment_notes:
+                        existing.assignment_notes = assignment_notes
                     updated.append(existing)
                     continue
                 if existing and existing.is_active:
