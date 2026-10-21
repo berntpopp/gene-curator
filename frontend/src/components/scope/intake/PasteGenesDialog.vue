@@ -22,7 +22,7 @@
     </template>
 
     <template v-else>
-      <p class="mb-3" data-testid="summary">
+      <p ref="summaryEl" class="mb-3" role="status" tabindex="-1" data-testid="summary">
         {{ counts.resolved }} resolved, {{ counts.ambiguous }} ambiguous, {{ counts.not_found }} not
         found{{ dupCount ? `, ${dupCount} repeated` : '' }}.
       </p>
@@ -108,7 +108,7 @@
 
 <script setup lang="ts">
   /** Paste a list of genes, review how each entry resolved, then add them to the scope. */
-  import { computed, ref, watch } from 'vue'
+  import { computed, nextTick, ref, watch } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useGeneIntakeStore } from '@/stores/geneIntake'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -129,6 +129,7 @@
   const rows = ref<IntakeRow[] | null>(null)
   const counts = ref<Schema<'GeneResolveCounts'>>({ resolved: 0, ambiguous: 0, not_found: 0 })
   const busy = ref(false)
+  const summaryEl = ref<HTMLElement | null>(null)
 
   const symbols = computed(() => parseSymbols(text.value))
   const tooMany = computed(() => symbols.value.length > MAX_SYMBOLS)
@@ -160,6 +161,9 @@
       const r = await store.resolve(symbols.value)
       rows.value = toRows(r.items)
       counts.value = r.counts
+      // Screen readers hear the summary (role=status); keyboard focus moves to it
+      await nextTick()
+      summaryEl.value?.focus()
     } catch (e) {
       logger.error('Gene resolve failed', { error: (e as Error).message })
       notifications.addToast('Could not resolve the list. Try again.', 'error')

@@ -13,46 +13,79 @@ export interface IntakeResult {
   failed: number
 }
 
+/** The backend caps bulk create and bulk assign at 100 items per request. */
+const CHUNK = 100
+const LOOKUP_CONCURRENCY = 5
+
+const chunks = <T>(items: T[]): T[][] =>
+  Array.from({ length: Math.ceil(items.length / CHUNK) }, (_, i) =>
+    items.slice(i * CHUNK, (i + 1) * CHUNK)
+  )
+
 export const useGeneIntakeStore = defineStore('geneIntake', () => {
   const resolve = (symbols: string[]) => geneResolveAPI.resolve(symbols)
 
-  /** Create genes missing locally, then assign all of them to the scope in one bulk request. */
-  async function addToScope(scopeId: string, picks: IntakePick[]): Promise<IntakeResult> {
-    const ids = picks.flatMap(p => (p.gene_id ? [p.gene_id] : []))
-    const missing = picks.filter(p => !p.gene_id)
-    let failed = 0
-    if (missing.length) {
-      const created = await genesAPI.bulkCreateGenes({
-        genes: missing.map(p => ({
-          hgnc_id: p.hgnc_id,
-          approved_symbol: p.symbol,
-          details: p.name ? { approved_name: p.name } : undefined
-        })),
-        validate_hgnc: true,
-        skip_duplicates: true
-      })
-      failed += created.total_errors
-      ids.push(...created.created_genes.map(g => g.id))
-      // Created by someone else in the meantime: assign the existing row
-      const existing = await Promise.all(
-        created.skipped_genes.map(
-          async s => (await genesAPI.searchGenes({ hgnc_id: s.hgnc_id as string }))[0]
-        )
+  /** Existing gene ids for HGNC ids that were created elsewhere meanwhile (no multi-id endpoint exists). */
+  async function lookup(hgncIds: string[]): Promise<string[]> {
+    const ids: string[] = []
+    for (let i = 0; i < hgncIds.length; i += LOOKUP_CONCURRENCY) {
+      const found = await Promise.all(
+        hgncIds.slice(i, i + LOOKUP_CONCURRENCY).map(async h => {
+          const hit = (await genesAPI.searchGenes({ hgnc_id: h }))[0]
+          return hit?.hgnc_id === h ? hit.id : undefined
+        })
       )
-      ids.push(...existing.flatMap(g => (g ? [g.id] : [])))
+      ids.push(...found.flatMap(id => (id ? [id] : [])))
     }
-    if (!ids.length) return { added: 0, alreadyInScope: 0, failed }
-    const r = await assignmentsAPI.bulkAssignGenes({
-      gene_ids: ids,
-      scope_id: scopeId,
-      assigned_curator_id: null,
-      priority_level: 'medium'
-    })
-    return {
-      added: r.total_created,
-      alreadyInScope: r.total_skipped,
-      failed: failed + r.total_errors
+    return ids
+  }
+
+  /**
+   * Create genes missing locally, then assign all of them to the scope. Both steps run in chunks
+   * of 100; a failing chunk counts its genes as failed and the rest carry on.
+   */
+  async function addToScope(scopeId: string, picks: IntakePick[]): Promise<IntakeResult> {
+    const unique = [...new Map(picks.map(p => [p.hgnc_id, p])).values()]
+    const ids = unique.flatMap(p => (p.gene_id ? [p.gene_id] : []))
+    let failed = 0
+
+    for (const chunk of chunks(unique.filter(p => !p.gene_id))) {
+      try {
+        const created = await genesAPI.bulkCreateGenes({
+          genes: chunk.map(p => ({
+            hgnc_id: p.hgnc_id,
+            approved_symbol: p.symbol,
+            details: p.name ? { approved_name: p.name } : undefined
+          })),
+          validate_hgnc: true,
+          skip_duplicates: true
+        })
+        failed += created.total_errors
+        ids.push(...created.created_genes.map(g => g.id))
+        ids.push(...(await lookup(created.skipped_genes.map(s => s.hgnc_id as string))))
+      } catch {
+        failed += chunk.length
+      }
     }
+
+    let added = 0
+    let alreadyInScope = 0
+    for (const chunk of chunks(ids)) {
+      try {
+        const r = await assignmentsAPI.bulkAssignGenes({
+          gene_ids: chunk,
+          scope_id: scopeId,
+          assigned_curator_id: null,
+          priority_level: 'medium'
+        })
+        added += r.total_created
+        alreadyInScope += r.total_skipped
+        failed += r.total_errors
+      } catch {
+        failed += chunk.length
+      }
+    }
+    return { added, alreadyInScope, failed }
   }
 
   return { resolve, addToScope }

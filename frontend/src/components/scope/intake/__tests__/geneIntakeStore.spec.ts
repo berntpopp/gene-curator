@@ -48,7 +48,9 @@ describe('geneIntake store', () => {
       skipped_genes: [{ hgnc_id: 'HGNC:3' }, { hgnc_id: 'HGNC:4' }],
       total_errors: 1
     } as never)
-    search.mockResolvedValueOnce([{ id: 'old3' }] as never).mockResolvedValueOnce([])
+    search
+      .mockResolvedValueOnce([{ id: 'old3', hgnc_id: 'HGNC:3' }] as never)
+      .mockResolvedValueOnce([])
     bulkAssign.mockResolvedValue({ total_created: 2, total_skipped: 0, total_errors: 0 } as never)
 
     const r = await useGeneIntakeStore().addToScope('s1', [
@@ -72,5 +74,72 @@ describe('geneIntake store', () => {
     ])
     expect(bulkAssign).not.toHaveBeenCalled()
     expect(r).toEqual({ added: 0, alreadyInScope: 0, failed: 2 })
+  })
+
+  it('sends create and assign in chunks of 100, creating before assigning', async () => {
+    const order: string[] = []
+    bulkCreate.mockImplementation(async ({ genes }) => {
+      order.push(`create${genes.length}`)
+      return {
+        created_genes: genes.map(g => ({ id: `id-${g.hgnc_id}` })),
+        skipped_genes: [],
+        total_errors: 0
+      } as never
+    })
+    bulkAssign.mockImplementation(async ({ gene_ids }) => {
+      order.push(`assign${gene_ids.length}`)
+      return { total_created: gene_ids.length, total_skipped: 0, total_errors: 0 } as never
+    })
+    const picks = Array.from({ length: 250 }, (_, i) => ({
+      hgnc_id: `HGNC:${i}`,
+      symbol: `G${i}`,
+      gene_id: null
+    }))
+    const r = await useGeneIntakeStore().addToScope('s1', picks)
+    expect(order).toEqual([
+      'create100',
+      'create100',
+      'create50',
+      'assign100',
+      'assign100',
+      'assign50'
+    ])
+    expect(r).toEqual({ added: 250, alreadyInScope: 0, failed: 0 })
+  })
+
+  it('counts a failed chunk as failed and carries on with the others', async () => {
+    bulkAssign
+      .mockRejectedValueOnce(new Error('boom'))
+      .mockResolvedValueOnce({ total_created: 20, total_skipped: 0, total_errors: 0 } as never)
+    const picks = Array.from({ length: 120 }, (_, i) => ({
+      hgnc_id: `HGNC:${i}`,
+      symbol: `G${i}`,
+      gene_id: `g${i}`
+    }))
+    const r = await useGeneIntakeStore().addToScope('s1', picks)
+    expect(r).toEqual({ added: 20, alreadyInScope: 0, failed: 100 })
+  })
+
+  it('sends a gene once even when several rows point at it', async () => {
+    bulkAssign.mockResolvedValue(assigned)
+    await useGeneIntakeStore().addToScope('s1', [
+      { hgnc_id: 'HGNC:1', symbol: 'A', gene_id: 'g1' },
+      { hgnc_id: 'HGNC:1', symbol: 'A', gene_id: 'g1' }
+    ])
+    expect(bulkAssign.mock.calls[0]![0].gene_ids).toEqual(['g1'])
+  })
+
+  it('ignores a lookup result for a different HGNC id', async () => {
+    bulkCreate.mockResolvedValue({
+      created_genes: [],
+      skipped_genes: [{ hgnc_id: 'HGNC:3' }],
+      total_errors: 0
+    } as never)
+    search.mockResolvedValue([{ id: 'other', hgnc_id: 'HGNC:99' }] as never)
+    const r = await useGeneIntakeStore().addToScope('s1', [
+      { hgnc_id: 'HGNC:3', symbol: 'C', gene_id: null }
+    ])
+    expect(bulkAssign).not.toHaveBeenCalled()
+    expect(r.added).toBe(0)
   })
 })

@@ -58,6 +58,7 @@ function mountDialog() {
   setActivePinia(createPinia())
   return mount(PasteGenesDialog, {
     props: { modelValue: true, scopeId: 's1' },
+    attachTo: document.body,
     global: { stubs: { VDialog: dialogStub } }
   })
 }
@@ -92,6 +93,7 @@ describe('PasteGenesDialog', () => {
   it('sends the parsed symbols and summarises the outcome', async () => {
     const w = await resolved()
     expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'])
+    expect(w.find('[data-testid=summary]').attributes('role')).toBe('status')
     expect(w.find('[data-testid=summary]').text()).toContain(
       '3 resolved, 1 ambiguous, 1 not found, 1 repeated'
     )
@@ -138,8 +140,7 @@ describe('PasteGenesDialog', () => {
     const w2 = await resolved()
     await w2.find('[data-testid=add]').trigger('click')
     await flushPromises()
-    expect(addToast).toHaveBeenCalledWith('Could not add the genes to the scope', 'error')
-    expect(w2.emitted('added')).toBeUndefined()
+    expect(addToast).toHaveBeenCalledWith('0 genes added, 2 failed', 'warning')
   })
 
   it('goes back to the list to edit it, and cancels', async () => {
@@ -161,5 +162,11 @@ describe('PasteGenesDialog', () => {
     await w.setProps({ modelValue: false })
     await w.setProps({ modelValue: true })
     expect(w.find('textarea').element.value).toBe('')
+  })
+
+  it('moves focus to the summary after resolving', async () => {
+    const w = await resolved()
+    expect(document.activeElement).toBe(w.find('[data-testid=summary]').element)
+    w.unmount()
   })
 })
