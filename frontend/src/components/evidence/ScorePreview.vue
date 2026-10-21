@@ -212,6 +212,10 @@
        * Each item should have: evidence_type, evidence_category, computed_score
        */
       evidenceItems?: ScorePreviewItem[]
+      /** Contradictory evidence present: classification is Disputed */
+      hasContradictory?: boolean
+      /** Replicated over time: allows Definitive at 12+ points */
+      replicatedOverTime?: boolean
       /** Show expandable detailed breakdown */
       showDetails?: boolean
       /** Show "View Full Scorecard" link */
@@ -233,8 +237,13 @@
   const evidenceItemsRef = computed(() => props.evidenceItems || [])
 
   // Use scoring composable for real-time calculation
-  const { breakdown, classificationColor, progressPercentage, isSufficientEvidence } =
-    useScoring(evidenceItemsRef)
+  const { breakdown, classificationColor, progressPercentage, isSufficientEvidence } = useScoring(
+    evidenceItemsRef,
+    () => ({
+      hasContradictory: props.hasContradictory,
+      replicatedOverTime: props.replicatedOverTime
+    })
+  )
 
   // Evidence count
   const evidenceCount = computed(() => evidenceItemsRef.value.length)

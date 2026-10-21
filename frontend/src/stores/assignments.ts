@@ -129,17 +129,6 @@ export const useAssignmentsStore = defineStore('assignments', {
       }
     },
 
-    async fetchCuratorWorkload(curatorId: string) {
-      try {
-        const workload = await assignmentsAPI.getCuratorWorkload(curatorId)
-        this.curatorWorkloads[curatorId] = workload
-        return workload
-      } catch (error) {
-        this.error = errorMessage(error, 'Request failed')
-        throw error
-      }
-    },
-
     async fetchCuratorAssignments(curatorId: string, params: Record<string, unknown> = {}) {
       try {
         const assignments = await assignmentsAPI.getCuratorAssignments(curatorId, params)

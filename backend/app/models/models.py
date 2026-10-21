@@ -102,7 +102,6 @@ class Scope(Base):
 
     __tablename__ = "scopes"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -176,7 +175,6 @@ class UserNew(Base):
 
     __tablename__ = "users"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -269,7 +267,6 @@ class ScopeMembership(Base):
 
     __tablename__ = "scope_memberships"
 
-    # Primary key
     id: Mapped[PyUUID] = mapped_column(
         compatible_uuid(), primary_key=True, default=uuid.uuid4
     )
@@ -773,6 +770,15 @@ class PrecurationNew(Base):
 
     __table_args__ = (
         Index("idx_precurations_gene_scope", "gene_id", "scope_id"),
+        Index(
+            "uq_precurations_open_draft",
+            "gene_id",
+            "scope_id",
+            "created_by",
+            unique=True,
+            postgresql_where=text("status = 'draft'"),
+            sqlite_where=text("status = 'draft'"),
+        ),
         Index("idx_precurations_evidence_gin", "evidence_data", postgresql_using="gin"),
     )
 
@@ -1081,9 +1087,7 @@ class ActiveCuration(Base):
     )
 
 
-# ========================================
 # AUDIT AND TRACKING MODELS
-# ========================================
 
 
 class AuditLogNew(Base):
@@ -1274,9 +1278,7 @@ class SystemLog(Base):
     )
 
 
-# ========================================
 # CLINGEN SOP V11 MODELS
-# ========================================
 
 
 class EvidenceItem(Base):
@@ -1531,9 +1533,7 @@ class ValidationCache(Base):
     )
 
 
-# ========================================
 # PUBLICATION CACHE
-# ========================================
 
 
 class Publication(Base):

@@ -119,7 +119,7 @@ describe('useGeneWorkflowStatus', () => {
     const workflow = useGeneWorkflowStatus(() => 'scope-1')
     await workflow.fetchPrecurationStatuses()
 
-    expect(getPrecurations).toHaveBeenCalledWith({ scope_id: 'scope-1', limit: 200 })
+    expect(getPrecurations).toHaveBeenCalledWith({ scope_id: 'scope-1', skip: 0, limit: 200 })
     expect(workflow.genePrecurations.value.g1).toMatchObject({ id: 'p2', status: 'approved' })
     expect(workflow.genePrecurations.value.g2).toMatchObject({ id: 'p3', workflow_stage: 'review' })
     expect(workflow.hasPrecuration({ gene_id: 'g1' })).toBe(true)
@@ -160,7 +160,7 @@ describe('useGeneWorkflowStatus', () => {
     const workflow = useGeneWorkflowStatus(() => 'scope-1')
     await workflow.fetchCurationStatuses()
 
-    expect(getCurations).toHaveBeenCalledWith({ scope_id: 'scope-1', limit: 200 })
+    expect(getCurations).toHaveBeenCalledWith({ scope_id: 'scope-1', skip: 0, limit: 200 })
     expect(workflow.hasCuration({ gene_id: 'g1' })).toBe(true)
     expect(workflow.hasCuration({ gene_id: 'g9' })).toBe(false)
     expect(workflow.isCurationActive({ gene_id: 'g1' })).toBe(true)
@@ -168,6 +168,31 @@ describe('useGeneWorkflowStatus', () => {
     expect(workflow.getCuration({ gene_id: 'g2' })).toMatchObject({ id: 'c3' })
     expect(workflow.getCurationStatusLabel({ gene_id: 'g2' })).toBe('Draft')
     expect(workflow.getCurationStatusLabel({ gene_id: 'g9' })).toBe('No Curation')
+  })
+
+  it('pages through more than 200 curations and precurations', async () => {
+    const rows = (from: number, n: number, prefix: string) =>
+      Array.from({ length: n }, (_, i) => ({
+        id: `${prefix}${from + i}`,
+        gene_id: `g${from + i}`,
+        status: 'draft',
+        updated_at: '2025-01-01'
+      }))
+    getCurations
+      .mockResolvedValueOnce({ curations: rows(0, 200, 'c'), total: 250 } as never)
+      .mockResolvedValueOnce({ curations: rows(200, 50, 'c'), total: 250 } as never)
+    getPrecurations
+      .mockResolvedValueOnce({ precurations: rows(0, 200, 'p'), total: 250 } as never)
+      .mockResolvedValueOnce({ precurations: rows(200, 50, 'p'), total: 250 } as never)
+
+    const workflow = useGeneWorkflowStatus(() => 'scope-1')
+    await workflow.fetchCurationStatuses()
+    await workflow.fetchPrecurationStatuses()
+
+    expect(getCurations).toHaveBeenLastCalledWith({ scope_id: 'scope-1', skip: 200, limit: 200 })
+    expect(getPrecurations).toHaveBeenLastCalledWith({ scope_id: 'scope-1', skip: 200, limit: 200 })
+    expect(workflow.hasCuration({ gene_id: 'g249' })).toBe(true)
+    expect(workflow.hasPrecuration({ gene_id: 'g249' })).toBe(true)
   })
 
   it('labels unknown curation statuses with the raw status', async () => {

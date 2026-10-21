@@ -15,7 +15,7 @@ describe('assignmentDisplay', () => {
   describe('getPriorityColor', () => {
     it('maps known priorities to their colour', () => {
       expect(getPriorityColor('urgent')).toBe('grey')
-      expect(getPriorityColor('low')).toBe('green')
+      expect(getPriorityColor('low')).toBe('success')
     })
 
     it('falls back to grey for missing or unknown priorities', () => {

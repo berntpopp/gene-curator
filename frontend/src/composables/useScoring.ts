@@ -10,8 +10,9 @@
  * const { breakdown, classificationColor } = useScoring(evidenceItems)
  */
 
-import { computed } from 'vue'
-import type { ComputedRef } from 'vue'
+import { computed, toValue } from 'vue'
+import type { ComputedRef, MaybeRefOrGetter } from 'vue'
+import { classifyScore } from '@/components/clingen/scoring'
 import { getClassification } from '@/config/classification'
 
 /** Minimal evidence shape used for scoring (backend EvidenceItem fields). */
@@ -35,6 +36,12 @@ export interface ScoringBreakdown {
   rescue_score: number
 }
 
+/** Curation-level flags the backend uses to classify (Disputed / Definitive). */
+export interface ScoreFlags {
+  hasContradictory?: boolean
+  replicatedOverTime?: boolean
+}
+
 export interface UseScoringReturn {
   breakdown: ComputedRef<ScoringBreakdown>
   classificationColor: ComputedRef<string>
@@ -47,9 +54,10 @@ const sumScores = (items: readonly ScoredEvidence[], category: string): number =
     .filter(e => e.evidence_category === category)
     .reduce((sum, e) => sum + (e.computed_score || 0), 0)
 
-export function useScoring(evidenceItems: {
-  readonly value: readonly ScoredEvidence[]
-}): UseScoringReturn {
+export function useScoring(
+  evidenceItems: { readonly value: readonly ScoredEvidence[] },
+  flags: MaybeRefOrGetter<ScoreFlags> = {}
+): UseScoringReturn {
   /**
    * Calculate scoring breakdown from evidence items
    */
@@ -77,12 +85,8 @@ export function useScoring(evidenceItems: {
 
     const total_score = genetic_total + experimental_total
 
-    // Classification based on ClinGen SOP v11
-    let classification = 'No Known Disease Relationship'
-    if (total_score >= 12) classification = 'Definitive'
-    else if (total_score >= 7) classification = 'Strong'
-    else if (total_score >= 2) classification = 'Moderate'
-    else if (total_score >= 0.1) classification = 'Limited'
+    const { hasContradictory = false, replicatedOverTime = false } = toValue(flags)
+    const classification = classifyScore(total_score, hasContradictory, replicatedOverTime)
 
     return {
       genetic_total,

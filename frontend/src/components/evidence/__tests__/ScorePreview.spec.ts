@@ -35,7 +35,7 @@ describe('ScorePreview', () => {
     })
 
     expect(wrapper.text()).toContain('6.00')
-    expect(wrapper.text()).toContain('Moderate')
+    expect(wrapper.text()).toContain('Limited')
     expect(wrapper.text()).toContain('3 evidence items added')
     expect(wrapper.text()).not.toContain('Add more evidence for classification')
   })
@@ -51,17 +51,28 @@ describe('ScorePreview', () => {
     })
 
     expect(wrapper.text()).toContain('12.00')
-    expect(wrapper.text()).toContain('Definitive')
+    expect(wrapper.text()).toContain('Strong')
     expect(wrapper.text()).toContain('18.00')
   })
 
-  it('uses singular wording for one item and no "add more" hint at Strong or above', () => {
+  it('shows Definitive for Strong points that replicated, and Disputed when contradicted', () => {
+    const evidenceItems = [genetic('case_level', 12)]
+    expect(mount(ScorePreview, { props: { evidenceItems } }).text()).toContain('Strong')
+    expect(
+      mount(ScorePreview, { props: { evidenceItems, replicatedOverTime: true } }).text()
+    ).toContain('Definitive')
+    expect(
+      mount(ScorePreview, { props: { evidenceItems, hasContradictory: true } }).text()
+    ).toContain('Disputed')
+  })
+
+  it('uses singular wording for one item and no "add more" hint once scored', () => {
     const wrapper = mount(ScorePreview, {
       props: { evidenceItems: [genetic('case_level', 8)] }
     })
 
     expect(wrapper.text()).toContain('1 evidence item added')
-    expect(wrapper.text()).toContain('Strong')
+    expect(wrapper.text()).toContain('Moderate')
     expect(wrapper.text()).not.toContain('Add more evidence')
   })
 

@@ -193,14 +193,6 @@ describe('useAssignmentsStore', () => {
   })
 
   describe('curator workload and assignments', () => {
-    it('stores the workload by curator id', async () => {
-      const store = useAssignmentsStore()
-      api.getCuratorWorkload.mockResolvedValue(workload(4))
-
-      await expect(store.fetchCuratorWorkload('c1')).resolves.toEqual(workload(4))
-      expect(store.curatorWorkloads.c1).toEqual(workload(4))
-    })
-
     it('returns curator assignments without touching state', async () => {
       const store = useAssignmentsStore()
       api.getCuratorAssignments.mockResolvedValue([summary('x')])
@@ -212,12 +204,10 @@ describe('useAssignmentsStore', () => {
       expect(store.assignments).toEqual([])
     })
 
-    it('records errors for workload and curator assignment fetches', async () => {
+    it('records errors for curator assignment fetches', async () => {
       const store = useAssignmentsStore()
-      api.getCuratorWorkload.mockRejectedValue(new Error('w'))
       api.getCuratorAssignments.mockRejectedValue(new Error('a'))
 
-      await expect(store.fetchCuratorWorkload('c1')).rejects.toThrow('w')
       await expect(store.fetchCuratorAssignments('c1')).rejects.toThrow('a')
       expect(store.error).toBe('a')
     })
