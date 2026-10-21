@@ -48,6 +48,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransition,
     WorkflowValidationResult,
 )
+from app.services.review_guards import review_guards
 
 
 class WorkflowEngine:
@@ -810,11 +811,10 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to review stage."""
-        if hasattr(item, "workflow_stage"):
-            item.workflow_stage = WorkflowStage.REVIEW
-        if hasattr(item, "status"):
-            item.status = CurationStatus.IN_REVIEW
+        item.workflow_stage = WorkflowStage.REVIEW  # a curation or precuration
+        item.status = CurationStatus.IN_REVIEW
         if isinstance(item, CurationNew):
+            review_guards(db, item)  # on every route into review; raising rolls back
             item.submitted_at = datetime.now(UTC)  # starts a new review round
             item.submitted_by = user_id
         if isinstance(item, PrecurationNew):

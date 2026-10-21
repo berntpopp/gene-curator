@@ -4,7 +4,7 @@ import { createApp, defineComponent, h } from 'vue'
 const api = vi.hoisted(() => ({ validatePMIDs: vi.fn() }))
 vi.mock('@/api/publications', () => ({ publicationsAPI: api }))
 
-import { usePmidLookup } from '../usePmidLookup'
+import { pmidsIn, usePmidLookup } from '../usePmidLookup'
 
 function setup() {
   let lookup!: ReturnType<typeof usePmidLookup>
@@ -194,5 +194,37 @@ describe('usePmidLookup', () => {
     expect(lookup.statusOf('1')).toBe('error')
     expect(lookup.statusOf('51')).toBe('found')
     expect(lookup.hasUnknown(['1', '51'])).toBe(false)
+  })
+
+  it('a child component shares the parent results, so a PMID is looked up once', async () => {
+    api.validatePMIDs.mockResolvedValue(found('61'))
+    let parent!: ReturnType<typeof usePmidLookup>
+    let child!: ReturnType<typeof usePmidLookup>
+    const Child = defineComponent({
+      setup() {
+        child = usePmidLookup()
+        return () => h('i')
+      }
+    })
+    createApp(
+      defineComponent({
+        setup() {
+          parent = usePmidLookup()
+          return () => h(Child)
+        }
+      })
+    ).mount(document.createElement('div'))
+    await parent.checkAll(['61'])
+    await child.checkAll(['PMID: 61'])
+    expect(api.validatePMIDs).toHaveBeenCalledTimes(1)
+    expect(child.statusOf('61')).toBe('found')
+  })
+
+  it('pmidsIn collects every pmid key at any depth, normalized', () => {
+    expect(pmidsIn({ a: [{ pmid: 'PMID: 1' }], b: { c: [{ pmid: 2, x: 'PMID: 3' }] } })).toEqual([
+      '1',
+      '2'
+    ])
+    expect(pmidsIn(null)).toEqual([])
   })
 })

@@ -1,6 +1,8 @@
 /** PMID cells of an evidence table: Europe PMC lookup on blur, unknown PMIDs block submitting. */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { defineComponent, h } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import { usePmidLookup } from '@/composables/usePmidLookup'
 import EvidenceTableField from '../EvidenceTableField.vue'
 import { normalizeField } from '../normalizeDefinition'
 import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
@@ -137,6 +139,28 @@ describe('EvidenceTableField PMID cells', () => {
     await flushPromises()
     expect(validatePMIDs).toHaveBeenCalledTimes(2)
     expect(validatePMIDs.mock.calls[1]![0]).toEqual(['456'])
+    expect(frame.blockers.value).toEqual([])
+  })
+
+  it('leaves the blocker to the curation form when it checks the whole draft', async () => {
+    validatePMIDs.mockResolvedValue({
+      results: [{ is_valid: false, error: 'Publication not found: 999' }]
+    })
+    const frame = createWorkspaceFrame()
+    const Form = defineComponent({
+      setup() {
+        usePmidLookup() // the form-wide lookup, which owns the blocker
+        return () =>
+          h(EvidenceTableField, {
+            fieldSchema: table,
+            label: 'Function',
+            modelValue: [{ id: 'r1', pmid: '999' }]
+          })
+      }
+    })
+    const wrapper = mount(Form, { global: { provide: { [WORKSPACE_FRAME as symbol]: frame } } })
+    await flushPromises()
+    expect(wrapper.find('.pmid-note--error').exists()).toBe(true)
     expect(frame.blockers.value).toEqual([])
   })
 })

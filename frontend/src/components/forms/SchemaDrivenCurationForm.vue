@@ -139,6 +139,7 @@
   import ScoreSummary from './ScoreSummary.vue'
   import LumpingSplittingSection from './LumpingSplittingSection.vue'
   import { useConfirm } from '@/composables/useConfirm'
+  import { pmidsIn, usePmidLookup } from '@/composables/usePmidLookup'
   import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
 
   type CurationSchema = Schema<'CurationSchema'>
@@ -325,6 +326,19 @@
     }
   })
   frame?.attachSubmit({ canSubmit, run: requestSubmit })
+  // Unknown PMIDs anywhere in the draft block Submit on every tab, not only in opened tables
+  const pmids = usePmidLookup()
+  watch(
+    () => [...new Set(pmidsIn(evidenceData.value).filter(p => pmids.statusOf(p) === 'notfound'))],
+    list =>
+      frame?.setBlocker(
+        'curation-pmids',
+        list.length
+          ? `Fix ${list.length} unknown PMID${list.length > 1 ? 's' : ''} before submitting: ` +
+              `PMID ${list.join(', ')} not found in Europe PMC`
+          : null
+      )
+  )
   watch(score, s => frame?.setScore(s))
   watch(
     precurationData,
@@ -596,6 +610,7 @@
     if (!props.curationId && props.geneId) {
       await loadPrecurationData()
     }
+    if (!props.readonly) void pmids.checkAll(pmidsIn(evidenceData.value))
     ready.value = true
     recoveryReady.value = true
     emit('ready')

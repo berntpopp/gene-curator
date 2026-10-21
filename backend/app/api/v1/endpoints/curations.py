@@ -204,8 +204,6 @@ def list_curations(
 
     scope_ids = None
     if pending_review:
-        from app.services.scope_permissions import ScopePermissionService
-
         scope_ids = ScopePermissionService.get_user_scope_ids(
             db, current_user, ["admin", "reviewer"]
         )
@@ -508,13 +506,7 @@ def submit_curation(
             detail="Only the creator can submit for review",
         )
 
-    enforce_clingen_point_ranges(
-        db,
-        curation.workflow_pair_id,
-        curation.evidence_data,
-        curation.methodology_version_id,
-    )
-
+    # Point ranges and PMIDs: review_guards, in the transition into review
     try:
         submitted = curation_crud.submit_for_review(
             db,

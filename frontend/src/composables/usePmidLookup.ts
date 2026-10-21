@@ -1,4 +1,4 @@
-import { reactive } from 'vue'
+import { inject, provide, reactive, type InjectionKey } from 'vue'
 import { onScopeDispose } from 'vue'
 import { publicationsAPI } from '@/api/publications'
 
@@ -18,6 +18,17 @@ const normalize = (raw: unknown) =>
   String(raw ?? '')
     .trim()
     .replace(/^PMID:?\s*/i, '')
+
+/** Every PMID under a "pmid" key, at any depth (all evidence tables of a draft), normalized. */
+export const pmidsIn = (data: unknown): string[] =>
+  Array.isArray(data)
+    ? data.flatMap(pmidsIn)
+    : data && typeof data === 'object'
+      ? Object.entries(data).flatMap(([k, v]) => (k === 'pmid' ? [normalize(v)] : pmidsIn(v)))
+      : []
+
+// The curation form and its tables share results, so a PMID is looked up once per form
+const RESULTS: InjectionKey<Record<string, PmidResult>> = Symbol('pmid-results')
 
 type Item = Awaited<ReturnType<typeof publicationsAPI.validatePMIDs>>['results'][number]
 
@@ -43,7 +54,9 @@ function toResult(item: Item | undefined): PmidResult {
  * does not (offline must not stop curation).
  */
 export function usePmidLookup() {
-  const results = reactive<Record<string, PmidResult>>({})
+  const outer = inject(RESULTS, null)
+  const results = outer ?? reactive<Record<string, PmidResult>>({})
+  provide(RESULTS, results)
   const cells = new Map<
     string | number,
     { timer?: ReturnType<typeof setTimeout>; ctrl?: AbortController; pmid?: string }
@@ -112,6 +125,8 @@ export function usePmidLookup() {
   })
 
   return {
+    /** Inside a form with its own lookup (the curation form), which owns the submit blocker */
+    shared: !!outer,
     check,
     checkAll,
     cancel,
