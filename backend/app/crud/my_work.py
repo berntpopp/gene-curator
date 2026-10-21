@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import exists, or_, select
+from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session
 
 from app.models import (
@@ -86,7 +86,7 @@ def get_my_work(db: Session, user: UserNew) -> list[WorkItem]:
 _latest_review = (
     select(Review.status)
     .where(Review.curation_id == CurationNew.id)
-    .order_by(Review.assigned_at.desc())
+    .order_by(Review.assigned_at.desc(), Review.id.desc())
     .limit(1)
     .scalar_subquery()
 )
@@ -163,7 +163,7 @@ def _assignment_filters(user: UserNew) -> list[Any]:
     mine_open = has(Review.reviewer_id == user.id, Review.status == pending)
     others = has(Review.reviewer_id != user.id, Review.status == pending)
     decided = has(Review.reviewer_id == user.id, Review.status != pending)
-    return [~decided, or_(~others, mine_open)]
+    return [or_(mine_open, and_(~decided, ~others))]
 
 
 def _reviews_waiting_done(
@@ -179,7 +179,11 @@ def _reviews_waiting_done(
         (CurationNew, "curation", _S.IN_REVIEW, cview),
         (PrecurationNew, "precuration", _S.SUBMITTED, pview),
     ):
-        extra = _assignment_filters(user) if model is CurationNew else []
+        extra = (
+            [*_assignment_filters(user), _not_changes_requested]
+            if model is CurationNew
+            else []
+        )
         for r in rows(
             model,
             kind,

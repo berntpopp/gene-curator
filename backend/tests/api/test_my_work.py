@@ -229,3 +229,25 @@ def test_request_changes_via_workflow_moves_to_needs_you(client, db_session: Ses
     db_session.add(later)
     db_session.commit()
     assert _kinds(client, curator) == ["waiting"]
+
+
+def test_reassigned_reviewer_and_other_reviewers_after_request_changes(
+    client, db_session: Session
+):
+    scope = make_scope(db_session)
+    curator, rev, other = (make_user(db_session) for _ in range(3))
+    make_member(db_session, scope, curator, "curator")
+    make_member(db_session, scope, rev, "reviewer")
+    make_member(db_session, scope, other, "reviewer")
+    c = _in_review(db_session, scope, curator)
+    engine = WorkflowEngine()
+    r = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
+    engine.submit_peer_review(db_session, r.review_id, rev.id, "request_changes")
+    assert _kinds(client, other) == []  # curator owns the next move
+    # same reviewer reassigned for the next round: their new PENDING review shows
+    new = engine.assign_peer_reviewer(db_session, c.id, "curation", rev.id, curator.id)
+    db_session.get(Review, new.review_id).assigned_at = datetime.now(UTC) + timedelta(
+        minutes=1
+    )
+    db_session.commit()
+    assert _kinds(client, rev) == ["review"]
