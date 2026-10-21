@@ -162,7 +162,7 @@ describe('CurationDetailView', () => {
   })
 
   it('shows the stored score and verdict, not a client recalculation (#266)', async () => {
-    // Client SOP caps would give 4 model points (Strong); the pinned model stored 9.6 Moderate
+    // Client SOP caps would give 4 model points (Limited); the pinned model stored 9.6 Moderate
     const wrapper = await load({
       can_review: true,
       evidence_data: {
@@ -175,7 +175,13 @@ describe('CurationDetailView', () => {
         experimental_evidence_total: 1,
         trace: {
           sections: [
-            { key: 'experimental_evidence', score: 1, categories: [{ key: 'models', score: 1 }] }
+            { key: 'genetic_evidence', score: 8.6, cap: 12 },
+            {
+              key: 'experimental_evidence',
+              score: 1,
+              cap: 2,
+              categories: [{ key: 'models', score: 1 }]
+            }
           ]
         }
       }
@@ -185,6 +191,17 @@ describe('CurationDetailView', () => {
     const dialog = wrapper.findComponent(ApproveChecklistDialog)
     expect(dialog.props('classification')).toBe('Moderate')
     expect(dialog.props('total')).toBe('9.6')
+    // Caps come from the pinned model's trace, not the SOP defaults
+    expect(wrapper.text()).toContain('Experimental (max 2)')
+    expect(wrapper.text()).toContain('1.00 / 2')
+    expect(wrapper.text()).not.toContain('/ 6')
+  })
+
+  it('shows no caps and unknown breakdown rows for a legacy row without trace (#266)', async () => {
+    const wrapper = await load({ computed_scores: { total_score: 5 }, computed_verdict: 'limited' })
+    expect(wrapper.text()).not.toContain('max')
+    expect(wrapper.text()).toContain('—')
+    expect(wrapper.text()).not.toContain('0.00 /')
   })
 
   it('shows the API detail inside the approve dialog when approving fails (#237)', async () => {

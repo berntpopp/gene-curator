@@ -73,14 +73,14 @@
                       <div class="text-headline-small font-weight-medium">
                         {{ scores.genetic.toFixed(2) }}
                       </div>
-                      <div class="text-body-small">Genetic (max 12)</div>
+                      <div class="text-body-small">Genetic{{ capNote('genetic') }}</div>
                     </div>
                     <v-divider vertical />
                     <div class="text-center">
                       <div class="text-headline-small font-weight-medium">
                         {{ scores.experimental.toFixed(2) }}
                       </div>
-                      <div class="text-body-small">Experimental (max 6)</div>
+                      <div class="text-body-small">Experimental{{ capNote('experimental') }}</div>
                     </div>
                   </div>
                 </v-col>
@@ -477,7 +477,7 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
-  const { scores, classification } = useCurationClassification(() => curation.value)
+  const { scores, classification, capNote } = useCurationClassification(() => curation.value)
 
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => curation.value?.can_edit ?? false)

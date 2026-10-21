@@ -13,6 +13,7 @@ interface TraceCategory {
 interface TraceSection {
   key: string
   score: number
+  cap?: number | null
   categories?: TraceCategory[]
 }
 
@@ -35,6 +36,10 @@ export interface EvidenceScores {
   rescue: number
   experimental: number
   total: number
+  /** Section caps of the pinned point model; null when uncapped or unknown (legacy rows). */
+  caps: { genetic: number | null; experimental: number | null }
+  /** False for legacy rows without a stored trace: the breakdown is unknown, not zero. */
+  traced: boolean
 }
 
 const num = (v: unknown): number => Number(v) || 0
@@ -47,6 +52,7 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
   const category = (section: string, key: string) => num(cat(section, key)?.score)
   const type = (section: string, key: string, path: string) =>
     num(cat(section, key)?.types?.find(t => t.path === `${key}.${path}`)?.score)
+  const cap = (section: string) => sections.find(s => s.key === section)?.cap ?? null
   const caseLevel = (path: string) => type('genetic_evidence', 'case_level', path)
   const func = (path: string) => type('experimental_evidence', 'function', path)
 
@@ -69,6 +75,8 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
     models: category('experimental_evidence', 'models'),
     rescue: category('experimental_evidence', 'rescue'),
     experimental: num(stored?.experimental_evidence_total),
-    total: num(stored?.total_score)
+    total: num(stored?.total_score),
+    caps: { genetic: cap('genetic_evidence'), experimental: cap('experimental_evidence') },
+    traced: sections.length > 0
   }
 }

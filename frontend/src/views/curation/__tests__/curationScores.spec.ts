@@ -18,6 +18,7 @@ describe('storedScores', () => {
           {
             key: 'genetic_evidence',
             score: 8.6,
+            cap: 12,
             categories: [
               ct('case_level', 5.6, [
                 ['autosomal_dominant_or_x_linked.predicted_or_proven_null', 3],
@@ -56,12 +57,16 @@ describe('storedScores', () => {
       models: 1,
       rescue: 0.75,
       experimental: 1,
-      total: 9.6
+      total: 9.6,
+      caps: { genetic: 12, experimental: null },
+      traced: true
     })
   })
 
   it('reads zero for missing scores or trace', () => {
     expect(storedScores(undefined).total).toBe(0)
-    expect(storedScores({ total_score: 3 }).caseLevel.adxlNull).toBe(0)
+    const legacy = storedScores({ total_score: 3 })
+    expect(legacy.caseLevel.adxlNull).toBe(0)
+    expect(legacy).toMatchObject({ traced: false, caps: { genetic: null, experimental: null } })
   })
 })

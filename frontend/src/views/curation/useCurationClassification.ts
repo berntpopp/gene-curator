@@ -15,5 +15,10 @@ export function useCurationClassification(curation: () => ScoredCuration | null 
     const verdict = curation()?.computed_verdict
     return verdict ? getClassification(verdict).label : ''
   })
-  return { scores, classification }
+  /** " (max N)" when the pinned model caps the section; empty when uncapped or legacy. */
+  const capNote = (section: 'genetic' | 'experimental') => {
+    const cap = scores.value.caps[section]
+    return cap == null ? '' : ` (max ${cap})`
+  }
+  return { scores, classification, capNote }
 }
