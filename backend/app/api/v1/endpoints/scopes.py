@@ -26,7 +26,7 @@ from app.core.logging import get_logger
 from app.crud.scope import scope_crud
 from app.crud.scope_counts import get_counts_for_scopes
 from app.crud.scope_membership import scope_membership_crud
-from app.models import Scope, User
+from app.models import Scope, User, WorkflowPair
 from app.schemas.scope import (
     Scope as ScopeResponse,
     ScopeCreate,
@@ -82,6 +82,13 @@ def create_scope(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Scope with name '{scope_in.name}' already exists. Please choose a different name.",
+        )
+
+    pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
+    if not pair or not pair.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Workflow pair not found or inactive",
         )
 
     # Create scope

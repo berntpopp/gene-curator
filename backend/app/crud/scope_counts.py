@@ -25,13 +25,16 @@ def get_counts_for_scopes(
     One grouped query per metric, not per scope.
     """
     assigned = select(GeneScopeAssignment.scope_id, GeneScopeAssignment.gene_id).where(
-        GeneScopeAssignment.is_active
+        GeneScopeAssignment.is_active,
+        GeneScopeAssignment.scope_id.in_(scope_ids),
     )
     curated = select(CurationNew.scope_id, CurationNew.gene_id).where(
-        CurationNew.status != CurationStatus.ARCHIVED
+        CurationNew.status != CurationStatus.ARCHIVED,
+        CurationNew.scope_id.in_(scope_ids),
     )
     active = select(ActiveCuration.scope_id, ActiveCuration.gene_id).where(
-        ActiveCuration.archived_at.is_(None)
+        ActiveCuration.archived_at.is_(None),
+        ActiveCuration.scope_id.in_(scope_ids),
     )
     genes = assigned.union(curated, active).subquery()
     done = active.distinct().subquery()
@@ -41,7 +44,7 @@ def get_counts_for_scopes(
             ScopeMembership.accepted_at.isnot(None),
             func.count(),
         )
-        .where(ScopeMembership.is_active)
+        .where(ScopeMembership.is_active, ScopeMembership.scope_id.in_(scope_ids))
         .group_by(ScopeMembership.scope_id, ScopeMembership.accepted_at.isnot(None))
     )
     counts = {

@@ -1,12 +1,18 @@
 """API tests for /api/v1/scopes (creation, listing, detail, update, delete)."""
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import GeneScopeAssignment, Scope, ScopeMembership, UserNew
+from app.models.models import (
+    GeneScopeAssignment,
+    Scope,
+    ScopeMembership,
+    UserNew,
+    WorkflowPair,
+)
 from tests.api.scopes.factories import (
     auth_headers,
     make_gene,
@@ -111,6 +117,23 @@ def test_create_scope_requires_a_methodology(
     response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
 
     assert response.status_code == 422
+
+
+def test_create_scope_rejects_unknown_or_inactive_methodology(
+    client: TestClient, db_session: Session, owner: UserNew
+) -> None:
+    unknown = _create_payload(db_session)
+    unknown["default_workflow_pair_id"] = str(uuid4())
+    inactive = _create_payload(db_session)
+    pair = db_session.get(WorkflowPair, UUID(str(inactive["default_workflow_pair_id"])))
+    assert pair is not None
+    pair.is_active = False
+    db_session.commit()
+
+    for payload in (unknown, inactive):
+        response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
+        assert response.status_code == 400
+        assert "Workflow pair" in response.json()["detail"]
 
 
 def test_create_scope_validates_name(
