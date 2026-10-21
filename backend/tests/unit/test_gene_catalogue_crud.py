@@ -25,6 +25,13 @@ from app.schemas.gene_catalogue import GeneCatalogueFilters
 pytestmark = pytest.mark.unit
 
 
+@pytest.fixture(autouse=True)
+def _public_scope(db_session: Session, test_scope: Scope) -> None:
+    """The catalogue shows public scopes to everyone; members' private scopes are tested below."""
+    test_scope.is_public = True
+    db_session.commit()
+
+
 def _curation(
     db: Session,
     gene: Gene,
@@ -298,8 +305,11 @@ def test_available_classifications_and_scopes(
     test_user_curator: UserNew,
     test_workflow_pair: WorkflowPair,
 ) -> None:
-    assert catalogue.get_available_classifications(db_session) == []
-    assert catalogue.get_available_scopes_for_catalogue(db_session) == []
+    test_scope.is_public = False  # visible to its member (the curator) only
+    db_session.commit()
+    uid = test_user_curator.id
+    assert catalogue.get_available_classifications(db_session, uid) == []
+    assert catalogue.get_available_scopes_for_catalogue(db_session, uid) == []
 
     _curation(
         db_session,
@@ -318,14 +328,17 @@ def test_available_classifications_and_scopes(
         None,
     )
 
-    assert catalogue.get_available_classifications(db_session) == ["limited"]
+    assert catalogue.get_available_classifications(db_session, uid) == ["limited"]
+    # anonymous: the private scope is hidden
+    anon = catalogue.get_available_scopes_for_catalogue(db_session)
+    assert {s["name"] for s in anon} == {"public-scope"}
 
-    scopes = catalogue.get_available_scopes_for_catalogue(db_session)
+    scopes = catalogue.get_available_scopes_for_catalogue(db_session, uid)
     assert {s["name"] for s in scopes} == {"test-scope", "public-scope"}
     assert {s["is_public"] for s in scopes} == {False, True}
     from app.api.v1.endpoints.gene_catalogue import get_available_scopes
 
-    options = get_available_scopes(db=db_session)
+    options = get_available_scopes(db=db_session, current_user=test_user_curator)
     assert {option.id for option in options} == {
         str(test_scope.id),
         str(test_public_scope.id),
@@ -381,3 +394,40 @@ def test_catalogue_uses_precuration_disease_without_extra_queries(
     assert len(statements) == 3  # count, genes, curations with joined precurations
     summaries, _ = curation_crud.get_multi_filtered(db_session)
     assert summaries[0].disease_name == detail.disease_name
+
+
+def test_classification_list_hides_private_scope_verdicts(
+    db_session: Session,
+    test_gene: Gene,
+    test_scope: Scope,
+    test_public_scope: Scope,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    test_scope.is_public = False  # the curator is its member
+    db_session.commit()
+    _curation(
+        db_session,
+        test_gene,
+        test_scope,
+        test_user_curator,
+        test_workflow_pair,
+        "Refuted",
+    )
+    other = _gene(db_session, test_user_curator, "HGNC:777", "OTHR", "1")
+    _curation(
+        db_session,
+        other,
+        test_public_scope,
+        test_user_curator,
+        test_workflow_pair,
+        "Strong",
+    )
+
+    assert catalogue.get_available_classifications(db_session) == ["strong"]
+    assert catalogue.get_available_classifications(
+        db_session, test_user_curator.id
+    ) == [
+        "refuted",
+        "strong",
+    ]

@@ -27,32 +27,25 @@
 
     <!-- Main Content -->
     <template v-else>
-      <v-row>
-        <v-col cols="12">
-          <div class="d-flex align-center mb-4">
-            <v-btn
-              icon="mdi-arrow-left"
-              variant="text"
-              class="mr-2"
-              aria-label="Go back"
-              @click="handleCancel"
-            />
-            <h1 class="text-headline-small">{{ formGene.symbol || 'Unknown gene' }}</h1>
-            <span class="text-medium-emphasis ml-3">
-              {{ scope?.display_name || 'Scope' }} &middot; Precuration
-            </span>
-            <v-spacer />
-            <a
-              v-if="gene?.hgnc_id"
-              :href="`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${gene.hgnc_id}`"
-              target="_blank"
-              rel="noopener"
-            >
-              HGNC
-            </a>
-          </div>
-        </v-col>
-      </v-row>
+      <WorkspaceHeader
+        :crumbs="crumbs"
+        :title="formGene.symbol || 'Unknown gene'"
+        stage="precuration"
+        readonly
+        :show-submit="false"
+        :can-submit="false"
+        :saving="false"
+        :saved-at="null"
+      />
+      <p v-if="gene?.hgnc_id" class="text-body-small mb-4">
+        <a
+          :href="`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${gene.hgnc_id}`"
+          target="_blank"
+          rel="noopener"
+        >
+          HGNC
+        </a>
+      </p>
 
       <v-row>
         <v-col cols="12">
@@ -109,6 +102,7 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useAuthStore } from '@/stores/auth'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
+  import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
@@ -148,6 +142,13 @@
   // Undefined until loaded. Typed non-null because vue-tsc drops v-if narrowing inside slot closures.
   const gene = ref(undefined as unknown as GeneRecord)
   // The API field is `approved_symbol`; the form reads `gene.symbol`
+  const crumbs = computed(() => [
+    { text: scope.value?.display_name || 'Scope', to: `/scopes/${scopeId.value}` },
+    ...(geneId.value && gene.value?.approved_symbol
+      ? [{ text: gene.value.approved_symbol, to: `/genes/${geneId.value}` }]
+      : []),
+    { text: 'Precuration' }
+  ])
   const formGene = computed(() => ({ symbol: gene.value?.approved_symbol }))
   const precurationSchemaId = ref<string | undefined>(undefined)
   const loading = ref(true)

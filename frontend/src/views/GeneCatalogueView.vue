@@ -1,737 +1,250 @@
 <template>
-  <div>
-    <!-- Page Header -->
-    <v-container>
-      <v-row align="center" justify="space-between" class="mb-4">
-        <v-col cols="12" md="6">
-          <h1 class="page-title text-headline-large mb-2">Gene Catalogue</h1>
-          <p class="text-body-large text-medium-emphasis">
-            Browse curated genes across all clinical scopes
-          </p>
-        </v-col>
-        <v-col cols="12" md="6">
-          <!-- Summary Stats Cards -->
-          <v-row dense>
-            <v-col cols="4">
-              <v-card variant="tonal" color="primary" class="text-center pa-2">
-                <v-icon size="24" class="mb-1">mdi-dna</v-icon>
-                <div class="text-headline-small font-weight-bold">
-                  {{ summaryValue(catalogueStore.summary.totalGenesCurated) }}
-                </div>
-                <div class="text-body-small">Curated Genes</div>
-              </v-card>
-            </v-col>
-            <v-col cols="4">
-              <v-card variant="tonal" class="text-center pa-2">
-                <v-icon size="24" class="mb-1">mdi-clipboard-check</v-icon>
-                <div class="text-headline-small font-weight-bold">
-                  {{ summaryValue(catalogueStore.summary.totalCurations) }}
-                </div>
-                <div class="text-body-small">Active Curations</div>
-              </v-card>
-            </v-col>
-            <v-col cols="4">
-              <v-card variant="tonal" color="info" class="text-center pa-2">
-                <v-icon size="24" class="mb-1">mdi-folder-multiple</v-icon>
-                <div class="text-headline-small font-weight-bold">
-                  {{ summaryValue(catalogueStore.summary.totalScopes) }}
-                </div>
-                <div class="text-body-small">Scopes</div>
-              </v-card>
-            </v-col>
-          </v-row>
-        </v-col>
-      </v-row>
-    </v-container>
+  <v-container fluid class="catalogue">
+    <header class="catalogue__head">
+      <h1 class="page-title text-headline-small">Genes</h1>
+      <span class="text-body-medium text-medium-emphasis tabular">{{ store.total }} in view</span>
+    </header>
 
-    <!-- Search and Filters -->
-    <v-container>
-      <v-card class="mb-6">
-        <v-card-title>
-          <v-icon start>mdi-filter</v-icon>
-          Search & Filters
-        </v-card-title>
-        <v-card-text>
-          <v-row>
-            <v-col cols="12" md="3">
-              <v-text-field
-                v-model="searchQuery"
-                label="Search genes"
-                placeholder="Gene symbol, HGNC ID..."
-                prepend-inner-icon="mdi-magnify"
-                variant="outlined"
-                clearable
-                @update:model-value="debounceSearch"
-              />
-            </v-col>
-            <v-col cols="12" md="2">
-              <v-select
-                v-model="selectedClassification"
-                :items="classificationOptions"
-                label="Classification"
-                variant="outlined"
-                clearable
-                @update:model-value="handleFilterChange"
-              />
-            </v-col>
-            <v-col cols="12" md="3">
-              <v-combobox
-                v-model="selectedDisease"
-                :items="catalogueStore.filterOptions.diseases"
-                label="Disease"
-                variant="outlined"
-                clearable
-                @update:model-value="handleFilterChange"
-              />
-            </v-col>
-            <v-col cols="12" md="2">
-              <v-select
-                v-model="selectedScope"
-                :items="scopeOptions"
-                label="Scope"
-                variant="outlined"
-                clearable
-                @update:model-value="handleFilterChange"
-              />
-            </v-col>
-            <v-col cols="12" md="2">
-              <v-btn
-                variant="outlined"
-                block
-                :disabled="!catalogueStore.hasActiveFilters"
-                @click="clearFilters"
-              >
-                Clear all
-              </v-btn>
-            </v-col>
-          </v-row>
-          <div
-            v-if="Object.keys(catalogueStore.summary.classificationSummary).length > 0"
-            class="d-flex flex-wrap ga-2 mt-2"
-          >
-            <span
-              v-for="(count, classification) in catalogueStore.summary.classificationSummary"
-              :key="classification"
-              class="d-inline-flex align-center ga-1"
-            >
-              <ClassificationMark :classification="classification" />
-              <span class="tabular text-medium-emphasis">{{ count }}</span>
-            </span>
-          </div>
-        </v-card-text>
-      </v-card>
-    </v-container>
-
-    <v-container v-if="catalogueStore.error">
-      <v-alert type="error" variant="tonal" data-testid="catalogue-error">
-        {{ catalogueStore.error.message }}
-      </v-alert>
-    </v-container>
-
-    <!-- Catalogue Table -->
-    <v-container>
-      <v-card>
-        <v-data-table-server
-          :headers="headers"
-          :items="entries"
-          :items-length="catalogueStore.pagination.total"
-          :loading="catalogueStore.loading"
-          :items-per-page="catalogueStore.pagination.perPage"
-          :page="catalogueStore.pagination.page"
-          :sort-by="sortBy"
-          :expanded="expandedItems"
-          item-value="gene_id"
-          class="catalogue-table"
-          show-expand
-          @update:expanded="handleExpand"
-          @update:options="handleOptions"
-        >
-          <!-- Gene Symbol Column -->
-          <template #item.approved_symbol="{ item }">
-            <div class="d-flex align-center">
-              <v-avatar size="32" color="primary" variant="tonal" class="mr-2">
-                <v-icon size="small">mdi-dna</v-icon>
-              </v-avatar>
-              <div>
-                <div class="font-weight-bold">{{ item.approved_symbol }}</div>
-                <div class="text-body-small text-medium-emphasis">{{ item.hgnc_id }}</div>
-              </div>
-            </div>
-          </template>
-
-          <!-- Location Column -->
-          <template #item.location="{ item }">
-            <div v-if="item.chromosome || item.location" class="d-flex align-center">
-              <v-icon size="x-small" color="info" class="mr-1">mdi-map-marker</v-icon>
-              <div>
-                <span class="font-weight-medium">{{ item.chromosome || item.location }}</span>
-                <div
-                  v-if="item.chromosome && item.location"
-                  class="text-body-small text-medium-emphasis"
-                >
-                  {{ item.location }}
-                </div>
-              </div>
-            </div>
-            <span v-else class="text-medium-emphasis">{{ EMPTY }}</span>
-          </template>
-
-          <!-- Best Score Column -->
-          <template #item.best_score="{ item }">
-            <div v-if="getBestScore(item)" class="text-center">
-              <div
-                class="text-title-large font-weight-bold"
-                :class="getScoreColorClass(getBestScore(item))"
-              >
-                {{ formatScore(getBestScore(item)) }}
-              </div>
-              <div class="text-body-small text-medium-emphasis">points</div>
-            </div>
-            <div v-else class="text-center text-medium-emphasis">
-              <v-icon size="small">mdi-minus</v-icon>
-            </div>
-          </template>
-
-          <!-- Classifications Column -->
-          <template #item.classifications="{ item }">
-            <div v-if="Object.keys(item.classifications || {}).length > 0">
-              <ClassificationMark
-                v-if="getBestClassification(item)"
-                :classification="getBestClassification(item)"
-              />
-              <div
-                v-if="Object.keys(item.classifications).length > 1"
-                class="text-body-small text-medium-emphasis mt-1"
-              >
-                +{{ Object.keys(item.classifications).length - 1 }} more
-              </div>
-            </div>
-            <span v-else class="text-medium-emphasis">
-              <v-icon size="x-small">mdi-help-circle-outline</v-icon>
-              Pending
-            </span>
-          </template>
-
-          <!-- Scopes Column -->
-          <template #item.total_curations="{ item }">
-            <div class="text-center">
-              <v-chip color="info" size="small" variant="tonal">
-                <v-icon start size="x-small">mdi-folder-multiple</v-icon>
-                {{ item.scope_count }}
-              </v-chip>
-              <div class="text-body-small text-medium-emphasis mt-1">
-                {{ item.total_curations }} curation{{ item.total_curations !== 1 ? 's' : '' }}
-              </div>
-            </div>
-          </template>
-
-          <!-- Diseases Column -->
-          <template #item.diseases="{ item }">
-            <div v-if="item.diseases.length > 0">
-              <v-tooltip v-if="item.diseases.length > 1" location="top">
-                <template #activator="{ props }">
-                  <div v-bind="props" class="disease-cell">
-                    <v-icon size="x-small" color="warning" class="mr-1">mdi-virus</v-icon>
-                    <span class="text-truncate">{{ item.diseases[0] }}</span>
-                    <v-chip v-if="item.diseases.length > 1" size="x-small" class="ml-1">
-                      +{{ item.diseases.length - 1 }}
-                    </v-chip>
-                  </div>
-                </template>
-                <div class="pa-2">
-                  <div v-for="disease in item.diseases" :key="disease" class="mb-1">
-                    <v-icon size="x-small" class="mr-1">mdi-chevron-right</v-icon>
-                    {{ disease }}
-                  </div>
-                </div>
-              </v-tooltip>
-              <div v-else class="disease-cell" :title="item.diseases[0]">
-                <v-icon size="x-small" color="warning" class="mr-1">mdi-virus</v-icon>
-                <span class="text-truncate">{{ item.diseases[0] }}</span>
-              </div>
-            </div>
-            <span v-else class="text-medium-emphasis d-flex align-center">
-              <v-icon size="x-small" class="mr-1">mdi-help-circle-outline</v-icon>
-              No disease
-            </span>
-          </template>
-
-          <!-- Actions Column -->
-          <template #item.actions="{ item }">
-            <div class="d-flex justify-center ga-1">
-              <v-btn
-                aria-label="Show quick info"
-                icon
-                size="x-small"
-                variant="text"
-                color="primary"
-                @click.stop="showQuickInfo(item)"
-              >
-                <v-icon size="small">mdi-eye</v-icon>
-                <v-tooltip activator="parent" location="top">Quick View</v-tooltip>
-              </v-btn>
-              <v-btn
-                aria-label="Open gene details"
-                icon
-                size="x-small"
-                variant="text"
-                color="info"
-                @click.stop="navigateToGene(item)"
-              >
-                <v-icon size="small">mdi-open-in-new</v-icon>
-                <v-tooltip activator="parent" location="top">Gene Details</v-tooltip>
-              </v-btn>
-            </div>
-          </template>
-
-          <!-- Expanded Row - Per-Scope Curations -->
-          <template #expanded-row="{ columns, item }">
-            <tr>
-              <td :colspan="columns.length" class="pa-0">
-                <v-card flat color="surface-variant" class="ma-2">
-                  <v-card-title class="text-body-large">
-                    <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
-                    Curations by Scope
-                  </v-card-title>
-                  <v-card-text class="pa-0">
-                    <v-list density="compact" class="bg-surface-variant">
-                      <v-list-item
-                        v-for="curation in item.scope_curations"
-                        :key="curation.scope_id"
-                        class="mb-2"
-                      >
-                        <template #prepend>
-                          <v-icon size="small" color="primary">
-                            {{ curation.is_public ? 'mdi-earth' : 'mdi-lock' }}
-                          </v-icon>
-                        </template>
-
-                        <v-list-item-title class="font-weight-medium">
-                          {{ curation.scope_display_name }}
-                          <ClassificationMark
-                            v-if="curation.classification"
-                            :classification="curation.classification"
-                            class="ml-2"
-                          />
-                        </v-list-item-title>
-
-                        <v-list-item-subtitle>
-                          <div class="d-flex flex-wrap align-center ga-3 mt-1">
-                            <!-- Disease -->
-                            <span v-if="curation.disease_name">
-                              <v-icon size="x-small" class="mr-1">mdi-virus</v-icon>
-                              {{ curation.disease_name }}
-                              <span
-                                v-if="curation.mondo_id"
-                                class="text-body-small text-medium-emphasis"
-                              >
-                                ({{ curation.mondo_id }})
-                              </span>
-                            </span>
-
-                            <!-- Mode of Inheritance -->
-                            <span v-if="curation.mode_of_inheritance">
-                              <v-icon size="x-small" class="mr-1">mdi-family-tree</v-icon>
-                              {{ curation.mode_of_inheritance }}
-                            </span>
-
-                            <!-- Score -->
-                            <span v-if="curation.total_score !== null">
-                              <v-icon size="x-small" class="mr-1">mdi-chart-bar</v-icon>
-                              Score: {{ formatScore(curation.total_score) }}
-                              <span
-                                v-if="curation.genetic_score || curation.experimental_score"
-                                class="text-body-small text-medium-emphasis"
-                              >
-                                (G: {{ formatScore(curation.genetic_score) }}, E:
-                                {{ formatScore(curation.experimental_score) }})
-                              </span>
-                            </span>
-
-                            <!-- Curator -->
-                            <span v-if="curation.curator_name">
-                              <v-icon size="x-small" class="mr-1">mdi-account</v-icon>
-                              {{ curation.curator_name }}
-                            </span>
-
-                            <!-- Activated date -->
-                            <span class="text-body-small text-medium-emphasis">
-                              <v-icon size="x-small" class="mr-1">mdi-calendar-check</v-icon>
-                              {{ formatDate(curation.activated_at) }}
-                            </span>
-                          </div>
-                        </v-list-item-subtitle>
-                      </v-list-item>
-                    </v-list>
-                  </v-card-text>
-                </v-card>
-              </td>
-            </tr>
-          </template>
-
-          <!-- No data -->
-          <template #no-data>
-            <div class="text-center py-8">
-              <v-icon size="64" class="mb-4 text-medium-emphasis"> mdi-clipboard-search </v-icon>
-              <h3 class="text-title-large mb-2">No curated genes found</h3>
-              <p class="text-body-medium text-medium-emphasis">
-                {{
-                  catalogueStore.hasActiveFilters
-                    ? 'Try adjusting your search criteria'
-                    : 'No genes have active curations yet'
-                }}
-              </p>
-            </div>
-          </template>
-        </v-data-table-server>
-      </v-card>
-    </v-container>
-
-    <!-- Quick Info Dialog -->
-    <BaseDialog v-if="selectedGene" v-model="quickInfoDialog" size="lg">
-      <template #title
-        ><v-avatar size="40" color="primary" variant="tonal" class="mr-3">
-          <v-icon>mdi-dna</v-icon>
-        </v-avatar>
-        <div>
-          <span class="text-headline-small">{{ selectedGene.approved_symbol }}</span>
-          <div class="text-body-small text-medium-emphasis">{{ selectedGene.hgnc_id }}</div>
-        </div>
-        <v-spacer />
-        <v-btn aria-label="Close" icon variant="text" @click="quickInfoDialog = false">
-          <v-icon>mdi-close</v-icon>
-        </v-btn></template
-      >
-      <!-- Gene Info Summary -->
-      <v-row class="mb-4">
-        <v-col cols="6" sm="3">
-          <div class="text-body-small text-medium-emphasis">Location</div>
-          <div class="font-weight-medium">
-            {{ selectedGene.chromosome || 'Unknown' }}
-            <span v-if="selectedGene.location" class="text-body-small">
-              ({{ selectedGene.location }})
-            </span>
-          </div>
-        </v-col>
-        <v-col cols="6" sm="3">
-          <div class="text-body-small text-medium-emphasis">Curations</div>
-          <div class="font-weight-medium">{{ selectedGene.total_curations }}</div>
-        </v-col>
-        <v-col cols="6" sm="3">
-          <div class="text-body-small text-medium-emphasis">Scopes</div>
-          <div class="font-weight-medium">{{ selectedGene.scope_count }}</div>
-        </v-col>
-        <v-col cols="6" sm="3">
-          <div class="text-body-small text-medium-emphasis">Best Score</div>
-          <div class="font-weight-bold" :class="getScoreColorClass(getBestScore(selectedGene))">
-            {{ formatScore(getBestScore(selectedGene)) || '-' }}
-          </div>
-        </v-col>
-      </v-row>
-
-      <!-- Scope Curations List -->
-      <div class="text-title-small mb-2">
-        <v-icon start size="small">mdi-folder-multiple-outline</v-icon>
-        Curations by Scope
-      </div>
-
-      <v-list density="compact" class="rounded border">
-        <v-list-item
-          v-for="curation in selectedGene.scope_curations"
-          :key="curation.scope_id"
-          :class="{ 'border-b': true }"
-        >
-          <template #prepend>
-            <v-avatar size="32" color="surface-variant">
-              <v-icon size="small">
-                {{ curation.is_public ? 'mdi-earth' : 'mdi-lock' }}
-              </v-icon>
-            </v-avatar>
-          </template>
-
-          <v-list-item-title class="d-flex align-center flex-wrap ga-2">
-            <span class="font-weight-medium">{{ curation.scope_display_name }}</span>
-            <ClassificationMark
-              v-if="curation.classification"
-              :classification="curation.classification"
-            />
-          </v-list-item-title>
-
-          <v-list-item-subtitle class="mt-1">
-            <div class="d-flex flex-wrap ga-4 text-body-small">
-              <!-- Score -->
-              <span v-if="curation.total_score !== null" class="d-flex align-center">
-                <v-icon size="x-small" class="mr-1" color="primary">mdi-chart-bar</v-icon>
-                <strong>{{ formatScore(curation.total_score) }}</strong>
-                <span class="text-medium-emphasis ml-1">
-                  (G: {{ formatScore(curation.genetic_score) }}, E:
-                  {{ formatScore(curation.experimental_score) }})
-                </span>
-              </span>
-
-              <!-- Disease -->
-              <span v-if="curation.disease_name" class="d-flex align-center">
-                <v-icon size="x-small" class="mr-1" color="warning">mdi-virus</v-icon>
-                {{ curation.disease_name }}
-              </span>
-
-              <!-- MOI -->
-              <span v-if="curation.mode_of_inheritance" class="d-flex align-center">
-                <v-icon size="x-small" class="mr-1" color="info">mdi-family-tree</v-icon>
-                {{ curation.mode_of_inheritance }}
-              </span>
-
-              <!-- Date -->
-              <span class="d-flex align-center text-medium-emphasis">
-                <v-icon size="x-small" class="mr-1">mdi-calendar</v-icon>
-                {{ formatDate(curation.activated_at) }}
-              </span>
-            </div>
-          </v-list-item-subtitle>
-
-          <template #append>
-            <v-btn
-              aria-label="Open scope dashboard"
-              icon
-              size="x-small"
-              variant="text"
-              color="primary"
-              @click="navigateToScope(curation)"
-            >
-              <v-icon size="small">mdi-arrow-right</v-icon>
-              <v-tooltip activator="parent" location="left">View Scope</v-tooltip>
-            </v-btn>
-          </template>
-        </v-list-item>
-      </v-list>
-
-      <!-- Diseases Summary -->
-      <div v-if="selectedGene.diseases.length > 0" class="mt-4">
-        <div class="text-title-small mb-2">
-          <v-icon start size="small">mdi-virus</v-icon>
-          Associated Diseases ({{ selectedGene.diseases.length }})
-        </div>
-        <div class="d-flex flex-wrap ga-1">
-          <v-chip
-            v-for="disease in selectedGene.diseases"
-            :key="disease"
-            size="small"
-            variant="outlined"
-            color="warning"
-          >
-            {{ disease }}
-          </v-chip>
-        </div>
-      </div>
-      <template #actions>
-        <v-btn variant="text" @click="quickInfoDialog = false">Close</v-btn>
-        <v-btn color="primary" variant="elevated" @click="navigateToGene(selectedGene)">
-          <v-icon start>mdi-open-in-new</v-icon>
-          View gene details
-        </v-btn>
-      </template></BaseDialog
+    <DataTable
+      v-model:search="search"
+      v-model:page="page"
+      v-model:items-per-page="itemsPerPage"
+      v-model:sort-by="sortBy"
+      v-model:density="density"
+      v-model:filters="filters"
+      :headers="headers"
+      :items="store.rows"
+      :items-length="store.total"
+      :loading="store.loading"
+      :error="store.error"
+      :filter-defs="filterDefs"
+      empty-text="No genes match. Adjust the search, filters or shown scopes."
+      @retry="load"
     >
-  </div>
+      <template #toolbar-actions>
+        <ScopePicker
+          :scopes="store.allScopes"
+          :model-value="shownIds"
+          :mine="mineIds"
+          @update:model-value="setScopes"
+        />
+      </template>
+
+      <template #item.approved_symbol="{ item }">
+        <router-link :to="`/genes/${item.gene_id}`" class="gene-link mono">
+          {{ item.approved_symbol }}
+        </router-link>
+        <div class="text-body-small text-medium-emphasis mono">{{ item.hgnc_id }}</div>
+      </template>
+
+      <template v-for="s in store.scopes" :key="s.id" #[`item.scope:${s.id}`]="{ item }">
+        <template v-for="c in [cellOf(item, s.id)]" :key="c?.curation_id ?? s.id">
+          <router-link
+            v-if="c"
+            :to="`/scopes/${s.id}/curations/${c.curation_id}`"
+            class="cell-link"
+            :aria-label="cellLabel(c, item.approved_symbol, s.display_name)"
+          >
+            <span v-if="c.in_progress" class="text-medium-emphasis">
+              {{ curationStatusLabel(c.status) }}
+            </span>
+            <template v-else>
+              <ClassificationMark :classification="c.classification" />
+              <span v-if="c.total_score != null" class="score mono">
+                {{ c.total_score.toFixed(1) }}
+              </span>
+            </template>
+          </router-link>
+          <span v-else class="text-medium-emphasis">not in scope</span>
+        </template>
+      </template>
+
+      <template #item.agreement="{ item }">
+        <span :class="['agreement', `agreement--${item.agreement}`]">
+          {{ AGREEMENT_LABELS[item.agreement] }}
+        </span>
+      </template>
+    </DataTable>
+  </v-container>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted } from 'vue'
-  import { useRouter } from 'vue-router'
+  import { computed, onMounted, ref, watch } from 'vue'
+  import DataTable from '@/components/common/DataTable.vue'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
-  import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
+  import ScopePicker from '@/components/catalogue/ScopePicker.vue'
+  import { useTableUrlState } from '@/composables/useTableUrlState'
+  import { getClassification } from '@/config/classification'
+  import { curationStatusLabel } from '@/config/status'
+  import { useAuthStore } from '@/stores/auth'
+  import { useCatalogueMatrixStore } from '@/stores/catalogueMatrix'
+  import { useScopesStore } from '@/stores/scopes'
   import type { Schema } from '@/types/api'
-  import type { DataTableHeader } from 'vuetify'
-  import {
-    formatClassification,
-    formatScore,
-    getBestScore,
-    getBestClassification,
-    getScoreColorClass
-  } from './GeneCatalogueView.utils'
-  import { EMPTY, formatDate } from '@/utils/format'
-  import BaseDialog from '@/components/BaseDialog.vue'
 
-  type CatalogueEntry = Schema<'GeneCatalogueEntry'>
-  type ScopeCuration = Schema<'ScopeCurationSummary'>
-  // Catalogue entries always carry diseases and classifications (empty when none)
-  type CatalogueRow = CatalogueEntry & {
-    diseases: string[]
-    classifications: Record<string, number>
+  type Row = Schema<'MatrixRow'>
+  type Cell = Schema<'MatrixCell'>
+
+  const AGREEMENT_LABELS: Record<string, string> = {
+    agree: 'Agree',
+    disagree: 'Disagree',
+    single: 'One scope',
+    none: '—'
   }
-  const catalogueStore = useGeneCatalogueStore()
-  const summaryValue = (n: number) => (catalogueStore.summaryLoaded ? n : EMPTY)
-  const entries = computed(() => catalogueStore.entries as CatalogueRow[])
-  const router = useRouter()
-
-  // Local state for filters
-  const searchQuery = ref('')
-  const selectedClassification = ref<string | null>(null)
-  const selectedDisease = ref<string | null>(null)
-  const selectedScope = ref<string | null>(null)
-
-  // Expanded rows tracking
-  const expandedItems = ref<string[]>([])
-
-  // Quick info dialog
-  const quickInfoDialog = ref(false)
-  const selectedGene = ref<CatalogueRow | null>(null)
-
-  // Table headers
-  const headers: DataTableHeader[] = [
-    { title: '', key: 'data-table-expand', width: '40px' },
-    { title: 'Gene', key: 'approved_symbol', sortable: true, width: '160px' },
-    { title: 'Location', key: 'location', sortable: false, width: '100px' },
-    { title: 'Best Score', key: 'best_score', sortable: false, width: '100px' },
-    { title: 'Classification', key: 'classifications', sortable: false, width: '160px' },
-    { title: 'Scopes', key: 'total_curations', sortable: true, width: '90px' },
-    { title: 'Diseases', key: 'diseases', sortable: false, width: '180px' },
-    { title: 'Actions', key: 'actions', sortable: false, width: '100px', align: 'center' }
+  const filterDefs = [
+    {
+      key: 'agreement',
+      label: 'Agreement',
+      options: [
+        { value: 'agree', title: 'Agree' },
+        { value: 'disagree', title: 'Disagree' }
+      ]
+    }
   ]
 
-  // Classification options for filter dropdown
-  const classificationOptions = computed(() => {
-    return catalogueStore.filterOptions.classifications.map(c => ({
-      title: formatClassification(c),
-      value: c
-    }))
+  const store = useCatalogueMatrixStore()
+  const scopesStore = useScopesStore()
+  const auth = useAuthStore()
+  const { search, page, itemsPerPage, sortBy, density, filters } = useTableUrlState({
+    filterKeys: ['agreement', 'scopes'],
+    multiKeys: ['scopes']
   })
 
-  // Scope options for filter dropdown
-  const scopeOptions = computed(() => {
-    return catalogueStore.filterOptions.scopes.map(s => ({
-      title: s.display_name,
-      value: s.id
-    }))
+  // The URL wins over the saved default view, so a shared link shows the same columns.
+  const shownIds = computed(() => {
+    const urlScopes = filters.value.scopes
+    // Unknown ids and more than the endpoint accepts would only earn a 422.
+    const known = new Set(store.allScopes.map(s => s.id))
+    const valid = Array.isArray(urlScopes) ? urlScopes.filter(id => known.has(id)).slice(0, 50) : []
+    return valid.length ? valid : store.defaultShownIds
   })
+  const mineIds = computed(() => scopesStore.userScopes.filter(s => s.user_role).map(s => s.id))
 
-  // Debounced search
-  let searchTimeout: ReturnType<typeof setTimeout> | undefined
-  const debounceSearch = () => {
-    clearTimeout(searchTimeout)
-    searchTimeout = setTimeout(() => {
-      handleFilterChange()
-    }, 300)
-  }
-
-  // Handle filter changes
-  const handleFilterChange = async () => {
-    catalogueStore.updateFilters({
-      search: searchQuery.value || null,
-      classification: selectedClassification.value || null,
-      disease: selectedDisease.value || null,
-      scopeId: selectedScope.value || null
-    })
-    await catalogueStore.fetchCatalogue({ page: 1 })
-  }
-
-  // Header sort state, mirrored from the store filters
-  const sortBy = computed(() => [
-    { key: catalogueStore.filters.sortBy, order: catalogueStore.filters.sortOrder }
+  const headers = computed(() => [
+    { title: 'Gene', key: 'approved_symbol', sortable: true },
+    ...store.scopes.map(s => ({ title: s.display_name, key: `scope:${s.id}`, sortable: false })),
+    { title: 'Agreement', key: 'agreement', sortable: false }
   ])
 
-  // Server table paging/sorting. The table also emits on mount and after a filter change
-  // (page reset); only act on a real page or sort change so each action fetches once.
-  const handleOptions = async (o: { page: number; sortBy: { key: string; order?: unknown }[] }) => {
-    const sort = o.sortBy[0]
-    const order = sort?.order === 'desc' ? 'desc' : 'asc'
-    const sortChanged =
-      !!sort &&
-      (sort.key !== catalogueStore.filters.sortBy || order !== catalogueStore.filters.sortOrder)
-    if (!sortChanged && o.page === catalogueStore.pagination.page) return
-    if (sortChanged) {
-      catalogueStore.filters.sortBy = sort.key
-      catalogueStore.filters.sortOrder = order
-    }
-    catalogueStore.setPage(o.page)
-    await catalogueStore.fetchCatalogue({ page: o.page }).catch(() => undefined)
+  // The accessible name starts with the visible text (WCAG 2.5.3 Label in Name).
+  function cellLabel(c: Cell, symbol: string, scope: string) {
+    const visible = c.in_progress
+      ? curationStatusLabel(c.status)
+      : getClassification(c.classification).label
+    const score = !c.in_progress && c.total_score != null ? ` ${c.total_score.toFixed(1)}` : ''
+    return `${visible}${score}, open ${symbol} curation in ${scope}`
   }
 
-  // Handle row expansion
-  const handleExpand = (expanded: string[]) => {
-    expandedItems.value = expanded
+  const cellOf = (row: Row, scopeId: string) => row.cells?.find(c => c.scope_id === scopeId)
+
+  function setScopes(ids: string[]) {
+    store.saveDefault(ids)
+    filters.value = { ...filters.value, scopes: ids }
   }
 
-  // Clear all filters
-  const clearFilters = async () => {
-    searchQuery.value = ''
-    selectedClassification.value = null
-    selectedDisease.value = null
-    selectedScope.value = null
-    catalogueStore.clearFilters()
-    await catalogueStore.fetchCatalogue({ page: 1 })
+  const ready = ref(false)
+  function load() {
+    const agreement = filters.value.agreement
+    return store.fetch({
+      scopeIds: shownIds.value,
+      search: search.value,
+      agreement: agreement === 'agree' || agreement === 'disagree' ? agreement : undefined,
+      page: page.value,
+      size: itemsPerPage.value,
+      desc: sortBy.value[0]?.order === 'desc'
+    })
   }
 
-  // Show quick info dialog
-  const showQuickInfo = (item: CatalogueRow) => {
-    selectedGene.value = item
-    quickInfoDialog.value = true
-  }
+  watch(
+    () => [
+      shownIds.value.join(),
+      search.value,
+      page.value,
+      itemsPerPage.value,
+      filters.value.agreement,
+      sortBy.value[0]?.order,
+      ready.value
+    ],
+    () => ready.value && load()
+  )
 
-  // Navigation helpers
-  const navigateToGene = (item: CatalogueRow) => {
-    router.push({ name: 'GeneDetail', params: { id: item.gene_id } })
-  }
+  watch(
+    () => scopesStore.userScopes,
+    list =>
+      store.setMemberScopes(
+        list.filter(s => s.user_role).map(s => ({ id: s.id, display_name: s.display_name }))
+      ),
+    { immediate: true }
+  )
 
-  const navigateToScope = (curation: ScopeCuration) => {
-    router.push({ name: 'scope-dashboard', params: { scopeId: curation.scope_id } })
-  }
+  // Authentication settles after mount (/me), so follow it instead of reading it once.
+  watch(
+    () => auth.isAuthenticated,
+    signedIn => signedIn && scopesStore.fetchUserScopes().catch(() => []),
+    { immediate: true }
+  )
 
   onMounted(async () => {
-    // Failures are surfaced via catalogueStore.error (alert below the filters)
-    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()]).catch(
-      () => undefined
-    )
+    await store.loadScopes()
+    ready.value = true
   })
 </script>
 
 <style scoped>
-  .catalogue-table :deep(.v-data-table__wrapper) {
-    border-radius: 8px;
-  }
-
-  .catalogue-table :deep(tbody tr:not(.v-data-table__expanded__content)) {
-    cursor: pointer;
-  }
-
-  .catalogue-table :deep(tbody tr:hover:not(.v-data-table__expanded__content)) {
-    background-color: rgba(var(--v-theme-primary), 0.04);
-  }
-
-  .v-chip {
-    font-size: 0.75rem;
-  }
-
-  .disease-cell {
+  .catalogue__head {
     display: flex;
-    align-items: center;
-    max-width: 160px;
-    min-width: 0;
+    align-items: baseline;
+    gap: 12px;
+    margin-bottom: 12px;
   }
 
-  .disease-cell .text-truncate {
-    max-width: 100px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  .mono {
+    font-family: 'IBM Plex Mono', ui-monospace, monospace;
   }
 
-  .border {
-    border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  .tabular,
+  .score {
+    font-variant-numeric: tabular-nums;
   }
 
-  .border-b:not(:last-child) {
-    border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  .score {
+    margin-left: 8px;
+    color: rgb(var(--v-theme-on-surface));
   }
 
-  .ga-1 {
-    gap: 4px;
+  .gene-link,
+  .cell-link {
+    color: inherit;
+    text-decoration: none;
   }
 
-  .ga-2 {
-    gap: 8px;
+  .gene-link {
+    font-weight: 600;
   }
 
-  .ga-4 {
-    gap: 16px;
+  .gene-link:hover,
+  .gene-link:focus-visible,
+  .cell-link:hover,
+  .cell-link:focus-visible {
+    color: rgb(var(--v-theme-secondary));
+    text-decoration: underline;
+  }
+
+  .agreement--agree {
+    color: rgb(var(--v-theme-success));
+  }
+
+  .agreement--disagree {
+    color: rgb(var(--v-theme-warning));
+    font-weight: 600;
+  }
+
+  .agreement--single,
+  .agreement--none {
+    color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
+  }
+
+  /* Rows where scopes disagree are tinted so they stand out without a colour per cell. */
+  .catalogue :deep(tbody tr:has(.agreement--disagree) > td:not(:first-child)) {
+    background: rgba(var(--v-theme-warning), 0.08);
   }
 </style>

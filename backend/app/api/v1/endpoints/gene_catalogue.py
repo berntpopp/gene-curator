@@ -19,7 +19,9 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import get_current_user_optional
 from app.core.logging import api_endpoint
+from app.core.search_text import MAX_SEARCH, NO_NUL
 from app.crud import gene_catalogue as catalogue_crud
+from app.models import UserNew
 from app.schemas.gene_catalogue import (
     GeneCatalogueFilters,
     GeneCatalogueResponse,
@@ -37,12 +39,20 @@ def get_gene_catalogue(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(20, ge=1, le=100, description="Maximum records to return"),
     search: str | None = Query(
-        None, description="Search gene symbol, HGNC ID, or aliases"
+        None,
+        max_length=MAX_SEARCH,
+        pattern=NO_NUL,
+        description="Search gene symbol, HGNC ID, or aliases (literal text)",
     ),
     classification: str | None = Query(
         None, description="Filter by classification (definitive, strong, etc.)"
     ),
-    disease: str | None = Query(None, description="Search/filter by disease name"),
+    disease: str | None = Query(
+        None,
+        max_length=MAX_SEARCH,
+        pattern=NO_NUL,
+        description="Disease name (literal text)",
+    ),
     scope_id: UUID | None = Query(None, description="Filter by specific scope"),
     chromosome: str | None = Query(None, description="Filter by chromosome"),
     sort_by: str = Query(
@@ -51,6 +61,7 @@ def get_gene_catalogue(
         description="Sort field: approved_symbol, total_curations, chromosome",
     ),
     sort_order: str = Query("asc", description="Sort order: asc or desc"),
+    current_user: UserNew | None = Depends(get_current_user_optional),
 ) -> GeneCatalogueResponse:
     """
     Get the Gene Catalogue.
@@ -86,13 +97,16 @@ def get_gene_catalogue(
         sort_order=sort_order,
     )
 
-    return catalogue_crud.get_gene_catalogue(db, filters)
+    return catalogue_crud.get_gene_catalogue(
+        db, filters, current_user.id if current_user else None
+    )
 
 
 @router.get("/filters/classifications", response_model=list[str])
 @api_endpoint()
 def get_available_classifications(
     db: Session = Depends(get_db),
+    current_user: UserNew | None = Depends(get_current_user_optional),
 ) -> list[str]:
     """
     Get available classifications for filtering.
@@ -102,7 +116,9 @@ def get_available_classifications(
 
     Public endpoint - no authentication required.
     """
-    return catalogue_crud.get_available_classifications(db)
+    return catalogue_crud.get_available_classifications(
+        db, current_user.id if current_user else None
+    )
 
 
 @router.get("/filters/diseases", response_model=list[str])
@@ -110,6 +126,7 @@ def get_available_classifications(
 def get_available_diseases(
     db: Session = Depends(get_db),
     limit: int = Query(50, ge=1, le=200, description="Maximum diseases to return"),
+    current_user: UserNew | None = Depends(get_current_user_optional),
 ) -> list[str]:
     """
     Get available diseases for filtering.
@@ -118,13 +135,16 @@ def get_available_diseases(
 
     Public endpoint - no authentication required.
     """
-    return catalogue_crud.get_available_diseases(db, limit=limit)
+    return catalogue_crud.get_available_diseases(
+        db, limit=limit, user_id=current_user.id if current_user else None
+    )
 
 
 @router.get("/filters/scopes", response_model=list[ScopeFilterOption])
 @api_endpoint()
 def get_available_scopes(
     db: Session = Depends(get_db),
+    current_user: UserNew | None = Depends(get_current_user_optional),
 ) -> list[ScopeFilterOption]:
     """
     Get scopes available for filtering.
@@ -133,5 +153,7 @@ def get_available_scopes(
 
     Public endpoint - no authentication required.
     """
-    scopes_data = catalogue_crud.get_available_scopes_for_catalogue(db)
+    scopes_data = catalogue_crud.get_available_scopes_for_catalogue(
+        db, current_user.id if current_user else None
+    )
     return [ScopeFilterOption(**scope) for scope in scopes_data]

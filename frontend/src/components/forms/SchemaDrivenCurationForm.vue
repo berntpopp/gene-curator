@@ -136,7 +136,7 @@
    * />
    */
 
-  import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, computed, inject, nextTick, watch, onMounted, onBeforeUnmount } from 'vue'
   import { useSchemasStore } from '@/stores/schemas'
   import { useCurationsStore } from '@/stores/curations'
   import { usePrecurationsStore } from '@/stores/precurations'
@@ -158,6 +158,7 @@
   import ClinGenCurationForm from '@/components/clingen/ClinGenCurationForm.vue'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
   import { useConfirm } from '@/composables/useConfirm'
+  import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
 
   type CurationSchema = Schema<'CurationSchema'>
 
@@ -325,6 +326,19 @@
       emit('saved')
     },
     onSubmit: () => emit('submit')
+  })
+
+  // The workspace frame (when the shell provides one) shows save state and owns Ctrl+S.
+  inject(WORKSPACE_FRAME, null)?.attachForm({
+    evidence: evidenceData,
+    saving: savingDraft,
+    savedAt,
+    save: async () => {
+      // Cells commit on blur: let a focused cell's last edit land before saving
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
+      await nextTick()
+      return useDynamicForm.value ? handleSaveDraft() : handleClinGenSaveDraft(evidenceData.value)
+    }
   })
 
   /**

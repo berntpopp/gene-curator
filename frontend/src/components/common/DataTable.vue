@@ -114,7 +114,7 @@
       @update:items-per-page="emit('update:itemsPerPage', $event)"
       @update:sort-by="emit('update:sortBy', $event)"
     >
-      <template v-for="name in itemSlots" #[name]="slotProps" :key="name">
+      <template v-for="name in itemSlots()" #[name]="slotProps" :key="name">
         <slot :name="name as `item.${string}`" v-bind="slotProps" />
       </template>
       <template v-if="!slots['no-data']" #no-data>
@@ -223,9 +223,8 @@
     }
   >()
   const slots = useSlots()
-  const itemSlots = computed(() =>
-    Object.keys(slots).filter(n => n.startsWith('item.') || n === 'no-data')
-  )
+  // A function, not a computed: `slots` is not reactive, and parents add item slots late.
+  const itemSlots = () => Object.keys(slots).filter(n => n.startsWith('item.') || n === 'no-data')
 </script>
 
 <style scoped>
