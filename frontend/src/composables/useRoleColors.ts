@@ -4,7 +4,7 @@
  * Shared composable for scope role colors and icons.
  *
  * **DRY FIX**: Eliminates duplication across 3+ components
- * (ScopeSelector, ScopeDashboard, MemberManagement).
+ * (ScopeDashboard, MemberManagement).
  *
  * Provides consistent visual representation of scope-level roles:
  * - admin: Red (highest privileges)

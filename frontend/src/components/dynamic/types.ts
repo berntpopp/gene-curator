@@ -6,8 +6,6 @@
  * `@/types/api`, so they are described here.
  */
 
-import type { Schema } from '@/types/api'
-
 /** A single field definition inside a generated JSON schema. */
 export interface FieldSchema {
   type?: string
@@ -85,25 +83,6 @@ export interface ScoringConfiguration {
   classification_thresholds?: Record<string, number>
   max_scores?: Record<string, number>
 }
-
-/** Schema entry offered by SchemaSelector (precuration or curation) */
-export interface SchemaOption {
-  id: string
-  name: string
-  description?: string | null
-  version: number | string
-}
-
-/** Workflow pair linking a precuration and a curation schema */
-export interface WorkflowPairOption {
-  id?: string
-  name: string
-  precuration_schema_id: string
-  curation_schema_id: string
-}
-
-/** Clinical scope offered by ScopeSelector */
-export type ScopeOption = Schema<'ScopeListItem'>
 
 /** Vuetify input variants accepted by the field wrappers */
 export type FieldVariant =

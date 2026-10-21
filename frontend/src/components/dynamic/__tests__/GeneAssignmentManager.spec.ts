@@ -12,8 +12,8 @@ const stores = vi.hoisted(() => ({
     loading: false,
     assignments: [] as Array<Record<string, unknown>>,
     fetchAssignments: vi.fn(),
-    updateAssignment: vi.fn(),
-    fetchCuratorWorkload: vi.fn()
+    error: null as string | null,
+    updateAssignment: vi.fn()
   },
   scopes: { scopes: [] as Array<Record<string, unknown>>, fetchUserScopes: vi.fn() },
   users: { users: [] as Array<Record<string, unknown>>, fetchUsers: vi.fn() },
@@ -54,6 +54,7 @@ const stubs = {
   'v-card': { template: '<div><slot /></div>' },
   'v-card-title': { template: '<div><slot /></div>' },
   'v-card-text': { template: '<div><slot /></div>' },
+  'v-alert': { template: '<div class="alert"><slot /><slot name="append" /></div>' },
   'v-card-actions': { template: '<div><slot /></div>' },
   'v-row': { template: '<div><slot /></div>' },
   'v-col': { template: '<div><slot /></div>' },
@@ -168,7 +169,7 @@ describe('GeneAssignmentManager', () => {
     stores.users.users = [curatorUser, reviewerUser, inactiveUser]
     stores.auth.user = { id: 'curator-1' }
     stores.assignments.fetchAssignments.mockResolvedValue(undefined)
-    stores.assignments.fetchCuratorWorkload.mockResolvedValue(undefined)
+    stores.assignments.error = null
     api.updateAssignment.mockResolvedValue(undefined)
     stores.assignments.updateAssignment.mockResolvedValue(undefined)
     stores.scopes.fetchUserScopes.mockResolvedValue(undefined)
@@ -177,14 +178,13 @@ describe('GeneAssignmentManager', () => {
   })
 
   describe('loading', () => {
-    it('loads assignments, scopes, users and the curator workload on mount', async () => {
+    it('loads assignments, scopes, and users on mount', async () => {
       mountManager()
       await flushPromises()
 
       expect(stores.assignments.fetchAssignments).toHaveBeenCalledTimes(1)
       expect(stores.scopes.fetchUserScopes).toHaveBeenCalledTimes(1)
       expect(stores.users.fetchUsers).toHaveBeenCalledTimes(1)
-      expect(stores.assignments.fetchCuratorWorkload).toHaveBeenCalledWith('curator-1')
     })
 
     it('does not request the admin-only user list for non-admins', async () => {
@@ -197,22 +197,24 @@ describe('GeneAssignmentManager', () => {
       stores.auth.isAdmin = true
     })
 
-    it('skips the workload fetch when no user is logged in', async () => {
-      stores.auth.user = null
-      mountManager()
+    it('shows the load error with a working retry instead of the empty table', async () => {
+      stores.assignments.fetchAssignments
+        .mockImplementationOnce(async () => {
+          stores.assignments.error = 'Request failed'
+          throw new Error('offline')
+        })
+        .mockResolvedValueOnce(undefined)
+      const wrapper = mountManager()
       await flushPromises()
 
-      expect(stores.assignments.fetchCuratorWorkload).not.toHaveBeenCalled()
-    })
+      expect(wrapper.find('.alert').text()).toContain('Request failed')
+      expect(wrapper.find('.row-stub').exists()).toBe(false)
+      expect(notify.showError).not.toHaveBeenCalled()
 
-    it('reports a failed initial load', async () => {
-      stores.assignments.fetchAssignments.mockRejectedValue(new Error('offline'))
-      mountManager()
+      await wrapper.find('button.retry').trigger('click')
       await flushPromises()
-
-      expect(notify.showError).toHaveBeenCalledWith(
-        'Failed to load assignment data. Please refresh.'
-      )
+      expect(stores.assignments.fetchAssignments).toHaveBeenCalledTimes(2)
+      expect(wrapper.find('.alert').exists()).toBe(false)
     })
   })
 
