@@ -21,69 +21,11 @@
       </v-col>
     </v-row>
 
-    <!-- Statistics Cards -->
-    <v-row class="mb-6">
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="h-100">
-          <v-card-text>
-            <div class="d-flex align-center">
-              <v-icon color="primary" size="32" class="me-3">mdi-account-group</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">
-                  {{ statistics.total_users || 0 }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Total Users</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="h-100">
-          <v-card-text>
-            <div class="d-flex align-center">
-              <v-icon color="success" size="32" class="me-3">mdi-account-check</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">
-                  {{ statistics.active_users || 0 }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Active Users</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="h-100">
-          <v-card-text>
-            <div class="d-flex align-center">
-              <v-icon color="warning" size="32" class="me-3">mdi-account-off</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">
-                  {{ statistics.inactive_users || 0 }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Inactive Users</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-      <v-col cols="12" sm="6" md="3">
-        <v-card class="h-100">
-          <v-card-text>
-            <div class="d-flex align-center">
-              <v-icon color="info" size="32" class="me-3">mdi-account-clock</v-icon>
-              <div>
-                <div class="text-h5 font-weight-bold">
-                  {{ statistics.recent_registrations || 0 }}
-                </div>
-                <div class="text-caption text-medium-emphasis">Recent (30d)</div>
-              </div>
-            </div>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
+    <p class="text-body-2 text-medium-emphasis mb-4" data-test="user-summary">
+      {{ statistics.total_users || 0 }} users ·
+      {{ statistics.role_distribution?.admin || 0 }} admins ·
+      {{ statistics.inactive_users || 0 }} inactive
+    </p>
 
     <!-- Search and Filters -->
     <v-row class="mb-4">
@@ -127,8 +69,8 @@
         <!-- User info -->
         <template #item.name="{ item }">
           <div class="d-flex align-center">
-            <v-avatar size="32" class="me-3">
-              <v-icon>mdi-account</v-icon>
+            <v-avatar size="32" class="me-3" color="primary" variant="tonal">
+              {{ initials(item.name) }}
             </v-avatar>
             <div>
               <div class="font-weight-medium">{{ item.name }}</div>
@@ -139,7 +81,7 @@
 
         <!-- Role -->
         <template #item.role="{ item }">
-          <v-chip :color="getRoleColor(item.role)" size="small" variant="flat">
+          <v-chip :color="getRoleColor(item.role)" size="small" variant="tonal">
             <v-icon start size="14">{{ getRoleIcon(item.role) }}</v-icon>
             {{ item.role }}
           </v-chip>
@@ -200,7 +142,13 @@
                 <v-list-item-title>Reset Password</v-list-item-title>
               </v-list-item>
               <v-divider />
-              <v-list-item v-if="item.is_active" class="text-warning" @click="deactivateUser(item)">
+              <v-list-item
+                v-if="item.is_active"
+                class="text-warning"
+                :disabled="isSelf(item)"
+                :title="isSelf(item) ? 'You cannot deactivate your own account' : undefined"
+                @click="deactivateUser(item)"
+              >
                 <template #prepend>
                   <v-icon color="warning">mdi-account-off</v-icon>
                 </template>
@@ -213,7 +161,12 @@
                 <v-list-item-title>Activate</v-list-item-title>
               </v-list-item>
               <v-divider />
-              <v-list-item class="text-error" @click="confirmDeleteUser(item)">
+              <v-list-item
+                class="text-error"
+                :disabled="isSelf(item)"
+                :title="isSelf(item) ? 'You cannot delete your own account' : undefined"
+                @click="confirmDeleteUser(item)"
+              >
                 <template #prepend>
                   <v-icon color="error">mdi-delete</v-icon>
                 </template>
@@ -232,7 +185,7 @@
           {{ editingUser ? 'Edit User' : 'Create New User' }}
         </v-card-title>
         <v-card-text>
-          <v-form ref="userForm" v-model="formValid" @submit.prevent="saveUser">
+          <v-form ref="userForm" @submit.prevent="saveUser">
             <v-row>
               <v-col cols="12">
                 <v-text-field
@@ -259,6 +212,9 @@
                   :items="roleOptions"
                   label="Role"
                   :rules="[rules.required]"
+                  :disabled="!!editingUser && isSelf(editingUser)"
+                  hint="Admins manage the platform. Curator/reviewer rights are granted per scope."
+                  persistent-hint
                   variant="outlined"
                   required
                 />
@@ -275,7 +231,13 @@
                 />
               </v-col>
               <v-col cols="12">
-                <v-switch v-model="userFormData.is_active" label="Active" color="success" inset />
+                <v-switch
+                  v-model="userFormData.is_active"
+                  label="Active"
+                  color="success"
+                  :disabled="!!editingUser && isSelf(editingUser)"
+                  inset
+                />
               </v-col>
             </v-row>
           </v-form>
@@ -283,17 +245,14 @@
         <v-card-actions>
           <v-spacer />
           <v-btn variant="text" @click="userDialog = false"> Cancel </v-btn>
-          <v-btn
-            :loading="usersStore.loading"
-            :disabled="!formValid"
-            color="primary"
-            @click="saveUser"
-          >
+          <v-btn :loading="usersStore.loading" color="primary" @click="saveUser">
             {{ editingUser ? 'Update' : 'Create' }}
           </v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>
+
+    <ResetPasswordDialog v-model="resetDialog" :user="resetTarget" @submit="performResetPassword" />
 
     <UserDetailsDialog v-model="detailsDialog" :user="selectedUser" :activity="userActivity" />
 
@@ -328,11 +287,14 @@
 <script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
   import { useUsersStore } from '@/stores/users'
+  import { useAuthStore } from '@/stores/auth'
+  import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
   import {
     formatDate,
     getRoleColor,
     getRoleIcon,
+    initials,
     type UserRecord
   } from '@/views/user-management/userManagementHelpers'
 
@@ -356,6 +318,8 @@
 
   // Store
   const usersStore = useUsersStore()
+  const authStore = useAuthStore()
+  const isSelf = (u: UserRecord) => authStore.user?.id === u.id
 
   // Reactive state
   const searchQuery = ref('')
@@ -367,7 +331,7 @@
     total_users?: number
     active_users?: number
     inactive_users?: number
-    recent_registrations?: number
+    role_distribution?: Record<string, number>
   }
   const statistics = computed((): UserStatistics => usersStore.statistics)
   const paginatedUsers = computed((): UserRecord[] => usersStore.paginatedUsers)
@@ -376,7 +340,8 @@
   const userToDelete = ref<UserRecord | null>(null)
   const selectedUser = ref<UserRecord | null>(null)
   const userActivity = ref<Record<string, unknown> | null>(null)
-  const formValid = ref(false)
+  const resetDialog = ref(false)
+  const resetTarget = ref<UserRecord | null>(null)
   const userForm = ref<{ validate: () => Promise<{ valid: boolean }> } | null>(null)
 
   // Snackbar
@@ -554,16 +519,18 @@
     }
   }
 
-  async function resetPassword(user: UserRecord) {
-    const newPassword = prompt(`Enter new password for ${user.name}:`)
-    if (!newPassword || newPassword.length < 8) {
-      showSnackbar('Password must be at least 8 characters long', 'error')
-      return
-    }
+  function resetPassword(user: UserRecord) {
+    resetTarget.value = user
+    resetDialog.value = true
+  }
 
+  async function performResetPassword(password: string) {
+    const user = resetTarget.value
+    if (!user) return
     try {
-      await usersStore.updateUserPassword(user.id, newPassword)
+      await usersStore.updateUserPassword(user.id, password)
       showSnackbar(`Password updated for ${user.name}`, 'success')
+      resetDialog.value = false
     } catch (error) {
       showSnackbar('Failed to update password', 'error')
     }
@@ -597,13 +564,3 @@
     }
   })
 </script>
-
-<style scoped>
-  .v-card {
-    transition: all 0.2s ease-in-out;
-  }
-
-  .v-card:hover {
-    transform: translateY(-2px);
-  }
-</style>
