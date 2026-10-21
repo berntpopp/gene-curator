@@ -126,6 +126,7 @@
   import { useDisplay } from 'vuetify'
   import { useAuthStore } from '@/stores/auth'
   import { useWorkflowStore } from '@/stores/workflow'
+  import { usePrecurationsStore } from '@/stores/precurations'
   import { TERMINOLOGY } from '@/config/terminology'
   import BaseNavigationItem from './BaseNavigationItem.vue'
 
@@ -197,7 +198,18 @@
     }
   })
 
+  // The queue count changes when a review item moves: after navigating (curation review
+  // returns to the queue) and after precuration approve/reject (which stay on the page).
+  const stopAfterEach = router.afterEach(() => {
+    if (isAuthenticated.value) refreshBadgeCount()
+  })
+  const stopActions = usePrecurationsStore().$onAction(({ name, after }) => {
+    if (/^(approve|reject)/.test(name)) after(() => refreshBadgeCount())
+  })
+
   onUnmounted(() => {
+    stopAfterEach()
+    stopActions()
     stopBadgeRefresh()
   })
 
