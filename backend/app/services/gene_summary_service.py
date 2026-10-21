@@ -17,10 +17,49 @@ from sqlalchemy import func as sa_func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
-from app.models.models import ActiveCuration, CurationNew, GeneSummary, Scope
-from app.schemas.gene_summary import GeneSummaryPublic
+from app.models.models import (
+    ActiveCuration,
+    CurationNew,
+    CurationStatus,
+    GeneSummary,
+    Scope,
+    ScopeMembership,
+    UserNew,
+)
+from app.schemas.curation import disease_fields
+from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic
 
 logger = get_logger(__name__)
+
+
+def _entry_order(entry: dict[str, Any]) -> tuple[str, bool, str]:
+    """Scope name, active before in-progress, then curation id: stable across calls."""
+    return (entry["scope_name"], entry["in_progress"], entry["curation_id"])
+
+
+def _aggregate(entries: list[dict[str, Any]]) -> dict[str, Any]:
+    """Consensus over active rows only (in-progress work is not a classification yet)."""
+    counts: dict[str, int] = {}
+    for e in entries:
+        if not e["in_progress"]:
+            key = e["classification"] or "unknown"
+            counts[key] = counts.get(key, 0) + 1
+    consensus = max(sorted(counts), key=lambda k: counts[k]) if counts else None
+    return {
+        "classification_summary": counts,
+        "consensus_classification": consensus,
+        "consensus_confidence": counts[consensus] / sum(counts.values())
+        if consensus
+        else None,
+        "has_conflicts": len(
+            {
+                e["classification"]
+                for e in entries
+                if not e["in_progress"] and e["classification"]
+            }
+        )
+        > 1,
+    }
 
 
 class GeneSummaryService:
@@ -49,6 +88,102 @@ class GeneSummaryService:
         )
         result = self.db.execute(stmt).scalar()
         return result or 0
+
+    def _scope_entry(
+        self, curation: CurationNew, scope: Scope, *, in_progress: bool
+    ) -> dict[str, Any]:
+        """One per-scope row: curation link, disease, stage and scores."""
+        scores = curation.computed_scores or {}
+        items = scores.get("evidence_items", [])
+        disease = disease_fields(
+            curation.evidence_data,
+            curation.precuration.evidence_data if curation.precuration else None,
+        )
+        return {
+            "scope_id": str(curation.scope_id),
+            "scope_name": scope.name,
+            "is_public": scope.is_public,
+            "curation_id": str(curation.id),
+            "disease_name": disease["disease_name"],
+            "mode_of_inheritance": disease["mode_of_inheritance"],
+            "stage": curation.workflow_stage.value,
+            "in_progress": in_progress,
+            "classification": curation.computed_verdict,
+            "genetic_score": scores.get("genetic_evidence_total", 0),
+            "experimental_score": scores.get("experimental_evidence_total", 0),
+            "total_score": scores.get("total_score", 0),
+            "last_updated": curation.updated_at.isoformat(),
+            "curator_count": self._get_curator_count(
+                curation.gene_id, curation.scope_id
+            ),
+            "evidence_count": len(items) if isinstance(items, list) else 0,
+        }
+
+    def _member_scope_ids(self, user: UserNew | None) -> set[UUID]:
+        """Accepted, active memberships only. Platform admins get no extra scopes."""
+        if user is None:
+            return set()
+        stmt = (
+            select(ScopeMembership.scope_id)
+            .join(Scope, Scope.id == ScopeMembership.scope_id)
+            .where(
+                ScopeMembership.user_id == user.id,
+                ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
+                Scope.is_active,
+            )
+        )
+        return set(self.db.execute(stmt).scalars())
+
+    def get_full_summary(self, gene_id: UUID, user: UserNew) -> GeneSummaryFull:
+        """Public scopes plus the caller's own scopes, with the caller's in-progress work.
+
+        Consensus and conflicts are recomputed from the visible active rows only,
+        so a private scope never influences what a non-member sees.
+        """
+        summary = self.compute_summary(gene_id)
+        member_ids = self._member_scope_ids(user)
+        entries = [
+            e
+            for e in summary.scope_summaries
+            if e.get("is_public") or UUID(e["scope_id"]) in member_ids
+        ]
+        active_ids = {e["curation_id"] for e in entries}
+        if member_ids:
+            stmt = (
+                select(CurationNew, Scope)
+                .join(Scope, Scope.id == CurationNew.scope_id)
+                .where(
+                    CurationNew.gene_id == gene_id,
+                    CurationNew.scope_id.in_(member_ids),
+                    CurationNew.status.notin_(
+                        [CurationStatus.ACTIVE, CurationStatus.ARCHIVED]
+                    ),
+                )
+            )
+            entries += [
+                self._scope_entry(c, sc, in_progress=True)
+                for c, sc in self.db.execute(stmt)
+                if str(c.id) not in active_ids
+            ]
+        entries.sort(key=_entry_order)
+        public_count = sum(
+            1 for e in entries if e["is_public"] and not e["in_progress"]
+        )
+        agg = _aggregate(entries)
+        return GeneSummaryFull(
+            gene_id=gene_id,
+            total_scopes_curated=len({e["scope_id"] for e in entries}),
+            public_scopes_count=public_count,
+            private_scopes_count=len(
+                {e["scope_id"] for e in entries if not e["is_public"]}
+            ),
+            scope_summaries=entries,  # type: ignore[arg-type]
+            last_updated=summary.last_computed_at,
+            computation_version=1,  # SOP v11 version
+            is_stale=summary.is_stale,
+            **agg,
+        )
 
     @timed_operation("compute_gene_summary", warning_threshold_ms=1000)
     def compute_summary(self, gene_id: UUID) -> GeneSummary:
@@ -118,51 +253,11 @@ class GeneSummaryService:
                 classification_summary.get(classification, 0) + 1
             )
 
-        # Per-scope summaries
-        scope_summaries: list[dict[str, Any]] = []
-        for curation in curations:
-            scope = scope_map[curation.scope_id]
-
-            # Extract scores from computed_scores JSONB
-            genetic_score = (
-                curation.computed_scores.get("genetic_evidence_total", 0)
-                if curation.computed_scores
-                else 0
-            )
-            experimental_score = (
-                curation.computed_scores.get("experimental_evidence_total", 0)
-                if curation.computed_scores
-                else 0
-            )
-            total_score = (
-                curation.computed_scores.get("total_score", 0)
-                if curation.computed_scores
-                else 0
-            )
-            evidence_items = (
-                curation.computed_scores.get("evidence_items", [])
-                if curation.computed_scores
-                else []
-            )
-
-            scope_summaries.append(
-                {
-                    "scope_id": str(curation.scope_id),
-                    "scope_name": scope.name,
-                    "is_public": scope.is_public,
-                    "classification": curation.computed_verdict,
-                    "genetic_score": genetic_score,
-                    "experimental_score": experimental_score,
-                    "total_score": total_score,
-                    "last_updated": curation.updated_at.isoformat(),
-                    "curator_count": self._get_curator_count(
-                        gene_id, curation.scope_id
-                    ),
-                    "evidence_count": len(evidence_items)
-                    if isinstance(evidence_items, list)
-                    else 0,
-                }
-            )
+        scope_summaries = [
+            self._scope_entry(c, scope_map[c.scope_id], in_progress=False)
+            for c in curations
+        ]
+        scope_summaries.sort(key=_entry_order)
 
         # Check for conflicts
         unique_classifications = {
@@ -249,10 +344,14 @@ class GeneSummaryService:
             )
             summary = self.compute_summary(gene_id)
 
-        # Filter to only public scopes
         public_scope_summaries = [
-            s for s in summary.scope_summaries if s.get("is_public", False)
+            e for e in summary.scope_summaries if e.get("is_public", False)
         ]
+        if any("curation_id" not in e for e in public_scope_summaries):
+            summary = self.compute_summary(gene_id)  # cached before per-scope links
+            public_scope_summaries = [
+                e for e in summary.scope_summaries if e.get("is_public", False)
+            ]
 
         if not public_scope_summaries:
             logger.info(
@@ -261,14 +360,15 @@ class GeneSummaryService:
             )
             return None
 
+        agg = _aggregate(public_scope_summaries)
         return GeneSummaryPublic(
             gene_id=summary.gene_id,
             public_scopes_count=summary.public_scopes_count,
-            classification_summary=summary.classification_summary,
-            consensus_classification=summary.consensus_classification,
-            has_conflicts=summary.has_conflicts,
-            scope_summaries=public_scope_summaries,
+            scope_summaries=public_scope_summaries,  # type: ignore[arg-type]
             last_updated=summary.last_computed_at,
+            classification_summary=agg["classification_summary"],
+            consensus_classification=agg["consensus_classification"],
+            has_conflicts=agg["has_conflicts"],
         )
 
     def mark_stale(self, gene_id: UUID) -> None:
