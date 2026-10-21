@@ -10,6 +10,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
+from app.core.search_text import escape_like
 from app.core.security import get_password_hash, verify_password
 from app.crud.base import CRUDBase
 from app.models import ScopeMembership, UserNew as User, UserRoleNew as UserRole
@@ -149,10 +150,11 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         stmt = select(User)
 
         if query:
+            term = f"%{escape_like(query)}%"
             search_filter = or_(
-                User.name.ilike(f"%{query}%"),
-                User.email.ilike(f"%{query}%"),
-                User.institution.ilike(f"%{query}%"),
+                User.name.ilike(term, escape="\\"),
+                User.email.ilike(term, escape="\\"),
+                User.institution.ilike(term, escape="\\"),
             )
             stmt = stmt.where(search_filter)
 

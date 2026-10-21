@@ -152,14 +152,12 @@ def test_api_connects_as_app_user() -> None:
     database.engine.dispose()
 
 
-def test_admin_sees_every_active_scope_and_curation(
-    client: TestClient, world: World
-) -> None:
+def test_admin_gets_no_bypass(client: TestClient, world: World) -> None:
+    """Platform admins follow the shared rule: private scopes of others stay hidden."""
     ids = {s["id"] for s in _get(client, world.admin, "srch-")["scopes"]}
-    assert {str(world.scope_a), str(world.scope_b)} <= ids
-    assert str(world.scope_off) not in ids
+    assert not ids & {str(world.scope_a), str(world.scope_b), str(world.scope_off)}
     got = _get(client, world.admin, world.symbol)
-    assert {c["id"] for c in got["curations"]} == {str(world.cur_a), str(world.cur_b)}
+    assert got["curations"] == []
 
 
 def test_inactive_scope_never_appears(client: TestClient, world: World) -> None:

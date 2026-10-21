@@ -94,7 +94,7 @@ def test_curations_and_scopes_only_from_accepted_memberships(
     gene = _gene(db_session, "PKD1", 1)
     owner = make_user(db_session)
     mine = _curation(db_session, test_scope, gene, test_workflow_pair, owner)
-    theirs = _curation(db_session, other, gene, test_workflow_pair, owner)
+    _curation(db_session, other, gene, test_workflow_pair, owner)
     member, pending, outsider = (make_user(db_session) for _ in range(3))
     make_member(db_session, test_scope, member, "viewer")
     make_member(db_session, test_scope, pending, "viewer", accepted=False)
@@ -107,11 +107,9 @@ def test_curations_and_scopes_only_from_accepted_memberships(
         got = _search(client, user, "pkd").json()
         assert got["curations"] == []
     admin = make_user(db_session, role="admin")
-    ids = {c["id"] for c in _search(client, admin, "pkd").json()["curations"]}
-    assert ids == {str(mine.id), str(theirs.id)}
-    assert [
-        s["name"] for s in _search(client, admin, "kidney-secret").json()["scopes"]
-    ] == ["kidney-secret"]
+    got = _search(client, admin, "pkd").json()
+    assert got["curations"] == []  # no platform-admin bypass
+    assert _search(client, admin, "kidney-secret").json()["scopes"] == []
 
 
 def test_member_finds_own_scope_by_name(client, db_session, test_scope: Scope):
@@ -137,3 +135,30 @@ def test_query_count_is_bounded(client, db_session, test_scope: Scope):
     finally:
         event.remove(engine, "before_cursor_execute", listener)
     assert len(seen) <= 6  # auth + 3 searches (+ token/user lookups)
+
+
+def test_public_scope_is_visible_to_everyone_signed_in(
+    client, db_session, test_workflow_pair: WorkflowPair
+):
+    """Same rule as the catalogue: public active scopes show to non-members and admins too."""
+    open_scope = Scope(
+        name="open-kidney", display_name="Open", is_public=True, is_active=True
+    )
+    db_session.add(open_scope)
+    db_session.commit()
+    gene = _gene(db_session, "PKD2", 2)
+    cur = _curation(
+        db_session, open_scope, gene, test_workflow_pair, make_user(db_session)
+    )
+    pending = make_user(db_session)
+    make_member(db_session, open_scope, pending, "viewer", accepted=False)
+    for user in (
+        make_user(db_session),
+        pending,
+        make_user(db_session, role="admin"),
+    ):
+        got = _search(client, user, "open-kidney").json()
+        assert [s["name"] for s in got["scopes"]] == ["open-kidney"]
+        assert [c["id"] for c in _search(client, user, "pkd2").json()["curations"]] == [
+            str(cur.id)
+        ]

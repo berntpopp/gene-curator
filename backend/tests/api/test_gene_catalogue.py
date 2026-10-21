@@ -6,13 +6,16 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import ActiveCuration, CurationNew, Gene
+from app.models.models import ActiveCuration, CurationNew, Gene, Scope
 
 pytestmark = pytest.mark.unit
 
 
 @pytest.fixture
-def active_curation(db_session: Session, test_curation: CurationNew) -> CurationNew:
+def active_curation(
+    db_session: Session, test_curation: CurationNew, test_scope: Scope
+) -> CurationNew:
+    test_scope.is_public = True  # anonymous callers only see public scopes
     db_session.add(
         ActiveCuration(
             gene_id=test_curation.gene_id,
