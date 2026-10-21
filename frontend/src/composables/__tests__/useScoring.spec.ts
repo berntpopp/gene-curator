@@ -67,13 +67,16 @@ describe('useScoring', () => {
   })
 
   it.each([
-    [12, 'Definitive', 'cls-definitive'],
-    [7, 'Strong', 'cls-strong'],
-    [2, 'Moderate', 'cls-moderate'],
-    [0.1, 'Limited', 'cls-limited']
-  ])('total %s classifies as %s with colour %s', (score, classification, color) => {
+    [12, 'Strong', 'cls-strong', {}],
+    [12, 'Definitive', 'cls-definitive', { replicatedOverTime: true }],
+    [11.9, 'Moderate', 'cls-moderate', { replicatedOverTime: true }],
+    [7, 'Moderate', 'cls-moderate', {}],
+    [6.9, 'Limited', 'cls-limited', {}],
+    [0.1, 'Limited', 'cls-limited', {}],
+    [5, 'Disputed', 'cls-disputed', { hasContradictory: true }]
+  ])('total %s classifies as %s with colour %s (%o)', (score, classification, color, flags) => {
     const evidence = ref([item('genetic', 'case_level', score)])
-    const { breakdown, classificationColor, isSufficientEvidence } = useScoring(evidence)
+    const { breakdown, classificationColor, isSufficientEvidence } = useScoring(evidence, flags)
 
     expect(breakdown.value.classification).toBe(classification)
     expect(classificationColor.value).toBe(color)

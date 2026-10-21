@@ -9,6 +9,7 @@ from typing import Any, ClassVar
 from uuid import UUID
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
@@ -263,7 +264,17 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             updated_at=now,
         )
         db.add(db_obj)
-        db.commit()
+        try:
+            db.commit()
+        except IntegrityError:
+            # A concurrent create won the partial unique index on open drafts.
+            db.rollback()
+            existing = self.get_open_draft(
+                db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id, user_id=user_id
+            )
+            if existing is None:
+                raise
+            return existing
         db.refresh(db_obj)
 
         logger.info(
@@ -395,7 +406,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                         db_obj.evidence_data, workflow_pair.data_mapping or {}
                     ),
                     lock_version=0,
-                    created_by=approver_id,
+                    # The precuration author authors the curation, so 4-eyes review
+                    # excludes them and not the approver.
+                    created_by=db_obj.created_by,
                     updated_by=approver_id,
                     created_at=_utc_now(),
                     updated_at=_utc_now(),
