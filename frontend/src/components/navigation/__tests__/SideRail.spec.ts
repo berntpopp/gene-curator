@@ -6,7 +6,7 @@ import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useScopesStore } from '@/stores/scopes'
-import { useWorkflowStore } from '@/stores/workflow'
+import { useWorkCountsStore } from '@/stores/workCounts'
 import SideRail from '../SideRail.vue'
 
 vi.mock('@/services/logService', () => ({
@@ -77,8 +77,7 @@ async function mountRail(router = makeRouter()) {
 describe('SideRail', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
-    const workflow = useWorkflowStore()
-    vi.spyOn(workflow, 'fetchPendingReviewCount').mockResolvedValue(undefined as never)
+    vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined as never)
     vi.spyOn(useScopesStore(), 'fetchUserScopes').mockResolvedValue([] as never)
   })
 
@@ -97,13 +96,14 @@ describe('SideRail', () => {
     auth.token = 't'
     auth.isAuthenticated = true
     auth.user = { email: 'a@b.c', role: 'user' } as never
-    useWorkflowStore().pendingReviewCount = 3
+    Object.assign(useWorkCountsStore(), { review: 3, needsYou: 5 })
     const scopes = useScopesStore()
     scopes.scopes = [{ id: 's1', name: 'Kidney' }] as never
     const wrapper = await mountRail()
 
     expect(wrapper.text()).toContain('My work')
     expect(wrapper.find('a[aria-label="Review, 3 pending"]').exists()).toBe(true)
+    expect(wrapper.find('a[aria-label="My work, 5 pending"]').exists()).toBe(true)
     expect(wrapper.find('[aria-label="Scope"]').exists()).toBe(true)
     expect(wrapper.text()).not.toContain('Users')
     expect(scopes.fetchUserScopes).not.toHaveBeenCalled() // already loaded

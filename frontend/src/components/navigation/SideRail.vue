@@ -51,6 +51,7 @@
 
     <template #append>
       <div class="rail-foot">
+        <SearchButton />
         <ThemeToggle />
         <UserMenu v-if="authReady" />
       </div>
@@ -68,6 +69,7 @@
   import { storeToRefs } from 'pinia'
   import { useScopesStore } from '@/stores/scopes'
   import BaseNavigationItem from './BaseNavigationItem.vue'
+  import SearchButton from './SearchButton.vue'
   import ThemeToggle from './ThemeToggle.vue'
   import UserMenu from './UserMenu.vue'
   import { useNavEntries } from './useNavEntries'
@@ -126,6 +128,11 @@
     text-decoration: none;
   }
 
+  /* default 32px icon gap truncates "My work" beside its badge */
+  .side-rail :deep(.v-list-item__spacer) {
+    width: 16px;
+  }
+
   .rail-scope {
     margin: 0 8px 8px;
   }
@@ -137,7 +144,7 @@
   .rail-foot {
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: space-around;
     padding: 8px;
     border-top: 1px solid rgba(255, 255, 255, 0.12);
   }

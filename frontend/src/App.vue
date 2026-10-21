@@ -2,6 +2,7 @@
   <v-app>
     <a href="#main-content" class="skip-link" @click.prevent="focusMain">Skip to content</a>
     <SideRail v-if="mdAndUp && authStore.isAuthenticated" />
+    <PhoneHeader v-else-if="!mdAndUp && authStore.isAuthenticated" />
     <AppBar v-else />
     <BottomTabs v-if="!mdAndUp" />
 
@@ -46,6 +47,7 @@
   import { useDisplay } from 'vuetify'
   import BottomTabs from '@/components/navigation/BottomTabs.vue'
   import SideRail from '@/components/navigation/SideRail.vue'
+  import PhoneHeader from '@/components/navigation/PhoneHeader.vue'
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'

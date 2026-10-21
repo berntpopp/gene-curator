@@ -366,7 +366,7 @@
   import { formatInheritance } from '@/utils/inheritance'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
-  import { useWorkflowStore } from '@/stores/workflow'
+  import { useWorkCountsStore } from '@/stores/workCounts'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
@@ -408,7 +408,7 @@
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
   const authStore = useAuthStore()
-  const workflowStore = useWorkflowStore()
+  const workCounts = useWorkCountsStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -575,7 +575,7 @@
       showApproveDialog.value = false
       showRejectDialog.value = false
       notificationStore.addToast(doneMessage, 'success')
-      workflowStore.fetchPendingReviewCount()
+      workCounts.fetch()
       await loadCuration()
     } catch (err) {
       const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
