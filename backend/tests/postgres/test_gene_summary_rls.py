@@ -35,6 +35,7 @@ class World:
     draft_b: UUID = field(default_factory=uuid4)
     active_b: UUID = field(default_factory=uuid4)
     active_pub: UUID = field(default_factory=uuid4)
+    draft_pub: UUID = field(default_factory=uuid4)  # draft inside a PUBLIC scope
 
 
 def _owner() -> psycopg2.extensions.connection:
@@ -102,6 +103,7 @@ def world() -> Generator[World, None, None]:
             (w.draft_b, w.scope_b, "draft", "curation", "limited"),
             (w.active_b, w.scope_b, "active", "active", "definitive"),
             (w.active_pub, w.scope_pub, "active", "active", "refuted"),
+            (w.draft_pub, w.scope_pub, "draft", "curation", "limited"),
         ):
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
@@ -166,10 +168,24 @@ def test_non_members_never_see_scope_b(client: TestClient, world: World) -> None
         assert body["has_conflicts"] is False
 
 
+def test_anonymous_sees_only_active_public_row(
+    client: TestClient, world: World
+) -> None:
+    body = client.get(f"/api/v1/genes/{world.gene}/summary").json()
+    assert [r["curation_id"] for r in body["scope_summaries"]] == [
+        str(world.active_pub)
+    ]
+
+
 def test_member_sees_own_draft_and_active(client: TestClient, world: World) -> None:
     body = _full(client, world, world.bob)
     rows = {r["curation_id"]: r for r in body["scope_summaries"]}
-    assert set(rows) == {str(world.draft_b), str(world.active_b), str(world.active_pub)}
+    assert set(rows) == {
+        str(world.draft_b),
+        str(world.active_b),
+        str(world.active_pub),
+        str(world.draft_pub),
+    }
     assert rows[str(world.draft_b)]["in_progress"] is True
     assert body["has_conflicts"] is True
 

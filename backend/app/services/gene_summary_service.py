@@ -27,7 +27,7 @@ from app.models.models import (
     UserNew,
 )
 from app.schemas.curation import disease_fields
-from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic
+from app.schemas.gene_summary import GeneSummaryFull, GeneSummaryPublic, ScopeSummary
 
 logger = get_logger(__name__)
 
@@ -157,7 +157,11 @@ class GeneSummaryService:
                     CurationNew.gene_id == gene_id,
                     CurationNew.scope_id.in_(member_ids),
                     CurationNew.status.notin_(
-                        [CurationStatus.ACTIVE, CurationStatus.ARCHIVED]
+                        [
+                            CurationStatus.ACTIVE,
+                            CurationStatus.ARCHIVED,
+                            CurationStatus.REJECTED,
+                        ]
                     ),
                 )
             )
@@ -178,7 +182,7 @@ class GeneSummaryService:
             private_scopes_count=len(
                 {e["scope_id"] for e in entries if not e["is_public"]}
             ),
-            scope_summaries=entries,  # type: ignore[arg-type]
+            scope_summaries=[ScopeSummary.model_validate(e) for e in entries],
             last_updated=summary.last_computed_at,
             computation_version=1,  # SOP v11 version
             is_stale=summary.is_stale,
@@ -215,7 +219,6 @@ class GeneSummaryService:
                 "No active curations found for gene",
                 gene_id=str(gene_id),
             )
-            # Return empty summary or create one
             summary = (
                 self.db.query(GeneSummary)
                 .filter(GeneSummary.gene_id == gene_id)
@@ -224,8 +227,19 @@ class GeneSummaryService:
             if not summary:
                 summary = GeneSummary(gene_id=gene_id)
                 self.db.add(summary)
-                self.db.commit()
-                self.db.refresh(summary)
+            # Drop anything cached from curations that are no longer active.
+            summary.total_scopes_curated = 0
+            summary.public_scopes_count = 0
+            summary.private_scopes_count = 0
+            summary.classification_summary = {}
+            summary.scope_summaries = []
+            summary.has_conflicts = False
+            summary.consensus_classification = None
+            summary.consensus_confidence = None
+            summary.is_stale = False
+            summary.last_computed_at = datetime.now(UTC)
+            self.db.commit()
+            self.db.refresh(summary)
             return summary
 
         # Get curation IDs
@@ -324,34 +338,12 @@ class GeneSummaryService:
         Returns:
             GeneSummaryPublic with only public scopes, or None if no public data
         """
-        summary = (
-            self.db.query(GeneSummary).filter(GeneSummary.gene_id == gene_id).first()
-        )
-
-        if not summary:
-            # Compute if doesn't exist
-            logger.info(
-                "Summary not found, computing",
-                gene_id=str(gene_id),
-            )
-            summary = self.compute_summary(gene_id)
-
-        # Recompute if stale
-        if summary.is_stale:
-            logger.info(
-                "Summary is stale, recomputing",
-                gene_id=str(gene_id),
-            )
-            summary = self.compute_summary(gene_id)
-
+        # Always recompute (as the full summary does): the cached row is not marked
+        # stale when a scope turns private or an activation is archived.
+        summary = self.compute_summary(gene_id)
         public_scope_summaries = [
             e for e in summary.scope_summaries if e.get("is_public", False)
         ]
-        if any("curation_id" not in e for e in public_scope_summaries):
-            summary = self.compute_summary(gene_id)  # cached before per-scope links
-            public_scope_summaries = [
-                e for e in summary.scope_summaries if e.get("is_public", False)
-            ]
 
         if not public_scope_summaries:
             logger.info(
@@ -364,7 +356,9 @@ class GeneSummaryService:
         return GeneSummaryPublic(
             gene_id=summary.gene_id,
             public_scopes_count=summary.public_scopes_count,
-            scope_summaries=public_scope_summaries,  # type: ignore[arg-type]
+            scope_summaries=[
+                ScopeSummary.model_validate(e) for e in public_scope_summaries
+            ],
             last_updated=summary.last_computed_at,
             classification_summary=agg["classification_summary"],
             consensus_classification=agg["consensus_classification"],

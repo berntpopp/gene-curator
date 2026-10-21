@@ -3,11 +3,21 @@
 Active curations are produced by the real review flow (assign reviewer, approve).
 """
 
+from datetime import UTC, datetime
+from uuid import uuid4
+
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
 from app.crud.workflow_engine import WorkflowEngine
-from app.models.models import CurationNew, Gene, Scope, UserNew
+from app.models.models import (
+    ActiveCuration,
+    CurationNew,
+    Gene,
+    GeneSummary,
+    Scope,
+    UserNew,
+)
 from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
@@ -136,3 +146,72 @@ def test_member_of_both_sees_disagreement_in_stable_order(
     body = _full(client, user, gene)
     assert body["has_conflicts"] is True
     assert [r["scope_name"] for r in body["scope_summaries"]] == ["aaa", "bbb"]
+
+
+def _public(db: Session) -> Scope:
+    scope = make_scope(db)
+    scope.is_public = True
+    db.commit()
+    return scope
+
+
+def test_public_summary_drops_scope_made_private_immediately(
+    client: TestClient, db_session: Session
+):
+    gene, scope = make_gene(db_session), _public(db_session)
+    _active(db_session, scope, gene, "definitive", 12)
+    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 200
+    scope.is_public = False
+    db_session.commit()
+    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 404
+
+
+def test_archived_only_curation_leaves_empty_summary(
+    client: TestClient, db_session: Session
+):
+    gene, scope = make_gene(db_session), _public(db_session)
+    c = _active(db_session, scope, gene, "definitive", 12)
+    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 200
+    ac = db_session.query(ActiveCuration).filter_by(curation_id=c.id).one()
+    ac.archived_at = datetime.now(UTC)
+    c.status = "archived"
+    db_session.commit()
+    assert client.get(f"/api/v1/genes/{gene.id}/summary").status_code == 404
+    user = make_user(db_session)
+    body = _full(client, user, gene)
+    assert body["scope_summaries"] == []
+    assert body["total_scopes_curated"] == 0
+
+
+def test_pre_existing_cached_row_without_new_fields_does_not_500(
+    client: TestClient, db_session: Session
+):
+    gene = make_gene(db_session)
+    db_session.add(
+        GeneSummary(
+            gene_id=gene.id,
+            scope_summaries=[
+                {"scope_id": str(uuid4()), "scope_name": "x", "is_public": True}
+            ],
+        )
+    )
+    db_session.commit()
+    assert _full(client, make_user(db_session), gene)["scope_summaries"] == []
+
+
+def test_rejected_curation_is_not_in_progress(client: TestClient, db_session: Session):
+    gene, scope = make_gene(db_session), make_scope(db_session)
+    creator, reviewer = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, creator, "curator")
+    make_member(db_session, scope, reviewer, "reviewer")
+    c = _draft(db_session, scope, gene, creator)
+    c.status, c.workflow_stage = "in_review", "review"
+    db_session.commit()
+    r = ENGINE.assign_peer_reviewer(
+        db_session, c.id, "curation", reviewer.id, creator.id
+    )
+    ENGINE.submit_peer_review(db_session, r.review_id, reviewer.id, "reject")
+    db_session.refresh(c)
+    c.status = "rejected"  # the end state the review UI shows for a rejected curation
+    db_session.commit()
+    assert _full(client, creator, gene)["scope_summaries"] == []
