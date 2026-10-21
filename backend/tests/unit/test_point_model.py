@@ -107,6 +107,11 @@ def test_row_field_override_passes_the_static_check() -> None:
     bad = copy.deepcopy(CLINGEN)
     bad["overrides"][0]["in"] = "disputed"  # a string would match substrings
     assert errors(bad) == ["scoring_configuration.point_model.overrides[0].in"]
+    del bad["overrides"][0]["field"]
+    bad["overrides"][0]["in"] = [
+        "disputed"
+    ]  # without a field it would dispute on any row
+    assert errors(bad) == ["scoring_configuration.point_model.overrides[0].field"]
 
 
 def _row(type_def: dict, points: float) -> dict:

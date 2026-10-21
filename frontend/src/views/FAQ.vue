@@ -53,7 +53,7 @@
       id: 'clingen-classification',
       question: 'How does the ClinGen SOP classification work?',
       answer:
-        'The evidence score sets the classification. Limited is 1 to 6 points, Moderate 7 to 11 points and Strong 12 to 18 points. Definitive requires Strong-level points plus replication over time, with no contradictory evidence. Contradictory evidence gives Disputed.'
+        'The evidence score sets the classification. Limited is 1 to 6 points, Moderate 7 to 11 points and Strong 12 to 18 points. Definitive requires Strong-level points plus replication over time, with no disputing contradictory evidence. Only contradictory evidence marked Impact: Disputed makes the class Disputed; Note only and Review needed rows do not change it.'
     },
     {
       id: 'get-access',

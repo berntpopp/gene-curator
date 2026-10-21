@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasContent } from '../hasContent'
+import { hasContent, hasDisputingRow } from '../hasContent'
 
 describe('hasContent', () => {
   it('ignores blank rows added but never filled in', () => {
@@ -27,5 +27,15 @@ describe('hasContent', () => {
     expect(hasContent([{ pmid: '' }, { pmid: '123' }])).toBe(true)
     expect(hasContent([{ points: 0 }])).toBe(true)
     expect(hasContent([{ flag: true }])).toBe(true)
+  })
+})
+
+describe('hasDisputingRow', () => {
+  it('is true only for a row with Impact "disputed"', () => {
+    expect(hasDisputingRow([{ pmid: '1', description: 'x', impact: 'note' }])).toBe(false)
+    expect(hasDisputingRow([{ pmid: '1', impact: 'requires_review' }, { pmid: '2' }])).toBe(false)
+    expect(hasDisputingRow([null, { impact: 'note' }, { impact: 'disputed' }])).toBe(true)
+    expect(hasDisputingRow({ impact: 'disputed' })).toBe(false)
+    expect(hasDisputingRow(undefined)).toBe(false)
   })
 })

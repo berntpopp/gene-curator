@@ -1,3 +1,8 @@
+/** True if a contradictory row has Impact "disputed"; only those make the class Disputed (#266). */
+export function hasDisputingRow(value: unknown): boolean {
+  return Array.isArray(value) && value.some(row => row?.impact === 'disputed')
+}
+
 // Defaults a new contradictory row is created with; mirrors the backend
 const ROW_DEFAULTS: Record<string, unknown> = { evidence_type: 'population', impact: 'note' }
 
