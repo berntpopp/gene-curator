@@ -158,6 +158,13 @@
                 </div>
                 <div v-if="curation.kind === 'precuration'" class="d-flex justify-end ga-2">
                   <v-btn
+                    variant="text"
+                    :to="`/scopes/${curation.scope_id}/precurations/${curation.id}`"
+                    data-test="open-precuration"
+                  >
+                    Open
+                  </v-btn>
+                  <v-btn
                     variant="outlined"
                     color="warning"
                     data-test="reject-precuration"

@@ -7,9 +7,9 @@
           <span>{{ gene?.symbol || 'Gene' }} - Precuration</span>
           <v-chip v-if="isDraft" color="warning" size="small" class="ml-2">Draft</v-chip>
           <v-spacer />
-          <v-chip v-if="lastSaved" color="success" size="small" variant="outlined">
+          <v-chip v-if="savedAt" color="success" size="small" variant="outlined">
             <v-icon start size="small">mdi-content-save</v-icon>
-            Saved {{ formatRelativeTime(lastSaved) }}
+            Saved {{ formatRelativeTime(savedAt) }}
           </v-chip>
         </v-card-title>
 
@@ -149,6 +149,7 @@
   const savingDraft = ref(false)
   const submitting = ref(false)
   const createdId = ref<string | null>(null)
+  const savedAt = ref<number | null>(null) // last successful server save
   const isValid = ref(true) // Updated via validation-change event
 
   // Form Recovery - schema-aware key to prevent cross-schema data restore
@@ -156,17 +157,11 @@
     () => `precuration-${props.precurationId || 'new'}-schema-${props.schemaId}`
   )
 
-  const {
-    showRecoveryDialog,
-    recoveryTimestamp,
-    lastSaved,
-    restoreRecovery,
-    discardRecovery,
-    clearRecovery
-  } = useFormRecovery(recoveryKey.value, evidenceData, {
-    saveInterval: 5000,
-    maxAge: 24 * 60 * 60 * 1000
-  })
+  const { showRecoveryDialog, recoveryTimestamp, restoreRecovery, discardRecovery, clearRecovery } =
+    useFormRecovery(recoveryKey.value, evidenceData, {
+      saveInterval: 5000,
+      maxAge: 24 * 60 * 60 * 1000
+    })
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -293,10 +288,13 @@
         if (updated) emit('saved')
       } else {
         // Create new precuration as draft
-        await precurationsStore.createPrecuration(createPayload())
-        // No precuration edit route exists; the draft is listed on the scope dashboard
-        router.replace({ name: 'scope-dashboard', params: { scopeId: props.scopeId } })
+        const created = await precurationsStore.createPrecuration(createPayload())
+        router.replace({
+          name: 'precuration-edit',
+          params: { scopeId: props.scopeId, precurationId: created.id }
+        })
       }
+      savedAt.value = Date.now()
 
       notificationsStore.addToast('Draft saved', 'success')
       clearRecovery()

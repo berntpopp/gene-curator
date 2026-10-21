@@ -21,7 +21,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addBiochemical">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="addBiochemical"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -42,7 +48,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addProteinInteraction">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="addProteinInteraction"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -63,7 +75,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addExpression">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="addExpression"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -104,7 +122,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addPatientCells">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="secondary"
+                variant="tonal"
+                @click="addPatientCells"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -125,7 +149,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addNonPatientCells">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="secondary"
+                variant="tonal"
+                @click="addNonPatientCells"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -161,7 +191,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="info" variant="tonal" @click="addOrganism">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="info"
+                variant="tonal"
+                @click="addOrganism"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -182,7 +218,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="info" variant="tonal" @click="addCellCulture">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="info"
+                variant="tonal"
+                @click="addCellCulture"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -218,7 +260,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addHumanRescue">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="success"
+                variant="tonal"
+                @click="addHumanRescue"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -239,7 +287,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 2 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-4</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addOrganismRescue">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="success"
+                variant="tonal"
+                @click="addOrganismRescue"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -260,7 +314,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addCellCultureRescue">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="success"
+                variant="tonal"
+                @click="addCellCultureRescue"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -281,7 +341,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1 pt</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-2</v-chip>
               <v-spacer />
-              <v-btn size="small" color="success" variant="tonal" @click="addPatientCellsRescue">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="success"
+                variant="tonal"
+                @click="addPatientCellsRescue"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>

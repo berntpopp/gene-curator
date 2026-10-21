@@ -48,4 +48,17 @@ describe('expansion panels follow the rows', () => {
     const text = active(mount(ExperimentalEvidenceSection, { props: { modelValue } })).join('|')
     expect(text).toContain('Model')
   })
+
+  it('hides Add buttons and the add hint when readonly', () => {
+    const g = mount(GeneticEvidenceSection, {
+      props: { modelValue: createEmptyGeneticEvidence(), readonly: true }
+    })
+    const e = mount(ExperimentalEvidenceSection, {
+      props: { modelValue: createEmptyExperimentalEvidence(), readonly: true }
+    })
+    for (const w of [g, e]) {
+      expect(w.findAll('button').some(b => b.text().includes('Add'))).toBe(false)
+    }
+    expect(g.text()).toContain('No evidence recorded')
+  })
 })

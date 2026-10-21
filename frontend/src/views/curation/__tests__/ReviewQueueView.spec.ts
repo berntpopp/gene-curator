@@ -129,6 +129,20 @@ describe('ReviewQueueView', () => {
       expect(wrapper.text()).toContain('Approve')
     })
 
+    it('links a precuration row to its page', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      const open = wrapper
+        .findAllComponents({ name: 'VBtn' })
+        .find(b => b.attributes('data-test') === 'open-precuration')
+      expect(open?.props('to')).toBe('/scopes/sc1/precurations/p1')
+    })
+
     it('approves a precuration and removes it from the queue', async () => {
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
       vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({

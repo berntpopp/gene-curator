@@ -122,6 +122,7 @@
   }
 
   interface PrecurationRecord {
+    id?: string
     status: string
   }
 
@@ -158,6 +159,7 @@
   // The form shows `gene.symbol`; the API field is `approved_symbol`
   const formGene = computed(() => (gene.value ? { symbol: gene.value.approved_symbol } : undefined))
   const scope = ref<ScopeRecord | null>(null)
+  const pendingPrecurationId = ref<string | undefined>(undefined)
   const precurationStatus = ref<'approved' | 'pending' | 'none' | null>(null) // null until checked
 
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
@@ -302,10 +304,18 @@
             'Please complete and approve a precuration before starting curation',
             'warning'
           )
-          router.push({
-            name: 'gene-precuration-create',
-            params: { scopeId: scopeId.value, geneId: geneId.value }
-          })
+          // An existing, not yet approved precuration is reopened rather than duplicated
+          router.push(
+            pendingPrecurationId.value
+              ? {
+                  name: 'precuration-edit',
+                  params: { scopeId: scopeId.value, precurationId: pendingPrecurationId.value }
+                }
+              : {
+                  name: 'gene-precuration-create',
+                  params: { scopeId: scopeId.value, geneId: geneId.value }
+                }
+          )
           return
         }
       }
@@ -349,6 +359,7 @@
         precurationStatus.value = 'approved'
       } else if (precurations.length > 0) {
         precurationStatus.value = 'pending'
+        pendingPrecurationId.value = precurations[0]?.id
       } else {
         precurationStatus.value = 'none'
       }

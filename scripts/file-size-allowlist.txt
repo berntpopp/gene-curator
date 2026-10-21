@@ -8,8 +8,9 @@
 812 backend/tests/api/test_precurations.py
 684 backend/tests/services/test_scope_permissions.py
 700 backend/tests/unit/test_schema_validators.py
+714 frontend/src/components/clingen/sections/ExperimentalEvidenceSection.vue
 1159 frontend/src/components/dynamic/__tests__/DynamicField.spec.ts
 768 frontend/src/components/dynamic/__tests__/DynamicForm.tabs.spec.ts
 679 frontend/src/components/dynamic/__tests__/TabContent.spec.ts
 774 frontend/src/views/GeneCatalogueView.vue
-818 frontend/src/views/curation/CurationDetailView.vue
+695 frontend/src/views/curation/CurationDetailView.vue

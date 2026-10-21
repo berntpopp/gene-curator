@@ -22,7 +22,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addAdXlNull">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="addAdXlNull"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -47,7 +53,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
-              <v-btn size="small" color="primary" variant="tonal" @click="addAdXlOther">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="primary"
+                variant="tonal"
+                @click="addAdXlOther"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -86,7 +98,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 1.5 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-3</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addArNull">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="secondary"
+                variant="tonal"
+                @click="addArNull"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -108,7 +126,13 @@
               <v-chip size="x-small" variant="tonal" class="ml-2">Default: 0.1 pts</v-chip>
               <v-chip size="x-small" variant="outlined" class="ml-1">Range: 0-1.5</v-chip>
               <v-spacer />
-              <v-btn size="small" color="secondary" variant="tonal" @click="addArOther">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="secondary"
+                variant="tonal"
+                @click="addArOther"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Evidence
               </v-btn>
@@ -142,7 +166,13 @@
             <span class="text-subtitle-2">Family Segregation Studies</span>
             <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-3</v-chip>
             <v-spacer />
-            <v-btn size="small" color="info" variant="tonal" @click="addSegregation">
+            <v-btn
+              v-if="!readonly"
+              size="small"
+              color="info"
+              variant="tonal"
+              @click="addSegregation"
+            >
               <v-icon start>mdi-plus</v-icon>
               Add Segregation
             </v-btn>
@@ -185,7 +215,13 @@
               <span class="text-subtitle-2">Single Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
-              <v-btn size="small" color="warning" variant="tonal" @click="addSingleVariant">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="warning"
+                variant="tonal"
+                @click="addSingleVariant"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Study
               </v-btn>
@@ -206,7 +242,13 @@
               <span class="text-subtitle-2">Aggregate Variant Analysis</span>
               <v-chip size="x-small" variant="outlined" class="ml-2">Range: 0-6</v-chip>
               <v-spacer />
-              <v-btn size="small" color="warning" variant="tonal" @click="addAggregateVariant">
+              <v-btn
+                v-if="!readonly"
+                size="small"
+                color="warning"
+                variant="tonal"
+                @click="addAggregateVariant"
+              >
                 <v-icon start>mdi-plus</v-icon>
                 Add Study
               </v-btn>
