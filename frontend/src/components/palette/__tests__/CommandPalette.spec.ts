@@ -28,7 +28,9 @@ const routes = [
   },
   { name: 'Login', meta: { requiresGuest: true, showInMainMenu: true, label: 'Sign in' } }
 ]
-vi.mock('vue-router', () => ({ useRouter: () => ({ push, getRoutes: () => routes }) }))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push, getRoutes: () => routes, afterEach: () => () => undefined })
+}))
 
 const hits = {
   genes: [

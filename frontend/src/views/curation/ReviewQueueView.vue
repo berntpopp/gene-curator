@@ -241,7 +241,7 @@
   import { useConfirm } from '@/composables/useConfirm'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useScopesStore } from '@/stores/scopes'
-  import { useWorkflowStore } from '@/stores/workflow'
+  import { useWorkCountsStore } from '@/stores/workCounts'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
 
@@ -267,7 +267,7 @@
   const notificationStore = useNotificationsStore()
   const precurationStore = usePrecurationsStore()
   const scopesStore = useScopesStore()
-  const workflowStore = useWorkflowStore()
+  const workCounts = useWorkCountsStore()
   const { confirm } = useConfirm()
 
   // State
@@ -495,7 +495,7 @@
 
   function removeItem(id: string) {
     curations.value = curations.value.filter(c => c.id !== id)
-    workflowStore.fetchPendingReviewCount()
+    workCounts.fetch()
   }
 
   function errorText(error: unknown): string {

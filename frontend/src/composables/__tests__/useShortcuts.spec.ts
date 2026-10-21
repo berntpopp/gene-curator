@@ -13,7 +13,9 @@ const routes = [
   { name: 'Dashboard', meta: { showInMainMenu: true, requiresAuth: true, label: 'Dashboard' } },
   { name: 'GeneAssignments', meta: { showInMainMenu: true, requiresAuth: true, label: 'My work' } }
 ]
-vi.mock('vue-router', () => ({ useRouter: () => ({ push, getRoutes: () => routes }) }))
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push, getRoutes: () => routes, afterEach: () => () => undefined })
+}))
 
 const press = (key: string, opts: KeyboardEventInit = {}, target: EventTarget = document.body) => {
   const e = new KeyboardEvent('keydown', { key, bubbles: true, cancelable: true, ...opts })
