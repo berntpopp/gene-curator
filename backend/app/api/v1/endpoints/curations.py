@@ -428,6 +428,8 @@ def save_draft(
             detail="Curation not found",
         )
 
+    require(db, current_user, curation.scope_id, EDIT)
+
     # Same rule as PUT: evidence is frozen once submitted (4-eyes), for every role
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         raise HTTPException(
@@ -475,6 +477,8 @@ def submit_curation(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Curation not found",
         )
+
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Only creator or admin can submit
     if current_user.role != "admin" and curation.created_by != current_user.id:
@@ -556,12 +560,18 @@ def delete_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "delete")
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Only allow deletion of drafts (or by admin)
     if curation.status != CurationStatus.DRAFT and current_user.role != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Only draft curations can be deleted",
+        )
+    if not _can_user_delete_curation(db, current_user, curation):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only the creator or a scope admin can delete this curation",
         )
 
     curation_crud.soft_delete(db, db_obj=curation, user_id=current_user.id)

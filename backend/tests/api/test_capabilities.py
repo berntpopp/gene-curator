@@ -106,3 +106,60 @@ def test_nobody_approves_own_precuration(
         headers=auth_headers(user),
     )
     assert response.status_code == 403, response.text
+
+
+def _creator_with(db_session, scope, curation, role, **kw):
+    user = make_user(db_session)
+    curation.created_by = user.id
+    db_session.commit()
+    if role:
+        make_member(db_session, scope, user, role, **kw)
+    return user
+
+
+@pytest.mark.parametrize("action", ["delete", "draft", "submit"])
+@pytest.mark.parametrize(
+    ("role", "kw"),
+    [("viewer", {}), ("reviewer", {}), (None, {}), ("curator", {"accepted": False})],
+)
+def test_creator_without_edit_capability_cannot_write(
+    client, db_session, test_scope, test_curation, action, role, kw
+):
+    """Downgraded, removed or pending creators lose write access."""
+    user = _creator_with(db_session, test_scope, test_curation, role, **kw)
+    url = f"/api/v1/curations/{test_curation.id}"
+    if action == "delete":
+        response = client.delete(url, headers=auth_headers(user))
+    elif action == "draft":
+        response = client.patch(
+            url + "/draft", headers=auth_headers(user), json={"evidence_data": {}}
+        )
+    else:
+        response = client.post(
+            url + "/submit",
+            headers=auth_headers(user),
+            json={"lock_version": test_curation.lock_version},
+        )
+    assert response.status_code == 403, response.text
+
+
+@pytest.mark.parametrize("role", ["viewer", "reviewer"])
+def test_read_only_roles_cannot_delete_curators_draft(
+    client, db_session, test_scope, test_curation, role
+):
+    user = make_user(db_session)
+    make_member(db_session, test_scope, user, role)
+    response = client.delete(
+        f"/api/v1/curations/{test_curation.id}", headers=auth_headers(user)
+    )
+    assert response.status_code == 403
+
+
+def test_creator_curator_can_delete_own_draft(
+    client, db_session, test_scope, test_curation
+):
+    user = _creator_with(db_session, test_scope, test_curation, "curator")
+    response = client.delete(
+        f"/api/v1/curations/{test_curation.id}", headers=auth_headers(user)
+    )
+    assert response.status_code == 204, response.text
