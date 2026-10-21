@@ -24,6 +24,8 @@ logger = get_logger(__name__)
 
 _HGNC_ID = re.compile(r"^(?:HGNC:)?(\d+)$", re.IGNORECASE)
 _HGNC_CONCURRENCY = 5
+_HGNC_MAX_LOOKUPS = 50  # bounds upstream load per request, whatever the list size
+_HGNC_BUDGET_S = 20.0  # total wall-clock budget for the whole fallback
 
 
 @dataclass
@@ -84,21 +86,58 @@ def _local_genes(db: Session, tokens: set[str]) -> list[_Gene]:
 
 
 async def _hgnc_lookup(tokens: list[str]) -> dict[str, list[_Gene]]:
+    """Look up tokens at HGNC; on budget timeout return only the ones that finished."""
     validator = HGNCValidator()
     sem = asyncio.Semaphore(_HGNC_CONCURRENCY)
+    done: dict[str, list[_Gene]] = {}
 
-    async def one(token: str) -> tuple[str, list[_Gene]]:
+    async def one(token: str) -> None:
         async with sem:
             res = await validator.search(token, limit=10)
-        return token, [
+        done[token] = [
             _Gene(r.hgnc_id, r.symbol, r.name, r.previous_symbols, r.alias_symbols)
             for r in res.results
         ]
 
     try:
-        return dict(await asyncio.gather(*(one(t) for t in tokens)))
+        await asyncio.wait_for(
+            asyncio.gather(*(one(t) for t in tokens)), timeout=_HGNC_BUDGET_S
+        )
+    except TimeoutError:
+        logger.warning("HGNC fallback timed out", done=len(done), total=len(tokens))
     finally:
         await validator.close()
+    return done
+
+
+async def _hgnc_fallback(
+    db: Session,
+    missing: list[str],
+    found: dict[str, tuple[MatchType, list[_Gene], Literal["local", "hgnc"]]],
+) -> dict[str, str]:
+    """Fill `found` from HGNC for capped inputs; return why the others were skipped."""
+    asked = missing[:_HGNC_MAX_LOOKUPS]
+    reasons: dict[str, str] = {t.upper(): "lookup_cap" for t in missing[len(asked) :]}
+    if not asked:
+        return reasons
+    # End the read transaction so no DB connection is held while awaiting HGNC.
+    db.rollback()
+    answers = await _hgnc_lookup(asked)
+    reasons.update({t.upper(): "lookup_timeout" for t in asked if t not in answers})
+    for token, genes in answers.items():
+        if remote_hit := _classify(token, genes):
+            found[token.upper()] = (remote_hit[0], remote_hit[1], "hgnc")
+    remote = [g for _, gs, src in found.values() if src == "hgnc" for g in gs]
+    if remote:
+        rows = db.execute(
+            select(Gene.hgnc_id, Gene.id).where(
+                Gene.hgnc_id.in_({g.hgnc_id for g in remote})
+            )
+        )
+        local_ids = {r.hgnc_id: r.id for r in rows}
+        for g in remote:
+            g.gene_id = local_ids.get(g.hgnc_id)
+    return reasons
 
 
 async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
@@ -110,9 +149,7 @@ async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
             found[key] = (local_hit[0], local_hit[1], "local")
 
     missing = [t for k, t in unique.items() if k not in found]
-    for token, genes in (await _hgnc_lookup(missing)).items() if missing else []:
-        if remote_hit := _classify(token, genes):
-            found[token.upper()] = (remote_hit[0], remote_hit[1], "hgnc")
+    reasons = await _hgnc_fallback(db, missing, found)
 
     first_by_gene: dict[str, int] = {}
     first_by_token: dict[str, int] = {}
@@ -125,7 +162,11 @@ async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
         if not hit:
             items.append(
                 GeneResolveItem(
-                    input=token, index=index, status="not_found", duplicate_of=dup
+                    input=token,
+                    index=index,
+                    status="not_found",
+                    duplicate_of=dup,
+                    reason=reasons.get(key),
                 )
             )
             continue

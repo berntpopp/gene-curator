@@ -43,6 +43,9 @@ class GeneResolveItem(BaseModel):
     match_type: MatchType | None = None
     source: Literal["local", "hgnc"] | None = None
     candidates: list[GeneCandidate] = Field(default_factory=list)
+    reason: Literal["lookup_cap", "lookup_timeout"] | None = Field(
+        None, description="Why an input was not looked up at HGNC (not_found only)"
+    )
     duplicate_of: int | None = Field(
         None, description="Index of the first input that resolved to the same gene"
     )

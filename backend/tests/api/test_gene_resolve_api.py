@@ -191,3 +191,52 @@ def test_accepts_the_maximum_list_size(client: TestClient, curator_token: str) -
     response = _post(client, curator_token, ["NOPE"] * 1000)
     assert response.status_code == 200
     assert response.json()["counts"]["not_found"] == 1000
+
+
+def test_hgnc_fallback_is_capped(
+    client: TestClient, curator_token: str, hgnc_offline: AsyncMock
+) -> None:
+    symbols = [f"UNK{i}" for i in range(1000)]
+    items = _post(client, curator_token, symbols).json()["items"]
+    assert hgnc_offline.await_count <= 50
+    assert [i["input"] for i in items] == symbols
+    assert all(i["status"] == "not_found" for i in items)
+    assert sum(i["reason"] == "lookup_cap" for i in items) == 950
+
+
+def test_hgnc_fallback_times_out(
+    client: TestClient,
+    curator_token: str,
+    hgnc_offline: AsyncMock,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    import asyncio
+
+    from app.services import gene_resolver
+
+    async def slow(query: str, limit: int = 10) -> HGNCSearchResponse:
+        await asyncio.sleep(5)
+        return HGNCSearchResponse(query=query, total_results=0, results=[])
+
+    hgnc_offline.side_effect = slow
+    monkeypatch.setattr(gene_resolver, "_HGNC_BUDGET_S", 0.05)
+    items = _post(client, curator_token, ["AAA1", "BBB2"]).json()["items"]
+    assert [i["reason"] for i in items] == ["lookup_timeout"] * 2
+
+
+def test_hgnc_hit_fills_gene_id_of_local_row(
+    client: TestClient,
+    curator_token: str,
+    db_session: Session,
+    test_user_admin: UserNew,
+    hgnc_offline: AsyncMock,
+) -> None:
+    local = _gene(db_session, test_user_admin, "HGNC:26837", "FAM123A")
+    hgnc_offline.return_value = HGNCSearchResponse(
+        query="AMER1",
+        total_results=1,
+        results=[HGNCGeneSearchResult(hgnc_id="HGNC:26837", symbol="AMER1")],
+    )
+    item = _post(client, curator_token, ["AMER1"]).json()["items"][0]
+    assert item["source"] == "hgnc"
+    assert item["candidates"][0]["gene_id"] == str(local.id)
