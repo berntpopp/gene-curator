@@ -51,6 +51,8 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   const notificationsStore = useNotificationsStore()
 
   const savingDraft = ref(false)
+  // Another tab saved first: saving is blocked until the page is reloaded (see SaveState)
+  const conflict = ref(false)
   const submitting = ref(false)
 
   /** Payload for a new curation; a gene and workflow pair are required by the API. */
@@ -78,6 +80,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const updated = (await curationsStore.saveDraft(id, payload)) as CurationRecord | undefined
         if (!updated) {
           // The store swallows save errors and returns nothing: surface them, no success toast
+          if (curationsStore.error?.isConflict) conflict.value = true
           notificationsStore.addToast(
             curationsStore.error?.message || 'Failed to save draft',
             'error'
@@ -194,6 +197,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         })) as CurationRecord | undefined
         if (!updated) {
           // The store swallows save errors and returns nothing: surface them, no success toast
+          if (curationsStore.error?.isConflict) conflict.value = true
           notificationsStore.addToast(
             curationsStore.error?.message || 'Failed to save draft',
             'error'
@@ -229,6 +233,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
 
   return {
     savingDraft,
+    conflict,
     submitting,
     handleSaveDraft,
     handleSubmit,

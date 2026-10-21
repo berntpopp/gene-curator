@@ -11,7 +11,7 @@ const curationsStore = vi.hoisted(() => ({
   createCuration: vi.fn(),
   submitCuration: vi.fn(),
   updateCuration: vi.fn(),
-  error: null as { message: string } | null
+  error: null as { message: string; isConflict?: boolean } | null
 }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
@@ -88,6 +88,22 @@ describe('useCurationSubmission', () => {
 
       expect(s.onSaved).not.toHaveBeenCalled()
       expect(s.lockVersion.value).toBe(3)
+    })
+
+    it('flags a conflict (another tab saved first) and keeps the loaded version', async () => {
+      curationsStore.saveDraft.mockResolvedValue(null)
+      curationsStore.error = {
+        message: 'Another user has modified this curation.',
+        isConflict: true
+      }
+      const { api, s } = setup('cur-1')
+
+      expect(await api.handleSaveDraft()).toBe(false)
+
+      expect(api.conflict.value).toBe(true)
+      expect(s.lockVersion.value).toBe(3) // never adopt the newer version without a reload
+      expect(s.onSaved).not.toHaveBeenCalled()
+      expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
     })
 
     it('shows the API error, never a success toast, when the save is refused (403)', async () => {

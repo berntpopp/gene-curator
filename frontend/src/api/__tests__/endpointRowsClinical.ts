@@ -106,9 +106,9 @@ export const clinicalRows: Row[] = [
   },
   {
     name: 'precurations.saveDraft',
-    run: () => precurationsAPI.saveDraft('p', { draft: true }),
+    run: () => precurationsAPI.saveDraft('p', { evidence_data: {}, lock_version: 0 }),
     method: 'patch',
-    args: ['/precurations/p/draft', { draft: true }]
+    args: ['/precurations/p/draft', { evidence_data: {}, lock_version: 0 }]
   },
   {
     name: 'precurations.submitPrecuration defaults to an empty body',

@@ -63,7 +63,13 @@ interface PrecurationsState {
   precurations: PrecurationRecord[]
   currentPrecuration: PrecurationDetail | null
   loading: boolean
-  error: { message?: string; isAutoSave?: boolean } | null
+  error: {
+    message?: string
+    isAutoSave?: boolean
+    isConflict?: boolean
+    currentVersion?: number
+    yourVersion?: number
+  } | null
   pagination: PrecurationsPagination
   filters: PrecurationsFilters
 }
@@ -231,8 +237,12 @@ export const usePrecurationsStore = defineStore('precurations', {
     async saveDraft(id: string, evidenceData: Record<string, unknown>) {
       this.error = null
       try {
+        // The version this tab loaded (kept current by every save); the server refuses a stale one
+        const known = this.currentPrecuration?.id === id ? this.currentPrecuration : null
         const updated = await precurationsAPI.saveDraft(id, {
-          evidence_data: evidenceData
+          evidence_data: evidenceData,
+          // unknown version: let the server answer 409 rather than guess
+          lock_version: known?.lock_version ?? 0
         })
 
         // Update in list
@@ -254,7 +264,19 @@ export const usePrecurationsStore = defineStore('precurations', {
           precuration_id: id,
           error: toApiError(error).message
         })
-        this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
+        const apiError = toApiError(error)
+        if (apiError.response?.status === 409) {
+          const data = apiError.response.data ?? {}
+          this.error = {
+            message:
+              'Another user or tab has modified this precuration. Reload to see their version.',
+            isConflict: true,
+            currentVersion: data.current_lock_version as number | undefined,
+            yourVersion: data.your_lock_version as number | undefined
+          }
+        } else {
+          this.error = { message: errorMessage(error, 'Request failed'), isAutoSave: true }
+        }
         return null
       }
     },

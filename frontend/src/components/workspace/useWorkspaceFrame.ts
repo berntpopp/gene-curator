@@ -5,7 +5,7 @@
  */
 import { computed, ref, shallowRef, watch, type InjectionKey, type Ref } from 'vue'
 
-export type SaveState = 'saved' | 'saving' | 'unsaved' | 'failed'
+export type SaveState = 'saved' | 'saving' | 'unsaved' | 'failed' | 'conflict'
 
 export interface ScoreSnapshot {
   genetic: number
@@ -27,6 +27,8 @@ export interface FormBinding {
   saving: Ref<boolean>
   /** Set by the form after every successful save, including saves from its own buttons. */
   savedAt: Ref<number | null>
+  /** Another tab saved a newer version: saving is blocked until the page is reloaded. */
+  conflict?: Ref<boolean>
   /** Resolves true when the draft was saved. */
   save: () => Promise<boolean>
 }
@@ -54,6 +56,7 @@ export function createWorkspaceFrame() {
   const dirty = computed(() => baseline.value !== null && snapshot() !== baseline.value)
   const state = computed<SaveState>(() => {
     if (form.value?.saving.value) return 'saving'
+    if (form.value?.conflict?.value) return 'conflict'
     if (failed.value) return 'failed'
     return dirty.value ? 'unsaved' : 'saved'
   })
@@ -86,7 +89,8 @@ export function createWorkspaceFrame() {
 
   async function save(): Promise<boolean> {
     const f = form.value
-    if (!f || f.saving.value) return false
+    // Never save over the newer version another tab stored; the dirty flag keeps the leave guard on
+    if (!f || f.saving.value || f.conflict?.value) return false
     const ok = await f.save().catch(() => false)
     failed.value = !ok
     if (ok) {

@@ -165,7 +165,7 @@ describe('usePrecurationsStore', () => {
       store.currentPrecuration = full('p1')
       api.updatePrecuration.mockResolvedValue(full('p1', { status: 'submitted' }))
 
-      await store.updatePrecuration('p1', {})
+      await store.updatePrecuration('p1', { lock_version: 0 })
 
       expect(store.precurations[0]).toMatchObject({ status: 'submitted' })
       expect(store.currentPrecuration).toMatchObject({ status: 'submitted' })
@@ -175,7 +175,7 @@ describe('usePrecurationsStore', () => {
       const store = usePrecurationsStore()
       api.updatePrecuration.mockRejectedValue(new Error('locked'))
 
-      await expect(store.updatePrecuration('p1', {})).rejects.toThrow('locked')
+      await expect(store.updatePrecuration('p1', { lock_version: 0 })).rejects.toThrow('locked')
       expect(store.error).toEqual({ message: 'locked' })
     })
   })
@@ -184,12 +184,15 @@ describe('usePrecurationsStore', () => {
     it('wraps evidence data and updates list and current entries', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      store.currentPrecuration = full('p1')
+      store.currentPrecuration = full('p1', { lock_version: 7 })
       api.saveDraft.mockResolvedValue(full('p1', { status: 'submitted' }))
 
       const saved = await store.saveDraft('p1', { score: 2 })
 
-      expect(api.saveDraft).toHaveBeenCalledWith('p1', { evidence_data: { score: 2 } })
+      expect(api.saveDraft).toHaveBeenCalledWith('p1', {
+        evidence_data: { score: 2 },
+        lock_version: 7
+      })
       expect(saved).toMatchObject({ status: 'submitted' })
       expect(store.precurations[0]).toMatchObject({ status: 'submitted' })
       expect(store.currentPrecuration).toMatchObject({ status: 'submitted' })
@@ -205,6 +208,19 @@ describe('usePrecurationsStore', () => {
         expect.objectContaining({ precuration_id: 'p1', error: 'offline' })
       )
       expect(store.error).toEqual({ message: 'offline', isAutoSave: true })
+    })
+
+    it('flags a 409 as a conflict', async () => {
+      const store = usePrecurationsStore()
+      store.currentPrecuration = full('p1', { lock_version: 1 })
+      api.saveDraft.mockRejectedValue({
+        isAxiosError: true,
+        message: 'Request failed',
+        response: { status: 409, data: { current_lock_version: 2, your_lock_version: 1 } }
+      })
+
+      await expect(store.saveDraft('p1', {})).resolves.toBeNull()
+      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 2, yourVersion: 1 })
     })
   })
 
