@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.enums import ScopeRole
@@ -16,6 +16,8 @@ from app.crud.review_round import (
     all_reviews_approved,
     check_review_open,
     in_current_round,
+    pending_reviews,
+    reassign_earlier_reviewers,
 )
 from app.crud.workflow_statistics import compute_workflow_statistics
 from app.models import (
@@ -857,22 +859,22 @@ class WorkflowEngine:
 
         creator_id = getattr(item, "created_by", None)
 
-        # CURATION → REVIEW: notify the assigned reviewer
-        if from_stage == WorkflowStage.CURATION and to_stage == WorkflowStage.REVIEW:
-            # Find the pending review assignment for this item
-            pending_reviews = self._get_pending_reviews(db, item.id, item_type)
-            for review_info in pending_reviews:
-                reviewer_id = review_info.get("reviewer_id")
-                if reviewer_id and reviewer_id != acted_by:
-                    db.add(
-                        NotificationNew(
-                            user_id=reviewer_id,
-                            type=NotificationType.REVIEW_ASSIGNED,
-                            title="New review assigned",
-                            message=f"New review assigned: {gene_symbol}",
-                            link=f"/scopes/{item.scope_id}/curations/{item.id}",
-                        )
+        # CURATION → REVIEW: earlier reviewers get a new review in the new round
+        if (
+            from_stage == WorkflowStage.CURATION
+            and to_stage == WorkflowStage.REVIEW
+            and isinstance(item, CurationNew)
+        ):
+            for reviewer_id in reassign_earlier_reviewers(db, item, acted_by):
+                db.add(
+                    NotificationNew(
+                        user_id=reviewer_id,
+                        type=NotificationType.REVIEW_ASSIGNED,
+                        title="New review assigned",
+                        message=f"New review assigned: {gene_symbol}",
+                        link=f"/scopes/{item.scope_id}/curations/{item.id}",
                     )
+                )
 
         # REVIEW → ACTIVE: notify the curator (creator) of approval
         elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.ACTIVE:
@@ -888,17 +890,21 @@ class WorkflowEngine:
                 )
 
         # REVIEW → CURATION: notify the curator of rejection/revision request
-        elif from_stage == WorkflowStage.REVIEW and to_stage == WorkflowStage.CURATION:
-            if creator_id and creator_id != acted_by:
-                db.add(
-                    NotificationNew(
-                        user_id=creator_id,
-                        type=NotificationType.REVISION_REQUESTED,
-                        title="Revision requested",
-                        message=f"Revision requested: {gene_symbol}",
-                        link=f"/scopes/{item.scope_id}/curations/{item.id}",
-                    )
+        elif (
+            from_stage == WorkflowStage.REVIEW
+            and to_stage == WorkflowStage.CURATION
+            and creator_id
+            and creator_id != acted_by
+        ):
+            db.add(
+                NotificationNew(
+                    user_id=creator_id,
+                    type=NotificationType.REVISION_REQUESTED,
+                    title="Revision requested",
+                    message=f"Revision requested: {gene_symbol}",
+                    link=f"/scopes/{item.scope_id}/curations/{item.id}",
                 )
+            )
 
     def _get_workflow_history(
         self, db: Session, item_id: UUID, item_type: str
@@ -910,29 +916,8 @@ class WorkflowEngine:
     def _get_pending_reviews(
         self, db: Session, item_id: UUID, item_type: str
     ) -> list[dict[str, Any]]:
-        """Get pending peer reviews for an item."""
-        reviews = (
-            db.execute(
-                select(Review).where(
-                    and_(
-                        Review.curation_id == item_id,
-                        Review.status == ReviewStatus.PENDING,
-                        in_current_round,
-                    )
-                )
-            )
-            .scalars()
-            .all()
-        )
-
-        return [
-            {
-                "review_id": review.id,
-                "reviewer_id": review.reviewer_id,
-                "assigned_at": review.assigned_at,
-            }
-            for review in reviews
-        ]
+        """Get pending peer reviews (current round) for an item."""
+        return pending_reviews(db, item_id)
 
     def _calculate_progress_metrics(
         self, current_stage: WorkflowStage, history: list[dict[str, Any]]

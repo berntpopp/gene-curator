@@ -6,6 +6,7 @@ curation's latest `submitted_at`. Reviews left PENDING by request_changes/reject
 an earlier round, are therefore ignored by every pending count and check. Use this one rule.
 """
 
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -59,3 +60,50 @@ def all_reviews_approved(db: Session, curation_id: UUID) -> bool:
         )
     ).scalar()
     return not blocked
+
+
+def reassign_earlier_reviewers(
+    db: Session, curation: CurationNew, assigned_by: UUID
+) -> list[UUID]:
+    """On resubmit, give each earlier reviewer a new PENDING review in the new round.
+
+    Never the curation's own curator (4-eyes, admins included).
+    """
+    if curation.submitted_at is None:
+        return []
+    earlier = db.scalars(
+        select(Review.reviewer_id)
+        .where(
+            Review.curation_id == curation.id,
+            Review.assigned_at < curation.submitted_at,
+            Review.reviewer_id != curation.created_by,
+        )
+        .distinct()
+    ).all()
+    for reviewer_id in earlier:
+        db.add(
+            Review(
+                curation_id=curation.id,
+                reviewer_id=reviewer_id,
+                assigned_by=assigned_by,
+                status=ReviewStatus.PENDING,
+                assigned_at=datetime.now(UTC),
+            )
+        )
+    db.flush()
+    return list(earlier)
+
+
+def pending_reviews(db: Session, curation_id: UUID) -> list[dict[str, Any]]:
+    """Pending reviews in the open round."""
+    rows = db.scalars(
+        select(Review).where(
+            Review.curation_id == curation_id,
+            Review.status == ReviewStatus.PENDING,
+            in_current_round,
+        )
+    )
+    return [
+        {"review_id": r.id, "reviewer_id": r.reviewer_id, "assigned_at": r.assigned_at}
+        for r in rows
+    ]

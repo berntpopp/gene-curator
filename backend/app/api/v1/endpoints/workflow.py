@@ -252,6 +252,8 @@ def get_my_review_assignments(
         try:
             status_enum = ReviewStatus(status)
             query = query.where(Review.status == status_enum)
+            if status_enum == ReviewStatus.PENDING:
+                query = query.where(in_current_round)
         except ValueError as e:
             raise HTTPException(
                 status_code=400, detail=f"Invalid status: {status}"

@@ -203,7 +203,7 @@ def test_notification_insert_failure_rolls_back_review_operation(
         assert notifications[0].user_id == reviewer.id
 
 
-def test_assignment_notification_links_to_scoped_curation(
+def test_resubmission_notifies_pending_reviewer_with_scoped_link(
     db_session: Session,
     engine: WorkflowEngine,
     creator: UserNew,
@@ -224,8 +224,7 @@ def test_assignment_notification_links_to_scoped_curation(
     notes = db_session.scalars(
         select(NotificationNew).where(NotificationNew.user_id == reviewer.id)
     ).all()
-    # Resubmission closes the old round: the earlier assignment is not re-notified.
-    assert len(notes) == 1
+    assert len(notes) == 2
     assert all(
         note.link == f"/scopes/{scope.id}/curations/{curation.id}" for note in notes
     )

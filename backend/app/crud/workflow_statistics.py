@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from app.crud.review_round import in_current_round
 from app.models import (
     ActiveCuration,
     CurationNew,
@@ -67,7 +68,9 @@ def compute_workflow_statistics(
         or 0,
         "review": db.execute(
             select(sqlalchemy_func.count()).select_from(
-                review_stmt.where(Review.status == ReviewStatus.PENDING).subquery()
+                review_stmt.where(
+                    Review.status == ReviewStatus.PENDING, in_current_round
+                ).subquery()
             )
         ).scalar()
         or 0,

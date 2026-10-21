@@ -295,6 +295,6 @@ def test_stale_round_does_not_inflate_dashboard_or_my_work(client, db_session: S
     engine.execute_transition(
         db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
     )
-    assert pending(b) == 0  # still the old round
+    assert pending(b) == 1  # re-assigned in the new round
     assert _kinds(client, b) == ["review"]  # unassigned in the new round
     assert _kinds(client, a) == ["review"]  # A's old decision does not hide it
