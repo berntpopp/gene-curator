@@ -12623,7 +12623,6 @@ export interface operations {
     count_search_genes_api_v1_genes_search_count_get: {
         parameters: {
             query?: {
-                /** @description Search term */
                 query?: string | null;
                 /** @description Filter by chromosome */
                 chromosome?: string | null;
@@ -12659,7 +12658,6 @@ export interface operations {
     search_genes_api_v1_genes_search_get: {
         parameters: {
             query?: {
-                /** @description Search term */
                 query?: string | null;
                 /** @description Filter by chromosome */
                 chromosome?: string | null;
@@ -14384,7 +14382,6 @@ export interface operations {
                 skip?: number;
                 /** @description Max records to return */
                 limit?: number;
-                /** @description Search in title or authors */
                 search?: string | null;
             };
             header?: never;
@@ -14527,15 +14524,12 @@ export interface operations {
             query?: {
                 /** @description Filter by log level */
                 level?: string | null;
-                /** @description Filter by logger name (partial match) */
                 logger_name?: string | null;
-                /** @description Search in message (partial match) */
                 message?: string | null;
                 /** @description Filter by request ID */
                 request_id?: string | null;
                 /** @description Filter by user ID */
                 user_id?: string | null;
-                /** @description Filter by endpoint (partial match) */
                 endpoint?: string | null;
                 /** @description Filter by HTTP method */
                 method?: string | null;
