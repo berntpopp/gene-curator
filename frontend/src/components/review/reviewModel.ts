@@ -113,12 +113,33 @@ export function approveBlockers(groups: DiffGroup[], comments: Comment[], me: st
   })
 }
 
-/** Open reviewer queries as a to-do list for "Request changes" (the curator's own replies are not to-dos). */
+/** One limit for a query and for the request-changes feedback (the API enforces the same). */
+export const REVIEW_TEXT_MAX = 2000
+
+/**
+ * Open reviewer queries as a to-do list for "Request changes" (the curator's own replies are not
+ * to-dos). Always within REVIEW_TEXT_MAX so the prefilled feedback can be sent as is.
+ */
 export function queryTodos(creatorId: string, comments: Comment[]): string {
-  return comments
+  const lines = comments
     .filter(c => c.kind === 'query' && c.status === 'open' && c.author_id !== creatorId)
     .map(c => `- ${itemLabel(c.item_path)}: ${c.body}`)
-    .join('\n')
+  const whole = lines.join('\n')
+  if (whole.length <= REVIEW_TEXT_MAX) return whole
+
+  const kept: string[] = []
+  let length = 0
+  for (const line of lines) {
+    const rest = lines.length - kept.length
+    const tail = `\n- …and ${rest} more open ${rest === 1 ? 'query' : 'queries'}`
+    if (length + line.length + 1 + tail.length > REVIEW_TEXT_MAX) {
+      if (!kept.length) return `${line.slice(0, REVIEW_TEXT_MAX - 1)}…` // one query alone is too long
+      return `${kept.join('\n')}${tail}`
+    }
+    kept.push(line)
+    length += line.length + 1
+  }
+  return whole
 }
 
 export interface ChecklistItem {

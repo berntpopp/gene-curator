@@ -374,6 +374,7 @@
 </template>
 
 <script setup lang="ts">
+  import { readableApiError } from '@/utils/apiErrorText'
   import { formatDateTime } from '@/utils/format'
   import ClassificationMark from '@/components/common/ClassificationMark.vue'
   import { ref, computed, onMounted } from 'vue'
@@ -566,7 +567,7 @@
       notificationStore.addToast('Curation submitted for review', 'success')
       await loadCuration()
     } catch (err) {
-      const errorDetail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
+      const errorDetail = readableApiError(err, 'Request failed')
       logger.error('Failed to submit curation', { error: errorDetail })
       notificationStore.addToast(`Failed to submit: ${errorDetail}`, 'error')
     } finally {

@@ -155,6 +155,19 @@ def test_rejects_malformed_comments(
     assert response.status_code == 422
 
 
+def test_query_text_limit_matches_the_request_changes_feedback_limit(
+    client: TestClient, reviewer: UserNew, test_curation: CurationNew
+) -> None:
+    ok = {"item_path": "a", "body": "x" * 2000}
+    assert (
+        client.post(_url(test_curation), json=ok, headers=_auth(reviewer)).status_code
+        == 201
+    )
+    bad = {"item_path": "a", "body": "x" * 2001}
+    response = client.post(_url(test_curation), json=bad, headers=_auth(reviewer))
+    assert response.status_code == 422
+
+
 def test_unknown_curation_is_404(client: TestClient, reviewer: UserNew) -> None:
     response = client.get(
         f"/api/v1/curations/{uuid4()}/review-comments", headers=_auth(reviewer)
