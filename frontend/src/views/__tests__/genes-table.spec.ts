@@ -103,9 +103,10 @@ describe('GenesTable', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('13 genes')
     genes.searchResults = [gene('BRCA1')] as never
+    genes.searchTotal = 42
     vm.searchQuery = 'BR'
     await flushPromises()
-    expect(wrapper.text()).toContain('1 genes')
+    expect(wrapper.text()).toContain('42 genes')
   })
 
   it('has no dead Add/Edit buttons and links the symbol to the gene page', async () => {
@@ -160,6 +161,18 @@ describe('GenesTable', () => {
     auth.isAuthenticated = true
     await flushPromises()
     expect(fetchGenes).toHaveBeenCalledWith({ page: 1 })
+  })
+})
+
+describe('GenesTable filter change', () => {
+  it('searches exactly once even when the table was on page 3', async () => {
+    const { genes, vm } = await mountTable()
+    await call(vm, 'handleOptions', { page: 3, sortBy: [] })
+    const search = vi.spyOn(genes, 'searchGenes').mockResolvedValue([] as never)
+    vm.selectedChromosome = 'X'
+    await call(vm, 'handleFilterChange')
+    await flushPromises()
+    expect(search).toHaveBeenCalledTimes(1)
   })
 })
 

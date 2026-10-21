@@ -206,7 +206,11 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Gene Database',
       requiresAuth: true,
-      requiredRoles: ['admin']
+      requiredRoles: ['admin'],
+      showInDropdown: 'curationSetup',
+      icon: 'mdi-dna',
+      label: 'Genes',
+      order: 4
     }
   },
   {

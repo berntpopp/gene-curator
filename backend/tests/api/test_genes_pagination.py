@@ -39,3 +39,23 @@ def test_scope_gene_counts_cover_all_pages(
     assert body["total"] == 3
     assert body["assigned"] == 1
     assert body["unassigned"] == 2
+
+
+def test_search_count_ignores_paging_and_matches_filters(
+    client: TestClient, db_session: Session, test_user_admin: UserNew, admin_token: str
+) -> None:
+    for i in range(3):
+        g = _gene(db_session, test_user_admin, f"HGNC:7{i}", f"CNT{i}")
+        g.chromosome = "X" if i else "1"
+    db_session.commit()
+
+    def count(qs: str) -> int:
+        r = client.get(f"{BASE}/search/count{qs}", headers=_auth(admin_token))
+        assert r.status_code == 200
+        return int(r.json())
+
+    assert count("") == 3
+    assert count("?chromosome=X") == 2
+    assert count("?hgnc_id=HGNC:70") == 1
+    page = client.get(f"{BASE}/search?limit=1", headers=_auth(admin_token)).json()
+    assert len(page) == 1

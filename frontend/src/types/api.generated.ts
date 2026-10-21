@@ -1818,6 +1818,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/genes/search/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count Search Genes
+         * @description Total genes matching the `/search` filters, ignoring paging.
+         */
+        get: operations["count_search_genes_api_v1_genes_search_count_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/genes/search": {
         parameters: {
             query?: never;
@@ -12101,6 +12121,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Gene"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    count_search_genes_api_v1_genes_search_count_get: {
+        parameters: {
+            query?: {
+                /** @description Search term */
+                query?: string | null;
+                /** @description Filter by chromosome */
+                chromosome?: string | null;
+                /** @description Filter by HGNC ID */
+                hgnc_id?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": number;
                 };
             };
             /** @description Validation Error */

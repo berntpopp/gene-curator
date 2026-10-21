@@ -125,4 +125,22 @@ describe('GeneCatalogueView', () => {
       expect.objectContaining({ skip: 40, sort_by: 'total_curations', sort_order: 'desc' })
     )
   })
+
+  it('a filter change fetches exactly once, even from page 3', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
+      entries: [entry],
+      total: 600
+    } as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    await (vmOf(wrapper).handleOptions as (o: unknown) => Promise<void>)({
+      page: 3,
+      sortBy: []
+    })
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockClear()
+    vmOf(wrapper).selectedScope = 's1'
+    await (vmOf(wrapper).handleFilterChange as () => Promise<void>)()
+    await flushPromises()
+    expect(geneCatalogueAPI.getCatalogue).toHaveBeenCalledTimes(1)
+  })
 })

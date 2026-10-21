@@ -68,9 +68,9 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
 
         return db.execute(stmt.offset(skip).limit(limit)).scalars().all()
 
-    @timed_operation("gene_search", warning_threshold_ms=500)
-    def search(self, db: Session, *, search_params: GeneSearchQuery) -> Sequence[Gene]:
-        """Advanced gene search with multiple filters."""
+    @staticmethod
+    def _search_stmt(search_params: GeneSearchQuery) -> Select[Any]:
+        """Filters shared by search and its count."""
         stmt = select(Gene)
 
         # Text search across multiple fields
@@ -98,6 +98,13 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
         if search_params.hgnc_id:
             stmt = stmt.where(Gene.hgnc_id == search_params.hgnc_id)
 
+        return stmt
+
+    @timed_operation("gene_search", warning_threshold_ms=500)
+    def search(self, db: Session, *, search_params: GeneSearchQuery) -> Sequence[Gene]:
+        """Advanced gene search with multiple filters."""
+        stmt = self._search_stmt(search_params)
+
         # Apply sorting
         if hasattr(Gene, search_params.sort_by):
             order_column = getattr(Gene, search_params.sort_by)
@@ -111,6 +118,11 @@ class CRUDGene(CRUDBase[Gene, GeneCreate, GeneUpdate]):
             .scalars()
             .all()
         )
+
+    def count_search(self, db: Session, *, search_params: GeneSearchQuery) -> int:
+        """Total rows matching the search filters, ignoring paging."""
+        stmt = self._search_stmt(search_params).subquery()
+        return db.execute(select(func.count()).select_from(stmt)).scalar_one()
 
     @database_query(query_type="INSERT")
     def create_with_owner(

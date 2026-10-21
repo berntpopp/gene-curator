@@ -14,6 +14,7 @@ vi.mock('@/api', () => ({
     getGeneAssignments: vi.fn(),
     getGeneCurationProgress: vi.fn(),
     searchGenes: vi.fn(),
+    countSearchGenes: vi.fn(),
     getStatistics: vi.fn()
   }
 }))
@@ -263,9 +264,12 @@ describe('useGenesStore', () => {
     it('queries the search endpoint and stores the summaries', async () => {
       const store = useGenesStore()
       api.searchGenes.mockResolvedValueOnce([gene('s1')])
+      api.countSearchGenes.mockResolvedValueOnce(41)
 
       await store.searchGenes({ query: 'x', page: 2 })
 
+      expect(store.searchTotal).toBe(41)
+      expect(api.countSearchGenes).toHaveBeenCalledWith({ query: 'x' })
       expect(api.searchGenes).toHaveBeenCalledWith({ query: 'x', skip: 20, limit: 20 })
       expect(store.searchResults.map(g => g.id)).toEqual(['s1'])
     })

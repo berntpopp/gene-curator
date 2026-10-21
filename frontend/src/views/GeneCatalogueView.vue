@@ -666,12 +666,18 @@
     { key: catalogueStore.filters.sortBy, order: catalogueStore.filters.sortOrder }
   ])
 
-  // Server table paging/sorting; also fires once on mount, which loads the first page
+  // Server table paging/sorting. The table also emits on mount and after a filter change
+  // (page reset); only act on a real page or sort change so each action fetches once.
   const handleOptions = async (o: { page: number; sortBy: { key: string; order?: unknown }[] }) => {
     const sort = o.sortBy[0]
-    if (sort) {
+    const order = sort?.order === 'desc' ? 'desc' : 'asc'
+    const sortChanged =
+      !!sort &&
+      (sort.key !== catalogueStore.filters.sortBy || order !== catalogueStore.filters.sortOrder)
+    if (!sortChanged && o.page === catalogueStore.pagination.page) return
+    if (sortChanged) {
       catalogueStore.filters.sortBy = sort.key
-      catalogueStore.filters.sortOrder = sort.order === 'desc' ? 'desc' : 'asc'
+      catalogueStore.filters.sortOrder = order
     }
     catalogueStore.setPage(o.page)
     await catalogueStore.fetchCatalogue({ page: o.page }).catch(() => undefined)
@@ -707,8 +713,11 @@
     router.push({ name: 'scope-dashboard', params: { scopeId: curation.scope_id } })
   }
 
-  onMounted(() => {
-    void catalogueStore.loadFilterOptions()
+  onMounted(async () => {
+    // Failures are surfaced via catalogueStore.error (alert below the filters)
+    await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()]).catch(
+      () => undefined
+    )
   })
 </script>
 

@@ -179,9 +179,8 @@
   // Static list: deriving it from the current page hid chromosomes
   const chromosomes = [...Array.from({ length: 22 }, (_, i) => String(i + 1)), 'X', 'Y', 'MT']
 
-  // Search results carry no server total, so the count is the result length then
   const totalGenes = computed(() =>
-    isSearching.value ? genes.value.length : genesStore.pagination.total
+    isSearching.value ? genesStore.searchTotal : genesStore.pagination.total
   )
 
   // Debounced search
