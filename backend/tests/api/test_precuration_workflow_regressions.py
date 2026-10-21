@@ -132,7 +132,6 @@ def test_viewer_endpoint_direct(
     [
         ("approve", "reviewer", CurationStatus.APPROVED),
         ("reject", "reviewer", CurationStatus.REJECTED),
-        ("complete", "curator", CurationStatus.APPROVED),
     ],
 )
 def test_authorized_precuration_decision_direct(
@@ -161,3 +160,55 @@ def test_authorized_precuration_decision_direct(
     )
     db_session.refresh(test_precuration)
     assert test_precuration.status == expected
+
+
+@pytest.mark.parametrize("as_admin", [False, True])
+def test_complete_submits_for_review_never_approves(
+    client: TestClient,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+    test_user_curator: UserNew,
+    as_admin: bool,
+):
+    """D1: nobody approves their own work, admins included; "complete" only submits."""
+    if as_admin:
+        test_user_curator.role = "admin"
+        db_session.commit()
+    response = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/complete",
+        headers=auth_headers(test_user_curator),
+    )
+    assert response.status_code == 200, response.text
+    db_session.refresh(test_precuration)
+    assert test_precuration.status == CurationStatus.SUBMITTED
+    assert test_precuration.workflow_stage == WorkflowStage.REVIEW
+
+
+def test_complete_by_another_curator_is_refused(
+    client: TestClient, db_session: Session, test_precuration: PrecurationNew
+):
+    from app.models import Scope
+
+    other = make_user(db_session)
+    make_member(
+        db_session, db_session.get(Scope, test_precuration.scope_id), other, "curator"
+    )
+    response = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/complete",
+        headers=auth_headers(other),
+    )
+    assert response.status_code == 403
+    db_session.refresh(test_precuration)
+    assert test_precuration.status == CurationStatus.DRAFT
+
+
+def test_complete_unknown_precuration_is_404(
+    client: TestClient, test_user_curator: UserNew
+):
+    from uuid import uuid4
+
+    response = client.post(
+        f"/api/v1/precurations/{uuid4()}/complete",
+        headers=auth_headers(test_user_curator),
+    )
+    assert response.status_code == 404

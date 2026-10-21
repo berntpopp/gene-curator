@@ -363,7 +363,7 @@
   }
 
   /**
-   * Complete existing precuration (mark as ready for curation)
+   * Submit existing precuration for review
    */
   async function completePrecuration(gene: GeneRow) {
     if (startBlockedReason.value) return
@@ -375,7 +375,7 @@
 
     try {
       await precurationsAPI.completePrecuration(precuration.id)
-      notificationStore.addToast('Precuration completed successfully', 'success')
+      notificationStore.addToast('Precuration submitted for review', 'success')
 
       // Refresh precuration status to update UI
       await workflow.fetchPrecurationStatuses()

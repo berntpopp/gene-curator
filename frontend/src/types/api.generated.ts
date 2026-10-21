@@ -1813,11 +1813,9 @@ export interface paths {
         put?: never;
         /**
          * Complete Precuration
-         * @description Mark precuration as completed and ready for curation.
+         * @description Submit the precuration for review at its current version, like /submit.
          *
-         *     This endpoint provides a simplified workflow path that skips peer review.
-         *     Use this when precuration doesn't require 4-eyes principle validation.
-         *     After completion, curation can begin immediately.
+         *     D1: nobody approves their own work (admins included), so there is no shortcut past review.
          */
         post: operations["complete_precuration_api_v1_precurations__precuration_id__complete_post"];
         delete?: never;
@@ -12806,6 +12804,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecurationConflictResponse"];
                 };
             };
             /** @description Validation Error */

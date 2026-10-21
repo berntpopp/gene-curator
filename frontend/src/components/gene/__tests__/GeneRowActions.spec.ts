@@ -79,7 +79,7 @@ describe('GeneRowActions', () => {
     expect(wrapper.text()).not.toContain('Edit Assignment')
   })
 
-  it('offers Complete Precuration instead of Start when a precuration is pending', () => {
+  it('offers Submit Precuration for Review instead of Start when a precuration is pending', () => {
     const wrapper = mount(GeneRowActions, {
       props: {
         gene,
@@ -90,7 +90,7 @@ describe('GeneRowActions', () => {
       global: { stubs: inlineMenu }
     })
 
-    expect(wrapper.text()).toContain('Complete Precuration')
+    expect(wrapper.text()).toContain('Submit Precuration for Review')
     expect(wrapper.text()).not.toContain('Start Precuration')
   })
 
@@ -175,7 +175,7 @@ describe('GeneRowActions', () => {
       global: { stubs: inlineMenu }
     })
     await menuItems(complete)
-      .find(i => i.text().includes('Complete Precuration'))!
+      .find(i => i.text().includes('Submit Precuration for Review'))!
       .trigger('click')
     expect(complete.emitted('complete-precuration')?.[0]).toEqual([gene])
   })
@@ -210,7 +210,7 @@ describe('GeneRowActions', () => {
       global: { stubs: inlineMenu }
     })
     expect(wrapper.text()).not.toMatch(
-      /Start Precuration|Complete Precuration|Start Curation|Curation \(requires/
+      /Start Precuration|Submit Precuration for Review|Start Curation|Curation \(requires/
     )
   })
 })
