@@ -218,6 +218,9 @@
   const isActive = computed(() => curation.value?.workflow_stage === 'active')
   // Saving is only possible for a draft or returned curation the user may edit (backend `can_edit`)
   const readonlyReason = computed(() => {
+    if (curation.value?.status === 'archived') {
+      return 'This curation is archived and read-only. A newer curation replaced it.'
+    }
     if (isActive.value) {
       return 'This curation is active and read-only. Start a re-curation from the curation page.'
     }

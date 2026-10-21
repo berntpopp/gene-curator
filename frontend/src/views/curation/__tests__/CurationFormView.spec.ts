@@ -476,9 +476,12 @@ describe('CurationFormView', () => {
       expect(e.defaultPrevented).toBe(false)
     })
 
-    it('shows an archived curation as the terminal stage', async () => {
+    it('shows an archived curation as the terminal stage, read-only as archived', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active', status: 'archived' })
       expect(wrapper.find('[aria-current="step"]').text()).toBe('Archived')
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('archived')
+      const other = await mountFramed({ status: 'archived', can_edit: false })
+      expect(other.wrapper.find('[data-testid="ws-readonly"]').text()).toContain('archived')
     })
   })
 
