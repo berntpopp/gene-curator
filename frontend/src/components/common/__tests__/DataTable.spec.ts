@@ -83,4 +83,26 @@ describe('DataTable', () => {
     expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
     w.unmount()
   })
+
+  it('picks a filter option from the chip menu', async () => {
+    const w = mountTable({
+      filterDefs: [
+        { key: 'status', label: 'Status', options: [{ value: 'draft', title: 'Draft' }] }
+      ]
+    })
+    await w.find('[data-testid="filter-status"]').trigger('click')
+    await new Promise(r => setTimeout(r, 50))
+    const opt = document.body.querySelector('.v-list-item') as HTMLElement
+    opt.click()
+    expect(w.emitted('update:filters')?.at(-1)).toEqual([{ status: 'draft' }])
+    w.unmount()
+  })
+
+  it('emits paging and sorting', async () => {
+    const w = mountTable()
+    await w.find('thead th').trigger('click')
+    expect(w.emitted('update:sortBy')?.at(-1)).toEqual([[{ key: 'symbol', order: 'asc' }]])
+    await w.find('button[aria-label*="Next page"]').trigger('click')
+    expect(w.emitted('update:page')?.at(-1)).toEqual([2])
+  })
 })
