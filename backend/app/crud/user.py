@@ -299,9 +299,9 @@ class CRUDUser(CRUDBase[User, UserCreate, UserUpdate]):
         if not user:
             return False
 
-        from datetime import datetime
+        from datetime import UTC, datetime
 
-        user.last_login = datetime.now()
+        user.last_login = datetime.now(UTC)
         db.commit()
         return True
 

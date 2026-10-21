@@ -10,7 +10,7 @@ Design Principles:
 """
 
 import hashlib
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from typing import Final
 
 from sqlalchemy.orm import Session
@@ -22,6 +22,11 @@ from app.services.validators import HGNCValidator, HPOValidator, PubMedValidator
 from app.services.validators.base import ExternalValidator
 
 logger = get_logger(__name__)
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Treat naive timestamps (SQLite) as UTC; keep a real offset untouched."""
+    return value.replace(tzinfo=UTC) if value.tzinfo is None else value
 
 
 class ValidationService:
@@ -103,7 +108,7 @@ class ValidationService:
             self.db.query(ValidationCache)
             .filter(
                 ValidationCache.validator_input_hash == cache_key,
-                ValidationCache.expires_at > datetime.now(),
+                ValidationCache.expires_at > datetime.now(UTC),
             )
             .first()
         )
@@ -111,7 +116,7 @@ class ValidationService:
         if cached:
             # Update access metrics (analytics for cache optimization)
             cached.access_count += 1
-            cached.last_accessed_at = datetime.now()
+            cached.last_accessed_at = datetime.now(UTC)
             self.db.commit()
 
             logger.info(
@@ -119,7 +124,9 @@ class ValidationService:
                 validator=validator_name,
                 input_value=input_value[:50],  # Truncate for logs
                 access_count=cached.access_count,
-                ttl_remaining_days=(cached.expires_at - datetime.now()).days,
+                ttl_remaining_days=(
+                    _as_utc(cached.expires_at) - datetime.now(UTC)
+                ).days,
             )
 
             return ValidationResult(
@@ -154,7 +161,7 @@ class ValidationService:
 
         cache_key = self._generate_cache_key(validator_name, input_value)
         ttl_days = self.TTL_DAYS.get(validator_name, 7)  # Default 7 days
-        expires_at = datetime.now() + timedelta(days=ttl_days)
+        expires_at = datetime.now(UTC) + timedelta(days=ttl_days)
 
         # validator_input_hash is unique: refresh an expired or skipped entry in place
         cache_entry = (
@@ -313,7 +320,7 @@ class ValidationService:
         """
         deleted_count = (
             self.db.query(ValidationCache)
-            .filter(ValidationCache.expires_at <= datetime.now())
+            .filter(ValidationCache.expires_at <= datetime.now(UTC))
             .delete()
         )
 
@@ -333,7 +340,7 @@ class ValidationService:
         total_entries = self.db.query(ValidationCache).count()
         expired_entries = (
             self.db.query(ValidationCache)
-            .filter(ValidationCache.expires_at <= datetime.now())
+            .filter(ValidationCache.expires_at <= datetime.now(UTC))
             .count()
         )
 

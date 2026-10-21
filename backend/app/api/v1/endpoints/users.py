@@ -130,6 +130,17 @@ async def update_user(
             status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
         )
 
+    # An admin editing themselves must not drop admin rights or deactivate
+    # (the caller is an active admin, so this is what could leave zero admins).
+    if str(user.id) == str(current_user.id) and (
+        user_data.is_active is False
+        or (user_data.role is not None and user_data.role != "admin")
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="You cannot remove your own admin role or deactivate your own account",
+        )
+
     # Check if email is being changed and already exists
     if user_data.email and user_data.email != user.email:
         existing_user = user_crud.get_by_email(db=db, email=user_data.email)
