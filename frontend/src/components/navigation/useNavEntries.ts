@@ -19,7 +19,7 @@ interface RailMeta {
 
 /** Route name -> badge count */
 const BADGE: Record<string, (c: { needsYou: number; review: number }) => number> = {
-  GeneAssignments: c => c.needsYou,
+  MyWork: c => c.needsYou,
   'review-queue': c => c.review
 }
 

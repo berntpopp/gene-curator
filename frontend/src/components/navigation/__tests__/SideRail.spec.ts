@@ -3,11 +3,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { VLayout } from 'vuetify/components'
 import { createPinia, setActivePinia } from 'pinia'
-import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useScopesStore } from '@/stores/scopes'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import SideRail from '../SideRail.vue'
+import { makeRealRouter } from './realRoutes'
 
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
@@ -19,50 +19,7 @@ vi.mock('../UserMenu.vue', () => ({
   default: defineComponent({ name: 'UserMenu', render: () => h('div') })
 }))
 
-const component = { render: () => null }
-const main = (label: string, order: number, extra = {}) => ({
-  showInMainMenu: true,
-  label,
-  icon: 'mdi-home',
-  order,
-  ...extra
-})
-
-function makeRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', name: 'Home', component },
-      {
-        path: '/assignments',
-        name: 'GeneAssignments',
-        component,
-        meta: main('My work', 1, { requiresAuth: true })
-      },
-      {
-        path: '/review-queue',
-        name: 'review-queue',
-        component,
-        meta: main('Review', 2, { requiresAuth: true })
-      },
-      { path: '/genes', name: 'GeneCatalogue', component, meta: main('Genes', 4) },
-      { path: '/scopes/:scopeId', name: 'scope-dashboard', component },
-      {
-        path: '/admin/users',
-        name: 'UserManagement',
-        component,
-        meta: {
-          requiresAuth: true,
-          requiredRoles: ['admin'],
-          showInDropdown: 'curationSetup',
-          label: 'Users',
-          icon: 'mdi-account-group',
-          order: 3
-        }
-      }
-    ]
-  })
-}
+const makeRouter = makeRealRouter
 
 async function mountRail(router = makeRouter()) {
   const wrapper = mount(
@@ -85,7 +42,7 @@ describe('SideRail', () => {
     const wrapper = await mountRail()
     const nav = wrapper.find('nav')
     expect(nav.attributes('aria-label')).toBe('Primary')
-    expect(nav.text()).toContain('Genes')
+    expect(nav.text()).toContain('Gene Catalogue')
     expect(nav.text()).not.toContain('My work')
     expect(nav.text()).not.toContain('Users')
     wrapper.unmount()

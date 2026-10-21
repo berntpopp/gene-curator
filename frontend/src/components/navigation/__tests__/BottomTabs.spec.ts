@@ -3,11 +3,11 @@ import { mount, flushPromises } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 import { VLayout } from 'vuetify/components'
 import { createPinia, setActivePinia } from 'pinia'
-import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { showInfo } from '@/composables/useNotifications'
 import BottomTabs from '../BottomTabs.vue'
+import { makeRealRouter } from './realRoutes'
 
 vi.mock('@/composables/useNotifications', () => ({ showInfo: vi.fn() }))
 vi.mock('@/composables/useLogger', () => ({
@@ -17,47 +17,7 @@ vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
 
-const component = { render: () => null }
-const main = (label: string, order: number, extra = {}) => ({
-  showInMainMenu: true,
-  label,
-  icon: 'mdi-home',
-  order,
-  requiresAuth: true,
-  ...extra
-})
-
-function makeRouter(): Router {
-  return createRouter({
-    history: createMemoryHistory(),
-    routes: [
-      { path: '/', name: 'Home', component },
-      { path: '/assignments', name: 'GeneAssignments', component, meta: main('My work', 1) },
-      { path: '/review-queue', name: 'review-queue', component, meta: main('Review', 2) },
-      { path: '/scopes', name: 'scopes', component, meta: main('Scopes', 3, { tabOrder: 4 }) },
-      {
-        path: '/genes',
-        name: 'GeneCatalogue',
-        component,
-        meta: main('Gene Catalogue', 4, { tabLabel: 'Genes', tabOrder: 3 })
-      },
-      { path: '/profile', name: 'UserProfile', component },
-      {
-        path: '/admin/users',
-        name: 'UserManagement',
-        component,
-        meta: {
-          requiresAuth: true,
-          requiredRoles: ['admin'],
-          showInDropdown: 'curationSetup',
-          label: 'Users',
-          icon: 'mdi-account-group',
-          order: 3
-        }
-      }
-    ]
-  })
-}
+const makeRouter = makeRealRouter
 
 async function mountTabs(router = makeRouter()) {
   const wrapper = mount(defineComponent({ render: () => h(VLayout, () => h(BottomTabs)) }), {

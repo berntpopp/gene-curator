@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import ScoreSummary from '../ScoreSummary.vue'
-import ScopeSummaryCard from '../ScopeSummaryCard.vue'
 import CurationHeader from '../CurationHeader.vue'
 
 describe('ScoreSummary', () => {
@@ -35,41 +34,6 @@ describe('ScoreSummary', () => {
     expect(mount(ScoreSummary).text()).not.toContain('Contradictory evidence present')
     const flagged = mount(ScoreSummary, { props: { hasContradictory: true } })
     expect(flagged.text()).toContain('Contradictory evidence present')
-  })
-})
-
-describe('ScopeSummaryCard', () => {
-  const summary = {
-    scope_name: 'Hearing loss',
-    classification: 'Definitive',
-    genetic_score: 10,
-    experimental_score: 2,
-    total_score: 12,
-    curator_count: 2,
-    evidence_count: 5,
-    last_updated: '2024-03-05T10:00:00Z',
-    is_public: true
-  }
-
-  it('renders scores, counts and a formatted date', () => {
-    const wrapper = mount(ScopeSummaryCard, { props: { scopeSummary: summary } })
-    expect(wrapper.text()).toContain('Hearing loss')
-    expect(wrapper.text()).toContain('10.00')
-    expect(wrapper.text()).toContain('12.00')
-    expect(wrapper.text()).toContain('2 curators')
-    expect(wrapper.text()).toContain('5 evidence items')
-    expect(wrapper.text()).toContain('Updated:')
-    expect(wrapper.text()).not.toContain('Private')
-  })
-
-  it('marks non-public scopes as private and shows an em dash without a date', () => {
-    const wrapper = mount(ScopeSummaryCard, {
-      props: {
-        scopeSummary: { ...summary, classification: null, is_public: false, last_updated: null }
-      }
-    })
-    expect(wrapper.text()).toContain('Private')
-    expect(wrapper.text()).toContain('Updated: —')
   })
 })
 

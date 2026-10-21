@@ -59,6 +59,14 @@ export const WORKFLOW_STAGES: WorkflowStage[] = [
     description: 'Approved and active curation record',
     required_roles: ['admin'],
     order: 5
+  },
+  {
+    id: 'archived',
+    stage_type: 'archived',
+    name: 'Archived',
+    description: 'Superseded or deleted; terminal',
+    required_roles: ['admin'],
+    order: 6
   }
 ]
 
