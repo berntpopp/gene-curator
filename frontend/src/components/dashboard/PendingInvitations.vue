@@ -196,7 +196,6 @@
 
     try {
       await invitationsStore.acceptInvitation(invitation.id, invitation.scope_id)
-      await scopesStore.fetchUserScopes() // dashboard scope list must show the new scope
 
       showNotification(
         `Joined ${invitation.scope_display_name || invitation.scope_name} as ${invitation.role}`,
@@ -207,6 +206,11 @@
         invitationId: invitation.id,
         scopeId: invitation.scope_id,
         role: invitation.role
+      })
+
+      // The join succeeded; a failed scope refresh must not turn it into an error
+      await scopesStore.fetchUserScopes().catch((error: unknown) => {
+        logger.warn('Failed to refresh scopes after accept', { error: (error as Error).message })
       })
     } catch (error) {
       logger.error('Failed to accept invitation', {

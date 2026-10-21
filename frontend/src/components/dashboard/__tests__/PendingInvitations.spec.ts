@@ -153,6 +153,18 @@ describe('PendingInvitations', () => {
     expect(snackbarState.color).toBe('success')
   })
 
+  it('still reports success when refreshing the scope list fails', async () => {
+    store.invitations = [invitation]
+    vi.mocked(useScopesStore().fetchUserScopes).mockRejectedValueOnce(new Error('down'))
+    const w = mountPending()
+
+    await buttonWith(w, 'Accept')?.trigger('click')
+    await flushPromises()
+
+    expect(snackbarState.message).toContain('Joined Pathways Team')
+    expect(logger.warn).toHaveBeenCalled()
+  })
+
   it('reports a failed accept', async () => {
     store.invitations = [invitation]
     store.acceptInvitation.mockRejectedValueOnce(new Error('nope'))
