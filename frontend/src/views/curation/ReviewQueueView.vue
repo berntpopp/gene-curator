@@ -85,7 +85,7 @@
       </div>
       <div v-else>Try adjusting your filters to see more results.</div>
       <template v-if="searchQuery || selectedScope" #append>
-        <v-btn variant="outlined" @click="clearFilters">Clear Filters</v-btn>
+        <v-btn variant="outlined" @click="clearFilters">Clear filters</v-btn>
       </template>
     </v-alert>
 
@@ -140,14 +140,11 @@
                     {{ curation.total_score || 0 }}
                   </div>
                   <div class="text-caption text-medium-emphasis">/ 18 points</div>
-                  <v-chip
+                  <ClassificationMark
                     v-if="curation.classification"
-                    :color="getClassificationColor(curation.classification)"
-                    size="small"
+                    :classification="curation.classification"
                     class="mt-1"
-                  >
-                    {{ curation.classification }}
-                  </v-chip>
+                  />
                 </div>
               </v-col>
 
@@ -229,6 +226,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * ReviewQueueView
    *
@@ -479,17 +477,6 @@
   function errorText(error: unknown): string {
     const e = error as { response?: { data?: { detail?: string } }; message?: string }
     return e.response?.data?.detail || e.message || 'unknown error'
-  }
-
-  function getClassificationColor(classification: string | null | undefined): string {
-    const colors: Record<string, string> = {
-      Definitive: 'success',
-      Strong: 'info',
-      Moderate: 'warning',
-      Limited: 'grey',
-      'No Known Disease Relationship': 'error'
-    }
-    return colors[classification ?? ''] || 'grey'
   }
 
   function formatRelativeTime(dateString: string | null | undefined): string {

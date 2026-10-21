@@ -2,7 +2,7 @@
   <v-card class="score-summary" variant="outlined">
     <v-card-title class="text-subtitle-1 pb-0">
       <v-icon start size="small">mdi-counter</v-icon>
-      Score Summary
+      Score summary
     </v-card-title>
 
     <v-card-text class="pt-2">
@@ -12,9 +12,7 @@
           <div class="score-value">{{ totalScore.toFixed(1) }}</div>
           <div class="score-max">/ 18</div>
         </div>
-        <v-chip :color="classificationColor" size="small" class="mt-2">
-          {{ classification }}
-        </v-chip>
+        <ClassificationMark :classification="classification" class="mt-2" />
       </div>
 
       <v-divider class="mb-3" />
@@ -59,7 +57,7 @@
 
           <!-- Experimental Evidence Header -->
           <tr class="category-header">
-            <td colspan="3" class="font-weight-bold text-secondary">
+            <td colspan="3" class="font-weight-bold text-primary">
               <v-icon size="small" class="mr-1">mdi-flask</v-icon>
               Experimental Evidence
             </td>
@@ -124,7 +122,7 @@
           <v-expansion-panel-text>
             <div class="d-flex flex-column ga-1 text-caption">
               <div class="d-flex justify-space-between">
-                <span><v-chip size="x-small" color="success">Definitive</v-chip></span>
+                <span><ClassificationMark classification="definitive" /></span>
                 <span>12-18 points + replication over time</span>
               </div>
               <div class="d-flex justify-space-between">
@@ -154,6 +152,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * ScoreSummary
    *
@@ -197,21 +196,6 @@
       })
     }
   )
-
-  const colorMap: Record<string, string> = {
-    definitive: 'success',
-    strong: 'info',
-    moderate: 'warning',
-    limited: 'grey',
-    disputed: 'error',
-    refuted: 'error',
-    'no known disease relationship': 'grey'
-  }
-
-  const classificationColor = computed(() => {
-    const classification = props.classification?.toLowerCase() || ''
-    return colorMap[classification] || 'grey'
-  })
 
   const classificationClass = computed(() => {
     const classification = props.classification?.toLowerCase() || ''

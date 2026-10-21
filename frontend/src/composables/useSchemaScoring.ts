@@ -19,6 +19,7 @@
 
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
+import { getClassification } from '@/config/classification'
 
 /** Subset of a backend scoring engine configuration used for display. */
 export interface ScoringConfiguration {
@@ -103,34 +104,7 @@ export function useSchemaScoring(
    * Get Vuetify color for classification
    * Maps common classification levels to semantic colors
    */
-  const classificationColor = computed<string>(() => {
-    const cls = classification.value
-    if (!cls) return 'grey'
-
-    const clsLower = cls.toLowerCase()
-
-    // Strong evidence classifications
-    if (clsLower.includes('definitive') || clsLower.includes('strong')) {
-      return 'success'
-    }
-
-    // Moderate evidence
-    if (clsLower.includes('moderate')) {
-      return 'info'
-    }
-
-    // Limited evidence
-    if (clsLower.includes('limited') || clsLower.includes('disputed')) {
-      return 'warning'
-    }
-
-    // No evidence / refuted
-    if (clsLower.includes('none') || clsLower.includes('refuted') || clsLower.includes('no')) {
-      return 'grey'
-    }
-
-    return 'grey'
-  })
+  const classificationColor = computed<string>(() => getClassification(classification.value).color)
 
   /**
    * Check if score is within 1 point of next classification threshold

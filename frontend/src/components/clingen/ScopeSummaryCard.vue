@@ -3,9 +3,7 @@
     <v-card-title>
       <div class="d-flex align-center justify-space-between">
         <span>{{ scopeSummary.scope_name }}</span>
-        <v-chip :color="classificationColor" size="small" label>
-          {{ scopeSummary.classification || '—' }}
-        </v-chip>
+        <ClassificationMark :classification="scopeSummary.classification" />
       </div>
     </v-card-title>
 
@@ -74,6 +72,8 @@
 
 <script setup lang="ts">
   import { formatDate } from '@/utils/format'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import { getClassification } from '@/config/classification'
   import { computed } from 'vue'
 
   interface ScopeSummary {
@@ -90,19 +90,13 @@
 
   const props = defineProps<{ scopeSummary: ScopeSummary }>()
 
-  // Classification color based on score
-  const classificationColor = computed(() => {
-    const cls = props.scopeSummary.classification?.toLowerCase()
-    if (cls === 'definitive') return 'success'
-    if (cls === 'strong') return 'info'
-    if (cls === 'moderate') return 'warning'
-    if (cls === 'limited') return 'grey'
-    return 'error'
-  })
+  const classificationColor = computed(
+    () => getClassification(props.scopeSummary.classification).color
+  )
 
-  // Progress percentage (0-100) based on max score of 12
+  // Progress percentage (0-100) of the 18-point maximum
   const progressPercentage = computed(() => {
-    return Math.min((props.scopeSummary.total_score / 12) * 100, 100)
+    return Math.min((props.scopeSummary.total_score / 18) * 100, 100)
   })
 
   // Format date helper

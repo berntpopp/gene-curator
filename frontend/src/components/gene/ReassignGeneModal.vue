@@ -238,7 +238,7 @@
   // ============================================
 
   const scopesStore = useScopesStore()
-  const { getRoleColor: useGetRoleColor } = useRoleColors()
+  const { getRoleColor } = useRoleColors()
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
@@ -280,13 +280,6 @@
   // ============================================
   // METHODS
   // ============================================
-
-  /**
-   * Get role color
-   */
-  const getRoleColor = (role: string) => {
-    return useGetRoleColor(role)
-  }
 
   /**
    * Fetch available curators for the scope

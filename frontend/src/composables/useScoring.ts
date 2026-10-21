@@ -12,6 +12,7 @@
 
 import { computed } from 'vue'
 import type { ComputedRef } from 'vue'
+import { getClassification } from '@/config/classification'
 
 /** Minimal evidence shape used for scoring (backend EvidenceItem fields). */
 export interface ScoredEvidence {
@@ -102,12 +103,7 @@ export function useScoring(evidenceItems: {
    * Get Vuetify color for classification
    */
   const classificationColor = computed<string>(() => {
-    const cls = breakdown.value.classification
-    if (cls === 'Definitive') return 'success'
-    if (cls === 'Strong') return 'info'
-    if (cls === 'Moderate') return 'warning'
-    if (cls === 'Limited') return 'grey'
-    return 'error'
+    return getClassification(breakdown.value.classification).color
   })
 
   /**
@@ -115,7 +111,7 @@ export function useScoring(evidenceItems: {
    */
   const progressPercentage = computed<number>(() => {
     const total = breakdown.value.total_score
-    return Math.min((total / 12) * 100, 100)
+    return Math.min((total / 18) * 100, 100)
   })
 
   /**

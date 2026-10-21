@@ -19,7 +19,7 @@
         <!-- Disease Info -->
         <v-col cols="12" md="3">
           <div class="d-flex align-center">
-            <v-icon size="32" color="secondary" class="mr-3">mdi-hospital</v-icon>
+            <v-icon size="32" class="mr-3">mdi-hospital</v-icon>
             <div>
               <div class="text-caption text-medium-emphasis">Disease</div>
               <div class="text-subtitle-1 font-weight-medium">
@@ -46,7 +46,7 @@
             <v-icon size="32" color="info" class="mr-3">mdi-family-tree</v-icon>
             <div>
               <div class="text-caption text-medium-emphasis">Mode of Inheritance</div>
-              <v-chip :color="moiColor" size="small" variant="tonal">
+              <v-chip size="small" variant="outlined">
                 {{ moiDisplay }}
               </v-chip>
             </div>
@@ -56,12 +56,9 @@
         <!-- Classification -->
         <v-col cols="12" md="2">
           <div class="d-flex align-center">
-            <v-icon size="32" :color="classificationColor" class="mr-3">mdi-certificate</v-icon>
             <div>
               <div class="text-caption text-medium-emphasis">Classification</div>
-              <v-chip :color="classificationColor" size="small">
-                {{ classification || 'Not Classified' }}
-              </v-chip>
+              <ClassificationMark :classification="classification" />
             </div>
           </div>
         </v-col>
@@ -95,6 +92,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * CurationHeader
    *
@@ -133,23 +131,6 @@
     props.schema ? `${props.schema.name} v${props.schema.version}` : ''
   )
 
-  const moiColorMap: Record<string, string> = {
-    AD: 'purple',
-    AR: 'blue',
-    'X-linked': 'pink',
-    MT: 'orange'
-  }
-
-  const classificationColorMap: Record<string, string> = {
-    definitive: 'success',
-    strong: 'info',
-    moderate: 'warning',
-    limited: 'grey',
-    disputed: 'error',
-    refuted: 'error',
-    'no known disease relationship': 'grey'
-  }
-
   const moiDisplay = computed(() => {
     const moi = props.moi?.toLowerCase() || ''
     if (moi.includes('dominant') || moi === 'ad') return 'AD'
@@ -157,13 +138,6 @@
     if (moi.includes('x-linked') || moi === 'xl') return 'X-linked'
     if (moi.includes('mitochondrial')) return 'MT'
     return props.moi || 'Unknown'
-  })
-
-  const moiColor = computed(() => moiColorMap[moiDisplay.value] || 'grey')
-
-  const classificationColor = computed(() => {
-    const classification = props.classification?.toLowerCase() || ''
-    return classificationColorMap[classification] || 'grey'
   })
 
   const statusColor = computed(() => curationStatusColor(props.status))

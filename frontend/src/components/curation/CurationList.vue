@@ -49,7 +49,7 @@
 
       <v-btn v-if="canCreateCuration" color="primary" :to="`/scopes/${scopeId}/genes`">
         <v-icon start>mdi-dna</v-icon>
-        Start Curation
+        Start curation
         <v-tooltip activator="parent" location="bottom">
           Go to Genes tab to start a new curation
         </v-tooltip>
@@ -91,13 +91,7 @@
             </v-chip>
           </td>
           <td>
-            <v-chip
-              v-if="item.classification"
-              :color="getClassificationColor(item.classification)"
-              size="small"
-            >
-              {{ item.classification }}
-            </v-chip>
+            <ClassificationMark v-if="item.classification" :classification="item.classification" />
             <span v-else class="text-caption text-medium-emphasis">—</span>
           </td>
           <td>
@@ -191,9 +185,7 @@
               <!-- Classification -->
               <div v-if="curation.classification" class="d-flex align-center mb-2">
                 <v-icon icon="mdi-medal" size="small" class="mr-2" />
-                <v-chip :color="getClassificationColor(curation.classification)" size="small">
-                  {{ curation.classification }}
-                </v-chip>
+                <ClassificationMark :classification="curation.classification" />
               </div>
 
               <!-- Score -->
@@ -205,7 +197,7 @@
                 </div>
                 <v-progress-linear
                   :model-value="(curation.score / 18) * 100"
-                  :color="getClassificationColor(curation.classification)"
+                  :color="getClassification(curation.classification).color"
                   height="8"
                   rounded
                   class="mt-2"
@@ -263,9 +255,9 @@
           :to="`/scopes/${scopeId}/genes`"
         >
           <v-icon start>mdi-dna</v-icon>
-          Start Curation
+          Start curation
         </v-btn>
-        <v-btn v-else variant="outlined" @click="clearFilters">Clear Filters</v-btn>
+        <v-btn v-else variant="outlined" @click="clearFilters">Clear filters</v-btn>
       </template>
     </v-alert>
   </div>
@@ -273,6 +265,8 @@
 
 <script setup lang="ts">
   import { formatDate } from '@/utils/format'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import { getClassification } from '@/config/classification'
   /**
    * CurationList Component
    *
@@ -470,20 +464,6 @@
   }
 
   /**
-   * Get classification color
-   */
-  function getClassificationColor(classification: string | null | undefined): string {
-    const colors: Record<string, string> = {
-      Definitive: 'success',
-      Strong: 'info',
-      Moderate: 'warning',
-      Limited: 'grey',
-      'No Known Disease Relationship': 'error'
-    }
-    return colors[classification ?? ''] || 'grey'
-  }
-
-  /**
    * Format date
    */
   /**
@@ -555,7 +535,7 @@
 <style scoped>
   /* Table row hover */
   tr:hover {
-    background-color: rgba(0, 0, 0, 0.02);
+    background-color: rgba(var(--v-theme-on-surface), 0.04);
   }
 
   /* Card hover effect */

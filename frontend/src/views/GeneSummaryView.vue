@@ -72,17 +72,17 @@
 
               <!-- Classification Distribution -->
               <v-card class="mt-4">
-                <v-card-title>Classification Distribution</v-card-title>
+                <v-card-title>Classification distribution</v-card-title>
                 <v-card-text>
                   <v-chip-group>
-                    <v-chip
+                    <span
                       v-for="(count, classification) in summary.classification_summary"
                       :key="classification"
-                      :color="getClassificationColor(classification)"
-                      label
+                      class="d-inline-flex align-center ga-1 mr-4"
                     >
-                      {{ classification }}: {{ count }}
-                    </v-chip>
+                      <ClassificationMark :classification="String(classification)" />
+                      <span class="tabular text-medium-emphasis">{{ count }}</span>
+                    </span>
                   </v-chip-group>
                 </v-card-text>
               </v-card>
@@ -118,6 +118,8 @@
 
 <script setup lang="ts">
   import { formatDateTime } from '@/utils/format'
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
+  import { getClassification } from '@/config/classification'
   import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGeneSummaryStore } from '@/stores/geneSummary'
@@ -149,25 +151,9 @@
       })[]
   )
 
-  // Consensus color
-  const consensusColor = computed(() => {
-    const cls = summary.value?.consensus_classification?.toLowerCase()
-    if (cls === 'definitive') return 'success'
-    if (cls === 'strong') return 'info'
-    if (cls === 'moderate') return 'warning'
-    if (cls === 'limited') return 'grey'
-    return 'error'
-  })
-
-  // Get classification color helper
-  const getClassificationColor = (classification: string | number) => {
-    const cls = String(classification).toLowerCase()
-    if (cls === 'definitive') return 'success'
-    if (cls === 'strong') return 'info'
-    if (cls === 'moderate') return 'warning'
-    if (cls === 'limited') return 'grey'
-    return 'error'
-  }
+  const consensusColor = computed(
+    () => getClassification(summary.value?.consensus_classification).color
+  )
 
   // Format date helper
   async function load(geneId: string) {

@@ -115,39 +115,39 @@ describe('useSchemaScoring', () => {
   })
 
   describe('classificationColor', () => {
-    it('returns success for Definitive', () => {
+    it('returns cls-definitive for Definitive', () => {
       const scores = ref({ total_score: 15 })
       const config = ref(clingenConfig)
       const { classificationColor } = useSchemaScoring(scores, config)
-      expect(classificationColor.value).toBe('success')
+      expect(classificationColor.value).toBe('cls-definitive')
     })
 
-    it('returns success for Strong', () => {
+    it('returns cls-strong for Strong', () => {
       const scores = ref({ total_score: 8 })
       const config = ref(clingenConfig)
       const { classificationColor } = useSchemaScoring(scores, config)
-      expect(classificationColor.value).toBe('success')
+      expect(classificationColor.value).toBe('cls-strong')
     })
 
-    it('returns info for Moderate', () => {
+    it('returns cls-moderate for Moderate', () => {
       const scores = ref({ total_score: 4 })
       const config = ref(clingenConfig)
       const { classificationColor } = useSchemaScoring(scores, config)
-      expect(classificationColor.value).toBe('info')
+      expect(classificationColor.value).toBe('cls-moderate')
     })
 
-    it('returns warning for Limited', () => {
+    it('returns cls-limited for Limited', () => {
       const scores = ref({ total_score: 1 })
       const config = ref(clingenConfig)
       const { classificationColor } = useSchemaScoring(scores, config)
-      expect(classificationColor.value).toBe('warning')
+      expect(classificationColor.value).toBe('cls-limited')
     })
 
-    it('returns warning for Limited at score 0', () => {
+    it('returns cls-limited for Limited at score 0', () => {
       const scores = ref({ total_score: 0 })
       const config = ref(clingenConfig)
       const { classificationColor } = useSchemaScoring(scores, config)
-      expect(classificationColor.value).toBe('warning')
+      expect(classificationColor.value).toBe('cls-limited')
     })
   })
 

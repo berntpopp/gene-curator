@@ -45,10 +45,10 @@ export function useRoleColors(): UseRoleColorsReturn {
    * Frozen for immutability - these are constants
    */
   const roleColors: Readonly<Record<string, string>> = Object.freeze({
-    admin: 'red',
-    curator: 'blue',
-    reviewer: 'green',
-    viewer: 'grey'
+    admin: 'primary',
+    curator: 'surface-variant',
+    reviewer: 'surface-variant',
+    viewer: 'surface-variant'
   })
 
   /**
@@ -68,7 +68,7 @@ export function useRoleColors(): UseRoleColorsReturn {
    * @returns Vuetify color name
    */
   const getRoleColor = (role: string): string => {
-    return roleColors[role] || 'grey'
+    return roleColors[role] || 'surface-variant'
   }
 
   /**

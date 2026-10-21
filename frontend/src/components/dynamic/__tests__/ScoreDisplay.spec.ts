@@ -122,13 +122,12 @@ describe('ScoreDisplay', () => {
   describe('score display', () => {
     it('renders card with Live Scoring title', () => {
       const wrapper = createWrapper()
-      expect(wrapper.find('.v-card-title').text()).toContain('Live Scoring')
+      expect(wrapper.find('.v-card-title').text()).toContain('Live scoring')
     })
 
-    it('displays classification chip', () => {
+    it('displays the classification mark', () => {
       const wrapper = createWrapper()
-      const chip = wrapper.find('.v-chip')
-      expect(chip.exists()).toBe(true)
+      expect(wrapper.find('.cls-mark').text()).toBe('Moderate')
     })
 
     it('shows progress bar', () => {
@@ -138,10 +137,9 @@ describe('ScoreDisplay', () => {
   })
 
   describe('classification colors', () => {
-    it('uses info color for Moderate classification', () => {
+    it('draws Moderate as two filled bars', () => {
       const wrapper = createWrapper()
-      const chip = wrapper.find('.v-chip')
-      expect(chip.attributes('data-color')).toBe('info')
+      expect(wrapper.find('.cls-mark').findAll('i.on')).toHaveLength(2)
     })
   })
 
