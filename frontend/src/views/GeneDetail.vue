@@ -25,10 +25,25 @@
     </div>
 
     <!-- Error State -->
+    <v-alert v-else-if="notFound" type="warning" variant="tonal" class="mb-4">
+      <v-alert-title>Gene not found</v-alert-title>
+      This gene does not exist or was removed.
+      <template #append>
+        <v-btn :to="{ name: 'GeneCatalogue' }" variant="text"> Back to the gene catalogue </v-btn>
+      </template>
+    </v-alert>
     <v-alert v-else-if="error" type="error" variant="tonal" class="mb-4">
       <v-alert-title>Failed to load gene information</v-alert-title>
       {{ error }}
       <template #append>
+        <v-btn
+          class="retry"
+          variant="text"
+          color="error"
+          @click="loadGene(String(route.params.id))"
+        >
+          Retry
+        </v-btn>
         <v-btn :to="{ name: 'GeneCatalogue' }" variant="text" color="error"> Back to Genes </v-btn>
       </template>
     </v-alert>
@@ -260,6 +275,7 @@
   // State
   const loading = ref(true)
   const error = ref<string | null>(null)
+  const notFound = ref(false)
   const hgncData = ref<HgncGene | null>(null)
 
   // Local gene data from database (store is JS, so its currentGene is typed null)
@@ -330,6 +346,7 @@
     try {
       loading.value = true
       error.value = null
+      notFound.value = false
       hgncData.value = null
 
       const gene = await genesStore.fetchGeneById(geneId)
@@ -349,6 +366,7 @@
         error: e.message,
         stack: e.stack
       })
+      notFound.value = (err as { response?: { status?: number } }).response?.status === 404
       error.value = 'Failed to load gene details'
     } finally {
       loading.value = false

@@ -9,7 +9,7 @@
         </p>
       </div>
       <v-spacer />
-      <v-btn color="primary" variant="flat" to="/scope-selection" size="large">
+      <v-btn color="primary" variant="flat" to="/scopes" size="large">
         <v-icon start>mdi-plus</v-icon>
         Start New Curation
       </v-btn>
@@ -28,6 +28,12 @@
             <div v-if="loading" class="text-center py-8">
               <v-progress-circular indeterminate color="primary" />
             </div>
+            <v-alert v-else-if="scopesStore.error" type="error" variant="tonal">
+              {{ scopesStore.error }}
+              <template #append>
+                <v-btn class="retry" variant="text" @click="loadScopes">Retry</v-btn>
+              </template>
+            </v-alert>
             <div v-else-if="userScopes.length">
               <v-chip
                 v-for="scope in userScopes"
@@ -60,7 +66,7 @@
           </v-card-title>
           <v-card-text>
             <div class="d-grid ga-2">
-              <v-btn color="primary" variant="outlined" block to="/scope-selection">
+              <v-btn color="primary" variant="outlined" block to="/scopes">
                 <v-icon start>mdi-plus</v-icon>
                 New Curation
               </v-btn>
@@ -96,7 +102,7 @@
   const userScopes = computed(() => scopesStore.userScopes)
   const isAdmin = computed(() => authStore.isAdmin)
 
-  onMounted(async () => {
+  async function loadScopes() {
     loading.value = true
     try {
       await scopesStore.fetchUserScopes()
@@ -106,7 +112,9 @@
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  onMounted(loadScopes)
 </script>
 
 <style scoped>
