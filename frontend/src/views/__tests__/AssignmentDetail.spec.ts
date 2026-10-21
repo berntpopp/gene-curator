@@ -3,6 +3,12 @@ import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import AssignmentDetail from '@/views/AssignmentDetail.vue'
 import { useAssignmentsStore } from '@/stores/assignments'
+import { precurationsAPI, curationsAPI } from '@/api'
+
+vi.mock('@/api', () => ({
+  precurationsAPI: { getPrecurations: vi.fn() },
+  curationsAPI: { getCurations: vi.fn() }
+}))
 
 const { routeState } = vi.hoisted(() => ({ routeState: { params: { id: 'a1' } } }))
 
@@ -35,7 +41,11 @@ function mountView() {
 }
 
 describe('AssignmentDetail', () => {
-  beforeEach(() => setActivePinia(createPinia()))
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({ precurations: [] } as never)
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+  })
 
   it('loads the assignment by route id and shows its details', async () => {
     const store = useAssignmentsStore()
@@ -54,22 +64,62 @@ describe('AssignmentDetail', () => {
     expect(text).toContain('Active')
   })
 
-  it('links precuration and curation to the scope gene routes', async () => {
-    vi.spyOn(useAssignmentsStore(), 'fetchAssignmentById').mockResolvedValue(assignment as never)
+  const actions = (wrapper: ReturnType<typeof mountView>) =>
+    wrapper
+      .findAllComponents({ name: 'VBtn' })
+      .filter(btn => btn.props('to'))
+      .map(btn => ({ text: btn.text(), to: btn.props('to') }))
 
+  it('offers to start precuration when nothing exists yet', async () => {
+    vi.spyOn(useAssignmentsStore(), 'fetchAssignmentById').mockResolvedValue(assignment as never)
     const wrapper = mountView()
     await flushPromises()
 
-    const targets = wrapper
-      .findAllComponents({ name: 'VBtn' })
-      .map(btn => btn.props('to'))
-      .filter(Boolean)
-    const params = { scopeId: 's1', geneId: 'g1' }
-    expect(targets).toEqual([
-      { name: 'gene-precuration-create', params },
-      { name: 'gene-curation-create', params }
+    expect(vi.mocked(curationsAPI.getCurations)).toHaveBeenCalledWith(
+      expect.objectContaining({ scope_id: 's1', gene_id: 'g1' })
+    )
+    expect(actions(wrapper)).toEqual([
+      {
+        text: 'Start precuration',
+        to: { name: 'gene-precuration-create', params: { scopeId: 's1', geneId: 'g1' } }
+      }
     ])
+    expect(wrapper.text()).toContain('Assigned')
     expect(wrapper.findComponent(RouterLinkStub).props('to')).toBe('/genes/g1')
+  })
+
+  it('offers to continue an existing precuration', async () => {
+    vi.spyOn(useAssignmentsStore(), 'fetchAssignmentById').mockResolvedValue(assignment as never)
+    vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+      precurations: [
+        { id: 'p1', gene_id: 'g1', status: 'draft', updated_at: '2026-01-01T00:00:00Z' }
+      ]
+    } as never)
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(actions(wrapper).map(a => a.text)).toEqual(['Continue precuration'])
+    expect(wrapper.text()).toContain('draft')
+  })
+
+  it('offers only "Open curation" when the best curation is active', async () => {
+    vi.spyOn(useAssignmentsStore(), 'fetchAssignmentById').mockResolvedValue(assignment as never)
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [
+        { id: 'c1', gene_id: 'g1', status: 'draft', updated_at: '2026-02-01T00:00:00Z' },
+        { id: 'c2', gene_id: 'g1', status: 'active', updated_at: '2026-01-01T00:00:00Z' }
+      ]
+    } as never)
+    const wrapper = mountView()
+    await flushPromises()
+
+    expect(actions(wrapper)).toEqual([
+      {
+        text: 'Open curation',
+        to: { name: 'curation-detail', params: { scopeId: 's1', curationId: 'c2' } }
+      }
+    ])
+    expect(wrapper.text()).not.toContain('Start')
   })
 
   it('shows an error with retry when loading fails', async () => {
