@@ -16,15 +16,16 @@ from app.core.database import raise_if_rls_denied
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
 from app.crud.review_round import (
-    REVIEW_ROLES,
     all_reviews_approved,
+    approving_reviewers,
     check_review_open,
+    eligible_peer_reviewers,
     has_pending_review,
     holds_review_capability,
-    in_current_round,
     pending_reviews,
     reassign_earlier_reviewers,
     record_review_decision,
+    reviewers_required,
 )
 from app.crud.workflow_statistics import compute_workflow_statistics
 from app.models import (
@@ -39,6 +40,7 @@ from app.models import (
     UserNew,
     WorkflowStage,
 )
+from app.models.methodology import MethodologyVersion
 from app.schemas.workflow_engine import (
     PeerReviewRequest,
     WorkflowStateInfo,
@@ -55,30 +57,41 @@ class WorkflowEngine:
     """
 
     def __init__(self) -> None:
+        # Default table; a pinned snapshot overrides it per stage (transitions_for)
+        S = WorkflowStage  # noqa: N806
         self.valid_transitions = {
-            # Precuration workflow
-            WorkflowStage.ENTRY: [WorkflowStage.PRECURATION],
-            WorkflowStage.PRECURATION: [
-                WorkflowStage.CURATION,
-                WorkflowStage.REVIEW,
-                WorkflowStage.ENTRY,
-            ],  # Can go back to entry
-            # Curation workflow
-            WorkflowStage.CURATION: [
-                WorkflowStage.REVIEW,
-                WorkflowStage.PRECURATION,
-            ],  # Can go back to precuration
-            # Review workflow
-            WorkflowStage.REVIEW: [
-                WorkflowStage.PRECURATION,
-                WorkflowStage.ACTIVE,
-                WorkflowStage.CURATION,
-            ],  # Can send back to curation
-            WorkflowStage.ACTIVE: [
-                WorkflowStage.REVIEW
-            ],  # Can be sent back for re-review
-            WorkflowStage.ARCHIVED: [],  # terminal
+            S.ENTRY: [S.PRECURATION],
+            S.PRECURATION: [S.CURATION, S.REVIEW, S.ENTRY],
+            S.CURATION: [S.REVIEW, S.PRECURATION],
+            S.REVIEW: [S.PRECURATION, S.ACTIVE, S.CURATION],
+            S.ACTIVE: [S.REVIEW],  # sent back for re-review
+            S.ARCHIVED: [],  # terminal
         }
+
+    @staticmethod
+    def workflow_states(db: Session, item: Any) -> dict[str, Any]:
+        """`workflow_states` of the item's pinned methodology version ({} if unpinned)."""
+        pin = getattr(item, "methodology_version_id", None)
+        version = db.get(MethodologyVersion, pin) if pin else None
+        states = version.snapshot.get("workflow_states") if version else None
+        return states if isinstance(states, dict) else {}
+
+    def transitions_for(
+        self, db: Session, item: Any
+    ) -> dict[WorkflowStage, list[WorkflowStage]]:
+        """Default table, with each stage the pinned snapshot lists replaced by its
+        `allowed_transitions`; any unknown stage in them -> the default table only."""
+        try:
+            configured = {
+                WorkflowStage(stage): [
+                    WorkflowStage(t) for t in conf["allowed_transitions"]
+                ]
+                for stage, conf in self.workflow_states(db, item).items()
+                if isinstance(conf, dict) and "allowed_transitions" in conf
+            }
+        except (TypeError, ValueError):
+            return self.valid_transitions
+        return {**self.valid_transitions, **configured}
 
     def _load_item_for_validation(
         self,
@@ -139,7 +152,9 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
-        if target_stage not in self.valid_transitions.get(current_stage, []):
+        # Load item to get scope_id (scope role check) and its pinned workflow
+        item, scope_id = self._load_item_for_validation(db, item_id, item_type)
+        if target_stage not in self.transitions_for(db, item).get(current_stage, []):
             errors.append(
                 f"Invalid transition from {current_stage.value} to {target_stage.value}"
             )
@@ -155,9 +170,6 @@ class WorkflowEngine:
                 warnings=warnings,
                 requirements=requirements,
             )
-
-        # Load item to get scope_id for scope-specific role check
-        item, scope_id = self._load_item_for_validation(db, item_id, item_type)
 
         # Role-based transition validation (check global OR scope-specific role)
         role_requirements = self._get_role_requirements(current_stage, target_stage)
@@ -214,18 +226,32 @@ class WorkflowEngine:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
         try:
+            waiting = False
             if item_type == "curation" and current_stage == WorkflowStage.REVIEW:
                 record_review_decision(db, item, user_id, target_stage, notes)
-            handler = {
-                WorkflowStage.PRECURATION: self._transition_to_precuration,
-                WorkflowStage.CURATION: self._transition_to_curation,
-                WorkflowStage.REVIEW: self._transition_to_review,
-                WorkflowStage.ACTIVE: self._transition_to_active,
-                WorkflowStage.ENTRY: self._transition_to_entry,
-            }.get(target_stage)
-            if handler is None:
+                waiting = target_stage == WorkflowStage.ACTIVE and approving_reviewers(
+                    db, item
+                ) < reviewers_required(self.workflow_states(db, item))
+            if waiting:  # approval recorded; more reviewers must approve (#268)
+                target_stage = current_stage
+            handler = (
+                None
+                if waiting
+                else {
+                    WorkflowStage.PRECURATION: self._transition_to_precuration,
+                    WorkflowStage.CURATION: self._transition_to_curation,
+                    WorkflowStage.REVIEW: self._transition_to_review,
+                    WorkflowStage.ACTIVE: self._transition_to_active,
+                    WorkflowStage.ENTRY: self._transition_to_entry,
+                }.get(target_stage)
+            )
+            if handler is None and not waiting:
                 raise ValueError(f"Unsupported target stage: {target_stage}")
-            transition_result = handler(db, item, user_id, notes, metadata)
+            transition_result = (
+                handler(db, item, user_id, notes, metadata)
+                if handler
+                else {"message": "Approval recorded; more reviewers required"}
+            )
 
             # Emit notifications for workflow transitions
             self._emit_transition_notification(
@@ -263,7 +289,7 @@ class WorkflowEngine:
             raise ValueError(f"{item_type} not found")
 
         # Get available transitions
-        available_transitions = self.valid_transitions.get(current_stage, [])
+        available_transitions = self.transitions_for(db, item).get(current_stage, [])
 
         # Get workflow history
         history = self._get_workflow_history(db, item_id, item_type)
@@ -389,6 +415,7 @@ class WorkflowEngine:
                 if decision == "reject"
                 else CurationStatus.DRAFT
             )
+            curation.is_draft = curation.is_draft or decision == "reject"  # was trigger
             db.flush()
 
     def submit_peer_review(
@@ -930,8 +957,14 @@ class WorkflowEngine:
     def _check_all_reviews_complete(
         self, db: Session, item_id: UUID, item_type: str
     ) -> bool:
-        """Check if all required reviews are complete and approved."""
-        return all_reviews_approved(db, item_id)
+        """No open review blocks and enough reviewers approved (reviewers_required)."""
+        curation = db.get(CurationNew, item_id)
+        return (
+            curation is not None
+            and all_reviews_approved(db, item_id)
+            and approving_reviewers(db, curation)
+            >= reviewers_required(self.workflow_states(db, curation))
+        )
 
     def _calculate_average_stage_time(
         self, db: Session, stage: str, cutoff_date: datetime, scope_id: UUID | None
@@ -941,96 +974,8 @@ class WorkflowEngine:
         # For now, return a placeholder
         return 24.0  # 24 hours average
 
-    def get_eligible_peer_reviewers(
-        self,
-        db: Session,
-        scope_id: UUID | None = None,
-        exclude_user_id: UUID | None = None,
-    ) -> list[dict[str, Any]]:
-        """
-        Get eligible peer reviewers for assignment.
-
-        Filters:
-        - Active users only
-        - If scope_id provided, must be member of that scope with reviewer-capable role
-        - Excludes exclude_user_id (4-eyes principle)
-
-        Returns users with pending review count.
-        """
-        from sqlalchemy import func as sqlalchemy_func
-
-        from app.models.models import Review, ReviewStatus, ScopeMembership
-
-        # Eligible roles within a scope for reviewing
-        eligible_scope_roles = REVIEW_ROLES
-
-        # Base query for active users
-        query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712
-
-        # Exclude current user (4-eyes principle)
-        if exclude_user_id:
-            query = query.filter(UserNew.id != exclude_user_id)
-
-        # Filter by scope membership if scope_id provided
-        if scope_id:
-            # Subquery to get user IDs with eligible roles in the scope
-            scope_member_ids = (
-                db.query(ScopeMembership.user_id)
-                .filter(
-                    ScopeMembership.scope_id == scope_id,
-                    ScopeMembership.is_active == True,  # noqa: E712
-                    ScopeMembership.accepted_at.isnot(None),
-                    ScopeMembership.role.in_(eligible_scope_roles),
-                )
-                .subquery()
-            )
-            query = query.filter(UserNew.id.in_(select(scope_member_ids)))
-
-        users = query.order_by(UserNew.name).all()
-
-        # Get pending review counts and scope roles
-        result = []
-        for user in users:
-            pending_count = (
-                db.query(sqlalchemy_func.count(Review.id))
-                .filter(
-                    Review.reviewer_id == user.id,
-                    Review.status == ReviewStatus.PENDING,
-                    in_current_round,
-                )
-                .scalar()
-                or 0
-            )
-
-            # Get scope roles for this user
-            scope_roles_query = db.query(ScopeMembership.role).filter(
-                ScopeMembership.user_id == user.id,
-                ScopeMembership.is_active == True,  # noqa: E712
-            )
-            if scope_id:
-                scope_roles_query = scope_roles_query.filter(
-                    ScopeMembership.scope_id == scope_id
-                )
-
-            scope_roles = list({r[0] for r in scope_roles_query.all()})
-
-            result.append(
-                {
-                    "id": user.id,
-                    "name": user.name or user.email.split("@")[0],
-                    "email": user.email,
-                    "role": user.role.value
-                    if hasattr(user.role, "value")
-                    else user.role,
-                    "institution": user.institution,
-                    "expertise_areas": user.expertise_areas or [],
-                    "is_active": user.is_active,
-                    "pending_review_count": pending_count,
-                    "scope_roles": scope_roles,
-                }
-            )
-
-        return result
+    # Moved to review_round; kept as a method for existing callers
+    get_eligible_peer_reviewers = staticmethod(eligible_peer_reviewers)
 
 
 # Create singleton instance

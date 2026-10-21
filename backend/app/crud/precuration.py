@@ -32,6 +32,7 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
+from app.models.methodology import MethodologyVersion
 from app.schemas.curation import disease_fields
 from app.schemas.precuration import (
     PrecurationApprovalResult,
@@ -335,11 +336,24 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         self, db: Session, db_obj: PrecurationNew, user_id: UUID
     ) -> None:
         """Raise unless the precuration may enter review (required fields, L/S, transition)."""
+        # The pinned methodology version is the definition; the live schema only if unpinned
+        pin = db_obj.methodology_version_id
+        version = db.get(MethodologyVersion, pin) if pin else None
         schema = db_obj.precuration_schema
+        snap: dict[str, Any] = (
+            version.snapshot
+            if version
+            else {
+                "field_definitions": schema.field_definitions,
+                "validation_rules": schema.validation_rules,
+            }
+            if schema
+            else {}
+        )
         missing = missing_required_fields(
-            schema.field_definitions if schema else None,
+            snap.get("field_definitions"),
             db_obj.evidence_data,
-            schema.validation_rules if schema else None,
+            snap.get("validation_rules"),
         )
         if missing:
             raise MissingRequiredFieldsError(missing)
@@ -424,6 +438,11 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         # Validate can be approved
         if db_obj.status not in [CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW]:
             raise ValueError("Precuration must be submitted or in review to approve")
+        allowed = workflow_engine.transitions_for(db, db_obj)
+        if WorkflowStage.CURATION not in allowed.get(db_obj.workflow_stage, []):
+            raise ValueError(
+                f"Invalid transition from {db_obj.workflow_stage.value} to curation"
+            )
 
         # Update precuration status
         db_obj.status = CurationStatus.APPROVED
