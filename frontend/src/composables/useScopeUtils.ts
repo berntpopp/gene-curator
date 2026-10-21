@@ -19,7 +19,7 @@
  * import { computed } from 'vue'
  * import { useScopeUtils } from '@/composables/useScopeUtils'
  *
- * const { formatDate, calculateProgress, getScopeVisibilityIcon, getScopeVisibilityLabel } = useScopeUtils()
+ * const { calculateProgress, getScopeVisibilityIcon, getScopeVisibilityLabel } = useScopeUtils()
  * const progress = computed(() => calculateProgress(scope.value.completed, scope.value.total))
  * </script>
  * ```
@@ -27,10 +27,7 @@
  * @see docs/refactoring/FRONTEND_IMPLEMENTATION.md#step-12-create-scope-utilities-composable
  */
 
-import { logService } from '@/services/logService'
-
 export interface UseScopeUtilsReturn {
-  formatDate: (date: string | Date | null | undefined) => string
   calculateProgress: (
     completed: number | null | undefined,
     total: number | null | undefined
@@ -45,29 +42,6 @@ export interface UseScopeUtilsReturn {
  * Get utility functions for scope operations
  */
 export function useScopeUtils(): UseScopeUtilsReturn {
-  /**
-   * Format date for display
-   * Converts ISO date string to locale date string
-   *
-   * @example
-   * formatDate('2025-12-31') // "12/31/2025" (US locale)
-   * formatDate(null) // "No due date"
-   */
-  const formatDate = (date: string | Date | null | undefined): string => {
-    if (!date) return 'No due date'
-
-    try {
-      const dateObj = typeof date === 'string' ? new Date(date) : date
-      return dateObj.toLocaleDateString()
-    } catch (error) {
-      logService.warn('Invalid date format', {
-        date,
-        error: error instanceof Error ? error.message : undefined
-      })
-      return 'Invalid date'
-    }
-  }
-
   /**
    * Calculate progress percentage
    * Returns rounded percentage (0-100)
@@ -145,7 +119,6 @@ export function useScopeUtils(): UseScopeUtilsReturn {
   }
 
   return {
-    formatDate,
     calculateProgress,
     getScopeVisibilityIcon,
     getScopeVisibilityLabel,

@@ -36,7 +36,7 @@
                   <v-icon>mdi-login</v-icon>
                 </template>
                 <v-list-item-title>
-                  {{ user.last_login ? formatDate(user.last_login) : 'Never' }}
+                  {{ user.last_login ? formatDateTime(user.last_login) : 'Never' }}
                 </v-list-item-title>
                 <v-list-item-subtitle>Last Login</v-list-item-subtitle>
               </v-list-item>
@@ -62,11 +62,8 @@
 </template>
 
 <script setup lang="ts">
-  import {
-    formatDate,
-    getRoleColor,
-    type UserRecord
-  } from '@/views/user-management/userManagementHelpers'
+  import { formatDate, formatDateTime } from '@/utils/format'
+  import { getRoleColor, type UserRecord } from '@/views/user-management/userManagementHelpers'
 
   defineProps<{
     user: UserRecord | null

@@ -106,7 +106,7 @@
 
         <template #item.last_login="{ item }">
           <div class="text-body-2">
-            {{ item.last_login ? formatDate(item.last_login) : 'Never' }}
+            {{ item.last_login ? formatDateTime(item.last_login) : 'Never' }}
           </div>
         </template>
 
@@ -290,8 +290,8 @@
   import { useAuthStore } from '@/stores/auth'
   import ResetPasswordDialog from '@/views/user-management/ResetPasswordDialog.vue'
   import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
+  import { formatDate, formatDateTime } from '@/utils/format'
   import {
-    formatDate,
     getRoleColor,
     getRoleIcon,
     initials,

@@ -377,6 +377,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDateTime } from '@/utils/format'
   import { ref, computed, onMounted } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { curationsAPI, workflowAPI, schemasAPI } from '@/api'
@@ -510,11 +511,6 @@
   })
 
   // Utility functions
-  const formatDateTime = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleString()
-  }
-
   const formatInheritance = (moi: string): string => {
     const labels: Record<string, string> = {
       AD: 'Autosomal Dominant',

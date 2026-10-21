@@ -288,7 +288,7 @@
             <v-list-item>
               <v-list-item-title>Assigned</v-list-item-title>
               <v-list-item-subtitle>{{
-                new Date(selectedAssignment.assigned_at).toLocaleString()
+                formatDateTime(selectedAssignment.assigned_at)
               }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
@@ -341,6 +341,7 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
+  import { formatDateTime } from '@/utils/format'
   import { useAssignmentsStore, useScopesStore, useUsersStore, useAuthStore } from '@/stores'
   import { assignmentsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'

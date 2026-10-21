@@ -47,7 +47,7 @@
               </router-link>
             </td>
             <td class="text-capitalize">{{ item.priority }}</td>
-            <td>{{ new Date(item.assigned_at).toLocaleDateString() }}</td>
+            <td>{{ formatDate(item.assigned_at) }}</td>
             <td>{{ item.has_active_work ? 'Yes' : 'No' }}</td>
           </tr>
         </tbody>
@@ -67,6 +67,7 @@
 
 <script setup lang="ts">
   import { computed, onMounted, ref } from 'vue'
+  import { formatDate } from '@/utils/format'
   import GeneAssignmentManager from '@/components/dynamic/GeneAssignmentManager.vue'
   import { useAssignmentsStore, useAuthStore, useScopesStore } from '@/stores'
   import type { Schema } from '@/types/api'

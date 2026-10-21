@@ -233,13 +233,13 @@
               <div class="mb-3">
                 <div class="text-caption text-medium-emphasis">Created</div>
                 <div class="font-weight-medium">
-                  {{ formatDate(localGene.created_at) }}
+                  {{ formatDateTime(localGene.created_at) }}
                 </div>
               </div>
               <div>
                 <div class="text-caption text-medium-emphasis">Last Updated</div>
                 <div class="font-weight-medium">
-                  {{ formatDate(localGene.updated_at) }}
+                  {{ formatDateTime(localGene.updated_at) }}
                 </div>
               </div>
             </v-card-text>
@@ -251,6 +251,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDateTime } from '@/utils/format'
   /**
    * GeneDetail View
    *
@@ -301,21 +302,6 @@
     const numericId = hgncId.replace('HGNC:', '')
     return `https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/HGNC:${numericId}`
   })
-
-  /**
-   * Format date for display
-   */
-  function formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return '—'
-    const date = new Date(dateString)
-    return date.toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
 
   /**
    * Fetch HGNC data for the gene

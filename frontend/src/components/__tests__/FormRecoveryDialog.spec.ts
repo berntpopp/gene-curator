@@ -67,7 +67,7 @@ describe('FormRecoveryDialog', () => {
     const old = agoMs(30 * 24 * 60 * 60 * 1000)
     mountDialog(old)
 
-    expect(document.body.textContent).toContain(new Date(old).toLocaleDateString())
+    expect(document.body.textContent).toContain(new Date(old).toISOString().slice(0, 10))
   })
 
   it('emits restore and discard from the action buttons', () => {

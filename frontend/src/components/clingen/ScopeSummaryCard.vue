@@ -4,7 +4,7 @@
       <div class="d-flex align-center justify-space-between">
         <span>{{ scopeSummary.scope_name }}</span>
         <v-chip :color="classificationColor" size="small" label>
-          {{ scopeSummary.classification || 'N/A' }}
+          {{ scopeSummary.classification || '—' }}
         </v-chip>
       </div>
     </v-card-title>
@@ -73,6 +73,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDate } from '@/utils/format'
   import { computed } from 'vue'
 
   interface ScopeSummary {
@@ -105,13 +106,4 @@
   })
 
   // Format date helper
-  const formatDate = (dateString: string | null | undefined): string => {
-    if (!dateString) return 'N/A'
-    const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    })
-  }
 </script>

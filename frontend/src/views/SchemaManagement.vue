@@ -174,6 +174,7 @@
 
 <script setup lang="ts">
   import { TERMINOLOGY } from '@/config/terminology'
+  import { formatDate } from '@/utils/format'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useRouter } from 'vue-router'
   import { useSchemasStore } from '@/stores'
@@ -275,10 +276,6 @@
 
     return filtered
   })
-
-  const formatDate = (dateString: string | null | undefined) => {
-    return dateString ? new Date(dateString).toLocaleDateString() : ''
-  }
 
   const editSchema = (schema: SchemaRow) => {
     try {

@@ -104,6 +104,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDate } from '@/utils/format'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
@@ -150,15 +151,6 @@
   // Methods
   const roleName = (role: string | null | undefined) =>
     role ? role.charAt(0).toUpperCase() + role.slice(1) : ''
-
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'Unknown'
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    })
-  }
 
   async function loadUserProfile() {
     if (!currentUser.value?.id) {

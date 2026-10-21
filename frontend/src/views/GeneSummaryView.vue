@@ -40,7 +40,7 @@
                   <v-card variant="tonal" :color="consensusColor">
                     <v-card-text>
                       <div class="text-caption">Consensus Classification</div>
-                      <div class="text-h6">{{ summary.consensus_classification || 'N/A' }}</div>
+                      <div class="text-h6">{{ summary.consensus_classification || '—' }}</div>
                     </v-card-text>
                   </v-card>
                 </v-col>
@@ -106,7 +106,7 @@
               <!-- Last Updated -->
               <div class="text-caption text-grey mt-4">
                 <v-icon size="x-small">mdi-clock-outline</v-icon>
-                Last updated: {{ formatDate(summary.last_updated) }}
+                Last updated: {{ formatDateTime(summary.last_updated) }}
               </div>
             </div>
           </v-card-text>
@@ -117,6 +117,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDateTime } from '@/utils/format'
   import { ref, computed, watch } from 'vue'
   import { useRoute } from 'vue-router'
   import { useGeneSummaryStore } from '@/stores/geneSummary'
@@ -169,18 +170,6 @@
   }
 
   // Format date helper
-  const formatDate = (dateString: string | null | undefined) => {
-    if (!dateString) return 'N/A'
-    const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
-  }
-
   async function load(geneId: string) {
     logger.info('GeneSummaryView loading', { geneId })
     loading.value = true

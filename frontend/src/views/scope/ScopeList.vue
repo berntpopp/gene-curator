@@ -185,7 +185,9 @@
                 <v-divider class="mb-2" />
                 <div class="d-flex align-center text-caption">
                   <v-icon icon="mdi-calendar" size="small" class="mr-1"></v-icon>
-                  <span>Due: {{ formatDate(scope.due_date) }}</span>
+                  <span
+                    >Due: {{ scope.due_date ? formatDate(scope.due_date) : 'No due date' }}</span
+                  >
                 </div>
               </v-card-text>
             </v-card>
@@ -216,6 +218,7 @@
   import { useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
+  import { formatDate } from '@/utils/format'
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useLogger } from '@/composables/useLogger'
 
@@ -240,7 +243,7 @@
   const router = useRouter()
   const scopeStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon, formatDate, calculateProgress } = useScopeUtils()
+  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
   const logger = useLogger()
 
   // ============================================

@@ -580,13 +580,13 @@
   import {
     formatClassification,
     formatScore,
-    formatDate,
     getBestScore,
     getBestClassification,
     getScoreColorClass,
     getClassificationColor,
     getClassificationIcon
   } from './GeneCatalogueView.utils'
+  import { formatDate } from '@/utils/format'
 
   type CatalogueEntry = Schema<'GeneCatalogueEntry'>
   type ScopeCuration = Schema<'ScopeCurationSummary'>
