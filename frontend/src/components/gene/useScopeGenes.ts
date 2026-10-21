@@ -2,102 +2,105 @@ import { ref, computed } from 'vue'
 import { assignmentsAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
+import type { useTableUrlState } from '@/composables/useTableUrlState'
 import type { ApiErrorLike } from '@/components/forms/types'
-import { calculateProgress } from './geneDisplay'
+import { GENE_STAGES, stageOf, type GeneStage } from './geneStage'
 import type { GeneWorkflowStatus } from './useGeneWorkflowStatus'
 import type { GeneRow } from './types'
 
+type TableState = ReturnType<typeof useTableUrlState>
+type Assignment = Awaited<ReturnType<typeof assignmentsAPI.getAssignmentsByScope>>[number]
+
+const PRIORITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+const STAGE_RANK = Object.fromEntries(GENE_STAGES.map((s, i) => [s.value, i]))
+
 /**
- * Assignments of one scope as display rows, with the curator filter options and
- * the search/status/curator filters applied by the gene list.
+ * Assignments of one scope as display rows. Search, filters (stage, curator, priority), sort and
+ * paging come from the URL-backed table state, applied here on the client.
  */
-export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatus) {
+export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatus, t: TableState) {
   const logger = useLogger()
   const notificationStore = useNotificationsStore()
 
-  // State
-  const genes = ref<GeneRow[]>([])
+  const assignments = ref<Assignment[]>([])
   const loading = ref(false)
-  const search = ref('')
-  const filterStatus = ref<string | null>(null)
-  const filterCurator = ref<string | null>(null)
-  const curators = ref<Array<{ user_id: string; user_name: string; user_email?: string }>>([])
 
-  // Curator options (for filter)
-  const curatorOptions = computed(() => {
-    return curators.value.map(c => ({
-      id: c.user_id,
-      name: c.user_name || c.user_email
-    }))
+  const rows = computed<GeneRow[]>(() =>
+    assignments.value.map(a => {
+      const pre = workflow.genePrecurations.value[a.gene_id]
+      const cur = workflow.geneCurations.value[a.gene_id]
+      const updated = [a.assigned_at, pre?.updated_at, cur?.updated_at].filter(Boolean) as string[]
+      return {
+        assignment_id: a.id,
+        gene_id: a.gene_id,
+        gene_symbol: a.gene_symbol,
+        gene_hgnc_id: a.gene_hgnc_id,
+        curator_id: a.assigned_curator_id,
+        curator_name: a.curator_name ?? '',
+        priority: a.priority,
+        assignment_notes: '',
+        stage: stageOf(!!a.assigned_curator_id, pre, cur),
+        updated_at: updated.sort().at(-1) ?? '',
+        curation_id: cur?.id
+      }
+    })
+  )
+
+  const stageCounts = computed(() => {
+    const counts = Object.fromEntries(GENE_STAGES.map(s => [s.value, 0])) as Record<
+      GeneStage,
+      number
+    >
+    for (const r of rows.value) counts[r.stage]++
+    return counts
   })
 
-  // Filtered genes
+  const curatorOptions = computed(() =>
+    [
+      ...new Map(
+        rows.value.filter(r => r.curator_id).map(r => [r.curator_id!, r.curator_name])
+      ).entries()
+    ].map(([value, title]) => ({ value, title }))
+  )
+
   const filteredGenes = computed(() => {
-    let result = genes.value
-
-    // Search filter
-    if (search.value) {
-      const searchLower = search.value.toLowerCase()
-      result = result.filter(
-        g =>
-          g.gene_symbol?.toLowerCase().includes(searchLower) ||
-          g.gene_hgnc_id.toLowerCase().includes(searchLower)
+    const q = t.search.value.trim().toLowerCase()
+    const f = t.filters.value
+    const sort = t.sortBy.value[0]
+    const key = (r: GeneRow): string | number =>
+      sort?.key === 'stage'
+        ? STAGE_RANK[r.stage]!
+        : sort?.key === 'priority'
+          ? (PRIORITY_RANK[r.priority] ?? 3)
+          : String(r[(sort?.key ?? 'gene_symbol') as keyof GeneRow] ?? '').toLowerCase()
+    const sign = sort?.order === 'desc' ? -1 : 1
+    return rows.value
+      .filter(
+        r =>
+          (!q ||
+            [r.gene_symbol, r.gene_hgnc_id, r.curator_name].some(v =>
+              v?.toLowerCase().includes(q)
+            )) &&
+          (!f.stage || r.stage === f.stage) &&
+          (!f.curator || r.curator_id === f.curator) &&
+          (!f.priority || r.priority === f.priority)
       )
-    }
-
-    // Status filter
-    if (filterStatus.value) {
-      result = result.filter(g => g.status === filterStatus.value)
-    }
-
-    // Curator filter
-    if (filterCurator.value) {
-      result = result.filter(g => g.curator_id === filterCurator.value)
-    }
-
-    return result
+      .sort((a, b) => (key(a) < key(b) ? -sign : key(a) > key(b) ? sign : 0))
   })
 
-  /**
-   * Fetch genes assigned to scope
-   */
+  const pageRows = computed(() => {
+    const size = t.itemsPerPage.value
+    return filteredGenes.value.slice((t.page.value - 1) * size, t.page.value * size)
+  })
+
+  /** Fetch the scope's assignments and the precuration/curation status of its genes. */
   async function fetchGenes() {
     loading.value = true
     try {
-      const response = await assignmentsAPI.getAssignmentsByScope(scopeId())
-      genes.value = response.map(assignment => {
-        // The API carries no assignment status; derive it from active curation work
-        const status = assignment.has_active_work ? 'in_progress' : 'assigned'
-        return {
-          assignment_id: assignment.id,
-          gene_id: assignment.gene_id,
-          gene_symbol: assignment.gene_symbol,
-          gene_hgnc_id: assignment.gene_hgnc_id,
-          curator_id: assignment.assigned_curator_id,
-          curator_name: assignment.curator_name ?? '',
-          priority: assignment.priority,
-          assignment_notes: '',
-          status,
-          progress: calculateProgress({ status })
-        }
-      })
-
-      // Extract unique curators for filter
-      curators.value = Array.from(
-        new Map(
-          genes.value
-            .filter(g => g.curator_id)
-            .map(g => [
-              g.curator_id,
-              { user_id: g.curator_id as string, user_name: g.curator_name }
-            ])
-        ).values()
-      )
-
-      // Fetch precuration and curation status for all genes in scope
+      // ponytail: one request of up to 1000 rows (the backend maximum); page through above that
+      assignments.value = await assignmentsAPI.getAssignmentsByScope(scopeId(), { limit: 1000 })
       await Promise.all([workflow.fetchPrecurationStatuses(), workflow.fetchCurationStatuses()])
-
-      logger.debug('Genes loaded', { count: genes.value.length, scope_id: scopeId() })
+      logger.debug('Genes loaded', { count: assignments.value.length, scope_id: scopeId() })
     } catch (error) {
       logger.error('Failed to fetch genes', { error: (error as ApiErrorLike).message })
       notificationStore.addToast('Failed to load genes', 'error')
@@ -106,24 +109,5 @@ export function useScopeGenes(scopeId: () => string, workflow: GeneWorkflowStatu
     }
   }
 
-  /**
-   * Clear all filters
-   */
-  function clearFilters() {
-    search.value = ''
-    filterStatus.value = null
-    filterCurator.value = null
-  }
-
-  return {
-    genes,
-    loading,
-    search,
-    filterStatus,
-    filterCurator,
-    curatorOptions,
-    filteredGenes,
-    fetchGenes,
-    clearFilters
-  }
+  return { loading, rows, stageCounts, curatorOptions, filteredGenes, pageRows, fetchGenes }
 }

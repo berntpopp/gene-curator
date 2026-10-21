@@ -15,7 +15,7 @@
       <strong>{{ geneSymbol }}</strong> from this scope?
     </p>
     <v-alert type="warning" variant="tonal" density="compact">
-      <div class="text-body-medium">
+      <div class="text-body-medium text-high-emphasis">
         This will remove the gene assignment but will not delete the gene from the catalog. Any
         existing precurations or curations will be preserved.
       </div>

@@ -1,9 +1,10 @@
 /**
  * Shared types for the gene components.
  */
+import type { GeneStage } from './geneStage'
 
 /** One row of the scope gene list (an assignment flattened for display). */
-export interface GeneRow {
+export type GeneRow = {
   assignment_id: string
   gene_id: string
   gene_symbol: string
@@ -12,9 +13,11 @@ export interface GeneRow {
   curator_name: string
   priority: string
   assignment_notes: string
-  status: string
   due_date?: string | null
-  progress: number
+  stage: GeneStage
+  /** Latest activity: the newest precuration/curation update, else the assignment date. */
+  updated_at: string
+  curation_id?: string
 }
 
 /** Scope member mapped to a curator choice (see fetchAvailableCurators in the assign/reassign modals). */

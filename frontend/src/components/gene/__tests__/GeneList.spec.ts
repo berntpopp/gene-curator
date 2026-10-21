@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import GeneList from '../GeneList.vue'
-import GeneCard from '../GeneCard.vue'
 import GeneRowActions from '../GeneRowActions.vue'
 import { assignmentsAPI, precurationsAPI, curationsAPI } from '@/api'
 
@@ -18,7 +17,12 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
 vi.mock('@/stores/scopes', () => ({ useScopesStore: () => scopeState }))
-vi.mock('vue-router', () => ({ useRouter: () => ({ push }) }))
+const routeState = vi.hoisted(() => ({ query: {} as Record<string, string> }))
+const replace = vi.hoisted(() => vi.fn())
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push, replace }),
+  useRoute: () => routeState
+}))
 vi.mock('@/api', () => ({
   assignmentsAPI: { getAssignmentsByScope: vi.fn(), removeAssignment: vi.fn() },
   precurationsAPI: { getPrecurations: vi.fn(), completePrecuration: vi.fn() },
@@ -34,9 +38,6 @@ const getCurations = vi.mocked(curationsAPI.getCurations)
 /** Component state read through wrapper.vm in these tests. */
 interface GeneListVm {
   search: string
-  filterStatus: string | null
-  filterCurator: string | null
-  viewMode: string
   showAssignModal: boolean
   preSelectedGeneIds: string[]
   showReassignModal: boolean
@@ -48,6 +49,8 @@ interface GeneListVm {
   selectedGeneForDetail: { gene_id: string } | null
   filteredGenes: Array<{ gene_id: string }>
   clearFilters(): void
+  stageCounts: Record<string, number>
+  detailContext: { curator: string; stage: string; curationLink: string } | undefined
   viewGene(gene: unknown): void
   startPrecuration(gene: unknown): void
   startCuration(gene: unknown): void
@@ -62,7 +65,6 @@ interface GeneListVm {
   handleGenesAssigned(): void
   handleGeneReassigned(): void
   handleGeneEdited(): void
-  handleGeneRevalidated(result: { external_data?: unknown } | null): void
   openAssignModal(ids?: string[]): void
 }
 
@@ -94,11 +96,12 @@ const assignments = [
 ]
 
 const stubs = {
-  TableSkeleton: {
-    props: ['items', 'headers', 'loading'],
+  DataTable: {
+    props: ['items', 'headers', 'filterDefs', 'itemsLength'],
     template:
-      '<table><tbody><template v-for="item in items" :key="item.assignment_id"><slot name="item" :item="item" /></template></tbody></table>'
+      '<div><slot name="toolbar-actions" /><div v-for="item in items" :key="item.assignment_id" class="row"><slot name="item.select" :item="item" /><slot name="item.gene_symbol" :item="item" /><slot name="item.curator_name" :item="item" /><slot name="item.stage" :item="item" /><slot name="item.priority" :item="item" /><slot name="item.updated_at" :item="item" /><slot name="item.actions" :item="item" /></div><slot v-if="!items.length" name="no-data" /></div>'
   },
+  GeneBulkBar: true,
   VDialog: { template: '<div><slot /></div>' },
   AddGeneModal: true,
   AssignCuratorModal: true,
@@ -122,6 +125,7 @@ describe('GeneList', () => {
     ;[addToast, push, logger.debug, logger.info, logger.warn, logger.error].forEach(m =>
       m.mockReset()
     )
+    routeState.query = {}
     authState.isAdmin = false
     scopeState.currentUserRole = 'admin'
     scopeState.currentScope = { default_workflow_pair_id: 'wp-1' }
@@ -134,12 +138,13 @@ describe('GeneList', () => {
     it('loads the scope assignments and maps them for display', async () => {
       const wrapper = await mountList()
 
-      expect(getAssignments).toHaveBeenCalledWith('scope-1')
+      expect(getAssignments).toHaveBeenCalledWith('scope-1', { limit: 1000 })
       const genes = internals(wrapper).filteredGenes
       expect(genes.map(g => g.gene_id)).toEqual(['g-1', 'g-2'])
       expect(wrapper.text()).toContain('BRCA1')
       expect(wrapper.text()).toContain('Ada Lovelace')
       expect(wrapper.text()).toContain('Unassigned')
+      expect(wrapper.text()).toContain('HGNC:1100')
       expect(wrapper.text()).toContain('TP53')
       expect(logger.debug).toHaveBeenCalledWith('Genes loaded', { count: 2, scope_id: 'scope-1' })
     })
@@ -153,7 +158,7 @@ describe('GeneList', () => {
       expect(addToast).toHaveBeenCalledWith('Failed to load genes', 'error')
     })
 
-    it('shows precuration and curation status chips from the workflow maps', async () => {
+    it('derives the stage of each row from the workflow maps', async () => {
       getPrecurations.mockResolvedValue({
         precurations: [{ id: 'p-1', gene_id: 'g-1', status: 'approved', updated_at: '2025-01-01' }]
       } as never)
@@ -163,7 +168,7 @@ describe('GeneList', () => {
 
       const wrapper = await mountList()
 
-      expect(wrapper.text()).toContain('Ready for Curation')
+      expect(wrapper.text()).toContain('Curation')
       expect(wrapper.text()).toContain('Active')
     })
 
@@ -186,7 +191,6 @@ describe('GeneList', () => {
       scopeState.currentUserRole = 'admin'
       let wrapper = await mountList()
       expect(wrapper.text()).toContain('Add genes')
-      expect(wrapper.text()).toContain('Assign to Curator')
 
       authState.isAdmin = true
       scopeState.currentUserRole = 'viewer'
@@ -200,7 +204,6 @@ describe('GeneList', () => {
         const wrapper = await mountList()
 
         expect(wrapper.text()).not.toContain('Add genes')
-        expect(wrapper.text()).not.toContain('Assign to Curator')
       }
     })
 
@@ -234,77 +237,118 @@ describe('GeneList', () => {
 
   describe('filtering', () => {
     it('filters by search text across symbol and HGNC id', async () => {
+      routeState.query = { q: 'hgnc:119' }
       const wrapper = await mountList()
-      const vm = internals(wrapper)
-
-      vm.search = 'hgnc:119'
-      await flushPromises()
-      expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
-
-      vm.search = 'brca'
-      await flushPromises()
-      expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-1'])
+      expect(internals(wrapper).filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
     })
 
-    it('filters by status and by curator', async () => {
-      const wrapper = await mountList()
-      const vm = internals(wrapper)
-
-      vm.filterStatus = 'assigned'
-      await flushPromises()
-      expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
-
-      vm.filterStatus = null
-      vm.filterCurator = 'u-1'
-      await flushPromises()
-      expect(vm.filteredGenes.map(g => g.gene_id)).toEqual(['g-1'])
+    it('filters by stage, curator and priority from the URL', async () => {
+      routeState.query = { stage: 'unassigned' }
+      expect(internals(await mountList()).filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
+      routeState.query = { curator: 'u-1' }
+      expect(internals(await mountList()).filteredGenes.map(g => g.gene_id)).toEqual(['g-1'])
+      routeState.query = { priority: 'low' }
+      expect(internals(await mountList()).filteredGenes.map(g => g.gene_id)).toEqual(['g-2'])
     })
 
-    it('shows the empty state with a clear-filters action when nothing matches', async () => {
-      const wrapper = await mountList()
-      const vm = internals(wrapper)
-
-      vm.search = 'nothing-matches'
-      await flushPromises()
-
-      expect(wrapper.text()).toContain('No genes match your filters')
-      expect(wrapper.text()).toContain('Try adjusting your search or filter criteria.')
-
-      vm.clearFilters()
-      await flushPromises()
-      expect(vm.search).toBe('')
-      expect(vm.filteredGenes).toHaveLength(2)
+    it('counts genes per stage', async () => {
+      const vm = internals(await mountList())
+      expect(vm.stageCounts).toMatchObject({ unassigned: 1, precuration: 1, curation: 0 })
     })
 
-    it('shows the assign prompt when the scope has no genes', async () => {
+    it('sorts by stage and priority', async () => {
+      routeState.query = { sort: 'priority', order: 'desc' }
+      expect(internals(await mountList()).filteredGenes.map(g => g.gene_id)).toEqual(['g-2', 'g-1'])
+      routeState.query = { sort: 'stage' }
+      expect(internals(await mountList()).filteredGenes.map(g => g.gene_id)).toEqual(['g-2', 'g-1'])
+    })
+
+    it('shows one empty state with a clear-filters action when nothing matches', async () => {
+      routeState.query = { q: 'nothing-matches' }
+      const wrapper = await mountList()
+      expect(wrapper.findAll('[data-testid=table-empty]')).toHaveLength(1)
+      expect(wrapper.text()).toContain('No genes match the filters')
+      await wrapper.find('[data-testid=table-empty] button').trigger('click')
+      await flushPromises()
+      expect(replace).toHaveBeenCalled()
+    })
+
+    it('invites admins to add genes when the scope is empty', async () => {
       getAssignments.mockResolvedValue([] as never)
       const wrapper = await mountList()
+      expect(wrapper.text()).toContain('No genes in this scope yet')
+      expect(wrapper.text()).toContain('Add genes')
+    })
 
-      expect(wrapper.text()).toContain('No genes assigned')
-      expect(wrapper.text()).toContain('Assign genes')
+    it('sets and clears the stage filter from the strip', async () => {
+      const wrapper = await mountList()
+      wrapper.findComponent({ name: 'ScopeStageStrip' }).vm.$emit('update:modelValue', 'curation')
+      await flushPromises()
+      expect(replace).toHaveBeenCalled()
+      wrapper.findComponent({ name: 'ScopeStageStrip' }).vm.$emit('update:modelValue', undefined)
+      await flushPromises()
+      expect(replace).toHaveBeenCalledTimes(2)
     })
   })
 
-  describe('views', () => {
-    it('renders cards in card view with the workflow shared to each card', async () => {
-      const wrapper = await mountList()
-
-      internals(wrapper).viewMode = 'cards'
-      await flushPromises()
-
-      const cards = wrapper.findAllComponents(GeneCard)
-      expect(cards).toHaveLength(2)
-      expect(cards[0]!.props('gene')).toMatchObject({ gene_id: 'g-1' })
-      expect(cards[0]!.props('workflow')).toBeDefined()
+  describe('large scopes and bulk results', () => {
+    it('loads and counts more than the default page of 100 assignments', async () => {
+      const many = Array.from({ length: 250 }, (_, i) => ({
+        ...assignments[1]!,
+        id: `a-${i}`,
+        gene_id: `g-${i}`
+      }))
+      getAssignments.mockResolvedValue(many as never)
+      const vm = internals(await mountList())
+      expect(getAssignments).toHaveBeenCalledWith('scope-1', { limit: 1000 })
+      expect(vm.filteredGenes).toHaveLength(250)
+      expect(vm.stageCounts.unassigned).toBe(250)
     })
 
-    it('shows skeleton cards while loading in card view', async () => {
-      getAssignments.mockReturnValue(new Promise(() => {}) as never)
-      const wrapper = mount(GeneList, { props: { scopeId: 'scope-1' }, global: { stubs } })
-      internals(wrapper).viewMode = 'cards'
+    it('keeps only the failed genes selected after a bulk run', async () => {
+      const wrapper = await mountList()
+      ;(internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds = ['g-1', 'g-2']
+      wrapper.findComponent({ name: 'GeneBulkBar' }).vm.$emit('changed', ['g-2'])
       await flushPromises()
+      expect((internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds).toEqual([
+        'g-2'
+      ])
+    })
 
-      expect(wrapper.findAll('.v-skeleton-loader').length).toBeGreaterThan(0)
+    it('offers only genes without a curator to the assign dialog', async () => {
+      const wrapper = await mountList()
+      ;(internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds = ['g-1', 'g-2']
+      wrapper.findComponent({ name: 'GeneBulkBar' }).vm.$emit('assign')
+      expect(internals(wrapper).preSelectedGeneIds).toEqual(['g-2'])
+    })
+  })
+
+  describe('gene detail context', () => {
+    it('gives the detail dialog curator, stage and curation link of the row', async () => {
+      getCurations.mockResolvedValue({
+        curations: [{ id: 'c-1', gene_id: 'g-1', status: 'draft', updated_at: '2026-01-01' }]
+      } as never)
+      const wrapper = await mountList()
+      const vm = internals(wrapper)
+      expect(vm.detailContext).toBeUndefined()
+
+      vm.viewGene({ gene_id: 'g-1' })
+      await flushPromises()
+      expect(vm.detailContext).toEqual({
+        curator: 'Ada Lovelace',
+        stage: 'Curation',
+        curationLink: '/scopes/scope-1/curations/c-1'
+      })
+
+      vm.viewGene({ gene_id: 'g-2' })
+      await flushPromises()
+      expect(vm.detailContext?.curationLink).toBe('')
+    })
+
+    it('sorts by another column', async () => {
+      routeState.query = { sort: 'gene_symbol', order: 'desc' }
+      const wrapper = await mountList()
+      expect(internals(wrapper).filteredGenes.map(g => g.gene_id)).toEqual(['g-2', 'g-1'])
     })
   })
 
@@ -496,19 +540,6 @@ describe('GeneList', () => {
       expect(getAssignments).toHaveBeenCalledTimes(4)
     })
 
-    it('refreshes only when a revalidation returns external data', async () => {
-      const wrapper = await mountList()
-      const vm = internals(wrapper)
-      getAssignments.mockClear()
-
-      vm.handleGeneRevalidated({ external_data: undefined })
-      vm.handleGeneRevalidated(null)
-      expect(getAssignments).not.toHaveBeenCalled()
-
-      vm.handleGeneRevalidated({ external_data: { symbol: 'BRCA1' } })
-      expect(getAssignments).toHaveBeenCalledTimes(1)
-    })
-
     it('wires the row action menu to the list handlers', async () => {
       const wrapper = await mountList()
       const row = wrapper.findAllComponents(GeneRowActions)[0]!
@@ -521,33 +552,28 @@ describe('GeneList', () => {
     })
   })
   describe('selection and change events', () => {
-    it('opens the assign modal with the selected genes', async () => {
-      const wrapper = await mountList()
-      const vm = internals(wrapper) as unknown as { selectedIds: string[] }
-      vm.selectedIds = ['g-2']
-      await flushPromises()
-
-      expect(wrapper.text()).toContain('Assign to Curator (1)')
-      const assign = wrapper.findAll('button').find(b => b.text().includes('Assign to Curator'))
-      await assign?.trigger('click')
-
-      expect(internals(wrapper).showAssignModal).toBe(true)
-      expect(internals(wrapper).preSelectedGeneIds).toEqual(['g-2'])
-    })
-
     it('emits changed and clears the selection after a change', async () => {
       const wrapper = await mountList()
-      const vm = internals(wrapper) as unknown as {
-        selectedIds: string[]
-        toggleAll(on: boolean): void
-      }
-      vm.toggleAll(true)
-      expect(vm.selectedIds).toEqual(['g-1', 'g-2'])
+      const vm = internals(wrapper) as unknown as { selectedIds: string[] }
+      vm.selectedIds = ['g-1', 'g-2']
 
       internals(wrapper).handleGenesAssigned()
 
       expect(wrapper.emitted('changed')).toHaveLength(1)
       expect(vm.selectedIds).toEqual([])
+    })
+
+    it('hides the bulk bar from users who cannot assign', async () => {
+      scopeState.currentUserRole = 'viewer'
+      expect((await mountList()).findComponent({ name: 'GeneBulkBar' }).exists()).toBe(false)
+    })
+
+    it('opens the assign dialog from the bulk bar with the selection', async () => {
+      const wrapper = await mountList()
+      ;(internals(wrapper) as unknown as { selectedIds: string[] }).selectedIds = ['g-2']
+      wrapper.findComponent({ name: 'GeneBulkBar' }).vm.$emit('assign')
+      expect(internals(wrapper).preSelectedGeneIds).toEqual(['g-2'])
+      expect(internals(wrapper).showAssignModal).toBe(true)
     })
   })
 

@@ -40,7 +40,7 @@
       <!-- Header -->
       <v-row class="mb-4">
         <v-col>
-          <div class="d-flex align-center">
+          <div class="d-flex align-center flex-wrap ga-2">
             <v-icon
               :icon="getScopeVisibilityIcon(scope.is_public)"
               size="large"
@@ -131,7 +131,12 @@
           <v-card>
             <v-card-text>
               <div class="text-body-large mb-2">Curation Progress</div>
-              <v-progress-linear :model-value="curationProgress" color="success" height="20">
+              <v-progress-linear
+                :model-value="curationProgress"
+                color="success"
+                height="20"
+                aria-label="Curation progress"
+              >
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-body-small text-medium-emphasis mt-2">
@@ -144,7 +149,7 @@
 
       <!-- Tabs -->
       <v-card>
-        <v-tabs v-model="activeTab" bg-color="primary">
+        <v-tabs v-model="activeTab" bg-color="primary" show-arrows>
           <v-tab value="overview">
             <v-icon start>mdi-view-dashboard</v-icon>
             Overview
@@ -202,7 +207,13 @@
           <!-- Overview Tab -->
           <v-window-item value="overview">
             <v-card-text>
-              <ScopeOverview v-if="scope" :scope="scope" :statistics="scopeStats" />
+              <ScopeOverview
+                v-if="scope"
+                :scope="scope"
+                :statistics="scopeStats"
+                :methodology="methodology"
+                :admins="scopeAdmins"
+              />
             </v-card-text>
           </v-window-item>
 
@@ -245,6 +256,9 @@
     <!-- Scope not found -->
     <v-alert v-else type="warning" variant="tonal" class="mb-4">
       Scope not found or you don't have access.
+      <template #append>
+        <v-btn variant="text" :to="{ name: 'scopes' }">Back to scopes</v-btn>
+      </template>
     </v-alert>
   </v-container>
 </template>
@@ -259,6 +273,7 @@
   import { useScopeUtils } from '@/composables/useScopeUtils'
   import { useScopePermissions } from '@/composables/useScopePermissions'
   import { useLogger } from '@/composables/useLogger'
+  import { useWorkflowPairs } from '@/components/scope/useWorkflowPairs'
   import MemberManagement from '@/components/scope/MemberManagement.vue'
 
   interface ScopeStats {
@@ -303,6 +318,19 @@
     scopeStats.value
       ? pluralize(scopeStats.value.total_genes_assigned ?? 0, 'gene')
       : `${EMPTY} genes`
+  )
+
+  // Overview facts: methodology name and the scope admins
+  const { workflowPairs, loadWorkflowPairs } = useWorkflowPairs(() => undefined)
+  const methodology = computed(
+    () => workflowPairs.value.find(p => p.id === scope.value?.default_workflow_pair_id)?.displayName
+  )
+  const scopeAdmins = computed(() =>
+    scopeStore
+      .getScopeUsers(scopeId.value)
+      .filter(m => m.role === 'admin')
+      .map(m => m.user_full_name || m.user_username || m.user_email || '')
+      .filter(Boolean)
   )
 
   // ============================================
@@ -391,6 +419,9 @@
 
       // Fetch scope statistics
       await refreshStatistics()
+
+      // Overview facts are best effort: the page works without them
+      await Promise.allSettled([loadWorkflowPairs(), scopeStore.fetchMembers(scopeId.value)])
 
       logger.info('Scope dashboard loaded', {
         scope_id: scopeId.value,
