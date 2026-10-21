@@ -269,7 +269,7 @@ describe('WorkflowManagement', () => {
     expect(call(vm, 'getStageColor', 'other')).toBe('grey')
     expect(call(vm, 'getStageIcon', 'entry')).toBe('mdi-file-document-plus')
     expect(call(vm, 'getStageIcon', 'other')).toBe('mdi-circle')
-    expect(call(vm, 'getSchemaName', null, 'curation')).toBe('N/A')
+    expect(call(vm, 'getSchemaName', null, 'curation')).toBe('—')
     expect(vm.editStage).toBeUndefined()
   })
 })
@@ -396,12 +396,6 @@ describe('SchemaManagement', () => {
     await flushPromises()
     await call(vm, 'createSchema')
     expect(showError).toHaveBeenCalledWith('bad')
-  })
-
-  it('formats dates and tolerates a missing one', async () => {
-    const { vm } = await mountView()
-    expect(call(vm, 'formatDate', null)).toBe('')
-    expect(call(vm, 'formatDate', '2026-01-02T00:00:00Z')).not.toBe('')
   })
 })
 

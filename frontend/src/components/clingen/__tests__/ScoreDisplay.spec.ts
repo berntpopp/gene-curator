@@ -62,15 +62,14 @@ describe('ScopeSummaryCard', () => {
     expect(wrapper.text()).not.toContain('Private')
   })
 
-  it('marks non-public scopes as private and shows N/A without a date', () => {
+  it('marks non-public scopes as private and shows an em dash without a date', () => {
     const wrapper = mount(ScopeSummaryCard, {
       props: {
         scopeSummary: { ...summary, classification: null, is_public: false, last_updated: null }
       }
     })
     expect(wrapper.text()).toContain('Private')
-    expect(wrapper.text()).toContain('N/A')
-    expect(wrapper.text()).toContain('N/A')
+    expect(wrapper.text()).toContain('Updated: —')
   })
 })
 

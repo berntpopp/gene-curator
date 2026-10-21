@@ -24,17 +24,6 @@ export function getRoleIcon(role: string | null | undefined): string {
   return (role && roleIcons[role]) || 'mdi-account'
 }
 
-export function formatDate(date: string | null | undefined): string {
-  if (!date) return 'N/A'
-  return new Date(date).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit'
-  })
-}
-
 export function initials(name: string | null | undefined): string {
   return (name ?? '')
     .split(/\s+/)

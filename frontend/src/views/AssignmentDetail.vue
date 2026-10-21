@@ -57,7 +57,9 @@
             </v-col>
             <v-col cols="12" sm="6" md="3">
               <div class="text-caption text-medium-emphasis">Due date</div>
-              <div class="text-body-1">{{ formatDate(assignment.due_date) }}</div>
+              <div class="text-body-1">
+                {{ assignment.due_date ? formatDate(assignment.due_date) : 'No due date' }}
+              </div>
               <div class="text-caption text-medium-emphasis mt-2">Assigned</div>
               <div class="text-body-1">{{ formatDate(assignment.assigned_at) }}</div>
             </v-col>
@@ -78,6 +80,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDate } from '@/utils/format'
   import { computed, onMounted, ref } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useAssignmentsStore } from '@/stores/assignments'
@@ -142,9 +145,6 @@
       null
     )
   }
-
-  const formatDate = (value?: string | null) =>
-    value ? new Date(value).toLocaleDateString() : 'No due date'
 
   async function load() {
     loading.value = true

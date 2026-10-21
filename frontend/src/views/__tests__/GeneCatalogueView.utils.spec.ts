@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest'
 import {
   formatClassification,
   formatScore,
-  formatDate,
   getBestScore,
   getBestClassification,
   getScoreColorClass,
@@ -29,17 +28,6 @@ describe('formatScore', () => {
   it('formats numbers to one decimal and passes strings through', () => {
     expect(formatScore(7.25)).toBe('7.3')
     expect(formatScore('n/a')).toBe('n/a')
-  })
-})
-
-describe('formatDate', () => {
-  it('returns a dash for empty input', () => {
-    expect(formatDate(null)).toBe('-')
-    expect(formatDate('')).toBe('-')
-  })
-  it('formats a date in en-US medium style', () => {
-    expect(formatDate('2024-03-05T12:00:00Z')).toMatch(/Mar/)
-    expect(formatDate('2024-03-05T12:00:00Z')).toMatch(/2024/)
   })
 })
 

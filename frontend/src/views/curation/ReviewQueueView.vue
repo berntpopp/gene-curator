@@ -237,6 +237,7 @@
    */
 
   import { ref, computed, onMounted, watch } from 'vue'
+  import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
@@ -502,7 +503,7 @@
     const diffDays = Math.floor(diffHours / 24)
 
     if (diffDays > 7) {
-      return date.toLocaleDateString()
+      return formatDate(dateString)
     }
     if (diffDays > 0) return `${diffDays}d ago`
     if (diffHours > 0) return `${diffHours}h ago`

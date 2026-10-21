@@ -68,6 +68,32 @@ beforeEach(() => {
 })
 
 describe('CurationFormView', () => {
+  it('keeps one skeleton (same element) from loading until the form reports ready', async () => {
+    let release!: (v: never) => void
+    const schemas = useSchemasStore()
+    const scopes = useScopesStore()
+    vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
+    vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
+    vi.spyOn(scopes, 'fetchScope').mockReturnValue(new Promise(r => (release = r as never)))
+    schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+    const wrapper = mount(CurationFormView, { global: { stubs } })
+    await flushPromises()
+    const skeletons = () => wrapper.findAll('.v-skeleton-loader')
+    expect(skeletons()).toHaveLength(1)
+    const first = skeletons()[0]?.element
+
+    release({ default_workflow_pair_id: 'wp1' } as never)
+    await flushPromises()
+    // schema resolved, form mounted but not ready: still the same single skeleton
+    expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(true)
+    expect(skeletons()).toHaveLength(1)
+    expect(skeletons()[0]?.element).toBe(first)
+
+    wrapper.findComponent({ name: 'SchemaDrivenCurationForm' }).vm.$emit('ready')
+    await flushPromises()
+    expect(skeletons()).toHaveLength(0)
+  })
+
   it('uses the scope default workflow pair to resolve the curation schema', async () => {
     const { wrapper, vm } = await mountView(({ schemas }) => {
       schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never

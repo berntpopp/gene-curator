@@ -51,6 +51,24 @@ describe('GeneCatalogueView', () => {
     expect(geneCatalogueAPI.getAvailableScopes).toHaveBeenCalled()
   })
 
+  it('shows em dashes in the summary tiles until the summary has loaded', async () => {
+    let release!: (v: never) => void
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockReturnValue(
+      new Promise(r => (release = r as never))
+    )
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const tiles = () => wrapper.findAll('.text-h5.font-weight-bold').map(t => t.text())
+    expect(tiles()).toEqual(['—', '—', '—'])
+    release({
+      entries: [],
+      total: 0,
+      summary: { total_genes_curated: 3, total_curations: 3, total_scopes: 2 }
+    } as never)
+    await flushPromises()
+    expect(tiles()).toEqual(['3', '3', '2'])
+  })
+
   it('shows the no-data message when there are no curated genes', async () => {
     vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({ entries: [], total: 0 } as never)
     const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })

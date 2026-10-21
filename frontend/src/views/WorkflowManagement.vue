@@ -160,9 +160,7 @@
             <v-list-item>
               <v-list-item-title>Created</v-list-item-title>
               <v-list-item-subtitle>{{
-                selectedWorkflow.created_at
-                  ? new Date(selectedWorkflow.created_at).toLocaleString()
-                  : 'N/A'
+                formatDateTime(selectedWorkflow.created_at)
               }}</v-list-item-subtitle>
             </v-list-item>
           </v-list>
@@ -293,6 +291,7 @@
 
 <script setup lang="ts">
   import { TERMINOLOGY } from '@/config/terminology'
+  import { formatDate, formatDateTime } from '@/utils/format'
   import { ref, computed, onMounted, onErrorCaptured } from 'vue'
   import { useSchemasStore, useWorkflowStore } from '@/stores'
   import { useLogger } from '@/composables/useLogger'
@@ -399,14 +398,10 @@
     return iconMap[stageType] || 'mdi-circle'
   }
 
-  const formatDate = (dateString: string | null | undefined) => {
-    return new Date(dateString as string).toLocaleDateString()
-  }
-
   const getSchemaName = (schemaId: string | null | undefined, type: string) => {
     const schemas = type === 'precuration' ? precurationSchemas.value : curationSchemas.value
     const schema = schemas.find((s: { id: string }) => s.id === schemaId)
-    return schema ? schema.name : schemaId || 'N/A'
+    return schema ? schema.name : schemaId || '—'
   }
 
   const viewWorkflow = (workflow: WorkflowRow) => {

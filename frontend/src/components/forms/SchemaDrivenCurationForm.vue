@@ -1,8 +1,11 @@
 <template>
   <ErrorBoundary @error="handleFormError">
+    <!-- Schema and curation not loaded yet: one skeleton, no score card or verdict -->
+    <v-skeleton-loader v-if="!ready" type="card" />
+
     <!-- ClinGen-specific form for ClinGen SOP schemas -->
     <ClinGenCurationForm
-      v-if="useDynamicForm === false && !loadingSchema"
+      v-else-if="useDynamicForm === false && !loadingSchema"
       :schema="schema"
       :curation-id="curationId ?? undefined"
       :gene="gene as Record<string, unknown>"
@@ -175,6 +178,7 @@
     submit: []
     cancel: []
     saved: []
+    ready: []
   }>()
 
   const logger = useLogger()
@@ -188,6 +192,7 @@
   const evidenceData = ref<EvidenceData>({})
   const isDraft = ref(true)
   const loadingSchema = ref(false)
+  const ready = ref(false) // schema and curation (and precuration) have been requested
   const isValid = ref(true) // Updated via validation-change event
   const lockVersion = ref(0)
   const savedAt = ref<number | null>(null) // set by a successful server save
@@ -516,6 +521,8 @@
     if (!props.curationId && props.geneId) {
       await loadPrecurationData()
     }
+    ready.value = true
+    emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,
       curationId: props.curationId,

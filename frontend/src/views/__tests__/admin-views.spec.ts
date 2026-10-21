@@ -11,12 +11,7 @@ import UserManagement from '@/views/UserManagement.vue'
 import UserProfile from '@/views/UserProfile.vue'
 import WorkflowManagement from '@/views/WorkflowManagement.vue'
 import UserDetailsDialog from '@/views/user-management/UserDetailsDialog.vue'
-import {
-  formatDate,
-  getRoleColor,
-  getRoleIcon,
-  initials
-} from '@/views/user-management/userManagementHelpers'
+import { getRoleColor, getRoleIcon, initials } from '@/views/user-management/userManagementHelpers'
 import { useAuthStore } from '@/stores/auth'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
@@ -322,11 +317,6 @@ describe('user-management helpers', () => {
     expect(getRoleColor(undefined)).toBe('primary')
     expect(getRoleIcon('admin')).toBe('mdi-shield-crown')
     expect(getRoleIcon(undefined)).toBe('mdi-account')
-  })
-
-  it('formats dates and renders N/A for missing values', () => {
-    expect(formatDate(undefined)).toBe('N/A')
-    expect(formatDate('2026-03-04T10:30:00Z')).toContain('2026')
   })
 })
 

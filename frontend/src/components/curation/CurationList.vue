@@ -272,6 +272,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDate } from '@/utils/format'
   /**
    * CurationList Component
    *
@@ -485,11 +486,6 @@
   /**
    * Format date
    */
-  function formatDate(dateString: string | null | undefined): string {
-    if (!dateString) return '—'
-    return new Date(dateString).toLocaleDateString()
-  }
-
   /**
    * Format relative time
    */

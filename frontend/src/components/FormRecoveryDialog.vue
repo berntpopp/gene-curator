@@ -30,6 +30,7 @@
    */
 
   import { computed } from 'vue'
+  import { formatDate } from '@/utils/format'
 
   const props = defineProps<{
     modelValue: boolean
@@ -74,6 +75,6 @@
     }
 
     // For older dates, show formatted date
-    return date.toLocaleDateString()
+    return formatDate(date)
   }
 </script>

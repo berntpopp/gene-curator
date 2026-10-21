@@ -16,7 +16,7 @@
               <v-card variant="tonal" color="primary" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-dna</v-icon>
                 <div class="text-h5 font-weight-bold">
-                  {{ catalogueStore.summary.totalGenesCurated }}
+                  {{ summaryValue(catalogueStore.summary.totalGenesCurated) }}
                 </div>
                 <div class="text-caption">Curated Genes</div>
               </v-card>
@@ -25,7 +25,7 @@
               <v-card variant="tonal" color="secondary" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-clipboard-check</v-icon>
                 <div class="text-h5 font-weight-bold">
-                  {{ catalogueStore.summary.totalCurations }}
+                  {{ summaryValue(catalogueStore.summary.totalCurations) }}
                 </div>
                 <div class="text-caption">Active Curations</div>
               </v-card>
@@ -34,7 +34,7 @@
               <v-card variant="tonal" color="info" class="text-center pa-2">
                 <v-icon size="24" class="mb-1">mdi-folder-multiple</v-icon>
                 <div class="text-h5 font-weight-bold">
-                  {{ catalogueStore.summary.totalScopes }}
+                  {{ summaryValue(catalogueStore.summary.totalScopes) }}
                 </div>
                 <div class="text-caption">Scopes</div>
               </v-card>
@@ -575,13 +575,13 @@
   import {
     formatClassification,
     formatScore,
-    formatDate,
     getBestScore,
     getBestClassification,
     getScoreColorClass,
     getClassificationColor,
     getClassificationIcon
   } from './GeneCatalogueView.utils'
+  import { EMPTY, formatDate } from '@/utils/format'
 
   type CatalogueEntry = Schema<'GeneCatalogueEntry'>
   type ScopeCuration = Schema<'ScopeCurationSummary'>
@@ -590,8 +590,8 @@
     diseases: string[]
     classifications: Record<string, number>
   }
-
   const catalogueStore = useGeneCatalogueStore()
+  const summaryValue = (n: number) => (catalogueStore.summaryLoaded ? n : EMPTY)
   const entries = computed(() => catalogueStore.entries as CatalogueRow[])
   const router = useRouter()
 

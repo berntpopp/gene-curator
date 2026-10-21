@@ -27,34 +27,40 @@
           </template>
         </v-alert>
 
-        <!-- Loading State -->
-        <v-skeleton-loader v-if="loading" type="card" />
+        <!-- The one skeleton: until the schema is resolved and the form reports ready -->
+        <v-skeleton-loader v-if="loading || (resolvedSchemaId && !formReady)" type="card" />
 
         <!-- Schema Selection (if not determined and multiple available) -->
         <CurationSchemaSelect
-          v-else-if="!resolvedSchemaId && availableSchemas.length > 1"
+          v-else-if="!loading && !resolvedSchemaId && availableSchemas.length > 1"
           v-model="selectedSchemaId"
           :scope-id="scopeId"
           @update:model-value="handleSchemaSelected"
         />
 
-        <!-- Dynamic Form (schema-driven) -->
-        <SchemaDrivenCurationForm
-          v-else-if="resolvedSchemaId"
-          :schema-id="resolvedSchemaId"
-          :workflow-pair-id="resolvedWorkflowPairId"
-          :curation-id="curationId"
-          :scope-id="scopeId"
-          :gene-id="effectiveGeneId"
-          :readonly="isActive"
-          :gene="formGene"
-          @submit="handleSubmit"
-          @cancel="handleCancel"
-          @saved="handleSaved"
-        />
+        <!-- Dynamic Form (schema-driven), mounted hidden so it loads behind the skeleton -->
+        <div v-if="!loading && resolvedSchemaId" v-show="formReady">
+          <SchemaDrivenCurationForm
+            :schema-id="resolvedSchemaId"
+            :workflow-pair-id="resolvedWorkflowPairId"
+            :curation-id="curationId"
+            :scope-id="scopeId"
+            :gene-id="effectiveGeneId"
+            :readonly="isActive"
+            :gene="formGene"
+            @submit="handleSubmit"
+            @cancel="handleCancel"
+            @saved="handleSaved"
+            @ready="formReady = true"
+          />
+        </div>
 
         <!-- No Schema Available -->
-        <v-alert v-else type="error" variant="tonal">
+        <v-alert
+          v-if="!loading && !resolvedSchemaId && availableSchemas.length <= 1"
+          type="error"
+          variant="tonal"
+        >
           <template #prepend>
             <v-icon>mdi-alert-circle</v-icon>
           </template>
@@ -153,6 +159,7 @@
 
   // State
   const loading = ref(true)
+  const formReady = ref(false)
   const selectedSchemaId = ref<string | undefined>(undefined)
   const curation = ref<CurationFormRecord | null>(null)
   const gene = ref<{ approved_symbol?: string } | undefined>(undefined)
@@ -271,6 +278,7 @@
 
   async function loadData() {
     loading.value = true
+    formReady.value = false
     try {
       // Load schemas, workflow pairs, and scope in parallel
       await Promise.all([

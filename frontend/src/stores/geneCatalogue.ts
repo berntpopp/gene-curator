@@ -54,6 +54,8 @@ interface GeneCatalogueState {
   pagination: CataloguePagination
   filters: CatalogueFilters
   summary: CatalogueSummary
+  /** False until the first response carrying a summary (views show an em dash, not 0) */
+  summaryLoaded: boolean
   filterOptions: CatalogueFilterOptions
   expandedGeneIds: Set<string>
 }
@@ -88,6 +90,8 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
     // Active filters
     filters: { ...DEFAULT_FILTERS },
+
+    summaryLoaded: false,
 
     // Summary statistics
     summary: {
@@ -183,6 +187,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
 
         // Update summary
         if (response.summary) {
+          this.summaryLoaded = true
           this.summary = {
             totalGenesCurated: response.summary.total_genes_curated || 0,
             totalCurations: response.summary.total_curations || 0,
@@ -312,6 +317,7 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
         hasPrev: false
       }
       this.filters = { ...DEFAULT_FILTERS }
+      this.summaryLoaded = false
       this.summary = {
         totalGenesCurated: 0,
         totalCurations: 0,

@@ -24,16 +24,6 @@ export const formatScore = (score: number | string | null | undefined): string =
   return typeof score === 'number' ? score.toFixed(1) : score
 }
 
-export const formatDate = (dateString: string | null | undefined): string => {
-  if (!dateString) return '-'
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric'
-  })
-}
-
 // Get best (highest) score from all scope curations
 export const getBestScore = (item: CatalogueEntry): number | null => {
   if (!item.scope_curations || item.scope_curations.length === 0) return null

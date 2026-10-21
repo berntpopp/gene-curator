@@ -77,7 +77,7 @@
                 <v-icon icon="mdi-dna" color="primary" class="mr-2"></v-icon>
                 <div class="text-overline">Total Genes</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.total_genes_assigned || 0 }}</div>
+              <div class="text-h4">{{ stat(scopeStats?.total_genes_assigned) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -89,7 +89,7 @@
                 <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
                 <div class="text-overline">Completed</div>
               </div>
-              <div class="text-h4">{{ completedGenes }}</div>
+              <div class="text-h4">{{ stat(completedGenes) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -101,7 +101,7 @@
                 <v-icon icon="mdi-progress-clock" color="warning" class="mr-2"></v-icon>
                 <div class="text-overline">In Progress</div>
               </div>
-              <div class="text-h4">{{ inProgressCount }}</div>
+              <div class="text-h4">{{ stat(inProgressCount) }}</div>
             </v-card-text>
           </v-card>
         </v-col>
@@ -113,7 +113,7 @@
                 <v-icon icon="mdi-account-group" color="info" class="mr-2"></v-icon>
                 <div class="text-overline">Members</div>
               </div>
-              <div class="text-h4">{{ scopeStats?.member_count || 0 }}</div>
+              <div class="text-h4">{{ stat(scopeStats?.member_count) }}</div>
               <div v-if="scopeStats?.pending_invitations" class="text-caption text-medium-emphasis">
                 {{ scopeStats.pending_invitations }} invited
               </div>
@@ -137,7 +137,8 @@
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-caption text-medium-emphasis mt-2">
-                {{ completedGenes }} of {{ scopeStats?.total_genes_assigned || 0 }} genes curated
+                {{ stat(completedGenes) }} of {{ stat(scopeStats?.total_genes_assigned) }} genes
+                curated
               </div>
             </v-card-text>
           </v-card>
@@ -252,6 +253,7 @@
 </template>
 
 <script setup lang="ts">
+  import { EMPTY } from '@/utils/format'
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
   import { useRoute, useRouter } from 'vue-router'
   import { useScopesStore } from '@/stores/scopes'
@@ -297,6 +299,8 @@
   // ============================================
 
   const scopeStats = ref<ScopeStats | undefined>(undefined)
+  // Em dash until statistics arrive, never a fake 0
+  const stat = (n: number | null | undefined) => (scopeStats.value ? (n ?? 0) : EMPTY)
 
   // ============================================
   // COMPUTED PROPERTIES

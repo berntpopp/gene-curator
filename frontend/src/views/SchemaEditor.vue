@@ -234,6 +234,7 @@
 </template>
 
 <script setup lang="ts">
+  import { formatDate } from '@/utils/format'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
@@ -280,10 +281,6 @@
 
   const formatJson = (obj: unknown) => {
     return JSON.stringify(obj, null, 2)
-  }
-
-  const formatDate = (dateString: string | null | undefined) => {
-    return dateString ? new Date(dateString).toLocaleDateString() : '—'
   }
 
   const fieldDefinitions = () => Object.values(schema.value?.field_definitions ?? {})

@@ -5,44 +5,10 @@ vi.mock('@/services/logService', () => ({
 }))
 
 import { useScopeUtils } from '../useScopeUtils'
-import { logService } from '@/services/logService'
 
 describe('useScopeUtils', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-  })
-
-  describe('formatDate', () => {
-    it('returns placeholder for empty values', () => {
-      const { formatDate } = useScopeUtils()
-
-      expect(formatDate(null)).toBe('No due date')
-      expect(formatDate(undefined)).toBe('No due date')
-      expect(formatDate('')).toBe('No due date')
-    })
-
-    it('formats ISO strings and Date objects with locale formatting', () => {
-      const { formatDate } = useScopeUtils()
-      const date = new Date('2025-12-31T12:00:00Z')
-
-      expect(formatDate('2025-12-31T12:00:00Z')).toBe(date.toLocaleDateString())
-      expect(formatDate(date)).toBe(date.toLocaleDateString())
-    })
-
-    it('returns "Invalid date" and logs a warning when formatting throws', () => {
-      const { formatDate } = useScopeUtils()
-      const broken = {
-        toLocaleDateString: () => {
-          throw new Error('bad date')
-        }
-      } as unknown as Date
-
-      expect(formatDate(broken)).toBe('Invalid date')
-      expect(logService.warn).toHaveBeenCalledWith('Invalid date format', {
-        date: broken,
-        error: 'bad date'
-      })
-    })
   })
 
   describe('calculateProgress', () => {
