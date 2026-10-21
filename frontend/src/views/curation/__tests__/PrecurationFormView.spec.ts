@@ -87,6 +87,8 @@ describe('PrecurationFormView', () => {
       const form = wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' })
       expect(form.props('precurationId')).toBe('p1')
       expect(form.props('readonly')).toBe(readonly)
+      // A read-only form always says why its actions are disabled
+      expect(wrapper.find('[data-testid="ws-readonly"]').exists()).toBe(readonly)
     }
   )
 
