@@ -47,6 +47,17 @@ class OpenCurationExistsError(ValueError):
         self.curation_id = curation_id
 
 
+def open_curation_id(db: Session, gene_id: UUID, scope_id: UUID) -> UUID | None:
+    """The gene's open (not active or archived) curation in the scope, if any."""
+    return db.scalar(
+        select(CurationNew.id).where(
+            CurationNew.gene_id == gene_id,
+            CurationNew.scope_id == scope_id,
+            CurationNew.status.notin_([CurationStatus.ACTIVE, CurationStatus.ARCHIVED]),
+        )
+    )
+
+
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
     return datetime.now(UTC)
@@ -279,15 +290,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             )
 
         # One open curation per gene and scope (approval already created a draft, #398)
-        open_id = db.scalar(
-            select(CurationNew.id).where(
-                CurationNew.gene_id == obj_in.gene_id,
-                CurationNew.scope_id == obj_in.scope_id,
-                CurationNew.status.notin_(
-                    [CurationStatus.ACTIVE, CurationStatus.ARCHIVED]
-                ),
-            )
-        )
+        open_id = open_curation_id(db, obj_in.gene_id, obj_in.scope_id)
         if open_id:
             raise OpenCurationExistsError(open_id)
 

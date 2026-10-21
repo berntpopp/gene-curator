@@ -8,6 +8,7 @@ from app.crud.workflow_engine import workflow_engine
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.precuration import PrecurationCreate
 from tests.api.scopes.factories import (
+    make_curation,
     make_gene,
     make_member,
     make_precuration,
@@ -18,13 +19,23 @@ from tests.api.scopes.factories import (
 pytestmark = pytest.mark.unit
 
 
-def _approved_curation(db: Session):
+def _approve(db: Session, *, open_curation: bool = False):
     author, reviewer = make_user(db), make_user(db)
     scope = make_scope(db)
     make_member(db, scope, author, "curator")
     make_member(db, scope, reviewer, "reviewer")
+    gene = make_gene(db)
+    if open_curation:
+        make_curation(
+            db,
+            scope=scope,
+            gene=gene,
+            creator=author,
+            stage=WorkflowStage.CURATION,
+            status=CurationStatus.DRAFT,
+        )
     pre = make_precuration(
-        db, scope=scope, gene=make_gene(db), creator=author, stage=WorkflowStage.REVIEW
+        db, scope=scope, gene=gene, creator=author, stage=WorkflowStage.REVIEW
     )
     pre.status = CurationStatus.SUBMITTED
     from app.models import WorkflowPair
@@ -41,8 +52,29 @@ def _approved_curation(db: Session):
     result = precuration_crud.approve_and_create_curation(
         db, db_obj=pre, approver_id=reviewer.id
     )
+    return author, reviewer, result
+
+
+def _approved_curation(db: Session):
+    author, reviewer, result = _approve(db)
     assert result.curation_id
     return author, reviewer, result.curation_id
+
+
+def test_approval_keeps_an_open_curation_as_the_only_one(db_session: Session):
+    """An open curation (e.g. a re-curation draft) stays the only one; approval still happens."""
+    from sqlalchemy import func, select
+
+    from app.models import CurationNew, PrecurationNew
+
+    _, _, result = _approve(db_session, open_curation=True)
+    assert result.approved
+    assert not result.curation_created
+    assert result.curation_id is None
+    assert db_session.scalar(select(func.count()).select_from(CurationNew)) == 1
+    pre = db_session.get(PrecurationNew, result.precuration_id)
+    assert pre is not None
+    assert pre.status == CurationStatus.APPROVED
 
 
 def test_auto_created_curation_is_authored_by_precuration_author(db_session: Session):

@@ -508,6 +508,17 @@ describe('CurationFormView', () => {
       expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain('permission')
     })
 
+    it("names the author of someone else's draft", async () => {
+      const { wrapper } = await mountFramed({
+        status: 'draft',
+        can_edit: false,
+        curator_name: 'Alice Smith'
+      })
+      expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain(
+        'Read-only: this curation belongs to Alice Smith. Only its author can edit it.'
+      )
+    })
+
     it('keeps a returned (changes requested) curation editable for its curator', async () => {
       const { wrapper } = await mountFramed({ status: 'rejected', can_edit: true })
       expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeUndefined()

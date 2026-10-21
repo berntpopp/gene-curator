@@ -81,15 +81,13 @@ def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | No
 def _can_user_edit_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
-    """Check if user can edit this curation."""
-    # Admin can edit draft/rejected curations regardless of scope role
-    if user.role == "admin":
-        return curation.status in [CurationStatus.DRAFT, CurationStatus.REJECTED]
-
-    # Must be editable status
+    """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         return False
-
+    if user.role == "admin":
+        return True
+    if curation.created_by != user.id:
+        return False
     # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
     scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
     return scope_role in ["admin", "curator"]
