@@ -31,7 +31,7 @@
     <v-tooltip v-if="mdAndUp" :text="themeLabel" location="bottom">
       <template #activator="{ props }">
         <v-btn v-bind="props" :aria-label="themeLabel" icon class="ml-2" @click="toggleTheme">
-          <v-icon>{{ isDark ? 'mdi-white-balance-sunny' : 'mdi-weather-night' }}</v-icon>
+          <v-icon>{{ MODE_ICON[mode] }}</v-icon>
         </v-btn>
       </template>
     </v-tooltip>
@@ -82,19 +82,27 @@
   const version = ref('0.3.0')
   const buildHash = ref('dev')
 
-  // Theme (persisted in localStorage, restored in main.js before Vuetify init)
-  const isDark = computed(() => theme.global.current.value.dark)
+  // Theme mode (persisted in localStorage, restored in main.ts before Vuetify init)
+  type ThemeMode = 'light' | 'dark' | 'system'
+  const NEXT_MODE: Record<ThemeMode, ThemeMode> = { system: 'light', light: 'dark', dark: 'system' }
+  const MODE_ICON: Record<ThemeMode, string> = {
+    system: 'mdi-theme-light-dark',
+    light: 'mdi-white-balance-sunny',
+    dark: 'mdi-weather-night'
+  }
+  const saved = localStorage.getItem('theme')
+  const mode = ref<ThemeMode>(saved === 'light' || saved === 'dark' ? saved : 'system')
 
-  const themeLabel = computed(() => `Switch to ${isDark.value ? 'light' : 'dark'} theme`)
+  const themeLabel = computed(
+    () => `Theme: ${mode.value}. Switch to ${NEXT_MODE[mode.value]} theme`
+  )
 
-  /**
-   * Toggle dark/light theme
-   */
+  /** Cycle system -> light -> dark -> system */
   const toggleTheme = () => {
-    const newTheme = isDark.value ? 'light' : 'dark'
-    theme.global.name.value = newTheme
-    localStorage.setItem('theme', newTheme)
-    logger.info('Theme toggled', { theme: newTheme })
+    mode.value = NEXT_MODE[mode.value]
+    void theme.change(mode.value)
+    localStorage.setItem('theme', mode.value)
+    logger.info('Theme changed', { theme: mode.value })
   }
 </script>
 
