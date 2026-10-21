@@ -74,3 +74,24 @@ def test_conditional_required_applies_only_when_condition_holds() -> None:
     assert validate({**base, "lumping_splitting_applicable": False}).is_valid
     result = validate({**base, "lumping_splitting_applicable": True})
     assert [e["field"] for e in result.errors] == ["lumping_splitting_rationale"]
+
+
+@pytest.mark.parametrize(
+    "rules",
+    [
+        {"required_fields": "mondo_id", "conditional_required": ["x"]},
+        {"conditional_required": {"a": "x", "b": {"when": ["x"]}}},
+        {
+            "custom_validators": [
+                "junk",
+                {"field": 1},
+                {"field": "mondo_id", "pattern": 5},
+            ]
+        },
+        {"custom_validators": {"field": "mondo_id"}},
+    ],
+)
+def test_malformed_list_rules_are_skipped(rules: dict[str, Any]) -> None:
+    schema = {"field_definitions": FIELDS, "validation_rules": rules}
+    result = SchemaValidator().validate_evidence_data({"mondo_id": "x"}, schema)
+    assert result.is_valid

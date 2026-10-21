@@ -47,9 +47,12 @@ def apply_field_list_rules(
 
     Returns the remaining (per-rule config) rules.
     """
-    required = list(rules.get("required_fields") or [])
-    for name, cond in (rules.get("conditional_required") or {}).items():
-        when = cond.get("when") if isinstance(cond, dict) else None
+    # Malformed rules are skipped, as the per-rule try/except did before
+    required = [
+        n for n in _as(list, rules.get("required_fields")) if isinstance(n, str)
+    ]
+    for name, cond in _as(dict, rules.get("conditional_required")).items():
+        when = _as(dict, cond.get("when") if isinstance(cond, dict) else None)
         if when and all(data.get(k) == v for k, v in when.items()):
             required.append(name)
     for name in required:
@@ -59,9 +62,11 @@ def apply_field_list_rules(
         ):
             result.add_error(name, "Required field is missing", "required")
             result.required_fields_missing.append(name)
-    for rule in rules.get("custom_validators") or []:
-        value = data.get(rule.get("field"))
-        if rule.get("pattern") and isinstance(value, str) and value:
+    for rule in _as(list, rules.get("custom_validators")):
+        if not isinstance(rule, dict) or not isinstance(rule.get("field"), str):
+            continue
+        value = data.get(rule["field"])
+        if isinstance(rule.get("pattern"), str) and isinstance(value, str) and value:
             result.check_pattern(
                 rule["field"],
                 rule["pattern"],
@@ -69,6 +74,11 @@ def apply_field_list_rules(
                 {"pattern_message": rule.get("message")},
             )
     return {k: v for k, v in rules.items() if k not in FIELD_LIST_RULES}
+
+
+def _as(kind: type, value: Any) -> Any:
+    """`value` if it is a `kind`, else an empty `kind`."""
+    return value if isinstance(value, kind) else kind()
 
 
 # Field types the renderer accepts (form vocabulary plus the seeded JSON-schema style)
