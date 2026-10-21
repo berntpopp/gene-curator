@@ -317,3 +317,38 @@ def test_no_non_enum_scope_role_literals_in_app() -> None:
         if '"scope_admin"' in p.read_text() or "'scope_admin'" in p.read_text()
     ]
     assert bad == []
+
+
+def test_role_in_queries_never_use_string_literals() -> None:
+    """Any `<x>.role.in_(...)` argument (or the list it names) must come from ScopeRole."""
+    import ast
+    from pathlib import Path
+
+    root = Path(__file__).parents[2] / "app"
+    bad: list[str] = []
+    for path in root.rglob("*.py"):
+        tree = ast.parse(path.read_text())
+        assigned: dict[str, list[ast.AST]] = {}
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Assign):
+                for t in node.targets:
+                    if isinstance(t, ast.Name):
+                        assigned.setdefault(t.id, []).append(node.value)
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Call)
+                and isinstance(node.func, ast.Attribute)
+                and node.func.attr == "in_"
+                and isinstance(node.func.value, ast.Attribute)
+                and node.func.value.attr == "role"
+            ):
+                continue
+            arg = node.args[0]
+            parts = assigned.get(arg.id, []) if isinstance(arg, ast.Name) else [arg]
+            for part in parts:
+                if any(
+                    isinstance(n, ast.Constant) and isinstance(n.value, str)
+                    for n in ast.walk(part)
+                ):
+                    bad.append(f"{path}:{node.lineno}")
+    assert bad == []

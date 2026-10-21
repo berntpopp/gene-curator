@@ -366,6 +366,7 @@
   import { humanize } from '@/components/dynamic/fieldLabels'
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
+  import { useWorkflowStore } from '@/stores/workflow'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
@@ -407,6 +408,7 @@
   const notificationStore = useNotificationsStore()
   const logger = useLogger()
   const authStore = useAuthStore()
+  const workflowStore = useWorkflowStore()
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -583,8 +585,7 @@
       showApproveDialog.value = false
       showRejectDialog.value = false
       notificationStore.addToast(doneMessage, 'success')
-      // MainNavigation re-counts the review badge on visibilitychange; no shared store holds it yet
-      document.dispatchEvent(new Event('visibilitychange'))
+      workflowStore.fetchPendingReviewCount()
       await loadCuration()
     } catch (err) {
       const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message

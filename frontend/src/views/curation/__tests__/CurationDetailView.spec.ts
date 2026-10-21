@@ -1,3 +1,4 @@
+import { useWorkflowStore } from '@/stores/workflow'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
@@ -150,14 +151,12 @@ describe('CurationDetailView', () => {
     expect(dialogs.props('errorDetail')).toBe('Notification step failed')
   })
 
-  it('asks the navigation to refresh the review badge after a transition', async () => {
+  it('refreshes the shared review badge count after a transition', async () => {
     vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({} as never)
-    const refresh = vi.fn()
-    document.addEventListener('visibilitychange', refresh)
+    const refresh = vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(0)
     const wrapper = await load({ can_review: true })
     wrapper.findComponent(CurationReviewDialogs).vm.$emit('approve', 'ok')
     await flushPromises()
-    document.removeEventListener('visibilitychange', refresh)
     expect(refresh).toHaveBeenCalled()
   })
 

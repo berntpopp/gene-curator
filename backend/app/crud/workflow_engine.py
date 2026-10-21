@@ -10,6 +10,7 @@ from uuid import UUID
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
+from app.core.enums import ScopeRole
 from app.models import (
     ActiveCuration,
     CurationNew,
@@ -714,12 +715,8 @@ class WorkflowEngine:
 
         # Check scope-specific role if scope_id is provided
         if scope_id:
-            # Valid scope roles: admin, curator, reviewer, viewer
-            # Map global role requirements to valid scope roles
-            valid_scope_roles = ["admin", "curator", "reviewer", "viewer"]
-            scope_role_requirements = [
-                r for r in role_requirements if r in valid_scope_roles
-            ]
+            # Keep only valid scope roles (admin, curator, reviewer, viewer)
+            scope_role_requirements = [r for r in role_requirements if r in ScopeRole]
 
             membership = (
                 db.query(ScopeMembership)
@@ -768,7 +765,7 @@ class WorkflowEngine:
         if hasattr(item, "scope_id") and item.scope_id:
             # Check scope membership with eligible review role
             # Valid scope roles: admin, curator, reviewer, viewer
-            eligible_scope_roles = ["admin", "curator", "reviewer"]
+            eligible_scope_roles = [r.value for r in ScopeRole if r != ScopeRole.VIEWER]
             membership = (
                 db.query(ScopeMembership)
                 .filter(
@@ -1168,7 +1165,7 @@ class WorkflowEngine:
         from app.models.models import Review, ReviewStatus, ScopeMembership
 
         # Eligible roles within a scope for reviewing
-        eligible_scope_roles = ["admin", "curator", "reviewer"]
+        eligible_scope_roles = [r.value for r in ScopeRole if r != ScopeRole.VIEWER]
 
         # Base query for active users
         query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712

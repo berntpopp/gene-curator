@@ -194,7 +194,7 @@ class ScopePermissionService:
         Editing rules:
         - Admins can edit all curations
         - Creators can edit own curations (if not in review/active stage)
-        - Scope admins can edit any curation in their scope
+        - Scope admins can edit any curation in their scope (if not in review/active stage)
 
         Args:
             db: Database session
@@ -237,7 +237,12 @@ class ScopePermissionService:
             .first()
         )
 
-        if scope_member and scope_member.role == ScopeRole.ADMIN.value:
+        # Same stage guard as creators: no evidence edits while in review/active (4-eyes)
+        if (
+            scope_member
+            and scope_member.role == ScopeRole.ADMIN.value
+            and curation.workflow_stage.value not in ["review", "active"]
+        ):
             logger.debug(
                 "Scope admin can edit curation",
                 user_id=str(user.id),

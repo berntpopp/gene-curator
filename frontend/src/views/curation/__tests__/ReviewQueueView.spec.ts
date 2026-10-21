@@ -16,6 +16,7 @@ vi.mock('@/api/precurations', () => ({
 
 import { curationsAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
+import { useWorkflowStore } from '@/stores/workflow'
 import { useScopesStore } from '@/stores/scopes'
 import { useNotificationsStore } from '@/stores/notifications'
 import { confirmState } from '@/composables/useConfirm'
@@ -203,6 +204,9 @@ describe('ReviewQueueView', () => {
     })
 
     it('approves a precuration and removes it from the queue', async () => {
+      const refreshBadge = vi
+        .spyOn(useWorkflowStore(), 'fetchPendingReviewCount')
+        .mockResolvedValue(0)
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
       vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
         precurations: [pre],
@@ -215,6 +219,7 @@ describe('ReviewQueueView', () => {
       confirmState.settle(true)
       await flushPromises()
       expect(precurationsAPI.approvePrecuration).toHaveBeenCalledWith('p1')
+      expect(refreshBadge).toHaveBeenCalled()
       expect(wrapper.text()).not.toContain('PKD1')
     })
 

@@ -40,7 +40,7 @@ async def create_evidence_item(
 ) -> EvidenceItem:
     """Create new evidence item for curation
 
-    Requires curator or scope_admin role in the curation's scope.
+    Requires curator or scope admin role in the curation's scope.
 
     Args:
         db: Database session
@@ -116,7 +116,7 @@ async def update_evidence_item(
 ) -> EvidenceItem:
     """Update evidence item
 
-    Requires curator or scope_admin role in the curation's scope.
+    Requires curator or scope admin role in the curation's scope.
 
     Args:
         db: Database session
@@ -194,7 +194,7 @@ async def delete_evidence_item(
 ) -> None:
     """Delete evidence item (soft delete)
 
-    Requires curator or scope_admin role in the curation's scope.
+    Requires curator or scope admin role in the curation's scope.
 
     Args:
         db: Database session
