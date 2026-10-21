@@ -92,98 +92,82 @@
   </v-autocomplete>
 
   <!-- Detail Dialog -->
-  <v-dialog v-model="showDetailDialog" max-width="700">
-    <v-card v-if="detailDisease" :loading="isLoadingDetails">
-      <v-card-title class="d-flex align-center">
-        <v-icon start color="warning">mdi-flask</v-icon>
-        {{ detailDisease.name }}
-        <v-spacer />
-        <v-btn
-          aria-label="Close"
-          icon="mdi-close"
-          variant="text"
-          @click="showDetailDialog = false"
-        />
-      </v-card-title>
+  <BaseDialog v-if="detailDisease" v-model="showDetailDialog" size="lg">
+    <template #title>
+      <v-icon start color="warning">mdi-flask</v-icon>
+      {{ detailDisease.name }}
+    </template>
+    <v-progress-linear v-if="isLoadingDetails" indeterminate />
+    <div class="mb-4">
+      <v-chip size="small" color="warning" variant="tonal" class="mr-2">
+        {{ detailDisease.omim_id }}
+      </v-chip>
+      <v-chip v-if="detailDisease.mondo_id" size="small" color="info" variant="outlined">
+        {{ detailDisease.mondo_id }}
+      </v-chip>
+    </div>
+    <div v-if="detailDisease.description" class="mb-4">
+      <strong>Description:</strong>
+      <p class="text-body-2 mt-1">{{ detailDisease.description }}</p>
+    </div>
 
-      <v-card-subtitle>
-        <v-chip size="small" color="warning" variant="tonal" class="mr-2">
-          {{ detailDisease.omim_id }}
-        </v-chip>
-        <v-chip v-if="detailDisease.mondo_id" size="small" color="info" variant="outlined">
-          {{ detailDisease.mondo_id }}
-        </v-chip>
-      </v-card-subtitle>
-
-      <v-card-text>
-        <div v-if="detailDisease.description" class="mb-4">
-          <strong>Description:</strong>
-          <p class="text-body-2 mt-1">{{ detailDisease.description }}</p>
-        </div>
-
-        <div v-if="detailDisease.genes?.length" class="mb-4">
-          <strong>Associated Genes:</strong>
-          <div class="d-flex flex-wrap ga-1 mt-1">
-            <v-chip
-              v-for="gene in detailDisease.genes"
-              :key="gene.gene_id"
-              size="small"
-              color="primary"
-              variant="tonal"
-            >
-              {{ gene.symbol }}
-            </v-chip>
-          </div>
-        </div>
-
-        <div v-if="Object.keys(detailDisease.phenotypes || {}).length">
-          <strong>Phenotypes by Category:</strong>
-          <v-expansion-panels class="mt-2" variant="accordion">
-            <v-expansion-panel
-              v-for="(phenos, category) in detailDisease.phenotypes"
-              :key="category"
-            >
-              <v-expansion-panel-title>
-                {{ category }}
-                <v-chip size="x-small" class="ml-2">{{ phenos.length }}</v-chip>
-              </v-expansion-panel-title>
-              <v-expansion-panel-text>
-                <v-list density="compact">
-                  <v-list-item v-for="pheno in phenos" :key="pheno.hpo_id" class="px-0">
-                    <template #prepend>
-                      <v-chip size="x-small" color="success" variant="tonal">
-                        {{ pheno.hpo_id }}
-                      </v-chip>
-                    </template>
-                    <v-list-item-title>{{ pheno.name }}</v-list-item-title>
-                    <template #append>
-                      <span v-if="pheno.frequency" class="text-caption">
-                        {{ pheno.frequency }}
-                      </span>
-                    </template>
-                  </v-list-item>
-                </v-list>
-              </v-expansion-panel-text>
-            </v-expansion-panel>
-          </v-expansion-panels>
-        </div>
-      </v-card-text>
-
-      <v-card-actions>
-        <v-btn
-          color="warning"
-          variant="text"
-          :href="`https://omim.org/entry/${detailDisease?.omim_id.replace('OMIM:', '')}`"
-          target="_blank"
+    <div v-if="detailDisease.genes?.length" class="mb-4">
+      <strong>Associated Genes:</strong>
+      <div class="d-flex flex-wrap ga-1 mt-1">
+        <v-chip
+          v-for="gene in detailDisease.genes"
+          :key="gene.gene_id"
+          size="small"
+          color="primary"
+          variant="tonal"
         >
-          <v-icon start>mdi-open-in-new</v-icon>
-          View on OMIM
-        </v-btn>
-        <v-spacer />
-        <v-btn variant="text" @click="showDetailDialog = false">Close</v-btn>
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
+          {{ gene.symbol }}
+        </v-chip>
+      </div>
+    </div>
+
+    <div v-if="Object.keys(detailDisease.phenotypes || {}).length">
+      <strong>Phenotypes by Category:</strong>
+      <v-expansion-panels class="mt-2" variant="accordion">
+        <v-expansion-panel v-for="(phenos, category) in detailDisease.phenotypes" :key="category">
+          <v-expansion-panel-title>
+            {{ category }}
+            <v-chip size="x-small" class="ml-2">{{ phenos.length }}</v-chip>
+          </v-expansion-panel-title>
+          <v-expansion-panel-text>
+            <v-list density="compact">
+              <v-list-item v-for="pheno in phenos" :key="pheno.hpo_id" class="px-0">
+                <template #prepend>
+                  <v-chip size="x-small" color="success" variant="tonal">
+                    {{ pheno.hpo_id }}
+                  </v-chip>
+                </template>
+                <v-list-item-title>{{ pheno.name }}</v-list-item-title>
+                <template #append>
+                  <span v-if="pheno.frequency" class="text-caption">
+                    {{ pheno.frequency }}
+                  </span>
+                </template>
+              </v-list-item>
+            </v-list>
+          </v-expansion-panel-text>
+        </v-expansion-panel>
+      </v-expansion-panels>
+    </div>
+    <template #actions>
+      <v-btn
+        color="warning"
+        variant="text"
+        :href="`https://omim.org/entry/${detailDisease?.omim_id.replace('OMIM:', '')}`"
+        target="_blank"
+      >
+        <v-icon start>mdi-open-in-new</v-icon>
+        View on OMIM
+      </v-btn>
+      <v-spacer />
+      <v-btn variant="text" @click="showDetailDialog = false">Close</v-btn>
+    </template>
+  </BaseDialog>
 </template>
 
 <script setup lang="ts">
@@ -205,6 +189,7 @@
 
   import { ref, computed, watch } from 'vue'
   import { ontologyAPI } from '@/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
   import { useLogger } from '@/composables/useLogger'
   import { useDebounceFn } from '@vueuse/core'
   import type { Schema } from '@/types/api'

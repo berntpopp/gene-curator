@@ -19,6 +19,9 @@ import { useUsersStore } from '@/stores/users'
 import { useScopesStore } from '@/stores/scopes'
 import { authApi } from '@/api/auth'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 const { routerPush, routeState, logger, showError, showSuccess } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
@@ -416,10 +419,7 @@ describe('WorkflowManagement', () => {
     const deleteWorkflowPair = vi
       .spyOn(schemas, 'deleteWorkflowPair')
       .mockResolvedValue(undefined as never)
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     const wrapper = mount(WorkflowManagement, opts())
     await flushPromises()
     await call(vmOf(wrapper), 'deleteWorkflow', { id: 'wp1', name: 'ClinGen flow' })

@@ -13,6 +13,9 @@ import SchemaEditor from '@/views/SchemaEditor.vue'
 import { useSchemasStore } from '@/stores/schemas'
 import { useWorkflowStore } from '@/stores/workflow'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 const { routerPush, routeState, logger, showError, showSuccess, showInfo } = vi.hoisted(() => ({
   routerPush: vi.fn(),
   routeState: { params: {} as Record<string, string>, query: {} as Record<string, string> },
@@ -248,16 +251,10 @@ describe('WorkflowManagement', () => {
   it('reports a failed delete and skips it when not confirmed', async () => {
     const { vm, schemas } = await mountView()
     const del = vi.spyOn(schemas, 'deleteWorkflowPair').mockRejectedValue(new Error('in use'))
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => false)
-    )
+    confirmMock.mockResolvedValue(false)
     await call(vm, 'deleteWorkflow', pair)
     expect(del).not.toHaveBeenCalled()
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     await call(vm, 'deleteWorkflow', pair)
     expect(showError).toHaveBeenCalledWith('Failed to delete workflow')
     vi.unstubAllGlobals()
@@ -344,10 +341,7 @@ describe('SchemaManagement', () => {
   it('reports a failed delete', async () => {
     const { vm, schemas } = await mountView()
     vi.spyOn(schemas, 'deleteSchema').mockRejectedValue(new Error('in use'))
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     await call(vm, 'deleteSchema', row)
     expect(showError).toHaveBeenCalledWith('in use')
     vi.unstubAllGlobals()
@@ -585,16 +579,10 @@ describe('SchemaEditor', () => {
   it('deletes after confirmation and returns to the list', async () => {
     const { vm, schemas } = await mountView()
     const del = vi.spyOn(schemas, 'deleteSchema').mockResolvedValue(undefined as never)
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => false)
-    )
+    confirmMock.mockResolvedValue(false)
     await call(vm, 'deleteSchema')
     expect(del).not.toHaveBeenCalled()
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     await call(vm, 'deleteSchema')
     expect(del).toHaveBeenCalledWith('s1')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaManagement' })

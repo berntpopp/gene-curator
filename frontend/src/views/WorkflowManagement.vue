@@ -117,174 +117,149 @@
     </v-card>
 
     <!-- View Workflow Dialog -->
-    <v-dialog v-model="viewWorkflowDialog" max-width="700">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-eye</v-icon>
-          Workflow details
-        </v-card-title>
-        <v-card-text v-if="selectedWorkflow">
-          <v-list>
-            <v-list-item>
-              <v-list-item-title>Name</v-list-item-title>
-              <v-list-item-subtitle class="text-body-1">{{
-                selectedWorkflow.name
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Description</v-list-item-title>
-              <v-list-item-subtitle>{{
-                selectedWorkflow.description || 'No description'
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Status</v-list-item-title>
-              <v-list-item-subtitle>
-                <v-chip :color="selectedWorkflow.is_active ? 'success' : 'grey'" size="small">
-                  {{ selectedWorkflow.is_active ? 'Active' : 'Inactive' }}
-                </v-chip>
-              </v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Precuration Schema</v-list-item-title>
-              <v-list-item-subtitle>{{
-                getSchemaName(selectedWorkflow.precuration_schema_id, 'precuration')
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Curation Schema</v-list-item-title>
-              <v-list-item-subtitle>{{
-                getSchemaName(selectedWorkflow.curation_schema_id, 'curation')
-              }}</v-list-item-subtitle>
-            </v-list-item>
-            <v-list-item>
-              <v-list-item-title>Created</v-list-item-title>
-              <v-list-item-subtitle>{{
-                formatDateTime(selectedWorkflow.created_at)
-              }}</v-list-item-subtitle>
-            </v-list-item>
-          </v-list>
-
-          <!-- Stage Pipeline -->
-          <div class="mt-4">
-            <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
-            <div class="d-flex align-center ga-2 flex-wrap">
-              <v-chip
-                v-for="stage in workflowStages"
-                :key="stage.id"
-                variant="outlined"
-                size="small"
-              >
-                <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
-                {{ stage.name }}
+    <BaseDialog v-model="viewWorkflowDialog" size="lg">
+      <template #title><v-icon start>mdi-eye</v-icon> Workflow details</template
+      ><template v-if="selectedWorkflow">
+        <v-list>
+          <v-list-item>
+            <v-list-item-title>Name</v-list-item-title>
+            <v-list-item-subtitle class="text-body-1">{{
+              selectedWorkflow.name
+            }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Description</v-list-item-title>
+            <v-list-item-subtitle>{{
+              selectedWorkflow.description || 'No description'
+            }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Status</v-list-item-title>
+            <v-list-item-subtitle>
+              <v-chip :color="selectedWorkflow.is_active ? 'success' : 'grey'" size="small">
+                {{ selectedWorkflow.is_active ? 'Active' : 'Inactive' }}
               </v-chip>
-            </div>
+            </v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Precuration Schema</v-list-item-title>
+            <v-list-item-subtitle>{{
+              getSchemaName(selectedWorkflow.precuration_schema_id, 'precuration')
+            }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Curation Schema</v-list-item-title>
+            <v-list-item-subtitle>{{
+              getSchemaName(selectedWorkflow.curation_schema_id, 'curation')
+            }}</v-list-item-subtitle>
+          </v-list-item>
+          <v-list-item>
+            <v-list-item-title>Created</v-list-item-title>
+            <v-list-item-subtitle>{{
+              formatDateTime(selectedWorkflow.created_at)
+            }}</v-list-item-subtitle>
+          </v-list-item>
+        </v-list>
+
+        <!-- Stage Pipeline -->
+        <div class="mt-4">
+          <div class="text-subtitle-1 font-weight-medium mb-2">Workflow Stages</div>
+          <div class="d-flex align-center ga-2 flex-wrap">
+            <v-chip v-for="stage in workflowStages" :key="stage.id" variant="outlined" size="small">
+              <v-icon start size="x-small">{{ getStageIcon(stage.stage_type) }}</v-icon>
+              {{ stage.name }}
+            </v-chip>
           </div>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="viewWorkflowDialog = false">Close</v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        </div> </template
+      ><template #actions>
+        <v-btn variant="text" @click="viewWorkflowDialog = false">Close</v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Edit Workflow Dialog -->
-    <v-dialog v-model="editWorkflowDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start>mdi-pencil</v-icon>
-          Edit workflow
-        </v-card-title>
-        <v-card-text>
-          <v-form ref="editWorkflowForm">
-            <v-text-field
-              v-model="editWorkflowData.name"
-              label="Name"
-              variant="outlined"
-              :rules="[v => !!v || 'Name is required']"
-              required
-            />
-            <v-textarea
-              v-model="editWorkflowData.description"
-              label="Description"
-              variant="outlined"
-              rows="3"
-            />
-            <v-switch
-              v-model="editWorkflowData.is_active"
-              label="Active"
-              color="primary"
-              hide-details
-              class="mb-4"
-            />
-            <div class="text-caption text-medium-emphasis">
-              Linked schemas and stages cannot be changed after creation.
-            </div>
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="editWorkflowDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" :loading="savingWorkflow" @click="saveWorkflow">
-            Save
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="editWorkflowDialog" size="md">
+      <template #title><v-icon start>mdi-pencil</v-icon> Edit workflow</template>
+      <v-form ref="editWorkflowForm">
+        <v-text-field
+          v-model="editWorkflowData.name"
+          label="Name"
+          variant="outlined"
+          :rules="[v => !!v || 'Name is required']"
+          required
+        />
+        <v-textarea
+          v-model="editWorkflowData.description"
+          label="Description"
+          variant="outlined"
+          rows="3"
+        />
+        <v-switch
+          v-model="editWorkflowData.is_active"
+          label="Active"
+          color="primary"
+          hide-details
+          class="mb-4"
+        />
+        <div class="text-caption text-medium-emphasis">
+          Linked schemas and stages cannot be changed after creation.
+        </div>
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="editWorkflowDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :loading="savingWorkflow" @click="saveWorkflow">
+          Save
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Create Workflow Dialog -->
-    <v-dialog v-model="createWorkflowDialog" max-width="600">
-      <v-card>
-        <v-card-title>Create new {{ TERMINOLOGY.WORKFLOW }}</v-card-title>
-        <v-card-text>
-          <v-form ref="createForm">
-            <v-text-field
-              v-model="newWorkflow.name"
-              label="Workflow Name"
-              variant="outlined"
-              :rules="[v => !!v || 'Name is required']"
-              required
-            />
+    <BaseDialog v-model="createWorkflowDialog" size="md">
+      <template #title>Create new {{ TERMINOLOGY.WORKFLOW }}</template>
+      <v-form ref="createForm">
+        <v-text-field
+          v-model="newWorkflow.name"
+          label="Workflow Name"
+          variant="outlined"
+          :rules="[v => !!v || 'Name is required']"
+          required
+        />
 
-            <v-textarea
-              v-model="newWorkflow.description"
-              label="Description"
-              variant="outlined"
-              rows="3"
-            />
+        <v-textarea
+          v-model="newWorkflow.description"
+          label="Description"
+          variant="outlined"
+          rows="3"
+        />
 
-            <v-select
-              v-model="newWorkflow.precuration_schema_id"
-              :items="precurationSchemas"
-              item-title="name"
-              item-value="id"
-              label="Precuration Schema"
-              variant="outlined"
-              :rules="[v => !!v || 'Precuration schema is required']"
-              required
-            />
+        <v-select
+          v-model="newWorkflow.precuration_schema_id"
+          :items="precurationSchemas"
+          item-title="name"
+          item-value="id"
+          label="Precuration Schema"
+          variant="outlined"
+          :rules="[v => !!v || 'Precuration schema is required']"
+          required
+        />
 
-            <v-select
-              v-model="newWorkflow.curation_schema_id"
-              :items="curationSchemas"
-              item-title="name"
-              item-value="id"
-              label="Curation Schema"
-              variant="outlined"
-              :rules="[v => !!v || 'Curation schema is required']"
-              required
-            />
-          </v-form>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="outlined" @click="createWorkflowDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="flat" :loading="creating" @click="createWorkflow">
-            Create
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+        <v-select
+          v-model="newWorkflow.curation_schema_id"
+          :items="curationSchemas"
+          item-title="name"
+          item-value="id"
+          label="Curation Schema"
+          variant="outlined"
+          :rules="[v => !!v || 'Curation schema is required']"
+          required
+        />
+      </v-form>
+      <template #actions>
+        <v-btn variant="text" @click="createWorkflowDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="flat" :loading="creating" @click="createWorkflow">
+          Create
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-container>
 </template>
 
@@ -297,6 +272,7 @@
   import { showError, showSuccess } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
   import { useConfirm } from '@/composables/useConfirm'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {

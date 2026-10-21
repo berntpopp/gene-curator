@@ -182,22 +182,16 @@
       </v-col>
     </v-row>
 
-    <v-dialog v-model="showSubmitDialog" max-width="500">
-      <v-card>
-        <v-card-title>Submit for review</v-card-title>
-        <v-card-text>
-          Submit this curation for <strong>{{ gene?.symbol }}</strong> for review? It is locked for
-          editing until the review is complete.
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="elevated" :loading="submitting" @click="confirmSubmit">
-            Submit
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="showSubmitDialog" size="md" title="Submit for review">
+      Submit this curation for <strong>{{ gene?.symbol }}</strong> for review? It is locked for
+      editing until the review is complete.
+      <template #actions>
+        <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="elevated" :loading="submitting" @click="confirmSubmit">
+          Submit
+        </v-btn>
+      </template></BaseDialog
+    >
   </v-container>
 </template>
 
@@ -226,6 +220,7 @@
   import { createEmptyExperimentalEvidence, createEmptyGeneticEvidence } from './evidenceDefaults'
   import { normalizeLegacy } from './scoring'
   import { calculateExperimentalScore, calculateGeneticScore, classifyScore } from './scoring'
+  import BaseDialog from '@/components/BaseDialog.vue'
   import type {
     ClinGenEvidenceData,
     DiseaseInfo,

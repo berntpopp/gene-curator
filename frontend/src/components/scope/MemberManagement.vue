@@ -147,27 +147,19 @@
     />
 
     <!-- Confirm Remove Member Dialog -->
-    <v-dialog v-model="showRemoveDialog" max-width="500">
-      <v-card>
-        <v-card-title>Remove member</v-card-title>
-
-        <v-card-text>
-          Are you sure you want to remove
-          <strong>{{
-            memberToRemove?.user_full_name ||
-            memberToRemove?.user_username ||
-            memberToRemove?.user_email
-          }}</strong>
-          from this scope?
-        </v-card-text>
-
-        <v-card-actions>
-          <v-spacer />
-          <v-btn @click="showRemoveDialog = false">Cancel</v-btn>
-          <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="showRemoveDialog" size="md" title="Remove member">
+      Are you sure you want to remove
+      <strong>{{
+        memberToRemove?.user_full_name ||
+        memberToRemove?.user_username ||
+        memberToRemove?.user_email
+      }}</strong>
+      from this scope?
+      <template #actions>
+        <v-btn @click="showRemoveDialog = false">Cancel</v-btn>
+        <v-btn color="error" :loading="removing" @click="removeMember"> Remove </v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Snackbar for notifications -->
     <v-snackbar v-model="showSnackbar" :color="snackbarColor" :timeout="3000">
@@ -189,6 +181,7 @@
   import InviteMemberDialog from '@/components/scope/InviteMemberDialog.vue'
   import { scopeService } from '@/services/scopeService'
   import type { Schema } from '@/types/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   type ScopeMember = Schema<'ScopeMembershipResponse'>
   type ScopeRole = Schema<'ScopeRole'>

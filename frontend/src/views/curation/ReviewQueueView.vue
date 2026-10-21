@@ -202,26 +202,21 @@
       class="mt-6"
     />
 
-    <v-dialog v-model="showReject" max-width="500">
-      <v-card title="Request changes">
-        <v-card-text>
-          <v-textarea v-model="rejectReason" label="Feedback for the curator" rows="3" />
-          <v-alert v-if="rejectError" type="error" variant="tonal">{{ rejectError }}</v-alert>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showReject = false">Cancel</v-btn>
-          <v-btn
-            color="warning"
-            variant="elevated"
-            :disabled="!rejectReason.trim()"
-            @click="confirmReject"
-          >
-            Request changes
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="showReject" title="Request changes" size="md">
+      <v-textarea v-model="rejectReason" label="Feedback for the curator" rows="3" />
+      <v-alert v-if="rejectError" type="error" variant="tonal">{{ rejectError }}</v-alert>
+      <template #actions>
+        <v-btn variant="text" @click="showReject = false">Cancel</v-btn>
+        <v-btn
+          color="warning"
+          variant="elevated"
+          :disabled="!rejectReason.trim()"
+          @click="confirmReject"
+        >
+          Request changes
+        </v-btn>
+      </template>
+    </BaseDialog>
   </v-container>
 </template>
 
@@ -237,6 +232,7 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
+  import BaseDialog from '@/components/BaseDialog.vue'
   import { useLogger } from '@/composables/useLogger'
   import { useNotificationsStore } from '@/stores/notifications'
   import { usePrecurationsStore } from '@/stores/precurations'

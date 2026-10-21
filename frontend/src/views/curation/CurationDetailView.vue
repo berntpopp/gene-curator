@@ -302,56 +302,40 @@
     </v-row>
 
     <!-- Submit Confirmation Dialog -->
-    <v-dialog v-model="showSubmitDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start color="primary">mdi-send</v-icon>
-          Submit for review
-        </v-card-title>
-        <v-card-text>
-          <p>
-            Submit this curation for <strong>{{ curation?.gene_symbol }}</strong> for review?
-          </p>
-          <p class="text-body-2 text-medium-emphasis mt-2">
-            Once submitted, the curation will be locked for editing until the review is complete.
-          </p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
-          <v-btn color="primary" variant="elevated" :loading="submitting" @click="submitForReview">
-            Submit
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="showSubmitDialog" size="md">
+      <template #title><v-icon start color="primary">mdi-send</v-icon> Submit for review</template>
+      <p>
+        Submit this curation for <strong>{{ curation?.gene_symbol }}</strong> for review?
+      </p>
+      <p class="text-body-2 text-medium-emphasis mt-2">
+        Once submitted, the curation will be locked for editing until the review is complete.
+      </p>
+      <template #actions>
+        <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
+        <v-btn color="primary" variant="elevated" :loading="submitting" @click="submitForReview">
+          Submit
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <!-- Delete Confirmation Dialog -->
-    <v-dialog v-model="showDeleteDialog" max-width="500">
-      <v-card>
-        <v-card-title class="d-flex align-center">
-          <v-icon start color="error">mdi-delete-alert</v-icon>
-          Delete curation
-        </v-card-title>
-        <v-card-text>
-          <v-alert type="warning" variant="tonal" class="mb-4">
-            This action cannot be undone.
-          </v-alert>
-          <p>
-            Are you sure you want to delete the curation for
-            <strong>{{ curation?.gene_symbol }}</strong
-            >?
-          </p>
-        </v-card-text>
-        <v-card-actions>
-          <v-spacer />
-          <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
-          <v-btn color="error" variant="elevated" :loading="deleting" @click="deleteCuration">
-            Delete
-          </v-btn>
-        </v-card-actions>
-      </v-card>
-    </v-dialog>
+    <BaseDialog v-model="showDeleteDialog" size="md">
+      <template #title
+        ><v-icon start color="error">mdi-delete-alert</v-icon> Delete curation</template
+      >
+      <v-alert type="warning" variant="tonal" class="mb-4"> This action cannot be undone. </v-alert>
+      <p>
+        Are you sure you want to delete the curation for
+        <strong>{{ curation?.gene_symbol }}</strong
+        >?
+      </p>
+      <template #actions>
+        <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
+        <v-btn color="error" variant="elevated" :loading="deleting" @click="deleteCuration">
+          Delete
+        </v-btn>
+      </template></BaseDialog
+    >
 
     <CurationReviewDialogs
       v-model:approve-open="showApproveDialog"
@@ -386,6 +370,7 @@
   import { evidenceCountsText } from '@/components/curation/evidenceCounts'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
   import { computeScores, classifyScores, type EvidenceData } from './curationScores'
+  import BaseDialog from '@/components/BaseDialog.vue'
 
   interface CurationRecord {
     status: string

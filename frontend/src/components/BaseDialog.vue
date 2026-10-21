@@ -9,7 +9,9 @@
     @after-leave="restoreFocus"
   >
     <v-card>
-      <v-card-title v-if="title">{{ title }}</v-card-title>
+      <v-card-title v-if="title || $slots.title"
+        ><slot name="title">{{ title }}</slot></v-card-title
+      >
       <v-card-text><slot /></v-card-text>
       <v-card-actions v-if="$slots.actions">
         <v-spacer />

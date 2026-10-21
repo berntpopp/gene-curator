@@ -48,6 +48,9 @@ vi.mock('@/composables/useDrawerState', async () => {
 
 import { useLogStore } from '@/stores/logStore'
 
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
+
 interface TestLogStore {
   logs: unknown[]
   logCount: number
@@ -237,18 +240,12 @@ describe('LogViewer', () => {
   })
 
   it('clears logs only after confirmation', async () => {
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => false)
-    )
+    confirmMock.mockResolvedValue(false)
     mountViewer()
     await buttonByTitle('Clear all logs')?.trigger('click')
     expect(store.clearLogs).not.toHaveBeenCalled()
 
-    vi.stubGlobal(
-      'confirm',
-      vi.fn(() => true)
-    )
+    confirmMock.mockResolvedValue(true)
     await buttonByTitle('Clear all logs')?.trigger('click')
     expect(store.clearLogs).toHaveBeenCalledTimes(1)
   })
