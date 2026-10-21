@@ -6,11 +6,11 @@ import { scopesAPI } from '../scopes'
 import { schemasAPI } from '../schemas'
 import { validationAPI } from '../validation'
 import { genesAPI } from '../genes'
+import { catalogueMatrixAPI } from '../catalogueMatrix'
 import { assignmentsAPI } from '../assignments'
 import { curationsAPI } from '../curations'
 import { precurationsAPI } from '../precurations'
 import { externalValidationAPI } from '../externalValidation'
-import { geneCatalogueAPI } from '../geneCatalogue'
 import { ontologyAPI } from '../ontology'
 import { workflowAPI } from '../workflow'
 import { geneSummaryAPI } from '../geneSummary'
@@ -63,7 +63,7 @@ describe('API modules: request shape and response passthrough', () => {
     expect(apiIndex.validationAPI).toBe(validationAPI)
     expect(apiIndex.workflowAPI).toBe(workflowAPI)
     expect(apiIndex.genesAPI).toBe(genesAPI)
-    expect(apiIndex.geneCatalogueAPI).toBe(geneCatalogueAPI)
+    expect(apiIndex.catalogueMatrixAPI).toBe(catalogueMatrixAPI)
     expect(apiIndex.assignmentsAPI).toBe(assignmentsAPI)
     expect(apiIndex.precurationsAPI).toBe(precurationsAPI)
     expect(apiIndex.curationsAPI).toBe(curationsAPI)
