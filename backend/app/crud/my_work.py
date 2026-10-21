@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import and_, exists, or_, select
 from sqlalchemy.orm import Session
 
+from app.crud.review_round import in_current_round
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -162,7 +163,9 @@ def _assignment_filters(user: UserNew) -> list[Any]:
     """Skip items assigned to another reviewer, or that I already decided."""
 
     def has(*cond: Any) -> Any:
-        return exists().where(Review.curation_id == CurationNew.id, *cond)
+        return exists().where(
+            Review.curation_id == CurationNew.id, in_current_round, *cond
+        )
 
     pending = ReviewStatus.PENDING
     mine_open = has(Review.reviewer_id == user.id, Review.status == pending)

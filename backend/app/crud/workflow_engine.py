@@ -12,6 +12,11 @@ from sqlalchemy.orm import Session
 
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
+from app.crud.review_round import (
+    all_reviews_approved,
+    check_review_open,
+    in_current_round,
+)
 from app.crud.workflow_statistics import compute_workflow_statistics
 from app.models import (
     ActiveCuration,
@@ -415,6 +420,8 @@ class WorkflowEngine:
         if review.status != ReviewStatus.PENDING:
             raise ValueError("Review has already been completed")
 
+        check_review_open(db, review)
+
         # Valid decisions
         valid_decisions = ["approve", "request_changes", "reject"]
         if decision not in valid_decisions:
@@ -794,6 +801,9 @@ class WorkflowEngine:
         # Update status
         if hasattr(item, "status"):
             item.status = CurationStatus.IN_REVIEW
+        if isinstance(item, CurationNew):
+            item.submitted_at = datetime.now(UTC)  # starts a new review round
+            item.submitted_by = user_id
         if isinstance(item, PrecurationNew):
             item.status = CurationStatus.SUBMITTED
             item.is_draft = False
@@ -907,6 +917,7 @@ class WorkflowEngine:
                     and_(
                         Review.curation_id == item_id,
                         Review.status == ReviewStatus.PENDING,
+                        in_current_round,
                     )
                 )
             )
@@ -952,41 +963,7 @@ class WorkflowEngine:
         self, db: Session, item_id: UUID, item_type: str
     ) -> bool:
         """Check if all required reviews are complete and approved."""
-        from sqlalchemy import func as sqlalchemy_func
-
-        pending_reviews = db.execute(
-            select(sqlalchemy_func.count()).select_from(
-                select(Review)
-                .where(
-                    and_(
-                        Review.curation_id == item_id,
-                        Review.status == ReviewStatus.PENDING,
-                    )
-                )
-                .subquery()
-            )
-        ).scalar()
-
-        # All reviews must be completed
-        if pending_reviews and pending_reviews > 0:
-            return False
-
-        # Every completed review must say approve (legacy rows: APPROVED + reject)
-        rejected_reviews = db.execute(
-            select(sqlalchemy_func.count()).select_from(
-                select(Review)
-                .where(
-                    and_(
-                        Review.curation_id == item_id,
-                        Review.status != ReviewStatus.PENDING,
-                        Review.recommendation != "approve",
-                    )
-                )
-                .subquery()
-            )
-        ).scalar()
-
-        return rejected_reviews == 0 if rejected_reviews is not None else True
+        return all_reviews_approved(db, item_id)
 
     def _calculate_average_stage_time(
         self, db: Session, stage: str, cutoff_date: datetime, scope_id: UUID | None
@@ -1051,6 +1028,7 @@ class WorkflowEngine:
                 .filter(
                     Review.reviewer_id == user.id,
                     Review.status == ReviewStatus.PENDING,
+                    in_current_round,
                 )
                 .scalar()
                 or 0

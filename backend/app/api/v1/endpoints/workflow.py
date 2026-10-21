@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
+from app.crud.review_round import in_current_round
 from app.crud.workflow_engine import workflow_engine
 from app.models import UserNew
 from app.schemas.workflow_engine import (
@@ -351,6 +352,7 @@ def get_workflow_dashboard(
         select(func.count(Review.id)).where(
             Review.reviewer_id == current_user.id,
             Review.status == ReviewStatus.PENDING,
+            in_current_round,
         )
     ).scalar()
 

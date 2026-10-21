@@ -227,7 +227,7 @@ def test_request_changes_via_workflow_moves_to_needs_you(client, db_session: Ses
         db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
     )
     assert _kinds(client, curator) == ["waiting"]
-    assert _kinds(client, reviewer) == []  # already decided; needs a new assignment
+    assert _kinds(client, reviewer) == ["review"]  # new round: old decision is stale
 
 
 def test_rejected_curation_needs_the_curator(client, db_session: Session):
@@ -269,3 +269,32 @@ def test_reassigned_reviewer_and_other_reviewers_after_request_changes(
     )
     db_session.commit()
     assert _kinds(client, rev) == ["review"]
+
+
+def test_stale_round_does_not_inflate_dashboard_or_my_work(client, db_session: Session):
+    scope = make_scope(db_session)
+    curator, a, b = (make_user(db_session) for _ in range(3))
+    make_member(db_session, scope, curator, "curator")
+    for u in (a, b):
+        make_member(db_session, scope, u, "reviewer")
+    c = _in_review(db_session, scope, curator)
+    engine = WorkflowEngine()
+    ra = engine.assign_peer_reviewer(db_session, c.id, "curation", a.id, curator.id)
+    engine.assign_peer_reviewer(db_session, c.id, "curation", b.id, curator.id)
+
+    def pending(user) -> int:
+        token = create_access_token(data={"sub": str(user.id), "email": user.email})
+        r = client.get(
+            "/api/v1/workflow/dashboard", headers={"Authorization": f"Bearer {token}"}
+        )
+        return r.json()["my_pending_reviews"]
+
+    assert pending(b) == 1
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    assert pending(b) == 0  # B's review belongs to the closed round
+    engine.execute_transition(
+        db_session, c.id, "curation", WorkflowStage.REVIEW, curator.id
+    )
+    assert pending(b) == 0  # still the old round
+    assert _kinds(client, b) == ["review"]  # unassigned in the new round
+    assert _kinds(client, a) == ["review"]  # A's old decision does not hide it

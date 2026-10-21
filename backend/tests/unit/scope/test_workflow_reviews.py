@@ -192,12 +192,11 @@ def test_rejection_is_recorded_as_rejected_and_blocks_activation(
     rejected = engine.submit_peer_review(
         db_session, first.review_id, reviewer.id, "reject"
     )
-    approved = engine.submit_peer_review(
-        db_session, second.review_id, other.id, "approve"
-    )
+    # the round is closed: the second reviewer can no longer approve it
+    with pytest.raises(ValueError, match="not in review"):
+        engine.submit_peer_review(db_session, second.review_id, other.id, "approve")
 
     assert rejected["auto_transitioned"] is False
-    assert approved["auto_transitioned"] is False
     assert db_session.get(Review, first.review_id).status == ReviewStatus.REJECTED
     db_session.refresh(curation)
     assert curation.workflow_stage == S.CURATION
@@ -387,3 +386,52 @@ def test_workflow_statistics_empty_scope(
 
     assert stats.total_reviews == 0
     assert stats.approval_rate == 0.0
+
+
+def _two_reviewer_round(db_session, engine, creator, scope):
+    a, b = make_user(db_session), make_user(db_session)
+    make_member(db_session, scope, a, "reviewer")
+    make_member(db_session, scope, b, "reviewer")
+    curation = _review_setup(db_session, creator, scope)
+    ra = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", a.id, creator.id
+    )
+    rb = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", b.id, creator.id
+    )
+    return curation, a, b, ra, rb
+
+
+def test_other_reviewer_cannot_submit_after_changes_requested(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    with pytest.raises(ValueError, match="not in review"):
+        engine.submit_peer_review(db_session, rb.review_id, b.id, "reject")
+    db_session.refresh(curation)
+    assert curation.status == CurationStatus.DRAFT  # still the curator's to edit
+    # reviewer load and the dashboard count ignore the closed round
+    load = {
+        r["id"]: r["pending_review_count"]
+        for r in engine.get_eligible_peer_reviewers(db_session, scope_id=scope.id)
+    }
+    assert load[b.id] == 0
+
+
+def test_resubmit_then_approve_activates(
+    db_session: Session, engine: WorkflowEngine, creator: UserNew, scope: Scope
+) -> None:
+    curation, a, b, ra, rb = _two_reviewer_round(db_session, engine, creator, scope)
+    engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    # old round's pending review of B cannot be used in the new round
+    with pytest.raises(ValueError, match="previous review round"):
+        engine.submit_peer_review(db_session, rb.review_id, b.id, "approve")
+    new = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", a.id, creator.id
+    )
+    result = engine.submit_peer_review(db_session, new.review_id, a.id, "approve")
+    assert result["auto_transitioned"] is True
+    db_session.refresh(curation)
+    assert curation.workflow_stage == S.ACTIVE
