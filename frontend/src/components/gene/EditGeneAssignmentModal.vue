@@ -32,7 +32,7 @@
 -->
 
 <template>
-  <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="md">
+  <BaseDialog v-model="isOpen" persistent size="md" @cancel="handleCancel">
     <template #title
       ><v-icon start color="primary" size="28">mdi-pencil</v-icon>
       <span class="text-title-large">Edit Gene Assignment</span>

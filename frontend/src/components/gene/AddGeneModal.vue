@@ -28,7 +28,7 @@
 -->
 
 <template>
-  <BaseDialog v-model="isOpen" persistent @cancel="handleCancel" size="lg">
+  <BaseDialog v-model="isOpen" persistent size="lg" @cancel="handleCancel">
     <template #title
       ><v-icon start color="primary" size="28">mdi-dna</v-icon>
       <span class="text-title-large">{{
