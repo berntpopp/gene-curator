@@ -228,12 +228,12 @@ describe('usePrecurationsStore', () => {
     it('submits with notes and updates both entries', async () => {
       const store = usePrecurationsStore()
       store.precurations = [row('p1')]
-      store.currentPrecuration = full('p1')
+      store.currentPrecuration = full('p1', { lock_version: 4 })
       api.submitPrecuration.mockResolvedValue(full('p1', { status: 'submitted' }))
 
       const submitted = await store.submitForReview('p1', 'ready')
 
-      expect(api.submitPrecuration).toHaveBeenCalledWith('p1', { notes: 'ready' })
+      expect(api.submitPrecuration).toHaveBeenCalledWith('p1', { notes: 'ready', lock_version: 4 })
       expect(submitted.status).toBe('submitted')
       expect(store.precurations[0]?.status).toBe('submitted')
       expect(store.currentPrecuration?.status).toBe('submitted')
@@ -243,11 +243,22 @@ describe('usePrecurationsStore', () => {
       const store = usePrecurationsStore()
       api.submitPrecuration.mockResolvedValueOnce(full('p1'))
       await store.submitForReview('p1')
-      expect(api.submitPrecuration).toHaveBeenCalledWith('p1', { notes: null })
+      expect(api.submitPrecuration).toHaveBeenCalledWith('p1', { notes: null, lock_version: 0 })
 
       api.submitPrecuration.mockRejectedValueOnce(new Error('not allowed'))
       await expect(store.submitForReview('p1')).rejects.toThrow('not allowed')
       expect(store.error).toEqual({ message: 'not allowed' })
+    })
+
+    it('flags a 409 as a conflict and rethrows', async () => {
+      const store = usePrecurationsStore()
+      api.submitPrecuration.mockRejectedValueOnce({
+        isAxiosError: true,
+        message: 'Request failed',
+        response: { status: 409, data: { current_lock_version: 3, your_lock_version: 2 } }
+      })
+      await expect(store.submitForReview('p1')).rejects.toBeTruthy()
+      expect(store.error).toMatchObject({ isConflict: true, currentVersion: 3, yourVersion: 2 })
     })
   })
 

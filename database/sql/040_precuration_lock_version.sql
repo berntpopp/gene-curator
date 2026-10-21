@@ -1,5 +1,5 @@
 -- =============================================================================
--- 038: optimistic locking for precurations (release blocker)
+-- 040: optimistic locking for precurations (release blocker)
 -- =============================================================================
 -- curations got lock_version in 008, but nothing ever compared it, and precurations had none:
 -- with two tabs open the stale save silently overwrote the newer one. The API now compares and
@@ -21,5 +21,5 @@ CREATE TRIGGER trigger_increment_lock_version
     EXECUTE FUNCTION increment_lock_version();
 
 INSERT INTO schema_migrations (filename)
-VALUES ('038_precuration_lock_version.sql')
+VALUES ('040_precuration_lock_version.sql')
 ON CONFLICT DO NOTHING;

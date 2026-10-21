@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.optimistic_lock import update_if_version
+from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -362,10 +362,6 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         user_id: UUID,
     ) -> CurationNew | None:
         """Submit curation for review via workflow engine."""
-        # Check lock version
-        if db_obj.lock_version != submit_data.lock_version:
-            return None
-
         # Validate transition
         validation = workflow_engine.validate_transition(
             db,
@@ -379,11 +375,14 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         if not validation.is_valid:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
+        # Compare-and-bump in one UPDATE: a stale submit matches no row and changes nothing
+        if not claim_version(db, CurationNew, db_obj.id, submit_data.lock_version):
+            return None
+
         # Submission metadata and the transition share one commit (in the engine)
         db_obj.is_draft = False
         db_obj.submitted_at = _utc_now()
         db_obj.submitted_by = user_id
-        db_obj.lock_version += 1
         _update_computed_scores(db_obj)
         db.add(db_obj)
         workflow_engine.execute_transition(

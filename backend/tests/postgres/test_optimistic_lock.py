@@ -1,4 +1,4 @@
-"""Optimistic locking on real PostgreSQL: the 008/038 version trigger and the guarded UPDATE
+"""Optimistic locking on real PostgreSQL: the 008/040 version trigger and the guarded UPDATE
 agree, so every save bumps the version exactly once, and a stale save changes nothing."""
 
 from pathlib import Path
@@ -23,7 +23,7 @@ from app.schemas.curation import CurationDraftSave
 
 pytestmark = pytest.mark.postgres
 
-MIGRATION = Path(__file__).parents[3] / "database/sql/038_precuration_lock_version.sql"
+MIGRATION = Path(__file__).parents[3] / "database/sql/040_precuration_lock_version.sql"
 
 
 def _seed(s: Session) -> tuple[CurationNew, PrecurationNew]:
@@ -101,7 +101,7 @@ def test_each_save_bumps_the_version_once_and_a_stale_one_changes_nothing(
     assert stale is None
 
 
-def test_migration_038_is_idempotent_and_self_recording(owner_session: Session) -> None:
+def test_migration_040_is_idempotent_and_self_recording(owner_session: Session) -> None:
     sql = MIGRATION.read_text()
     owner_session.execute(text(sql))
     owner_session.execute(text(sql))
@@ -109,7 +109,7 @@ def test_migration_038_is_idempotent_and_self_recording(owner_session: Session) 
         owner_session.execute(
             text(
                 "SELECT count(*) FROM schema_migrations "
-                "WHERE filename = '038_precuration_lock_version.sql'"
+                "WHERE filename = '040_precuration_lock_version.sql'"
             )
         ).scalar_one()
         == 1

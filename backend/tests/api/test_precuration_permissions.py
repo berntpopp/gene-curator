@@ -69,7 +69,9 @@ def test_precuration_write_roles_direct(
             )
         else:
             endpoint = precurations.submit_precuration
-            kwargs["submit_in"] = PrecurationSubmit()
+            kwargs["submit_in"] = PrecurationSubmit(
+                lock_version=test_precuration.lock_version
+            )
     if scope_role in ["curator", "admin", "platform_admin"]:
         result = endpoint(**kwargs)
         assert result.scope_id == scope.id

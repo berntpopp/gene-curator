@@ -87,7 +87,7 @@ def _precuration(
 def _submit(client: TestClient, token: str, p: PrecurationNew):
     return client.post(
         f"/api/v1/precurations/{p.id}/submit",
-        json={"notes": "go"},
+        json={"notes": "go", "lock_version": p.lock_version},
         headers={"Authorization": f"Bearer {token}"},
     )
 

@@ -140,3 +140,60 @@ def test_a_save_without_a_version_is_rejected(
         headers=_h(admin_token),
     )
     assert response.status_code == 422
+
+
+def _submit(
+    client: TestClient, token: str, kind: str, record: Any, version: int | None
+):
+    body: dict[str, Any] = {"notes": "go"}
+    if version is not None:
+        body["lock_version"] = version
+    return client.post(_url(kind, record, "/submit"), json=body, headers=_h(token))
+
+
+@pytest.mark.parametrize("record", KINDS, indirect=True)
+def test_a_stale_submit_is_refused_and_changes_nothing(
+    client: TestClient, admin_token: str, db_session: Session, record: Any
+) -> None:
+    kind = "curations" if isinstance(record, CurationNew) else "precurations"
+    loaded = record.lock_version
+    assert (
+        _save(client, admin_token, kind, record, {"who": "B"}, loaded).status_code
+        == 200
+    )
+    before = (record.status, record.workflow_stage)
+
+    stale = _submit(client, admin_token, kind, record, loaded)
+
+    assert stale.status_code == 409
+    db_session.refresh(record)
+    assert (record.status, record.workflow_stage) == before
+    assert record.lock_version == loaded + 1  # only the other tab's save moved it
+
+
+@pytest.mark.parametrize("record", KINDS, indirect=True)
+def test_submit_compare_is_atomic_in_the_update(
+    client: TestClient, admin_token: str, db_session: Session, record: Any
+) -> None:
+    """The row in this request's session still shows the client's version, the DB has moved on."""
+    kind = "curations" if isinstance(record, CurationNew) else "precurations"
+    model = type(record)
+    loaded = record.lock_version
+    db_session.execute(
+        update(model).where(model.id == record.id).values(lock_version=loaded + 1),
+        execution_options={"synchronize_session": False},
+    )
+    db_session.commit()
+    record.__dict__["lock_version"] = loaded
+
+    assert _submit(client, admin_token, kind, record, loaded).status_code == 409
+    db_session.expire_all()
+    assert db_session.get(model, record.id).status == "draft"
+
+
+@pytest.mark.parametrize("record", KINDS, indirect=True)
+def test_a_submit_without_a_version_is_rejected(
+    client: TestClient, admin_token: str, record: Any
+) -> None:
+    kind = "curations" if isinstance(record, CurationNew) else "precurations"
+    assert _submit(client, admin_token, kind, record, None).status_code == 422

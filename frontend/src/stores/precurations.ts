@@ -288,7 +288,11 @@ export const usePrecurationsStore = defineStore('precurations', {
       this.loading = true
       this.error = null
       try {
-        const submitted = await precurationsAPI.submitPrecuration(id, { notes })
+        const known = this.currentPrecuration?.id === id ? this.currentPrecuration : null
+        const submitted = await precurationsAPI.submitPrecuration(id, {
+          notes,
+          lock_version: known?.lock_version ?? 0
+        })
 
         // Update in list
         const index = this.precurations.findIndex(p => p.id === id)
@@ -304,7 +308,17 @@ export const usePrecurationsStore = defineStore('precurations', {
 
         return submitted
       } catch (error) {
-        this.error = { message: errorMessage(error, 'Request failed') }
+        const apiError = toApiError(error)
+        this.error =
+          apiError.response?.status === 409
+            ? {
+                message:
+                  'Another user or tab has modified this precuration. Reload to see their version.',
+                isConflict: true,
+                currentVersion: apiError.response.data?.current_lock_version as number | undefined,
+                yourVersion: apiError.response.data?.your_lock_version as number | undefined
+              }
+            : { message: errorMessage(error, 'Request failed') }
         throw error
       } finally {
         this.loading = false

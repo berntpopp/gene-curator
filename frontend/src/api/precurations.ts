@@ -76,7 +76,7 @@ export const precurationsAPI = {
    */
   async submitPrecuration(
     id: string,
-    data: Schema<'PrecurationSubmit'> = {}
+    data: Schema<'PrecurationSubmit'>
   ): Promise<Schema<'Precuration'>> {
     const response = await apiClient.post<Schema<'Precuration'>>(`/precurations/${id}/submit`, data)
     return response.data

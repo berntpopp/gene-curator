@@ -332,7 +332,11 @@ def save_draft(
     return Precuration.model_validate(updated)
 
 
-@router.post("/{precuration_id}/submit", response_model=Precuration)
+@router.post(
+    "/{precuration_id}/submit",
+    response_model=Precuration,
+    responses={409: {"model": PrecurationConflictResponse}},
+)
 @api_endpoint()
 def submit_precuration(
     precuration_id: UUID,
@@ -378,6 +382,9 @@ def submit_precuration(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+    if submitted is None:
+        raise _conflict(precuration, submit_in.lock_version)
 
     return Precuration.model_validate(submitted)
 

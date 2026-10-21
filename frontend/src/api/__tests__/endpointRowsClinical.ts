@@ -111,10 +111,10 @@ export const clinicalRows: Row[] = [
     args: ['/precurations/p/draft', { evidence_data: {}, lock_version: 0 }]
   },
   {
-    name: 'precurations.submitPrecuration defaults to an empty body',
-    run: () => precurationsAPI.submitPrecuration('p'),
+    name: 'precurations.submitPrecuration sends the loaded version',
+    run: () => precurationsAPI.submitPrecuration('p', { notes: null, lock_version: 2 }),
     method: 'post',
-    args: ['/precurations/p/submit', {}]
+    args: ['/precurations/p/submit', { notes: null, lock_version: 2 }]
   },
   {
     name: 'precurations.completePrecuration',

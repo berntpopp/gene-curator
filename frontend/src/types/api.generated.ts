@@ -7440,6 +7440,11 @@ export interface components {
              * @description Submission notes
              */
             notes?: string | null;
+            /**
+             * Lock Version
+             * @description Optimistic locking version (required)
+             */
+            lock_version: number;
         };
         /**
          * PrecurationSummary
@@ -12760,6 +12765,15 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Precuration"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PrecurationConflictResponse"];
                 };
             };
             /** @description Validation Error */

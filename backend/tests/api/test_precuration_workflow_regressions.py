@@ -31,7 +31,7 @@ def test_creator_can_submit_precuration(
         db_session.commit()
     response = client.post(
         f"/api/v1/precurations/{test_precuration.id}/submit",
-        json={},
+        json={"lock_version": test_precuration.lock_version},
         headers=auth_headers(test_user_curator),
     )
     assert response.status_code == 200, response.text
@@ -89,7 +89,7 @@ def test_submit_endpoint_direct(
 
     result = submit_precuration(
         precuration_id=test_precuration.id,
-        submit_in=PrecurationSubmit(),
+        submit_in=PrecurationSubmit(lock_version=test_precuration.lock_version),
         db=db_session,
         current_user=test_user_curator,
     )

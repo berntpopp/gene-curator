@@ -112,7 +112,7 @@ def test_precuration_submission_metadata_rolls_back_on_failure(
         precuration_crud.submit_for_review(
             db_session,
             db_obj=precuration,
-            submit_data=PrecurationSubmit(),
+            submit_data=PrecurationSubmit(lock_version=precuration.lock_version),
             user_id=creator.id,
         )
     db_session.refresh(precuration)

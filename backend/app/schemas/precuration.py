@@ -65,6 +65,7 @@ class PrecurationSubmit(BaseModel):
     """Schema for submitting a precuration for review."""
 
     notes: str | None = Field(None, max_length=1000, description="Submission notes")
+    lock_version: int = Field(..., description="Optimistic locking version (required)")
 
 
 # ========================================

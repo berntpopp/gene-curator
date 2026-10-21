@@ -508,10 +508,7 @@ def submit_curation(
         ) from e
 
     if submitted is None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Concurrent modification detected",
-        )
+        raise _conflict(curation, submit_in.lock_version)
 
     return Curation.model_validate(submitted)
 

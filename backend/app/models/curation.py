@@ -81,7 +81,7 @@ class PrecurationNew(Base):
         default="precuration",
         index=True,
     )
-    # Optimistic locking: saves compare-and-increment this (migration 038)
+    # Optimistic locking: saves compare-and-increment this (migration 040)
     lock_version: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     is_draft: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
 

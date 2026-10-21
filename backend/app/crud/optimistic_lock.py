@@ -7,13 +7,13 @@ from sqlalchemy import update
 from sqlalchemy.orm import Session
 
 
-def update_if_version(
-    db: Session, model: Any, pk: UUID, expected: int, values: dict[str, Any]
+def claim_version(
+    db: Session, model: Any, pk: UUID, expected: int, **values: Any
 ) -> bool:
     """`UPDATE ... SET values, lock_version = lock_version + 1 WHERE id = ? AND lock_version = ?`.
 
-    One statement, so two writers cannot both pass the check: the loser matches no row. Commits
-    on success, rolls back (and returns False) when the version is stale.
+    One statement, so two writers cannot both pass the check: the loser matches no row and the
+    transaction is rolled back (False). The caller commits on success.
     """
     result = db.execute(
         update(model)
@@ -23,6 +23,15 @@ def update_if_version(
     )
     if result.rowcount != 1:  # type: ignore[attr-defined]
         db.rollback()
+        return False
+    return True
+
+
+def update_if_version(
+    db: Session, model: Any, pk: UUID, expected: int, values: dict[str, Any]
+) -> bool:
+    """claim_version, then commit."""
+    if not claim_version(db, model, pk, expected, **values):
         return False
     db.commit()
     return True
