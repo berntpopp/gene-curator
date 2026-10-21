@@ -52,6 +52,11 @@ Create `frontend/.env.local` with `VITE_API_BASE_URL=http://localhost:8051` and
 `VITE_ENABLE_DEV_LOGIN=true`, then sign in as `admin@genecurator.org` / `admin123` (seeded
 development data only). Prefer everything in containers? `make dev` (UI on port 3051).
 
+The API connects to PostgreSQL as `app_user` (no superuser, so row-level security applies);
+`POSTGRES_USER` only runs migrations. Set `APP_DB_PASSWORD` and use the same password in
+`DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
+An existing database gets the role with `make db-migrate` before the backend restarts.
+
 ## Development and verification
 
 Checks run locally first; GitHub Actions runs the same `make` targets and only confirms.

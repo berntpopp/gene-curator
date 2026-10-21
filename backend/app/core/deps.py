@@ -8,10 +8,10 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import select, text
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import RLS_USER_KEY, apply_rls_user, get_db
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.security import (
@@ -62,6 +62,7 @@ def get_current_user(
     if user is None:
         raise credentials_exception
 
+    set_rls_context(db, user)
     return user
 
 
@@ -141,10 +142,11 @@ def get_current_user_optional(
         user = user_crud.get(db, id=user_id)
         if user is None or not user_crud.is_active(user):
             return None
-
-        return user
     except Exception:
         return None
+
+    set_rls_context(db, user)
+    return user
 
 
 # =============================================================================
@@ -153,73 +155,20 @@ def get_current_user_optional(
 
 
 def set_rls_context(db: Session, current_user: UserNew) -> None:
+    """Bind the PostgreSQL RLS user (app.current_user_id) to this session.
+
+    get_current_user calls this for every authenticated request, so no endpoint can
+    forget it; explicit calls in endpoints are harmless repeats. The value is
+    transaction-local and re-applied after each commit (see core.database), so it
+    never leaks to the next request on a pooled connection. No-op on SQLite.
     """
-    Set PostgreSQL RLS context for current user.
-
-    SECURITY: Uses validated UUID from User model. SET LOCAL doesn't support
-    bind parameters, but since user_id is a UUID from a validated User object,
-    it's safe from SQL injection (UUID format is strictly validated).
-
-    IMPORTANT: This function also expires all objects in the session to force
-    SQLAlchemy to re-query the database where RLS will be enforced. Without
-    this, cached objects from the identity map may bypass RLS.
-
-    Args:
-        db: Database session
-        current_user: Current authenticated user
-
-    Example:
-        set_rls_context(db, current_user)
-        # Now all queries respect RLS policies for this user
-    """
-    try:
-        # ✅ SECURE: user_id is a validated UUID from User model
-        # SET doesn't support bind parameters, but UUID is safe
-        user_id_str = str(current_user.id)
-
-        # Execute SET command (session-level, not LOCAL)
-        # Using session-level SET ensures compatibility with savepoint-based testing
-        # In production, each request gets a new session, so this is effectively request-scoped
-        db.execute(text(f"SET app.current_user_id = '{user_id_str}'"))
-
-        # Verify that the context was actually set (without flushing)
-        result = db.execute(text("SHOW app.current_user_id"))
-        actual_context = result.scalar()
-
-        if actual_context != user_id_str:
-            raise ValueError(
-                f"RLS context verification failed: expected {user_id_str}, got {actual_context}"
-            )
-
-        # NOTE: We do NOT call db.expire_all() here because:
-        # 1. RLS context is set BEFORE any queries are executed
-        # 2. All subsequent queries in this transaction will respect RLS
-        # 3. expire_all() would detach objects, causing FastAPI serialization to fail
-        # 4. The session lifecycle (via yield in get_db) handles cleanup properly
-
-        logger.debug(
-            "RLS context set and verified",
-            user_id=user_id_str,
-            verified_context=actual_context,
-            user_name=current_user.name,
-            user_email=current_user.email,
-        )
-    except Exception as e:
-        error_msg = f"{type(e).__name__}: {e!s}"
-        logger.error(
-            "Failed to set RLS context",
-            error=e,
-            error_type=type(e).__name__,
-            user_id=str(current_user.id),
-        )
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to set security context: {error_msg}",
-        ) from e
+    user_id = str(current_user.id)
+    db.info[RLS_USER_KEY] = user_id
+    apply_rls_user(db.connection(), user_id)
 
 
 # =============================================================================
-# Scope Permission Dependencies (SECURITY: TOCTOU prevention with FOR SHARE)
+# Scope Permission Dependencies
 # =============================================================================
 
 
@@ -231,7 +180,9 @@ def get_scope(
     """
     Get scope by ID with permission check.
 
-    SECURITY: Uses SELECT FOR SHARE to prevent TOCTOU race conditions.
+    No row lock: under RLS, FOR SHARE must also pass the scopes UPDATE policy (scope
+    admins only) and would hide the scope from other members. require_scope_role
+    locks the membership row instead.
 
     Args:
         scope_id: UUID of scope to retrieve
@@ -249,16 +200,7 @@ def get_scope(
     # Set RLS context for current user
     set_rls_context(db, current_user)
 
-    # Query with SELECT FOR SHARE (prevents TOCTOU)
-    scope = (
-        db.execute(
-            select(Scope)
-            .where(Scope.id == scope_id)
-            .with_for_update(read=True)  # SELECT FOR SHARE
-        )
-        .scalars()
-        .first()
-    )
+    scope = db.execute(select(Scope).where(Scope.id == scope_id)).scalars().first()
 
     # Enforce visibility in Python too: RLS is not active on every connection
     from app.services.scope_permissions import ScopePermissionService

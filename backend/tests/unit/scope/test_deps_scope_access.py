@@ -1,8 +1,8 @@
 """Unit tests for app.core.deps: authentication chain and scope role gates.
 
 The scope gates are called directly (they are plain functions with injected
-arguments). set_rls_context is patched because SET app.current_user_id is
-PostgreSQL-only; its own error wrapping is tested with a failing session.
+arguments). set_rls_context is patched because app.current_user_id is
+PostgreSQL-only; the real one is tested against a mocked PostgreSQL connection.
 """
 
 from collections.abc import Iterator
@@ -218,29 +218,20 @@ def test_optional_user_hides_inactive_accounts(db_session: Session) -> None:
 
 
 # -----------------------------------------------------------------------------
-# RLS context error wrapping (the real implementation, captured before patching)
+# RLS context (the real implementation, captured before patching)
 # -----------------------------------------------------------------------------
 
 
-def test_set_rls_context_failure_becomes_500() -> None:
+def test_set_rls_context_is_transaction_local_and_reapplied() -> None:
     user = UserNew(id=uuid4(), email="rls@test.com", name="RLS", role="user")
-    failing_db = MagicMock()
-    failing_db.execute.side_effect = RuntimeError("no such setting")
-
-    with pytest.raises(HTTPException) as exc:
-        _REAL_SET_RLS_CONTEXT(failing_db, user)
-
-    assert exc.value.status_code == 500
-    assert "no such setting" in exc.value.detail
-
-
-def test_set_rls_context_detects_mismatched_session_value() -> None:
-    user = UserNew(id=uuid4(), email="rls2@test.com", name="RLS2", role="user")
     db = MagicMock()
-    db.execute.return_value.scalar.return_value = str(uuid4())
+    db.info = {}
+    db.connection.return_value.dialect.name = "postgresql"
 
-    with pytest.raises(HTTPException) as exc:
-        _REAL_SET_RLS_CONTEXT(db, user)
+    _REAL_SET_RLS_CONTEXT(db, user)
 
-    assert exc.value.status_code == 500
-    assert "verification failed" in exc.value.detail
+    # Remembered on the session, so after_begin re-applies it after each commit.
+    assert db.info["rls_user_id"] == str(user.id)
+    statement, params = db.connection.return_value.execute.call_args.args
+    assert "set_config('app.current_user_id', :uid, true)" in str(statement)
+    assert params == {"uid": str(user.id)}

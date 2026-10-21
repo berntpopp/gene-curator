@@ -22,6 +22,8 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-dev_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev_password}
       POSTGRES_HOST_AUTH_METHOD: md5
+      # Read by migration 031 (runtime role app_user); no default on purpose.
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?Set APP_DB_PASSWORD for the app_user role}
     ports:
       - "${POSTGRES_PORT:-5454}:5432"
     volumes:

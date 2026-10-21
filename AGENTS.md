@@ -106,6 +106,11 @@ pass `make test-postgres`, which builds a fresh database from all files. Mirror 
 Legacy databases must be upgraded through 027 before the initial baseline. New migrations must
 record their own filename for fresh Docker initialization.
 
+**RLS.** The API connects as `app_user` (031: no superuser, no BYPASSRLS); `POSTGRES_USER` runs
+migrations only. `get_current_user` sets `app.current_user_id` transaction-locally for every
+authenticated request (`set_rls_context`). New views need `security_invoker = true`; new RLS tables
+need a policy per command the app runs. Existing dev volume: `make db-migrate` before `make backend`.
+
 ## Testing
 
 - Backend tests run on in-memory SQLite (`backend/tests/conftest.py`, compatibility types in

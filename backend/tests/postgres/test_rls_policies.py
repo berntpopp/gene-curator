@@ -412,7 +412,22 @@ class TestRLSPolicies:
         db.add(pending_membership)
         db.flush()  # Flush instead of commit
 
-        # User2 should NOT see scope1 (invitation not accepted)
+        # User2 sees the scope row (its name for /me/invitations, migration 031) but
+        # gets no membership rights and no other member of the scope.
+        set_rls_context(db, user2)
+        assert (
+            db.execute(text("SELECT is_scope_member(:s)"), {"s": scope1.id}).scalar()
+            is False
+        )
+        visible_members = db.scalars(
+            select(ScopeMembership.user_id).where(ScopeMembership.scope_id == scope1.id)
+        ).all()
+        assert visible_members == [user2.id]
+
+        # A declined (inactive) invitation shows nothing at all.
+        pending_membership.is_active = False
+        set_rls_context(db, user1)
+        db.flush()
         set_rls_context(db, user2)
         visible_scopes = (
             db.execute(select(Scope).where(Scope.id == scope1.id)).scalars().all()

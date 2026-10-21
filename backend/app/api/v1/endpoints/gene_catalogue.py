@@ -17,6 +17,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.deps import get_current_user_optional
 from app.core.logging import api_endpoint
 from app.crud import gene_catalogue as catalogue_crud
 from app.schemas.gene_catalogue import (
@@ -25,7 +26,8 @@ from app.schemas.gene_catalogue import (
     ScopeFilterOption,
 )
 
-router = APIRouter()
+# Public, but a signed-in caller's RLS context adds the private scopes they belong to.
+router = APIRouter(dependencies=[Depends(get_current_user_optional)])
 
 
 @router.get("/", response_model=GeneCatalogueResponse)
