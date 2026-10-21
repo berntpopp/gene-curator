@@ -1,4 +1,4 @@
-/** PMID cells of an evidence table: Europe PMC lookup on blur, unknown PMIDs block saving. */
+/** PMID cells of an evidence table: Europe PMC lookup on blur, unknown PMIDs block submitting. */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
@@ -55,19 +55,41 @@ describe('EvidenceTableField PMID cells', () => {
     expect(frame.blockers.value).toEqual([])
   })
 
-  it('blocks saving while an unknown PMID is in the table, and frees it on unmount', async () => {
+  it('blocks submitting (not saving) while an unknown PMID is in the table, and frees it on unmount', async () => {
     validatePMIDs.mockResolvedValue({
       results: [{ is_valid: false, error: 'Publication not found in Europe PMC' }]
     })
     const { wrapper, frame } = mountTable([{ id: 'r1', pmid: '999' }])
     await blurPmid(wrapper, '999')
     expect(wrapper.find('.pmid-note--error').text()).toBe('PMID not found in Europe PMC')
-    expect(frame.blockers.value).toEqual(['PMID 999 not found in Europe PMC'])
+    expect(frame.blockers.value).toEqual([
+      'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
+    ])
 
     await wrapper.setProps({ modelValue: [] })
     expect(frame.blockers.value).toEqual([])
     wrapper.unmount()
     expect(frame.blockers.value).toEqual([])
+  })
+
+  it('counts every unknown PMID in the submit blocker', async () => {
+    validatePMIDs.mockResolvedValue({
+      results: [{ is_valid: false, error: 'Publication not found in Europe PMC' }]
+    })
+    const { wrapper, frame } = mountTable([
+      { id: 'r1', pmid: '998' },
+      { id: 'r2', pmid: '999' }
+    ])
+    for (const [i, pmid] of ['998', '999'].entries()) {
+      const input = wrapper.find<HTMLInputElement>(`input[aria-label="PMID, row ${i + 1}"]`)
+      input.element.value = pmid
+      await input.trigger('blur')
+    }
+    await vi.advanceTimersByTimeAsync(300)
+    await flushPromises()
+    expect(frame.blockers.value).toEqual([
+      'Fix 2 unknown PMIDs before submitting: PMID 998, 999 not found in Europe PMC'
+    ])
   })
 
   it('does not look up in a read-only table', async () => {

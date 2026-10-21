@@ -267,8 +267,10 @@
       event.preventDefault()
       if (canRedo.value) redo()
     } else if (event.key === 'Escape') {
-      // Escape that closes an open select/autocomplete menu must not cancel the form
-      if ((event.target as HTMLElement | null)?.getAttribute?.('aria-expanded') === 'true') return
+      // Escape inside a field, table cell or menu is that control's own (revert, close menu)
+      const target = event.target as HTMLElement | null
+      if (target?.closest?.('input, textarea, select, [role="combobox"], [aria-expanded="true"]'))
+        return
       handleCancel()
     }
   }
