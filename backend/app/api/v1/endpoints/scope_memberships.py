@@ -251,8 +251,14 @@ def accept_invitation(
         Updated ScopeMembershipResponse
 
     Raises:
-        HTTPException 400: Invitation not found, user mismatch, or already accepted
+        HTTPException 404: No such invitation in this scope
+        HTTPException 400: User mismatch, already accepted or expired
     """
+    invite = db.get(ScopeMembership, membership_id)
+    if invite is None or invite.scope_id != scope_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
+        )
     try:
         membership = scope_membership_crud.accept_invitation(
             db,
