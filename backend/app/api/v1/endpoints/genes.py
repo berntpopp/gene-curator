@@ -176,7 +176,15 @@ def get_gene(
         )
 
     if current_user is None:
-        return GeneWithAssignments(**gene.__dict__)
+        return GeneWithAssignments(
+            **{
+                **gene.__dict__,
+                "record_hash": None,
+                "previous_hash": None,
+                "created_by": None,
+                "updated_by": None,
+            }
+        )
 
     # Get assignment status
     assignment_status = gene_crud.get_gene_assignment_status(db, gene_id=gene_id)

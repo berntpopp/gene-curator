@@ -97,8 +97,21 @@ class Gene(GeneInDBBase):
 
 
 # Gene with Assignment Information
-class GeneWithAssignments(Gene):
-    """Gene with assignment information."""
+class GeneWithAssignments(GeneBase):
+    """Gene with assignment information.
+
+    Audit and integrity fields are nullable: anonymous readers get None.
+    """
+
+    id: UUID
+    record_hash: str | None
+    previous_hash: str | None
+    created_at: datetime
+    updated_at: datetime
+    created_by: UUID | None
+    updated_by: UUID | None
+
+    model_config = ConfigDict(from_attributes=True)
 
     total_scope_assignments: int = Field(
         default=0, description="Total scope assignments"

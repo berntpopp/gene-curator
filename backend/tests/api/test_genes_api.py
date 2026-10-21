@@ -181,6 +181,16 @@ def test_get_gene_is_public_and_hides_assignments_when_anonymous(
     assert body["total_scope_assignments"] == 0
     assert body["scope_assignments"] == {}
     assert body["is_assigned_to_any_scope"] is False
+    # no internal user ids or integrity hashes for anonymous readers
+    for hidden in ("created_by", "updated_by", "record_hash", "previous_hash"):
+        assert body[hidden] is None
+
+
+def test_get_gene_keeps_audit_fields_for_signed_in_users(
+    client: TestClient, curator_token: str, test_gene: Gene
+) -> None:
+    body = client.get(f"{BASE}/{test_gene.id}", headers=_auth(curator_token)).json()
+    assert body["created_by"] and body["record_hash"]
 
 
 def test_get_unknown_gene_is_404(client: TestClient, curator_token: str) -> None:

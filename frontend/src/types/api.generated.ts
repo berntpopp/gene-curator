@@ -6012,6 +6012,8 @@ export interface components {
         /**
          * GeneWithAssignments
          * @description Gene with assignment information.
+         *
+         *     Audit and integrity fields are nullable: anonymous readers get None.
          */
         GeneWithAssignments: {
             /**
@@ -6057,7 +6059,7 @@ export interface components {
              */
             id: string;
             /** Record Hash */
-            record_hash: string;
+            record_hash: string | null;
             /** Previous Hash */
             previous_hash: string | null;
             /**
@@ -6070,16 +6072,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /**
-             * Created By
-             * Format: uuid
-             */
-            created_by: string;
-            /**
-             * Updated By
-             * Format: uuid
-             */
-            updated_by: string;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
             /**
              * Total Scope Assignments
              * @description Total scope assignments

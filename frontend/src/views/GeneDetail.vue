@@ -214,7 +214,7 @@
 
   /** HGNC enriches the page; it never blocks it, and a failure keeps the local data. */
   async function fetchHgncData(hgncId: string | null | undefined): Promise<void> {
-    if (!hgncId) return
+    if (!hgncId || !auth.isAuthenticated) return // the HGNC lookup endpoint needs login
     const mine = loadSeq
     try {
       const response = await externalValidationAPI.fetchHGNCGene(hgncId)
