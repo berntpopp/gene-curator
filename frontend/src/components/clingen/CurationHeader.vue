@@ -102,6 +102,7 @@
 
   import { computed } from 'vue'
   import { curationStatusColor, curationStatusLabel } from '@/config/status'
+  import { humanize } from '@/components/dynamic/fieldLabels'
   import type { DiseaseInfo, GeneInfo } from './types'
 
   const props = withDefaults(
@@ -131,13 +132,17 @@
     props.schema ? `${props.schema.name} v${props.schema.version}` : ''
   )
 
+  // Same labels as CurationDetailView.formatInheritance
+  const MOI_LABELS: Record<string, string> = {
+    AD: 'Autosomal dominant',
+    AR: 'Autosomal recessive',
+    XLD: 'X-linked dominant',
+    XLR: 'X-linked recessive',
+    MT: 'Mitochondrial'
+  }
   const moiDisplay = computed(() => {
-    const moi = props.moi?.toLowerCase() || ''
-    if (moi.includes('dominant') || moi === 'ad') return 'AD'
-    if (moi.includes('recessive') || moi === 'ar') return 'AR'
-    if (moi.includes('x-linked') || moi === 'xl') return 'X-linked'
-    if (moi.includes('mitochondrial')) return 'MT'
-    return props.moi || 'Unknown'
+    const moi = props.moi || ''
+    return MOI_LABELS[moi.toUpperCase()] || (moi ? humanize(moi.toLowerCase()) : 'Unknown')
   })
 
   const statusColor = computed(() => curationStatusColor(props.status))

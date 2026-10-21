@@ -75,12 +75,13 @@ describe('ScopeSummaryCard', () => {
 
 describe('CurationHeader', () => {
   it.each([
-    ['Autosomal dominant', 'AD'],
-    ['ar', 'AR'],
+    ['AD', 'Autosomal dominant'],
+    ['Autosomal dominant', 'Autosomal dominant'],
+    ['ar', 'Autosomal recessive'],
     ['X-linked', 'X-linked'],
-    ['Mitochondrial', 'MT'],
+    ['MT', 'Mitochondrial'],
     ['Unknown', 'Unknown']
-  ])('maps mode of inheritance %s to %s', (moi, display) => {
+  ])('shows mode of inheritance %s as %s', (moi, display) => {
     const wrapper = mount(CurationHeader, { props: { moi } })
     expect(wrapper.text()).toContain(display)
   })
