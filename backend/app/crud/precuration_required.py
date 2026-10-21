@@ -47,7 +47,7 @@ def _same(a: Any, b: Any) -> bool:
     return bool(a == b and isinstance(a, bool) == isinstance(b, bool))
 
 
-def _condition_holds(condition: Any, data: Any) -> bool:
+def condition_holds(condition: Any, data: Any) -> bool:
     """`{path: value}` equals, `{path: [values]}` in; every entry must hold (frontend
     conditions.ts). Anything that is not a dict is no condition."""
     if not isinstance(condition, dict):
@@ -81,6 +81,6 @@ def missing_required_fields(
     return [
         path
         for path in dict.fromkeys(paths)
-        if _condition_holds(shown_when.get(path), data)
+        if condition_holds(shown_when.get(path), data)
         and _is_empty(_value_at(data, path))
     ]

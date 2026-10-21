@@ -8,7 +8,12 @@ from datetime import datetime
 from typing import Any
 
 from app.core.enum_options import enum_option, flatten_sections
-from app.core.schema_rules import resolve_named_rules
+from app.core.schema_rules import (
+    apply_field_list_rules,
+    check_schema_definition,
+    is_visible,
+    resolve_named_rules,
+)
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
 
@@ -106,37 +111,9 @@ class SchemaValidator:
             SchemaValidationResult with validation results
         """
         result = SchemaValidationResult()
-
-        # Required top-level fields
-        required_fields = ["field_definitions", "workflow_states"]
-        for field in required_fields:
-            if field not in schema_definition:
-                result.add_error(
-                    "schema", f"Missing required field: {field}", "structure"
-                )
-
-        # Validate field definitions
-        if "field_definitions" in schema_definition:
-            self._validate_field_definitions(
-                schema_definition["field_definitions"], result
-            )
-
-        # Validate workflow states
-        if "workflow_states" in schema_definition:
-            self._validate_workflow_states(schema_definition["workflow_states"], result)
-
-        # Validate UI configuration
-        if "ui_configuration" in schema_definition:
-            self._validate_ui_configuration(
-                schema_definition["ui_configuration"], result
-            )
-
-        # Validate scoring configuration
-        if "scoring_configuration" in schema_definition:
-            self._validate_scoring_configuration(
-                schema_definition["scoring_configuration"], result
-            )
-
+        for severity, path, message in check_schema_definition(schema_definition):
+            add = result.add_error if severity == "error" else result.add_warning
+            add(path, message, "structure")
         return result
 
     def generate_json_schema(self, schema_definition: dict[str, Any]) -> dict[str, Any]:
@@ -177,9 +154,12 @@ class SchemaValidator:
         for field_name, field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
 
-            # Check if required field is missing
-            if field_config.get("required", False) and (
-                field_value is None or field_value == ""
+            # Required unless hidden by its condition (a hidden value is still checked)
+            required = field_config.get("required", False)
+            if (
+                required
+                and field_value in (None, "")
+                and is_visible(field_config, evidence_data)
             ):
                 result.add_error(field_name, "Required field is missing", "required")
                 result.required_fields_missing.append(field_name)
@@ -572,7 +552,8 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Apply custom validation rules."""
-        for rule_name, rule_config in validation_rules.items():
+        rules = apply_field_list_rules(evidence_data, validation_rules, result)
+        for rule_name, rule_config in rules.items():
             try:
                 rule_type = rule_config.get("type", "condition")
 
@@ -756,7 +737,6 @@ class SchemaValidator:
     ) -> None:
         """Validate GenCC classification business rules."""
         classification = evidence_data.get("classification", "")
-        evidence_data.get("confidence_level", "")
 
         # GenCC-specific validation rules would go here
         valid_classifications = [
@@ -805,9 +785,6 @@ class SchemaValidator:
             }
             for warning in scores.warnings:
                 result.add_warning("scoring", warning, "scoring")
-        # Preserve the original short-name configurations used by existing schemas.
-        elif engine_type == "clingen":
-            self._calculate_clingen_scores(evidence_data, scoring_config, result)
         elif engine_type in legacy_scores:
             result.score_calculations = legacy_scores[engine_type]
         else:
@@ -816,39 +793,6 @@ class SchemaValidator:
                 f"Unknown scoring engine: {engine_type}",
                 "configuration",
             )
-
-    def _calculate_clingen_scores(
-        self,
-        evidence_data: dict[str, Any],
-        scoring_config: dict[str, Any],
-        result: SchemaValidationResult,
-    ) -> None:
-        """Calculate ClinGen SOP v11 scores."""
-        genetic_evidence = evidence_data.get("genetic_evidence", {})
-        experimental_evidence = evidence_data.get("experimental_evidence", {})
-
-        # Calculate genetic evidence score
-        genetic_score = (
-            genetic_evidence.get("case_level_score", 0)
-            + genetic_evidence.get("segregation_score", 0)
-            + genetic_evidence.get("case_control_score", 0)
-        )
-
-        # Calculate experimental evidence score
-        experimental_score = (
-            experimental_evidence.get("functional_score", 0)
-            + experimental_evidence.get("model_system_score", 0)
-            + experimental_evidence.get("rescue_score", 0)
-        )
-
-        # Total score
-        total_score = genetic_score + experimental_score
-
-        result.score_calculations = {
-            "genetic_evidence_score": genetic_score,
-            "experimental_evidence_score": experimental_score,
-            "total_score": total_score,
-        }
 
     def _calculate_completeness(
         self,
@@ -910,83 +854,6 @@ class SchemaValidator:
         if len(result.warnings) > 0:
             result.suggested_improvements.append(
                 "Address validation warnings to improve data quality."
-            )
-
-    def _validate_field_definitions(
-        self, field_definitions: dict[str, Any], result: SchemaValidationResult
-    ) -> None:
-        """Validate field definitions in schema."""
-        if not isinstance(field_definitions, dict):
-            result.add_error(  # type: ignore[unreachable]
-                "field_definitions",
-                "field_definitions must be a dictionary",
-                "structure",
-            )
-            return
-
-        for field_name, field_config in field_definitions.items():
-            if not isinstance(field_config, dict):
-                result.add_error(
-                    "field_definitions",
-                    f"Field '{field_name}' configuration must be an object",
-                    "structure",
-                )
-                continue
-
-            # Required properties
-            if "type" not in field_config:
-                result.add_error(
-                    "field_definitions",
-                    f"Field '{field_name}' missing required 'type' property",
-                    "structure",
-                )
-
-            if "label" not in field_config:
-                result.add_warning(
-                    "field_definitions",
-                    f"Field '{field_name}' missing 'label' property",
-                    "usability",
-                )
-
-    def _validate_workflow_states(
-        self, workflow_states: list[str], result: SchemaValidationResult
-    ) -> None:
-        """Validate workflow states."""
-        if not isinstance(workflow_states, list):
-            result.add_error(  # type: ignore[unreachable]
-                "workflow_states", "Workflow states must be an array", "structure"
-            )
-            return
-
-        required_states = ["draft", "submitted"]
-        for state in required_states:
-            if state not in workflow_states:
-                result.add_error(
-                    "workflow_states",
-                    f"Missing required workflow state: {state}",
-                    "structure",
-                )
-
-    def _validate_ui_configuration(
-        self, ui_configuration: dict[str, Any], result: SchemaValidationResult
-    ) -> None:
-        """Validate UI configuration."""
-        if "sections" not in ui_configuration:
-            result.add_warning(
-                "ui_configuration",
-                "Missing 'sections' - form may not render properly",
-                "usability",
-            )
-
-    def _validate_scoring_configuration(
-        self, scoring_configuration: dict[str, Any], result: SchemaValidationResult
-    ) -> None:
-        """Validate scoring configuration."""
-        if "engine" not in scoring_configuration:
-            result.add_warning(
-                "scoring_configuration",
-                "Missing 'engine' specification",
-                "configuration",
             )
 
     def _convert_field_to_json_schema(  # noqa: C901
