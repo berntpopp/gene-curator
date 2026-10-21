@@ -53,6 +53,14 @@ describe('GeneDetail view', () => {
     expect(wrapper.text()).toContain('Failed to load gene details')
   })
 
+  it.each([400, 422])('says "Gene not found" for an invalid id (%i)', async status => {
+    vi.mocked(genesAPI.getGeneById).mockRejectedValue({ response: { status } })
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text()).toContain('Gene not found')
+    expect(wrapper.text()).not.toContain('Retry')
+  })
+
   it('says "Gene not found" with a catalogue link on a 404', async () => {
     vi.mocked(genesAPI.getGeneById).mockRejectedValue({ response: { status: 404 } })
     const wrapper = mountView()

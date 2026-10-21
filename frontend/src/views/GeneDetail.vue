@@ -352,7 +352,9 @@
         error: e.message,
         stack: e.stack
       })
-      notFound.value = (err as { response?: { status?: number } }).response?.status === 404
+      // A malformed id is rejected as 400/422: to the user that is also "not found"
+      const status = (err as { response?: { status?: number } }).response?.status
+      notFound.value = status === 404 || status === 400 || status === 422
       error.value = 'Failed to load gene details'
     } finally {
       loading.value = false
