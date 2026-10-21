@@ -154,7 +154,7 @@ def world() -> Generator[World, None, None]:
                     str(ids[scope_key]),
                     str(pair),
                     str(ids["reviewer" if key == "curation_own" else "curator"]),
-                    json.dumps({"score": 1}),
+                    json.dumps({"score": 2 if key == "curation_own" else 1}),
                 ),
             )
         cur.execute(
