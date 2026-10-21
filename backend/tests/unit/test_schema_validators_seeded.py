@@ -1,75 +1,147 @@
-"""#207: the validator accepts the schema formats the seeds and the renderer use."""
+"""#207/#269: seeded schema formats are accepted; cheap static checks name a JSON path."""
 
-from app.crud.schema_validators import (
-    FieldDefinitionsValidator,
-    ScoringConfigurationValidator,
-    WorkflowStatesValidator,
-)
+from typing import Any
+
+import pytest
+
+from app.core.schema_rules import check_schema_definition
+
+pytestmark = pytest.mark.unit
+
+# Stage map, sections and validation_rules as database/sql/016_seed_precuration_schema.sql seeds them
+PRECURATION: dict[str, Any] = {
+    "field_definitions": {
+        "sections": [
+            {
+                "id": "disease",
+                "fields": [{"id": "mondo_id", "type": "external_reference"}],
+            },
+            {"id": "moi", "fields": [{"id": "mode_of_inheritance", "type": "enum"}]},
+        ]
+    },
+    "workflow_states": {
+        "entry": {"allowed_transitions": ["precuration"]},
+        "precuration": {"allowed_transitions": ["review"]},
+        "review": {"allowed_transitions": ["precuration", "approved"]},
+        "approved": {"allowed_transitions": ["curation"]},
+    },
+    "ui_configuration": {"form_layout": "wizard"},
+    "validation_rules": {
+        "required_fields": ["mondo_id", "mode_of_inheritance"],
+        "custom_validators": [{"field": "mondo_id", "pattern": "^MONDO:"}],
+    },
+}
 
 
-class TestSeededFieldFormats:
-    validator = FieldDefinitionsValidator()
+def errors(**changes: Any) -> list[tuple[str, str]]:
+    schema = {**PRECURATION, **changes}
+    return [(p, m) for s, p, m in check_schema_definition(schema) if s == "error"]
 
-    def test_seeded_json_schema_style_fields_accepted(self) -> None:
-        """#207: renderer accepts title instead of label and JSON-schema types."""
-        schema = {
-            "field_definitions": {
-                "summary": {"type": "string", "title": "Summary"},
-                "count": {"type": "integer", "title": "Count"},
-                "kind": {"type": "enum", "title": "Kind", "enum": ["a", "b"]},
-            }
+
+def test_seeded_precuration_shape_has_no_errors() -> None:
+    assert errors() == []
+
+
+def test_json_schema_style_fields_accepted() -> None:
+    defs = {"a": {"type": "string", "title": "A"}, "b": {"type": "integer"}}
+    assert errors(field_definitions=defs, validation_rules={}) == []
+
+
+class TestTransitions:
+    def test_unknown_target_is_reported_at_its_index(self) -> None:
+        states = {
+            **PRECURATION["workflow_states"],
+            "review": {"allowed_transitions": ["nope"]},
         }
+        assert errors(workflow_states=states) == [
+            (
+                "workflow_states.review.allowed_transitions[0]",
+                "Unknown transition target: nope",
+            )
+        ]
 
-        assert self.validator.validate(schema) == []
-
-    def test_sectioned_field_definitions_accepted(self) -> None:
-        schema = {"field_definitions": {"sections": [{"id": "a", "fields": []}]}}
-
-        assert self.validator.validate(schema) == []
-
-
-class TestSeededWorkflowStates:
-    validator = WorkflowStatesValidator()
-
-    def test_state_keyed_map_is_accepted(self) -> None:
-        """#207: seeded SOP schemas key states by name with custom names."""
-        schema = {"workflow_states": {"entry": {"label": "Entry"}, "active": {}}}
-
-        assert self.validator.validate(schema) == []
-
-
-class TestStricterSeededFormats:
-    def test_section_fields_are_validated(self) -> None:
-        bad = {
-            "field_definitions": {"sections": [{"fields": [{"id": "x", "label": "X"}]}]}
+    @pytest.mark.parametrize("value", [0, 6, 2.5, True, "2"])
+    def test_reviewers_required_must_be_1_to_5(self, value: Any) -> None:
+        states = {
+            **PRECURATION["workflow_states"],
+            "review": {"reviewers_required": value},
         }
-        good = {
-            "field_definitions": {
-                "sections": [
-                    {
-                        "fields": [
-                            {"id": "x", "type": "external_reference", "label": "X"}
-                        ]
-                    }
-                ]
-            }
+        assert [p for p, _ in errors(workflow_states=states)] == [
+            "workflow_states.review.reviewers_required"
+        ]
+
+    @pytest.mark.parametrize("value", [1, 5])
+    def test_reviewers_required_in_range_is_fine(self, value: int) -> None:
+        states = {
+            **PRECURATION["workflow_states"],
+            "review": {"reviewers_required": value},
         }
+        assert errors(workflow_states=states) == []
 
-        assert len(FieldDefinitionsValidator().validate(bad)) == 1
-        assert FieldDefinitionsValidator().validate(good) == []
 
-    def test_state_keyed_map_values_must_be_dicts(self) -> None:
-        validator = WorkflowStatesValidator()
+class TestValidationRulesNameFields:
+    def test_unknown_required_field(self) -> None:
+        rules = {"required_fields": ["mondo_id", "ghost"]}
+        assert errors(validation_rules=rules) == [
+            (
+                "validation_rules.required_fields[1]",
+                "Unknown field in required_fields: ghost",
+            )
+        ]
 
-        assert validator.validate({"workflow_states": {"draft": 5}})
-        assert validator.validate({"workflow_states": {"transitions": {"a": ["b"]}}})
+    def test_unknown_custom_validator_field(self) -> None:
+        rules = {"custom_validators": [{"field": "ghost"}, "junk"]}
+        assert [p for p, _ in errors(validation_rules=rules)] == [
+            "validation_rules.custom_validators[0].field",
+            "validation_rules.custom_validators[1].field",
+        ]
 
-    def test_unknown_scoring_engine_is_an_error(self) -> None:
-        validator = ScoringConfigurationValidator()
 
-        found = validator.validate({"scoring_configuration": {"engine": "nope"}})
-        assert [m.severity for m in found] == ["error"]
-        assert (
-            validator.validate({"scoring_configuration": {"engine": "clingen_sop_v11"}})
-            == []
-        )
+class TestEvidenceTable:
+    def table(self, columns: Any) -> list[tuple[str, str]]:
+        defs = {"proband": {"type": "evidence_table", "columns": columns}}
+        return errors(field_definitions=defs, validation_rules={})
+
+    def test_typed_columns_pass(self) -> None:
+        assert self.table({"pmid": {"type": "publication"}}) == []
+        assert self.table([{"id": "pmid", "type": "publication"}]) == []
+
+    def test_untyped_column_reported(self) -> None:
+        assert self.table({"pmid": {"label": "PMID"}}) == [
+            (
+                "field_definitions.proband.columns.pmid.type",
+                "Column 'pmid' of 'proband' has no type",
+            )
+        ]
+        assert [p for p, _ in self.table([{"type": "text"}, "x"])] == [
+            "field_definitions.proband.columns.1.type"
+        ]
+
+    def test_missing_columns_reported(self) -> None:
+        assert [p for p, _ in self.table(None)] == ["field_definitions.proband.columns"]
+
+
+class TestPointModel:
+    def scoring(self, model: dict[str, Any]) -> list[str]:
+        cfg = {"engine": "clingen_sop_v11", "point_model": model}
+        return [p for p, _ in errors(scoring_configuration=cfg)]
+
+    def test_valid_point_model(self) -> None:
+        model = {
+            "categories": {"proband": {"cap": 12}, "function": {"cap": 2.0}},
+            "bands": [{"name": "limited", "min": 1}, {"name": "moderate", "min": 7}],
+        }
+        assert self.scoring(model) == []
+
+    def test_category_cap_must_be_numeric(self) -> None:
+        model = {"categories": [{"cap": "12"}, {"label": "x"}]}
+        assert self.scoring(model) == [
+            "scoring_configuration.point_model.categories.0.cap",
+            "scoring_configuration.point_model.categories.1.cap",
+        ]
+
+    @pytest.mark.parametrize("bands", [[{"min": 7}, {"min": 1}], [{"min": "1"}], ["x"]])
+    def test_bands_must_be_ordered_numbers(self, bands: list[Any]) -> None:
+        assert self.scoring({"bands": bands}) == [
+            "scoring_configuration.point_model.bands"
+        ]

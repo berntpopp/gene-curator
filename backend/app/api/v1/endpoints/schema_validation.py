@@ -8,6 +8,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
@@ -15,6 +16,7 @@ from app.core.database import get_db
 from app.core.schema_validator import schema_validator
 from app.crud.schema_repository import schema_crud
 from app.models import UserNew
+from app.models.methodology import MethodologyVersion
 
 router = APIRouter()
 
@@ -26,6 +28,7 @@ class ValidationRequest(BaseModel):
     evidence_data: dict[str, Any]
     schema_id: UUID | None = None
     schema_definition: dict[str, Any] | None = None
+    methodology_version_id: UUID | None = None
     context: dict[str, Any] | None = None
 
 
@@ -62,6 +65,24 @@ class JSONSchemaResponse(BaseModel):
 # ========================================
 
 
+def _methodology_version(
+    db: Session, version_id: UUID | None, schema_id: UUID | None
+) -> MethodologyVersion:
+    """The given version, else the schema's latest (what a new row would pin)."""
+    if version_id:
+        version = db.get(MethodologyVersion, version_id)
+    else:
+        version = db.scalars(
+            select(MethodologyVersion)
+            .where(MethodologyVersion.schema_id == schema_id)
+            .order_by(MethodologyVersion.version.desc())
+            .limit(1)
+        ).first()
+    if not version:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    return version
+
+
 @router.post("/validate-evidence", response_model=ValidationResponse)
 def validate_evidence_data(
     *,
@@ -77,13 +98,12 @@ def validate_evidence_data(
     # Get schema definition
     schema_definition = validation_request.schema_definition
 
-    if not schema_definition and validation_request.schema_id:
-        schema = schema_crud.get(db, id=validation_request.schema_id)
-        if not schema:
-            raise HTTPException(status_code=404, detail="Schema not found")
+    version_id = validation_request.methodology_version_id
+    if not schema_definition and (version_id or validation_request.schema_id):
+        version = _methodology_version(db, version_id, validation_request.schema_id)
         schema_definition = {
-            "field_definitions": schema.field_definitions,
-            "validation_rules": schema.validation_rules,
+            key: version.snapshot.get(key)
+            for key in ("field_definitions", "validation_rules")
         }
 
     if not schema_definition:
@@ -561,7 +581,7 @@ def test_validation_with_examples(
             }
         },
         "business_rules": ["clingen_genetic_evidence", "clingen_experimental_evidence"],
-        "scoring_configuration": {"engine": "clingen"},
+        "scoring_configuration": {"engine": "clingen_sop_v11"},
     }
 
     # Test cases

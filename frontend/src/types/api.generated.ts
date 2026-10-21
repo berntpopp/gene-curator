@@ -9683,6 +9683,8 @@ export interface components {
             schema_definition?: {
                 [key: string]: unknown;
             } | null;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
             /** Context */
             context?: {
                 [key: string]: unknown;

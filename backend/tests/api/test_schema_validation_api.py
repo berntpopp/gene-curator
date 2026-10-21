@@ -12,6 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.models.methodology import MethodologyVersion
 from app.models.models import CurationSchema
 
 pytestmark = pytest.mark.unit
@@ -47,7 +48,21 @@ def stored_schema(db_session: Session) -> CurationSchema:
     db_session.add(schema)
     db_session.commit()
     db_session.refresh(schema)
+    _publish(db_session, schema, 1, FIELD_DEFS)  # Postgres publishes v1 on insert (042)
     return schema
+
+
+def _publish(
+    db: Session, schema: CurationSchema, version: int, fields: dict
+) -> MethodologyVersion:
+    row = MethodologyVersion(
+        schema_id=schema.id,
+        version=version,
+        snapshot={"field_definitions": fields, "validation_rules": {}},
+    )
+    db.add(row)
+    db.commit()
+    return row
 
 
 # =============================================================================
@@ -137,7 +152,62 @@ class TestValidateEvidence:
         )
 
         assert response.status_code == 404
-        assert response.json()["detail"] == "Schema not found"
+        assert response.json()["detail"] == "Methodology version not found"
+
+    def test_schema_id_uses_latest_version_not_live_schema(
+        self,
+        client: TestClient,
+        db_session: Session,
+        stored_schema: CurationSchema,
+        viewer_token: str,
+    ):
+        """#269: validation reads the published snapshot; the live row is the working copy."""
+        stored_schema.field_definitions = {}
+        db_session.commit()
+        _publish(
+            db_session, stored_schema, 2, {"other": {"type": "text", "required": True}}
+        )
+
+        response = client.post(
+            f"{BASE}/validate-evidence",
+            json={"evidence_data": {}, "schema_id": str(stored_schema.id)},
+            headers=_auth(viewer_token),
+        )
+
+        assert response.json()["required_fields_missing"] == ["other"]
+
+    def test_given_methodology_version_is_used(
+        self,
+        client: TestClient,
+        db_session: Session,
+        stored_schema: CurationSchema,
+        viewer_token: str,
+    ):
+        v1 = (
+            db_session.query(MethodologyVersion)
+            .filter_by(schema_id=stored_schema.id)
+            .one()
+        )
+        _publish(db_session, stored_schema, 2, {})
+
+        response = client.post(
+            f"{BASE}/validate-evidence",
+            json={"evidence_data": {}, "methodology_version_id": str(v1.id)},
+            headers=_auth(viewer_token),
+        )
+
+        assert response.json()["required_fields_missing"] == ["gene_symbol"]
+
+    def test_unknown_methodology_version_is_404(
+        self, client: TestClient, viewer_token: str
+    ):
+        response = client.post(
+            f"{BASE}/validate-evidence",
+            json={"evidence_data": {}, "methodology_version_id": str(uuid4())},
+            headers=_auth(viewer_token),
+        )
+
+        assert response.status_code == 404
 
     def test_neither_schema_nor_definition_is_400(
         self, client: TestClient, viewer_token: str
@@ -185,7 +255,11 @@ class TestValidateSchemaDefinition:
         assert response.status_code == 200
         body = response.json()
         assert body["is_valid"] is False
-        assert len(body["errors"]) == 2
+        assert [e["field"] for e in body["errors"]] == [
+            "field_definitions",
+            "workflow_states",
+            "ui_configuration",
+        ]
 
     def test_complete_definition_valid(self, client: TestClient, viewer_token: str):
         response = client.post(
@@ -195,7 +269,7 @@ class TestValidateSchemaDefinition:
                     "field_definitions": {"a": {"type": "text", "label": "A"}},
                     "workflow_states": ["draft", "submitted"],
                     "ui_configuration": {"sections": []},
-                    "scoring_configuration": {"engine": "clingen"},
+                    "scoring_configuration": {"engine": "clingen_sop_v11"},
                 }
             },
             headers=_auth(viewer_token),

@@ -215,27 +215,12 @@ class TestBusinessRules:
 
 
 class TestScoringHooks:
-    def test_clingen_scores_summed(self, validator: SchemaValidator):
-        data = {
-            "genetic_evidence": {
-                "case_level_score": 3,
-                "segregation_score": 1,
-                "case_control_score": 2,
-            },
-            "experimental_evidence": {
-                "functional_score": 1,
-                "model_system_score": 0.5,
-                "rescue_score": 0.5,
-            },
-        }
+    def test_short_clingen_name_is_no_longer_scored(self, validator: SchemaValidator):
+        """#269: the hard-coded `clingen` fallback is gone; seeds use registry names."""
+        result = _run(validator, {}, {}, scoring_configuration={"engine": "clingen"})
 
-        result = _run(validator, data, {}, scoring_configuration={"engine": "clingen"})
-
-        assert result.score_calculations == {
-            "genetic_evidence_score": 6,
-            "experimental_evidence_score": 2,
-            "total_score": 8,
-        }
+        assert result.score_calculations == {}
+        assert _messages(result) == ["Unknown scoring engine: clingen"]
 
     def test_placeholder_engines(self, validator: SchemaValidator):
         gencc = _run(validator, {}, {}, scoring_configuration={"engine": "gencc"})
@@ -273,78 +258,25 @@ class TestScoringHooks:
 
 
 # =============================================================================
-# Schema definition validation
+# Schema definition validation (checks themselves: test_schema_validators*.py)
 # =============================================================================
 
 
-class TestValidateSchemaDefinition:
-    def test_missing_top_level_keys(self, validator: SchemaValidator):
-        result = validator.validate_schema_definition({})
+def test_schema_definition_diagnostics_carry_json_paths(validator: SchemaValidator):
+    result = validator.validate_schema_definition(
+        {
+            "field_definitions": {"a": {"label": "A"}},
+            "workflow_states": ["draft", "submitted"],
+            "ui_configuration": {},
+        }
+    )
 
-        assert result.is_valid is False
-        assert _messages(result) == [
-            "Missing required field: field_definitions",
-            "Missing required field: workflow_states",
-        ]
-
-    def test_field_definition_shape(self, validator: SchemaValidator):
-        result = validator.validate_schema_definition(
-            {
-                "field_definitions": {"a": "not-a-dict", "b": {}},
-                "workflow_states": ["draft", "submitted"],
-            }
-        )
-
-        assert "Field 'a' configuration must be an object" in _messages(result)
-        assert "Field 'b' missing required 'type' property" in _messages(result)
-        assert "Field 'b' missing 'label' property" in _messages(result, "warnings")
-
-    def test_field_definitions_must_be_dict(self, validator: SchemaValidator):
-        result = validator.validate_schema_definition(
-            {"field_definitions": [], "workflow_states": ["draft", "submitted"]}
-        )
-
-        assert _messages(result) == ["field_definitions must be a dictionary"]
-
-    def test_workflow_states_checks(self, validator: SchemaValidator):
-        missing = validator.validate_schema_definition(
-            {"field_definitions": {}, "workflow_states": ["draft"]}
-        )
-        wrong_shape = validator.validate_schema_definition(
-            {"field_definitions": {}, "workflow_states": {"draft": 1}}
-        )
-
-        assert _messages(missing) == ["Missing required workflow state: submitted"]
-        assert _messages(wrong_shape) == ["Workflow states must be an array"]
-
-    def test_ui_and_scoring_warnings(self, validator: SchemaValidator):
-        result = validator.validate_schema_definition(
-            {
-                "field_definitions": {"a": {"type": "text", "label": "A"}},
-                "workflow_states": ["draft", "submitted"],
-                "ui_configuration": {},
-                "scoring_configuration": {},
-            }
-        )
-
-        assert result.is_valid is True
-        warnings = _messages(result, "warnings")
-        assert "Missing 'sections' - form may not render properly" in warnings
-        assert "Missing 'engine' specification" in warnings
-
-    def test_complete_definition_is_valid(self, validator: SchemaValidator):
-        result = validator.validate_schema_definition(
-            {
-                "field_definitions": {"a": {"type": "text", "label": "A"}},
-                "workflow_states": ["draft", "submitted"],
-                "ui_configuration": {"sections": []},
-                "scoring_configuration": {"engine": "clingen"},
-            }
-        )
-
-        assert result.is_valid is True
-        assert result.errors == []
-        assert result.warnings == []
+    assert result.is_valid is False
+    assert [e["field"] for e in result.errors] == [
+        "ui_configuration",
+        "field_definitions.a.type",
+    ]
+    assert [w["field"] for w in result.warnings] == ["ui_configuration.sections"]
 
 
 # =============================================================================
