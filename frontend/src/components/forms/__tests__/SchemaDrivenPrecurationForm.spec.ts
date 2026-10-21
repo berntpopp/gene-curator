@@ -300,4 +300,15 @@ describe('SchemaDrivenPrecurationForm', () => {
     expect(confirmMock).not.toHaveBeenCalled()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })
+
+  it('does not cancel when Escape closes an open select menu', async () => {
+    const wrapper = mountForm()
+    await flushPromises()
+    const vm = internals(wrapper)
+    const input = document.createElement('input')
+    input.setAttribute('aria-expanded', 'true')
+    input.addEventListener('keydown', e => vm.handleKeydown(e))
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    expect(wrapper.emitted('cancel')).toBeUndefined()
+  })
 })
