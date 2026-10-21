@@ -49,12 +49,10 @@
           >
             <template #item="{ item, props: itemProps }">
               <v-list-item v-bind="itemProps">
-                <template #subtitle> {{ item.raw.version }} • {{ item.raw.description }} </template>
+                <template #subtitle> {{ item.version }} • {{ item.description }} </template>
               </v-list-item>
             </template>
-            <template #selection="{ item }">
-              {{ item.raw.name }} ({{ item.raw.version }})
-            </template>
+            <template #selection="{ item }"> {{ item.name }} ({{ item.version }}) </template>
           </v-select>
 
           <!-- Show linked schemas when workflow pair is selected -->

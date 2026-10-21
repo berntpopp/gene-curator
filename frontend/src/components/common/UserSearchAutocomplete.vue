@@ -49,37 +49,29 @@
         <template #prepend>
           <v-avatar size="36" color="primary">
             <span class="text-caption font-weight-bold">
-              {{ getInitials(item.raw.name) }}
+              {{ getInitials(item.name) }}
             </span>
           </v-avatar>
         </template>
 
         <v-list-item-title class="font-weight-medium">
-          {{ item.raw.name || item.raw.email }}
+          {{ item.name || item.email }}
         </v-list-item-title>
 
         <v-list-item-subtitle>
-          <span>{{ item.raw.email }}</span>
-          <span v-if="item.raw.institution" class="ml-2 text-caption">
-            ({{ item.raw.institution }})
-          </span>
+          <span>{{ item.email }}</span>
+          <span v-if="item.institution" class="ml-2 text-caption"> ({{ item.institution }}) </span>
         </v-list-item-subtitle>
       </v-list-item>
     </template>
 
     <!-- Selected item display -->
     <template #selection="{ item }">
-      <v-chip
-        v-if="item.raw"
-        color="primary"
-        variant="tonal"
-        closable
-        @click:close="clearSelection"
-      >
+      <v-chip v-if="item" color="primary" variant="tonal" closable @click:close="clearSelection">
         <v-avatar start size="24" color="primary">
-          <span class="text-caption">{{ getInitials(item.raw.name) }}</span>
+          <span class="text-caption">{{ getInitials(item.name) }}</span>
         </v-avatar>
-        {{ item.raw.name || item.raw.email }}
+        {{ item.name || item.email }}
       </v-chip>
     </template>
 

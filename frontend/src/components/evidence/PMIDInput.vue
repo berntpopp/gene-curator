@@ -17,12 +17,8 @@
       @keydown.enter.prevent="handleEnter"
     >
       <template #chip="{ item, props: chipProps }">
-        <v-chip
-          v-bind="chipProps"
-          :color="getChipColor(item.value)"
-          :prepend-icon="getChipIcon(item.value)"
-        >
-          {{ item.value }}
+        <v-chip v-bind="chipProps" :color="getChipColor(item)" :prepend-icon="getChipIcon(item)">
+          {{ item }}
         </v-chip>
       </template>
 

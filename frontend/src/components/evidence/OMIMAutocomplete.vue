@@ -29,19 +29,19 @@
         </template>
         <template #title>
           <div class="d-flex align-center">
-            <span class="font-weight-medium">{{ item.raw.name }}</span>
+            <span class="font-weight-medium">{{ item.name }}</span>
           </div>
         </template>
         <template #subtitle>
           <div class="d-flex align-center ga-2 mt-1">
             <v-chip size="x-small" color="warning" variant="tonal">
-              {{ item.raw.omim_id }}
+              {{ item.omim_id }}
             </v-chip>
-            <v-chip v-if="item.raw.mondo_id" size="x-small" color="info" variant="outlined">
-              {{ item.raw.mondo_id }}
+            <v-chip v-if="item.mondo_id" size="x-small" color="info" variant="outlined">
+              {{ item.mondo_id }}
             </v-chip>
-            <span v-if="item.raw.gene_symbols?.length" class="text-caption">
-              Genes: {{ item.raw.gene_symbols.join(', ') }}
+            <span v-if="item.gene_symbols?.length" class="text-caption">
+              Genes: {{ item.gene_symbols.join(', ') }}
             </span>
           </div>
         </template>
@@ -51,7 +51,7 @@
             icon="mdi-information"
             variant="text"
             size="x-small"
-            @click.stop="loadOMIMDetails(item.raw.omim_id)"
+            @click.stop="loadOMIMDetails(item.omim_id)"
           />
         </template>
       </v-list-item>
@@ -60,13 +60,13 @@
     <template #chip="{ item, props: chipProps }">
       <v-chip v-bind="chipProps" color="warning" variant="tonal" size="small">
         <v-icon start size="small">mdi-flask</v-icon>
-        {{ item.raw.omim_id }}
-        <v-tooltip v-if="item.raw.name" location="top" activator="parent">
+        {{ item.omim_id }}
+        <v-tooltip v-if="item.name" location="top" activator="parent">
           <div class="text-caption" style="max-width: 400px">
-            <strong>{{ item.raw.name }}</strong>
-            <div v-if="item.raw.mondo_id" class="mt-1">MONDO: {{ item.raw.mondo_id }}</div>
-            <div v-if="item.raw.gene_symbols?.length" class="mt-1">
-              Genes: {{ item.raw.gene_symbols.join(', ') }}
+            <strong>{{ item.name }}</strong>
+            <div v-if="item.mondo_id" class="mt-1">MONDO: {{ item.mondo_id }}</div>
+            <div v-if="item.gene_symbols?.length" class="mt-1">
+              Genes: {{ item.gene_symbols.join(', ') }}
             </div>
           </div>
         </v-tooltip>

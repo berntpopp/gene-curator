@@ -17,47 +17,36 @@
     @update:model-value="handleSelect"
   >
     <template #item="{ item, props: itemProps }">
-      <v-list-subheader v-if="item.raw.isHeader">
-        {{ item.raw.displayText }}
+      <v-list-subheader v-if="item.isHeader">
+        {{ item.displayText }}
       </v-list-subheader>
-      <v-list-item
-        v-else
-        v-bind="itemProps"
-        :subtitle="item.raw.definition ?? undefined"
-        class="py-2"
-      >
+      <v-list-item v-else v-bind="itemProps" :subtitle="item.definition ?? undefined" class="py-2">
         <template #prepend>
-          <v-icon :color="item.raw.category === 'mendelian' ? 'primary' : 'secondary'" size="small">
+          <v-icon :color="item.category === 'mendelian' ? 'primary' : 'secondary'" size="small">
             mdi-family-tree
           </v-icon>
         </template>
         <template #title>
           <div class="d-flex align-center">
-            <span class="font-weight-medium">{{ item.raw.name }}</span>
-            <v-chip
-              v-if="item.raw.shortcode"
-              size="x-small"
-              color="info"
-              variant="tonal"
-              class="ml-2"
-            >
-              {{ item.raw.shortcode }}
+            <span class="font-weight-medium">{{ item.name }}</span>
+            <v-chip v-if="item.shortcode" size="x-small" color="info" variant="tonal" class="ml-2">
+              {{ item.shortcode }}
             </v-chip>
           </div>
         </template>
         <template #append>
           <v-chip size="x-small" variant="outlined">
-            {{ item.raw.hpo_id }}
+            {{ item.hpo_id }}
           </v-chip>
         </template>
       </v-list-item>
     </template>
 
     <template #selection="{ item }">
-      <v-chip v-if="item.raw.shortcode" color="primary" variant="tonal" size="small">
-        {{ item.raw.shortcode }}
+      <v-chip v-if="item.shortcode" color="primary" variant="tonal" size="small">
+        {{ item.shortcode }}
       </v-chip>
-      <span class="ml-2">{{ item.raw.name }}</span>
+      <span class="ml-2">{{ item.name }}</span>
     </template>
 
     <template #no-data>

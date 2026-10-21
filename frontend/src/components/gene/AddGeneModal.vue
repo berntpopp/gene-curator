@@ -92,9 +92,9 @@
                       <v-icon color="primary" class="mr-2">mdi-dna</v-icon>
                     </template>
                     <v-list-item-title class="font-weight-bold">
-                      {{ item.raw.symbol }}
+                      {{ item.symbol }}
                       <v-chip
-                        v-if="item.raw.status === 'Approved'"
+                        v-if="item.status === 'Approved'"
                         size="x-small"
                         color="success"
                         variant="tonal"
@@ -104,13 +104,13 @@
                       </v-chip>
                     </v-list-item-title>
                     <v-list-item-subtitle>
-                      <span class="text-caption">{{ item.raw.hgnc_id }}</span>
-                      <span v-if="item.raw.name" class="mx-2">|</span>
-                      <span v-if="item.raw.name" class="text-caption">{{ item.raw.name }}</span>
+                      <span class="text-caption">{{ item.hgnc_id }}</span>
+                      <span v-if="item.name" class="mx-2">|</span>
+                      <span v-if="item.name" class="text-caption">{{ item.name }}</span>
                     </v-list-item-subtitle>
-                    <v-list-item-subtitle v-if="item.raw.location" class="text-caption">
+                    <v-list-item-subtitle v-if="item.location" class="text-caption">
                       <v-icon size="x-small" class="mr-1">mdi-map-marker</v-icon>
-                      {{ item.raw.location }}
+                      {{ item.location }}
                     </v-list-item-subtitle>
                   </v-list-item>
                 </template>
@@ -119,8 +119,8 @@
                 <template #selection="{ item }">
                   <v-chip color="primary" variant="tonal">
                     <v-icon start size="small">mdi-dna</v-icon>
-                    {{ item.raw.symbol }}
-                    <span class="text-caption ml-2">({{ item.raw.hgnc_id }})</span>
+                    {{ item.symbol }}
+                    <span class="text-caption ml-2">({{ item.hgnc_id }})</span>
                   </v-chip>
                 </template>
 
