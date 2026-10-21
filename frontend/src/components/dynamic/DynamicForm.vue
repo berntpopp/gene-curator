@@ -478,8 +478,6 @@
   }
 
   const handleSubmit = async () => {
-    // Submit's own validation must be the newest: a pending debounced one would drop its reply
-    clearTimeout(validateTimer)
     submitting.value = true
     try {
       // Validate using v-form ref (VALD-06)
@@ -498,9 +496,15 @@
       }
 
       // Also check backend validation; no reply (failed or superseded) is not valid yet
+      // Submit's own validation must be the newest: a pending debounced one would drop its reply
+      clearTimeout(validateTimer)
       const result = await validateForm()
+      if (!result) {
+        nonFieldErrors.value = ['Could not validate the form. Please try again.']
+        return
+      }
 
-      if (result && result.is_valid !== false) {
+      if (result.is_valid !== false) {
         emit('submit', formData.value)
       }
     } catch (err) {
