@@ -77,7 +77,7 @@
       id: 'precurate-gene',
       question: 'How do I precurate a gene?',
       answer:
-        'Open your scope and find the gene assigned to you, then choose Start Precuration. Fill in the precuration form and save it as a draft, or submit it when it is complete. A reviewer must approve the precuration before Start Curation becomes available.'
+        'Open your scope and find the gene assigned to you, then choose Start Precuration. Fill in the precuration form and save it as a draft, or submit it when it is complete. Once a reviewer approves the precuration, the curation draft is created automatically.'
     },
     {
       id: 'review-workflow',
@@ -101,7 +101,7 @@
       id: 'assignments',
       question: 'Where are gene assignments managed?',
       answer:
-        'My Work (/assignments) lists only the genes assigned to you. The All assignments table is for platform admins and scope admins. There you can edit an assignment, which changes its priority only, or reassign a gene to another curator in the scope.'
+        'My Work (/assignments) lists only the genes assigned to you. The All assignments table is for platform admins and scope admins. There you can edit an assignment, which changes its priority, due date and notes, or reassign a gene to another curator in the scope.'
     },
     {
       id: 'notifications',
