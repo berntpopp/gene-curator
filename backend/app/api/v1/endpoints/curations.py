@@ -561,7 +561,9 @@ def calculate_score(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "calculate score for")
 
-    return curation_crud.calculate_score(db, curation)
+    result = curation_crud.calculate_score(db, curation)
+    result.trace = result.breakdown.get("trace")
+    return result
 
 
 @router.delete("/{curation_id}", status_code=status.HTTP_204_NO_CONTENT)

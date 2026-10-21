@@ -86,7 +86,12 @@ class TestWorkflowStates:
         [
             ["draft", "submitted", "approved"],
             {"states": [{"name": "draft"}, {"name": "submitted"}], "transitions": {}},
-            {"entry": {"label": "Entry"}, "active": {}},
+            {
+                "entry": {"label": "Entry"},
+                "precuration": {},
+                "review": {},
+                "active": {},
+            },
         ],
     )
     def test_accepted_shapes(self, states: Any) -> None:

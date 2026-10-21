@@ -12,7 +12,12 @@ from sqlalchemy.orm import Session
 
 from app.core import deps
 from app.core.database import get_db
-from app.crud.schema_repository import schema_crud, workflow_pair_crud
+from app.crud.schema_repository import (
+    SNAPSHOT_KEYS,
+    publish_errors,
+    schema_crud,
+    workflow_pair_crud,
+)
 from app.models import UserNew
 from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
@@ -21,6 +26,7 @@ from app.schemas.schema_repository import (
     CurationSchemaUpdate,
     MethodologyDerive,
     MethodologyVersion,
+    MethodologyVersionImpact,
     SchemaValidationResult,
     WorkflowPair,
     WorkflowPairCreate,
@@ -88,12 +94,11 @@ def create_curation_schema(
             status_code=400, detail="Schema with this name and version already exists"
         )
 
-    # Validate schema structure
-    validation_result = schema_crud.validate_schema_structure(schema_in.model_dump())
-    if not validation_result.is_valid:
+    # Same gate as publish: on PostgreSQL the insert publishes v1 (042 trigger)
+    errors = publish_errors(schema_in.model_dump())
+    if errors:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid schema structure: {', '.join(validation_result.errors)}",
+            status_code=400, detail=f"Invalid schema structure: {', '.join(errors)}"
         )
 
     schema = schema_crud.create_with_owner(
@@ -148,13 +153,39 @@ def publish_methodology_version(
     """Publish the schema's current content as a new immutable version. Requires platform admin.
 
     Existing curations keep the version they were created with; new ones get this one.
+    A definition that fails the static checks or one of its tests is refused (422).
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    errors = publish_errors({key: getattr(schema, key) for key in SNAPSHOT_KEYS})
+    if errors:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": "Methodology version not published", "errors": errors},
+        )
     return schema_crud.publish_version(  # type: ignore[return-value]
         db, schema=schema, user_id=current_user.id
     )
+
+
+@router.get(
+    "/curation-schemas/{schema_id}/versions/{version_id}/impact",
+    response_model=list[MethodologyVersionImpact],
+)
+def methodology_version_impact(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    version_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_active_user),
+) -> list[dict[str, Any]]:
+    """Preview an upgrade: visible curations pinned to an older version whose total or
+    class would change when re-scored with this one. Changes nothing."""
+    target = db.get(MethodologyVersionModel, version_id)
+    if not target or target.schema_id != schema_id:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    return schema_crud.version_impact(db, target=target)
 
 
 @router.post(

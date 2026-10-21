@@ -260,6 +260,9 @@ class CurationScoreResponse(BaseModel):
     genetic_score: float
     experimental_score: float
     breakdown: dict[str, Any]
+    trace: dict[str, Any] | None = (
+        None  # point model trace: sections > categories > types
+    )
     calculated_at: datetime
 
 
