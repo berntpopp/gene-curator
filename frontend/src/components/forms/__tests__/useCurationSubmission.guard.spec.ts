@@ -100,6 +100,14 @@ describe('submitting a new curation and the leave guard', () => {
     expect(mounts).toBe(1) // same form instance: what the user typed is still there
     expect(evidence.value).toEqual({ disease: 'typed but not saved' })
 
+    // The bypass is one navigation only: really leaving the dirty form still asks
+    confirm.mockResolvedValue(false)
+    await routerRef.push('/scopes/s1/curations/zzz')
+    await flushPromises()
+    expect(confirm).toHaveBeenCalledTimes(1)
+    expect(routerRef.currentRoute.value.fullPath).toBe('/scopes/s1/curations/c-new/edit')
+    confirm.mockClear()
+
     curationsStore.submitCuration.mockResolvedValue({ lock_version: 1 })
     await api.handleSubmit()
     await flushPromises()
