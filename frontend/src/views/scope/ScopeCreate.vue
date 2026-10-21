@@ -26,24 +26,37 @@
   <v-container>
     <v-row justify="center">
       <v-col cols="12" md="8" lg="6">
-        <v-card>
-          <v-card-title class="d-flex align-center">
-            <v-icon start>mdi-folder-plus</v-icon>
-            Create new scope
-          </v-card-title>
+        <v-card variant="flat" border>
+          <v-card-title>New scope</v-card-title>
+          <v-card-subtitle>You become the scope admin.</v-card-subtitle>
 
           <v-card-text>
-            <v-form ref="formRef" v-model="valid" @submit.prevent="handleSubmit">
-              <!-- Scope Name (machine-readable) -->
+            <v-form
+              ref="formRef"
+              v-model="valid"
+              validate-on="blur lazy"
+              @submit.prevent="handleSubmit"
+            >
+              <v-text-field
+                v-model="scopeData.display_name"
+                label="Display name"
+                :rules="displayNameRules"
+                hint="Human-readable name, e.g. Kidney Genetics"
+                persistent-hint
+                autofocus
+                required
+              ></v-text-field>
+
+              <!-- Derived from the display name until the user edits it -->
               <v-text-field
                 v-model="scopeData.name"
-                label="Scope Name (machine-readable)"
+                label="URL name"
                 :rules="nameRules"
                 :error="nameExists"
-                hint="lowercase-with-dashes, e.g., kidney-genetics"
+                hint="Lowercase letters, digits and single dashes, 4-64 characters. Filled in from the display name."
                 persistent-hint
-                prepend-icon="mdi-identifier"
                 required
+                @update:model-value="slugEdited = true"
                 @blur="validateName"
               >
                 <template #append-inner>
@@ -54,34 +67,8 @@
                     width="2"
                     color="primary"
                   ></v-progress-circular>
-                  <v-icon
-                    v-else-if="scopeData.name && !nameExists && isValidScopeName(scopeData.name)"
-                    icon="mdi-check-circle"
-                    color="success"
-                  ></v-icon>
-                  <v-icon
-                    v-else-if="nameExists"
-                    icon="mdi-alert-circle-outline"
-                    color="error"
-                  ></v-icon>
-                  <v-icon
-                    v-else-if="scopeData.name"
-                    icon="mdi-alert-circle"
-                    color="warning"
-                  ></v-icon>
                 </template>
               </v-text-field>
-
-              <!-- Display Name (human-readable) -->
-              <v-text-field
-                v-model="scopeData.display_name"
-                label="Display Name"
-                :rules="displayNameRules"
-                hint="Human-readable name, e.g., Kidney Genetics"
-                persistent-hint
-                prepend-icon="mdi-format-title"
-                required
-              ></v-text-field>
 
               <v-select
                 v-model="scopeData.default_workflow_pair_id"
@@ -93,48 +80,32 @@
                 :loading="loadingWorkflowPairs"
                 hint="Workflow pair that defines the precuration and curation schemas"
                 persistent-hint
-                prepend-icon="mdi-sitemap"
               ></v-select>
 
               <!-- Description -->
-              <v-textarea
-                v-model="scopeData.description"
-                label="Description"
-                rows="3"
-                prepend-icon="mdi-text"
-                hint="Brief description of this clinical scope"
-                persistent-hint
-              ></v-textarea>
+              <v-textarea v-model="scopeData.description" label="Description" rows="2"></v-textarea>
 
               <!-- Institution (optional) -->
               <v-text-field
                 v-model="scopeData.institution"
                 label="Institution (optional)"
-                prepend-icon="mdi-hospital-building"
-                hint="e.g., University Hospital"
-                persistent-hint
               ></v-text-field>
 
               <!-- Public/Private -->
               <v-switch
                 v-model="scopeData.is_public"
-                label="Public Scope"
+                label="Public scope"
                 color="primary"
                 hint="Public scopes are visible to all users"
                 persistent-hint
-              >
-                <template #prepend>
-                  <v-icon :icon="getScopeVisibilityIcon(scopeData.is_public)"></v-icon>
-                </template>
-              </v-switch>
+              ></v-switch>
             </v-form>
 
             <!-- Initial Members Section -->
             <v-divider class="my-4" />
 
             <div class="d-flex align-center mb-3">
-              <v-icon start color="primary">mdi-account-group</v-icon>
-              <span class="text-body-large font-weight-medium">Initial Members (Optional)</span>
+              <h2 class="text-title-medium">Initial members (optional)</h2>
             </div>
 
             <p class="text-body-medium text-medium-emphasis mb-3">
@@ -180,32 +151,22 @@
           </v-card-text>
 
           <v-card-actions>
-            <v-btn variant="outlined" @click="cancel"> Cancel </v-btn>
+            <v-btn variant="text" @click="cancel"> Cancel </v-btn>
             <v-spacer />
-            <v-btn
-              color="primary"
-              :disabled="!valid || loading"
-              :loading="loading"
-              @click="handleSubmit"
-            >
-              <v-icon start>mdi-check</v-icon>
+            <v-btn color="primary" variant="flat" :loading="loading" @click="handleSubmit">
               Create scope
             </v-btn>
           </v-card-actions>
         </v-card>
-
-        <ScopeNamingHelp />
       </v-col>
     </v-row>
 
     <!-- Add Member Dialog for Initial Members -->
     <BaseDialog v-model="showAddMemberDialog" size="md">
-      <template #title
-        ><v-icon start color="primary">mdi-account-plus</v-icon> Add initial member</template
-      >
-      <v-alert type="info" variant="tonal" density="compact" class="mb-4">
+      <template #title>Add initial member</template>
+      <p class="text-body-medium text-medium-emphasis mb-4">
         Search for existing users to invite when this scope is created.
-      </v-alert>
+      </p>
 
       <!-- Simple user search for scope creation -->
       <v-autocomplete
@@ -215,6 +176,7 @@
         item-title="displayName"
         item-value="id"
         label="Search for user"
+        autofocus
         placeholder="Type name or email..."
         return-object
         clearable
@@ -258,9 +220,8 @@
   import { useLogger } from '@/composables/useLogger'
   import { usersApi } from '@/api/users'
   import { useWorkflowPairs } from '@/components/scope/useWorkflowPairs'
-  import ScopeNamingHelp from './ScopeNamingHelp.vue'
   import { showError, showSnackbar } from '@/composables/useNotifications'
-  import { getInitials, displayNameRules } from './ScopeCreate.utils'
+  import { getInitials, displayNameRules, slugify } from './ScopeCreate.utils'
   import BaseDialog from '@/components/BaseDialog.vue'
   import type {
     ErrorLike,
@@ -276,7 +237,7 @@
 
   const router = useRouter()
   const scopeStore = useScopesStore()
-  const { isValidScopeName, getScopeVisibilityIcon } = useScopeUtils()
+  const { isValidScopeName } = useScopeUtils()
   const { getRoleColor, getRoleIcon } = useRoleColors()
   const logger = useLogger()
 
@@ -309,6 +270,7 @@
   const loading = ref(false)
   const checkingName = ref(false)
   const nameExists = ref(false)
+  const slugEdited = ref(false)
 
   const scopeData = ref<ScopeFormData>({
     name: '',
@@ -351,6 +313,13 @@
   // ============================================
   // WATCHERS
   // ============================================
+
+  watch(
+    () => scopeData.value.display_name,
+    text => {
+      if (!slugEdited.value) scopeData.value.name = slugify(text)
+    }
+  )
 
   /**
    * Watch for scope name changes and validate in real-time
@@ -407,7 +376,8 @@
    * Handle form submission
    */
   const handleSubmit = async () => {
-    if (!valid.value) return
+    const result = (await formRef.value?.validate()) as { valid: boolean } | undefined
+    if (result ? !result.valid : !valid.value) return
 
     loading.value = true
 
@@ -459,7 +429,7 @@
         }
       }
 
-      showNotification('Scope created successfully!', 'success')
+      showNotification('Scope created', 'success')
 
       // Navigate to the new scope dashboard after a brief delay
       setTimeout(() => {
