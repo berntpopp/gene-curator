@@ -79,6 +79,12 @@ describe('API modules: response-specific behaviour', () => {
     vi.clearAllMocks()
   })
 
+  it('countSearchGenes returns the number from /genes/search/count', async () => {
+    client.get.mockResolvedValue({ data: 7 })
+    await expect(genesAPI.countSearchGenes({ query: 'x' })).resolves.toBe(7)
+    expect(client.get).toHaveBeenCalledWith('/genes/search/count', { params: { query: 'x' } })
+  })
+
   it('generateJsonSchema returns the JSONSchemaResponse body', async () => {
     client.get.mockResolvedValue({ data: { json_schema: { type: 'object' } } })
     await expect(validationAPI.generateJsonSchema('s1')).resolves.toEqual({

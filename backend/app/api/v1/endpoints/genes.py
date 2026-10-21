@@ -22,7 +22,7 @@ from app.core.constants import (
 from app.core.database import get_db
 from app.core.logging import api_endpoint
 from app.crud.gene import gene_crud
-from app.models import UserNew
+from app.models import Gene as GeneModel, UserNew
 from app.schemas.gene import (
     Gene,
     GeneAssignmentStatus,
@@ -49,6 +49,32 @@ router = APIRouter()
 # ========================================
 # CORE GENE ENDPOINTS
 # ========================================
+
+
+def _summaries(
+    db: Session, genes: Sequence[GeneModel], scope_id: UUID | None
+) -> list[GeneSummary]:
+    """Gene rows with assignment status and active-work flag."""
+    out = []
+    for gene in genes:
+        assigned = gene_crud.get_gene_assignment_status(
+            db, gene_id=gene.id, scope_id=scope_id
+        )
+        progress = gene_crud.get_gene_curation_progress(
+            db, gene_id=gene.id, scope_id=scope_id
+        )
+        out.append(
+            GeneSummary(
+                id=gene.id,
+                hgnc_id=gene.hgnc_id,
+                approved_symbol=gene.approved_symbol,
+                chromosome=gene.chromosome,
+                location=gene.location,
+                is_assigned=assigned["is_assigned_to_any_scope"],
+                has_active_work=progress["has_active_work"],
+            )
+        )
+    return out
 
 
 @router.get("/", response_model=GeneListResponse)
@@ -95,26 +121,7 @@ def get_genes(
             db, skip=skip, limit=limit, sort_by=sort_by, sort_order=sort_order
         )
 
-    # Convert to summary format with assignment status
-    gene_summaries = []
-    for gene in genes:
-        assignment_status = gene_crud.get_gene_assignment_status(
-            db, gene_id=gene.id, scope_id=scope_id
-        )
-        progress = gene_crud.get_gene_curation_progress(
-            db, gene_id=gene.id, scope_id=scope_id
-        )
-
-        summary = GeneSummary(
-            id=gene.id,
-            hgnc_id=gene.hgnc_id,
-            approved_symbol=gene.approved_symbol,
-            chromosome=gene.chromosome,
-            location=gene.location,
-            is_assigned=assignment_status["is_assigned_to_any_scope"],
-            has_active_work=progress["has_active_work"],
-        )
-        gene_summaries.append(summary)
+    gene_summaries = _summaries(db, genes, scope_id)
 
     total = gene_crud.count_genes(db, scope_id=scope_id, assigned_only=assigned_only)
 
@@ -149,6 +156,21 @@ def create_gene(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
         ) from e
+
+
+@router.get("/search/count", response_model=int)
+@api_endpoint()
+def count_search_genes(
+    *,
+    db: Session = Depends(get_db),
+    query: str | None = Query(None, description="Search term"),
+    chromosome: str | None = Query(None, description="Filter by chromosome"),
+    hgnc_id: str | None = Query(None, description="Filter by HGNC ID"),
+    current_user: UserNew = Depends(deps.get_current_active_user),
+) -> int:
+    """Total genes matching the `/search` filters, ignoring paging."""
+    params = GeneSearchQuery(query=query, chromosome=chromosome, hgnc_id=hgnc_id)
+    return gene_crud.count_search(db, search_params=params)
 
 
 @router.get("/search", response_model=list[GeneSummary])
@@ -195,28 +217,7 @@ def search_genes(
 
     genes = gene_crud.search(db, search_params=search_params)
 
-    # Convert to summary format
-    summaries = []
-    for gene in genes:
-        assignment_status = gene_crud.get_gene_assignment_status(
-            db, gene_id=gene.id, scope_id=scope_id
-        )
-        progress = gene_crud.get_gene_curation_progress(
-            db, gene_id=gene.id, scope_id=scope_id
-        )
-
-        summary = GeneSummary(
-            id=gene.id,
-            hgnc_id=gene.hgnc_id,
-            approved_symbol=gene.approved_symbol,
-            chromosome=gene.chromosome,
-            location=gene.location,
-            is_assigned=assignment_status["is_assigned_to_any_scope"],
-            has_active_work=progress["has_active_work"],
-        )
-        summaries.append(summary)
-
-    return summaries
+    return _summaries(db, genes, scope_id)
 
 
 @router.get("/statistics", response_model=GeneStatistics)
@@ -595,12 +596,6 @@ def get_genes_by_symbol(
         db,
         search_params=GeneSearchQuery(
             query=symbol,
-            chromosome=None,
-            hgnc_id=None,
-            scope_id=None,
-            assigned_only=False,
-            has_active_work=None,
-            skip=0,
             limit=DEFAULT_SEARCH_LIMIT,
             sort_by="approved_symbol",
             sort_order=DEFAULT_SORT_ORDER,

@@ -80,6 +80,14 @@ export const genesAPI = {
   },
 
   /**
+   * Total genes matching a search (GET /genes/search/count; query, chromosome, hgnc_id)
+   */
+  async countSearchGenes(searchParams: Record<string, unknown> = {}): Promise<number> {
+    const response = await apiClient.get<number>('/genes/search/count', { params: searchParams })
+    return response.data
+  },
+
+  /**
    * Get gene statistics
    */
   async getStatistics(): Promise<Schema<'GeneStatistics'>> {

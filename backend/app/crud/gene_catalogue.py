@@ -7,7 +7,7 @@ of genes with finished curations across all scopes. It never modifies source dat
 from collections import defaultdict
 from typing import Any
 
-from sqlalchemy import String, func, select
+from sqlalchemy import Select, String, func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
@@ -82,6 +82,20 @@ def get_catalogue_summary_stats(db: Session) -> GeneCatalogueSummaryStats:
     )
 
 
+def _with_sort_column(query: Select[Any], sort_by: str) -> tuple[Select[Any], Any]:
+    """Sort expression for the catalogue; total_curations sorts on the aggregate."""
+    if sort_by != "total_curations":
+        return query, getattr(Gene, sort_by, Gene.approved_symbol)
+    # DISTINCT needs the sort expression in the select list
+    count = (
+        select(func.count(ActiveCuration.id))
+        .where(ActiveCuration.gene_id == Gene.id, ActiveCuration.archived_at.is_(None))
+        .correlate(Gene)
+        .scalar_subquery()
+    )
+    return query.add_columns(count.label("curation_count")), count
+
+
 def get_catalogue_entries(
     db: Session, filters: GeneCatalogueFilters
 ) -> tuple[list[GeneCatalogueEntry], int]:
@@ -143,8 +157,7 @@ def get_catalogue_entries(
     count_query = select(func.count()).select_from(base_query.subquery())
     total = db.execute(count_query).scalar() or 0
 
-    # Apply sorting
-    sort_column = getattr(Gene, filters.sort_by, Gene.approved_symbol)
+    base_query, sort_column = _with_sort_column(base_query, filters.sort_by)
     if filters.sort_order == "desc":
         sort_column = sort_column.desc()
     base_query = base_query.order_by(sort_column)

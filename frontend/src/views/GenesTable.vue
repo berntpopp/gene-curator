@@ -7,16 +7,6 @@
           <h1 class="text-h4 mb-2">Gene Database</h1>
           <p class="text-subtitle-1 text-medium-emphasis">Browse and search genetic information</p>
         </v-col>
-        <v-col cols="12" md="6" class="text-md-right">
-          <v-btn
-            v-if="authStore.isAuthenticated"
-            :to="{ name: 'GeneAdmin' }"
-            color="primary"
-            prepend-icon="mdi-plus"
-          >
-            Add Gene
-          </v-btn>
-        </v-col>
       </v-row>
     </v-container>
 
@@ -43,7 +33,7 @@
             <v-col cols="12" md="3">
               <v-select
                 v-model="selectedChromosome"
-                :items="uniqueChromosomes"
+                :items="chromosomes"
                 label="Chromosome"
                 variant="outlined"
                 clearable
@@ -66,7 +56,7 @@
         <v-col>
           <div class="d-flex align-center">
             <v-chip color="primary" variant="outlined" class="mr-3">
-              {{ genesStore.genes.length }} genes
+              {{ totalGenes }} genes
             </v-chip>
             <v-chip
               v-if="isSearching"
@@ -78,17 +68,6 @@
               Search active
             </v-chip>
           </div>
-        </v-col>
-        <v-col class="text-right">
-          <v-select
-            v-model="sortBy"
-            :items="sortOptions"
-            label="Sort by"
-            variant="outlined"
-            density="compact"
-            style="width: 200px"
-            @update:model-value="handleSortChange"
-          />
         </v-col>
       </v-row>
     </v-container>
@@ -102,19 +81,24 @@
         </template>
       </v-alert>
       <v-card v-else>
-        <v-data-table
+        <v-data-table-server
           :headers="headers"
           :items="genes"
+          :items-length="totalGenes"
           :loading="genesStore.loading"
           :items-per-page="genesStore.pagination.per_page"
+          :page="currentPage"
           class="gene-table"
-          @click:row="handleRowClick"
+          @update:options="handleOptions"
         >
           <!-- Gene Symbol Column -->
           <template #item.approved_symbol="{ item }">
-            <div class="font-weight-bold">
+            <router-link
+              :to="{ name: 'GeneDetail', params: { id: item.id } }"
+              class="font-weight-bold"
+            >
               {{ item.approved_symbol }}
-            </div>
+            </router-link>
             <div class="text-caption text-medium-emphasis">
               {{ item.hgnc_id }}
             </div>
@@ -127,27 +111,6 @@
               <span class="text-caption text-medium-emphasis">
                 {{ item.location || '' }}
               </span>
-            </div>
-          </template>
-
-          <!-- Actions -->
-          <template #item.actions="{ item }">
-            <div class="d-flex">
-              <v-btn
-                :to="{ name: 'GeneDetail', params: { id: item.id } }"
-                icon="mdi-eye"
-                variant="text"
-                size="small"
-                title="View Details"
-              />
-              <v-btn
-                v-if="authStore.isAuthenticated"
-                icon="mdi-pencil"
-                variant="text"
-                size="small"
-                title="Edit Gene"
-                @click.stop="editGene(item)"
-              />
             </div>
           </template>
 
@@ -170,18 +133,7 @@
               </p>
             </div>
           </template>
-        </v-data-table>
-
-        <!-- Pagination -->
-        <v-divider />
-        <div class="d-flex justify-center pa-4">
-          <v-pagination
-            v-model="currentPage"
-            :length="genesStore.pagination.pages"
-            :disabled="genesStore.loading"
-            @update:model-value="handlePageChange"
-          />
-        </div>
+        </v-data-table-server>
       </v-card>
     </v-container>
   </div>
@@ -189,11 +141,9 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, watch } from 'vue'
-  import { useRouter } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'
 
-  const router = useRouter()
   const authStore = useAuthStore()
   const genesStore = useGenesStore()
 
@@ -203,7 +153,6 @@
   // Search and filter state
   const searchQuery = ref('')
   const selectedChromosome = ref<string | null>(null)
-  const sortBy = ref('approved_symbol_asc')
   const currentPage = ref(1)
 
   // Table configuration
@@ -217,45 +166,22 @@
     {
       title: 'Location',
       key: 'location',
-      sortable: true,
-      width: '120px'
-    },
-    {
-      title: 'Actions',
-      key: 'actions',
       sortable: false,
-      width: '100px',
-      align: 'center'
+      width: '120px'
     }
   ] as const
-
-  const sortOptions = [
-    { title: 'Gene Symbol (A-Z)', value: 'approved_symbol_asc' },
-    { title: 'Gene Symbol (Z-A)', value: 'approved_symbol_desc' },
-    { title: 'Chromosome', value: 'chromosome_asc' },
-    { title: 'Recently Updated', value: 'updated_at_desc' }
-  ]
 
   // Computed values
   const isSearching = computed(() => {
     return Boolean(searchQuery.value || selectedChromosome.value)
   })
 
-  const uniqueChromosomes = computed(() => {
-    const chromosomes = new Set<string>()
-    genesStore.genes.forEach(gene => {
-      if (gene.chromosome) {
-        chromosomes.add(gene.chromosome)
-      }
-    })
-    return Array.from(chromosomes).sort((a, b) => {
-      // Sort chromosomes numerically, with X and Y at the end
-      if (a === 'X') return b === 'Y' ? -1 : 1
-      if (a === 'Y') return 1
-      if (b === 'X' || b === 'Y') return -1
-      return parseInt(a) - parseInt(b)
-    })
-  })
+  // Static list: deriving it from the current page hid chromosomes
+  const chromosomes = [...Array.from({ length: 22 }, (_, i) => String(i + 1)), 'X', 'Y', 'MT']
+
+  const totalGenes = computed(() =>
+    isSearching.value ? genesStore.searchTotal : genesStore.pagination.total
+  )
 
   // Debounced search
   let searchTimeout: ReturnType<typeof setTimeout> | undefined
@@ -272,27 +198,18 @@
     await performSearch()
   }
 
-  const handleSortChange = async () => {
-    // Option values look like "approved_symbol_asc": the last segment is the order
-    const cut = sortBy.value.lastIndexOf('_')
-    genesStore.updateSearchParams({
-      sort_by: sortBy.value.slice(0, cut),
-      sort_order: sortBy.value.slice(cut + 1) as 'asc' | 'desc'
-    })
-    await performSearch()
-  }
-
-  const handlePageChange = async (page: number) => {
-    currentPage.value = page
-    await loadGenes()
-  }
-
-  const handleRowClick = (_event: Event, { item }: { item: { id: string } }) => {
-    router.push({ name: 'GeneDetail', params: { id: item.id } })
-  }
-
-  const editGene = (gene: { id: string }) => {
-    router.push({ name: 'GeneAdmin', query: { edit: gene.id } })
+  // Header sort and paging; fires on mount too, so only act on a real change
+  const handleOptions = async (o: { page: number; sortBy: { key: string; order?: unknown }[] }) => {
+    const sort = o.sortBy[0]
+    const order = sort?.order === 'desc' ? 'desc' : 'asc'
+    const sortChanged =
+      !!sort &&
+      (sort.key !== genesStore.searchParams.sort_by || order !== genesStore.searchParams.sort_order)
+    if (sortChanged) genesStore.updateSearchParams({ sort_by: sort.key, sort_order: order })
+    if (o.page !== currentPage.value || sortChanged) {
+      currentPage.value = o.page
+      await performSearch()
+    }
   }
 
   const clearFilters = () => {
@@ -309,7 +226,9 @@
         await genesStore.searchGenes({
           query: searchQuery.value,
           chromosome: selectedChromosome.value,
-          page: currentPage.value
+          page: currentPage.value,
+          sort_by: genesStore.searchParams.sort_by,
+          sort_order: genesStore.searchParams.sort_order
         })
       } catch {
         // the store keeps the message in genesStore.error, shown with Retry
@@ -356,10 +275,6 @@
 
   .gene-table :deep(.v-data-table__wrapper) {
     border-radius: 8px;
-  }
-
-  .gene-table :deep(tbody tr) {
-    cursor: pointer;
   }
 
   .gene-table :deep(tbody tr:hover) {

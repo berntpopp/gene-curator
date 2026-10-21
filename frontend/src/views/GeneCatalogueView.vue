@@ -106,15 +106,10 @@
               </v-btn>
             </v-col>
           </v-row>
-        </v-card-text>
-      </v-card>
-    </v-container>
-
-    <!-- Classification Summary -->
-    <v-container v-if="Object.keys(catalogueStore.summary.classificationSummary).length > 0">
-      <v-row class="mb-4">
-        <v-col>
-          <div class="d-flex flex-wrap ga-2">
+          <div
+            v-if="Object.keys(catalogueStore.summary.classificationSummary).length > 0"
+            class="d-flex flex-wrap ga-2 mt-2"
+          >
             <v-chip
               v-for="(count, classification) in catalogueStore.summary.classificationSummary"
               :key="classification"
@@ -125,8 +120,8 @@
               {{ formatClassification(classification) }}: {{ count }}
             </v-chip>
           </div>
-        </v-col>
-      </v-row>
+        </v-card-text>
+      </v-card>
     </v-container>
 
     <v-container v-if="catalogueStore.error">
@@ -138,16 +133,20 @@
     <!-- Catalogue Table -->
     <v-container>
       <v-card>
-        <v-data-table
+        <v-data-table-server
           :headers="headers"
           :items="entries"
+          :items-length="catalogueStore.pagination.total"
           :loading="catalogueStore.loading"
           :items-per-page="catalogueStore.pagination.perPage"
+          :page="catalogueStore.pagination.page"
+          :sort-by="sortBy"
           :expanded="expandedItems"
           item-value="gene_id"
           class="catalogue-table"
           show-expand
           @update:expanded="handleExpand"
+          @update:options="handleOptions"
         >
           <!-- Gene Symbol Column -->
           <template #item.approved_symbol="{ item }">
@@ -252,7 +251,7 @@
                   </div>
                 </div>
               </v-tooltip>
-              <div v-else class="d-flex align-center">
+              <div v-else class="disease-cell" :title="item.diseases[0]">
                 <v-icon size="x-small" color="warning" class="mr-1">mdi-virus</v-icon>
                 <span class="text-truncate">{{ item.diseases[0] }}</span>
               </div>
@@ -399,18 +398,7 @@
               </p>
             </div>
           </template>
-        </v-data-table>
-
-        <!-- Pagination -->
-        <v-divider />
-        <div class="d-flex justify-center pa-4">
-          <v-pagination
-            v-model="currentPage"
-            :length="catalogueStore.totalPages"
-            :disabled="catalogueStore.loading"
-            @update:model-value="handlePageChange"
-          />
-        </div>
+        </v-data-table-server>
       </v-card>
     </v-container>
 
@@ -584,7 +572,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, watch } from 'vue'
+  import { ref, computed, onMounted } from 'vue'
   import { useRouter } from 'vue-router'
   import { useGeneCatalogueStore } from '@/stores/geneCatalogue'
   import type { Schema } from '@/types/api'
@@ -617,7 +605,6 @@
   const selectedClassification = ref<string | null>(null)
   const selectedDisease = ref<string | null>(null)
   const selectedScope = ref<string | null>(null)
-  const currentPage = ref(1)
 
   // Expanded rows tracking
   const expandedItems = ref<string[]>([])
@@ -630,7 +617,7 @@
   const headers: DataTableHeader[] = [
     { title: '', key: 'data-table-expand', width: '40px' },
     { title: 'Gene', key: 'approved_symbol', sortable: true, width: '160px' },
-    { title: 'Location', key: 'location', sortable: true, width: '100px' },
+    { title: 'Location', key: 'location', sortable: false, width: '100px' },
     { title: 'Best Score', key: 'best_score', sortable: false, width: '100px' },
     { title: 'Classification', key: 'classifications', sortable: false, width: '160px' },
     { title: 'Scopes', key: 'total_curations', sortable: true, width: '90px' },
@@ -671,14 +658,29 @@
       disease: selectedDisease.value || null,
       scopeId: selectedScope.value || null
     })
-    currentPage.value = 1
     await catalogueStore.fetchCatalogue({ page: 1 })
   }
 
-  // Handle page change
-  const handlePageChange = async (page: number) => {
-    catalogueStore.setPage(page)
-    await catalogueStore.fetchCatalogue({ page })
+  // Header sort state, mirrored from the store filters
+  const sortBy = computed(() => [
+    { key: catalogueStore.filters.sortBy, order: catalogueStore.filters.sortOrder }
+  ])
+
+  // Server table paging/sorting. The table also emits on mount and after a filter change
+  // (page reset); only act on a real page or sort change so each action fetches once.
+  const handleOptions = async (o: { page: number; sortBy: { key: string; order?: unknown }[] }) => {
+    const sort = o.sortBy[0]
+    const order = sort?.order === 'desc' ? 'desc' : 'asc'
+    const sortChanged =
+      !!sort &&
+      (sort.key !== catalogueStore.filters.sortBy || order !== catalogueStore.filters.sortOrder)
+    if (!sortChanged && o.page === catalogueStore.pagination.page) return
+    if (sortChanged) {
+      catalogueStore.filters.sortBy = sort.key
+      catalogueStore.filters.sortOrder = order
+    }
+    catalogueStore.setPage(o.page)
+    await catalogueStore.fetchCatalogue({ page: o.page }).catch(() => undefined)
   }
 
   // Handle row expansion
@@ -692,7 +694,6 @@
     selectedClassification.value = null
     selectedDisease.value = null
     selectedScope.value = null
-    currentPage.value = 1
     catalogueStore.clearFilters()
     await catalogueStore.fetchCatalogue({ page: 1 })
   }
@@ -712,22 +713,12 @@
     router.push({ name: 'scope-dashboard', params: { scopeId: curation.scope_id } })
   }
 
-  // Initialize on mount
   onMounted(async () => {
-    // Load filter options and initial data in parallel
-    // Failures are surfaced via catalogueStore.error (alert above the table)
+    // Failures are surfaced via catalogueStore.error (alert below the filters)
     await Promise.all([catalogueStore.loadFilterOptions(), catalogueStore.fetchCatalogue()]).catch(
       () => undefined
     )
   })
-
-  // Watch for page changes from store
-  watch(
-    () => catalogueStore.pagination.page,
-    (newPage: number) => {
-      currentPage.value = newPage
-    }
-  )
 </script>
 
 <style scoped>
@@ -751,6 +742,7 @@
     display: flex;
     align-items: center;
     max-width: 160px;
+    min-width: 0;
   }
 
   .disease-cell .text-truncate {

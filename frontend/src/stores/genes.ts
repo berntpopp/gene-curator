@@ -37,6 +37,8 @@ interface GenesState {
   genes: GeneRecord[]
   currentGene: GeneDetail | null
   searchResults: GeneRecord[]
+  /** Server total for the active search (results are paged) */
+  searchTotal: number
   geneAssignments: Record<string, Schema<'GeneAssignmentStatus'>>
   geneCurationProgress: Record<string, Schema<'GeneCurationProgress'>>
   loading: boolean
@@ -73,6 +75,7 @@ export const useGenesStore = defineStore('genes', {
     genes: [],
     currentGene: null,
     searchResults: [],
+    searchTotal: 0,
     geneAssignments: {},
     geneCurationProgress: {},
     loading: false,
@@ -239,8 +242,15 @@ export const useGenesStore = defineStore('genes', {
       this.loading = true
       this.error = null
       try {
-        const response = await genesAPI.searchGenes(toQuery(searchParams, this.pagination.per_page))
+        const { query, chromosome, hgnc_id } = searchParams
+        const [response, total] = await Promise.all([
+          genesAPI.searchGenes(toQuery(searchParams, this.pagination.per_page)),
+          genesAPI.countSearchGenes(
+            Object.fromEntries(Object.entries({ query, chromosome, hgnc_id }).filter(([, v]) => v))
+          )
+        ])
         this.searchResults = response
+        this.searchTotal = total
         return response
       } catch (error) {
         this.error = errorMessage(error, 'Request failed')
@@ -264,6 +274,7 @@ export const useGenesStore = defineStore('genes', {
 
     clearSearchResults() {
       this.searchResults = []
+      this.searchTotal = 0
     },
 
     async fetchStatistics() {

@@ -47,6 +47,7 @@ def get_gene_catalogue(
     chromosome: str | None = Query(None, description="Filter by chromosome"),
     sort_by: str = Query(
         "approved_symbol",
+        pattern="^(approved_symbol|total_curations|chromosome)$",
         description="Sort field: approved_symbol, total_curations, chromosome",
     ),
     sort_order: str = Query("asc", description="Sort order: asc or desc"),

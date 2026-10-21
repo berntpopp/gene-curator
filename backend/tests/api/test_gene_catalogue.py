@@ -86,3 +86,18 @@ def test_catalogue_returns_disease_from_precuration(
     assert detail["disease_name"] == "NAA10-related syndrome"
     assert detail["mondo_id"] == "MONDO:0000001"
     assert detail["mode_of_inheritance"] == "X-linked"
+
+
+def test_sort_by_total_curations_and_unknown_sort_rejected(
+    client: TestClient, active_curation: CurationNew
+) -> None:
+    ok = client.get(
+        "/api/v1/gene-catalogue/",
+        params={"sort_by": "total_curations", "sort_order": "desc"},
+    )
+    assert ok.status_code == 200
+    assert ok.json()["total"] == 1
+    assert len(ok.json()["entries"]) == 1
+
+    bad = client.get("/api/v1/gene-catalogue/", params={"sort_by": "nope"})
+    assert bad.status_code == 422

@@ -160,18 +160,21 @@ describe('useGeneCatalogueStore', () => {
       expect(api.getAvailableClassifications).toHaveBeenCalledTimes(1)
     })
 
-    it('records the error and rethrows with a fallback message', async () => {
+    it('a failed option call leaves that list empty and sets no page error', async () => {
       const store = useGeneCatalogueStore()
-      api.getAvailableClassifications.mockRejectedValue(new Error('opts'))
-      api.getAvailableDiseases.mockResolvedValue([])
-      api.getAvailableScopes.mockResolvedValue([])
+      api.getAvailableClassifications.mockResolvedValue(['definitive'])
+      api.getAvailableDiseases.mockResolvedValue(['d1'])
+      api.getAvailableScopes.mockRejectedValue(new Error('scopes'))
 
-      await expect(store.loadFilterOptions()).rejects.toThrow('opts')
-      expect(store.error).toEqual({ message: 'opts' })
+      const options = await store.loadFilterOptions()
 
-      api.getAvailableClassifications.mockRejectedValue({})
-      await expect(store.loadFilterOptions()).rejects.toEqual({})
-      expect(store.error).toEqual({ message: 'Failed to load filter options' })
+      expect(options).toEqual({
+        classifications: ['definitive'],
+        diseases: ['d1'],
+        scopes: [],
+        loaded: true
+      })
+      expect(store.error).toBeNull()
     })
   })
 
