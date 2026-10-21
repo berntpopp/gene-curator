@@ -6,6 +6,9 @@ vi.mock('@/api', () => ({
   curationsAPI: { getCurations: vi.fn() }
 }))
 
+const routeQuery = vi.hoisted(() => ({ q: undefined as string | undefined }))
+vi.mock('vue-router', () => ({ useRoute: () => ({ query: routeQuery }) }))
+
 vi.mock('@/api/reviewComments', () => ({
   reviewCommentsAPI: { myPendingItemIds: vi.fn() }
 }))
@@ -358,5 +361,17 @@ describe('ReviewQueueView status label', () => {
       await flushPromises()
       expect(wrapper.text()).toContain('No matching curations')
     })
+  })
+
+  it('starts with the gene from a My work link in the search', async () => {
+    routeQuery.q = 'G1'
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ id: 'a', gene_symbol: 'G1' }), row({ id: 'b', gene_symbol: 'OTHER' })],
+      total: 2
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    routeQuery.q = undefined
+    expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(1)
   })
 })

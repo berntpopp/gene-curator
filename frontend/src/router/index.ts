@@ -13,6 +13,10 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     requiresGuest?: boolean
     requiredRoles?: string[]
+    /** Menu entry only: scope roles (in any scope) that may see it; platform admins always can. */
+    navScopeRoles?: string[]
+    /** Menu entry only: application roles that may see it (the route itself stays reachable). */
+    navAppRoles?: string[]
     showInMainMenu?: boolean
     showInUserMenu?: boolean
     /** Dropdown group the item belongs to, e.g. 'curation' or 'curationSetup' */
@@ -135,6 +139,7 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Review Queue',
       requiresAuth: true,
+      navScopeRoles: ['admin', 'reviewer'],
       showInMainMenu: true,
       icon: 'mdi-clipboard-check-outline',
       label: 'Review',
@@ -253,7 +258,9 @@ const routes: RouteRecordRaw[] = [
     meta: {
       title: 'Assignments',
       requiresAuth: true,
-      // No requiredRoles: scope admins (application role 'user') use this page too
+      // No requiredRoles: scope admins (application role 'user') can open this page, but only
+      // platform admins get the menu entry
+      navAppRoles: ['admin'],
       showInDropdown: 'curationSetup',
       icon: 'mdi-clipboard-list',
       label: 'Assignments',

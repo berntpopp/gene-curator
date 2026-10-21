@@ -1,7 +1,9 @@
 <template>
   <v-container>
+    <NoCurateAccess v-if="guard.denied.value" :scope-id="scopeId" />
+
     <!-- Loading State -->
-    <template v-if="loading">
+    <template v-else-if="loading">
       <v-row>
         <v-col cols="12" class="text-center py-12">
           <v-progress-circular indeterminate size="64" color="primary" />
@@ -103,6 +105,8 @@
   import { useAuthStore } from '@/stores/auth'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
   import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
+  import NoCurateAccess from '@/components/workspace/NoCurateAccess.vue'
+  import { useCurateGuard } from '@/components/workspace/useCurateGuard'
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
@@ -133,6 +137,7 @@
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
   const precurationId = computed(() => route.params.precurationId as string | undefined)
+  const guard = useCurateGuard(() => scopeId.value)
   // On the edit route the gene comes from the precuration itself
   const loadedGeneId = ref<string | undefined>(undefined)
   const geneId = computed(() => (route.params.geneId as string | undefined) ?? loadedGeneId.value)
@@ -243,6 +248,12 @@
     loadError.value = null
 
     try {
+      // Starting a precuration needs a curator role; opening an existing one (read-only) does not
+      if (!precurationId.value) {
+        await guard.check()
+        if (guard.denied.value) return
+      }
+
       // Load scope and schema first
       await loadScopeAndSchema()
 

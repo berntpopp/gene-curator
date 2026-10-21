@@ -239,6 +239,7 @@
    */
 
   import { ref, computed, onMounted, watch } from 'vue'
+  import { useRoute } from 'vue-router'
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import BaseDialog from '@/components/BaseDialog.vue'
@@ -283,7 +284,8 @@
   const curations = ref<ReviewItem[]>([])
   const scopes = ref<Array<{ id: string; name: string }>>([])
   const selectedScope = ref<string | null>(null)
-  const searchQuery = ref('')
+  // My work deep-links here with ?q=<gene> so the item to review is the one listed
+  const searchQuery = ref((useRoute()?.query.q as string | undefined) ?? '')
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
   const mineOnly = ref(false)

@@ -18,6 +18,13 @@
       @retry="frame.save()"
     />
 
+    <ReviewFeedbackPanel
+      v-if="curationId && !loading && !isActive"
+      :curation-id="curationId"
+      :scope-id="scopeId"
+      :me="myId"
+    />
+
     <v-alert v-if="isActive && !loading" type="info" variant="tonal" class="mb-4">
       This curation is active and read-only. Re-curation starts from the curation page.
       <template #append>
@@ -25,7 +32,8 @@
       </template>
     </v-alert>
 
-    <div :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
+    <NoCurateAccess v-if="guard.denied.value" :scope-id="scopeId" />
+    <div v-else :class="['ws-grid', { 'ws-grid--panel': showPanel }]">
       <div class="ws-main">
         <!-- The one skeleton: until the schema is resolved and the form reports ready -->
         <v-skeleton-loader v-if="loading || (resolvedSchemaId && !formReady)" type="card" />
@@ -115,6 +123,10 @@
   import CurationSchemaSelect from '@/components/forms/CurationSchemaSelect.vue'
   import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
   import ScorePanel from '@/components/workspace/ScorePanel.vue'
+  import NoCurateAccess from '@/components/workspace/NoCurateAccess.vue'
+  import { useCurateGuard } from '@/components/workspace/useCurateGuard'
+  import ReviewFeedbackPanel from '@/components/workspace/ReviewFeedbackPanel.vue'
+  import { useAuthStore } from '@/stores/auth'
   import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
   import { useUnsavedGuard } from '@/components/workspace/useUnsavedGuard'
   import { useSaveShortcut } from '@/composables/useSaveShortcut'
@@ -160,6 +172,7 @@
   const precurationsStore = usePrecurationsStore()
   const genesStore = useGenesStore()
   const notificationsStore = useNotificationsStore()
+  const myId = computed(() => (useAuthStore().user as { id?: string } | null)?.id ?? '')
 
   // Route params
   const scopeId = computed(() => route.params.scopeId as string)
@@ -171,6 +184,8 @@
   const effectiveGeneId = computed<RouteId>(
     () => geneId.value ?? curation.value?.gene_id ?? undefined
   )
+
+  const guard = useCurateGuard(() => scopeId.value)
 
   // State
   const loading = ref(true)
@@ -321,6 +336,12 @@
     loading.value = true
     formReady.value = false
     try {
+      // Starting a curation needs a curator role; opening an existing one does not
+      if (!curationId.value) {
+        await guard.check()
+        if (guard.denied.value) return
+      }
+
       // Load schemas, workflow pairs, and scope in parallel
       await Promise.all([
         schemasStore.fetchSchemas(),

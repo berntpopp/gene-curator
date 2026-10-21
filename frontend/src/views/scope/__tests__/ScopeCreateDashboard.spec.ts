@@ -117,6 +117,22 @@ describe('ScopeCreate', () => {
     expect(wrapper.text()).toContain('Display name is required')
   })
 
+  it('clears the URL name error once the display name fills it in', async () => {
+    const { wrapper } = await mountView()
+    await wrapper
+      .findAll('button')
+      .find(b => b.text() === 'Create scope')!
+      .trigger('click')
+    await flushPromises()
+    expect(wrapper.text()).toContain('Scope name is required')
+    const display = wrapper
+      .findAllComponents({ name: 'VTextField' })
+      .find(c => c.props('label') === 'Display name')!
+    await display.find('input').setValue('Kidney Genetics')
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('Scope name is required')
+  })
+
   const mountView = async () => {
     const store = useScopesStore()
     const fetchUserScopes = vi.spyOn(store, 'fetchUserScopes').mockResolvedValue(undefined as never)
@@ -520,5 +536,13 @@ describe('ScopeDashboard', () => {
     const wrapper = mount(ScopeDashboard, opts())
     await flushPromises()
     expect(wrapper.text()).toContain('Back to scopes')
+  })
+
+  it('wraps a long unbroken description instead of widening the phone page', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.find('.scope-title').exists()).toBe(true)
+    expect(wrapper.find('.scope-description').text()).toContain('Renal genes')
+    const raw = (await import('@/views/scope/ScopeDashboard.vue?raw')).default as string
+    expect(raw).toMatch(/\.scope-title,\s*\.scope-description\s*\{[^}]*overflow-wrap:\s*anywhere/)
   })
 })
