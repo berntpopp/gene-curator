@@ -7,6 +7,13 @@ import EvidenceDataTable from '../EvidenceDataTable.vue'
 const href = (pmid: unknown) =>
   mount(PubmedLinkButton, { props: { pmid } }).find('a').attributes('href')
 
+describe('PubMed chip', () => {
+  it('links "PMID: 123" like the button does', () => {
+    const w = mount(PubmedLinkChip, { props: { pmid: 'PMID: 31000001' } })
+    expect(w.find('a').attributes('href')).toBe('https://pubmed.ncbi.nlm.nih.gov/31000001')
+  })
+})
+
 describe('PubMed links', () => {
   it('link a numeric PMID, also when typed as "PMID: 123"', () => {
     expect(href('31000001')).toBe('https://pubmed.ncbi.nlm.nih.gov/31000001')
