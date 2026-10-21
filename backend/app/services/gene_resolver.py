@@ -3,6 +3,8 @@
 import asyncio
 import re
 from dataclasses import dataclass, field
+from typing import Literal
+from uuid import UUID
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -31,7 +33,7 @@ class _Gene:
     name: str | None = None
     previous: list[str] = field(default_factory=list)
     alias: list[str] = field(default_factory=list)
-    gene_id: object | None = None
+    gene_id: UUID | None = None
 
 
 def _classify(token: str, genes: list[_Gene]) -> tuple[MatchType, list[_Gene]] | None:
@@ -102,23 +104,23 @@ async def _hgnc_lookup(tokens: list[str]) -> dict[str, list[_Gene]]:
 async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
     unique = {s.upper(): s for s in reversed(symbols)}  # one lookup per distinct input
     local = _local_genes(db, set(unique.values()))
-    found: dict[str, tuple[MatchType, list[_Gene], str]] = {}
+    found: dict[str, tuple[MatchType, list[_Gene], Literal["local", "hgnc"]]] = {}
     for key, token in unique.items():
-        if hit := _classify(token, local):
-            found[key] = (hit[0], hit[1], "local")
+        if local_hit := _classify(token, local):
+            found[key] = (local_hit[0], local_hit[1], "local")
 
     missing = [t for k, t in unique.items() if k not in found]
     for token, genes in (await _hgnc_lookup(missing)).items() if missing else []:
-        if hit := _classify(token, genes):
-            found[token.upper()] = (hit[0], hit[1], "hgnc")
+        if remote_hit := _classify(token, genes):
+            found[token.upper()] = (remote_hit[0], remote_hit[1], "hgnc")
 
     first_by_gene: dict[str, int] = {}
     first_by_token: dict[str, int] = {}
     items: list[GeneResolveItem] = []
     for index, token in enumerate(symbols):
         key = token.upper()
-        dup = first_by_token.setdefault(key, index)
-        dup = None if dup == index else dup
+        first = first_by_token.setdefault(key, index)
+        dup: int | None = None if first == index else first
         hit = found.get(key)
         if not hit:
             items.append(
@@ -138,13 +140,13 @@ async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
                 index=index,
                 status="resolved" if len(genes) == 1 else "ambiguous",
                 match_type=match_type,
-                source=source,  # type: ignore[arg-type]
+                source=source,
                 candidates=[
                     GeneCandidate(
                         hgnc_id=g.hgnc_id,
                         symbol=g.symbol,
                         name=g.name,
-                        gene_id=g.gene_id,  # type: ignore[arg-type]
+                        gene_id=g.gene_id,
                     )
                     for g in sorted(genes, key=lambda g: g.symbol)
                 ],
