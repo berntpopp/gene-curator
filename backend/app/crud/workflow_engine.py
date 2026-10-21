@@ -7,8 +7,11 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
+from fastapi import HTTPException, status
 from sqlalchemy import func, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
@@ -264,6 +267,13 @@ class WorkflowEngine:
             )
             db.commit()
             return transition
+        except (StaleDataError, DBAPIError):
+            # RLS turned the UPDATE into zero rows (or the guard trigger refused it)
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to move this item",
+            ) from None
         except Exception:
             db.rollback()
             raise

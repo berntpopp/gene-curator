@@ -8,7 +8,9 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.exc import StaleDataError
 
 from app.core.capabilities import EDIT, REVIEW, require
 from app.core.constants import (
@@ -446,6 +448,13 @@ def approve_precuration(
             approver_id=current_user.id,
             create_curation=True,
         )
+    except (StaleDataError, DBAPIError):
+        # RLS denied the UPDATE/INSERT (zero rows matched) or the reviewer guard refused it
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to approve this precuration",
+        ) from None
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
