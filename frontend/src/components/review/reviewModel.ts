@@ -1,12 +1,32 @@
 /** Pure helpers for the review diff: grouping by evidence item, per-item state, approve rules. */
 import type { Schema } from '@/types/api'
+import { humanize } from '@/components/dynamic/fieldLabels'
 
 type DiffItem = Schema<'DiffItem'>
 type Comment = Schema<'ReviewComment'>
 
+/** A curation schema field definition, as far as the diff needs it (labels, enum options). */
+export interface FieldDef {
+  title?: string
+  label?: string
+  properties?: Record<string, FieldDef>
+  item_schema?: Record<string, FieldDef>
+  items?: FieldDef
+  options?: (string | { value: unknown; label?: string })[]
+}
+
+/** Where readable names come from: the schema's `field_definitions` and the current evidence. */
+export interface DiffContext {
+  /** Untyped JSON from the API; read as `FieldDef`s. */
+  fields?: Record<string, unknown> | null
+  evidence?: unknown
+}
+
 export interface DiffField {
-  /** Field below the item ('' when the whole item was added or removed). */
+  /** Field below the item ('' for a scalar item, whose label is the item's). */
   name: string
+  label: string
+  options?: FieldDef['options']
   change: DiffItem['change']
   before: unknown
   after: unknown
@@ -15,6 +35,8 @@ export interface DiffField {
 export interface DiffGroup {
   key: string
   label: string
+  /** The sections the item sits in, e.g. `Genetic evidence › Case level`. */
+  context: string
   change: DiffItem['change']
   fields: DiffField[]
 }
@@ -25,66 +47,145 @@ export function itemKey(path: string): string {
   return end === -1 ? path : path.slice(0, end + 1)
 }
 
-const words = (s: string) => {
-  const t = s.replace(/_/g, ' ')
-  return t.charAt(0).toUpperCase() + t.slice(1)
+/** One-line item name for text (to-dos, feedback): `Name · record (enclosing section)`. */
+export function itemLabel(key: string, ctx: DiffContext = {}): string {
+  const { label, context } = name(key, ctx)
+  const section = context.split(' › ').pop()
+  return section ? `${label} (${section})` : label
 }
 
-export function itemLabel(key: string): string {
-  const m = key.match(/^(.*?)(\[[^\]]*\])?$/)
-  const parts = (m?.[1] ?? key).split('.').map(words)
-  return parts.join(' › ') + (m?.[2] ? ` ${m[2]}` : '')
+// ponytail: fixed list of abbreviations in SOP v11 keys; schema titles override them
+const TOKENS: Record<string, string> = {
+  pmid: 'PMID',
+  hpo: 'HPO',
+  mondo: 'MONDO',
+  omim: 'OMIM',
+  hgnc: 'HGNC',
+  hgvs: 'HGVS',
+  lod: 'LOD',
+  id: 'ID',
+  'x linked': 'X-linked'
 }
+const TOKEN = new RegExp(`\\b(${Object.keys(TOKENS).join('|')})\\b`, 'gi')
+const readable = (key: string) => humanize(key).replace(TOKEN, t => TOKENS[t.toLowerCase()]!)
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
 
-/** Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped. */
-function leaves(v: unknown, path = ''): [string, unknown][] {
+const segments = (path: string) => path.replace(/\[[^\]]*\]/g, '').split('.')
+
+/** Schema definition of a path; list records step into `item_schema` (or `items`). */
+function fieldAt(fields: DiffContext['fields'], path: string): FieldDef | undefined {
+  let props = (fields ?? undefined) as Record<string, FieldDef> | undefined
+  let node: FieldDef | undefined
+  for (const s of segments(path)) {
+    node = props?.[s]
+    props = node?.properties ?? node?.item_schema ?? node?.items?.properties
+  }
+  return node
+}
+
+const fieldLabel = (fields: DiffContext['fields'], path: string) => {
+  const node = fieldAt(fields, path)
+  return node?.title || node?.label || readable(segments(path).pop() ?? path)
+}
+
+/** The value at a diff path (`a.b[0].c`, `[id]` matching a record's id) in the evidence. */
+function valueAt(root: unknown, path: string): unknown {
+  let v = root
+  for (const [, key, index] of path.matchAll(/([^.[\]]+)|\[([^\]]*)\]/g)) {
+    if (key !== undefined) v = isRecord(v) ? v[key] : undefined
+    else if (Array.isArray(v))
+      v =
+        v.find(r => isRecord(r) && String(r.id) === index) ??
+        (/^\d+$/.test(index!) ? v[+index!] : undefined)
+    else v = undefined
+  }
+  return v
+}
+
+/**
+ * Filled leaves of a nested value as `path -> scalar`; empty containers and blanks are dropped.
+ * Records are keyed `[id]` when every one has an id (as the backend diff does), else by position.
+ */
+function leaves(v: unknown, path: string): [string, unknown][] {
   if (Array.isArray(v)) {
     if (v.every(x => typeof x !== 'object' || x === null)) {
       return v.length ? [[path, v.join(', ')]] : []
     }
-    return v.flatMap((x, i) => leaves(x, `${path}[${i}]`))
+    const byId = v.every(x => isRecord(x) && 'id' in x)
+    return v.flatMap((x, i) => leaves(x, `${path}[${byId ? String(x.id) : i}]`))
   }
   if (isRecord(v)) {
-    return Object.entries(v).flatMap(([k, x]) => leaves(x, path ? `${path}.${k}` : k))
+    const idKeyed = path.endsWith(`[${String(v.id)}]`) // the id is in the key already
+    return Object.entries(v)
+      .filter(([k]) => !(idKeyed && k === 'id'))
+      .flatMap(([k, x]) => leaves(x, path ? `${path}.${k}` : k))
   }
   return v === null || v === undefined || v === '' ? [] : [[path, v]]
 }
 
-/** Added or removed whole values become one row per filled field instead of a JSON blob. */
-function expand(it: DiffItem): DiffField[] | null {
-  const value = it.change === 'added' ? it.after : it.change === 'removed' ? it.before : undefined
-  if (typeof value !== 'object' || value === null) return null
-  const rows = leaves(value)
-  const side = (v: unknown) =>
-    it.change === 'added' ? { before: undefined, after: v } : { before: v, after: undefined }
-  return rows.length
-    ? rows.map(([name, v]) => ({ name, change: it.change, ...side(v) }))
-    : [{ name: '', change: it.change, ...side('none') }]
+/** Added or removed values become one row per filled leaf, so a new section splits into its records. */
+function rows(it: DiffItem): [string, unknown, unknown][] {
+  if (it.change === 'changed') return [[it.path, it.before, it.after]]
+  const added = it.change === 'added'
+  const filled = leaves(added ? it.after : it.before, it.path)
+  // An empty value still shows that something was added or removed
+  return (filled.length ? filled : [[it.path, 'none']]).map(([p, v]) =>
+    added ? [p, undefined, v] : [p, v, undefined]
+  )
 }
 
-export function groupDiff(items: DiffItem[]): DiffGroup[] {
+// The record's own name: its `label` / `*_label` field (every SOP v11 list item has one).
+const isNameField = (name: string) => name === 'label' || name.endsWith('_label')
+
+function name(key: string, ctx: DiffContext, rows: DiffField[] = []) {
+  const list = key.replace(/\[[^\]]*\]$/, '')
+  const sections = segments(list).map((_, i, all) =>
+    fieldLabel(ctx.fields, all.slice(0, i + 1).join('.'))
+  )
+  const label = sections.pop() ?? key
+  if (list === key) return { label, context: sections.join(' › ') }
+  const row = rows.find(f => isNameField(f.name))
+  const record = valueAt(ctx.evidence, key)
+  const own =
+    row?.after ??
+    row?.before ??
+    (isRecord(record) ? Object.entries(record).find(([k]) => isNameField(k))?.[1] : null)
+  const index = key.match(/\[(\d+)\]$/)?.[1]
+  const suffix = own ? ` · ${String(own)}` : index !== undefined ? ` #${+index + 1}` : ''
+  return { label: label + suffix, context: sections.join(' › ') }
+}
+
+export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[] {
   const groups = new Map<string, DiffGroup>()
   for (const it of items) {
-    const key = itemKey(it.path)
-    let g = groups.get(key)
-    if (!g) groups.set(key, (g = { key, label: itemLabel(key), change: it.change, fields: [] }))
-    const base = it.path.slice(key.length).replace(/^\./, '')
-    const rows = expand(it)
-    if (rows) {
-      g.fields.push(...rows.map(r => ({ ...r, name: [base, r.name].filter(Boolean).join('.') })))
-    } else {
-      g.fields.push({ name: base, change: it.change, before: it.before, after: it.after })
+    for (const [path, before, after] of rows(it)) {
+      const key = itemKey(path)
+      let g = groups.get(key)
+      if (!g) groups.set(key, (g = { key, label: '', context: '', change: it.change, fields: [] }))
+      const field = path.slice(key.length).replace(/^\./, '')
+      const def = field ? fieldAt(ctx.fields, path) : undefined
+      g.fields.push({
+        name: field,
+        label: field ? fieldLabel(ctx.fields, path) : '',
+        ...(def?.options ? { options: def.options } : {}),
+        change: it.change,
+        before,
+        after
+      })
+      if (g.change !== it.change) g.change = 'changed'
     }
-    if (g.fields.some(f => f.change !== g.fields[0]!.change)) g.change = 'changed'
   }
-  return [...groups.values()]
+  return [...groups.values()].map(g => Object.assign(g, name(g.key, ctx, g.fields)))
 }
 
-export function formatValue(v: unknown): string {
-  if (v === null || v === undefined) return 'none'
+/** A value for people: enum labels from the schema, Yes/No, `none` for nothing. */
+export function formatValue(v: unknown, options?: FieldDef['options']): string {
+  if (v === null || v === undefined || v === '') return 'none'
+  const option = options?.find(o => (typeof o === 'string' ? o : o.value) === v)
+  if (typeof option === 'object' && option.label) return option.label
+  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
   return typeof v === 'object' ? JSON.stringify(v) : String(v)
 }
 
@@ -120,10 +221,10 @@ export const REVIEW_TEXT_MAX = 2000
  * Open reviewer queries as a to-do list for "Request changes" (the curator's own replies are not
  * to-dos). Always within REVIEW_TEXT_MAX so the prefilled feedback can be sent as is.
  */
-export function queryTodos(creatorId: string, comments: Comment[]): string {
+export function queryTodos(creatorId: string, comments: Comment[], ctx?: DiffContext): string {
   const lines = comments
     .filter(c => c.kind === 'query' && c.status === 'open' && c.author_id !== creatorId)
-    .map(c => `- ${itemLabel(c.item_path)}: ${c.body}`)
+    .map(c => `- ${itemLabel(c.item_path, ctx)}: ${c.body}`)
   const whole = lines.join('\n')
   if (whole.length <= REVIEW_TEXT_MAX) return whole
 

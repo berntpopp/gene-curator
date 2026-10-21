@@ -164,6 +164,7 @@
     gene_id?: string | null
     workflow_stage?: string | null
     status?: string | null
+    curator_name?: string | null
   }
 
   interface ScopeRecord {
@@ -242,9 +243,13 @@
       return 'This curation is active and read-only. Start a re-curation from the curation page.'
     }
     if (curation.value?.can_edit !== false) return ''
-    return ['draft', 'rejected'].includes(curation.value.status ?? '')
-      ? 'Read-only: you do not have permission to edit this curation.'
-      : 'Read-only: this curation is in review. It can be edited again if changes are requested.'
+    if (!['draft', 'rejected'].includes(curation.value.status ?? '')) {
+      return 'Read-only: this curation is in review. It can be edited again if changes are requested.'
+    }
+    // Only the author saves a draft (e.g. the one approval created for the precuration author)
+    return curation.value.curator_name
+      ? `Read-only: this curation belongs to ${curation.value.curator_name}. Only its author can edit it.`
+      : 'Read-only: you do not have permission to edit this curation.'
   })
   const readonly = computed(() => !!readonlyReason.value)
 
@@ -414,6 +419,20 @@
 
       // Check precuration status for new curations (not edits)
       if (!curationId.value && geneId.value) {
+        // One open curation per gene and scope: open it (e.g. the draft approval created)
+        const { curations } = await curationsStore.fetchCurations({
+          scope_id: scopeId.value,
+          gene_id: geneId.value
+        })
+        const open = curations.find(c => !['active', 'archived'].includes(c.status))
+        if (open) {
+          router.replace({
+            name: 'curation-edit',
+            params: { scopeId: scopeId.value, curationId: open.id }
+          })
+          return
+        }
+
         await checkPrecurationStatus()
 
         // Redirect if no approved precuration exists

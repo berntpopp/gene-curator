@@ -49,23 +49,63 @@ const Host = defineComponent({
   }
 })
 
+// The real split: the form owns the submission and emits `submit`; the view navigates
+const Form = defineComponent({
+  emits: ['submit'],
+  setup(_, { emit }) {
+    api = useCurationSubmission({
+      curationId: () => (routerRef.currentRoute.value.params.curationId as string) || undefined,
+      geneId: () => 'gene-1',
+      scopeId: () => 's1',
+      workflowPairId: () => 'wp-1',
+      evidenceData: evidence,
+      lockVersion: ref(0),
+      canSubmit: () => true,
+      clearRecovery: vi.fn(),
+      clearHistory: vi.fn(),
+      onSaved: vi.fn(),
+      onSubmit: id => emit('submit', id)
+    })
+    return () => h('div')
+  }
+})
+const View = defineComponent({
+  setup() {
+    const dirty = ref(true)
+    useUnsavedGuard(dirty)
+    return () =>
+      h(Form, {
+        onSubmit: (id: string) => {
+          dirty.value = false
+          routerRef.push({ name: 'curation-detail', params: { scopeId: 's1', curationId: id } })
+        }
+      })
+  }
+})
+
 let routerRef: Router
 
-async function setup() {
+async function setup(component = Host, keyed = false) {
   routerRef = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/scopes/:scopeId/genes/:geneId/curation/new', component: Host },
+      { path: '/scopes/:scopeId/genes/:geneId/curation/new', component },
       {
         path: '/scopes/:scopeId/curations/:curationId/edit',
         name: 'curation-edit',
-        component: Host
+        component
       },
-      { path: '/scopes/:scopeId/curations/:curationId', name: 'curation-detail', component: Host }
+      { path: '/scopes/:scopeId/curations/:curationId', name: 'curation-detail', component }
     ]
   })
   await routerRef.push('/scopes/s1/genes/gene-1/curation/new')
-  mount(RouterView, { global: { plugins: [routerRef] } })
+  // App.vue keys the routed view by fullPath, so any URL change remounts it
+  const Keyed = () =>
+    h(RouterView, null, {
+      default: ({ Component, route }: { Component: unknown; route: { fullPath: string } }) =>
+        h(Component as never, { key: route.fullPath })
+    })
+  mount(keyed ? Keyed : RouterView, { global: { plugins: [routerRef] } })
   await flushPromises()
 }
 
@@ -115,6 +155,20 @@ describe('submitting a new curation and the leave guard', () => {
     expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('c-new', { lock_version: 0 })
     expect(confirm).not.toHaveBeenCalled()
   })
+
+  it.each(['handleSubmit', 'handleClinGenSubmit'] as const)(
+    '%s of a new curation ends on the detail page when the view is keyed by URL',
+    async method => {
+      curationsStore.submitCuration.mockResolvedValue({ lock_version: 1 })
+      await setup(View, true)
+
+      await api[method]({ disease: 'x' })
+      await flushPromises()
+
+      expect(confirm).not.toHaveBeenCalled()
+      expect(routerRef.currentRoute.value.fullPath).toBe('/scopes/s1/curations/c-new')
+    }
+  )
 
   it('ClinGen submit of a new curation never prompts', async () => {
     curationsStore.submitCuration.mockRejectedValueOnce(new Error('422'))

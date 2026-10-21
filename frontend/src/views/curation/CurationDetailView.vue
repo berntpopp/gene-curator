@@ -253,6 +253,7 @@
             :reviewer="canReview"
             :can-reply="canReview || isCreator"
             :only-with-comments="curation.status !== 'in_review'"
+            :context="reviewContext"
           />
 
           <!-- Score Breakdown -->
@@ -464,6 +465,7 @@
   )
   // ClinGen schemas (by scoring engine) get the read-only evidence view
   const isClinGenSchema = ref(false)
+  const schemaFields = ref<Record<string, unknown> | null>(null)
   const pageTitle = computed(() =>
     curation.value?.gene_symbol
       ? [curation.value.gene_symbol, curation.value.disease_name].filter(Boolean).join(' – ')
@@ -507,11 +509,11 @@
       ? approveBlockers(groupDiff(reviewStore.diff?.items ?? []), reviewStore.comments, myId.value)
       : [{ key: '', label: 'The review has not loaded' }]
   )
-  const todos = computed(() => queryTodos(curation.value?.created_by ?? '', reviewStore.comments))
+  const reviewContext = computed(() => ({ fields: schemaFields.value, evidence: evidence.value }))
+  const todos = computed(() =>
+    queryTodos(curation.value?.created_by ?? '', reviewStore.comments, reviewContext.value)
+  )
 
-  // Utility functions
-
-  // Actions
   async function loadCurationSchema() {
     if (!curation.value?.workflow_pair_id) return
     try {
@@ -520,6 +522,7 @@
       if (curationSchemaId.value) {
         const schema = await schemasAPI.getSchemaById(curationSchemaId.value)
         isClinGenSchema.value = schema.scoring_configuration?.engine === 'clingen_sop_v11'
+        schemaFields.value = schema.field_definitions
       }
       logger.debug('Curation schema loaded', {
         workflow_pair_id: curation.value.workflow_pair_id,
