@@ -2388,7 +2388,7 @@ export interface paths {
          * Create Evidence Item
          * @description Create new evidence item for curation
          *
-         *     Requires curator or scope_admin role in the curation's scope.
+         *     Requires curator or scope admin role in the curation's scope.
          *
          *     Args:
          *         db: Database session
@@ -2422,7 +2422,7 @@ export interface paths {
          * Update Evidence Item
          * @description Update evidence item
          *
-         *     Requires curator or scope_admin role in the curation's scope.
+         *     Requires curator or scope admin role in the curation's scope.
          *
          *     Args:
          *         db: Database session
@@ -2444,7 +2444,7 @@ export interface paths {
          * Delete Evidence Item
          * @description Delete evidence item (soft delete)
          *
-         *     Requires curator or scope_admin role in the curation's scope.
+         *     Requires curator or scope admin role in the curation's scope.
          *
          *     Args:
          *         db: Database session
