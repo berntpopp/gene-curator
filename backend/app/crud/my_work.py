@@ -155,6 +155,15 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
         items.append(
             _item(r, "draft", "needs_you", "Continue precuration draft", pview)
         )
+    # A rejected precuration is the reviewer asking for changes
+    for r in rows(
+        PrecurationNew, "precuration", *pmine, PrecurationNew.status == _S.REJECTED
+    ):
+        items.append(
+            _item(
+                r, "changes_requested", "needs_you", "Address requested changes", pview
+            )
+        )
 
     return items
 
