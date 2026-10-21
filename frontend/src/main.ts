@@ -11,9 +11,9 @@ import { piniaErrorHandlerPlugin } from './plugins/piniaErrorHandler'
 
 // Vuetify
 import 'vuetify/styles'
-import '@fontsource/ibm-plex-sans/400.css'
-import '@fontsource/ibm-plex-sans/600.css'
-import '@fontsource/ibm-plex-mono/400.css'
+import '@fontsource/ibm-plex-sans/latin-400.css'
+import '@fontsource/ibm-plex-sans/latin-600.css'
+import '@fontsource/ibm-plex-mono/latin-400.css'
 import { createVuetify, type ThemeDefinition } from 'vuetify'
 
 // SVG icons (only the used mdi paths are bundled)

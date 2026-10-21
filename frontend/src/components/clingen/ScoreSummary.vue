@@ -126,21 +126,19 @@
                 <span>12-18 points + replication over time</span>
               </div>
               <div class="d-flex justify-space-between">
-                <span><v-chip size="x-small" color="info">Strong</v-chip></span>
+                <span><ClassificationMark classification="strong" /></span>
                 <span>12-18 points</span>
               </div>
               <div class="d-flex justify-space-between">
-                <span><v-chip size="x-small" color="warning">Moderate</v-chip></span>
+                <span><ClassificationMark classification="moderate" /></span>
                 <span>7-11 points</span>
               </div>
               <div class="d-flex justify-space-between">
-                <span><v-chip size="x-small" color="grey">Limited</v-chip></span>
+                <span><ClassificationMark classification="limited" /></span>
                 <span>1-6 points</span>
               </div>
               <div class="d-flex justify-space-between">
-                <span
-                  ><v-chip size="x-small" color="grey" variant="outlined">No Known</v-chip></span
-                >
+                <span><ClassificationMark classification="no_known" /></span>
                 <span>0 points</span>
               </div>
             </div>

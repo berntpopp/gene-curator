@@ -141,7 +141,7 @@
   }
 
   :focus-visible {
-    outline: 2px solid #0b7a83;
+    outline: 2px solid rgb(var(--v-theme-info));
     outline-offset: 1px;
   }
 

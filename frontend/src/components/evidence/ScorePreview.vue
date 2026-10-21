@@ -4,9 +4,7 @@
       <v-icon start :color="classificationColor">mdi-chart-line</v-icon>
       <span class="text-subtitle-1">ClinGen Score</span>
       <v-spacer />
-      <v-chip :color="classificationColor" size="small" variant="elevated" class="font-weight-bold">
-        {{ breakdown.classification }}
-      </v-chip>
+      <ClassificationMark :classification="breakdown.classification" />
     </v-card-title>
 
     <v-card-text>
@@ -175,6 +173,7 @@
 </template>
 
 <script setup lang="ts">
+  import ClassificationMark from '@/components/common/ClassificationMark.vue'
   /**
    * ScorePreview Component
    *
