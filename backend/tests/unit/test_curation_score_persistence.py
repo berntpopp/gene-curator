@@ -206,3 +206,20 @@ def test_recompute_requires_an_admin(db_session: Session) -> None:
 
     with pytest.raises(RuntimeError, match="admin"):
         recompute_all_scores(db_session)
+
+
+def test_recompute_continues_past_a_failing_curation(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.scoring.clingen import ClinGenEngine
+    from app.services.recompute_scores import recompute_all_scores
+
+    def boom(self: object, *args: object, **kwargs: object) -> None:
+        raise ValueError("bad shape")
+
+    monkeypatch.setattr(ClinGenEngine, "calculate_scores", boom)
+    with pytest.raises(RuntimeError, match="1 of"):
+        recompute_all_scores(db_session)

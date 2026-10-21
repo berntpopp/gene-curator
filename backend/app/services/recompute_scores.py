@@ -22,8 +22,16 @@ def recompute_all_scores(db: Session) -> int:
         set_rls_context(db, admin)
     engine = ClinGenEngine()
     curations = db.execute(select(CurationNew.id, CurationNew.evidence_data)).all()
+    failed = 0
     for curation_id, evidence in curations:
-        result = engine.calculate_scores(evidence or {}, {})
+        try:
+            result = engine.calculate_scores(evidence or {}, {})
+        except Exception:  # one bad legacy row must not abort the backfill
+            failed += 1
+            logger.error(
+                "Score recompute failed", curation_id=str(curation_id), exc_info=True
+            )
+            continue
         db.execute(
             update(CurationNew)
             .where(CurationNew.id == curation_id)
@@ -35,7 +43,13 @@ def recompute_all_scores(db: Session) -> int:
             )
         )
     db.commit()
-    logger.info("Recomputed curation scores", count=len(curations))
+    logger.info(
+        "Recomputed curation scores", count=len(curations) - failed, failed=failed
+    )
+    if failed:
+        raise RuntimeError(
+            f"{failed} of {len(curations)} curations failed to recompute"
+        )
     return len(curations)
 
 
