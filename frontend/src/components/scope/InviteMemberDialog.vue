@@ -29,7 +29,7 @@
 -->
 
 <template>
-  <BaseDialog v-model="isOpen" persistent size="md">
+  <BaseDialog v-model="isOpen" persistent size="md" @cancel="handleCancel">
     <template #title
       ><v-icon start color="primary">mdi-account-plus</v-icon> Invite member to scope</template
     >

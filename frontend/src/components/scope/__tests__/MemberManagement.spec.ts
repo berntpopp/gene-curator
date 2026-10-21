@@ -103,6 +103,14 @@ describe('MemberManagement', () => {
     expect(viewer.wrapper.text()).not.toContain('Invite member')
   })
 
+  it('keeps the invite button out of the card title (which shrinks buttons)', async () => {
+    const { wrapper } = await mountMembers('admin')
+
+    const button = wrapper.findAll('button').find(b => b.text().includes('Invite member'))
+    expect(button).toBeDefined()
+    expect(button!.element.closest('.v-card-title')).toBeNull()
+  })
+
   it('exposes the current member IDs for the invite search exclusion', async () => {
     const { vm } = await mountMembers()
 

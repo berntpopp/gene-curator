@@ -31,16 +31,12 @@
     <v-card-title class="d-flex align-center">
       <v-icon start>mdi-account-group</v-icon>
       Scope members
-      <v-spacer />
-      <v-btn
-        v-if="canInviteMembers"
-        color="primary"
-        prepend-icon="mdi-account-plus"
-        @click="showInviteDialog = true"
-      >
+    </v-card-title>
+    <div v-if="canInviteMembers" class="d-flex justify-end px-4">
+      <v-btn color="primary" prepend-icon="mdi-account-plus" @click="showInviteDialog = true">
         Invite member
       </v-btn>
-    </v-card-title>
+    </div>
 
     <v-card-text>
       <!-- Loading state -->
