@@ -38,9 +38,31 @@ describe('itemKey / itemLabel', () => {
     expect(itemKey('evidence_summary')).toBe('evidence_summary')
   })
 
-  it('makes readable labels', () => {
-    expect(itemLabel('genetic_evidence.case_level[a1]')).toBe('Genetic evidence › Case level [a1]')
+  it('makes readable labels without raw paths, naming the enclosing section', () => {
+    expect(itemLabel('genetic_evidence.case_level[a1]')).toBe('Case level (Genetic evidence)')
     expect(itemLabel('evidence_summary')).toBe('Evidence summary')
+    const key =
+      'genetic_evidence.case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null[0]'
+    expect(itemLabel(key)).toBe('Predicted or proven null #1 (Autosomal dominant or X-linked)')
+    const evidence = {
+      genetic_evidence: {
+        case_level: {
+          autosomal_dominant_or_x_linked: { predicted_or_proven_null: [{ proband_label: 'C1' }] }
+        }
+      }
+    }
+    expect(itemLabel(key, { evidence })).toBe(
+      'Predicted or proven null · C1 (Autosomal dominant or X-linked)'
+    )
+  })
+
+  it('spells domain abbreviations in fallback labels, schema titles win', () => {
+    expect(itemLabel('g.pmid')).toBe('PMID (G)')
+    expect(itemLabel('hpo_terms')).toBe('HPO terms')
+    expect(itemLabel('mondo_id')).toBe('MONDO ID')
+    expect(itemLabel('omim_hgnc_lod_score')).toBe('OMIM HGNC LOD score')
+    expect(itemLabel('identity')).toBe('Identity')
+    expect(itemLabel('pmid', { fields: { pmid: { title: 'PubMed' } } })).toBe('PubMed')
   })
 })
 
@@ -272,7 +294,14 @@ describe('queryTodos', () => {
       c({ item_path: 'g.b[2]', kind: 'accepted' }),
       c({ item_path: 'g.a[1]', body: 'Added the segregation data', author_id: 'alice' })
     ])
-    expect(text).toBe('- G › A [1]: Check gnomAD\n- Summary: Explain')
+    expect(text).toBe('- A #2 (G): Check gnomAD\n- Summary: Explain')
+  })
+  it('names items from the schema and evidence when given', () => {
+    const text = queryTodos('alice', [c({ item_path: 'g.a[0]', body: 'Why?' })], {
+      fields: { g: { title: 'Genetic', properties: { a: { title: 'Cases' } } } },
+      evidence: { g: { a: [{ label: 'Fam 1' }] } }
+    })
+    expect(text).toBe('- Cases · Fam 1 (Genetic): Why?')
   })
   it('is empty without open queries', () => {
     expect(queryTodos('alice', [])).toBe('')

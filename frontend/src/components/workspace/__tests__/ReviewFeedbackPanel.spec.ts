@@ -34,7 +34,12 @@ describe('ReviewFeedbackPanel', () => {
     const { w, fetch } = await mountPanel({
       note: 'Please add the segregation data',
       queries: [
-        { id: 'q', item_path: 'genetic_evidence.case_level[a]', body: 'Explain 2.0 points' }
+        {
+          id: 'q',
+          item_path:
+            'genetic_evidence.case_level.autosomal_dominant_or_x_linked.predicted_or_proven_null[0]',
+          body: 'Explain 2.0 points'
+        }
       ],
       any: true
     })
@@ -43,8 +48,9 @@ describe('ReviewFeedbackPanel', () => {
       'Please add the segregation data'
     )
     expect(w.find('[data-testid=feedback-query]').text()).toContain(
-      'Genetic evidence › Case level [a]'
+      'Predicted or proven null #1 (Autosomal dominant or X-linked)'
     )
+    expect(w.find('[data-testid=feedback-query]').text()).not.toContain('case_level')
     expect(w.find('[data-testid=feedback-query]').text()).toContain('Explain 2.0 points')
     expect(w.findComponent(RouterLinkStub).props('to')).toBe('/scopes/s1/curations/c1')
   })

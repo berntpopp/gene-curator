@@ -47,11 +47,27 @@ export function itemKey(path: string): string {
   return end === -1 ? path : path.slice(0, end + 1)
 }
 
-export function itemLabel(key: string): string {
-  const m = key.match(/^(.*?)(\[[^\]]*\])?$/)
-  const parts = (m?.[1] ?? key).split('.').map(humanize)
-  return parts.join(' › ') + (m?.[2] ? ` ${m[2]}` : '')
+/** One-line item name for text (to-dos, feedback): `Name · record (enclosing section)`. */
+export function itemLabel(key: string, ctx: DiffContext = {}): string {
+  const { label, context } = name(key, ctx)
+  const section = context.split(' › ').pop()
+  return section ? `${label} (${section})` : label
 }
+
+// ponytail: fixed list of abbreviations in SOP v11 keys; schema titles override them
+const TOKENS: Record<string, string> = {
+  pmid: 'PMID',
+  hpo: 'HPO',
+  mondo: 'MONDO',
+  omim: 'OMIM',
+  hgnc: 'HGNC',
+  hgvs: 'HGVS',
+  lod: 'LOD',
+  id: 'ID',
+  'x linked': 'X-linked'
+}
+const TOKEN = new RegExp(`\\b(${Object.keys(TOKENS).join('|')})\\b`, 'gi')
+const readable = (key: string) => humanize(key).replace(TOKEN, t => TOKENS[t.toLowerCase()]!)
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v)
@@ -71,7 +87,7 @@ function fieldAt(fields: DiffContext['fields'], path: string): FieldDef | undefi
 
 const fieldLabel = (fields: DiffContext['fields'], path: string) => {
   const node = fieldAt(fields, path)
-  return node?.title || node?.label || humanize(segments(path).pop() ?? path)
+  return node?.title || node?.label || readable(segments(path).pop() ?? path)
 }
 
 /** The value at a diff path (`a.b[0].c`, `[id]` matching a record's id) in the evidence. */
@@ -114,20 +130,20 @@ function rows(it: DiffItem): [string, unknown, unknown][] {
 // The record's own name: its `label` / `*_label` field (every SOP v11 list item has one).
 const isNameField = (name: string) => name === 'label' || name.endsWith('_label')
 
-function name(g: DiffGroup, ctx: DiffContext): { label: string; context: string } {
-  const list = g.key.replace(/\[[^\]]*\]$/, '')
+function name(key: string, ctx: DiffContext, rows: DiffField[] = []) {
+  const list = key.replace(/\[[^\]]*\]$/, '')
   const sections = segments(list).map((_, i, all) =>
     fieldLabel(ctx.fields, all.slice(0, i + 1).join('.'))
   )
-  const label = sections.pop() ?? g.key
-  if (list === g.key) return { label, context: sections.join(' › ') }
-  const row = g.fields.find(f => isNameField(f.name))
-  const record = valueAt(ctx.evidence, g.key)
+  const label = sections.pop() ?? key
+  if (list === key) return { label, context: sections.join(' › ') }
+  const row = rows.find(f => isNameField(f.name))
+  const record = valueAt(ctx.evidence, key)
   const own =
     row?.after ??
     row?.before ??
     (isRecord(record) ? Object.entries(record).find(([k]) => isNameField(k))?.[1] : null)
-  const index = g.key.match(/\[(\d+)\]$/)?.[1]
+  const index = key.match(/\[(\d+)\]$/)?.[1]
   const suffix = own ? ` · ${String(own)}` : index !== undefined ? ` #${+index + 1}` : ''
   return { label: label + suffix, context: sections.join(' › ') }
 }
@@ -152,7 +168,7 @@ export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[]
       if (g.change !== it.change) g.change = 'changed'
     }
   }
-  return [...groups.values()].map(g => Object.assign(g, name(g, ctx)))
+  return [...groups.values()].map(g => Object.assign(g, name(g.key, ctx, g.fields)))
 }
 
 /** A value for people: enum labels from the schema, Yes/No, `none` for nothing. */
@@ -196,10 +212,10 @@ export const REVIEW_TEXT_MAX = 2000
  * Open reviewer queries as a to-do list for "Request changes" (the curator's own replies are not
  * to-dos). Always within REVIEW_TEXT_MAX so the prefilled feedback can be sent as is.
  */
-export function queryTodos(creatorId: string, comments: Comment[]): string {
+export function queryTodos(creatorId: string, comments: Comment[], ctx?: DiffContext): string {
   const lines = comments
     .filter(c => c.kind === 'query' && c.status === 'open' && c.author_id !== creatorId)
-    .map(c => `- ${itemLabel(c.item_path)}: ${c.body}`)
+    .map(c => `- ${itemLabel(c.item_path, ctx)}: ${c.body}`)
   const whole = lines.join('\n')
   if (whole.length <= REVIEW_TEXT_MAX) return whole
 

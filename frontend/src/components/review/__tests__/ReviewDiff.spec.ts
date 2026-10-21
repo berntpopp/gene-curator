@@ -283,9 +283,9 @@ describe('ReviewDiff, first review of a ClinGen curation (#390)', () => {
     expect(rest).toHaveLength(0)
     const text = item!.text()
     expect(item!.find('.item__label').text()).toBe('Predicted or proven null · C1')
-    expect(text).toContain('Genetic evidence › Case level › Autosomal dominant or x linked')
+    expect(text).toContain('Genetic evidence › Case level › Autosomal dominant or X-linked')
     expect(item!.findAll('dt').map(d => d.text())).toEqual([
-      'Pmid',
+      'PMID',
       'Score status',
       'Variant type',
       'Proband label',

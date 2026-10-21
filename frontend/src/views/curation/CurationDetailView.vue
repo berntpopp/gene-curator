@@ -253,7 +253,7 @@
             :reviewer="canReview"
             :can-reply="canReview || isCreator"
             :only-with-comments="curation.status !== 'in_review'"
-            :context="{ fields: schemaFields, evidence: curation.evidence_data }"
+            :context="reviewContext"
           />
 
           <!-- Score Breakdown -->
@@ -509,11 +509,11 @@
       ? approveBlockers(groupDiff(reviewStore.diff?.items ?? []), reviewStore.comments, myId.value)
       : [{ key: '', label: 'The review has not loaded' }]
   )
-  const todos = computed(() => queryTodos(curation.value?.created_by ?? '', reviewStore.comments))
+  const reviewContext = computed(() => ({ fields: schemaFields.value, evidence: evidence.value }))
+  const todos = computed(() =>
+    queryTodos(curation.value?.created_by ?? '', reviewStore.comments, reviewContext.value)
+  )
 
-  // Utility functions
-
-  // Actions
   async function loadCurationSchema() {
     if (!curation.value?.workflow_pair_id) return
     try {
