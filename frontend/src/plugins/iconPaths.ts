@@ -157,6 +157,7 @@ import {
   mdiViewGrid,
   mdiViewList,
   mdiVirus,
+  mdiThemeLightDark,
   mdiWeatherNight,
   mdiWhiteBalanceSunny
 } from '@mdi/js'
@@ -321,6 +322,7 @@ export const mdiPaths: Record<string, string> = {
   'mdi-view-grid': mdiViewGrid,
   'mdi-view-list': mdiViewList,
   'mdi-virus': mdiVirus,
+  'mdi-theme-light-dark': mdiThemeLightDark,
   'mdi-weather-night': mdiWeatherNight,
   'mdi-white-balance-sunny': mdiWhiteBalanceSunny
 }
