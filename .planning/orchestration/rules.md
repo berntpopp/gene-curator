@@ -1,0 +1,11 @@
+## Rules (follow exactly)
+- File ownership is exclusive. Edit only the files listed for your workstream, plus new test files next to them. If you need a change in a file you don't own, write it under "Follow-ups" in your report; do not make it. Exception: `frontend/src/router/index.ts` may receive add/remove edits of your own route entries; guards and `meta` belong to WS-B.
+- One PR per workstream. One commit per issue: `fix(<area>): <what> (#N)` + blank line + `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. PR body says `Closes #a, closes #b`, lists the gates run, and ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Open PRs as DRAFTS (`gh pr create --draft --base master`).
+- TDD for bugs: write a failing test first. Changed lines need 90% coverage (`make diff-cover`). Never use skip, xit, `|| true` or weakened asserts.
+- Gates before reporting: targeted tests, then `make check` in the worktree. Run `make test-postgres` if you touched `database/sql` or RLS.
+- Migrations use reserved numbers only: 028 = #234, 029 = #198, 030 = #158 (schema_migrations), 031 = #156 (RLS app role). Idempotent, mirrored in `backend/app/models/models.py`.
+- #199 is decided: delete the `/scope-selection` wizard.
+- Partial fixes: if an issue cannot be fully fixed inside your owned files, fix what you can, write `Refs #N` instead of `Closes`, and state what remains.
+- Never start dev servers in the worktree. Tests only (SQLite pytest, Vitest).
+- Ponytail full: smallest complete change; no unrelated modernizing.
+- Report in at most 15 lines: branch, PR number, issues closed / partial, gates run with results, files touched, follow-ups. No diffs, no file dumps.
