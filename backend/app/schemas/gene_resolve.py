@@ -8,11 +8,18 @@ from pydantic import BaseModel, Field, field_validator
 
 MAX_RESOLVE_INPUTS = 1000
 MAX_TOKEN_LENGTH = 50
+# Payload cap per entry: longer entries are rejected outright, shorter invalid ones are reported per item.
+MAX_ENTRY_LENGTH = 256
 # Symbols, HGNC IDs and families like "HOXA@": no whitespace, quotes or separators.
 _TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@\-]*$")
 
 MatchType = Literal["symbol", "previous_symbol", "alias", "hgnc_id"]
-ResolveReason = Literal["lookup_cap", "lookup_timeout"]
+ResolveReason = Literal["lookup_cap", "lookup_timeout", "invalid_identifier"]
+
+
+def is_gene_token(value: str) -> bool:
+    """True for something that can be a symbol or HGNC ID (anything else is never looked up)."""
+    return len(value) <= MAX_TOKEN_LENGTH and _TOKEN.match(value) is not None
 
 
 class GeneResolveRequest(BaseModel):
@@ -23,8 +30,10 @@ class GeneResolveRequest(BaseModel):
     def _clean(cls, values: list[str]) -> list[str]:
         cleaned = [v.strip() for v in values]
         for index, value in enumerate(cleaned):
-            if len(value) > MAX_TOKEN_LENGTH or not _TOKEN.match(value):
-                raise ValueError(f"entry {index} is not a gene symbol or HGNC ID")
+            if len(value) > MAX_ENTRY_LENGTH:
+                raise ValueError(
+                    f"entry {index} is longer than {MAX_ENTRY_LENGTH} characters"
+                )
         return cleaned
 
 

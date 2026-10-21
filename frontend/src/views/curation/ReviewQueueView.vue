@@ -239,6 +239,7 @@
    */
 
   import { ref, computed, onMounted, watch } from 'vue'
+  import { useRoute } from 'vue-router'
   import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
   import BaseDialog from '@/components/BaseDialog.vue'
@@ -248,6 +249,7 @@
   import { useNotificationsStore } from '@/stores/notifications'
   import { useScopesStore } from '@/stores/scopes'
   import { useReviewStore } from '@/stores/review'
+  import { readableApiError } from '@/utils/apiErrorText'
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
@@ -283,7 +285,10 @@
   const curations = ref<ReviewItem[]>([])
   const scopes = ref<Array<{ id: string; name: string }>>([])
   const selectedScope = ref<string | null>(null)
-  const searchQuery = ref('')
+  // My work deep-links here with ?q=<gene> so the item to review is the one listed
+  const route = useRoute()
+  const queryText = (q: unknown) => String(([] as unknown[]).concat(q)[0] ?? '')
+  const searchQuery = ref(queryText(route?.query.q))
   const sortBy = ref('submitted_desc')
   const currentPage = ref(1)
   const mineOnly = ref(false)
@@ -343,6 +348,14 @@
   })
 
   const totalPages = computed<number>(() => Math.ceil(filtered.value.length / itemsPerPage))
+
+  // A second deep link while the queue is open applies too
+  watch(
+    () => route?.query.q,
+    q => {
+      if (q !== undefined) searchQuery.value = queryText(q)
+    }
+  )
 
   // Watch for filter changes to reset pagination
   watch([selectedScope, searchQuery, mineOnly], () => {
@@ -500,10 +513,7 @@
     workCounts.fetch()
   }
 
-  function errorText(error: unknown): string {
-    const e = error as { response?: { data?: { detail?: string } }; message?: string }
-    return e.response?.data?.detail || e.message || 'unknown error'
-  }
+  const errorText = (error: unknown): string => readableApiError(error, 'unknown error')
 
   function formatRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return 'unknown'

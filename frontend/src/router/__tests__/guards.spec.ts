@@ -162,6 +162,14 @@ describe('router guards', () => {
     expect(document.title).toBe('About | Gene Curator')
   })
 
+  it('does not repeat the application name on the home page title', async () => {
+    useFakeAuth()
+
+    await router.push('/')
+
+    expect(document.title).toBe('Gene Curator')
+  })
+
   it('uses the bare application title when a route has no title', async () => {
     useFakeAuth()
     router.addRoute({ path: '/untitled-probe', name: 'UntitledProbe', component: stub.default })

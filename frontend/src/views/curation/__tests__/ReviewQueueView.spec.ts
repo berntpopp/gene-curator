@@ -6,6 +6,13 @@ vi.mock('@/api', () => ({
   curationsAPI: { getCurations: vi.fn() }
 }))
 
+const routeQuery = vi.hoisted(() => ({ q: undefined as string | string[] | undefined }))
+vi.mock('vue-router', async () => {
+  const { reactive } = await import('vue')
+  const route = reactive({ query: routeQuery })
+  return { useRoute: () => route }
+})
+
 vi.mock('@/api/reviewComments', () => ({
   reviewCommentsAPI: { myPendingItemIds: vi.fn() }
 }))
@@ -210,6 +217,33 @@ describe('ReviewQueueView', () => {
       expect(vm.showReject).toBe(true)
     })
 
+    it('shows a 422 as a readable sentence in the request-changes dialog', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      vi.mocked(precurationsAPI.rejectPrecuration).mockRejectedValue({
+        response: {
+          data: {
+            detail: [{ loc: ['body', 'reason'], msg: 'String should have at most 2000 characters' }]
+          }
+        }
+      })
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      const vm = wrapper.vm as unknown as {
+        rejectReason: string
+        rejectError: string | null
+        openReject: (i: unknown) => void
+        confirmReject: () => Promise<void>
+      }
+      vm.openReject({ id: 'p1', gene_symbol: 'PKD1' })
+      vm.rejectReason = 'x'
+      await vm.confirmReject()
+      expect(vm.rejectError).toBe('Reason: String should have at most 2000 characters.')
+    })
+
     it('approves a precuration and removes it from the queue', async () => {
       const refreshBadge = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
@@ -358,5 +392,46 @@ describe('ReviewQueueView status label', () => {
       await flushPromises()
       expect(wrapper.text()).toContain('No matching curations')
     })
+  })
+
+  it('starts with the gene from a My work link in the search', async () => {
+    routeQuery.q = 'G1'
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ id: 'a', gene_symbol: 'G1' }), row({ id: 'b', gene_symbol: 'OTHER' })],
+      total: 2
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    routeQuery.q = undefined
+    expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(1)
+  })
+
+  it('takes the first value when ?q is repeated', async () => {
+    routeQuery.q = ['G1', 'OTHER']
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ id: 'a', gene_symbol: 'G1' }), row({ id: 'b', gene_symbol: 'OTHER' })],
+      total: 2
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    routeQuery.q = undefined
+    expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(1)
+  })
+
+  it('applies a second deep link while the queue is open', async () => {
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [row({ id: 'a', gene_symbol: 'G1' }), row({ id: 'b', gene_symbol: 'G2' })],
+      total: 2
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(2)
+    const { useRoute } = await import('vue-router')
+    useRoute().query.q = 'G2'
+    await flushPromises()
+    const rows = wrapper.findAll('[data-testid=review-row]')
+    expect(rows).toHaveLength(1)
+    expect(rows[0]!.text()).toContain('G2')
+    routeQuery.q = undefined
   })
 })

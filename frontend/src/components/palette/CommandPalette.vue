@@ -172,7 +172,8 @@
 
   const flat = computed(() => groups.value.flatMap(g => g.items))
   const empty = computed(
-    () => !search.loading && search.query.trim().length >= 2 && flat.value.length === 0
+    () =>
+      !search.loading && !search.error && search.query.trim().length >= 2 && flat.value.length === 0
   )
   const activeId = computed(() => (flat.value.length ? optionId(active.value) : undefined))
 

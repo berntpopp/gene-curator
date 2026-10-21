@@ -35,6 +35,7 @@ type Vm = Record<string, unknown> & Record<string, (...args: never[]) => unknown
 const stubs = {
   SchemaDrivenCurationForm: true,
   CurationSchemaSelect: true,
+  ReviewFeedbackPanel: true,
   'router-link': { props: ['to'], template: '<a :href="to"><slot /></a>' }
 }
 
@@ -56,6 +57,7 @@ const mountView = async (
   vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
   vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
   vi.spyOn(scopes, 'fetchScope').mockResolvedValue({ default_workflow_pair_id: 'wp1' } as never)
+  vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)
   setup?.({ schemas, scopes, curations, precurations, genes })
   const wrapper = mount(CurationFormView, { global: { stubs: { ...stubs, ...extraStubs } } })
   await flushPromises()
@@ -85,6 +87,7 @@ describe('CurationFormView', () => {
     vi.spyOn(schemas, 'fetchSchemas').mockResolvedValue(undefined as never)
     vi.spyOn(schemas, 'fetchWorkflowPairs').mockResolvedValue(undefined as never)
     vi.spyOn(scopes, 'fetchScope').mockReturnValue(new Promise(r => (release = r as never)))
+    vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)
     schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
     const wrapper = mount(CurationFormView, { global: { stubs } })
     await flushPromises()
@@ -436,6 +439,64 @@ describe('CurationFormView', () => {
     it('shows an archived curation as the terminal stage', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active', status: 'archived' })
       expect(wrapper.find('[aria-current="step"]').text()).toBe('Archived')
+    })
+  })
+
+  describe('who may start a curation and who sees review feedback', () => {
+    it('shows a viewer the not-authorized notice instead of the form (new curation)', async () => {
+      const { wrapper } = await mountView(({ scopes }) => {
+        vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('viewer' as never)
+      })
+      expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(true)
+      expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(false)
+    })
+
+    it('never shows the form when the role lookup fails, and retries', async () => {
+      const { wrapper, scopes, schemas } = await mountView(({ scopes, schemas }) => {
+        vi.spyOn(scopes, 'fetchUserRole').mockRejectedValue(new Error('500'))
+        schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+      })
+      expect(wrapper.text()).toContain('could not check')
+      expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(false)
+      vi.mocked(scopes.fetchUserRole).mockResolvedValue('curator' as never)
+      void schemas
+      await wrapper.find('[data-testid=retry-access]').trigger('click')
+      await flushPromises()
+      expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(false)
+    })
+
+    it('lets a curator through', async () => {
+      const { wrapper } = await mountView(({ scopes, schemas }) => {
+        vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('curator' as never)
+        schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch-wp' }] as never
+      })
+      expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(false)
+    })
+
+    it('does not role-check when editing an existing curation', async () => {
+      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+      const { scopes } = await mountView(({ scopes, curations }) => {
+        vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({
+          id: 'c1',
+          status: 'draft'
+        } as never)
+        vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue('viewer' as never)
+      })
+      expect(scopes.fetchUserRole).not.toHaveBeenCalled()
+    })
+
+    it('shows the review feedback panel for a draft being edited, not for a new curation', async () => {
+      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+      const edit = await mountView(({ curations }) => {
+        vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({
+          id: 'c1',
+          status: 'draft'
+        } as never)
+      })
+      expect(edit.wrapper.find('review-feedback-panel-stub').exists()).toBe(true)
+      routeState.params = { scopeId: 'sc1' }
+      const fresh = await mountView()
+      expect(fresh.wrapper.find('review-feedback-panel-stub').exists()).toBe(false)
     })
   })
 })

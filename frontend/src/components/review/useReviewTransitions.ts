@@ -3,11 +3,7 @@ import { workflowAPI } from '@/api'
 import { useLogger } from '@/composables/useLogger'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useWorkCountsStore } from '@/stores/workCounts'
-
-interface ErrorLike {
-  message?: string
-  response?: { data?: { detail?: string } }
-}
+import { readableApiError } from '@/utils/apiErrorText'
 
 /** Approve (-> active) and request changes (-> back to curation) for a curation in review. */
 export function useReviewTransitions(curationId: () => string, reload: () => Promise<void>) {
@@ -43,9 +39,8 @@ export function useReviewTransitions(curationId: () => string, reload: () => Pro
       workCounts.fetch()
       await reload()
     } catch (err) {
-      const detail = (err as ErrorLike).response?.data?.detail || (err as ErrorLike).message
-      error.value = detail ?? 'Request failed'
-      logger.error('Failed review transition', { target_stage, error: detail })
+      error.value = readableApiError(err, 'Request failed')
+      logger.error('Failed review transition', { target_stage, error: error.value })
     } finally {
       busy.value = false
     }

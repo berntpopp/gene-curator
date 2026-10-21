@@ -49,6 +49,7 @@
 
               <!-- Derived from the display name until the user edits it -->
               <v-text-field
+                ref="nameField"
                 v-model="scopeData.name"
                 label="URL name"
                 :rules="nameRules"
@@ -212,7 +213,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, watch, onMounted } from 'vue'
+  import { ref, computed, watch, onMounted, nextTick } from 'vue'
   import { useRouter } from 'vue-router'
   import { useScopesStore, type ScopeRole } from '@/stores/scopes'
   import { useScopeUtils } from '@/composables/useScopeUtils'
@@ -271,6 +272,7 @@
   const checkingName = ref(false)
   const nameExists = ref(false)
   const slugEdited = ref(false)
+  const nameField = ref<{ errorMessages: string[]; validate: () => Promise<unknown> } | null>(null)
 
   const scopeData = ref<ScopeFormData>({
     name: '',
@@ -317,7 +319,12 @@
   watch(
     () => scopeData.value.display_name,
     text => {
-      if (!slugEdited.value) scopeData.value.name = slugify(text)
+      if (slugEdited.value) return
+      scopeData.value.name = slugify(text)
+      // A filled-in name must not keep showing "required": re-check it, but only if it showed an error
+      void nextTick(() => {
+        if (nameField.value?.errorMessages.length) void nameField.value.validate()
+      })
     }
   )
 

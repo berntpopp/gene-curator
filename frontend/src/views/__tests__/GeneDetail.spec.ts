@@ -122,7 +122,16 @@ describe('GeneDetail view', () => {
     expect(wrapper.find('h1').text()).toBe('BRCA1')
   })
 
+  it('does not call HGNC when signed out (the endpoint needs login)', async () => {
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
+    const wrapper = mountView()
+    await flushPromises()
+    expect(externalValidationAPI.fetchHGNCGene).not.toHaveBeenCalled()
+    expect(wrapper.find('h1').text()).toBe('BRCA1')
+  })
+
   it('renders HGNC data when the lookup succeeds', async () => {
+    useAuthStore().isAuthenticated = true
     vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
     vi.mocked(externalValidationAPI.fetchHGNCGene).mockResolvedValue({
       results: [
@@ -138,6 +147,7 @@ describe('GeneDetail view', () => {
   })
 
   it('keeps showing local data when the HGNC lookup fails', async () => {
+    useAuthStore().isAuthenticated = true
     vi.mocked(genesAPI.getGeneById).mockResolvedValue(localGene as never)
     vi.mocked(externalValidationAPI.fetchHGNCGene).mockRejectedValue(new Error('down'))
     const wrapper = mountView()

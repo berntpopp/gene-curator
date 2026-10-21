@@ -169,11 +169,7 @@ def test_local_hits_never_call_hgnc(
     [
         {},
         {"symbols": []},
-        {"symbols": [""]},
-        {"symbols": ["   "]},
-        {"symbols": ["A B"]},
-        {"symbols": ["x" * 51]},
-        {"symbols": ["A'; DROP TABLE genes;--"]},
+        {"symbols": ["x" * 257]},
         {"symbols": ["A"] * 1001},
         {"symbols": "BRCA1"},
         {"symbols": [1]},
@@ -240,3 +236,39 @@ def test_hgnc_hit_fills_gene_id_of_local_row(
     item = _post(client, curator_token, ["AMER1"]).json()["items"][0]
     assert item["source"] == "hgnc"
     assert item["candidates"][0]["gene_id"] == str(local.id)
+
+
+@pytest.mark.parametrize(
+    "token",
+    [
+        "ÄÖÜ",
+        "%_",
+        "😀",
+        "",
+        "   ",
+        "A B",
+        "x" * 51,
+        "A'; DROP TABLE genes;--",
+        "a\x00b",
+    ],
+)
+def test_one_invalid_token_does_not_reject_the_list(
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    curator_token: str,
+    token: str,
+) -> None:
+    _gene(db_session, test_user_admin, "HGNC:9008", "PKD1")
+    items = _post(client, curator_token, ["PKD1", token, "NOTAGENE"]).json()["items"]
+    assert [i["status"] for i in items] == ["resolved", "not_found", "not_found"]
+    assert items[1]["reason"] == "invalid_identifier"
+    assert items[1]["input"] == token.strip()
+    assert items[2]["reason"] is None
+
+
+def test_invalid_tokens_are_never_looked_up_at_hgnc(
+    client: TestClient, curator_token: str, hgnc_offline: AsyncMock
+) -> None:
+    _post(client, curator_token, ["ÄÖÜ", "%_"])
+    hgnc_offline.assert_not_called()

@@ -64,7 +64,6 @@
    * Desktop side rail (md and up). Entries come from useNavEntries (route meta).
    * Below md (or signed out) App.vue renders AppBar and BottomTabs instead.
    */
-  import { watch } from 'vue'
   import { useRouter } from 'vue-router'
   import { storeToRefs } from 'pinia'
   import { useScopesStore } from '@/stores/scopes'
@@ -82,17 +81,6 @@
   function switchScope(id: string | null) {
     if (id) void router.push({ name: 'scope-dashboard', params: { scopeId: id } })
   }
-
-  // Load the scopes once the user is authenticated (also covers sign-in while mounted)
-  watch(
-    isAuthenticated,
-    v => {
-      if (v && scopes.value.length === 0) {
-        void scopesStore.fetchUserScopes().catch(() => undefined) // switcher stays empty; page-level errors surface elsewhere
-      }
-    },
-    { immediate: true }
-  )
 </script>
 
 <style scoped>

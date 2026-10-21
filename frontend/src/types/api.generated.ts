@@ -2020,7 +2020,8 @@ export interface paths {
         };
         /**
          * Get Gene
-         * @description Get gene by ID with assignment information.
+         * @description Get gene by ID. Genes are public reference data; assignment information
+         *     (scopes, curators) is only included for signed-in users.
          */
         get: operations["get_gene_api_v1_genes__gene_id__get"];
         /**
@@ -5329,7 +5330,7 @@ export interface components {
              * Reason
              * @description Why an input was not looked up at HGNC (not_found only)
              */
-            reason?: ("lookup_cap" | "lookup_timeout") | null;
+            reason?: ("lookup_cap" | "lookup_timeout" | "invalid_identifier") | null;
             /**
              * Duplicate Of
              * @description Index of the first input that resolved to the same gene
@@ -6011,6 +6012,8 @@ export interface components {
         /**
          * GeneWithAssignments
          * @description Gene with assignment information.
+         *
+         *     Audit and integrity fields are nullable: anonymous readers get None.
          */
         GeneWithAssignments: {
             /**
@@ -6056,7 +6059,7 @@ export interface components {
              */
             id: string;
             /** Record Hash */
-            record_hash: string;
+            record_hash: string | null;
             /** Previous Hash */
             previous_hash: string | null;
             /**
@@ -6069,16 +6072,10 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
-            /**
-             * Created By
-             * Format: uuid
-             */
-            created_by: string;
-            /**
-             * Updated By
-             * Format: uuid
-             */
-            updated_by: string;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
             /**
              * Total Scope Assignments
              * @description Total scope assignments

@@ -6,7 +6,7 @@ import { setActivePinia, createPinia } from 'pinia'
 const router = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn() }))
 
 vi.mock('@/api', () => ({
-  curationsAPI: { getCuration: vi.fn() },
+  curationsAPI: { getCuration: vi.fn(), submitCuration: vi.fn() },
   workflowAPI: { transitionCuration: vi.fn() },
   schemasAPI: { getWorkflowPairById: vi.fn(), getSchemaById: vi.fn() }
 }))
@@ -27,6 +27,7 @@ vi.mock('vue-router', () => ({
 }))
 
 import { curationsAPI } from '@/api'
+import { useNotificationsStore } from '@/stores/notifications'
 import { workflowAPI, schemasAPI } from '@/api'
 import { useAuthStore } from '@/stores/auth'
 import CurationDetailView from '@/views/curation/CurationDetailView.vue'
@@ -266,5 +267,15 @@ describe('CurationDetailView', () => {
     vm.showDeleteDialog = true
     await flushPromises()
     expect(wrapper.text()).toContain('This action cannot be undone.')
+  })
+
+  it('toasts a refused submit as a readable sentence, not raw validation JSON', async () => {
+    const wrapper = await load({ can_review: false })
+    vi.mocked(curationsAPI.submitCuration).mockRejectedValue({
+      response: { data: { detail: [{ loc: ['body', 'notes'], msg: 'Field required' }] } }
+    })
+    const toast = vi.spyOn(useNotificationsStore(), 'addToast')
+    await (wrapper.vm as unknown as { submitForReview: () => Promise<void> }).submitForReview()
+    expect(toast).toHaveBeenCalledWith('Failed to submit: Notes: Field required.', 'error')
   })
 })
