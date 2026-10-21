@@ -131,12 +131,7 @@
           <v-card>
             <v-card-text>
               <div class="text-body-large mb-2">Curation Progress</div>
-              <v-progress-linear
-                :model-value="curationProgress"
-                color="success"
-                height="20"
-                striped
-              >
+              <v-progress-linear :model-value="curationProgress" color="success" height="20">
                 <strong>{{ curationProgress }}%</strong>
               </v-progress-linear>
               <div class="text-body-small text-medium-emphasis mt-2">
