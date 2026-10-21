@@ -28,6 +28,10 @@ describe('useValidationRules', () => {
   }
 
   describe('required rule', () => {
+    it('never flags a required checkbox: false is an answer', () => {
+      expect(getRules({ required: true, type: 'boolean' })).toEqual([])
+    })
+
     it('returns error for null value when required', () => {
       const rules = getRules({ required: true })
       expect(rules.length).toBe(1)

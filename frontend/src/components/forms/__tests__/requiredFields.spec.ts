@@ -72,4 +72,21 @@ describe('missingRequiredLabels with conditional fields', () => {
     // strict equality, as the backend: a truthy non-boolean is not `true`
     expect(missingRequiredLabels(lumping, { applicable: 'true' })).toEqual([])
   })
+
+  it('resolves paths listed only in required_fields against their field config', () => {
+    const plain = {
+      sections: [
+        {
+          id: 'l',
+          fields: [
+            { id: 'applicable', label: 'Applicable', type: 'boolean' },
+            { id: 'decision', label: 'Decision', show_when: { applicable: true } }
+          ]
+        }
+      ]
+    }
+    const rules = { required_fields: ['applicable', 'decision'] }
+    expect(missingRequiredLabels(plain, {}, rules)).toEqual([])
+    expect(missingRequiredLabels(plain, { applicable: true }, rules)).toEqual(['Decision'])
+  })
 })

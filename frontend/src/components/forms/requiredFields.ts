@@ -29,26 +29,23 @@ interface Cfg {
   show_when?: Condition
 }
 
-type Spec = [path: string, label: string, cfg?: Cfg]
-
-/** [dotted path, display label, config] of every required field. */
-function requiredSpecs(defs: unknown, prefix = ''): Spec[] {
+/** [dotted path, config] of every field (backend `_fields`). */
+function allFields(defs: unknown, prefix = ''): [string, Cfg][] {
   if (!defs || typeof defs !== 'object') return []
-  const found: Spec[] = []
+  const found: [string, Cfg][] = []
   const record = defs as Record<string, unknown>
   const sections = Array.isArray(record.sections) ? (record.sections as Cfg[]) : []
   for (const section of sections) {
     for (const f of Array.isArray(section?.fields) ? (section.fields as Cfg[]) : []) {
-      if (f?.required === true && f.id) found.push([prefix + f.id, f.label || humanize(f.id), f])
+      if (f?.id) found.push([prefix + f.id, f])
     }
   }
   for (const [name, raw] of Object.entries(record)) {
     if (name === 'sections' || !raw || typeof raw !== 'object') continue
     const cfg = raw as Cfg
-    if (cfg.required === true) {
-      found.push([prefix + name, cfg.label || cfg.title || humanize(name), cfg])
-    } else if (cfg.type === 'object') {
-      found.push(...requiredSpecs(cfg.properties, `${prefix}${name}.`))
+    found.push([prefix + name, cfg])
+    if (cfg.required !== true && cfg.type === 'object') {
+      found.push(...allFields(cfg.properties, `${prefix}${name}.`))
     }
   }
   return found
@@ -64,18 +61,22 @@ const valueAt = (data: unknown, path: string) =>
 
 /** Labels of required fields that are empty in `data`. */
 export function missingRequiredLabels(defs: unknown, data: unknown, rules?: unknown): string[] {
-  const specs = requiredSpecs(defs)
+  const fields = allFields(defs)
+  const configs = new Map(fields)
   const listed = (rules as { required_fields?: unknown } | null | undefined)?.required_fields
-  for (const path of Array.isArray(listed) ? (listed as string[]) : []) {
-    if (!specs.some(([p]) => p === path)) {
-      specs.push([path, humanize(path.split('.').pop() ?? path)])
-    }
-  }
-  return specs
-    .filter(([path, , cfg]) => {
+  const paths = new Set([
+    ...fields.filter(([, cfg]) => cfg.required === true).map(([path]) => path),
+    ...(Array.isArray(listed) ? (listed as string[]) : [])
+  ])
+  return [...paths]
+    .filter(path => {
+      const cfg = configs.get(path)
       const when = cfg?.visible_when ?? cfg?.show_when
       if (when && !conditionHolds(when, data)) return false
       return cfg?.type !== 'boolean' && isEmpty(valueAt(data, path))
     })
-    .map(([, label]) => label)
+    .map(path => {
+      const cfg = configs.get(path)
+      return cfg?.label || cfg?.title || humanize(path.split('.').pop() ?? path)
+    })
 }
