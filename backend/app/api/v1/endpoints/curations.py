@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import EDIT, require
 from app.core.constants import (
     CURATIONS_DEFAULT_LIMIT,
     CURATIONS_MAX_LIMIT,
@@ -320,13 +321,7 @@ def create_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation_in.scope_id, "create")
-    if current_user.role != "admin" and _get_user_scope_role(
-        db, current_user.id, curation_in.scope_id
-    ) not in ["admin", "curator"]:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only curators and scope admins can create curations",
-        )
+    require(db, current_user, curation_in.scope_id, EDIT)
 
     try:
         curation = curation_crud.create_curation(
@@ -377,6 +372,7 @@ def update_curation(
 
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
+    require(db, current_user, curation.scope_id, EDIT)
 
     # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
