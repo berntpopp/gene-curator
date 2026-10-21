@@ -30,6 +30,8 @@ def _downgrade_to_legacy(db: Session) -> None:
     )
     db.execute(text("DROP VIEW review_compliance_dashboard"))
     db.execute(text("DROP INDEX idx_curations_gene_public"))
+    # a later migration (038) whose policy reads workflow_stage; pre-036 had none
+    db.execute(text("DROP POLICY curation_review_insert_policy ON curations"))
     db.execute(text("ALTER TYPE workflow_stage RENAME TO workflow_stage_new"))
     db.execute(
         text(
