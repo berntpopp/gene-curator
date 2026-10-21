@@ -217,6 +217,33 @@ describe('ReviewQueueView', () => {
       expect(vm.showReject).toBe(true)
     })
 
+    it('shows a 422 as a readable sentence in the request-changes dialog', async () => {
+      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
+      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
+        precurations: [pre],
+        total: 1
+      } as never)
+      vi.mocked(precurationsAPI.rejectPrecuration).mockRejectedValue({
+        response: {
+          data: {
+            detail: [{ loc: ['body', 'reason'], msg: 'String should have at most 2000 characters' }]
+          }
+        }
+      })
+      const wrapper = mount(ReviewQueueView)
+      await flushPromises()
+      const vm = wrapper.vm as unknown as {
+        rejectReason: string
+        rejectError: string | null
+        openReject: (i: unknown) => void
+        confirmReject: () => Promise<void>
+      }
+      vm.openReject({ id: 'p1', gene_symbol: 'PKD1' })
+      vm.rejectReason = 'x'
+      await vm.confirmReject()
+      expect(vm.rejectError).toBe('Reason: String should have at most 2000 characters.')
+    })
+
     it('approves a precuration and removes it from the queue', async () => {
       const refreshBadge = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined)
       vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)

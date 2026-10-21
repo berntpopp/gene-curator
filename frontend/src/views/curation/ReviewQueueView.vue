@@ -249,6 +249,7 @@
   import { useNotificationsStore } from '@/stores/notifications'
   import { useScopesStore } from '@/stores/scopes'
   import { useReviewStore } from '@/stores/review'
+  import { readableApiError } from '@/utils/apiErrorText'
   import { useWorkCountsStore } from '@/stores/workCounts'
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
@@ -512,10 +513,7 @@
     workCounts.fetch()
   }
 
-  function errorText(error: unknown): string {
-    const e = error as { response?: { data?: { detail?: string } }; message?: string }
-    return e.response?.data?.detail || e.message || 'unknown error'
-  }
+  const errorText = (error: unknown): string => readableApiError(error, 'unknown error')
 
   function formatRelativeTime(dateString: string | null | undefined): string {
     if (!dateString) return 'unknown'

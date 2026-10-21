@@ -115,6 +115,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { pluralize } from '@/utils/pluralize'
   import type { Schema } from '@/types/api'
+  import { readableApiError } from '@/utils/apiErrorText'
   import { MAX_SYMBOLS, parseSymbols, reasonText, toRows, type IntakeRow } from './intake'
 
   const props = defineProps<{ modelValue: boolean; scopeId: string }>()
@@ -166,7 +167,13 @@
       summaryEl.value?.focus()
     } catch (e) {
       logger.error('Gene resolve failed', { error: (e as Error).message })
-      notifications.addToast('Could not resolve the list. Try again.', 'error')
+      const why = readableApiError(e, '')
+      notifications.addToast(
+        why && (e as { response?: unknown }).response
+          ? `Could not resolve the list. ${why}`
+          : 'Could not resolve the list. Try again.',
+        'error'
+      )
     } finally {
       busy.value = false
     }

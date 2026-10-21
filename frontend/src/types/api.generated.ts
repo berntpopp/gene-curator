@@ -5330,7 +5330,7 @@ export interface components {
              * Reason
              * @description Why an input was not looked up at HGNC (not_found only)
              */
-            reason?: ("lookup_cap" | "lookup_timeout") | null;
+            reason?: ("lookup_cap" | "lookup_timeout" | "invalid_identifier") | null;
             /**
              * Duplicate Of
              * @description Index of the first input that resolved to the same gene

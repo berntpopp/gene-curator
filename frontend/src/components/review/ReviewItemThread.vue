@@ -18,7 +18,9 @@
         auto-grow
         variant="outlined"
         density="compact"
-        hide-details
+        hide-details="auto"
+        :maxlength="REVIEW_TEXT_MAX"
+        :counter="REVIEW_TEXT_MAX"
       />
       <div class="thread__actions">
         <v-btn
@@ -50,6 +52,7 @@
   /** Queries and replies on one evidence item. Replies are further queries; resolving closes all open ones. */
   import { computed, ref } from 'vue'
   import { formatDateTime } from '@/utils/format'
+  import { REVIEW_TEXT_MAX } from './reviewModel'
   import type { Schema } from '@/types/api'
 
   const props = defineProps<{

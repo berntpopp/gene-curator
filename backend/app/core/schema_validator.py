@@ -68,8 +68,7 @@ class SchemaValidator:
         """
         result = SchemaValidationResult()
 
-        # Extract schema components
-        field_definitions = resolve_named_rules(schema_definition)
+        field_definitions = flatten_sections(resolve_named_rules(schema_definition))
         validation_rules = schema_definition.get("validation_rules", {})
         scoring_config = schema_definition.get("scoring_configuration", {})
         business_rules = schema_definition.get("business_rules", [])
@@ -87,7 +86,6 @@ class SchemaValidator:
         if scoring_config:
             self._calculate_scores(evidence_data, scoring_config, result)
 
-        # 5. Calculate completeness
         self._calculate_completeness(evidence_data, field_definitions, result)
 
         # 6. Generate improvement suggestions
@@ -886,7 +884,9 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Generate improvement suggestions."""
-        field_definitions = schema_definition.get("field_definitions", {})
+        field_definitions = flatten_sections(
+            schema_definition.get("field_definitions", {})
+        )
 
         # Suggest completing missing optional fields
         for field_name, field_config in field_definitions.items():
