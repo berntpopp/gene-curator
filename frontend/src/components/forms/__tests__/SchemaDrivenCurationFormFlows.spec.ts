@@ -11,7 +11,10 @@ const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
   lastSaved: null as null | { value: string | null }
 }))
-const schemaState = vi.hoisted(() => ({ useDynamicForm: true as boolean | undefined }))
+const schemaState = vi.hoisted(() => ({
+  useDynamicForm: true as boolean | undefined,
+  loaded: true
+}))
 const curationsStore = vi.hoisted(() => ({
   currentCuration: null as unknown,
   fetchCurationById: vi.fn(),
@@ -38,11 +41,10 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('vue-router', () => ({ useRouter: () => ({ push, replace }) }))
 vi.mock('@/stores/schemas', () => ({
   useSchemasStore: () => ({
-    getSchemaById: (id: string) => ({
-      id,
-      name: 'Panel schema',
-      use_dynamic_form: schemaState.useDynamicForm
-    }),
+    getSchemaById: (id: string) =>
+      schemaState.loaded
+        ? { id, name: 'Panel schema', use_dynamic_form: schemaState.useDynamicForm }
+        : undefined,
     getWorkflowPairById: schemasStore.getWorkflowPairById,
     fetchSchemaById: schemasStore.fetchSchemaById
   })
@@ -64,6 +66,7 @@ vi.mock('@/composables/useFormRecovery', async () => {
     useFormRecovery: () => ({
       showRecoveryDialog: ref(false),
       recoveryData: ref(null),
+      recoveryTimestamp: ref('2026-01-01T00:00:00Z'),
       lastSaved: recovery.lastSaved,
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
@@ -203,9 +206,47 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(logger.warn).toHaveBeenCalledWith('Failed to load precuration data', { error: 'down' })
   })
 
+  it('passes the recovery timestamp to the recovery dialog', async () => {
+    const wrapper = await mountForm()
+    expect(wrapper.findComponent({ name: 'FormRecoveryDialog' }).props('timestamp')).toBe(
+      '2026-01-01T00:00:00Z'
+    )
+  })
+
+  it('hands the ClinGen form a new data reference after Restore', async () => {
+    schemaState.useDynamicForm = false
+    const wrapper = await mountForm()
+    const before = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    wrapper.findComponent({ name: 'FormRecoveryDialog' }).vm.$emit('restore')
+    await flushPromises()
+    const after = wrapper.findComponent({ name: 'ClinGenCurationForm' }).props('initialData')
+    expect(after).not.toBe(before)
+  })
+
+  it('offers no actions and ignores shortcuts for a read-only generic form', async () => {
+    const wrapper = await mountForm({ readonly: true })
+    expect(wrapper.findComponent({ name: 'FormActions' }).exists()).toBe(false)
+    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
+    expect(curationsStore.saveDraft).not.toHaveBeenCalled()
+    expect(curationsStore.createCuration).not.toHaveBeenCalled()
+  })
+
+  it('paints neither form until the schema has loaded', async () => {
+    schemaState.loaded = false
+    try {
+      const wrapper = await mountForm()
+      expect(wrapper.findComponent({ name: 'ClinGenCurationForm' }).exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'DynamicForm' }).exists()).toBe(false)
+      expect(wrapper.find('.v-skeleton-loader').exists()).toBe(true)
+    } finally {
+      schemaState.loaded = true
+    }
+  })
+
   it('renders the ClinGen form for schemas that opt out of the dynamic form', async () => {
     schemaState.useDynamicForm = false
     curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, status: 'draft' })
+    curationsStore.updateCuration.mockResolvedValue({ lock_version: 1 })
 
     const wrapper = await mountForm({ curationId: 'cur-1' })
     const clingen = wrapper.findComponent({ name: 'ClinGenCurationForm' })

@@ -24,6 +24,7 @@ class SchemaValidator:
     def __init__(self) -> None:
         self.field_validators = {
             "text": self._validate_text_field,
+            "string": self._validate_text_field,
             "number": self._validate_number_field,
             "boolean": self._validate_boolean_field,
             "array": self._validate_array_field,
@@ -148,22 +149,19 @@ class SchemaValidator:
         Returns:
             JSON Schema for validation
         """
-        field_definitions = schema_definition.get("field_definitions", {})
-
+        fields = schema_definition.get("field_definitions", {})
         json_schema: dict[str, Any] = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
-            "properties": {},
-            "required": [],
+            "properties": {
+                n: self._convert_field_to_json_schema(c) for n, c in fields.items()
+            },
+            "required": [n for n, c in fields.items() if c.get("required", False)],
         }
-
-        for field_name, field_config in field_definitions.items():
-            json_schema["properties"][field_name] = self._convert_field_to_json_schema(
-                field_config
-            )
-
-            if field_config.get("required", False):
-                json_schema["required"].append(field_name)
+        # The form renderer needs layout/tabs and scoring next to the properties
+        for key in ("ui_configuration", "scoring_configuration"):
+            if schema_definition.get(key):
+                json_schema[key] = schema_definition[key]
 
         return json_schema
 

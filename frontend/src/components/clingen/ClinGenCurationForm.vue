@@ -65,6 +65,14 @@
             <v-window v-model="activeTab">
               <!-- Summary Tab -->
               <v-window-item value="summary">
+                <v-checkbox
+                  :model-value="!!evidenceData.replicated_over_time"
+                  :disabled="readonly"
+                  density="compact"
+                  hide-details
+                  label="Replicated over time (≥2 independent publications, >3 years)"
+                  @update:model-value="updateReplicated"
+                />
                 <SummarySection
                   :evidence-summary="evidenceData.evidence_summary"
                   :genetic-score="scores.genetic"
@@ -118,6 +126,10 @@
               Cancel
             </v-btn>
             <v-spacer />
+            <v-chip v-if="lastSaved" color="success" size="small" variant="outlined" class="mr-2">
+              <v-icon start size="small">mdi-content-save</v-icon>
+              Saved {{ savedTime }}
+            </v-chip>
             <v-btn
               color="secondary"
               variant="outlined"
@@ -132,12 +144,18 @@
               color="primary"
               :loading="submitting"
               :disabled="!canSubmit || readonly"
-              @click="handleSubmit"
+              @click="requestSubmit"
             >
               <v-icon start>mdi-check</v-icon>
               Submit for Review
             </v-btn>
           </v-card-actions>
+          <div
+            v-if="!canSubmit && !readonly"
+            class="text-caption text-medium-emphasis px-4 pb-3 text-end"
+          >
+            Add at least one scored evidence item to submit
+          </div>
         </v-card>
       </v-col>
 
@@ -154,48 +172,33 @@
             :experimental-breakdown="scores.experimentalBreakdown"
           />
 
-          <!-- Quick Actions -->
-          <v-card class="mt-4" variant="outlined">
-            <v-card-title class="text-subtitle-1">
-              <v-icon start size="small">mdi-lightning-bolt</v-icon>
-              Quick Actions
-            </v-card-title>
-            <v-card-text class="py-2">
-              <v-btn
-                block
-                variant="tonal"
-                color="primary"
-                size="small"
-                class="mb-2"
-                @click="addCaseLevelEvidence"
-              >
-                <v-icon start>mdi-plus</v-icon>
-                Add Case-Level Evidence
-              </v-btn>
-              <v-btn
-                block
-                variant="tonal"
-                color="secondary"
-                size="small"
-                @click="addExperimentalEvidence"
-              >
-                <v-icon start>mdi-plus</v-icon>
-                Add Experimental Evidence
-              </v-btn>
-            </v-card-text>
-          </v-card>
-
           <!-- Keyboard Shortcuts -->
           <v-card class="mt-4" variant="text">
             <v-card-text class="text-caption text-medium-emphasis">
               <div><kbd>Ctrl</kbd>+<kbd>S</kbd> Save Draft</div>
               <div><kbd>Ctrl</kbd>+<kbd>Enter</kbd> Submit</div>
-              <div><kbd>Ctrl</kbd>+<kbd>Z</kbd> Undo</div>
             </v-card-text>
           </v-card>
         </div>
       </v-col>
     </v-row>
+
+    <v-dialog v-model="showSubmitDialog" max-width="500">
+      <v-card>
+        <v-card-title>Submit for Review</v-card-title>
+        <v-card-text>
+          Submit this curation for <strong>{{ gene?.symbol }}</strong> for review? It is locked for
+          editing until the review is complete.
+        </v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" @click="showSubmitDialog = false">Cancel</v-btn>
+          <v-btn color="primary" variant="elevated" :loading="submitting" @click="confirmSubmit">
+            Submit
+          </v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
   </v-container>
 </template>
 
@@ -241,13 +244,19 @@
       initialData?: Partial<ClinGenEvidenceData>
       readonly?: boolean
       status?: string
+      saving?: boolean
+      submitting?: boolean
+      lastSaved?: string | number | null
     }>(),
     {
       curationId: null,
       precurationData: () => ({}),
       initialData: () => ({}),
       readonly: false,
-      status: 'draft'
+      status: 'draft',
+      saving: false,
+      submitting: false,
+      lastSaved: null
     }
   )
 
@@ -262,8 +271,8 @@
 
   // Form state
   const activeTab = ref('summary')
-  const saving = ref(false)
-  const submitting = ref(false)
+  const showSubmitDialog = ref(false)
+  const savedTime = computed(() => new Date(props.lastSaved ?? 0).toLocaleTimeString())
 
   // Evidence data structure per ClinGen SOP v11
   const evidenceData = ref<ClinGenEvidenceData>({
@@ -311,7 +320,11 @@
 
   // Classification based on score
   const currentClassification = computed(() =>
-    classifyScore(scores.value.total, hasContradictoryEvidence.value)
+    classifyScore(
+      scores.value.total,
+      hasContradictoryEvidence.value,
+      !!evidenceData.value.replicated_over_time
+    )
   )
 
   const canSubmit = computed(() => {
@@ -347,6 +360,11 @@
     emitUpdate()
   }
 
+  function updateReplicated(value: boolean | null) {
+    evidenceData.value.replicated_over_time = !!value
+    emitUpdate()
+  }
+
   function updateEvidenceSummary(summary: string) {
     evidenceData.value.evidence_summary = summary
     emitUpdate()
@@ -356,40 +374,33 @@
     emit('update:model-value', { ...evidenceData.value })
   }
 
-  async function handleSaveDraft() {
-    saving.value = true
-    try {
-      emit('save-draft', evidenceData.value)
-    } finally {
-      saving.value = false
-    }
+  // Cells commit on change: blur first so a focused cell's last edit is included
+  function commitFocusedCell() {
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
   }
 
-  async function handleSubmit() {
-    submitting.value = true
-    try {
-      emit('submit', evidenceData.value)
-    } finally {
-      submitting.value = false
-    }
+  function handleSaveDraft() {
+    commitFocusedCell()
+    emit('save-draft', evidenceData.value)
+  }
+
+  function requestSubmit() {
+    commitFocusedCell()
+    showSubmitDialog.value = true
+  }
+
+  function confirmSubmit() {
+    showSubmitDialog.value = false
+    emit('submit', evidenceData.value)
   }
 
   function handleCancel() {
     emit('cancel')
   }
 
-  function addCaseLevelEvidence() {
-    activeTab.value = 'genetic'
-    // Will be handled by GeneticEvidenceSection
-  }
-
-  function addExperimentalEvidence() {
-    activeTab.value = 'experimental'
-    // Will be handled by ExperimentalEvidenceSection
-  }
-
   // Keyboard shortcuts
   function handleKeydown(event: KeyboardEvent) {
+    if (props.readonly) return
     const ctrl = event.ctrlKey || event.metaKey
 
     if (ctrl && event.key === 's') {
@@ -397,7 +408,7 @@
       handleSaveDraft()
     } else if (ctrl && event.key === 'Enter') {
       event.preventDefault()
-      if (canSubmit.value) handleSubmit()
+      if (canSubmit.value) requestSubmit()
     }
   }
 
@@ -412,7 +423,7 @@
         }
       }
     },
-    { immediate: true, deep: true }
+    { immediate: true }
   )
 
   onMounted(() => {

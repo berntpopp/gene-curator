@@ -204,6 +204,22 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
     # WRITE OPERATIONS (with FK validation)
     # ========================================
 
+    def get_open_draft(
+        self, db: Session, *, gene_id: UUID, scope_id: UUID, user_id: UUID
+    ) -> PrecurationNew | None:
+        """The creator's non-archived draft for this gene and scope, if any."""
+        return db.scalars(
+            select(PrecurationNew)
+            .where(
+                PrecurationNew.gene_id == gene_id,
+                PrecurationNew.scope_id == scope_id,
+                PrecurationNew.created_by == user_id,
+                PrecurationNew.status == CurationStatus.DRAFT,
+            )
+            .order_by(PrecurationNew.created_at)
+            .limit(1)
+        ).first()
+
     def create_precuration(
         self,
         db: Session,

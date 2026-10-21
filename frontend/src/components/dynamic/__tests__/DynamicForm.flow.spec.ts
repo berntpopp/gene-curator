@@ -124,6 +124,19 @@ describe('DynamicForm flow', () => {
     expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('Ada')
   })
 
+  it('hides Save Draft and Submit when readonly', () => {
+    const wrapper = mountForm({ readonly: true })
+
+    expect(wrapper.findAll('button')).toHaveLength(0)
+  })
+
+  it('says so when the schema defines no fields', () => {
+    store.schema = { properties: {} }
+    const wrapper = mountForm()
+
+    expect(wrapper.text()).toContain('This schema defines no fields')
+  })
+
   it('shows a loading message while the schema loads', () => {
     store.loading = true
     const wrapper = mountForm()

@@ -129,6 +129,22 @@ describe('CurationFormView', () => {
     expect(vm.resolvedWorkflowPairId).toBe('wp-c')
   })
 
+  it('falls back to the curation gene on the edit route and opens active curations read-only', async () => {
+    routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+    const { wrapper, genes } = await mountView(({ curations, genes }) => {
+      vi.spyOn(curations, 'fetchCurationById').mockResolvedValue({
+        curation_schema_id: 'sch-c',
+        gene_id: 'g-9',
+        workflow_stage: 'active'
+      } as never)
+      vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'HNF1B' } as never)
+    })
+    expect(genes.fetchGeneById).toHaveBeenCalledWith('g-9')
+    const form = wrapper.findComponent({ name: 'SchemaDrivenCurationForm' })
+    expect(form.props('gene')).toEqual({ symbol: 'HNF1B' })
+    expect(form.props('readonly')).toBe(true)
+  })
+
   it('finds the workflow pair through the resolved schema when the scope has no default', async () => {
     routeState.query = { schema_id: 'sch-x' }
     const { vm } = await mountView(({ schemas, scopes }) => {

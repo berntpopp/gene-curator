@@ -143,13 +143,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       const id = curationId()
       if (id) {
         // Update existing curation evidence and submit
-        await curationsStore.updateCuration(id, {
+        const updated = (await curationsStore.updateCuration(id, {
           evidence_data: { ...clingenEvidenceData },
           lock_version: lockVersion.value
-        })
-        await curationsStore.submitCuration(id, {
-          lock_version: lockVersion.value + 1
-        })
+        })) as CurationRecord
+        await curationsStore.submitCuration(id, { lock_version: updated.lock_version as number })
       } else {
         // Create and submit new curation
         const created = (await curationsStore.createCuration(

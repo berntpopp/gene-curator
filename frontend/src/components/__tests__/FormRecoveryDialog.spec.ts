@@ -43,10 +43,10 @@ describe('FormRecoveryDialog', () => {
     vi.useRealTimers()
   })
 
-  it('falls back to "recently" without a timestamp', () => {
+  it('omits the time without a timestamp', () => {
     mountDialog(null)
 
-    expect(document.body.textContent).toContain('from recently')
+    expect(document.body.textContent).toContain('Restore unsaved changes? This replaces')
   })
 
   it.each([
@@ -74,7 +74,7 @@ describe('FormRecoveryDialog', () => {
     const w = mountDialog(null)
 
     clickButton('Discard')
-    clickButton('Restore My Work')
+    clickButton('Restore')
 
     expect(w.emitted('discard')).toHaveLength(1)
     expect(w.emitted('restore')).toHaveLength(1)

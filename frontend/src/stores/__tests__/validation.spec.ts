@@ -55,12 +55,12 @@ describe('useValidationStore', () => {
     it('looks up stored results, schemas and field types', () => {
       const store = useValidationStore()
       store.validationResults = { k: response(true) }
-      store.jsonSchemas = { s: jsonSchema() }
+      store.jsonSchemas = { s: { properties: {} } }
       store.supportedFieldTypes = [{ name: 'text' }, { name: 'number' }]
 
       expect(store.getValidationResult('k')).toEqual(response(true))
       expect(store.getValidationResult('none')).toBeUndefined()
-      expect(store.getJsonSchema('s')).toEqual(jsonSchema())
+      expect(store.getJsonSchema('s')).toEqual({ properties: {} })
       expect(store.getSupportedFieldType('number')).toEqual({ name: 'number' })
       expect(store.getSupportedFieldType('none')).toBeUndefined()
     })
@@ -120,12 +120,15 @@ describe('useValidationStore', () => {
 
     it('generateJsonSchema caches the schema by id', async () => {
       const store = useValidationStore()
-      api.generateJsonSchema.mockResolvedValue(jsonSchema())
+      api.generateJsonSchema.mockResolvedValue({
+        ...jsonSchema(),
+        json_schema: { type: 'object', properties: { a: { type: 'string' } } }
+      })
 
       await store.generateJsonSchema('s1')
 
       expect(api.generateJsonSchema).toHaveBeenCalledWith('s1')
-      expect(store.jsonSchemas.s1).toEqual(jsonSchema())
+      expect(store.getJsonSchema('s1')?.properties).toEqual({ a: { type: 'string' } })
     })
 
     it('generateJsonSchema records errors and rethrows', async () => {
