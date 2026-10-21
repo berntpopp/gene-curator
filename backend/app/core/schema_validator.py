@@ -228,15 +228,17 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Validate number field."""
+        if value in (None, ""):  # a cleared cell is absent, not a bad number
+            return
         try:
             num_value = float(value)
         except (ValueError, TypeError):
             result.add_error(field_name, "Value must be a number", "type")
             return
 
-        # Range validation
-        min_value = config.get("min_value")
-        max_value = config.get("max_value")
+        # Range validation (min/max is the seeds' and the forms' vocabulary)
+        min_value = config.get("min_value", config.get("min"))
+        max_value = config.get("max_value", config.get("max"))
 
         if min_value is not None and num_value < min_value:
             result.add_error(field_name, f"Value must be at least {min_value}", "range")
@@ -508,15 +510,10 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Validate score field with special scoring rules."""
-        # First do basic number validation
         self._validate_number_field(field_name, value, config, result)
-
-        # Additional score-specific validation
-        if (
-            field_name in result.field_validations
-            and result.field_validations[field_name]["errors"]
-        ):
-            return  # Skip if basic validation failed
+        errors = result.field_validations.get(field_name, {}).get("errors")
+        if value in (None, "") or errors:
+            return  # empty, or basic validation failed
 
         score_value = float(value)
 
@@ -778,6 +775,8 @@ class SchemaValidator:
             result.score_calculations = {
                 **scores.scores,
                 "total_score": scores.total_score,
+                "verdict": scores.verdict,
+                "trace": scores.evidence_breakdown.get("trace"),
             }
             for warning in scores.warnings:
                 result.add_warning("scoring", warning, "scoring")

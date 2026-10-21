@@ -40,7 +40,7 @@ class ValidationResponse(BaseModel):
     warnings: list[dict[str, Any]]
     field_validations: dict[str, dict[str, Any]]
     business_rule_violations: list[dict[str, Any]]
-    score_calculations: dict[str, float]
+    score_calculations: dict[str, Any]
     completeness_score: float
     required_fields_missing: list[str]
     suggested_improvements: list[str]
@@ -101,10 +101,14 @@ def validate_evidence_data(
     version_id = validation_request.methodology_version_id
     if not schema_definition and (version_id or validation_request.schema_id):
         version = _methodology_version(db, version_id, validation_request.schema_id)
+        snapshot = version.snapshot
         schema_definition = {
-            key: version.snapshot.get(key)
+            key: snapshot.get(key) or {}
             for key in ("field_definitions", "validation_rules")
         }
+        scoring = snapshot.get("scoring_configuration") or {}
+        if scoring.get("engine"):  # live score, the pinned point model as on save
+            schema_definition["scoring_configuration"] = scoring
 
     if not schema_definition:
         raise HTTPException(

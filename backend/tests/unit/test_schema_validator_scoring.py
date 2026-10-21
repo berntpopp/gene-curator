@@ -29,11 +29,24 @@ def test_seeded_clingen_schema_returns_scores(seeded_clingen_schema):
         seeded_clingen_schema,
     )
     assert result.is_valid is True
+    trace = result.score_calculations.pop("trace")
     assert result.score_calculations == {
         "genetic_evidence_total": 2.0,
         "experimental_evidence_total": 0.0,
         "total_score": 2.0,
+        "verdict": "limited",
     }
+    assert (trace["total"], trace["class"]) == (2.0, "limited")
+
+
+@pytest.mark.parametrize("field_type", ["number", "score"])
+def test_empty_number_is_absent_and_min_max_apply(field_type):
+    fields = {"points": {"type": field_type, "min": 0, "max": 3}}
+    for value, errors in (("", 0), (None, 0), (3, 0), (4, 1), ("abc", 1)):
+        result = SchemaValidator().validate_evidence_data(
+            {"points": value}, {"field_definitions": fields}
+        )
+        assert len(result.errors) == errors, value
 
 
 def test_unknown_engine_is_a_clear_configuration_error():
