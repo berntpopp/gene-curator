@@ -460,7 +460,12 @@
     if (!props.curationId) return
 
     try {
-      const curation = await curationsStore.fetchCurationById(props.curationId)
+      // The parent view already fetched it; avoid a second /curations/:id
+      const loaded = curationsStore.currentCuration
+      const curation =
+        loaded?.id === props.curationId
+          ? loaded
+          : await curationsStore.fetchCurationById(props.curationId)
       if (curation) {
         // Auto-migrate legacy format if needed
         if (isLegacyFormat(curation.evidence_data)) {

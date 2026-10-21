@@ -79,6 +79,10 @@ def list_precurations(
     precuration_status: CurationStatus | None = Query(
         None, description="Filter by status"
     ),
+    pending_review: bool = Query(
+        False,
+        description="Only scopes where the caller can review, excluding their own",
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PrecurationListResponse:
     """
@@ -90,7 +94,18 @@ def list_precurations(
 
     # Determine scope filtering
     scope_ids = None
-    if not scope_id:
+    if pending_review:
+        scope_ids = ScopePermissionService.get_user_scope_ids(
+            db, current_user, ["admin", "reviewer"]
+        )
+        if scope_id:
+            scope_ids = [s for s in scope_ids if s == scope_id]
+            scope_id = None
+        if not scope_ids:
+            return PrecurationListResponse(
+                precurations=[], total=0, skip=skip, limit=limit
+            )
+    elif not scope_id:
         scope_ids = ScopePermissionService.get_user_scope_ids(db, current_user)
         if not scope_ids:
             return PrecurationListResponse(
@@ -109,6 +124,7 @@ def list_precurations(
         scope_ids=scope_ids,
         gene_id=gene_id,
         status=precuration_status,
+        exclude_creator_id=current_user.id if pending_review else None,
     )
 
     return PrecurationListResponse(

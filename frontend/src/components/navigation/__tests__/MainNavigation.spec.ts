@@ -170,6 +170,29 @@ describe('MainNavigation', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(2)
   })
 
+  it('skips the poll while the tab is hidden', async () => {
+    vi.useFakeTimers()
+    const { fetchSpy } = await mountNav({ role: 'user' })
+    const state = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden')
+
+    await vi.advanceTimersByTimeAsync(120000)
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+
+    state.mockReturnValue('visible')
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(fetchSpy).toHaveBeenCalledTimes(2)
+    state.mockRestore()
+  })
+
+  it('stops listening for visibility changes after unmount', async () => {
+    const { wrapper, fetchSpy } = await mountNav({ role: 'user' })
+    wrapper.unmount()
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
+  })
+
   it('clears the badge on sign-out and restarts refreshing on sign-in', async () => {
     const { auth, fetchSpy, vm } = await mountNav({ role: 'user' })
     expect(vm.pendingReviewCount).toBe(3)
