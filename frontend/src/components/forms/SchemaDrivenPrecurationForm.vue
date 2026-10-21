@@ -109,6 +109,7 @@
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
+  import { useConfirm } from '@/composables/useConfirm'
 
   type EvidenceData = Record<string, unknown>
 
@@ -337,12 +338,21 @@
     }
   }
 
+  const { confirm } = useConfirm()
+
   /**
    * Cancel editing
    */
-  function handleCancel() {
+  async function handleCancel() {
     if (Object.keys(evidenceData.value).length > 0) {
-      if (!confirm('Discard unsaved changes?')) return
+      if (
+        !(await confirm({
+          title: 'Discard unsaved changes?',
+          confirmText: 'Discard',
+          destructive: true
+        }))
+      )
+        return
     }
     clearRecovery()
     clearHistory()

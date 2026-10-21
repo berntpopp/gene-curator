@@ -184,6 +184,7 @@
   import { errorMessage } from '@/stores/apiError'
   import { transformSchemas, type TransformedSchema, formatType } from '@/utils/schemaTransformer'
   import { curationStatusColor } from '@/config/status'
+  import { useConfirm } from '@/composables/useConfirm'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -307,8 +308,16 @@
     }
   }
 
+  const { confirm } = useConfirm()
+
   const deleteSchema = async (schema: SchemaRow) => {
-    if (confirm(`Are you sure you want to delete "${schema.name}"?`)) {
+    if (
+      await confirm({
+        title: `Delete "${schema.name}"?`,
+        confirmText: 'Delete',
+        destructive: true
+      })
+    ) {
       try {
         await schemasStore.deleteSchema(schema.id)
         logger.info('Schema deleted', { schemaId: schema.id, schemaName: schema.name })

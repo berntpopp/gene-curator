@@ -18,6 +18,8 @@
       :timeout="snackbarState.timeout"
     />
 
+    <ConfirmDialog />
+
     <!-- Log Viewer Component -->
     <LogViewer v-if="logStore.isViewerVisible" />
 
@@ -41,6 +43,7 @@
   import AppBar from '@/components/AppBar.vue'
   import FooterBar from '@/components/FooterBar.vue'
   import MessageSnackbar from '@/components/MessageSnackbar.vue'
+  import ConfirmDialog from '@/components/ConfirmDialog.vue'
   import LogViewer from '@/components/logging/LogViewer.vue'
   import DisclaimerDialog from '@/components/DisclaimerDialog.vue'
 

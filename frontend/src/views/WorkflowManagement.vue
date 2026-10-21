@@ -296,6 +296,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import type { Schema } from '@/types/api'
+  import { useConfirm } from '@/composables/useConfirm'
 
   // Minimal shape of errors thrown by the API client (axios) or the stores
   interface ApiError {
@@ -426,8 +427,16 @@
     }
   }
 
+  const { confirm } = useConfirm()
+
   const deleteWorkflow = async (workflow: WorkflowRow) => {
-    if (confirm(`Are you sure you want to delete "${workflow.name}"?`)) {
+    if (
+      await confirm({
+        title: `Delete "${workflow.name}"?`,
+        confirmText: 'Delete',
+        destructive: true
+      })
+    ) {
       try {
         // workflowPairs CRUD is in schemasStore (schema-related data)
         await schemasStore.deleteWorkflowPair(workflow.id)

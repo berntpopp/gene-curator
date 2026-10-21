@@ -213,6 +213,7 @@
   import { LogLevel, logService } from '@/services/logService'
   import type { LogEntry } from '@/stores/logStore'
   import { useDrawerState } from '@/composables/useDrawerState'
+  import { useConfirm } from '@/composables/useConfirm'
 
   // Store access
   const logStore = useLogStore()
@@ -381,8 +382,17 @@
     }
   }
 
-  function clearLogs() {
-    if (confirm('Are you sure you want to clear all logs? This action cannot be undone.')) {
+  const { confirm } = useConfirm()
+
+  async function clearLogs() {
+    if (
+      await confirm({
+        title: 'Clear all logs?',
+        text: 'This action cannot be undone.',
+        confirmText: 'Clear',
+        destructive: true
+      })
+    ) {
       const count = logStore.clearLogs()
       logService.info(`Cleared ${count} log entries`)
     }
