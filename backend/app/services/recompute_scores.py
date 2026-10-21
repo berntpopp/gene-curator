@@ -2,7 +2,7 @@
 
 Run once after deploying 046 (Models & Rescue as one category capped at 4):
 ``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
-class changes is logged with its gene and old -> new total and class.
+total or class changes is logged with its gene and old -> new total and class.
 """
 
 from typing import Any
@@ -93,12 +93,15 @@ def recompute_all_scores(db: Session) -> int:
             unchanged += 1
             continue
         updated += 1
-        if old_verdict != result.verdict:
-            logger.warning(
-                "Curation class changed",
+        old_total = (old_scores or {}).get("total_score")
+        if (old_total, old_verdict) != (result.total_score, result.verdict):
+            logger.warning(  # clinical audit: every changed total or class
+                "Curation class changed"
+                if old_verdict != result.verdict
+                else "Curation total changed",
                 curation_id=str(curation_id),
                 gene=gene,
-                total=f"{(old_scores or {}).get('total_score')} -> {result.total_score}",
+                total=f"{old_total} -> {result.total_score}",
                 verdict=f"{old_verdict} -> {result.verdict}",
             )
         db.execute(
