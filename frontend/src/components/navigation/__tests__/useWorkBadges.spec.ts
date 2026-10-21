@@ -4,10 +4,14 @@ import { defineComponent, h } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import { useAuthStore } from '@/stores/auth'
+import { myWorkAPI } from '@/api/myWork'
 import { useWorkCountsStore } from '@/stores/workCounts'
 import { usePrecurationsStore } from '@/stores/precurations'
 import { useWorkBadges } from '../useWorkBadges'
 
+vi.mock('@/api/myWork', () => ({
+  myWorkAPI: { get: vi.fn().mockResolvedValue({ items: [], counts: { needs_you: 2 } }) }
+}))
 vi.mock('@/api/precurations', () => ({
   precurationsAPI: {
     approvePrecuration: vi.fn().mockResolvedValue({ id: 'p1' }),
@@ -31,12 +35,12 @@ function setup() {
 }
 
 describe('useWorkBadges', () => {
-  let fetch: ReturnType<typeof vi.fn>
+  const fetch = vi.mocked(myWorkAPI.get)
 
   beforeEach(() => {
     vi.useFakeTimers()
     setActivePinia(createPinia())
-    fetch = vi.spyOn(useWorkCountsStore(), 'fetch').mockResolvedValue(undefined) as never
+    fetch.mockClear()
   })
   afterEach(() => vi.useRealTimers())
 
@@ -83,17 +87,36 @@ describe('useWorkBadges', () => {
     wrapper.unmount()
   })
 
+  it('sends one request per tick however many consumers are mounted', async () => {
+    useAuthStore().isAuthenticated = true
+    const a = setup()
+    const b = setup()
+    await flushPromises()
+    fetch.mockClear() // initial navigation and mount fetches
+
+    vi.advanceTimersByTime(60_000)
+    expect(fetch).toHaveBeenCalledTimes(1)
+
+    a.wrapper.unmount() // one holder left: polling continues
+    vi.advanceTimersByTime(60_000)
+    expect(fetch).toHaveBeenCalledTimes(2)
+
+    b.wrapper.unmount()
+    vi.advanceTimersByTime(120_000)
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
   it('stops polling, drops listeners and resets counts on unmount or sign-out', async () => {
     const auth = useAuthStore()
     auth.isAuthenticated = true
-    const reset = vi.spyOn(useWorkCountsStore(), 'reset')
     const { wrapper } = setup()
     await flushPromises()
+    expect(useWorkCountsStore().needsYou).toBe(2)
     fetch.mockClear()
 
     auth.isAuthenticated = false
     await flushPromises()
-    expect(reset).toHaveBeenCalled()
+    expect(useWorkCountsStore().needsYou).toBe(0)
     vi.advanceTimersByTime(120_000)
     expect(fetch).not.toHaveBeenCalled()
 
