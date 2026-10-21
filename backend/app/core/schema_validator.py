@@ -7,6 +7,7 @@ import re
 from datetime import datetime
 from typing import Any
 
+from app.core.enum_options import enum_option, flatten_sections
 from app.core.schema_rules import resolve_named_rules
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
@@ -150,7 +151,7 @@ class SchemaValidator:
         Returns:
             JSON Schema for validation
         """
-        fields = schema_definition.get("field_definitions", {})
+        fields = flatten_sections(schema_definition.get("field_definitions", {}))
         json_schema: dict[str, Any] = {
             "$schema": "http://json-schema.org/draft-07/schema#",
             "type": "object",
@@ -1040,15 +1041,14 @@ class SchemaValidator:
                 json_schema_prop["multipleOf"] = field_config["step"]
 
         elif field_type in ["select", "multiselect", "enum"]:
-            options = field_config.get("options", [])
-            if options:
-                enum_values = [
-                    opt["value"] if isinstance(opt, dict) else opt for opt in options
-                ]
-                if field_type in ["select", "enum"]:
-                    json_schema_prop["enum"] = enum_values
-                else:  # multiselect
-                    json_schema_prop["items"] = {"enum": enum_values}
+            opts = [enum_option(o) for o in field_config.get("options", [])]
+            if opts:  # labelled for the form (#327); `enum` stays for validation
+                json_schema_prop["enumOptions"] = opts
+                values = [o["value"] for o in opts]
+                if field_type == "multiselect":
+                    json_schema_prop["items"] = {"enum": values}
+                else:
+                    json_schema_prop["enum"] = values
 
         elif field_type == "array":
             if "min_items" in field_config:
