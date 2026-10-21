@@ -13,8 +13,10 @@ from sqlalchemy.orm import Session
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
 from app.crud.review_round import (
+    REVIEW_ROLES,
     all_reviews_approved,
     check_review_open,
+    holds_review_capability,
     in_current_round,
     pending_reviews,
     reassign_earlier_reviewers,
@@ -334,6 +336,8 @@ class WorkflowEngine:
                 "4-eyes principle violation: Cannot assign original creator as reviewer"
             )
 
+        if not holds_review_capability(db, reviewer_id, curation_result.scope_id):
+            raise ValueError("User is not allowed to review in this scope")
         # Create review assignment
         review = Review(
             curation_id=item_id,
@@ -577,7 +581,7 @@ class WorkflowEngine:
     ) -> list[str]:
         """Get required user roles for a transition."""
         curator_roles = ["curator", "admin"]
-        review_roles = [*curator_roles, "reviewer"]
+        review_roles = ["reviewer", "admin"]
         role_matrix = {
             (WorkflowStage.ENTRY, WorkflowStage.PRECURATION): curator_roles,
             (WorkflowStage.PRECURATION, WorkflowStage.CURATION): curator_roles,
@@ -607,12 +611,11 @@ class WorkflowEngine:
         """
         from app.models import ScopeMembership
 
-        # Admin always has authorization
-        if user.role == "admin":
-            return True
-
-        # Check global user role
-        if user.role in role_requirements:
+        # Platform admins bypass everything except review decisions (REVIEW capability)
+        needs_review = "reviewer" in role_requirements
+        if not needs_review and (
+            user.role == "admin" or user.role in role_requirements
+        ):
             return True
 
         # Check scope-specific role if scope_id is provided
@@ -653,36 +656,8 @@ class WorkflowEngine:
         return (current_stage, target_stage) in peer_review_transitions
 
     def _has_review_permissions(self, db: Session, user: UserNew, item: Any) -> bool:
-        """
-        Check if user has permissions to review this item.
-        Uses scope_memberships table for scope-specific role checking.
-        """
-        from app.models import ScopeMembership
-
-        # Admin always has review permissions
-        if user.role == "admin":
-            return True
-
-        # User must have access to the item's scope via scope_memberships
-        if hasattr(item, "scope_id") and item.scope_id:
-            # Check scope membership with eligible review role
-            # Valid scope roles: admin, curator, reviewer, viewer
-            eligible_scope_roles = [r.value for r in ScopeRole if r != ScopeRole.VIEWER]
-            membership = (
-                db.query(ScopeMembership)
-                .filter(
-                    ScopeMembership.user_id == user.id,
-                    ScopeMembership.scope_id == item.scope_id,
-                    ScopeMembership.is_active,
-                    ScopeMembership.accepted_at.isnot(None),
-                    ScopeMembership.role.in_(eligible_scope_roles),
-                )
-                .first()
-            )
-            if not membership:
-                return False
-
-        return True
+        """Review needs the REVIEW capability in the item's scope (no admin bypass)."""
+        return holds_review_capability(db, user.id, item.scope_id)
 
     def _get_content_requirements(
         self, current_stage: WorkflowStage, target_stage: WorkflowStage
@@ -979,7 +954,7 @@ class WorkflowEngine:
         from app.models.models import Review, ReviewStatus, ScopeMembership
 
         # Eligible roles within a scope for reviewing
-        eligible_scope_roles = [r.value for r in ScopeRole if r != ScopeRole.VIEWER]
+        eligible_scope_roles = REVIEW_ROLES
 
         # Base query for active users
         query = db.query(UserNew).filter(UserNew.is_active == True)  # noqa: E712

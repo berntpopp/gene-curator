@@ -13,7 +13,15 @@ from uuid import UUID
 from sqlalchemy import and_, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.models import CurationNew, CurationStatus, Review, ReviewStatus
+from app.core.capabilities import REVIEW, ROLE_CAPABILITIES
+from app.core.enums import ScopeRole
+from app.models import (
+    CurationNew,
+    CurationStatus,
+    Review,
+    ReviewStatus,
+    ScopeMembership,
+)
 
 _submitted_at = (
     select(CurationNew.submitted_at)
@@ -36,10 +44,12 @@ in_current_round: Any = and_(
 
 
 def check_review_open(db: Session, review: Review) -> None:
-    """Raise ValueError unless the review belongs to the curation's open round."""
+    """Raise ValueError unless the review is in the open round and its reviewer may review."""
     curation = db.get(CurationNew, review.curation_id)
     if curation is None or curation.status != CurationStatus.IN_REVIEW:
         raise ValueError("Curation is not in review")
+    if not holds_review_capability(db, review.reviewer_id, curation.scope_id):
+        raise ValueError("User is not allowed to review in this scope")
     if curation.submitted_at is not None and review.assigned_at < curation.submitted_at:
         raise ValueError("Review belongs to a previous review round")
 
@@ -109,3 +119,22 @@ def pending_reviews(db: Session, curation_id: UUID) -> list[dict[str, Any]]:
         {"review_id": r.id, "reviewer_id": r.reviewer_id, "assigned_at": r.assigned_at}
         for r in rows
     ]
+
+
+REVIEW_ROLES = [r.value for r in ScopeRole if REVIEW in ROLE_CAPABILITIES[r]]
+
+
+def holds_review_capability(db: Session, user_id: UUID, scope_id: UUID) -> bool:
+    """REVIEW via an accepted, active membership. Platform admins get no bypass."""
+    return (
+        db.scalar(
+            select(ScopeMembership.id).where(
+                ScopeMembership.user_id == user_id,
+                ScopeMembership.scope_id == scope_id,
+                ScopeMembership.is_active,
+                ScopeMembership.accepted_at.isnot(None),
+                ScopeMembership.role.in_(REVIEW_ROLES),
+            )
+        )
+        is not None
+    )
