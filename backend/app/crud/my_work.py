@@ -82,7 +82,8 @@ def get_my_work(db: Session, user: UserNew) -> list[WorkItem]:
     return items
 
 
-# Newest review decides: a later approval or new round clears "changes requested".
+# Newest review decides, so a new round clears "changes requested". Only meaningful
+# for DRAFT/REJECTED curations: a resubmitted one is IN_REVIEW again.
 _latest_review = (
     select(Review.status)
     .where(Review.curation_id == CurationNew.id)
@@ -90,9 +91,13 @@ _latest_review = (
     .limit(1)
     .scalar_subquery()
 )
-_changes_requested = _latest_review == ReviewStatus.NEEDS_REVISION
+_changes_requested = _latest_review.in_(
+    (ReviewStatus.NEEDS_REVISION, ReviewStatus.REJECTED)
+)
 # NULL-safe negation: a curation with no review at all is not 'changes requested'
-_not_changes_requested = _latest_review.is_distinct_from(ReviewStatus.NEEDS_REVISION)
+_not_changes_requested = _latest_review.is_distinct_from(
+    ReviewStatus.NEEDS_REVISION
+) & _latest_review.is_distinct_from(ReviewStatus.REJECTED)
 
 
 def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]:
@@ -128,7 +133,7 @@ def _needs_you(db: Session, user: UserNew, scopes: list[UUID]) -> list[WorkItem]
     cedit = "/scopes/{s}/curations/{i}/edit"
     pview = "/scopes/{s}/precurations/{i}"
 
-    open_states = CurationNew.status.in_((_S.DRAFT, _S.IN_REVIEW))
+    open_states = CurationNew.status.in_((_S.DRAFT, _S.REJECTED))
     for r in rows(CurationNew, "curation", *mine, open_states, _changes_requested):
         items.append(
             _item(
@@ -179,11 +184,7 @@ def _reviews_waiting_done(
         (CurationNew, "curation", _S.IN_REVIEW, cview),
         (PrecurationNew, "precuration", _S.SUBMITTED, pview),
     ):
-        extra = (
-            [*_assignment_filters(user), _not_changes_requested]
-            if model is CurationNew
-            else []
-        )
+        extra = _assignment_filters(user) if model is CurationNew else []
         for r in rows(
             model,
             kind,
@@ -211,8 +212,6 @@ def _reviews_waiting_done(
         ),
     ):
         mm = [model.created_by == user.id]
-        if model is CurationNew:
-            mm.append(_not_changes_requested)
         for r in rows(model, kind, *mm, model.status.in_(waiting)):
             items.append(_item(r, "waiting", "waiting", "Waiting for review", link))
         for r in rows(

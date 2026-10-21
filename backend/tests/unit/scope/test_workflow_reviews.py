@@ -8,12 +8,14 @@ from sqlalchemy.orm import Session
 from app.crud.workflow_engine import WorkflowEngine
 from app.models.models import (
     CurationNew,
+    CurationStatus,
     Review,
     ReviewStatus,
     Scope,
     UserNew,
     WorkflowStage,
 )
+from app.services.scope_permissions import ScopePermissionService
 from tests.api.scopes.factories import (
     make_curation,
     make_gene,
@@ -198,7 +200,43 @@ def test_rejection_is_recorded_as_rejected_and_blocks_activation(
     assert approved["auto_transitioned"] is False
     assert db_session.get(Review, first.review_id).status == ReviewStatus.REJECTED
     db_session.refresh(curation)
-    assert curation.workflow_stage == S.REVIEW
+    assert curation.workflow_stage == S.CURATION
+    assert curation.status == CurationStatus.REJECTED
+
+
+@pytest.mark.parametrize(
+    ("decision", "status"),
+    [
+        ("request_changes", CurationStatus.DRAFT),
+        ("reject", CurationStatus.REJECTED),
+    ],
+)
+def test_non_approve_decision_returns_curation_to_curator(
+    db_session: Session,
+    engine: WorkflowEngine,
+    creator: UserNew,
+    reviewer: UserNew,
+    scope: Scope,
+    decision: str,
+    status: CurationStatus,
+) -> None:
+    """#354: the curation must not stay IN_REVIEW; the curator can edit and resubmit."""
+    curation = _review_setup(db_session, creator, scope)
+    request = engine.assign_peer_reviewer(
+        db_session, curation.id, "curation", reviewer.id, creator.id
+    )
+    engine.submit_peer_review(db_session, request.review_id, reviewer.id, decision)
+
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (S.CURATION, status)
+    assert ScopePermissionService.can_edit_curation(db_session, creator, curation)
+
+    engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
+    db_session.refresh(curation)
+    assert (curation.workflow_stage, curation.status) == (
+        S.REVIEW,
+        CurationStatus.IN_REVIEW,
+    )
 
 
 @pytest.mark.parametrize(
