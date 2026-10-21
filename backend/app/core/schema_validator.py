@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from app.core.schema_validation_result import SchemaValidationResult
+from app.scoring.registry import scoring_registry
 
 
 def _naive_datetime(value: str) -> datetime:
@@ -794,13 +795,30 @@ class SchemaValidator:
     ) -> None:
         """Calculate scores based on scoring configuration."""
         engine_type = scoring_config.get("engine", "")
-
-        if engine_type == "clingen":
+        engine = scoring_registry.get_engine(engine_type)
+        legacy_scores = {
+            "gencc": {"gencc_score": 0.0},
+            "qualitative": {"qualitative_score": 0.0},
+        }
+        if engine:
+            scores = engine.calculate_scores(evidence_data, scoring_config)
+            result.score_calculations = {
+                **scores.scores,
+                "total_score": scores.total_score,
+            }
+            for warning in scores.warnings:
+                result.add_warning("scoring", warning, "scoring")
+        # Preserve the original short-name configurations used by existing schemas.
+        elif engine_type == "clingen":
             self._calculate_clingen_scores(evidence_data, scoring_config, result)
-        elif engine_type == "gencc":
-            self._calculate_gencc_scores(evidence_data, scoring_config, result)
-        elif engine_type == "qualitative":
-            self._calculate_qualitative_scores(evidence_data, scoring_config, result)
+        elif engine_type in legacy_scores:
+            result.score_calculations = legacy_scores[engine_type]
+        else:
+            result.add_error(
+                "scoring_configuration.engine",
+                f"Unknown scoring engine: {engine_type}",
+                "configuration",
+            )
 
     def _calculate_clingen_scores(
         self,
@@ -834,26 +852,6 @@ class SchemaValidator:
             "experimental_evidence_score": experimental_score,
             "total_score": total_score,
         }
-
-    def _calculate_gencc_scores(
-        self,
-        evidence_data: dict[str, Any],
-        scoring_config: dict[str, Any],
-        result: SchemaValidationResult,
-    ) -> None:
-        """Calculate GenCC-based scores."""
-        # GenCC scoring logic would go here
-        result.score_calculations = {"gencc_score": 0.0}
-
-    def _calculate_qualitative_scores(
-        self,
-        evidence_data: dict[str, Any],
-        scoring_config: dict[str, Any],
-        result: SchemaValidationResult,
-    ) -> None:
-        """Calculate qualitative assessment scores."""
-        # Qualitative scoring logic would go here
-        result.score_calculations = {"qualitative_score": 0.0}
 
     def _calculate_completeness(
         self,

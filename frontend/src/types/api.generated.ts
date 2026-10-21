@@ -1535,7 +1535,7 @@ export interface paths {
         /**
          * Create Curation
          * @description Create a new curation.
-         *     Requires access to the target scope.
+         *     Requires curator or admin role in the target scope.
          */
         post: operations["create_curation_api_v1_curations__post"];
         delete?: never;
@@ -1650,7 +1650,7 @@ export interface paths {
         /**
          * Create Precuration
          * @description Create a new precuration.
-         *     Requires access to the target scope.
+         *     Requires curator or admin access to the target scope.
          */
         post: operations["create_precuration_api_v1_precurations__post"];
         delete?: never;
@@ -1679,7 +1679,7 @@ export interface paths {
         post?: never;
         /**
          * Delete Precuration
-         * @description Soft delete a precuration (archive).
+         * @description Archive a precuration. Linked curations prevent deletion with HTTP 409.
          */
         delete: operations["delete_precuration_api_v1_precurations__precuration_id__delete"];
         options?: never;

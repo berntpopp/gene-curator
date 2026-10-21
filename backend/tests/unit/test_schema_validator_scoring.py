@@ -1,0 +1,61 @@
+"""Schema validation uses the engines configured by seeded schemas."""
+
+import json
+from pathlib import Path
+
+import pytest
+
+from app.core.schema_validator import SchemaValidator
+
+pytestmark = pytest.mark.unit
+
+
+@pytest.fixture
+def seeded_clingen_schema():
+    seed = (
+        Path(__file__).resolve().parents[3]
+        / "database/sql/020_complete_sop11_schema.sql"
+    ).read_text()
+    decoder = json.JSONDecoder()
+    return {
+        key: decoder.raw_decode(seed.split(f"{key} = '", 1)[1])[0]
+        for key in ["field_definitions", "scoring_configuration"]
+    }
+
+
+def test_seeded_clingen_schema_returns_scores(seeded_clingen_schema):
+    result = SchemaValidator().validate_evidence_data(
+        {"genetic_evidence": {"segregation": [{"pmid": "12345678", "lod_score": 1.5}]}},
+        seeded_clingen_schema,
+    )
+    assert result.is_valid is True
+    assert result.score_calculations == {
+        "genetic_evidence_total": 2.0,
+        "experimental_evidence_total": 0.0,
+        "total_score": 2.0,
+    }
+
+
+def test_unknown_engine_is_a_clear_configuration_error():
+    result = SchemaValidator().validate_evidence_data(
+        {}, {"scoring_configuration": {"engine": "missing_engine"}}
+    )
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "field": "scoring_configuration.engine",
+            "message": "Unknown scoring engine: missing_engine",
+            "type": "configuration",
+            "severity": "error",
+        }
+    ]
+    assert result.score_calculations == {}
+
+
+@pytest.mark.parametrize("name", ["gencc_based", "qualitative_assessment"])
+def test_other_registered_engines_return_scores(name):
+    result = SchemaValidator().validate_evidence_data(
+        {}, {"scoring_configuration": {"engine": name}}
+    )
+    assert result.score_calculations["total_score"] == 0.0
+    assert len(result.score_calculations) >= 3
