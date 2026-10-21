@@ -2,18 +2,21 @@
   <v-container fluid class="fill-height">
     <v-row align="center" justify="center">
       <v-col cols="12" sm="8" md="6" lg="4">
-        <v-card class="pa-6" elevation="8">
-          <v-card-title class="text-center mb-4">
-            <v-img
-              src="/img/logo.png"
-              alt="Gene Curator Logo"
-              width="64"
-              aspect-ratio="1"
-              class="mx-auto mb-4"
-            />
-            <h1 class="text-headline-large">{{ TERMINOLOGY.SIGN_IN }}</h1>
-          </v-card-title>
+        <div class="text-center mb-6">
+          <v-img
+            src="/img/logo.png"
+            alt="Gene Curator Logo"
+            width="88"
+            aspect-ratio="1"
+            class="mx-auto mb-4"
+          />
+          <h1 class="text-headline-small mb-1">Sign in to Gene Curator</h1>
+          <p class="text-body-medium text-medium-emphasis">
+            Gene-disease validity curation with second-curator review.
+          </p>
+        </div>
 
+        <v-card class="pa-6" variant="flat" border>
           <v-card-text>
             <v-form ref="loginForm" @submit.prevent="handleLogin">
               <v-alert
@@ -29,6 +32,7 @@
                 v-if="authStore.error"
                 type="error"
                 variant="tonal"
+                role="alert"
                 class="mb-4"
                 closable
                 @click:close="authStore.clearError"
@@ -40,7 +44,6 @@
                 v-model="credentials.email"
                 label="Email"
                 type="email"
-                prepend-inner-icon="mdi-email"
                 variant="outlined"
                 :rules="emailRules"
                 validate-on="blur"
@@ -54,7 +57,6 @@
                 v-model="credentials.password"
                 label="Password"
                 :type="showPassword ? 'text' : 'password'"
-                prepend-inner-icon="mdi-lock"
                 :append-inner-icon="showPassword ? 'mdi-eye' : 'mdi-eye-off'"
                 variant="outlined"
                 :rules="passwordRules"
@@ -75,23 +77,30 @@
               >
                 Sign in
               </v-btn>
-
-              <div class="text-center">
-                <p class="text-body-medium mb-2">Don't have an account?</p>
-                <v-btn :to="{ name: 'Register' }" variant="text" color="primary">
-                  Create account
-                </v-btn>
-              </div>
             </v-form>
           </v-card-text>
         </v-card>
 
+        <div class="text-center text-body-medium mt-4">
+          <p class="mb-1">
+            No account?
+            <router-link :to="{ name: 'Register' }"
+              >Ask your scope admin for an invitation</router-link
+            >
+          </p>
+          <p>
+            Just looking?
+            <router-link :to="{ name: 'GeneCatalogue' }">Browse curated genes</router-link>
+          </p>
+        </div>
+
+        <p class="text-center text-body-small text-medium-emphasis mt-4">
+          Research use only. Not for clinical decision-making.
+        </p>
+
         <!-- Development Login Helper -->
         <v-card v-if="isDevelopment" class="mt-4 pa-4" variant="tonal" color="info">
-          <v-card-title class="text-body-large">
-            <v-icon start>mdi-dev-to</v-icon>
-            Development quick login
-          </v-card-title>
+          <v-card-title class="text-body-large"> Development quick login </v-card-title>
           <v-card-text>
             <div class="d-flex flex-column ga-2">
               <v-btn
@@ -135,7 +144,6 @@
 </template>
 
 <script setup lang="ts">
-  import { TERMINOLOGY } from '@/config/terminology'
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
@@ -143,7 +151,6 @@
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { safeRedirect } from '@/utils/safeRedirect'
-  import { showSuccess } from '@/composables/useNotifications'
 
   const router = useRouter()
   const route = useRoute()
@@ -194,8 +201,6 @@
 
       await authStore.login(credentials)
 
-      showSuccess('Login successful!')
-
       // Redirect to intended page or home
       router.push(safeRedirect(route.query.redirect) ?? { name: 'Home' })
     } catch (error) {
@@ -220,18 +225,3 @@
     await handleLogin()
   }
 </script>
-
-<style scoped>
-  .fill-height {
-    background: linear-gradient(
-      135deg,
-      rgb(var(--v-theme-surface)) 0%,
-      rgb(var(--v-theme-background)) 100%
-    );
-  }
-
-  .v-card {
-    backdrop-filter: blur(10px);
-    background: rgba(var(--v-theme-surface), 0.9);
-  }
-</style>
