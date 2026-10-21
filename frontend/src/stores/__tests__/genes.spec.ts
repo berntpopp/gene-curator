@@ -14,8 +14,7 @@ vi.mock('@/api', () => ({
     getGeneAssignments: vi.fn(),
     getGeneCurationProgress: vi.fn(),
     searchGenes: vi.fn(),
-    countSearchGenes: vi.fn(),
-    getStatistics: vi.fn()
+    countSearchGenes: vi.fn()
   }
 }))
 
@@ -281,19 +280,6 @@ describe('useGenesStore', () => {
       await expect(store.searchGenes({})).rejects.toThrow('timeout')
       expect(store.error).toBe('timeout')
       expect(store.loading).toBe(false)
-    })
-  })
-
-  describe('fetchStatistics', () => {
-    it('returns statistics and records errors', async () => {
-      const store = useGenesStore()
-      const stats = { total_genes: 3 } as Schema<'GeneStatistics'>
-      api.getStatistics.mockResolvedValueOnce(stats)
-      await expect(store.fetchStatistics()).resolves.toEqual(stats)
-
-      api.getStatistics.mockRejectedValueOnce(new Error('stats'))
-      await expect(store.fetchStatistics()).rejects.toThrow('stats')
-      expect(store.error).toBe('stats')
     })
   })
 
