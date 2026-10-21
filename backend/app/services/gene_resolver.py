@@ -18,6 +18,7 @@ from app.schemas.gene_resolve import (
     GeneResolveResponse,
     MatchType,
     ResolveReason,
+    is_gene_token,
 )
 from app.services.validators import HGNCValidator
 
@@ -144,7 +145,8 @@ async def _hgnc_fallback(
 
 
 async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
-    unique = {s.upper(): s for s in reversed(symbols)}  # one lookup per distinct input
+    # One lookup per distinct input; entries that cannot be a gene are reported, never looked up.
+    unique = {s.upper(): s for s in reversed(symbols) if is_gene_token(s)}
     local = _local_genes(db, set(unique.values()))
     found: dict[str, tuple[MatchType, list[_Gene], Literal["local", "hgnc"]]] = {}
     for key, token in unique.items():
@@ -162,6 +164,17 @@ async def resolve_genes(db: Session, symbols: list[str]) -> GeneResolveResponse:
         first = first_by_token.setdefault(key, index)
         dup: int | None = None if first == index else first
         hit = found.get(key)
+        if not is_gene_token(token):
+            items.append(
+                GeneResolveItem(
+                    input=token,
+                    index=index,
+                    status="not_found",
+                    duplicate_of=dup,
+                    reason="invalid_identifier",
+                )
+            )
+            continue
         if not hit:
             items.append(
                 GeneResolveItem(

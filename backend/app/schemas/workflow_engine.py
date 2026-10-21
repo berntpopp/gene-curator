@@ -9,6 +9,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.models import ReviewStatus, WorkflowStage
+from app.schemas.review_comment import REVIEW_TEXT_MAX
 
 
 # Workflow Transition Schemas
@@ -16,7 +17,9 @@ class WorkflowTransitionRequest(BaseModel):
     """Request to transition workflow stage."""
 
     target_stage: WorkflowStage = Field(..., description="Target workflow stage")
-    notes: str | None = Field(None, max_length=1000, description="Transition notes")
+    notes: str | None = Field(
+        None, max_length=REVIEW_TEXT_MAX, description="Transition notes"
+    )
     metadata: dict[str, Any] | None = Field(
         default_factory=dict, description="Additional metadata"
     )
