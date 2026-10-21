@@ -134,22 +134,7 @@
               <div v-for="(msg, idx) in nonFieldErrors" :key="idx">{{ msg }}</div>
             </v-alert>
 
-            <v-alert
-              v-if="validationResult && validationResult.warnings?.length"
-              type="warning"
-              variant="tonal"
-              class="mt-4"
-            >
-              <template #prepend>
-                <v-icon>mdi-alert</v-icon>
-              </template>
-              <div class="font-weight-medium mb-2">Form Warnings</div>
-              <ul class="pl-4">
-                <li v-for="warning in validationResult.warnings" :key="warning.field">
-                  <strong>{{ labelFor(warning.field) }}:</strong> {{ warning.message }}
-                </li>
-              </ul>
-            </v-alert>
+            <ValidationWarnings :messages="warningLines" />
           </v-card-text>
 
           <v-card-actions v-if="!readonly && !hideActions">
@@ -199,6 +184,7 @@
   import { normalizeDefinition } from './normalizeDefinition'
   import { resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
+  import ValidationWarnings from './ValidationWarnings.vue'
   import type {
     FieldSchema,
     FieldValidation,
@@ -288,6 +274,13 @@
     )
   )
   const labelFor = (path?: string) => (path ? labelForPath(jsonSchema.value, path) : '')
+  const warningLines = computed(() => [
+    ...new Set(
+      (validationResult.value?.warnings ?? []).map(w =>
+        w.field ? `${labelFor(w.field)}: ${w.message}` : w.message
+      )
+    )
+  ])
   const validationResult = computed(() => {
     const raw = validationStore.getValidationResult('form')
     return raw ? toFormValidation(raw) : undefined

@@ -416,12 +416,17 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     store.result = {
       is_valid: false,
       errors: [{ field: 'entity_definition.mode_of_inheritance', message: 'Required' }],
-      warnings: [{ field: 'entity_definition.disease_name', message: 'Short' }]
+      warnings: [
+        { field: 'entity_definition.disease_name', message: 'Short' },
+        { field: 'entity_definition.disease_name', message: 'Short' }
+      ]
     }
     const wrapper = mountForm()
 
+    expect(wrapper.findComponent({ name: 'ValidationWarnings' }).props('messages')).toEqual([
+      'Disease name: Short'
+    ])
     expect(wrapper.text()).toContain('Mode of inheritance: Required')
-    expect(wrapper.text()).toContain('Disease name: Short')
     expect(wrapper.text()).not.toContain('entity_definition')
   })
 })
