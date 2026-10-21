@@ -60,7 +60,44 @@ describe('groupDiff', () => {
   it('classifies an item as added, removed or changed', () => {
     expect(groups[0]!.change).toBe('changed')
     expect(groups[1]!.change).toBe('added')
-    expect(groups[1]!.fields[0]!.name).toBe('')
+    expect(groups[1]!.fields[0]!.name).toBe('pmid') // an added record is listed by field
+  })
+})
+
+describe('groupDiff, first review (whole sections added)', () => {
+  const section = {
+    case_level: { ad: { null_variants: [{ proband: 'P1', pmid: '123', points: 99 }], other: [] } },
+    summary: 'text',
+    empty: [],
+    tags: ['a', 'b']
+  }
+
+  it('lists the filled leaves of an added section as rows, not one JSON blob', () => {
+    const [g] = groupDiff([
+      { path: 'genetic_evidence', change: 'added', before: null, after: section }
+    ])
+    expect(g!.key).toBe('genetic_evidence')
+    expect(g!.change).toBe('added')
+    expect(g!.fields.map(f => [f.name, f.after])).toEqual([
+      ['case_level.ad.null_variants[0].proband', 'P1'],
+      ['case_level.ad.null_variants[0].pmid', '123'],
+      ['case_level.ad.null_variants[0].points', 99],
+      ['summary', 'text'],
+      ['tags', 'a, b']
+    ])
+    expect(g!.fields.every(f => f.change === 'added' && f.before === undefined)).toBe(true)
+  })
+
+  it('shows removed sections as rows of their old values', () => {
+    const [g] = groupDiff([{ path: 's', change: 'removed', before: { a: 1 }, after: null }])
+    expect(g!.fields).toEqual([{ name: 'a', change: 'removed', before: 1, after: undefined }])
+  })
+
+  it('keeps one "none" row for an empty section', () => {
+    const [g] = groupDiff([
+      { path: 'contradictory_evidence', change: 'added', before: null, after: [] }
+    ])
+    expect(g!.fields).toEqual([{ name: '', change: 'added', before: undefined, after: 'none' }])
   })
 })
 

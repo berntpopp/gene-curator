@@ -32,6 +32,16 @@ function refreshTokens(refreshToken: string): Promise<string> {
   return refreshInFlight
 }
 
+/** True for a JWT whose exp is in the past; opaque or malformed tokens count as unknown (false). */
+function isExpired(token: string): boolean {
+  try {
+    const exp = (JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number }).exp
+    return typeof exp === 'number' && exp * 1000 <= Date.now()
+  } catch {
+    return false
+  }
+}
+
 /** Clear the shared correlation id only if no newer request has replaced it. */
 function clearCorrelationIdFor(requestId: unknown): void {
   if (logService.correlationId === requestId) logService.clearCorrelationId()
@@ -58,9 +68,14 @@ const apiClient = axios.create({
 
 // Request interceptor to add auth token and logging
 apiClient.interceptors.request.use(
-  config => {
-    // Add auth token
-    const token = localStorage.getItem('access_token')
+  async config => {
+    // Add auth token. An expired one is refreshed first (one shared refresh), so a full
+    // reload does not fire requests the API is certain to answer with 401.
+    let token = localStorage.getItem('access_token')
+    const refreshToken = localStorage.getItem('refresh_token')
+    if (token && refreshToken && isExpired(token) && !NO_REFRESH_URL.test(config.url ?? '')) {
+      token = await refreshTokens(refreshToken).catch(() => token) // the 401 path handles failure
+    }
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
     }

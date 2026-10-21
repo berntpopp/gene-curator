@@ -47,6 +47,8 @@ const CurationDetailView = () => import('@/views/curation/CurationDetailView.vue
 const PrecurationFormView = () => import('@/views/curation/PrecurationFormView.vue')
 const ReviewQueueView = () => import('@/views/curation/ReviewQueueView.vue')
 
+const APP_NAME = 'Gene Curator'
+
 const routes: RouteRecordRaw[] = [
   {
     path: '/',
@@ -390,7 +392,8 @@ router.beforeEach(async to => {
   }
 
   // Update document title
-  document.title = to.meta.title ? `${to.meta.title} | Gene Curator` : 'Gene Curator'
+  const page = to.meta.title
+  document.title = page && page !== APP_NAME ? `${page} | ${APP_NAME}` : APP_NAME
 
   // Handle guest-only routes (login, register)
   if (to.meta.requiresGuest && authStore.isAuthenticated) {

@@ -118,6 +118,53 @@ describe('api client', () => {
     expect(logService.info).toHaveBeenCalledWith('Token refreshed successfully')
   })
 
+  describe('expired access token on boot', () => {
+    const jwt = (exp: number) => `h.${btoa(JSON.stringify({ exp }))}.s`
+    const past = () => jwt(Math.floor(Date.now() / 1000) - 60)
+
+    it('refreshes before sending, so the API never sees the stale token (no 401 round trip)', async () => {
+      localStorage.setItem('access_token', past())
+      localStorage.setItem('refresh_token', 'refresh-1')
+      const refreshSpy = vi.spyOn(axios, 'post').mockResolvedValue({
+        data: { access_token: 'fresh', refresh_token: 'refresh-2' }
+      } as AxiosResponse)
+      const seen: string[] = []
+      handler = config => {
+        seen.push(String(config.headers.Authorization))
+        return ok(config, {})
+      }
+
+      await Promise.all([apiClient.get('/me/work'), apiClient.get('/scopes/')])
+
+      expect(seen).toEqual(['Bearer fresh', 'Bearer fresh'])
+      expect(refreshSpy).toHaveBeenCalledTimes(1)
+    })
+
+    it('does not pre-refresh login/refresh calls, valid tokens or opaque tokens', async () => {
+      const refreshSpy = vi.spyOn(axios, 'post')
+      handler = config => ok(config, {})
+      localStorage.setItem('refresh_token', 'refresh-1')
+
+      localStorage.setItem('access_token', past())
+      await apiClient.post('/auth/login', {})
+      localStorage.setItem('access_token', jwt(Math.floor(Date.now() / 1000) + 600))
+      await apiClient.get('/me/work')
+      localStorage.setItem('access_token', 'not-a-jwt')
+      await apiClient.get('/me/work')
+
+      expect(refreshSpy).not.toHaveBeenCalled()
+    })
+
+    it('falls through to the normal 401 handling when the pre-refresh fails', async () => {
+      localStorage.setItem('access_token', past())
+      localStorage.setItem('refresh_token', 'refresh-1')
+      vi.spyOn(axios, 'post').mockRejectedValue(new Error('refresh down'))
+      handler = config => fail(config, 401)
+
+      await expect(apiClient.get('/me/work')).rejects.toBeDefined()
+    })
+  })
+
   it('does not refresh again when the retried request is also unauthorized', async () => {
     localStorage.setItem('access_token', 'expired')
     localStorage.setItem('refresh_token', 'refresh-1')
