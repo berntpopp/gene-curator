@@ -326,9 +326,11 @@
   async function handleSubmit() {
     if (!canSubmit.value) return
 
+    const schema = schemasStore.getSchemaById(props.schemaId)
     const missing = missingRequiredLabels(
-      schemasStore.getSchemaById(props.schemaId)?.field_definitions,
-      evidenceData.value
+      schema?.field_definitions,
+      evidenceData.value,
+      schema?.validation_rules
     )
     if (missing.length > 0) {
       notificationsStore.addToast(`Required before submitting: ${missing.join(', ')}`, 'error')
@@ -342,9 +344,9 @@
       if (!id) {
         id = (await precurationsStore.createPrecuration(createPayload())).id
         createdId.value = id
-      } else if (!props.precurationId) {
-        // Retry after a failed submit: persist the edits made since
-        await precurationsStore.saveDraft(id, evidenceData.value)
+      } else if (!(await precurationsStore.saveDraft(id, evidenceData.value))) {
+        // Persist the current edits first; the store swallows errors and returns nothing
+        throw new Error('Draft not saved')
       }
       await precurationsStore.submitForReview(id)
 

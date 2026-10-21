@@ -335,6 +335,15 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('Grace')
   })
 
+  it('keeps typed text when the late load arrives after the parent mirrored the edit', async () => {
+    const wrapper = mountForm({ initialData: {} })
+    fieldStub(wrapper, 'name').vm.$emit('update:modelValue', 'typed')
+    await wrapper.setProps({ initialData: { name: 'typed' } }) // parent mirrors the edit
+    await wrapper.setProps({ initialData: { name: 'Grace' } }) // saved draft arrives late
+
+    expect(fieldStub(wrapper, 'name').props('modelValue')).toBe('typed')
+  })
+
   it('fills the fields when initial data is mutated in place (restore)', async () => {
     const data = reactive<Record<string, unknown>>({})
     const wrapper = mountForm({ initialData: data })

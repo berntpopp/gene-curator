@@ -280,11 +280,12 @@
 
   // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
   // the user already edited, i.e. the form no longer matches the previously seen initial data.
+  let userEdited = false // the parent mirrors edits into initialData, so compare alone is not enough
   let seenInitial = JSON.stringify(props.initialData)
   watch(
     () => JSON.stringify(props.initialData),
     next => {
-      if (next !== seenInitial && JSON.stringify(formData.value) === seenInitial) {
+      if (next !== seenInitial && !userEdited && JSON.stringify(formData.value) === seenInitial) {
         formData.value = JSON.parse(next)
       }
       seenInitial = next
@@ -325,6 +326,7 @@
 
   const updateField = (fieldName: string, value: unknown) => {
     clearFieldBackendError(fieldName)
+    userEdited = true
     formData.value[fieldName] = value
     // Trigger validation debounced
     clearTimeout(fieldUpdateTimer)
@@ -353,6 +355,7 @@
    */
   const handleTabFieldUpdate = (fieldPath: string, value: unknown) => {
     clearFieldBackendError(fieldPath)
+    userEdited = true
 
     // Handle nested paths using dot notation
     if (fieldPath.includes('.')) {

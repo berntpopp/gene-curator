@@ -13,6 +13,10 @@ def rows(value: Any) -> list[dict[str, Any]]:
     return []
 
 
+# Defaults a new contradictory row is created with (ContradictoryEvidenceSection.vue)
+_ROW_DEFAULTS = {"evidence_type": "population", "impact": "note"}
+
+
 def has_content(value: Any) -> bool:
     """True if the value holds anything; blank rows from an untouched form row do not count."""
     if isinstance(value, str):
@@ -20,5 +24,7 @@ def has_content(value: Any) -> bool:
     if isinstance(value, list):
         return any(has_content(v) for v in value)
     if isinstance(value, dict):
-        return any(has_content(v) for v in value.values())
+        return any(
+            has_content(v) for k, v in value.items() if _ROW_DEFAULTS.get(k) != v
+        )
     return value is not None and value is not False

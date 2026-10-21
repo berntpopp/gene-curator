@@ -153,6 +153,7 @@ describe('SchemaDrivenPrecurationForm', () => {
   })
 
   it('submits an existing precuration for review and emits submit', async () => {
+    precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
     precurationsStore.submitForReview.mockResolvedValue({})
     const wrapper = mountForm({ precurationId: 'p-1' })
     await flushPromises()
@@ -362,7 +363,34 @@ describe('SchemaDrivenPrecurationForm', () => {
       expect(precurationsStore.submitForReview).toHaveBeenCalledWith('p-1')
     })
 
+    it('saves the current edits before submitting an existing precuration', async () => {
+      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+      precurationsStore.submitForReview.mockResolvedValue({})
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+      internals(wrapper).handleEvidenceChange({ a: 'edited' })
+
+      await internals(wrapper).handleSubmit()
+
+      expect(precurationsStore.saveDraft).toHaveBeenCalledWith('p-1', { a: 'edited' })
+      expect(precurationsStore.saveDraft.mock.invocationCallOrder[0]).toBeLessThan(
+        precurationsStore.submitForReview.mock.invocationCallOrder[0]!
+      )
+    })
+
+    it('does not submit when saving the edits fails', async () => {
+      precurationsStore.saveDraft.mockResolvedValue(null)
+      const wrapper = mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      await internals(wrapper).handleSubmit()
+
+      expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
+      expect(addToast).toHaveBeenCalledWith('Failed to submit precuration', 'error')
+    })
+
     it('shows the API detail of a rejected submit', async () => {
+      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
       precurationsStore.submitForReview.mockRejectedValue({
         response: { data: { detail: { message: 'Missing required fields: notes', fields: [] } } }
       })

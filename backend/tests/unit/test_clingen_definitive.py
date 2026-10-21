@@ -46,7 +46,15 @@ class TestDefinitiveAndContradictory:
         }
         base = {"genetic_evidence": {"case_level": case}, "experimental_evidence": {}}
         blank = {"pmid": "", "description": "  ", "tags": [], "note": None}
-        for rows in ([blank], [{}], [blank, {}]):
+        fresh = {
+            "label": "",
+            "pmid": "",
+            "evidence_type": "population",
+            "description": "",
+            "impact": "note",
+            "explanation": "",
+        }
+        for rows in ([blank], [{}], [blank, {}], [fresh]):
             ev = {**base, "contradictory_evidence": rows}
             assert engine.calculate_scores(ev, {}).verdict == "strong"
         ev = {**base, "contradictory_evidence": [blank, {"pmid": "1"}]}

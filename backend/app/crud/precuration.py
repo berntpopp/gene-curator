@@ -14,6 +14,10 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
+from app.crud.precuration_required import (
+    MissingRequiredFieldsError,
+    missing_required_fields,
+)
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -26,6 +30,7 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
+from app.schemas.curation import disease_fields
 from app.schemas.precuration import (
     PrecurationApprovalResult,
     PrecurationCreate,
@@ -40,40 +45,6 @@ logger = get_logger(__name__)
 def _utc_now() -> datetime:
     """Get current UTC time (timezone-aware)."""
     return datetime.now(UTC)
-
-
-class MissingRequiredFieldsError(ValueError):
-    """Submit refused: schema-required fields are empty (dotted paths in ``fields``)."""
-
-    def __init__(self, fields: list[str]) -> None:
-        super().__init__(f"Missing required fields: {', '.join(fields)}")
-        self.fields = fields
-
-
-def missing_required_fields(
-    field_definitions: Any, data: Any, prefix: str = ""
-) -> list[str]:
-    """Dotted paths of required schema fields that are empty in ``data``."""
-    if not isinstance(field_definitions, dict):
-        return []
-    data = data if isinstance(data, dict) else {}
-    missing: list[str] = []
-    for name, config in field_definitions.items():
-        if not isinstance(config, dict):
-            continue
-        path = f"{prefix}{name}"
-        value = data.get(name)
-        if config.get("required") is True and (
-            value is None
-            or (isinstance(value, str) and not value.strip())
-            or (isinstance(value, list | dict) and not value)
-        ):
-            missing.append(path)
-        elif config.get("type") == "object":
-            missing += missing_required_fields(
-                config.get("properties"), value, f"{path}."
-            )
-    return missing
 
 
 class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpdate]):
@@ -223,11 +194,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 scope_name=row.scope_name,
                 status=row.PrecurationNew.status,
                 workflow_stage=row.PrecurationNew.workflow_stage,
-                mondo_id=row.PrecurationNew.evidence_data.get("mondo_id"),
-                disease_name=row.PrecurationNew.evidence_data.get("disease_name"),
-                mode_of_inheritance=row.PrecurationNew.evidence_data.get(
-                    "mode_of_inheritance"
-                ),
+                **disease_fields(row.PrecurationNew.evidence_data, None),
                 is_draft=row.PrecurationNew.is_draft,
                 created_at=row.PrecurationNew.created_at,
                 updated_at=row.PrecurationNew.updated_at,
@@ -354,7 +321,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         """Submit precuration for review via workflow engine."""
         schema = db_obj.precuration_schema
         missing = missing_required_fields(
-            schema.field_definitions if schema else None, db_obj.evidence_data
+            schema.field_definitions if schema else None,
+            db_obj.evidence_data,
+            schema.validation_rules if schema else None,
         )
         if missing:
             raise MissingRequiredFieldsError(missing)
