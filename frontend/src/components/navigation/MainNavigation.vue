@@ -161,12 +161,16 @@
     }
   }
 
+  // Hidden tabs do not poll; coming back refreshes at once
+  function refreshWhenVisible() {
+    if (document.visibilityState === 'visible') refreshBadgeCount()
+  }
+
   function startBadgeRefresh() {
     if (!badgeRefreshInterval) {
       refreshBadgeCount()
-      badgeRefreshInterval = setInterval(() => {
-        if (document.visibilityState === 'visible') refreshBadgeCount()
-      }, 60000)
+      badgeRefreshInterval = setInterval(refreshWhenVisible, 60000)
+      document.addEventListener('visibilitychange', refreshWhenVisible)
     }
   }
 
@@ -174,6 +178,7 @@
     if (badgeRefreshInterval) {
       clearInterval(badgeRefreshInterval)
       badgeRefreshInterval = null
+      document.removeEventListener('visibilitychange', refreshWhenVisible)
     }
     pendingReviewCount.value = 0
   }

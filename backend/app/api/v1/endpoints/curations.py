@@ -174,7 +174,10 @@ def list_curations(
         None, description="Filter by status"
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
-    exclude_own: bool = Query(False, description="Exclude the caller's curations"),
+    pending_review: bool = Query(
+        False,
+        description="Only scopes where the caller can review, excluding their own",
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationListResponse:
     """
@@ -188,7 +191,18 @@ def list_curations(
     from app.models import ScopeMembership
 
     scope_ids = None
-    if current_user.role != "admin" and not scope_id:
+    if pending_review:
+        from app.services.scope_permissions import ScopePermissionService
+
+        scope_ids = ScopePermissionService.get_user_scope_ids(
+            db, current_user, ["admin", "reviewer"]
+        )
+        if scope_id:
+            scope_ids = [s for s in scope_ids if s == scope_id]
+            scope_id = None
+        if not scope_ids:
+            return CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
+    elif current_user.role != "admin" and not scope_id:
         # Non-admin without specific scope: filter to their scopes from memberships
         memberships = (
             db.query(ScopeMembership.scope_id)
@@ -217,7 +231,7 @@ def list_curations(
         gene_id=gene_id,
         status=curation_status,
         curator_id=curator_id,
-        exclude_creator_id=current_user.id if exclude_own else None,
+        exclude_creator_id=current_user.id if pending_review else None,
     )
 
     return CurationListResponse(

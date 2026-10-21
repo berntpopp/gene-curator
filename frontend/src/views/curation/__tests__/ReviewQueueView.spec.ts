@@ -16,7 +16,6 @@ vi.mock('@/api/precurations', () => ({
 
 import { curationsAPI } from '@/api'
 import { precurationsAPI } from '@/api/precurations'
-import { useAuthStore } from '@/stores/auth'
 import { useNotificationsStore } from '@/stores/notifications'
 import ReviewQueueView from '@/views/curation/ReviewQueueView.vue'
 
@@ -61,8 +60,13 @@ describe('ReviewQueueView', () => {
     await flushPromises()
     expect(curationsAPI.getCurations).toHaveBeenCalledWith({
       curation_status: 'in_review',
+      pending_review: true,
+      skip: 0,
       limit: 200
     })
+    expect(precurationsAPI.getPrecurations).toHaveBeenCalledWith(
+      expect.objectContaining({ pending_review: true })
+    )
     expect(wrapper.text()).toContain('All caught up!')
   })
 
@@ -75,18 +79,17 @@ describe('ReviewQueueView', () => {
     expect(addToast).toHaveBeenCalledWith('Failed to load review queue', 'error')
   })
 
-  it('hides curations created by the current user (4-eyes principle)', async () => {
-    useAuthStore().user = { id: 'me', role: 'curator' } as never
-    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
-      curations: [
-        row({ id: 'c1', gene_symbol: 'BRCA1', created_by: 'me' }),
-        row({ id: 'c2', gene_symbol: 'TP53', created_by: 'other' })
-      ]
-    } as never)
+  it('pages through every server-filtered curation instead of capping at 200', async () => {
+    const mk = (n: number, from: number) =>
+      Array.from({ length: n }, (_, i) => row({ id: `c${from + i}`, gene_symbol: `G${from + i}` }))
+    vi.mocked(curationsAPI.getCurations)
+      .mockResolvedValueOnce({ curations: mk(200, 0), total: 250 } as never)
+      .mockResolvedValueOnce({ curations: mk(50, 200), total: 250 } as never)
     const wrapper = mount(ReviewQueueView)
     await flushPromises()
-    expect(wrapper.text()).toContain('TP53')
-    expect(wrapper.text()).not.toContain('BRCA1')
+    expect(curationsAPI.getCurations).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(curationsAPI.getCurations).mock.calls[1]![0]).toMatchObject({ skip: 200 })
+    expect(wrapper.text()).toContain('250')
   })
 
   it('shows no-match text when the search excludes everything', async () => {
@@ -142,22 +145,6 @@ describe('ReviewQueueView', () => {
         .findAllComponents({ name: 'VBtn' })
         .find(b => b.attributes('data-test') === 'open-precuration')
       expect(open?.props('to')).toBe('/scopes/sc1/precurations/p1')
-    })
-
-    it('hides precurations created by the current user (4-eyes)', async () => {
-      useAuthStore().user = { id: 'me' } as never
-      vi.mocked(curationsAPI.getCurations).mockResolvedValue({ curations: [] } as never)
-      vi.mocked(precurationsAPI.getPrecurations).mockResolvedValue({
-        precurations: [
-          { ...pre, id: 'mine', gene_symbol: 'MINE1', created_by: 'me' },
-          { ...pre, id: 'theirs', gene_symbol: 'THEIRS1', created_by: 'other' }
-        ],
-        total: 2
-      } as never)
-      const wrapper = mount(ReviewQueueView)
-      await flushPromises()
-      expect(wrapper.text()).toContain('THEIRS1')
-      expect(wrapper.text()).not.toContain('MINE1')
     })
 
     it('fetches every page of submitted precurations', async () => {

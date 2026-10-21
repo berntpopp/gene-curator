@@ -1,7 +1,7 @@
 <template>
   <div class="user-menu">
     <!-- Login Button (when not authenticated) -->
-    <v-btn aria-label="Sign in" v-if="!isAuthenticated" icon :to="{ name: 'Login' }">
+    <v-btn v-if="!isAuthenticated" aria-label="Sign in" icon :to="{ name: 'Login' }">
       <v-icon>mdi-login</v-icon>
     </v-btn>
 

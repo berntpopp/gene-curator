@@ -136,6 +136,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         scope_ids: list[UUID] | None = None,
         gene_id: UUID | None = None,
         status: CurationStatus | None = None,
+        exclude_creator_id: UUID | None = None,
     ) -> tuple[list[PrecurationSummary], int]:
         """
         Get precuration summaries with joined data for list views.
@@ -163,6 +164,8 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             stmt = stmt.where(PrecurationNew.gene_id == gene_id)
         if status:
             stmt = stmt.where(PrecurationNew.status == status)
+        if exclude_creator_id:
+            stmt = stmt.where(PrecurationNew.created_by != exclude_creator_id)
 
         # Get total count (before pagination)
         count_stmt = select(func.count()).select_from(

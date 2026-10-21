@@ -179,9 +179,18 @@ describe('MainNavigation', () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1)
 
     state.mockReturnValue('visible')
-    await vi.advanceTimersByTimeAsync(60000)
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
     expect(fetchSpy).toHaveBeenCalledTimes(2)
     state.mockRestore()
+  })
+
+  it('stops listening for visibility changes after unmount', async () => {
+    const { wrapper, fetchSpy } = await mountNav({ role: 'user' })
+    wrapper.unmount()
+    document.dispatchEvent(new Event('visibilitychange'))
+    await flushPromises()
+    expect(fetchSpy).toHaveBeenCalledTimes(1)
   })
 
   it('clears the badge on sign-out and restarts refreshing on sign-in', async () => {

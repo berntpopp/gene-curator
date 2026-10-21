@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { setActivePinia, createPinia } from 'pinia'
 import { useWorkflowStore, WORKFLOW_STAGES } from '@/stores/workflow'
-import { workflowAPI, curationsAPI } from '@/api'
+import { workflowAPI, curationsAPI, precurationsAPI } from '@/api'
 import type { Schema } from '@/types/api'
 
 vi.mock('@/api', () => ({
@@ -19,11 +19,15 @@ vi.mock('@/api', () => ({
   },
   curationsAPI: {
     getCurations: vi.fn()
+  },
+  precurationsAPI: {
+    getPrecurations: vi.fn()
   }
 }))
 
 const api = vi.mocked(workflowAPI)
 const curations = vi.mocked(curationsAPI)
+const precurations = vi.mocked(precurationsAPI)
 
 type Stage = Schema<'WorkflowStage'>
 
@@ -285,20 +289,25 @@ describe('useWorkflowStore', () => {
   })
 
   describe('fetchPendingReviewCount', () => {
-    it('uses the total of a one-row exclude_own request', async () => {
+    it('sums the server-side pending_review totals of curations and precurations', async () => {
       const store = useWorkflowStore()
-      curations.getCurations.mockResolvedValue({
-        curations: [{}],
-        total: 7
-      } as Schema<'CurationListResponse'>)
+      curations.getCurations.mockResolvedValue({ total: 7 } as Schema<'CurationListResponse'>)
+      precurations.getPrecurations.mockResolvedValue({
+        total: 2
+      } as Schema<'PrecurationListResponse'>)
 
-      await expect(store.fetchPendingReviewCount()).resolves.toBe(7)
+      await expect(store.fetchPendingReviewCount()).resolves.toBe(9)
       expect(curations.getCurations).toHaveBeenCalledWith({
         curation_status: 'in_review',
         limit: 1,
-        exclude_own: true
+        pending_review: true
       })
-      expect(store.pendingReviewCount).toBe(7)
+      expect(precurations.getPrecurations).toHaveBeenCalledWith({
+        precuration_status: 'submitted',
+        limit: 1,
+        pending_review: true
+      })
+      expect(store.pendingReviewCount).toBe(9)
     })
 
     it('returns 0 when the request fails', async () => {
