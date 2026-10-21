@@ -63,3 +63,35 @@ def test_every_forced_rls_table_has_a_select_policy() -> None:
             "AND p.cmd IN ('SELECT', 'ALL'))"
         )
         assert cur.fetchall() == []
+
+
+@pytest.mark.parametrize("role", ["test_user", "rls_probe_role"])
+def test_only_app_user_may_drop_log_partitions(role: str) -> None:
+    with psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as conn:
+        try:
+            with conn.cursor() as cur:
+                if role == "rls_probe_role":
+                    cur.execute("CREATE ROLE rls_probe_role NOLOGIN")
+                cur.execute(f"SET ROLE {role}")
+                with pytest.raises(psycopg2.errors.InsufficientPrivilege):
+                    cur.execute("SELECT cleanup_old_logs(90)")
+        finally:
+            conn.rollback()
+
+
+def test_log_cleanup_rejects_retention_below_one_day() -> None:
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn:
+        try:
+            with conn.cursor() as cur:
+                cur.execute("SELECT current_user")
+                assert cur.fetchone() == ("app_user",)
+                with pytest.raises(psycopg2.errors.RaiseException, match="at least 1"):
+                    cur.execute("SELECT cleanup_old_logs(0)")
+        finally:
+            conn.rollback()
+
+
+def test_legacy_test_user_cannot_log_in() -> None:
+    owner = psycopg2.extensions.parse_dsn(os.environ["OWNER_DATABASE_URL"])
+    with pytest.raises(psycopg2.OperationalError, match="not permitted to log in"):
+        psycopg2.connect(**{**owner, "user": "test_user", "password": "test_password"})

@@ -121,8 +121,52 @@ CREATE POLICY notifications_insert_policy ON notifications
     FOR INSERT
     WITH CHECK (get_current_user_uuid() IS NOT NULL);
 
--- Dropping log partitions needs the table owner; the endpoint is admin-only.
-ALTER FUNCTION cleanup_old_logs(integer) SECURITY DEFINER SET search_path = public, pg_temp;
+-- Dropping log partitions needs the table owner, so the function runs as owner; only
+-- app_user (admin-only endpoint) may call it, and never with retention below one day.
+CREATE OR REPLACE FUNCTION cleanup_old_logs(retention_days integer DEFAULT 90)
+RETURNS void AS $$
+DECLARE
+    partition_name TEXT;
+    partition_start DATE;
+BEGIN
+    IF retention_days IS NULL OR retention_days < 1 THEN
+        RAISE EXCEPTION 'retention_days must be at least 1, got %', retention_days;
+    END IF;
+    FOR partition_name, partition_start IN
+        SELECT
+            tablename,
+            to_date(substring(tablename from '^system_logs_(\d{4}_\d{2})$'), 'YYYY_MM')
+        FROM pg_tables
+        WHERE schemaname = 'public'
+        AND tablename ~ '^system_logs_\d{4}_\d{2}$'
+    LOOP
+        IF (partition_start + INTERVAL '1 month')::date <= CURRENT_DATE - retention_days THEN
+            EXECUTE format('DROP TABLE IF EXISTS %I', partition_name);
+            RAISE NOTICE 'Dropped old partition: %', partition_name;
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp;
+REVOKE EXECUTE ON FUNCTION cleanup_old_logs(integer) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION cleanup_old_logs(integer) TO app_user;
+
+-- 006 created test_user/test_password in every database; nothing uses it any more
+-- (the test lane runs as app_user) and it could set any app.current_user_id.
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'test_user') THEN
+        ALTER ROLE test_user NOLOGIN;
+        EXECUTE format('REVOKE ALL ON DATABASE %I FROM test_user', current_database());
+        REVOKE ALL ON ALL TABLES IN SCHEMA public FROM test_user;
+        REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM test_user;
+        REVOKE ALL ON ALL FUNCTIONS IN SCHEMA public FROM test_user;
+        REVOKE ALL ON SCHEMA public FROM test_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM test_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM test_user;
+        ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM test_user;
+    END IF;
+END
+$$;
 
 INSERT INTO schema_migrations (filename) VALUES ('031_application_role.sql')
 ON CONFLICT (filename) DO NOTHING;
