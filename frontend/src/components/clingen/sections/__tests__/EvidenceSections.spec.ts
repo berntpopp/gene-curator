@@ -174,6 +174,14 @@ describe('ExperimentalEvidenceSection', () => {
 })
 
 describe('ContradictoryEvidenceSection', () => {
+  it('gives the type and impact selects accessible names', () => {
+    const wrapper = mount(ContradictoryEvidenceSection, {
+      props: { modelValue: [{ pmid: '1', evidence_type: 'population', impact: 'note' }] }
+    })
+    expect(wrapper.find('input[aria-label="Evidence type"]').exists()).toBe(true)
+    expect(wrapper.find('input[aria-label="Impact"]').exists()).toBe(true)
+  })
+
   it('shows the empty-state prompt and no table until an item is added', () => {
     const wrapper = mount(ContradictoryEvidenceSection, { props: { modelValue: [] } })
     expect(wrapper.text()).toContain('No Contradictory Evidence')
