@@ -23,6 +23,7 @@
             <v-chip v-if="g.change !== 'changed'" size="x-small" variant="tonal">
               {{ g.change === 'added' ? 'Added' : 'Removed' }}
             </v-chip>
+            <div v-if="g.context" class="text-body-small text-medium-emphasis">{{ g.context }}</div>
           </div>
           <div v-if="reviewer" class="item__check" role="group" :aria-label="`Check ${g.label}`">
             <v-btn
@@ -54,10 +55,14 @@
 
         <dl class="item__fields">
           <template v-for="f in g.fields" :key="f.name">
-            <dt v-if="f.name" class="mono">{{ f.name }}</dt>
+            <dt v-if="f.name" class="text-medium-emphasis">{{ f.label }}</dt>
             <dd :class="{ full: !f.name }">
-              <del v-if="f.change !== 'added'" class="del">{{ formatValue(f.before) }}</del>
-              <ins v-if="f.change !== 'removed'" class="ins">{{ formatValue(f.after) }}</ins>
+              <del v-if="f.change !== 'added'" class="del">{{
+                formatValue(f.before, f.options)
+              }}</del>
+              <ins v-if="f.change !== 'removed'" class="ins">{{
+                formatValue(f.after, f.options)
+              }}</ins>
             </dd>
           </template>
         </dl>
@@ -88,7 +93,7 @@
   import { useReviewStore } from '@/stores/review'
   import { errorMessage } from '@/stores/apiError'
   import ReviewItemThread from './ReviewItemThread.vue'
-  import { formatValue, groupDiff, itemState } from './reviewModel'
+  import { formatValue, groupDiff, itemState, type DiffContext } from './reviewModel'
 
   const props = defineProps<{
     curationId: string
@@ -98,6 +103,8 @@
     canReply: boolean
     /** Outside review (e.g. after changes were requested) show only when there are comments. */
     onlyWithComments?: boolean
+    /** Schema field definitions and current evidence, for readable item and field names. */
+    context?: DiffContext
   }>()
 
   const review = useReviewStore()
@@ -108,7 +115,7 @@
   const shown = computed(
     () => !props.onlyWithComments || !loaded.value || review.comments.length > 0
   )
-  const groups = computed(() => groupDiff(review.diff?.items ?? []))
+  const groups = computed(() => groupDiff(review.diff?.items ?? [], props.context))
   const state = (key: string) => itemState(review.comments, key, props.me)
 
   const baselineText = computed(() => {
