@@ -8,6 +8,7 @@ from datetime import datetime
 from typing import Any
 
 from app.core.enum_options import enum_option, flatten_sections
+from app.core.logging import get_logger
 from app.core.schema_rules import (
     VALID_FIELD_TYPES,
     apply_field_list_rules,
@@ -17,6 +18,8 @@ from app.core.schema_rules import (
 )
 from app.core.schema_validation_result import SchemaValidationResult
 from app.scoring.registry import scoring_registry
+
+logger = get_logger(__name__)
 
 
 def _naive_datetime(value: str) -> datetime:
@@ -377,6 +380,8 @@ class SchemaValidator:
         result: SchemaValidationResult,
     ) -> None:
         """Validate select field."""
+        if value in (None, ""):  # an optional, unset choice
+            return
         options = config.get("options", [])
         if not options:
             result.add_warning(
@@ -581,11 +586,8 @@ class SchemaValidator:
 
         # Simple condition evaluation (would need more sophisticated parser for complex rules)
         if "&&" in condition or "||" in condition:
-            result.add_warning(
-                "validation_rules",
-                f"Complex conditions not fully supported: {rule_name}",
-                "limitation",
-            )
+            # Schema-author limitation, not something a curator can fix: log, don't warn
+            logger.info("Complex validation condition skipped", rule=rule_name)
             return
 
         # Basic field existence checks
@@ -628,11 +630,7 @@ class SchemaValidator:
     ) -> None:
         """Apply calculation validation rule."""
         # This would implement calculation validation (e.g., totals, sums)
-        result.add_warning(
-            "validation_rules",
-            f"Calculation rules not fully implemented: {rule_name}",
-            "limitation",
-        )
+        logger.info("Calculation validation rule skipped", rule=rule_name)
 
     def _apply_business_rules(
         self,

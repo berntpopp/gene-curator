@@ -415,7 +415,10 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
     }
     store.result = {
       is_valid: false,
-      errors: [{ field: 'entity_definition.mode_of_inheritance', message: 'Required' }],
+      errors: [
+        { field: 'entity_definition.mode_of_inheritance', message: 'Required' },
+        { field: 'entity_definition.mode_of_inheritance', message: 'Must be AD or AR' }
+      ],
       warnings: [
         { field: 'entity_definition.disease_name', message: 'Short' },
         { field: 'entity_definition.disease_name', message: 'Short' }
@@ -427,6 +430,7 @@ describe('DynamicForm stays mounted and follows late initial data', () => {
       'Disease name: Short'
     ])
     expect(wrapper.text()).toContain('Mode of inheritance: Required')
+    expect(wrapper.text()).toContain('Mode of inheritance: Must be AD or AR')
     expect(wrapper.text()).not.toContain('entity_definition')
   })
 })

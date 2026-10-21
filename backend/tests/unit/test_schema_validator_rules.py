@@ -41,7 +41,7 @@ class TestValidationRules:
         assert result.errors[0]["message"] == "Gene is needed"
         assert result.errors[0]["type"] == "condition"
 
-    def test_compound_condition_is_limited_with_warning(
+    def test_compound_condition_is_skipped_without_warning(
         self, validator: SchemaValidator
     ):
         result = _run(
@@ -54,9 +54,7 @@ class TestValidationRules:
         )
 
         assert result.is_valid is True
-        assert _messages(result, "warnings") == [
-            "Complex conditions not fully supported: c"
-        ]
+        assert result.warnings == []
 
     def test_dependency_rule(self, validator: SchemaValidator):
         rules = {
@@ -79,7 +77,7 @@ class TestValidationRules:
         assert bad.errors[0]["type"] == "dependency"
         assert ok.is_valid is True
 
-    def test_calculation_rule_is_reported_as_limitation(
+    def test_calculation_rule_is_skipped_without_warning(
         self, validator: SchemaValidator
     ):
         result = _run(
@@ -89,9 +87,7 @@ class TestValidationRules:
             validation_rules={"sum": {"type": "calculation"}},
         )
 
-        assert _messages(result, "warnings") == [
-            "Calculation rules not fully implemented: sum"
-        ]
+        assert result.warnings == []
 
     def test_unknown_rule_type_ignored(self, validator: SchemaValidator):
         result = _run(validator, {}, {}, validation_rules={"x": {"type": "mystery"}})

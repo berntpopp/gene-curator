@@ -69,6 +69,14 @@ class TestFieldDispatch:
 
         assert _messages(result) == [message]
 
+    @pytest.mark.parametrize("value", [None, ""])
+    def test_optional_empty_enum_is_valid(self, validator, value):
+        config = {"type": "enum", "options": [{"value": "a"}]}
+        result = _run(validator, {"x": value}, {"x": config})
+
+        assert result.is_valid is True
+        assert result.errors == []
+
     def test_unknown_field_type_warns(self, validator: SchemaValidator):
         result = _run(validator, {"x": 1}, {"x": {"type": "colour"}})
 

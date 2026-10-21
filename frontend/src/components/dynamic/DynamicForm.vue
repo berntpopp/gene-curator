@@ -112,7 +112,7 @@
               </template>
               <div class="font-weight-medium mb-2">Form Validation Errors</div>
               <ul class="pl-4">
-                <li v-for="item in validationResult.errors" :key="item.field">
+                <li v-for="item in validationResult.errors" :key="`${item.field}:${item.message}`">
                   <strong>{{ labelFor(item.field) }}:</strong> {{ item.message }}
                 </li>
               </ul>

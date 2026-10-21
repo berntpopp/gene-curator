@@ -6,13 +6,15 @@ const mountWarnings = (messages: string[]) => mount(ValidationWarnings, { props:
 
 describe('ValidationWarnings', () => {
   it('renders nothing without warnings', () => {
-    expect(mountWarnings([]).find('[role="status"]').exists()).toBe(false)
+    const wrapper = mountWarnings([])
+    expect(wrapper.get('[role="status"]').text()).toBe('')
+    expect(wrapper.find('.v-card').exists()).toBe(false)
   })
 
   it('summarises as one status alert with a count and a collapsed list', async () => {
     const wrapper = mountWarnings(['Name: a', 'Age: b'])
 
-    const alert = wrapper.get('[role="status"]')
+    const alert = wrapper.get('[role="status"] .v-card')
     expect(alert.text()).toContain('2 warnings')
     expect(wrapper.find('li').exists()).toBe(false)
 
@@ -31,12 +33,12 @@ describe('ValidationWarnings', () => {
   it('can be dismissed and comes back when the warnings change', async () => {
     const wrapper = mountWarnings(['Name: a'])
     await wrapper.get('button[aria-label="Dismiss warnings"]').trigger('click')
-    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.find('[role="status"] .v-card').exists()).toBe(false)
 
     await wrapper.setProps({ messages: ['Name: a'] })
-    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.find('[role="status"] .v-card').exists()).toBe(false)
 
     await wrapper.setProps({ messages: ['Name: a', 'Age: b'] })
-    expect(wrapper.find('[role="status"]').exists()).toBe(true)
+    expect(wrapper.find('[role="status"] .v-card').exists()).toBe(true)
   })
 })
