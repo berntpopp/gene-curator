@@ -83,20 +83,12 @@
               ></v-select>
 
               <!-- Description -->
-              <v-textarea
-                v-model="scopeData.description"
-                label="Description"
-                rows="3"
-                hint="Brief description of this clinical scope"
-                persistent-hint
-              ></v-textarea>
+              <v-textarea v-model="scopeData.description" label="Description" rows="2"></v-textarea>
 
               <!-- Institution (optional) -->
               <v-text-field
                 v-model="scopeData.institution"
                 label="Institution (optional)"
-                hint="e.g., University Hospital"
-                persistent-hint
               ></v-text-field>
 
               <!-- Public/Private -->

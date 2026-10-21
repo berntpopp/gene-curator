@@ -133,6 +133,10 @@
 
 <style scoped>
   .scope-link {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
     color: rgb(var(--v-theme-secondary));
     font-weight: 500;
     text-align: left;
