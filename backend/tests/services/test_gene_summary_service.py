@@ -256,8 +256,9 @@ def test_get_public_summary_computes_missing_summary_and_filters_scopes(
 
     assert public is not None
     assert public.public_scopes_count == 1
-    assert [s["scope_name"] for s in public.scope_summaries] == ["public-scope"]
-    assert public.classification_summary == {"definitive": 1, "limited": 1}
+    assert [s.scope_name for s in public.scope_summaries] == ["public-scope"]
+    # private scopes must not leak into public aggregates
+    assert public.classification_summary == {"limited": 1}
 
 
 def test_get_public_summary_none_without_public_scopes(

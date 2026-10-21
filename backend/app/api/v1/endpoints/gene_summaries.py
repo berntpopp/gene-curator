@@ -100,53 +100,7 @@ async def get_gene_full_summary(
     Raises:
         HTTPException: 404 if gene not found or has no curations
     """
-    service = GeneSummaryService(db)
-
-    # Always recompute for authenticated users to ensure freshness
-    summary = service.compute_summary(gene_id)
-
-    if not summary:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Gene not found or has no curations",
-        )
-
-    # Filter scope summaries based on user permissions
-    visible_scope_ids = {
-        str(s.id) for s in ScopePermissionService.get_visible_scopes(db, current_user)
-    }
-
-    filtered_scope_summaries = [
-        s for s in summary.scope_summaries if s.get("scope_id") in visible_scope_ids
-    ]
-
-    # Recalculate counts based on filtered summaries
-    public_count = sum(1 for s in filtered_scope_summaries if s.get("is_public"))
-    private_count = sum(1 for s in filtered_scope_summaries if not s.get("is_public"))
-
-    logger.debug(
-        "Full gene summary retrieved",
-        gene_id=str(gene_id),
-        total_scopes=len(filtered_scope_summaries),
-        public_scopes=public_count,
-        private_scopes=private_count,
-        user_id=str(current_user.id),
-    )
-
-    return GeneSummaryFull(
-        gene_id=summary.gene_id,
-        total_scopes_curated=len(filtered_scope_summaries),
-        public_scopes_count=public_count,
-        private_scopes_count=private_count,
-        classification_summary=summary.classification_summary,
-        consensus_classification=summary.consensus_classification,
-        consensus_confidence=summary.consensus_confidence,
-        has_conflicts=summary.has_conflicts,
-        scope_summaries=filtered_scope_summaries,
-        last_updated=summary.last_computed_at,
-        computation_version=1,  # SOP v11 version
-        is_stale=summary.is_stale,
-    )
+    return GeneSummaryService(db).get_full_summary(gene_id, current_user)
 
 
 @router.get(
