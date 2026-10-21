@@ -17,6 +17,7 @@ from app.schemas.gene_resolve import (
     GeneResolveItem,
     GeneResolveResponse,
     MatchType,
+    ResolveReason,
 )
 from app.services.validators import HGNCValidator
 
@@ -114,10 +115,12 @@ async def _hgnc_fallback(
     db: Session,
     missing: list[str],
     found: dict[str, tuple[MatchType, list[_Gene], Literal["local", "hgnc"]]],
-) -> dict[str, str]:
+) -> dict[str, ResolveReason]:
     """Fill `found` from HGNC for capped inputs; return why the others were skipped."""
     asked = missing[:_HGNC_MAX_LOOKUPS]
-    reasons: dict[str, str] = {t.upper(): "lookup_cap" for t in missing[len(asked) :]}
+    reasons: dict[str, ResolveReason] = {
+        t.upper(): "lookup_cap" for t in missing[len(asked) :]
+    }
     if not asked:
         return reasons
     # End the read transaction so no DB connection is held while awaiting HGNC.

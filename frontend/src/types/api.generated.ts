@@ -5139,6 +5139,11 @@ export interface components {
             /** Candidates */
             candidates?: components["schemas"]["GeneCandidate"][];
             /**
+             * Reason
+             * @description Why an input was not looked up at HGNC (not_found only)
+             */
+            reason?: ("lookup_cap" | "lookup_timeout") | null;
+            /**
              * Duplicate Of
              * @description Index of the first input that resolved to the same gene
              */

@@ -12,6 +12,7 @@ MAX_TOKEN_LENGTH = 50
 _TOKEN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._:@\-]*$")
 
 MatchType = Literal["symbol", "previous_symbol", "alias", "hgnc_id"]
+ResolveReason = Literal["lookup_cap", "lookup_timeout"]
 
 
 class GeneResolveRequest(BaseModel):
@@ -43,7 +44,7 @@ class GeneResolveItem(BaseModel):
     match_type: MatchType | None = None
     source: Literal["local", "hgnc"] | None = None
     candidates: list[GeneCandidate] = Field(default_factory=list)
-    reason: Literal["lookup_cap", "lookup_timeout"] | None = Field(
+    reason: ResolveReason | None = Field(
         None, description="Why an input was not looked up at HGNC (not_found only)"
     )
     duplicate_of: int | None = Field(
