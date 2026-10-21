@@ -54,6 +54,17 @@
         </a>
       </p>
 
+      <v-alert
+        v-if="sentBackReason"
+        type="warning"
+        variant="tonal"
+        class="mb-4"
+        data-testid="sent-back-reason"
+      >
+        <v-alert-title>Changes requested</v-alert-title>
+        <span class="sent-back">{{ sentBackReason }}</span>
+      </v-alert>
+
       <v-row>
         <v-col cols="12">
           <!-- Schema-driven form replaces hardcoded panels -->
@@ -161,6 +172,7 @@
   ])
   const formGene = computed(() => ({ symbol: gene.value?.approved_symbol }))
   const precurationSchemaId = ref<string | undefined>(undefined)
+  const sentBackReason = ref<string | null>(null)
   const loading = ref(true)
   const loadError = ref<string | null>(null)
   const readonly = ref(false)
@@ -271,6 +283,10 @@
           !mine ||
           precuration.scope_id !== scopeId.value ||
           !['draft', 'rejected'].includes(precuration.status)
+        // The reviewer's reason stays visible while the precuration is sent back
+        const reason = precuration.computed_fields?.rejection_reason
+        sentBackReason.value =
+          precuration.status === 'rejected' && typeof reason === 'string' ? reason : null
       }
 
       if (geneId.value) {
@@ -298,5 +314,9 @@
   /* Ensure proper spacing */
   .v-container {
     max-width: 1200px;
+  }
+
+  .sent-back {
+    white-space: pre-line;
   }
 </style>

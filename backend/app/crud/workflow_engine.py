@@ -24,6 +24,7 @@ from app.crud.review_round import (
     in_current_round,
     pending_reviews,
     reassign_earlier_reviewers,
+    record_review_decision,
 )
 from app.crud.workflow_statistics import compute_workflow_statistics
 from app.models import (
@@ -217,36 +218,18 @@ class WorkflowEngine:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
         try:
-            # Execute the transition based on target stage
-            transition_result = None
-
-            if target_stage == WorkflowStage.PRECURATION:
-                transition_result = self._transition_to_precuration(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.CURATION:
-                transition_result = self._transition_to_curation(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.REVIEW:
-                transition_result = self._transition_to_review(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.ACTIVE:
-                transition_result = self._transition_to_active(
-                    db, item, user_id, notes, metadata
-                )
-
-            elif target_stage == WorkflowStage.ENTRY:
-                transition_result = self._transition_to_entry(
-                    db, item, user_id, notes, metadata
-                )
-
-            else:
+            if item_type == "curation" and current_stage == WorkflowStage.REVIEW:
+                record_review_decision(db, item, user_id, target_stage, notes)
+            handler = {
+                WorkflowStage.PRECURATION: self._transition_to_precuration,
+                WorkflowStage.CURATION: self._transition_to_curation,
+                WorkflowStage.REVIEW: self._transition_to_review,
+                WorkflowStage.ACTIVE: self._transition_to_active,
+                WorkflowStage.ENTRY: self._transition_to_entry,
+            }.get(target_stage)
+            if handler is None:
                 raise ValueError(f"Unsupported target stage: {target_stage}")
+            transition_result = handler(db, item, user_id, notes, metadata)
 
             # Emit notifications for workflow transitions
             self._emit_transition_notification(

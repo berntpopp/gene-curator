@@ -1460,7 +1460,8 @@ export interface paths {
         };
         /**
          * Get Workflow Audit Trail
-         * @description Get complete workflow audit trail for an item.
+         * @description Review history of a curation: its latest submission and every review decision with the
+         *     reviewer's notes (other items, and unknown ones, have an empty trail).
          */
         get: operations["get_workflow_audit_trail_api_v1_workflow__item_type___item_id__audit_trail_get"];
         put?: never;
