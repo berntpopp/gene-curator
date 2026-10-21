@@ -57,6 +57,13 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.4.0
+
+1. Set `APP_DB_PASSWORD` (required; the runtime connects as the non-superuser `app_user`).
+2. Run `make db-migrate` to apply all pending migrations (028-035) once, before restarting the backend.
+3. Run `make recompute-scores` once to rescore curations under ClinGen SOP v11.
+4. Redis is gone; remove any Redis service or `REDIS_*` settings from your deployment.
+
 ## Development and verification
 
 Checks run locally first; GitHub Actions runs the same `make` targets and only confirms.
@@ -90,7 +97,7 @@ Details are in [AGENTS.md](AGENTS.md).
 | Contract | `frontend/src/types/api.generated.ts` | TypeScript types generated from the API's OpenAPI schema |
 
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
-Vuetify 3 · PostgreSQL 15.
+Vuetify 4 · PostgreSQL 15.
 
 ## Documentation
 
