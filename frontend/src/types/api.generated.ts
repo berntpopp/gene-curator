@@ -1098,7 +1098,7 @@ export interface paths {
         put?: never;
         /**
          * Bulk Create Gene Assignments
-         * @description Bulk create gene-scope assignments. Available to all authenticated users with scope access.
+         * @description Bulk create gene-scope assignments. Scope admins and application admins only.
          */
         post: operations["bulk_create_gene_assignments_api_v1_gene_assignments_bulk_post"];
         delete?: never;

@@ -109,6 +109,7 @@
 <script setup lang="ts">
   import { computed, onMounted, reactive } from 'vue'
   import { useInvitationsStore } from '@/stores/invitations'
+  import { useScopesStore } from '@/stores/scopes'
   import { useRoleColors } from '@/composables/useRoleColors'
   import { useLogger } from '@/composables/useLogger'
   import type { Schema } from '@/types/api'
@@ -125,6 +126,7 @@
   // ============================================
 
   const invitationsStore = useInvitationsStore()
+  const scopesStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
   const logger = useLogger()
 
@@ -204,6 +206,11 @@
         invitationId: invitation.id,
         scopeId: invitation.scope_id,
         role: invitation.role
+      })
+
+      // The join succeeded; a failed scope refresh must not turn it into an error
+      await scopesStore.fetchUserScopes().catch((error: unknown) => {
+        logger.warn('Failed to refresh scopes after accept', { error: (error as Error).message })
       })
     } catch (error) {
       logger.error('Failed to accept invitation', {

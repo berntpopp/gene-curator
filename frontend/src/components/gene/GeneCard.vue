@@ -7,7 +7,7 @@
       </a>
       <v-spacer />
       <v-chip :color="getStatusColor(gene.status)" size="small">
-        {{ getStatusLabel(gene.status) }}
+        {{ getStatusLabel(gene.status, !!gene.curator_name) }}
       </v-chip>
     </v-card-title>
 

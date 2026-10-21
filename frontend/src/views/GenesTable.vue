@@ -54,7 +54,7 @@
         <v-col>
           <div class="d-flex align-center">
             <v-chip color="primary" variant="outlined" class="mr-3">
-              {{ totalGenes }} genes
+              {{ pluralize(totalGenes, 'gene') }}
             </v-chip>
             <v-chip
               v-if="isSearching"
@@ -140,6 +140,7 @@
 <script setup lang="ts">
   import { TERMINOLOGY } from '@/config/terminology'
   import { ref, computed, onMounted, watch } from 'vue'
+  import { pluralize } from '@/utils/pluralize'
   import { useAuthStore } from '@/stores/auth'
   import { useGenesStore } from '@/stores/genes'
 

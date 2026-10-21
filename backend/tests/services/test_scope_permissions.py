@@ -5,7 +5,7 @@ Tests cover:
 - has_scope_access with EXISTS query optimization
 - get_user_scope_ids for different user types
 - get_user_scope_role for membership lookup
-- can_create_precuration, can_approve_precuration, can_edit_gene_assignment
+- can_create_precuration, can_approve_precuration
 """
 
 from datetime import UTC, datetime
@@ -625,60 +625,3 @@ class TestCanApprovePrecuration:
             db_session, admin_user, precuration
         )
         assert result is True
-
-
-# =============================================================================
-# Test can_edit_gene_assignment
-# =============================================================================
-
-
-class TestCanEditGeneAssignment:
-    """Test can_edit_gene_assignment method."""
-
-    def test_admin_can_edit(
-        self, db_session: Session, admin_user: UserNew, scope: Scope
-    ) -> None:
-        """Admin should be able to edit gene assignments."""
-        result = ScopePermissionService.can_edit_gene_assignment(
-            db_session, admin_user, scope.id
-        )
-        assert result is True
-
-    def test_curator_can_edit(
-        self,
-        db_session: Session,
-        regular_user: UserNew,
-        scope: Scope,
-        curator_membership: ScopeMembership,
-    ) -> None:
-        """Curator should be able to edit gene assignments."""
-        result = ScopePermissionService.can_edit_gene_assignment(
-            db_session, regular_user, scope.id
-        )
-        assert result is True
-
-    def test_viewer_cannot_edit(
-        self,
-        db_session: Session,
-        regular_user: UserNew,
-        scope: Scope,
-        viewer_membership: ScopeMembership,
-    ) -> None:
-        """Viewer should not be able to edit gene assignments."""
-        result = ScopePermissionService.can_edit_gene_assignment(
-            db_session, regular_user, scope.id
-        )
-        assert result is False
-
-    def test_reviewer_cannot_edit(
-        self,
-        db_session: Session,
-        regular_user: UserNew,
-        scope: Scope,
-        reviewer_membership: ScopeMembership,
-    ) -> None:
-        """Reviewer should not be able to edit gene assignments."""
-        result = ScopePermissionService.can_edit_gene_assignment(
-            db_session, regular_user, scope.id
-        )
-        assert result is False

@@ -32,6 +32,12 @@ describe('Dashboard view', () => {
     expect(wrapper.text()).toContain('Heart')
   })
 
+  it('lets the page header wrap so it cannot widen the page on phones', () => {
+    expect(mountView().find('h1').element.parentElement!.parentElement!.classList).toContain(
+      'flex-wrap'
+    )
+  })
+
   it('greets the signed-in user by name', () => {
     useAuthStore().user = { name: 'Ada Lovelace', role: 'user' } as never
     expect(mountView().text()).toContain('Welcome back, Ada Lovelace')

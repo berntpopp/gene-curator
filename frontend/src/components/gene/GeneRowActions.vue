@@ -52,13 +52,13 @@
         <v-list-item-title> Curation (requires approved precuration) </v-list-item-title>
       </v-list-item>
       <v-divider />
-      <v-list-item v-if="canAssignGenes" @click="emit('reassign', gene)">
+      <v-list-item v-if="canReassign" @click="emit('reassign', gene)">
         <template #prepend>
           <v-icon>mdi-account-switch</v-icon>
         </template>
         <v-list-item-title>Reassign</v-list-item-title>
       </v-list-item>
-      <v-list-item v-if="canAssignGenes" @click="emit('edit-assignment', gene)">
+      <v-list-item v-if="canReassign" @click="emit('edit-assignment', gene)">
         <template #prepend>
           <v-icon>mdi-pencil-box</v-icon>
         </template>
@@ -86,6 +86,8 @@
     gene: GeneRow
     workflow: GeneWorkflowStatus
     canAssignGenes: boolean
+    /** Scope admin only (backend: assign/unassign-curator). */
+    canReassign?: boolean
     canRemoveGenes: boolean
     /** Why starting precuration/curation is unavailable (no methodology), if it is. */
     startBlockedReason?: string | null

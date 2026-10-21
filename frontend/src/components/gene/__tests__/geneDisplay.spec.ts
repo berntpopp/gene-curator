@@ -34,6 +34,12 @@ describe('geneDisplay', () => {
       expect(getStatusLabel('under_review')).toBe('Under Review')
     })
 
+    it("reads 'Unassigned' for an assigned status without a curator", () => {
+      expect(getStatusLabel('assigned', false)).toBe('Unassigned')
+      expect(getStatusLabel('assigned', true)).toBe('Assigned')
+      expect(getStatusLabel('in_progress', false)).toBe('In Progress')
+    })
+
     it('falls back for unknown statuses', () => {
       expect(getStatusColor('mystery')).toBe('grey')
       expect(getStatusLabel('mystery')).toBe('mystery')

@@ -108,25 +108,27 @@ def test_assignment_list_filters_priority_and_curator(
     assert _ids(client, viewer, "has_curator=false") == {str(high.id)}
 
 
-def test_update_assignment_requires_curator_and_ignores_curator_id(
+def test_update_assignment_requires_scope_admin_and_ignores_curator_id(
     client: TestClient,
     db_session: Session,
     scope_with_admin: Scope,
     viewer: UserNew,
     curator: UserNew,
     outsider: UserNew,
+    owner: UserNew,
 ) -> None:
     row = _assignment(db_session, scope_with_admin)
     url = f"{GA}/{row.id}"
-    denied = client.put(
-        url, json={"assignment_notes": "x"}, headers=auth_headers(viewer)
-    )
-    assert denied.status_code == 403
+    for user in (viewer, curator):
+        denied = client.put(
+            url, json={"assignment_notes": "x"}, headers=auth_headers(user)
+        )
+        assert denied.status_code == 403
 
     response = client.put(
         url,
         json={"assignment_notes": "x", "assigned_curator_id": str(outsider.id)},
-        headers=auth_headers(curator),
+        headers=auth_headers(owner),
     )
     assert response.status_code == 200
     db_session.refresh(row)
