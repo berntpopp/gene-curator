@@ -4,6 +4,8 @@
 -- Approval used to stamp the approver as created_by of the auto-created curation, which
 -- let the real author self-approve (4-eyes) and hid the item from the real reviewer.
 -- precurations.updated_by is the approver at approval time; curations.precuration_id links back.
+-- Completed precurations (computed_fields.completed_by) are excluded: there the curation was
+-- created by a user through the API and is correctly attributed.
 -- Idempotent: after the fix no row matches, and the index is guarded.
 -- =============================================================================
 
@@ -11,6 +13,8 @@ UPDATE curations c
 SET created_by = p.created_by
 FROM precurations p
 WHERE c.precuration_id = p.id
+  AND p.status = 'approved'
+  AND NOT (COALESCE(p.computed_fields, '{}'::jsonb) ? 'completed_by')
   AND p.created_by IS NOT NULL
   AND c.created_by = p.updated_by
   AND c.created_by <> p.created_by;
