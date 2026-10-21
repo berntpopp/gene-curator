@@ -119,7 +119,10 @@ describe('MainNavigation', () => {
     auth.isAuthenticated = user !== null
     auth.user = user as typeof auth.user
     const workflow = useWorkflowStore()
-    const fetchSpy = vi.spyOn(workflow, 'fetchPendingReviewCount').mockResolvedValue(3)
+    const fetchSpy = vi.spyOn(workflow, 'fetchPendingReviewCount').mockImplementation(async () => {
+      workflow.pendingReviewCount = 3
+      return 3
+    })
     const wrapper = mount(MainNavigation, { global: { plugins: [pinia, router] } })
     await flushPromises()
     return { wrapper, auth, fetchSpy, vm: wrapper.vm as unknown as MainNavInternals }
@@ -271,7 +274,11 @@ describe('MainNavigation', () => {
       const auth = useAuthStore()
       auth.isAuthenticated = user !== null
       auth.user = user as typeof auth.user
-      vi.spyOn(useWorkflowStore(), 'fetchPendingReviewCount').mockResolvedValue(2)
+      const workflow = useWorkflowStore()
+      vi.spyOn(workflow, 'fetchPendingReviewCount').mockImplementation(async () => {
+        workflow.pendingReviewCount = 2
+        return 2
+      })
       const wrapper = mount(MainNavigation, {
         global: { plugins: [pinia, router], stubs: { VNavigationDrawer: drawerStub } }
       })

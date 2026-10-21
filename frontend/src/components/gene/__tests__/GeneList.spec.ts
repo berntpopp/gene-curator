@@ -182,16 +182,20 @@ describe('GeneList', () => {
   })
 
   describe('permissions', () => {
-    it('shows the add and assign buttons to scope curators', async () => {
-      scopeState.currentUserRole = 'curator'
-      const wrapper = await mountList()
-
+    it('shows the add and assign buttons to scope admins and application admins', async () => {
+      scopeState.currentUserRole = 'admin'
+      let wrapper = await mountList()
       expect(wrapper.text()).toContain('Add genes')
       expect(wrapper.text()).toContain('Assign to Curator')
+
+      authState.isAdmin = true
+      scopeState.currentUserRole = 'viewer'
+      wrapper = await mountList()
+      expect(wrapper.text()).toContain('Add genes')
     })
 
-    it('hides the add and assign buttons for scope viewers and reviewers', async () => {
-      for (const role of ['viewer', 'reviewer']) {
+    it('hides the add and assign buttons for curators, reviewers and viewers', async () => {
+      for (const role of ['curator', 'viewer', 'reviewer']) {
         scopeState.currentUserRole = role
         const wrapper = await mountList()
 

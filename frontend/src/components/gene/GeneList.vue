@@ -47,12 +47,12 @@
         <v-btn value="cards" icon="mdi-view-grid" aria-label="Card view" />
       </v-btn-toggle>
 
-      <v-btn v-if="canAssignGenes" variant="outlined" class="mr-2" @click="showAddModal = true">
+      <v-btn v-if="canReassign" variant="outlined" class="mr-2" @click="showAddModal = true">
         <v-icon start>mdi-dna</v-icon>
         Add genes
       </v-btn>
 
-      <v-btn v-if="canAssignGenes" color="primary" @click="openAssignModal(selectedIds)">
+      <v-btn v-if="canReassign" color="primary" @click="openAssignModal(selectedIds)">
         <v-icon start>mdi-account-arrow-right</v-icon>
         Assign to Curator{{ selectedIds.length ? ` (${selectedIds.length})` : '' }}
       </v-btn>
