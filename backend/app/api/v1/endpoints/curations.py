@@ -33,7 +33,7 @@ from app.schemas.curation import (
     CurationSubmit,
     CurationUpdate,
 )
-from app.scoring.point_limits import point_range_errors
+from app.scoring.point_limits import enforce_clingen_point_ranges
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -320,6 +320,9 @@ def create_curation(
     _check_scope_access(db, current_user, curation_in.scope_id, "create")
     require(db, current_user, curation_in.scope_id, EDIT)
 
+    enforce_clingen_point_ranges(
+        db, curation_in.workflow_pair_id, curation_in.evidence_data
+    )
     try:
         curation = curation_crud.create_curation(
             db,
@@ -378,6 +381,9 @@ def update_curation(
             detail="Only draft or rejected curations can be edited",
         )
 
+    enforce_clingen_point_ranges(
+        db, curation.workflow_pair_id, curation_in.evidence_data
+    )
     updated = curation_crud.update_with_lock(
         db,
         db_obj=curation,
@@ -484,11 +490,7 @@ def submit_curation(
             detail="Only the creator can submit for review",
         )
 
-    if point_errors := point_range_errors(curation.evidence_data):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="; ".join(point_errors),
-        )
+    enforce_clingen_point_ranges(db, curation.workflow_pair_id, curation.evidence_data)
 
     try:
         submitted = curation_crud.submit_for_review(

@@ -7,10 +7,9 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import CurationStatus, WorkflowStage
-from app.scoring.point_limits import point_range_errors
 
 # ========================================
 # BASE SCHEMAS (DRY - shared fields)
@@ -29,13 +28,6 @@ class CurationBase(BaseModel):
     )
 
 
-def check_points(value: dict[str, Any] | None) -> dict[str, Any] | None:
-    """Reject evidence points outside their allowed range (422 with every offender)."""
-    if errors := point_range_errors(value):
-        raise ValueError("; ".join(errors))
-    return value
-
-
 # ========================================
 # REQUEST SCHEMAS
 # ========================================
@@ -43,11 +35,6 @@ def check_points(value: dict[str, Any] | None) -> dict[str, Any] | None:
 
 class CurationCreate(CurationBase):
     """Schema for creating a new curation."""
-
-    @field_validator("evidence_data")
-    @classmethod
-    def _points_in_range(cls, value: dict[str, Any]) -> dict[str, Any]:
-        return check_points(value) or {}
 
 
 class CurationUpdate(BaseModel):
@@ -59,11 +46,6 @@ class CurationUpdate(BaseModel):
     lock_version: int = Field(..., description="Optimistic locking version (required)")
 
     model_config = ConfigDict(extra="forbid")
-
-    @field_validator("evidence_data")
-    @classmethod
-    def _points_in_range(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
-        return check_points(value)
 
 
 class CurationDraftSave(BaseModel):

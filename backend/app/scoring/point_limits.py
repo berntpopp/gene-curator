@@ -5,6 +5,12 @@ a number between 0 and the cap. Empty values are not entered evidence and are sk
 """
 
 from typing import Any
+from uuid import UUID
+
+from fastapi import HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.models import CurationSchema, WorkflowPair
 
 POINT_KEYS = ("points", "proband_counted_points")
 POINT_CAPS: dict[str, float] = {
@@ -57,3 +63,23 @@ def point_range_errors(evidence: Any, path: str = "") -> list[str]:
         else:
             errors += point_range_errors(value, here)
     return errors
+
+
+def enforce_clingen_point_ranges(
+    db: Session, workflow_pair_id: UUID, evidence: Any
+) -> None:
+    """422 on out-of-range points, but only for ClinGen SOP v11 curation schemas."""
+    pair = db.get(WorkflowPair, workflow_pair_id)
+    schema = (
+        db.get(CurationSchema, pair.curation_schema_id)
+        if pair and pair.curation_schema_id
+        else None
+    )
+    if ((schema and schema.scoring_configuration) or {}).get(
+        "engine"
+    ) != "clingen_sop_v11":
+        return
+    if errors := point_range_errors(evidence):
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="; ".join(errors)
+        )
