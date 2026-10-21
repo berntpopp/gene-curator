@@ -79,3 +79,34 @@ def test_duplicate_open_draft_returns_existing(db_session: Session):
         user_id=user.id,
     )
     assert again.id == pre.id
+
+
+def test_other_integrity_errors_are_not_swallowed(db_session: Session):
+    from unittest.mock import patch
+
+    from sqlalchemy.exc import IntegrityError
+
+    user, scope, gene = (
+        make_user(db_session),
+        make_scope(db_session),
+        make_gene(db_session),
+    )
+    schema_id = make_precuration(
+        db_session, scope=scope, gene=make_gene(db_session), creator=user
+    ).precuration_schema_id
+    with (
+        patch.object(
+            db_session, "commit", side_effect=IntegrityError("x", {}, Exception())
+        ),
+        pytest.raises(IntegrityError),
+    ):
+        precuration_crud.create_precuration(
+            db_session,
+            obj_in=PrecurationCreate(
+                gene_id=gene.id,
+                scope_id=scope.id,
+                precuration_schema_id=schema_id,
+                evidence_data={},
+            ),
+            user_id=user.id,
+        )
