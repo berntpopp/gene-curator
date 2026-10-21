@@ -5,25 +5,33 @@ Security utilities for authentication and authorization.
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import bcrypt
 import jwt
 from fastapi import HTTPException, status
 from jwt.exceptions import PyJWTError
-from passlib.context import CryptContext
 
 from app.core.config import settings
 
-# Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# Password hashing (bcrypt; hashes created by the former passlib setup still verify)
+BCRYPT_ROUNDS = 12  # tests lower this for speed
+
+
+def _secret(password: str) -> bytes:
+    # bcrypt only uses the first 72 bytes; newer bcrypt raises instead of truncating
+    return password.encode()[:72]
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return bool(pwd_context.verify(plain_password, hashed_password))
+    try:
+        return bcrypt.checkpw(_secret(plain_password), hashed_password.encode())
+    except ValueError:  # malformed stored hash must not become a 500
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Generate password hash."""
-    return str(pwd_context.hash(password))
+    return bcrypt.hashpw(_secret(password), bcrypt.gensalt(BCRYPT_ROUNDS)).decode()
 
 
 def create_access_token(

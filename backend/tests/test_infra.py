@@ -6,7 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent
+ROOT = Path(__file__).resolve().parents[2]
 
 
 class MigrationCommandTests(unittest.TestCase):
@@ -91,7 +91,7 @@ class InfrastructureServicesTests(unittest.TestCase):
         )
         self.assertEqual(result.stdout.splitlines(), ["postgres"])
         result = subprocess.run(
-            ["/usr/bin/make", "-n", "services-up"],
+            ["/usr/bin/make", "--no-print-directory", "-n", "services-up"],
             cwd=ROOT,
             capture_output=True,
             text=True,

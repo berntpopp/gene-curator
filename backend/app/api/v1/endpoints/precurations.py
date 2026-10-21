@@ -342,7 +342,7 @@ def submit_precuration(
         )
     except MissingRequiredFieldsError as e:
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(e), "fields": e.fields},
         ) from e
     except ValueError as e:
