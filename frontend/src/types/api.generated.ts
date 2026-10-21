@@ -611,6 +611,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read My Work */
+        get: operations["read_my_work_api_v1_me_work_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schemas/curation-schemas": {
         parameters: {
             query?: never;
@@ -6320,6 +6337,18 @@ export interface components {
              */
             iri?: string | null;
         };
+        /** MyWorkResponse */
+        MyWorkResponse: {
+            /** Items */
+            items: components["schemas"]["WorkItem"][];
+            /**
+             * Counts
+             * @description needs_you equals the rail badge count
+             */
+            counts: {
+                [key: string]: number;
+            };
+        };
         /**
          * NotificationListResponse
          * @description Schema for paginated notification list.
@@ -8346,6 +8375,55 @@ export interface components {
              */
             error_code?: string | null;
         };
+        /** WorkItem */
+        WorkItem: {
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "assignment" | "draft" | "changes_requested" | "review" | "waiting" | "done";
+            /**
+             * Tab
+             * @enum {string}
+             */
+            tab: "needs_you" | "waiting" | "done";
+            /**
+             * Verb
+             * @description Next action, e.g. 'Review curation'
+             */
+            verb: string;
+            /**
+             * Item Type
+             * @enum {string}
+             */
+            item_type: "assignment" | "precuration" | "curation";
+            /**
+             * Item Id
+             * Format: uuid
+             */
+            item_id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /** Gene Symbol */
+            gene_symbol: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Scope Name */
+            scope_name: string;
+            /**
+             * Link
+             * @description Frontend route that opens the work
+             */
+            link: string;
+            /** Updated At */
+            updated_at?: string | null;
+        };
         /**
          * WorkflowAnalytics
          * @description Advanced workflow analytics.
@@ -9679,6 +9757,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_my_work_api_v1_me_work_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MyWorkResponse"];
                 };
             };
         };
