@@ -61,7 +61,7 @@ def test_viewer_cannot_review_or_complete_precuration(
     assert response.status_code == 403, response.text
 
 
-def test_reviewer_can_return_precuration_for_revision(
+def test_reviewer_returns_precuration_via_reject_not_transition(
     client: TestClient, db_session: Session, test_precuration: PrecurationNew
 ):
     reviewer = make_user(db_session)
@@ -70,15 +70,23 @@ def test_reviewer_can_return_precuration_for_revision(
     scope = db_session.get(Scope, test_precuration.scope_id)
     make_member(db_session, scope, reviewer, "reviewer")
     test_precuration.workflow_stage = WorkflowStage.REVIEW
+    test_precuration.status = CurationStatus.SUBMITTED
     db_session.commit()
     response = client.post(
         f"/api/v1/workflow/precuration/{test_precuration.id}/transition",
         json={"target_stage": "precuration"},
         headers=auth_headers(reviewer),
     )
+    assert response.status_code == 400, response.text
+    response = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/reject",
+        json={"reason": "Narrow the disease"},
+        headers=auth_headers(reviewer),
+    )
     assert response.status_code == 200, response.text
     db_session.refresh(test_precuration)
     assert test_precuration.workflow_stage == WorkflowStage.PRECURATION
+    assert test_precuration.computed_fields["rejection_reason"] == "Narrow the disease"
 
 
 def test_submit_endpoint_direct(

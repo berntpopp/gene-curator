@@ -689,6 +689,13 @@ class WorkflowEngine:
         warnings: list[str] = []
         requirements: list[str] = []
 
+        if item_type == "precuration":
+            errors.extend(
+                self._precuration_decision_errors(
+                    db, current_stage, target_stage, item_id
+                )
+            )
+
         # Add specific validation logic based on stages
         if target_stage == WorkflowStage.REVIEW and item_type == "curation":
             curation = (
@@ -712,6 +719,19 @@ class WorkflowEngine:
                     warnings.append("Final score not calculated")
 
         return {"errors": errors, "warnings": warnings, "requirements": requirements}
+
+    @staticmethod
+    def _precuration_decision_errors(
+        db: Session, current: WorkflowStage, target: WorkflowStage, item_id: UUID
+    ) -> list[str]:
+        """Approve only what was submitted; a send-back needs its reason, which only /reject takes."""
+        if current == WorkflowStage.REVIEW and target == WorkflowStage.PRECURATION:
+            return [f"Send a precuration back with POST /precurations/{item_id}/reject"]
+        pre = db.get(PrecurationNew, item_id)
+        submitted = (CurationStatus.SUBMITTED, CurationStatus.IN_REVIEW)
+        if target == WorkflowStage.CURATION and pre and pre.status not in submitted:
+            return ["Only a submitted precuration can be approved"]
+        return []
 
     def _transition_to_precuration(
         self,
