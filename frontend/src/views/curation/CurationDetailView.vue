@@ -371,6 +371,7 @@
   import CurationReviewDialogs from '@/components/curation/CurationReviewDialogs.vue'
   import { evidenceCountsText } from '@/components/curation/evidenceCounts'
   import type { ClinGenEvidenceData } from '@/components/clingen/types'
+  import { hasContent } from '@/components/clingen/hasContent'
   import { computeScores, classifyScores, type EvidenceData } from './curationScores'
   import BaseDialog from '@/components/BaseDialog.vue'
 
@@ -454,7 +455,7 @@
     return classifyScores(
       scores.value.total,
       scores.value.genetic,
-      (evidence?.contradictory_evidence?.length ?? 0) > 0,
+      hasContent(evidence?.contradictory_evidence),
       evidence?.replicated_over_time === true
     )
   })

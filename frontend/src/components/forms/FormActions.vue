@@ -1,5 +1,5 @@
 <template>
-  <v-card-actions class="px-4 py-3">
+  <v-card-actions class="px-4 py-3 flex-wrap ga-2">
     <v-btn variant="outlined" aria-label="Cancel" @click="$emit('cancel')">
       <v-icon start>mdi-close</v-icon>
       Cancel

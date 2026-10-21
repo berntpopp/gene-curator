@@ -20,7 +20,7 @@ from typing import Any, Final
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
-from .evidence_items import rows
+from .evidence_items import has_content, rows
 
 logger = get_logger(__name__)
 
@@ -134,7 +134,7 @@ class ClinGenEngine(ScoringEngine):
         # Determine classification
         classification = self._classify(
             total_score,
-            has_contradictory=bool(evidence_data.get("contradictory_evidence")),
+            has_contradictory=has_content(evidence_data.get("contradictory_evidence")),
             replicated_over_time=evidence_data.get("replicated_over_time") is True,
         )
 

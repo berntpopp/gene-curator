@@ -239,4 +239,10 @@ describe('FormActions', () => {
       expect(submitButton.classes()).not.toContain('v-btn--loading')
     })
   })
+
+  it('lets the action bar wrap on narrow screens', () => {
+    const wrapper = mount(FormActions)
+
+    expect(wrapper.find('.v-card-actions').classes()).toContain('flex-wrap')
+  })
 })
