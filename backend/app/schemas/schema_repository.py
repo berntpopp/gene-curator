@@ -100,6 +100,19 @@ class MethodologyVersion(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class MethodologyVersionImpact(BaseModel):
+    """A curation whose total or class changes when re-scored with a newer version."""
+
+    curation_id: UUID
+    gene_id: UUID
+    scope_id: UUID
+    from_version: int
+    old_total: float
+    old_class: str
+    new_total: float
+    new_class: str
+
+
 class MethodologyDerive(BaseModel):
     """Name and version of the inactive schema derived from a methodology version."""
 

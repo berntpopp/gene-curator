@@ -699,8 +699,30 @@ export interface paths {
          * @description Publish the schema's current content as a new immutable version. Requires platform admin.
          *
          *     Existing curations keep the version they were created with; new ones get this one.
+         *     A definition that fails the static checks or one of its tests is refused (422).
          */
         post: operations["publish_methodology_version_api_v1_schemas_curation_schemas__schema_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/schemas/curation-schemas/{schema_id}/versions/{version_id}/impact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Methodology Version Impact
+         * @description Preview an upgrade: visible curations pinned to an older version whose total or
+         *     class would change when re-scored with this one. Changes nothing.
+         */
+        get: operations["methodology_version_impact_api_v1_schemas_curation_schemas__schema_id__versions__version_id__impact_get"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4587,6 +4609,10 @@ export interface components {
             breakdown: {
                 [key: string]: unknown;
             };
+            /** Trace */
+            trace?: {
+                [key: string]: unknown;
+            } | null;
             /**
              * Calculated At
              * Format: date-time
@@ -6789,6 +6815,37 @@ export interface components {
             created_at?: string | null;
             /** Derived From Version Id */
             derived_from_version_id: string | null;
+        };
+        /**
+         * MethodologyVersionImpact
+         * @description A curation whose total or class changes when re-scored with a newer version.
+         */
+        MethodologyVersionImpact: {
+            /**
+             * Curation Id
+             * Format: uuid
+             */
+            curation_id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** From Version */
+            from_version: number;
+            /** Old Total */
+            old_total: number;
+            /** Old Class */
+            old_class: string;
+            /** New Total */
+            new_total: number;
+            /** New Class */
+            new_class: string;
         };
         /** MyWorkResponse */
         MyWorkResponse: {
@@ -10691,6 +10748,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MethodologyVersion"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    methodology_version_impact_api_v1_schemas_curation_schemas__schema_id__versions__version_id__impact_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                schema_id: string;
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MethodologyVersionImpact"][];
                 };
             };
             /** @description Validation Error */

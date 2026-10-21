@@ -17,6 +17,7 @@ from app.crud.schema_validators import validate_schema_structure
 from app.models import (
     CurationNew,
     CurationSchema,
+    CurationStatus,
     PrecurationNew,
     WorkflowPair,
 )
@@ -28,6 +29,8 @@ from app.schemas.schema_repository import (
     WorkflowPairCreate,
     WorkflowPairUpdate,
 )
+from app.scoring.base import ScoringResult
+from app.scoring.clingen import ClinGenEngine
 
 
 def _schema_content_hash(schema_data: dict[str, Any]) -> str:
@@ -63,8 +66,16 @@ SNAPSHOT_KEYS = (
 REQUIRED_STAGES = ("entry", "precuration", "review")
 
 
+def _score(evidence: Any, config: Any) -> ScoringResult:
+    """Score like a curation save does (crud/curation.py `_computed`)."""
+    return ClinGenEngine().calculate_scores(
+        evidence if isinstance(evidence, dict) else {},
+        config if isinstance(config, dict) else {},
+    )
+
+
 def publish_errors(definition: dict[str, Any]) -> list[str]:
-    """Why `definition` cannot be published: the static checks plus required stages."""
+    """Why `definition` cannot be published: static checks, then the version tests."""
     errors, _ = validate_schema_structure(definition)
     states = definition.get("workflow_states")
     if isinstance(states, dict) and not {"states", "transitions"} & set(states):
@@ -73,7 +84,38 @@ def publish_errors(definition: dict[str, Any]) -> list[str]:
             for stage in REQUIRED_STAGES
             if stage not in states
         ]
-    return errors
+    # tests only run on a valid definition; a malformed point model cannot score
+    return errors or _test_failures(definition.get("scoring_configuration"))
+
+
+def _test_failures(config: Any) -> list[str]:
+    """`scoring_configuration.tests`: [{name, evidence_data, expect: {total?, class?}}]."""
+    tests = config.get("tests", []) if isinstance(config, dict) else []
+    if not isinstance(tests, list):
+        return ["scoring_configuration.tests: must be a list"]
+    out: list[str] = []
+    for i, test in enumerate(tests):
+        label = f"scoring_configuration.tests[{i}]"
+        if not (
+            isinstance(test, dict)
+            and isinstance(test.get("evidence_data"), dict)
+            and isinstance(test.get("expect"), dict)
+        ):
+            out.append(f"{label}: needs evidence_data and expect objects")
+            continue
+        label += f" ({test.get('name', '')})"
+        try:
+            result = _score(test["evidence_data"], config)
+        except Exception as exc:  # user-written evidence must not turn into a 500
+            out.append(f"{label}: scoring failed: {exc}")
+            continue
+        got = {"total": result.total_score, "class": result.verdict}
+        out += [
+            f"{label}: expected {key} {want!r}, got {got.get(key)!r}"
+            for key, want in test["expect"].items()
+            if got.get(key) != want
+        ]
+    return out
 
 
 class CRUDCurationSchema(
@@ -178,6 +220,44 @@ class CRUDCurationSchema(
         db.commit()
         db.refresh(version)
         return version
+
+    def version_impact(
+        self, db: Session, *, target: MethodologyVersion
+    ) -> list[dict[str, Any]]:
+        """Curations pinned to an older version of the schema whose total or class would
+        change when re-scored with `target`. Read-only; RLS limits it to visible rows."""
+        rows = db.execute(
+            select(CurationNew, MethodologyVersion.version, MethodologyVersion.snapshot)
+            .join(
+                MethodologyVersion,
+                CurationNew.methodology_version_id == MethodologyVersion.id,
+            )
+            .where(
+                MethodologyVersion.schema_id == target.schema_id,
+                MethodologyVersion.version < target.version,
+                CurationNew.status != CurationStatus.ARCHIVED,
+            )
+            .order_by(CurationNew.created_at, CurationNew.id)
+        ).all()
+        new_config = target.snapshot.get("scoring_configuration")
+        out = []
+        for curation, version, snapshot in rows:
+            old = _score(curation.evidence_data, snapshot.get("scoring_configuration"))
+            new = _score(curation.evidence_data, new_config)
+            if (old.total_score, old.verdict) != (new.total_score, new.verdict):
+                out.append(
+                    {
+                        "curation_id": curation.id,
+                        "gene_id": curation.gene_id,
+                        "scope_id": curation.scope_id,
+                        "from_version": version,
+                        "old_total": old.total_score,
+                        "old_class": old.verdict,
+                        "new_total": new.total_score,
+                        "new_class": new.verdict,
+                    }
+                )
+        return out
 
     def derive(
         self,

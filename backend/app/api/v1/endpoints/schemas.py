@@ -26,6 +26,7 @@ from app.schemas.schema_repository import (
     CurationSchemaUpdate,
     MethodologyDerive,
     MethodologyVersion,
+    MethodologyVersionImpact,
     SchemaValidationResult,
     WorkflowPair,
     WorkflowPairCreate,
@@ -152,7 +153,7 @@ def publish_methodology_version(
     """Publish the schema's current content as a new immutable version. Requires platform admin.
 
     Existing curations keep the version they were created with; new ones get this one.
-    A definition that fails the static checks is refused (422).
+    A definition that fails the static checks or one of its tests is refused (422).
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
@@ -166,6 +167,25 @@ def publish_methodology_version(
     return schema_crud.publish_version(  # type: ignore[return-value]
         db, schema=schema, user_id=current_user.id
     )
+
+
+@router.get(
+    "/curation-schemas/{schema_id}/versions/{version_id}/impact",
+    response_model=list[MethodologyVersionImpact],
+)
+def methodology_version_impact(
+    *,
+    db: Session = Depends(get_db),
+    schema_id: UUID,
+    version_id: UUID,
+    current_user: UserNew = Depends(deps.get_current_active_user),
+) -> list[dict[str, Any]]:
+    """Preview an upgrade: visible curations pinned to an older version whose total or
+    class would change when re-scored with this one. Changes nothing."""
+    target = db.get(MethodologyVersionModel, version_id)
+    if not target or target.schema_id != schema_id:
+        raise HTTPException(status_code=404, detail="Methodology version not found")
+    return schema_crud.version_impact(db, target=target)
 
 
 @router.post(
