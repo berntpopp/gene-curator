@@ -2,20 +2,18 @@ import { describe, it, expect } from 'vitest'
 import { useCurationClassification } from '../useCurationClassification'
 
 describe('useCurationClassification', () => {
-  it('scores empty evidence as zero and ignores blank contradictory rows', () => {
+  it('reads the stored total and labels the stored verdict', () => {
     const { scores, classification } = useCurationClassification(() => ({
-      contradictory_evidence: [{ pmid: '' }]
+      computed_scores: { total_score: 9.6 },
+      computed_verdict: 'moderate'
     }))
-
-    expect(scores.value.total).toBe(0)
-    expect(classification.value).not.toBe('Disputed')
+    expect(scores.value.total).toBe(9.6)
+    expect(classification.value).toBe('Moderate')
   })
 
-  it('disputes on a filled contradictory row', () => {
-    const { classification } = useCurationClassification(() => ({
-      contradictory_evidence: [{ pmid: '12345678' }]
-    }))
-
-    expect(classification.value).toBe('Disputed')
+  it('is empty and zero before the curation has been scored', () => {
+    const { scores, classification } = useCurationClassification(() => null)
+    expect(scores.value.total).toBe(0)
+    expect(classification.value).toBe('')
   })
 })
