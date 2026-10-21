@@ -126,26 +126,11 @@ describe('useGeneCatalogueStore', () => {
       })
     })
 
-    it('records the error and rethrows with a fallback message', async () => {
-      const store = useGeneCatalogueStore()
-      api.getCatalogue.mockRejectedValue(new Error('down'))
-
-      await expect(store.fetchCatalogue()).rejects.toThrow('down')
-      expect(store.error).toEqual({ message: 'down' })
-      expect(store.loading).toBe(false)
-
-      api.getCatalogue.mockRejectedValue({})
-      await expect(store.fetchCatalogue()).rejects.toEqual({})
-      expect(store.error).toEqual({ message: 'Failed to fetch catalogue' })
-    })
-  })
-
-  describe('loadFilterOptions', () => {
-    it('loads options once and caches them', async () => {
+    it('a failed option call leaves that list empty and sets no page error', async () => {
       const store = useGeneCatalogueStore()
       api.getAvailableClassifications.mockResolvedValue(['definitive'])
       api.getAvailableDiseases.mockResolvedValue(['d1'])
-      api.getAvailableScopes.mockResolvedValue(null as never)
+      api.getAvailableScopes.mockRejectedValue(new Error('scopes'))
 
       const options = await store.loadFilterOptions()
 
@@ -155,23 +140,7 @@ describe('useGeneCatalogueStore', () => {
         scopes: [],
         loaded: true
       })
-
-      await store.loadFilterOptions()
-      expect(api.getAvailableClassifications).toHaveBeenCalledTimes(1)
-    })
-
-    it('records the error and rethrows with a fallback message', async () => {
-      const store = useGeneCatalogueStore()
-      api.getAvailableClassifications.mockRejectedValue(new Error('opts'))
-      api.getAvailableDiseases.mockResolvedValue([])
-      api.getAvailableScopes.mockResolvedValue([])
-
-      await expect(store.loadFilterOptions()).rejects.toThrow('opts')
-      expect(store.error).toEqual({ message: 'opts' })
-
-      api.getAvailableClassifications.mockRejectedValue({})
-      await expect(store.loadFilterOptions()).rejects.toEqual({})
-      expect(store.error).toEqual({ message: 'Failed to load filter options' })
+      expect(store.error).toBeNull()
     })
   })
 

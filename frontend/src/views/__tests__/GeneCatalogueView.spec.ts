@@ -95,4 +95,34 @@ describe('GeneCatalogueView', () => {
     await flushPromises()
     expect(vmOf(wrapper).scopeOptions).toEqual([{ title: 'Kidney Genetics', value: 's1' }])
   })
+
+  it('has one footer, shows the server total and truncates a single long disease', async () => {
+    const long = 'D'.repeat(120)
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
+      entries: [{ ...entry, diseases: [long] }],
+      total: 600
+    } as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    expect(wrapper.findAll('.v-data-table-footer')).toHaveLength(1)
+    expect(wrapper.text()).toContain('of 600')
+    expect(wrapper.find(`.disease-cell[title="${long}"]`).exists()).toBe(true)
+  })
+
+  it('passes table page and sort to the store and refetches', async () => {
+    vi.mocked(geneCatalogueAPI.getCatalogue).mockResolvedValue({
+      entries: [entry],
+      total: 600
+    } as never)
+    const wrapper = mount(GeneCatalogueView, { global: { stubs: { RouterLink: true } } })
+    await flushPromises()
+    const handle = vmOf(wrapper).handleOptions as (o: unknown) => Promise<void>
+    await handle({ page: 3, sortBy: [{ key: 'total_curations', order: 'desc' }] })
+    const store = useGeneCatalogueStore()
+    expect(store.filters.sortBy).toBe('total_curations')
+    expect(store.filters.sortOrder).toBe('desc')
+    expect(geneCatalogueAPI.getCatalogue).toHaveBeenLastCalledWith(
+      expect.objectContaining({ skip: 40, sort_by: 'total_curations', sort_order: 'desc' })
+    )
+  })
 })

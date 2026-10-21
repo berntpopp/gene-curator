@@ -11,6 +11,7 @@
  */
 import { defineStore } from 'pinia'
 import { geneCatalogueAPI } from '@/api/geneCatalogue'
+import { logService } from '@/services/logService'
 import { errorMessage } from './apiError'
 import type { Schema } from '@/types/api'
 
@@ -207,25 +208,27 @@ export const useGeneCatalogueStore = defineStore('geneCatalogue', {
         return this.filterOptions
       }
 
-      try {
-        const [classifications, diseases, scopes] = await Promise.all([
-          geneCatalogueAPI.getAvailableClassifications(),
-          geneCatalogueAPI.getAvailableDiseases(),
-          geneCatalogueAPI.getAvailableScopes()
-        ])
+      const calls = [
+        geneCatalogueAPI.getAvailableClassifications(),
+        geneCatalogueAPI.getAvailableDiseases(),
+        geneCatalogueAPI.getAvailableScopes()
+      ] as const
+      const results = await Promise.allSettled(calls)
+      // A failed filter list stays empty; it must not set the page-level error.
+      const [classifications, diseases, scopes] = results.map(r => {
+        if (r.status === 'fulfilled') return r.value || []
+        logService.error('Failed to load filter options', { error: errorMessage(r.reason, '') })
+        return []
+      })
 
-        this.filterOptions = {
-          classifications: classifications || [],
-          diseases: diseases || [],
-          scopes: scopes || [],
-          loaded: true
-        }
-
-        return this.filterOptions
-      } catch (error) {
-        this.error = { message: errorMessage(error, 'Failed to load filter options') }
-        throw error
+      this.filterOptions = {
+        classifications: classifications as string[],
+        diseases: diseases as string[],
+        scopes: scopes as typeof this.filterOptions.scopes,
+        loaded: true
       }
+
+      return this.filterOptions
     },
 
     /**
