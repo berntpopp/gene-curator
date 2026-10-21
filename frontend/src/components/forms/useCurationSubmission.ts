@@ -57,6 +57,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   // The local copy is older than the server's: never offer it back after the reload
   watch(conflict, isConflict => isConflict && clearRecovery())
   const submitting = ref(false)
+  // Created by a submit that was then refused: a retry reuses it rather than creating another
+  let createdId: string | null = null
+  const existingId = () => curationId() || createdId
 
   /** Payload for a new curation; a gene and workflow pair are required by the API. */
   function createPayload(evidence: EvidenceData) {
@@ -101,7 +104,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         lock_version: lockVersion.value
       }
 
-      const id = curationId()
+      const id = existingId()
       if (id) {
         const updated = (await curationsStore.saveDraft(id, payload)) as CurationRecord | undefined
         if (!updated) {
@@ -150,7 +153,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     submitting.value = true
     let submittedId: string
     try {
-      const id = curationId()
+      const id = existingId()
       if (id) {
         submittedId = await submitAt(id, lockVersion.value)
       } else {
@@ -158,7 +161,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload(evidenceData.value)
         )) as CurationRecord
-        submittedId = await submitAt(created.id, created.lock_version ?? 0)
+        createdId = created.id
+        lockVersion.value = created.lock_version ?? 0
+        submittedId = await submitAt(created.id, lockVersion.value)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')
@@ -181,7 +186,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     submitting.value = true
     let submittedId: string
     try {
-      const id = curationId()
+      const id = existingId()
       if (id) {
         // Update existing curation evidence and submit
         const updated = (await curationsStore.updateCuration(id, {
@@ -196,7 +201,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         const created = (await curationsStore.createCuration(
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
-        submittedId = await submitAt(created.id, created.lock_version ?? 0)
+        createdId = created.id
+        lockVersion.value = created.lock_version ?? 0
+        submittedId = await submitAt(created.id, lockVersion.value)
       }
 
       notificationsStore.addToast('Curation submitted for review', 'success')
@@ -219,7 +226,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     if (savingDraft.value || conflict.value) return false
     savingDraft.value = true
     try {
-      const id = curationId()
+      const id = existingId()
       if (id) {
         const updated = (await curationsStore.saveDraft(id, {
           evidence_data: { ...clingenEvidenceData },
