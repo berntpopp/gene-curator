@@ -29,7 +29,7 @@
             :initial-data="evidenceData"
             :title="schema?.name || 'Curation Form'"
             :readonly="readonly"
-            :hide-scoring="previewed"
+            hide-scoring
             hide-actions
             @update:model-value="handleEvidenceChange"
             @validation-change="handleValidationChange"
@@ -132,7 +132,7 @@
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent } from './hasContent'
-  import { scoreSnapshot } from './scorePreview'
+  import { scoreSnapshot, type ScoreCalculations } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
@@ -142,8 +142,6 @@
   import { WORKSPACE_FRAME, type ScoreSnapshot } from '@/components/workspace/useWorkspaceFrame'
 
   type CurationSchema = Schema<'CurationSchema'>
-  // GET /curations/{id}/score runs the ClinGen engine only; other engines show no preview
-  const PREVIEW_ENGINES = ['clingen_sop_v11']
 
   const props = withDefaults(
     defineProps<{
@@ -190,7 +188,7 @@
 
   const version = ref<Schema<'MethodologyVersion'> | null>(null)
   const pinnedVersionId = ref<string | null>(null) // the loaded curation's
-  const score = ref<ScoreSnapshot | null>(null) // backend preview of the saved evidence
+  const score = ref<ScoreSnapshot | null>(null) // backend preview of the evidence on screen
 
   const precurationData = ref<PrecurationData>({})
   const precurationId = ref<string | null>(null) // link for a new curation: the approved one
@@ -263,9 +261,25 @@
     { deep: true }
   )
 
+  // ClinGen SOP: case-level or segregation evidence before review (the server only checks that
+  // some evidence exists); applies to definitions with a genetic_evidence block
+  const needsGenetic = computed(
+    () =>
+      !!(version.value?.snapshot.field_definitions as Record<string, unknown> | undefined)
+        ?.genetic_evidence
+  )
+  const hasGenetic = computed(() => {
+    const ge = evidenceData.value.genetic_evidence as Record<string, unknown> | undefined
+    return hasContent(ge?.case_level) || hasContent(ge?.segregation)
+  })
+
   // Submit eligibility: valid and something entered
   const canSubmit = computed(
-    () => isValid.value && !props.readonly && hasContent(evidenceData.value)
+    () =>
+      isValid.value &&
+      !props.readonly &&
+      hasContent(evidenceData.value) &&
+      (!needsGenetic.value || hasGenetic.value)
   )
 
   // === Persistence (save draft / submit) ===
@@ -320,30 +334,9 @@
     { immediate: true }
   )
 
-  // Live score: the backend preview of the saved evidence with the pinned point model,
-  // refreshed (debounced) after every save
-  const previewed = computed(() =>
-    PREVIEW_ENGINES.includes(
-      (version.value?.snapshot.scoring_configuration as { engine?: string } | null)?.engine ?? ''
-    )
-  )
-  let scoreTimer: ReturnType<typeof setTimeout> | undefined
-  function refreshScore() {
-    if (!props.curationId || !previewed.value) return
-    clearTimeout(scoreTimer)
-    scoreTimer = setTimeout(async () => {
-      try {
-        const preview = await curationsStore.calculateScore(props.curationId!)
-        score.value = scoreSnapshot(preview, hasContradictory.value)
-      } catch (error) {
-        logger.warn('Score preview failed', { error: (error as ApiErrorLike).message })
-      }
-    }, 300)
-  }
-  watch(savedAt, refreshScore)
-
   async function requestSubmit() {
-    if (!canSubmit.value) return
+    // The frame adds its blockers (unknown PMIDs); never submit over a save in flight
+    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
     await commitFocusedCell()
     const ok = await confirm({
       title: 'Submit for review',
@@ -364,8 +357,17 @@
    * Handle validation state changes from DynamicForm
    * Event-driven pattern instead of defineExpose
    */
-  function handleValidationChange(validationResult: { is_valid?: boolean } | null | undefined) {
+  function handleValidationChange(
+    validationResult: { is_valid?: boolean; score_calculations?: unknown } | null | undefined
+  ) {
     isValid.value = validationResult?.is_valid !== false
+    // Live score: validate-evidence (debounced per edit) scores with the pinned point model
+    if (validationResult?.score_calculations) {
+      score.value = scoreSnapshot(
+        validationResult.score_calculations as ScoreCalculations,
+        hasContradictory.value
+      )
+    }
   }
 
   /**
@@ -592,7 +594,6 @@
     }
     ready.value = true
     recoveryReady.value = true
-    refreshScore()
     emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,
@@ -602,7 +603,6 @@
   })
 
   onBeforeUnmount(() => {
-    clearTimeout(scoreTimer)
     logger.debug('SchemaDrivenCurationForm unmounted')
   })
 </script>

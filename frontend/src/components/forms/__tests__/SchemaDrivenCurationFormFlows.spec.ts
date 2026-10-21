@@ -105,7 +105,12 @@ const stubs = {
   // Renders the form's component sections like the real one does
   DynamicForm: {
     name: 'DynamicForm',
-    props: ['definition', 'methodologyVersionId', 'initialData', 'hideScoring'],
+    props: {
+      definition: Object,
+      methodologyVersionId: String,
+      initialData: Object,
+      hideScoring: Boolean
+    },
     template:
       '<div><slot name="section" :section="{ component: \'ScoreSummary\' }" /><slot name="section" :section="{ component: \'LumpingSplittingSection\' }" /></div>'
   },
@@ -516,61 +521,75 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       expect(frame.state.value).toBe('failed')
     })
 
-    it('shows the backend score preview, refreshed after a save', async () => {
-      vi.useFakeTimers()
-      try {
-        curationsStore.fetchCurationById.mockResolvedValue({
-          evidence_data: { contradictory_evidence: [{ description: 'x' }] },
-          lock_version: 2
-        })
-        curationsStore.saveDraft.mockResolvedValue({ lock_version: 3 })
-        curationsStore.calculateScore.mockResolvedValue({
+    it('shows the live backend score from validate-evidence', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { contradictory_evidence: [{ description: 'x' }] },
+        lock_version: 2
+      })
+      const { wrapper, frame } = await mountFramed()
+      const form = wrapper.findComponent({ name: 'DynamicForm' })
+      form.vm.$emit('validation-change', { is_valid: true, score_calculations: { total_score: 1 } })
+      await flushPromises()
+      expect(frame.score.value).toBeNull() // no verdict yet: no panel
+
+      form.vm.$emit('validation-change', {
+        is_valid: true,
+        score_calculations: {
           total_score: 8,
-          classification: 'Moderate',
-          genetic_score: 6,
-          experimental_score: 2,
-          breakdown: {
-            trace: {
-              sections: [
-                { key: 'genetic_evidence', categories: [{ key: 'segregation', score: 1 }] }
-              ]
-            }
+          genetic_evidence_total: 6,
+          experimental_evidence_total: 2,
+          verdict: 'Moderate',
+          trace: {
+            sections: [{ key: 'genetic_evidence', categories: [{ key: 'segregation', score: 1 }] }]
           }
-        })
-        const { wrapper, frame } = await mountFramed()
-        await vi.advanceTimersByTimeAsync(300)
-        expect(curationsStore.calculateScore).toHaveBeenCalledWith('cur-1')
-        expect(frame.score.value).toMatchObject({
-          total: 8,
-          classification: 'Moderate',
-          hasContradictory: true,
-          geneticBreakdown: { segregation: 1, caseLevel: 0 }
-        })
-        expect(wrapper.findComponent({ name: 'ScoreSummary' }).props('totalScore')).toBe(8)
-
-        await frame.save()
-        await vi.advanceTimersByTimeAsync(300)
-        expect(curationsStore.calculateScore).toHaveBeenCalledTimes(2)
-
-        curationsStore.calculateScore.mockRejectedValueOnce({ message: 'down' })
-        await frame.save()
-        await vi.advanceTimersByTimeAsync(300)
-        expect(logger.warn).toHaveBeenCalledWith('Score preview failed', { error: 'down' })
-      } finally {
-        vi.useRealTimers()
-      }
+        }
+      })
+      await flushPromises()
+      expect(frame.score.value).toMatchObject({
+        total: 8,
+        classification: 'Moderate',
+        hasContradictory: true,
+        geneticBreakdown: { segregation: 1, caseLevel: 0 }
+      })
+      expect(wrapper.findComponent({ name: 'ScoreSummary' }).props('totalScore')).toBe(8)
+      expect(curationsStore.calculateScore).not.toHaveBeenCalled()
     })
 
-    it('asks no score preview from engines the endpoint does not run', async () => {
+    it('requires case-level or segregation evidence for a ClinGen definition', async () => {
       schemasStore.fetchPinnedVersion.mockResolvedValue({
-        id: 'v2',
-        snapshot: { scoring_configuration: { engine: 'gencc' } }
+        id: 'v1',
+        snapshot: { field_definitions: { genetic_evidence: { type: 'object' } } }
       })
-      curationsStore.fetchCurationById.mockResolvedValue({ evidence_data: {}, lock_version: 2 })
-      const { wrapper } = await mountFramed()
-      await new Promise(r => setTimeout(r, 350))
-      expect(curationsStore.calculateScore).not.toHaveBeenCalled()
-      expect(wrapper.findComponent({ name: 'DynamicForm' }).props('hideScoring')).toBe(false)
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { evidence_summary: 'x', genetic_evidence: { case_level: {} } },
+        lock_version: 2
+      })
+      const { wrapper, frame } = await mountFramed()
+      expect(frame.canSubmit.value).toBe(false)
+      expect(frame.submit()).toBe(false)
+
+      wrapper.findComponent({ name: 'DynamicForm' }).vm.$emit('update:model-value', {
+        genetic_evidence: { segregation: [{ pmid: '1', points: 1 }] }
+      })
+      await flushPromises()
+      expect(frame.canSubmit.value).toBe(true)
+    })
+
+    it('never submits while a save is in flight', async () => {
+      curationsStore.fetchCurationById.mockResolvedValue({
+        evidence_data: { a: 1 },
+        lock_version: 2
+      })
+      curationsStore.saveDraft.mockReturnValue(new Promise(() => {}))
+      const { wrapper, frame } = await mountFramed()
+      void frame.save()
+      await flushPromises()
+      internals(wrapper).handleKeydown(
+        new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true })
+      )
+      await flushPromises()
+      expect(confirmMock).not.toHaveBeenCalled()
+      expect(curationsStore.submitCuration).not.toHaveBeenCalled()
     })
 
     it('submits through the frame after confirming, saving the evidence first', async () => {

@@ -10,7 +10,7 @@ interface TraceCategory {
   score: number
   types?: TraceType[]
 }
-interface TraceSection {
+export interface TraceSection {
   key: string
   score: number
   cap?: number | null
@@ -27,6 +27,9 @@ export interface StoredScores {
 
 export interface EvidenceScores {
   caseLevel: { adxlNull: number; adxlOther: number; arNull: number; arOther: number }
+  /** Category scores after their caps */
+  caseLevelTotal: number
+  functionTotal: number
   segregation: number
   caseControl: number
   genetic: number
@@ -44,6 +47,29 @@ export interface EvidenceScores {
 
 const num = (v: unknown): number => Number(v) || 0
 
+/**
+ * Points per kind of evidence (e.g. models, rescue). A kind is its own category, or part of a
+ * category several kinds share (SOP v11 "Models & Rescue", capped at 4): then the kinds split
+ * the capped score in the given order, so their sum never exceeds the cap.
+ */
+export function traceKinds(sections: TraceSection[], section: string, kinds: string[]): number[] {
+  const categories = sections.find(s => s.key === section)?.categories ?? []
+  const left = new Map<TraceCategory, number>()
+  return kinds.map(kind => {
+    const own = categories.find(c => c.key === kind)
+    if (own) return num(own.score)
+    const shared = categories.find(c => c.types?.some(t => t.path.startsWith(`${kind}.`)))
+    if (!shared) return 0
+    const raw = shared.types!.filter(t => t.path.startsWith(`${kind}.`))
+    const points = Math.min(
+      raw.reduce((sum, t) => sum + num(t.score), 0),
+      left.get(shared) ?? num(shared.score)
+    )
+    left.set(shared, (left.get(shared) ?? num(shared.score)) - points)
+    return points
+  })
+}
+
 /** Map stored computed_scores (totals + trace) onto the display shape; missing parts read 0. */
 export function storedScores(stored: StoredScores | null | undefined): EvidenceScores {
   const sections = stored?.trace?.sections ?? []
@@ -54,6 +80,10 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
     num(cat(section, key)?.types?.find(t => t.path === `${key}.${path}`)?.score)
   const cap = (section: string) => sections.find(s => s.key === section)?.cap ?? null
   const caseLevel = (path: string) => type('genetic_evidence', 'case_level', path)
+  const [models = 0, rescue = 0] = traceKinds(sections, 'experimental_evidence', [
+    'models',
+    'rescue'
+  ])
   const func = (path: string) => type('experimental_evidence', 'function', path)
 
   return {
@@ -63,6 +93,8 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
       arNull: caseLevel('autosomal_recessive.predicted_or_proven_null'),
       arOther: caseLevel('autosomal_recessive.other_variant_type')
     },
+    caseLevelTotal: category('genetic_evidence', 'case_level'),
+    functionTotal: category('experimental_evidence', 'function'),
     segregation: category('genetic_evidence', 'segregation'),
     caseControl: category('genetic_evidence', 'case_control'),
     genetic: num(stored?.genetic_evidence_total),
@@ -72,8 +104,8 @@ export function storedScores(stored: StoredScores | null | undefined): EvidenceS
       expression: func('expression')
     },
     functionalAlteration: category('experimental_evidence', 'functional_alteration'),
-    models: category('experimental_evidence', 'models'),
-    rescue: category('experimental_evidence', 'rescue'),
+    models,
+    rescue,
     experimental: num(stored?.experimental_evidence_total),
     total: num(stored?.total_score),
     caps: { genetic: cap('genetic_evidence'), experimental: cap('experimental_evidence') },

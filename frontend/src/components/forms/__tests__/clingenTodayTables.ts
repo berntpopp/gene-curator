@@ -143,7 +143,8 @@ export const TODAY_TABLES: Record<
         type: 'select',
         options: ['score', 'review', 'contradicts']
       },
-      { key: 'proband_counted_points', label: 'Points', type: 'number', min: 0, max: 1.5 },
+      // SOP v11: an AR proband scores up to 3 (#420); the old form capped at 1.5
+      { key: 'proband_counted_points', label: 'Points', type: 'number', min: 0, max: 3 },
       { key: 'explanation', label: 'Explanation', type: 'text' }
     ],
     newRow: {

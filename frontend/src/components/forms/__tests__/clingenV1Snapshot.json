@@ -240,21 +240,19 @@
                         "order": 1
                       },
                       "proband_counted_points": {
-                        "max": 1.5,
+                        "max": 3,
                         "min": 0,
                         "step": 0.1,
                         "type": "number",
                         "label": "Points",
                         "order": 7,
-                        "default": 0.1,
-                        "max_value": 1.5,
-                        "min_value": 0
+                        "default": 0.1
                       }
                     }
                   },
                   "label": "Other Variant Type",
                   "order": 2,
-                  "description": "Biallelic other variant types (default 0.1, 0-1.5 points)",
+                  "description": "Biallelic other variant types (each variant 0-1.5, max 3 points per proband)",
                   "ui_component": "EvidenceTable"
                 },
                 "predicted_or_proven_null": {
@@ -333,9 +331,7 @@
                         "type": "number",
                         "label": "Points",
                         "order": 7,
-                        "default": 1.5,
-                        "max_value": 3,
-                        "min_value": 0
+                        "default": 1.5
                       }
                     }
                   },
@@ -447,9 +443,7 @@
                         "type": "number",
                         "label": "Points",
                         "order": 6,
-                        "default": 0.1,
-                        "max_value": 1.5,
-                        "min_value": 0
+                        "default": 0.1
                       }
                     }
                   },
@@ -549,9 +543,7 @@
                         "type": "number",
                         "label": "Points",
                         "order": 6,
-                        "default": 1.5,
-                        "max_value": 3,
-                        "min_value": 0
+                        "default": 1.5
                       }
                     }
                   },
@@ -586,9 +578,7 @@
                 "type": "number",
                 "label": "Points",
                 "order": 5,
-                "default": 0,
-                "max_value": 3,
-                "min_value": 0
+                "default": 0
               },
               "lod_score": {
                 "min": 0,
@@ -596,8 +586,7 @@
                 "type": "number",
                 "label": "LOD Score",
                 "order": 3,
-                "default": 0,
-                "min_value": 0
+                "default": 0
               },
               "explanation": {
                 "type": "string",
@@ -614,8 +603,7 @@
                 "type": "number",
                 "label": "Seg. Counted",
                 "order": 4,
-                "default": 0,
-                "min_value": 0
+                "default": 0
               }
             }
           },
@@ -649,9 +637,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 10,
-                    "default": 0,
-                    "max_value": 6,
-                    "min_value": 0
+                    "default": 0
                   },
                   "p_value": {
                     "max": 1,
@@ -659,9 +645,7 @@
                     "type": "number",
                     "label": "P-value",
                     "order": 9,
-                    "default": 1,
-                    "max_value": 1,
-                    "min_value": 0
+                    "default": 1
                   },
                   "variant": {
                     "type": "string",
@@ -673,16 +657,14 @@
                     "type": "number",
                     "label": "OR",
                     "order": 8,
-                    "default": 0,
-                    "min_value": 0
+                    "default": 0
                   },
                   "cases_total": {
                     "min": 1,
                     "type": "number",
                     "label": "Cases",
                     "order": 5,
-                    "default": 1,
-                    "min_value": 1
+                    "default": 1
                   },
                   "study_label": {
                     "type": "string",
@@ -694,24 +676,21 @@
                     "type": "number",
                     "label": "Ctrl",
                     "order": 7,
-                    "default": 1,
-                    "min_value": 1
+                    "default": 1
                   },
                   "cases_with_variant": {
                     "min": 0,
                     "type": "number",
                     "label": "Cases+",
                     "order": 4,
-                    "default": 0,
-                    "min_value": 0
+                    "default": 0
                   },
                   "controls_with_variant": {
                     "min": 0,
                     "type": "number",
                     "label": "Ctrl+",
                     "order": 6,
-                    "default": 0,
-                    "min_value": 0
+                    "default": 0
                   }
                 }
               },
@@ -740,9 +719,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 9,
-                    "default": 0,
-                    "max_value": 6,
-                    "min_value": 0
+                    "default": 0
                   },
                   "p_value": {
                     "max": 1,
@@ -750,17 +727,14 @@
                     "type": "number",
                     "label": "P-value",
                     "order": 8,
-                    "default": 1,
-                    "max_value": 1,
-                    "min_value": 0
+                    "default": 1
                   },
                   "cases_total": {
                     "min": 1,
                     "type": "number",
                     "label": "Cases",
                     "order": 5,
-                    "default": 1,
-                    "min_value": 1
+                    "default": 1
                   },
                   "study_label": {
                     "type": "string",
@@ -800,24 +774,21 @@
                     "type": "number",
                     "label": "Ctrl",
                     "order": 7,
-                    "default": 1,
-                    "min_value": 1
+                    "default": 1
                   },
                   "cases_with_variants": {
                     "min": 0,
                     "type": "number",
                     "label": "Cases+",
                     "order": 4,
-                    "default": 0,
-                    "min_value": 0
+                    "default": 0
                   },
                   "controls_with_variants": {
                     "min": 0,
                     "type": "number",
                     "label": "Ctrl+",
                     "order": 6,
-                    "default": 0,
-                    "min_value": 0
+                    "default": 0
                   }
                 }
               },
@@ -827,7 +798,7 @@
               "ui_component": "EvidenceTable"
             }
           },
-          "description": "Case-control studies (max 6 points)"
+          "description": "Case-control studies (single variant and aggregate analyses summed, max 12 points)"
         }
       },
       "description": "Genetic evidence supporting the gene-disease relationship (max 12 points)"
@@ -897,9 +868,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 1,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 1
                   },
                   "cell_type": {
                     "type": "select",
@@ -987,9 +956,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 8,
-                    "default": 2,
-                    "max_value": 4,
-                    "min_value": 0
+                    "default": 2
                   },
                   "organism": {
                     "type": "select",
@@ -1129,9 +1096,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 2,
-                    "max_value": 4,
-                    "min_value": 0
+                    "default": 2
                   },
                   "score_status": {
                     "type": "select",
@@ -1196,9 +1161,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 1,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 1
                   },
                   "cell_type": {
                     "type": "string",
@@ -1263,9 +1226,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 1,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 1
                   },
                   "cell_type": {
                     "type": "string",
@@ -1330,9 +1291,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 2,
-                    "max_value": 4,
-                    "min_value": 0
+                    "default": 2
                   },
                   "organism": {
                     "type": "string",
@@ -1405,9 +1364,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 0.5,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 0.5
                   },
                   "score_status": {
                     "type": "select",
@@ -1472,9 +1429,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 7,
-                    "default": 0.5,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 0.5
                   },
                   "score_status": {
                     "type": "select",
@@ -1539,9 +1494,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 6,
-                    "default": 0.5,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 0.5
                   },
                   "explanation": {
                     "type": "string",
@@ -1614,9 +1567,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 8,
-                    "default": 1,
-                    "max_value": 2,
-                    "min_value": 0
+                    "default": 1
                   },
                   "cell_type": {
                     "type": "string",
@@ -1686,9 +1637,7 @@
                     "type": "number",
                     "label": "Points",
                     "order": 8,
-                    "default": 0.5,
-                    "max_value": 1,
-                    "min_value": 0
+                    "default": 0.5
                   },
                   "cell_line": {
                     "type": "string",
