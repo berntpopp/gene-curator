@@ -209,6 +209,7 @@
 
   // ClinGen-specific state
   const precurationData = ref<EvidenceData>({})
+  const precurationId = ref<string | null>(null) // link for a new curation (re-curation source's)
   const curationStatus = ref('draft')
 
   // Schema data
@@ -320,6 +321,7 @@
     geneId: () => props.geneId,
     scopeId: () => props.scopeId,
     workflowPairId: () => props.workflowPairId,
+    precurationId: () => precurationId.value,
     evidenceData,
     lockVersion,
     canSubmit: () => canSubmit.value,
@@ -539,19 +541,14 @@
     }
   }
 
-  /** Re-curation: copy the active curation's evidence and disease into the new draft. */
+  /** Re-curation: copy the active curation's evidence and precuration link into the new draft. */
   async function loadPrefill() {
     if (props.curationId || !props.prefillFrom) return
     try {
       const source = await curationsStore.fetchCurationById(props.prefillFrom)
-      const { disease_name, mondo_id, mode_of_inheritance } = source
-      // Evidence wins over the resolved disease fields, as in the backend
-      evidenceData.value = {
-        ...Object.fromEntries(
-          Object.entries({ disease_name, mondo_id, mode_of_inheritance }).filter(([, v]) => v)
-        ),
-        ...(source.evidence_data ?? {})
-      }
+      // The disease lives in the evidence (or the precuration): copying the resolved fields duplicated it
+      evidenceData.value = { ...(source.evidence_data ?? {}) }
+      precurationId.value = source.precuration_id ?? null
     } catch (error) {
       logger.error('Failed to load re-curation source', {
         error: (error as ApiErrorLike).message
