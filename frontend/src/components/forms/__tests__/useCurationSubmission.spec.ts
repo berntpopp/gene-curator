@@ -348,6 +348,11 @@ describe('useCurationSubmission', () => {
       })
       expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('new-cg', { lock_version: 1 })
       expect(s.onSubmit).toHaveBeenCalledWith('new-cg')
+      // A reload after the refused submit opens that curation, not a new one
+      expect(replace).toHaveBeenCalledWith({
+        name: 'curation-edit',
+        params: { scopeId: 'scope-1', curationId: 'new-cg' }
+      })
     })
 
     it('retries a refused generic submit on the curation it created', async () => {
@@ -360,6 +365,10 @@ describe('useCurationSubmission', () => {
 
       expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
       expect(curationsStore.submitCuration).toHaveBeenLastCalledWith('new-1', { lock_version: 2 })
+      expect(replace).toHaveBeenCalledWith({
+        name: 'curation-edit',
+        params: { scopeId: 'scope-1', curationId: 'new-1' }
+      })
     })
 
     it('saves a draft into the curation a refused submit created', async () => {

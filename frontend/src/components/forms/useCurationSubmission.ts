@@ -162,6 +162,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           createPayload(evidenceData.value)
         )) as CurationRecord
         createdId = created.id
+        // A reload after a refused submit must open this curation, not create another
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId(), curationId: created.id }
+        })
         lockVersion.value = created.lock_version ?? 0
         submittedId = await submitAt(created.id, lockVersion.value)
       }
@@ -202,6 +207,11 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           createPayload({ ...clingenEvidenceData })
         )) as CurationRecord
         createdId = created.id
+        // A reload after a refused submit must open this curation, not create another
+        router.replace({
+          name: 'curation-edit',
+          params: { scopeId: scopeId(), curationId: created.id }
+        })
         lockVersion.value = created.lock_version ?? 0
         submittedId = await submitAt(created.id, lockVersion.value)
       }

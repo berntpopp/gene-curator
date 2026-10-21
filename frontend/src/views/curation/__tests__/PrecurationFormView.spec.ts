@@ -94,6 +94,29 @@ describe('PrecurationFormView', () => {
   )
 
   it.each([
+    ['submitted', 'in review'],
+    ['in_review', 'in review'],
+    ['approved', 'Read-only: this precuration is approved.'],
+    ['archived', 'Read-only: this precuration is archived.']
+  ])('says why a %s precuration is read-only', async (status, text) => {
+    useAuthStore().user = { id: 'me' } as never
+    route.params = { scopeId: 'sc1', precurationId: 'p1' }
+    vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+      id: 'p1',
+      gene_id: 'g7',
+      status,
+      created_by: 'me',
+      scope_id: 'sc1'
+    } as never)
+    vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+    const wrapper = mount(PrecurationFormView, {
+      global: { stubs: { SchemaDrivenPrecurationForm: true } }
+    })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="ws-readonly"]').text()).toContain(text)
+  })
+
+  it.each([
     ['rejected', 'Narrow the disease', true],
     ['submitted', 'Narrow the disease', false]
   ])('shows the reviewer reason on a %s precuration: %s (%s)', async (status, reason, shown) => {

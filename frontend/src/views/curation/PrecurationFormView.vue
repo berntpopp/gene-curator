@@ -296,9 +296,9 @@
             ? 'Read-only: only the curator who started this precuration can edit it.'
             : ['draft', 'rejected'].includes(precuration.status)
               ? ''
-              : precuration.status === 'approved'
-                ? 'Read-only: this precuration is approved.'
-                : 'Read-only: this precuration is in review. It can be edited again if changes are requested.'
+              : ['submitted', 'in_review'].includes(precuration.status)
+                ? 'Read-only: this precuration is in review. It can be edited again if changes are requested.'
+                : `Read-only: this precuration is ${precuration.status}.`
         // The reviewer's reason stays visible while the precuration is sent back
         const reason = precuration.computed_fields?.rejection_reason
         sentBackReason.value =
