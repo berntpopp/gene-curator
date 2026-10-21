@@ -1,4 +1,4 @@
-import { hasContent } from './hasContent'
+import { caseRowHasContent } from './hasContent'
 import type { EvidenceItem, ExperimentalEvidence, GeneticEvidence } from './types'
 
 export interface GeneticBreakdown {
@@ -39,9 +39,9 @@ export function sumPoints(items: unknown): number {
   return asRows(items).reduce((sum, item) => sum + pointsOf(item.points), 0)
 }
 
-export function sumProbandPoints(items: unknown): number {
+export function sumProbandPoints(items: unknown, defaultPoints: number): number {
   return asRows(items)
-    .filter(hasContent)
+    .filter(i => caseRowHasContent(i, defaultPoints))
     .reduce((sum, item) => sum + pointsOf(item.proband_counted_points), 0)
 }
 
@@ -53,13 +53,13 @@ export function calculateGeneticScore(ge: GeneticEvidence): GeneticBreakdown {
   if (ge.case_level) {
     if (ge.case_level.autosomal_dominant_or_x_linked) {
       const adXl = ge.case_level.autosomal_dominant_or_x_linked
-      caseLevelTotal += sumProbandPoints(adXl.predicted_or_proven_null)
-      caseLevelTotal += sumProbandPoints(adXl.other_variant_type)
+      caseLevelTotal += sumProbandPoints(adXl.predicted_or_proven_null, 1.5)
+      caseLevelTotal += sumProbandPoints(adXl.other_variant_type, 0.1)
     }
     if (ge.case_level.autosomal_recessive) {
       const ar = ge.case_level.autosomal_recessive
-      caseLevelTotal += sumProbandPoints(ar.predicted_or_proven_null)
-      caseLevelTotal += sumProbandPoints(ar.other_variant_type)
+      caseLevelTotal += sumProbandPoints(ar.predicted_or_proven_null, 1.5)
+      caseLevelTotal += sumProbandPoints(ar.other_variant_type, 0.1)
     }
   }
 

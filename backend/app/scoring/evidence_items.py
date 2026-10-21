@@ -16,7 +16,7 @@ def rows(value: Any) -> list[dict[str, Any]]:
 # Defaults a new contradictory row is created with (ContradictoryEvidenceSection.vue)
 _ROW_DEFAULTS = {"evidence_type": "population", "impact": "note"}
 # Case-level row fields preset on a new row (GeneticEvidenceSection.vue); not entered evidence
-_PRESET_KEYS = {"variant_type", "score_status", "proband_counted_points"}
+_PRESET_KEYS = {"variant_type", "score_status"}
 
 
 def has_content(value: Any) -> bool:
@@ -32,3 +32,10 @@ def has_content(value: Any) -> bool:
             if k not in _PRESET_KEYS and _ROW_DEFAULTS.get(k) != v
         )
     return value is not None and value is not False
+
+
+def case_row_has_content(item: dict[str, Any], default_points: float) -> bool:
+    """Like has_content, but points still at the new-row default are not entered evidence."""
+    if item.get("proband_counted_points") == default_points:
+        item = {**item, "proband_counted_points": None}
+    return has_content(item)

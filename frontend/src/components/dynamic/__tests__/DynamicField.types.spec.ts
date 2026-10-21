@@ -114,6 +114,17 @@ describe('DynamicField field types', () => {
     ])
   })
 
+  it('humanizes the value of an enumOptions object that has no label', () => {
+    const wrapper = mountField({
+      type: 'string',
+      enum: ['unknown'],
+      enumOptions: [{ value: 'unknown' } as never]
+    })
+    expect(wrapper.findComponent({ name: 'VSelect' }).props('items')).toEqual([
+      { title: 'Unknown', value: 'unknown' }
+    ])
+  })
+
   it('humanizes plain lowercase and slashed enum values', () => {
     const wrapper = mountField({
       type: 'string',

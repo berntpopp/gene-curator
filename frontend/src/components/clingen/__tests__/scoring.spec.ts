@@ -21,7 +21,7 @@ describe('sumPoints / sumProbandPoints', () => {
       { pmid: '1', proband_counted_points: 1.5, points: 9 },
       { pmid: '2', proband_counted_points: '0.1' }
     ]
-    expect(sumProbandPoints(items)).toBeCloseTo(1.6)
+    expect(sumProbandPoints(items, 1.5)).toBeCloseTo(1.6)
   })
 
   it('does not score a freshly added empty case-level row', () => {
@@ -34,13 +34,20 @@ describe('sumPoints / sumProbandPoints', () => {
       proband_counted_points: 1.5,
       explanation: ''
     }
-    expect(sumProbandPoints([fresh])).toBe(0)
-    expect(sumProbandPoints([{ ...fresh, variant: 'c.1A>G' }])).toBe(1.5)
+    expect(sumProbandPoints([fresh], 1.5)).toBe(0)
+    expect(sumProbandPoints([{ ...fresh, variant: 'c.1A>G' }], 1.5)).toBe(1.5)
+  })
+
+  it('scores a blank row whose points were changed, and a filled row with no points as 0', () => {
+    expect(sumProbandPoints([{ proband_counted_points: 1.75 }], 1.5)).toBe(1.75)
+    expect(sumProbandPoints([{ proband_counted_points: 0.9 }], 0.1)).toBe(0.9)
+    expect(sumProbandPoints([{ proband_counted_points: 0.1 }], 0.1)).toBe(0)
+    expect(sumProbandPoints([{ pmid: '1' }], 1.5)).toBe(0)
   })
 
   it('returns zero for missing or non-array input', () => {
     expect(sumPoints(undefined)).toBe(0)
-    expect(sumProbandPoints(undefined)).toBe(0)
+    expect(sumProbandPoints(undefined, 1.5)).toBe(0)
   })
 })
 
@@ -173,7 +180,7 @@ describe('legacy {points} dicts', () => {
   it('sums a dict as one item and ignores other shapes', () => {
     expect(sumPoints({ count: 1, points: 0.5 })).toBe(0.5)
     expect(sumPoints('junk')).toBe(0)
-    expect(sumProbandPoints([{ pmid: '1', proband_counted_points: 1 }, 'x'])).toBe(1)
+    expect(sumProbandPoints([{ pmid: '1', proband_counted_points: 1 }, 'x'], 1.5)).toBe(1)
   })
 
   it('normalizeLegacy rewrites dicts to lists, leaves lists alone', () => {

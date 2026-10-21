@@ -83,3 +83,15 @@ def test_fresh_empty_case_level_row_scores_nothing():
         {"predicted_or_proven_null": [filled]}, "AR"
     )
     assert score == 1.5
+
+
+def test_changed_points_score_on_otherwise_blank_row_and_missing_points_are_zero():
+    engine = ClinGenEngine()
+    nulls = {"predicted_or_proven_null": [{"proband_counted_points": 1.75}]}
+    assert engine._score_case_level_nested(nulls, "AR")[0] == 1.75
+    other = {"other_variant_type": [{"proband_counted_points": 0.9}]}
+    assert engine._score_case_level_nested(other, "AR")[0] == 0.9
+    default = {"other_variant_type": [{"proband_counted_points": 0.1}]}
+    assert engine._score_case_level_nested(default, "AR")[0] == 0
+    no_points = {"predicted_or_proven_null": [{"pmid": "1"}]}  # frontend: 0
+    assert engine._score_case_level_nested(no_points, "AR")[0] == 0

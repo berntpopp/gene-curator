@@ -567,8 +567,8 @@
       return options.map(option => {
         if (typeof option === 'string') return { title: optionTitle(option), value: option }
         return {
-          title: option.label || optionTitle(option.value) || option,
-          value: option.value || option
+          title: option.label || optionTitle(option.value),
+          value: option.value
         }
       })
     }

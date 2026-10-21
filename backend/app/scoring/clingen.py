@@ -20,7 +20,7 @@ from typing import Any, Final
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
-from .evidence_items import has_content, rows
+from .evidence_items import case_row_has_content, has_content, rows
 
 logger = get_logger(__name__)
 
@@ -308,16 +308,16 @@ class ClinGenEngine(ScoringEngine):
 
         # Predicted/proven null variants
         null_variants = rows(inheritance_data.get("predicted_or_proven_null"))
-        for item in filter(has_content, null_variants):
+        for item in (i for i in null_variants if case_row_has_content(i, 1.5)):
             # Use proband_counted_points from the item (already scored by user)
-            points = float(item.get("proband_counted_points", 1.5) or 0)
+            points = float(item.get("proband_counted_points") or 0)
             null_score += points
             null_items.append({**item, "computed_score": points})
 
         # Other variant types
         other_variants = rows(inheritance_data.get("other_variant_type"))
-        for item in filter(has_content, other_variants):
-            points = float(item.get("proband_counted_points", 0.1) or 0)
+        for item in (i for i in other_variants if case_row_has_content(i, 0.1)):
+            points = float(item.get("proband_counted_points") or 0)
             other_score += points
             other_items.append({**item, "computed_score": points})
 
