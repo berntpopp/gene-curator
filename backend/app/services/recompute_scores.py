@@ -16,6 +16,7 @@ from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
 from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
+from app.scoring.evidence_items import has_content
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.point_model import point_model
 
@@ -25,22 +26,31 @@ _TEXT = {"evidence_summary"}  # free text the ClinGen forms write; never scored
 
 
 def _unscored_keys(evidence: Any, model: dict[str, Any]) -> list[str]:
-    """Keys of non-empty evidence that the point model does not score, dotted and sorted:
-    its sections with their types' first path segment, override and band inputs."""
+    """Non-empty evidence outside complete model type paths, override and band inputs."""
     if not isinstance(evidence, dict):
-        return ["evidence_data"] if evidence else []
-    sections = {
-        s["key"]: {t["path"].split(".")[0] for c in s["categories"] for t in c["types"]}
+        return ["evidence_data"] if has_content(evidence) else []
+    sections = {s["key"] for s in model["sections"]}
+    known = {
+        f"{s['key']}.{t['path']}"
         for s in model["sections"]
+        for c in s["categories"]
+        for t in c["types"]
     }
-    known = {*sections, *_TEXT}
-    known |= {o["when"] for o in model.get("overrides", [])}
+    known |= _TEXT | {o["when"] for o in model.get("overrides", [])}
     known |= {b["requires"] for b in model["bands"] if "requires" in b}
-    unscored = set(evidence) - known
-    for key, types in sections.items():
-        if isinstance(evidence.get(key), dict):
-            unscored |= {f"{key}.{k}" for k in set(evidence[key]) - types}
-    return sorted(unscored)
+
+    def unknown(node: Any, path: str) -> list[str]:
+        if path in known or not has_content(node):
+            return []
+        if path in sections and isinstance(node, list):
+            return []  # the engine also supports legacy section lists
+        if not any(k.startswith(f"{path}.") for k in known):
+            return [path]
+        if isinstance(node, dict):
+            return [p for k, v in node.items() for p in unknown(v, f"{path}.{k}")]
+        return [path]  # non-empty data where the model requires a parent object
+
+    return sorted(p for key, value in evidence.items() for p in unknown(value, key))
 
 
 def recompute_all_scores(db: Session) -> int:
@@ -64,6 +74,7 @@ def recompute_all_scores(db: Session) -> int:
     skipped: list[str] = []
     unscored: dict[str, list[str]] = {}
     custom: set[str] = set()
+    flagged: dict[str, list[str]] = {}
     failed = 0
     for (
         curation_id,
@@ -96,6 +107,10 @@ def recompute_all_scores(db: Session) -> int:
                 "Score recompute failed", curation_id=str(curation_id), exc_info=True
             )
             continue
+        flagged[str(curation_id)] = [
+            flag["path"]
+            for flag in result.evidence_breakdown["trace"].get("out_of_range", [])
+        ]
         scores = {**result.scores, **result.evidence_breakdown}
         if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
@@ -131,6 +146,7 @@ def recompute_all_scores(db: Session) -> int:
         skipped_ids=skipped,
         unscored=unscored,
         custom_categories=sorted(custom),
+        out_of_range={key: paths for key, paths in flagged.items() if paths},
         failed=failed,
     )
     if failed:

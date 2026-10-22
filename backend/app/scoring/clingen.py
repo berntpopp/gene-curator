@@ -44,6 +44,8 @@ def _positive(value: Any) -> bool:
 def _range_warning(flag: dict[str, Any]) -> str:
     where = f"{flag['path']} = {flag['value']}"
     if flag["range"] is None:
+        if isinstance(flag["value"], (int, float)) and flag["value"] < 0:
+            return f"{where} is below zero"
         return f"{where} is not a finite number"
     low, high = flag["range"]
     return f"{where} is outside the pinned range {low:g}-{high:g}"
@@ -51,6 +53,8 @@ def _range_warning(flag: dict[str, Any]) -> str:
 
 def lod_to_points_sop11(lod_score: float) -> float:
     """SOP v11 segregation: LOD 0.6-1.2 -> 1, 1.2-2.4 -> 2, >= 2.4 -> 3 points."""
+    if not math.isfinite(lod_score):
+        return lod_score  # propagate to the shared non-finite flag/filter
     if lod_score < 0.6:
         return 0.0
     if lod_score < 1.2:
@@ -68,6 +72,8 @@ def segregation_points(item: dict[str, Any]) -> float:
     if lod_score is not None:
         return lod_to_points_sop11(float(lod_score))
     segregations = item.get("segregations_counted", 0)
+    if not math.isfinite(segregations):
+        return float(segregations)
     if segregations > 0:
         return lod_to_points_sop11(segregations * math.log10(2))
     return 0.0
@@ -117,6 +123,8 @@ def legacy_lod(family_count: int, inheritance: str) -> float:
 
 def legacy_lod_to_points(lod_score: float) -> float:
     """LOD < 3 -> 0, 3-5 -> 1, 5-7 -> 2, then +0.5 per LOD unit up to 7 points."""
+    if not math.isfinite(lod_score):
+        return lod_score
     if lod_score < 3.0:
         return 0.0
     if lod_score < 5.0:
@@ -171,14 +179,34 @@ _LEGACY_SECTION: dict[str, dict[str, Callable[[dict[str, Any]], float]]] = {
 }
 
 
-def legacy_points(section_key: str, items: list[Any]) -> dict[str, list[float]]:
+def legacy_points(
+    section_key: str, items: list[Any], flags: list[Any]
+) -> dict[str, list[float]]:
     """{category: [item points]} for a legacy flat list; unknown categories are ignored."""
     scorers = _LEGACY_SECTION.get(section_key, {})
     out: dict[str, list[float]] = {}
-    for item in rows(items):
+    for index, item in enumerate(rows(items)):
         category = _LEGACY_CATEGORY.get(item.get("evidence_category", ""), "")
         if category in scorers:
-            out.setdefault(category, []).append(scorers[category](item))
+            value = scorers[category](item)
+            finite = math.isfinite(value)
+            if not finite or value < 0:
+                key = "computed_score" if category == "case_control" else "points"
+                if category == "segregation":
+                    key = (
+                        "lod_score"
+                        if item.get("lod_score") is not None
+                        else "family_count"
+                    )
+                flags.append(
+                    {
+                        "path": f"{section_key}[{index}].{key}",
+                        "value": value if finite else str(value),
+                        "range": None,  # legacy categories do not identify a model type
+                    }
+                )
+            if finite:
+                out.setdefault(category, []).append(value)
     return out
 
 

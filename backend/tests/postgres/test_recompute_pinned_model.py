@@ -37,7 +37,7 @@ def test_recompute_scores_api_saved_custom_evidence(
     saved = client.patch(
         f"/api/v1/curations/{created['id']}/draft",
         json={
-            "evidence_data": CUSTOM_EVIDENCE,
+            "evidence_data": {"genetic_evidence": CUSTOM_EVIDENCE["genetic_evidence"]},
             "lock_version": created["lock_version"],
         },
         headers=_h(w.alice),
@@ -72,3 +72,80 @@ def test_recompute_scores_api_saved_custom_evidence(
             (created["id"],),
         )
         assert cur.fetchone() == (1.5, "limited", 1.5)
+
+
+@pytest.mark.parametrize(
+    ("evidence", "total", "path"),
+    [
+        (
+            {
+                "experimental_evidence": [
+                    {"evidence_category": "models", "points": "nan"}
+                ]
+            },
+            0,
+            "experimental_evidence[0].points",
+        ),
+        (
+            {
+                "experimental_evidence": [
+                    {"evidence_category": "rescue", "points": "inf"}
+                ]
+            },
+            0,
+            "experimental_evidence[0].points",
+        ),
+        (
+            {"experimental_evidence": [{"evidence_category": "rescue", "points": -3}]},
+            -3,
+            "experimental_evidence[0].points",
+        ),
+        (
+            {"genetic_evidence": {"segregation": [{"lod_score": "nan"}]}},
+            0,
+            "genetic_evidence.segregation[0].lod_score",
+        ),
+        (
+            {
+                "genetic_evidence": [
+                    {"evidence_category": "segregation", "lod_score": "inf"}
+                ]
+            },
+            0,
+            "genetic_evidence[0].lod_score",
+        ),
+    ],
+)
+def test_api_draft_invalid_scores_are_flagged_and_storable(
+    client: TestClient,
+    w: W,
+    monkeypatch: pytest.MonkeyPatch,
+    evidence: dict[str, Any],
+    total: float,
+    path: str,
+) -> None:
+    created = _create(client, w, w.genes[0])
+    url = f"/api/v1/curations/{created['id']}"
+    saved = client.patch(
+        f"{url}/draft",
+        json={"evidence_data": evidence, "lock_version": created["lock_version"]},
+        headers=_h(w.alice),
+    )
+    assert saved.status_code == 200, saved.text
+    scores = saved.json()["computed_scores"]
+    assert scores["total_score"] == total
+    assert [f["path"] for f in scores["trace"]["out_of_range"]] == [path]
+    json.dumps(scores, allow_nan=False)
+    loaded = client.get(url, headers=_h(w.alice))
+    assert loaded.status_code == 200, loaded.text
+    assert loaded.json()["computed_scores"] == scores
+    assert loaded.json()["evidence_data"] == evidence
+
+    summaries: list[dict[str, Any]] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: summaries.append(kw)
+    )
+    with Session(database.engine) as db:
+        assert db.scalar(text("SELECT current_user")) == "app_user"
+        recompute_scores.recompute_all_scores(db)
+    assert summaries[-1]["out_of_range"][created["id"]] == [path]

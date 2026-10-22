@@ -245,7 +245,9 @@ def test_recompute_skips_unscored_keys_and_counts_unchanged(
 
     model = template("clingen_sop_v11")
     assert _unscored_keys({"genetic_evidence_score": 3}, model)
-    assert _unscored_keys({"genetic_evidence": {"case_level_ad_xl": {}}}, model)
+    assert _unscored_keys(
+        {"genetic_evidence": {"case_level_ad_xl": {"points": 1}}}, model
+    )
     assert _unscored_keys("x", model)
     assert not _unscored_keys({"genetic_evidence": [], "evidence_summary": {}}, model)
     assert not _unscored_keys(None, model)
@@ -277,7 +279,8 @@ def test_recompute_scores_custom_categories_of_the_pinned_model(
     v1 = _version(db_session, test_curation, 1, {"point_model": _custom_model()})
     v2 = _version(db_session, test_curation, 2, {"engine": "clingen_sop_v11"})
     test_curation.methodology_version_id = v1.id
-    test_curation.evidence_data = {**CUSTOM_EVIDENCE, "evidence_summary": "cohort"}
+    custom_evidence = {"genetic_evidence": CUSTOM_EVIDENCE["genetic_evidence"]}
+    test_curation.evidence_data = {**custom_evidence, "evidence_summary": "cohort"}
     test_curation.computed_scores = {"total_score": 0.0}
     test_curation.computed_verdict = "no_known"
     db_session.commit()
@@ -293,7 +296,7 @@ def test_recompute_scores_custom_categories_of_the_pinned_model(
     unknown = {"genetic_evidence": {"made_up": [{"points": 9}]}, "extra": 1}
     for version, evidence, keys in (
         (v1, unknown, ["extra", "genetic_evidence.made_up"]),
-        (v2, CUSTOM_EVIDENCE, ["genetic_evidence.patient_registry_cohort"]),
+        (v2, custom_evidence, ["genetic_evidence.patient_registry_cohort"]),
     ):  # v2 is the template: the custom key is unknown there
         test_curation.methodology_version_id = version.id
         test_curation.evidence_data = evidence

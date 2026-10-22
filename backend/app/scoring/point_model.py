@@ -19,7 +19,7 @@ TEMPLATES = Path(__file__).parent / "templates"
 # (type definition, evidence row) -> points; None means the row is not entered evidence
 ItemRule = Callable[[dict[str, Any], dict[str, Any]], float | None]
 # (section key, flat legacy item list) -> {category key: [item points]}
-LegacyRule = Callable[[str, list[Any]], dict[str, list[float]]]
+LegacyRule = Callable[[str, list[Any], list[Any]], dict[str, list[float]]]
 
 
 @cache
@@ -87,6 +87,12 @@ def _type_points(
         finite = math.isfinite(value)
         if not finite or (limits and not limits[0] <= value <= limits[1]):
             key = type_def.get("points_key", "points")
+            if not finite and type_def.get("rule") == "segregation" and key not in row:
+                key = (
+                    "lod_score"
+                    if row.get("lod_score") is not None
+                    else "segregations_counted"
+                )
             flags.append(
                 {
                     "path": f"{path}[{i}].{key}",
@@ -108,7 +114,7 @@ def _section_points(
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
-        by_category = legacy(section["key"], data)
+        by_category = legacy(section["key"], data, flags)
         return {
             c["key"]: {"legacy": by_category.get(c["key"], [])}
             for c in section["categories"]
