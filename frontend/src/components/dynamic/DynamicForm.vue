@@ -183,6 +183,7 @@
   import { errorDetails } from './errorDetails'
   import { labelForPath } from './fieldLabels'
   import { normalizeDefinition } from './normalizeDefinition'
+  import { withDeclaredDefaults } from './formDefaults'
   import { FORM_DATA, resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
   import ValidationWarnings from './ValidationWarnings.vue'
@@ -305,19 +306,15 @@
     return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
   })
 
-  // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
-  // the user already edited, i.e. the form no longer matches the previously seen initial data.
-  let userEdited = false // the parent mirrors edits into initialData, so compare alone is not enough
-  let seenInitial = JSON.stringify(props.initialData)
-  watch(
-    () => JSON.stringify(props.initialData),
-    next => {
-      if (next !== seenInitial && !userEdited && JSON.stringify(formData.value) === seenInitial) {
-        formData.value = JSON.parse(next)
-      }
-      seenInitial = next
+  // Defaults are not user edits: a late server load may still replace them.
+  let userEdited = false
+  watch([() => JSON.stringify(props.initialData), () => props.readonly], ([next, readonly]) => {
+    if (readonly || !userEdited) {
+      const loaded = JSON.parse(next)
+      formData.value = readonly ? loaded : withDeclaredDefaults(loaded, jsonSchema.value.properties)
     }
-  )
+    if (readonly) userEdited = false
+  })
 
   const hasChanges = computed(() => {
     return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
@@ -582,6 +579,15 @@
     clearTimeout(validateTimer)
     validationStore.clearValidationResult('form')
   })
+
+  // Initialize before validation, including lazy tabs and asynchronously loaded schemas.
+  watch(
+    [jsonSchema, () => props.readonly],
+    ([schema, readonly]) => {
+      if (!readonly) formData.value = withDeclaredDefaults(formData.value, schema.properties)
+    },
+    { immediate: true }
+  )
 
   onMounted(async () => {
     if (props.schemaId) {
