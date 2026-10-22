@@ -123,6 +123,17 @@ describe('useValidationStore', () => {
       expect(store.validationResults.form).toEqual(response(true))
     })
 
+    it('does not restore a stale score after an edit clears the preview', async () => {
+      const store = useValidationStore()
+      let reply: (r: ReturnType<typeof response>) => void = () => {}
+      api.validateEvidence.mockImplementation(() => new Promise(resolve => (reply = resolve)))
+      const pending = store.validateEvidence({ points: 8 }, 's', 'form')
+      store.clearValidationResult('form')
+      reply(response(true))
+      await expect(pending).resolves.toBeNull()
+      expect(store.validationResults.form).toBeUndefined()
+    })
+
     it('drops a reply that was in flight when the key was cleared', async () => {
       const store = useValidationStore()
       let reply: (r: unknown) => void = () => {}

@@ -57,32 +57,15 @@
           <v-card class="mb-6" variant="outlined">
             <v-card-text>
               <v-row align="center">
-                <v-col cols="12" md="4" class="text-center text-md-left">
+                <v-col cols="12" md="6" class="text-center text-md-left">
                   <div class="text-display-large font-weight-bold">
-                    {{ scores.total.toFixed(2) }}
+                    {{ formatScore(scores.total) }}
                   </div>
                   <div class="text-body-large">Total Points</div>
                 </v-col>
-                <v-col cols="12" md="4" class="text-center">
+                <v-col cols="12" md="6" class="text-center">
                   <ClassificationMark :classification="classification" class="text-title-large" />
                   <div class="text-body-small mt-2">Gene-Disease Validity Classification</div>
-                </v-col>
-                <v-col cols="12" md="4">
-                  <div class="d-flex justify-center justify-md-end ga-6">
-                    <div class="text-center">
-                      <div class="text-headline-small font-weight-medium">
-                        {{ scores.genetic.toFixed(2) }}
-                      </div>
-                      <div class="text-body-small">Genetic{{ capNote('genetic') }}</div>
-                    </div>
-                    <v-divider vertical />
-                    <div class="text-center">
-                      <div class="text-headline-small font-weight-medium">
-                        {{ scores.experimental.toFixed(2) }}
-                      </div>
-                      <div class="text-body-small">Experimental{{ capNote('experimental') }}</div>
-                    </div>
-                  </div>
                 </v-col>
               </v-row>
             </v-card-text>
@@ -262,7 +245,7 @@
           <!-- Score Breakdown -->
           <v-row class="mb-6">
             <v-col cols="12">
-              <CurationScoreBreakdown :scores="scores" />
+              <CurationScoreBreakdown :scores="scores" :classification="classification" />
             </v-col>
           </v-row>
 
@@ -369,7 +352,7 @@
       :gene-symbol="curation?.gene_symbol"
       :scope-name="scopeName"
       :classification="classification"
-      :total="scores.total.toFixed(1)"
+      :total="formatScore(scores.total)"
       :curator="curation?.curator_name"
       :blockers="blockers"
       :busy="review.busy.value"
@@ -400,6 +383,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { useAuthStore } from '@/stores/auth'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
+  import { formatScore } from './curationScores'
   import CurationScoreBreakdown from '@/components/curation/CurationScoreBreakdown.vue'
   import CurationEvidenceReadonly from '@/components/curation/CurationEvidenceReadonly.vue'
   import ApproveChecklistDialog from '@/components/review/ApproveChecklistDialog.vue'
@@ -481,7 +465,7 @@
       curation.value.created_by === (authStore.user as { id?: string } | null)?.id
   )
 
-  const { scores, classification, capNote } = useCurationClassification(() => curation.value)
+  const { scores, classification } = useCurationClassification(() => curation.value)
 
   // Permissions - use backend-computed values based on scope-specific roles
   const canEdit = computed(() => curation.value?.can_edit ?? false)

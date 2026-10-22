@@ -5,20 +5,13 @@
  */
 import { computed, ref, shallowRef, watch, type InjectionKey, type Ref } from 'vue'
 
+import type { EvidenceScores } from '@/views/curation/curationScores'
+
 export type SaveState = 'saved' | 'saving' | 'unsaved' | 'failed' | 'conflict'
 
-export interface ScoreSnapshot {
-  genetic: number
-  experimental: number
-  total: number
+export interface ScoreSnapshot extends EvidenceScores {
   classification: string
   hasContradictory: boolean
-  geneticBreakdown?: { caseLevel: number; segregation: number; caseControl: number }
-  experimentalBreakdown?: {
-    function: number
-    functionalAlteration: number
-    modelsAndRescue: number
-  }
 }
 
 export interface FormBinding {
@@ -46,6 +39,7 @@ export function createWorkspaceFrame() {
   let inflight: string | null = null
   const savedAt = ref<number | null>(null)
   const score = ref<ScoreSnapshot | null>(null)
+  const scorePending = ref(false)
   const meta = ref<{ disease?: string; moi?: string }>({})
   // Things that must be fixed before saving, by source (e.g. an unknown PMID in a table)
   const blockerMap = ref<Record<string, string>>({})
@@ -117,6 +111,8 @@ export function createWorkspaceFrame() {
     dirty,
     savedAt,
     score,
+    scorePending,
+    setScorePending: (pending: boolean) => (scorePending.value = pending),
     meta,
     blockers,
     setBlocker: (id: string, reason: string | null) => {

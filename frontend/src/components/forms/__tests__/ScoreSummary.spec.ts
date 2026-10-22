@@ -2,14 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 import { createVuetify } from 'vuetify'
 import ScoreSummary from '../ScoreSummary.vue'
-
-describe('ScoreSummary thresholds panel', () => {
-  it('lists the SOP v11 ranges', async () => {
-    const wrapper = mount(ScoreSummary, { global: { plugins: [createVuetify()] } })
-    await wrapper.find('.v-expansion-panel-title').trigger('click')
-    const text = wrapper.text()
-    expect(text).toContain('12-18 points + replication over time')
-    expect(text).toContain('7-11 points')
-    expect(text).toContain('1-6 points')
+describe('ScoreSummary', () => {
+  it('renders qualitative scores without inventing a total or a breakdown', () => {
+    const w = mount(ScoreSummary, {
+      props: { scores: { total: null, trace: null }, classification: 'Supportive' },
+      global: { plugins: [createVuetify()] }
+    })
+    expect(w.text()).toContain('Supportive')
+    expect(w.text()).toContain('Unavailable')
+    expect(w.text()).toContain('Score breakdown unavailable')
+    expect(w.text()).not.toContain('0.00')
   })
 })

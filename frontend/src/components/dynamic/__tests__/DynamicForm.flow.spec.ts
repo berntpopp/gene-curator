@@ -187,6 +187,17 @@ describe('DynamicForm flow', () => {
     expect(wrapper.emitted('submit')![0]).toEqual([{ name: 'Ada', age: 36 }])
   })
 
+  it('invalidates the old preview immediately on an edit, before debounce', async () => {
+    vi.useFakeTimers()
+    const wrapper = mountForm()
+    await flushPromises()
+    store.clearValidationResult.mockClear()
+    fieldStub(wrapper, 'age').vm.$emit('update:model-value', 37)
+    await flushPromises()
+    expect(store.clearValidationResult).toHaveBeenCalledWith('form')
+    wrapper.unmount()
+  })
+
   it('validates the latest edit on submit, never an older result (submit within the debounce)', async () => {
     vi.useFakeTimers()
     try {

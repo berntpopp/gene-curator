@@ -185,6 +185,7 @@ def score(
         "total_cap": total_cap,
         "total": total,
         "class": band["class"],
+        "classification_rule": band,
         "sections": sections,
     }
     if flags:  # only then: unflagged traces stay as stored

@@ -61,3 +61,21 @@ def test_saves_score_with_the_pinned_point_model(client: TestClient, w: W) -> No
     )
     assert saved.status_code == 200, saved.text
     assert saved.json()["computed_scores"]["total_score"] == 2  # still pinned to v1
+
+    # Stored/detail and live preview use the same pinned model and selected rule, as app_user.
+    for row in (saved.json(), new):
+        preview = client.post(
+            "/api/v1/validation/validate-evidence",
+            json={
+                "evidence_data": CUSTOM_EVIDENCE,
+                "methodology_version_id": row["methodology_version_id"],
+            },
+            headers=_h(w.alice),
+        )
+        assert preview.status_code == 200, preview.text
+        detail = client.get(f"/api/v1/curations/{row['id']}", headers=_h(w.alice))
+        assert detail.status_code == 200, detail.text
+        trace = row["computed_scores"]["trace"]
+        assert trace["classification_rule"]["class"] == trace["class"]
+        assert preview.json()["score_calculations"]["trace"] == trace
+        assert detail.json()["computed_scores"]["trace"] == trace
