@@ -1,5 +1,7 @@
 # Wave 5 implementation and verification report
 
+> **Owner-paused 2026-10-22:** stop work while Opus is unavailable. See [resume checkpoint](WAVE5-RESUME.md); resume only on the owner's instruction.
+
 Status: release blocked by required Opus reviews. Two PRs are merged; eight functional
 PRs are implemented as drafts. The v0.7.0 release candidate is prepared and has passed
 local CI. Final browser checks passed171/171; the release draft link is being recorded below.

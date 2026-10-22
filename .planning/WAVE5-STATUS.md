@@ -1,5 +1,7 @@
 # Wave 5 orchestration status
 
+> **Owner-paused 2026-10-22:** stop work while Opus is unavailable. See [resume checkpoint](WAVE5-RESUME.md); resume only on the owner's instruction.
+
 > Historical planning snapshot. The current status, final gates and remaining blockers are recorded in [WAVE5-REPORT.md](WAVE5-REPORT.md).
 
 ## Current checkpoint (supersedes historical notes below)
