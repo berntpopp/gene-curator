@@ -83,11 +83,12 @@ actual UI actions, API fixture setup and supplementary browser-origin API checks
   with a JSON-representable NaN string; nonrepresentable values/logging remain unit/PG
   checks. These are candidate checks, not substitutes for future postmerge gates.
 
-The owner requested artifact cleanup. Screenshots, browser-result JSON, HAR and named
-session-state files under `.planning/wave5-evidence/` are locally retained and ignored.
-At the final audit126 generated files were ignored; none were tracked or staged.
-Application JSON, lockfiles and Markdown reports remain eligible. Release staging
-contains only sanitized Markdown reports and reusable runner sources from that directory.
+The owner requested artifact and helper cleanup. Only Markdown reports are tracked under
+`.planning/wave5-evidence/`; every other file type is locally retained and ignored.
+The final audit covers154 ignored files:77 screenshots,49 result JSON and28 helper scripts
+(26 CJS, one MJS and one Python). No generated artifacts or helpers remain tracked there.
+Application/test JSON and legitimate existing orchestration scripts are unchanged. The
+release-only added-file audit found no generated helpers outside the evidence directory.
 
 ## Follow-ups and limits
 

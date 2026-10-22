@@ -17,8 +17,9 @@ Git can update cleanly. Preserve unrelated Wave3/4 planning and tooling changes.
 Finish Wave5 before adding scope. PR440/441 are merged and have Opus, local/GitHub CI
 and fresh postmerge browser evidence. Remaining functional drafts are442–446 and449–451,
 plus the release candidate. Exact heads, tests, required review deltas and known limits
-are recorded in the report/queue. The release contains no generated screenshots/JSON;
-keep narrow artifact ignore rules and preserve application/test JSON.
+are recorded in the report/queue. The release contains only Markdown reports from the evidence directory; generated helper
+scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test
+JSON and legitimate existing orchestration scripts.
 
 Actual Claude Code Opus5.5 hit an account limit. Verify service availability only when
 there is reason to expect it restored; no billing changes, alternate auth or retry loop.
