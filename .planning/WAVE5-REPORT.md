@@ -2,8 +2,8 @@
 
 Status on 2026-10-22: five functional PRs are merged; five functional drafts and release
 [#452](https://github.com/berntpopp/gene-curator/pull/452) remain. Combined candidate
-`320a33835f847cb135714089858bedb0accc6bcc` includes every completed fix. Its full CI and
-fresh combined browser checks are running. No v0.7.0 tag or GitHub release exists.
+`320a33835f847cb135714089858bedb0accc6bcc` includes every completed fix. Its full CI passed (2572 frontend tests, backend94.71%, full fresh PostgreSQL,
+standard changed-line coverage97% backend/98% frontend); fresh combined browser checks are running. No v0.7.0 tag or GitHub release exists.
 Actual Opus 5.5 reviews resumed, then reached a session limit resetting at 19:00
 Europe/Berlin. Completed verdicts remain valid; new deltas and integration review remain
 mandatory. Native implementation, review and factual audits do not replace that gate.
@@ -78,8 +78,10 @@ failure. Original failing runs remain separately documented.
 
 Only Markdown evidence is tracked. Screenshots, JSON and generated helper scripts remain
 ignored local artifacts; counts change as browser work continues. Legitimate application
-JSON and orchestration scripts are preserved. The earlier archive cleanup removed eight
-obsolete downloads/helpers from tracking while retaining local copies, including SOP PDFs.
+JSON and orchestration scripts are preserved. The release-candidate archive cleanup removed eight
+obsolete downloads/helpers from R tracking while retaining local copies, including SOP PDFs.
+They remain tracked on current root master until the release integrates; ignore rules alone
+do not untrack them.
 Native factual audit confirms no tracked helper/artifact blobs or credential-pattern matches.
 
 ## Follow-ups, limitations and release

@@ -2,7 +2,7 @@
 
 Source candidate: `320a33835f847cb135714089858bedb0accc6bcc`, release/v0.7.0, draft452.
 Source is frozen after handoff to ops; only a real browser/test finding permits a product fix.
-Native integration is not an Opus approval. Full combined CI and fresh browser checks are running.
+Native integration is not an Opus approval. Full combined CI passed at320a338; fresh browser checks are running.
 Focused checks passed84 backend+156 frontend tests, file-size and diff whitespace checks.
 
 ## Integration and manual resolution ledger
@@ -25,5 +25,7 @@ addition to D/E/G/I fix deltas. A release-only review is insufficient while prod
 remain relative to master. After functional PRs merge, inspect the remaining R product diff;
 backport/review any necessary integration fix explicitly rather than silently releasing it.
 
-Full CI log: /tmp/W5R-combined-ci.log (running at320a338). Focused logs:
+Full canonical-lock CI passed at320a338: 2572 frontend tests, backend94.71%, full fresh
+PostgreSQL and static/type/security/build/repository gates. Standard changed-line coverage
+is97% backend/98% frontend. Full CI log: /tmp/W5R-combined-ci.log. Focused logs:
 /tmp/W5R-focused-backend.log and /tmp/W5R-focused-frontend.log. Logs/artifacts are local only.

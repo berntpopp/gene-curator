@@ -23,6 +23,20 @@ activation. API calls create fixtures or read state, except the explicitly ident
 review-submit edge. Isolated valid derived schemas exercise the same product paths without
 changing published methodology versions. This is not clinical-score/default validation.
 
+## Resumed review and browser checkpoints
+
+The table above is historical candidate evidence. Current gates are authoritative in
+[the Wave5 report](../WAVE5-REPORT.md). Additional durable reports:
+
+- [A expanded candidate](A-resume-candidate/REPORT.md) and [A fresh postmerge](pr442-postmerge/REPORT.md).
+- [H resumed candidate](H-resume/REPORT.md) and [H fresh postmerge](pr443-postmerge/REPORT.md).
+- [F fresh postmerge](pr444-postmerge/REPORT.md).
+- [D review checkpoint](D-opus-resume/REPORT.md), [E review checkpoint](E-opus-resume/REPORT.md),
+  [G review checkpoint](G-opus-resume/REPORT.md), [I review checkpoint](I-opus-resume/REPORT.md).
+
+[Local browser notes](LOCAL-BROWSER-NOTES.md) describe retained ignored runners; helper
+code itself is not published. Combined R320a338 browser evidence is still pending.
+
 ## Local reproduction
 
 The Wave 5 helper scripts are local, ignored scratch tools; they are not included in the

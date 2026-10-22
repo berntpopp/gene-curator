@@ -16,7 +16,7 @@ Clinical review requires the actual official SOPv11 PDF and per-case golden rati
 | 450 /547392d   | SHIP, session6a3bf1ae-0a73-4e10-94ee-0f4e226d6435; reviewed6fbddc4 and tree-identical547392d; actual SOP PDF | No new J product fix awaiting review; reconcile newer parents/integration, final local/GitHub CI and fresh postmerge gate                                      |
 | 451 /d0c87bd   | SHIP at62fe62e, session45f7fe7a-786c-4d1b-a793-5acaf635a108                                                  | Native exact-ID4594ed1, isolated test-fixture74b662c and parent integrations; [checkpoint](W5I-MONDO-FIX.md)                                                   |
 
-Combined R source320a338 has full CI/browser checks running. Each functional PR still
+Combined R source320a338 passed full CI; fresh browser checks are running. Each functional PR still
 needs current-master integration, required local/GitHub CI and fresh per-merge UI gates.
 Do not call a parent initial SHIP approval of subsequent native fixes.
 

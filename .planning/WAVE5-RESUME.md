@@ -6,7 +6,8 @@ have completed actual Opus/local+GitHub CI/fresh postmerge gates.
 
 Combined release source320a33835f847cb135714089858bedb0accc6bcc includes final
 D16b5285, Eb85d8e0, G32b77d7, J547392d lineage and Id0c87bd. Focused84 backend and
-156 frontend tests pass. Combined full CI and fresh browser checks are running.
+156 frontend tests pass. Combined full CI passed at320a338 (2572 FE, backend94.71%, full PostgreSQL, diff97/98%);
+fresh browser checks are running.
 See [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md) and
 [integration ledger](W5R-INTEGRATION-CHECKPOINT.md) for precise gates and pending work.
 
