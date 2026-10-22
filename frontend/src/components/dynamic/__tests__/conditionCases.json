@@ -1,0 +1,460 @@
+{
+  "about": "Condition and required-field semantics (#433), run by conditions.spec.ts / requiredFields.spec.ts and backend/tests/unit/test_condition_cases.py. Semantics: conditions.ts and backend/app/crud/precuration_required.py.",
+  "conditions": [
+    { "name": "equals", "condition": { "moi": "AD" }, "data": { "moi": "AD" }, "holds": true },
+    { "name": "not equal", "condition": { "moi": "AD" }, "data": { "moi": "AR" }, "holds": false },
+    {
+      "name": "every entry must hold",
+      "condition": { "a": 1, "b": 2 },
+      "data": { "a": 1, "b": 3 },
+      "holds": false
+    },
+    {
+      "name": "all entries hold",
+      "condition": { "a": 1, "b": 2 },
+      "data": { "a": 1, "b": 2 },
+      "holds": true
+    },
+    {
+      "name": "list means one of",
+      "condition": { "moi": ["AD", "XL"] },
+      "data": { "moi": "XL" },
+      "holds": true
+    },
+    {
+      "name": "not one of",
+      "condition": { "moi": ["AD"] },
+      "data": { "moi": "AR" },
+      "holds": false
+    },
+    {
+      "name": "empty list never holds",
+      "condition": { "moi": [] },
+      "data": { "moi": "AD" },
+      "holds": false
+    },
+    { "name": "empty condition holds", "condition": {}, "data": {}, "holds": true },
+    { "name": "true is not 1", "condition": { "x": true }, "data": { "x": 1 }, "holds": false },
+    { "name": "1 is not true", "condition": { "x": 1 }, "data": { "x": true }, "holds": false },
+    { "name": "false is not 0", "condition": { "x": false }, "data": { "x": 0 }, "holds": false },
+    {
+      "name": "true is not one of [1]",
+      "condition": { "x": [1] },
+      "data": { "x": true },
+      "holds": false
+    },
+    { "name": "1 equals 1.0", "condition": { "n": 1 }, "data": { "n": 1.0 }, "holds": true },
+    { "name": "'1' is not 1", "condition": { "x": "1" }, "data": { "x": 1 }, "holds": false },
+    {
+      "name": "explicit null matches null",
+      "condition": { "x": null },
+      "data": { "x": null },
+      "holds": true
+    },
+    { "name": "missing is not null", "condition": { "x": null }, "data": {}, "holds": false },
+    {
+      "name": "null is one of [null]",
+      "condition": { "x": [null, "a"] },
+      "data": { "x": null },
+      "holds": true
+    },
+    {
+      "name": "missing is not one of [null]",
+      "condition": { "x": [null] },
+      "data": {},
+      "holds": false
+    },
+    {
+      "name": "below a null parent is missing",
+      "condition": { "a.b": null },
+      "data": { "a": null },
+      "holds": false
+    },
+    {
+      "name": "dotted path",
+      "condition": { "moi.code": "AD" },
+      "data": { "moi": { "code": "AD" } },
+      "holds": true
+    },
+    {
+      "name": "numeric segment indexes a list",
+      "condition": { "rows.0.kind": "case" },
+      "data": { "rows": [{ "kind": "case" }] },
+      "holds": true
+    },
+    {
+      "name": "index out of range is missing",
+      "condition": { "rows.1": null },
+      "data": { "rows": [null] },
+      "holds": false
+    },
+    {
+      "name": "zero-padded index is missing",
+      "condition": { "rows.01": "a" },
+      "data": { "rows": ["x", "a"] },
+      "holds": false
+    },
+    {
+      "name": "negative index is missing",
+      "condition": { "rows.-1": "a" },
+      "data": { "rows": ["a"] },
+      "holds": false
+    },
+    {
+      "name": "list length is not a path",
+      "condition": { "rows.length": 1 },
+      "data": { "rows": ["a"] },
+      "holds": false
+    },
+    {
+      "name": "strings are not traversed",
+      "condition": { "s.0": "a" },
+      "data": { "s": "abc" },
+      "holds": false
+    },
+    {
+      "name": "inherited properties are not data",
+      "condition": { "constructor.name": "Object" },
+      "data": {},
+      "holds": false
+    },
+    {
+      "name": "numeric key of an object",
+      "condition": { "m.0": "a" },
+      "data": { "m": { "0": "a" } },
+      "holds": true
+    },
+    {
+      "name": "a list value does not equal its item",
+      "condition": { "tags": "a" },
+      "data": { "tags": ["a"] },
+      "holds": false
+    },
+    { "name": "null condition holds", "condition": null, "data": {}, "holds": true },
+    { "name": "malformed: a string holds", "condition": "oops", "data": {}, "holds": true },
+    { "name": "malformed: false holds", "condition": false, "data": {}, "holds": true },
+    {
+      "name": "malformed: a list holds",
+      "condition": [["x", 1]],
+      "data": { "x": 2 },
+      "holds": true
+    },
+    {
+      "name": "malformed: an object value holds",
+      "condition": { "x": { "a": 1 } },
+      "data": { "x": 2 },
+      "holds": true
+    },
+    {
+      "name": "malformed: a nested list value holds",
+      "condition": { "x": [[1]], "y": 1 },
+      "data": { "x": 2, "y": 2 },
+      "holds": true
+    }
+  ],
+  "required": [
+    {
+      "name": "required_when holds and the field is empty",
+      "fields": { "kind": {}, "detail": { "required_when": { "kind": "other" } } },
+      "data": { "kind": "other" },
+      "missing": ["detail"]
+    },
+    {
+      "name": "required_when does not hold",
+      "fields": { "kind": {}, "detail": { "required_when": { "kind": "other" } } },
+      "data": { "kind": "AD" },
+      "missing": []
+    },
+    {
+      "name": "required_when holds and the field is filled",
+      "fields": { "kind": {}, "detail": { "required_when": { "kind": "other" } } },
+      "data": { "kind": "other", "detail": "x" },
+      "missing": []
+    },
+    {
+      "name": "required or required_when",
+      "fields": { "detail": { "required": true, "required_when": { "kind": "other" } } },
+      "data": {},
+      "missing": ["detail"]
+    },
+    {
+      "name": "required_when null is no condition",
+      "fields": { "detail": { "required_when": null } },
+      "data": {},
+      "missing": []
+    },
+    {
+      "name": "a hidden field is never required",
+      "fields": {
+        "detail": {
+          "required": true,
+          "required_when": { "kind": "other" },
+          "visible_when": { "on": true }
+        }
+      },
+      "data": { "kind": "other", "on": false },
+      "missing": []
+    },
+    {
+      "name": "show_when is the alias of visible_when",
+      "fields": { "detail": { "required": true, "show_when": { "on": true } } },
+      "data": { "on": false },
+      "missing": []
+    },
+    {
+      "name": "visible_when wins over show_when",
+      "fields": {
+        "detail": { "required": true, "visible_when": { "on": true }, "show_when": { "on": false } }
+      },
+      "data": { "on": true },
+      "missing": ["detail"]
+    },
+    {
+      "name": "visible_when null falls back to show_when",
+      "fields": {
+        "detail": { "required": true, "visible_when": null, "show_when": { "on": true } }
+      },
+      "data": { "on": false },
+      "missing": []
+    },
+    {
+      "name": "nested child condition paths start at the root",
+      "fields": {
+        "moi": {
+          "type": "object",
+          "properties": {
+            "code": {},
+            "note": { "required": true, "visible_when": { "moi.code": "Other" } }
+          }
+        }
+      },
+      "data": { "moi": { "code": "Other" } },
+      "missing": ["moi.note"]
+    },
+    {
+      "name": "nested child hidden by its condition",
+      "fields": {
+        "moi": {
+          "type": "object",
+          "properties": {
+            "code": {},
+            "note": { "required": true, "visible_when": { "moi.code": "Other" } }
+          }
+        }
+      },
+      "data": { "moi": { "code": "AD" } },
+      "missing": []
+    },
+    {
+      "name": "a hidden parent hides its children",
+      "fields": {
+        "extra": {
+          "type": "object",
+          "visible_when": { "on": true },
+          "properties": { "why": { "required": true } }
+        }
+      },
+      "data": { "on": false, "extra": {} },
+      "missing": []
+    },
+    {
+      "name": "children of a shown parent keep their rules",
+      "fields": {
+        "extra": {
+          "type": "object",
+          "visible_when": { "on": true },
+          "properties": { "why": { "required": true } }
+        }
+      },
+      "data": { "on": true, "extra": {} },
+      "missing": ["extra.why"]
+    },
+    {
+      "name": "nested required_when",
+      "fields": {
+        "box": {
+          "type": "object",
+          "properties": { "kind": {}, "why": { "required_when": { "box.kind": "x" } } }
+        }
+      },
+      "data": { "box": { "kind": "x" } },
+      "missing": ["box.why"]
+    },
+    {
+      "name": "condition on a list index",
+      "fields": { "first": { "required": true, "visible_when": { "rows.0.kind": "case" } } },
+      "data": { "rows": [{ "kind": "case" }] },
+      "missing": ["first"]
+    },
+    {
+      "name": "shown for an explicit null",
+      "fields": { "why": { "required": true, "visible_when": { "reason": null } } },
+      "data": { "reason": null },
+      "missing": ["why"]
+    },
+    {
+      "name": "hidden while the value is missing",
+      "fields": { "why": { "required": true, "visible_when": { "reason": null } } },
+      "data": {},
+      "missing": []
+    },
+    {
+      "name": "malformed visible_when keeps the field shown and required",
+      "fields": { "why": { "required": true, "visible_when": "oops" } },
+      "data": {},
+      "missing": ["why"]
+    },
+    {
+      "name": "malformed required_when requires",
+      "fields": { "why": { "required_when": ["oops"] } },
+      "data": {},
+      "missing": ["why"]
+    },
+    {
+      "name": "conditional_required when holds",
+      "fields": { "kind": {}, "why": {} },
+      "rules": { "conditional_required": { "why": { "when": { "kind": "x" } } } },
+      "data": { "kind": "x" },
+      "missing": ["why"]
+    },
+    {
+      "name": "conditional_required when does not hold",
+      "fields": { "kind": {}, "why": {} },
+      "rules": { "conditional_required": { "why": { "when": { "kind": "x" } } } },
+      "data": { "kind": "y" },
+      "missing": []
+    },
+    {
+      "name": "conditional_required on a hidden field",
+      "fields": { "why": { "show_when": { "on": true } } },
+      "rules": { "conditional_required": { "why": { "when": { "kind": "x" } } } },
+      "data": { "kind": "x", "on": false },
+      "missing": []
+    },
+    {
+      "name": "conditional_required with a malformed when requires",
+      "fields": { "why": {}, "how": {} },
+      "rules": { "conditional_required": { "why": { "when": "oops" }, "how": true } },
+      "data": {},
+      "missing": ["why", "how"]
+    },
+    {
+      "name": "listed required field under a hidden parent",
+      "fields": {
+        "extra": { "type": "object", "visible_when": { "on": true }, "properties": { "why": {} } }
+      },
+      "rules": { "required_fields": ["extra.why"] },
+      "data": { "on": false },
+      "missing": []
+    },
+    {
+      "name": "required_when in the sections shape",
+      "fields": {
+        "sections": [
+          { "fields": [{ "id": "kind" }, { "id": "detail", "required_when": { "kind": "other" } }] }
+        ]
+      },
+      "data": { "kind": "other" },
+      "missing": ["detail"]
+    },
+    {
+      "name": "a required parent keeps checking its required children",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "b": { "required": true }, "c": {} }
+        }
+      },
+      "data": { "a": { "c": "x" } },
+      "missing": ["a.b"]
+    },
+    {
+      "name": "a missing required parent and its required child",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "b": { "required": true }, "c": {} }
+        }
+      },
+      "data": {},
+      "missing": ["a", "a.b"]
+    },
+    {
+      "name": "required_when child of a required parent",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "k": {}, "why": { "required_when": { "a.k": "x" } } }
+        }
+      },
+      "data": { "a": { "k": "x" } },
+      "missing": ["a.why"]
+    },
+    {
+      "name": "required boolean must be answered",
+      "fields": { "answer": { "type": "boolean", "required": true } },
+      "data": {},
+      "missing": ["answer"]
+    },
+    {
+      "name": "required false and zero are answered",
+      "fields": {
+        "answer": { "type": "boolean", "required": true },
+        "points": { "type": "number", "required": true }
+      },
+      "data": { "answer": false, "points": 0 },
+      "missing": []
+    },
+    {
+      "name": "required section parent does not mask required children",
+      "fields": {
+        "sections": [
+          {
+            "fields": [
+              {
+                "id": "parent",
+                "type": "object",
+                "required": true,
+                "properties": { "child": { "type": "text", "required": true } }
+              }
+            ]
+          }
+        ]
+      },
+      "data": { "parent": { "other": 1 } },
+      "missing": ["parent.child"]
+    },
+    {
+      "name": "array row children enforce root required_when",
+      "fields": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "detail": { "type": "text", "required_when": { "mode": "on" } } }
+          }
+        }
+      },
+      "data": { "mode": "on", "rows": [{}, { "detail": "answered" }] },
+      "missing": ["rows.0.detail"]
+    },
+    {
+      "name": "hidden array parent suppresses child required_when",
+      "fields": {
+        "rows": {
+          "type": "array",
+          "show_when": { "shown": true },
+          "items": {
+            "type": "object",
+            "properties": { "detail": { "type": "text", "required_when": { "mode": "on" } } }
+          }
+        }
+      },
+      "data": { "shown": false, "mode": "on", "rows": [{}] },
+      "missing": []
+    }
+  ]
+}

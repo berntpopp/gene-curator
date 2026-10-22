@@ -50,7 +50,7 @@
   import { ref, onActivated, onDeactivated } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import DynamicField from './DynamicField.vue'
-  import { resolveField } from './conditions'
+  import { isVisible, resolveField } from './conditions'
   import type {
     FieldSchema,
     FieldValidation,
@@ -160,7 +160,12 @@
   /** Visible fields of a section, with `required_when` resolved against the form data */
   function shownFields(section: SectionConfig) {
     return section.fields.flatMap(fieldPath => {
-      const fieldSchema = resolveField(getFieldSchema(fieldPath), props.formData)
+      const parts = fieldPath.split('.')
+      // A field under a hidden parent is hidden too
+      const parentsShown = parts
+        .slice(1)
+        .every((_, i) => isVisible(getFieldSchema(parts.slice(0, i + 1).join('.')), props.formData))
+      const fieldSchema = parentsShown && resolveField(getFieldSchema(fieldPath), props.formData)
       return fieldSchema ? [{ fieldPath, fieldSchema }] : []
     })
   }

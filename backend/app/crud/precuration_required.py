@@ -1,5 +1,23 @@
-"""Required-field check for precuration submit."""
+"""Required-field check for precuration submit, and the one condition semantics (#433).
 
+Shared with the frontend (components/dynamic/conditions.ts); both run the table in
+frontend/src/components/dynamic/__tests__/conditionCases.json.
+
+- A condition ``{path: value, ...}`` holds when every entry holds: a list value means "one of",
+  anything else equals. Equality is strict: ``true`` is not ``1``, ``"1"`` is not ``1``.
+- Paths are dotted from the root of the evidence data, for nested fields too; a numeric segment
+  (``rows.0.kind``) indexes a list. A missing value is not ``null``: ``{x: null}`` holds only for
+  an explicit null.
+- No condition (absent or null) holds. A malformed one (not an object, or a value that is an
+  object or a nested list) also holds: the field stays shown and, for ``required_when``,
+  required, so a schema typo never drops a required check.
+- ``visible_when`` wins over its alias ``show_when``; a field under a hidden parent is hidden,
+  and a hidden field is never required. Required is ``required: true``, a ``required_when``
+  that holds, ``validation_rules.required_fields`` or a ``conditional_required`` entry whose
+  ``when`` holds.
+"""
+
+import re
 from typing import Any
 
 
@@ -11,15 +29,22 @@ class MissingRequiredFieldsError(ValueError):
         self.fields = fields
 
 
+_MISSING = object()  # an absent value, unlike None (an explicit null)
+_INDEX = re.compile(r"0|[1-9][0-9]*")
+
+
 def _is_empty(value: Any) -> bool:
     return (
         value is None
+        or value is _MISSING
         or (isinstance(value, str) and not value.strip())
         or (isinstance(value, list | dict) and not value)
     )
 
 
-def _fields(defs: Any, prefix: str = "") -> list[tuple[str, dict[str, Any]]]:
+def _fields(
+    defs: Any, prefix: str = "", data: Any = None
+) -> list[tuple[str, dict[str, Any]]]:
     """(dotted path, config) of every field in a flat/nested definition dict or `sections`."""
     if not isinstance(defs, dict):
         return []
@@ -27,20 +52,41 @@ def _fields(defs: Any, prefix: str = "") -> list[tuple[str, dict[str, Any]]]:
     for section in defs.get("sections") or []:
         for field in section.get("fields", []) if isinstance(section, dict) else []:
             if isinstance(field, dict):
-                found.append((f"{prefix}{field.get('id')}", field))
+                found += (
+                    _fields({field["id"]: field}, prefix, data)
+                    if field.get("id")
+                    else []
+                )
     for name, config in defs.items():
         if name == "sections" or not isinstance(config, dict):
             continue
         found.append((f"{prefix}{name}", config))
-        if config.get("required") is not True and config.get("type") == "object":
-            found += _fields(config.get("properties"), f"{prefix}{name}.")
+        if config.get("type") == "object":
+            found += _fields(config.get("properties"), f"{prefix}{name}.", data)
+        if config.get("type") == "array":
+            rows = _value_at(data, f"{prefix}{name}")
+            if isinstance(rows, list) and isinstance(config.get("items"), dict):
+                found += _fields(
+                    {str(index): config["items"] for index in range(len(rows))},
+                    f"{prefix}{name}.",
+                    data,
+                )
     return found
 
 
 def _value_at(data: Any, path: str) -> Any:
     for key in path.split("."):
-        data = data.get(key) if isinstance(data, dict) else None
+        if isinstance(data, dict) and key in data:
+            data = data[key]
+        elif isinstance(data, list) and _INDEX.fullmatch(key) and int(key) < len(data):
+            data = data[int(key)]
+        else:
+            return _MISSING
     return data
+
+
+def _scalar(value: Any) -> bool:
+    return value is None or isinstance(value, str | int | float)
 
 
 def _same(a: Any, b: Any) -> bool:
@@ -48,15 +94,36 @@ def _same(a: Any, b: Any) -> bool:
 
 
 def condition_holds(condition: Any, data: Any) -> bool:
-    """`{path: value}` equals, `{path: [values]}` in; every entry must hold (frontend
-    conditions.ts). Anything that is not a dict is no condition."""
-    if not isinstance(condition, dict):
-        return True
-    for path, expected in condition.items():
-        options = expected if isinstance(expected, list) else [expected]
-        if not any(_same(_value_at(data, path), option) for option in options):
-            return False
-    return True
+    """Whether ``condition`` holds for ``data`` (module docstring)."""
+    if not isinstance(condition, dict) or not all(
+        _scalar(v) or (isinstance(v, list) and all(map(_scalar, v)))
+        for v in condition.values()
+    ):
+        return True  # no condition, or malformed: shown and required, never skipped
+    return all(
+        any(
+            _same(_value_at(data, path), option)
+            for option in (expected if isinstance(expected, list) else [expected])
+        )
+        for path, expected in condition.items()
+    )
+
+
+def visible_when(config: dict[str, Any]) -> Any:
+    """The field's ``visible_when``, or its alias ``show_when`` when that is absent or null."""
+    when = config.get("visible_when")
+    return config.get("show_when") if when is None else when
+
+
+def is_visible(config: dict[str, Any], data: Any) -> bool:
+    """The field's own ``visible_when`` (or ``show_when``) holds."""
+    return condition_holds(visible_when(config), data)
+
+
+def required_when_holds(config: dict[str, Any], data: Any) -> bool:
+    """The field has a ``required_when`` and it holds."""
+    when = config.get("required_when")
+    return when is not None and condition_holds(when, data)
 
 
 def missing_required_fields(
@@ -64,27 +131,39 @@ def missing_required_fields(
 ) -> list[str]:
     """Dotted paths of required fields empty in ``data``.
 
-    Required = ``required: true`` in flat/nested definitions or ``sections[].fields[]``,
-    plus ``validation_rules.required_fields``; a field hidden by its ``visible_when`` /
-    ``show_when`` condition is not required, nor is a checkbox. Mirrored by the frontend requiredFields.ts.
+    Fields from flat/nested definitions or ``sections[].fields[]``; required and shown as the
+    module docstring says. False is an answered boolean. Mirrored by the frontend requiredFields.ts.
     """
-    fields = _fields(field_definitions)
-    paths = [path for path, config in fields if config.get("required") is True]
-    listed = (
-        (validation_rules or {}).get("required_fields") if validation_rules else None
-    )
-    paths += [p for p in listed or [] if p not in paths]
+    fields = _fields(field_definitions, data=data)
     configs = dict(fields)
+    rules = validation_rules if isinstance(validation_rules, dict) else {}
+    paths = [
+        path
+        for path, config in fields
+        if config.get("required") is True or required_when_holds(config, data)
+    ]
+    listed = rules.get("required_fields")
+    paths += (
+        [p for p in listed if isinstance(p, str)] if isinstance(listed, list) else []
+    )
+    conditional = rules.get("conditional_required")
+    if isinstance(conditional, dict):
+        paths += [
+            path
+            for path, rule in conditional.items()
+            if condition_holds(
+                rule.get("when") if isinstance(rule, dict) else rule, data
+            )
+        ]
     return [
         path
         for path in dict.fromkeys(paths)
-        if condition_holds(
-            (config := configs.get(path, {})).get(
-                "visible_when", config.get("show_when")
-            ),
-            data,
-        )
-        # an unset checkbox is false, not missing
-        and config.get("type") != "boolean"
-        and _is_empty(_value_at(data, path))
+        if _shown(configs, path, data) and _is_empty(_value_at(data, path))
     ]
+
+
+def _shown(configs: dict[str, dict[str, Any]], path: str, data: Any) -> bool:
+    """The field and every parent it has a config for are visible."""
+    parts = path.split(".")
+    prefixes = (".".join(parts[: i + 1]) for i in range(len(parts)))
+    return all(is_visible(configs[p], data) for p in prefixes if p in configs)

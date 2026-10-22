@@ -48,7 +48,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransition,
     WorkflowValidationResult,
 )
-from app.services.review_guards import review_guards
+from app.services.review_guards import check_review_content, review_guards
 
 
 class WorkflowEngine:
@@ -719,27 +719,20 @@ class WorkflowEngine:
             )
         )
 
-        # Add specific validation logic based on stages
-        if target_stage == WorkflowStage.REVIEW and item_type == "curation":
-            curation = (
-                db.execute(select(CurationNew).where(CurationNew.id == item_id))
-                .scalars()
-                .first()
-            )
-            if curation:
-                # Check if evidence data exists
-                if not curation.evidence_data:
-                    errors.append("Evidence data is required before review")
-                else:
-                    # Summary is recommended but not required for submission
-                    if not curation.evidence_data.get("summary"):
+        if target_stage == WorkflowStage.REVIEW:
+            _, item = self._get_current_stage_and_item(db, item_id, item_type)
+            if isinstance(item, CurationNew | PrecurationNew):
+                try:
+                    check_review_content(db, item)
+                except ValueError as exc:
+                    errors.append(str(exc))
+                if isinstance(item, CurationNew):
+                    if item.evidence_data and not item.evidence_data.get("summary"):
                         warnings.append(
                             "Evidence summary not provided - consider adding one"
                         )
-
-                # Check if scoring is complete (warning only)
-                if not curation.computed_scores:
-                    warnings.append("Final score not calculated")
+                    if not item.computed_scores:
+                        warnings.append("Final score not calculated")
 
         return {"errors": errors, "warnings": warnings, "requirements": requirements}
 

@@ -119,7 +119,14 @@ def test_submit_with_an_unknown_pmid_is_refused_and_a_known_one_goes_to_review(
             "gene_id": str(w.gene),
             "scope_id": str(w.scope),
             "workflow_pair_id": w.pair,
-            "evidence_data": {"rows": [{"pmid": "PMID:99999999"}]},
+            "evidence_data": {
+                "entity_definition": {
+                    "mondo_id": "MONDO:0000001",
+                    "disease_name": "disease",
+                    "mode_of_inheritance": "AD",
+                },
+                "rows": [{"pmid": "PMID:99999999"}],
+            },
         },
         headers=h,
     )

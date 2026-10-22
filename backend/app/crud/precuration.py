@@ -5,7 +5,7 @@ Follows patterns from curation.py.
 """
 
 from datetime import UTC, datetime
-from typing import Any, ClassVar
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -16,10 +16,6 @@ from app.core.logging import get_logger
 from app.crud.base import CRUDBase
 from app.crud.curation import open_curation_id
 from app.crud.optimistic_lock import claim_version, update_if_version
-from app.crud.precuration_required import (
-    MissingRequiredFieldsError,
-    missing_required_fields,
-)
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -32,7 +28,6 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
-from app.models.methodology import MethodologyVersion
 from app.schemas.curation import disease_fields
 from app.schemas.precuration import (
     PrecurationApprovalResult,
@@ -41,6 +36,7 @@ from app.schemas.precuration import (
     PrecurationSummary,
     PrecurationUpdate,
 )
+from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
 
@@ -330,49 +326,11 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         db.refresh(db_obj)
         return db_obj
 
-    _VALID_LS_DECISIONS: ClassVar[set[str]] = {"LUMP", "SPLIT", "NOT_APPLICABLE"}
-
     def _check_submittable(
         self, db: Session, db_obj: PrecurationNew, user_id: UUID
     ) -> None:
         """Raise unless the precuration may enter review (required fields, L/S, transition)."""
-        # The pinned methodology version is the definition; the live schema only if unpinned
-        pin = db_obj.methodology_version_id
-        version = db.get(MethodologyVersion, pin) if pin else None
-        schema = db_obj.precuration_schema
-        snap: dict[str, Any] = (
-            version.snapshot
-            if version
-            else {
-                "field_definitions": schema.field_definitions,
-                "validation_rules": schema.validation_rules,
-            }
-            if schema
-            else {}
-        )
-        missing = missing_required_fields(
-            snap.get("field_definitions"),
-            db_obj.evidence_data,
-            snap.get("validation_rules"),
-        )
-        if missing:
-            raise MissingRequiredFieldsError(missing)
-
-        # Validate lumping/splitting consistency
-        evidence = db_obj.evidence_data or {}
-        if evidence.get("lumping_splitting_applicable"):
-            ls_decision = evidence.get("lumping_splitting_decision")
-            if not ls_decision or ls_decision == "UNDECIDED":
-                raise ValueError(
-                    "Lumping/splitting is marked as applicable but no decision "
-                    "has been made. Please select LUMP, SPLIT, or NOT_APPLICABLE "
-                    "before submitting."
-                )
-            if ls_decision not in self._VALID_LS_DECISIONS:
-                raise ValueError(
-                    f"Invalid lumping/splitting decision '{ls_decision}'. "
-                    f"Must be one of: {', '.join(sorted(self._VALID_LS_DECISIONS))}."
-                )
+        check_review_content(db, db_obj)
 
         # Validate transition
         validation = workflow_engine.validate_transition(

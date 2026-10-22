@@ -496,10 +496,10 @@ class TestSectionedSchemas:
         assert body["required_fields_missing"] == ["mondo_id"]
         assert "score" in body["field_validations"]
 
-    def test_unset_checkbox_and_hidden_fields_are_not_missing(
+    def test_required_checkbox_needs_an_answer_and_hidden_fields_are_not_missing(
         self, client: TestClient, viewer_token: str
     ):
-        """Seeded lumping section: the untouched checkbox hides decision (#268)."""
+        """Required checkbox needs an answer; its hidden dependent field does not."""
         definition = {
             "sections": [
                 {
@@ -525,7 +525,7 @@ class TestSectionedSchemas:
             headers=_auth(viewer_token),
         )
         assert r.status_code == 200, r.text
-        assert r.json()["required_fields_missing"] == []
+        assert r.json()["required_fields_missing"] == ["applicable"]
 
         r = client.post(
             f"{BASE}/generate-json-schema",

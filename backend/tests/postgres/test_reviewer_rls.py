@@ -5,6 +5,7 @@ Approving a precuration (update + insert of the curation) and moving a curation 
 creators and curators. D1: nobody reviews their own work; no platform-admin bypass added.
 """
 
+import json
 import os
 from collections.abc import Generator
 from dataclasses import dataclass, field
@@ -509,8 +510,20 @@ def test_curator_resubmits_after_changes_requested_and_reviewer_approves(
     assert r.status_code == 200, r.text
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
-            'UPDATE curations SET evidence_data = \'{"notes": "x"}\' WHERE id = %s',
-            (str(w.cur),),
+            "UPDATE curations SET evidence_data = %s WHERE id = %s",
+            (
+                json.dumps(
+                    {
+                        "notes": "x",
+                        "entity_definition": {
+                            "mondo_id": "MONDO:0000001",
+                            "disease_name": "disease",
+                            "mode_of_inheritance": "AD",
+                        },
+                    }
+                ),
+                str(w.cur),
+            ),
         )
     if who == "alice":
         lock = _owner_scalar(

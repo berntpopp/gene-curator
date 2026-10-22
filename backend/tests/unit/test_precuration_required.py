@@ -39,7 +39,7 @@ HIDDEN = ["lumping_splitting_decision", "lumping_splitting_rationale"]
 @pytest.mark.parametrize(
     ("data", "missing"),
     [
-        ({}, []),  # an unset checkbox is false, not missing
+        ({}, ["lumping_splitting_applicable"]),  # required booleans need an answer
         ({"lumping_splitting_applicable": False}, []),
         ({"lumping_splitting_applicable": True}, HIDDEN),
         (
