@@ -420,12 +420,14 @@ def test_recompute_scores_with_the_pinned_version(
         "experimental_evidence": {"rescue": {"human": [{"points": 2}]}}
     }
     test_curation.methodology_version_id = v1.id
+    test_curation.computed_scores = {"total_score": 2.0}
+    test_curation.computed_verdict = "limited"
     db_session.commit()
     recompute_all_scores(db_session)
     db_session.refresh(test_curation)
-    assert (
-        test_curation.computed_scores["total_score"] == 0
-    )  # v1 has no rescue in human
+    # The pinned custom model cannot score this nested type: preserve the stored result.
+    assert test_curation.computed_scores == {"total_score": 2.0}
+    assert test_curation.computed_verdict == "limited"
 
 
 def test_recompute_logs_class_changes_and_skips_other_engines(
