@@ -61,6 +61,7 @@
               :color="getRoleColor(userRole ?? '')"
               :prepend-icon="getRoleIcon(userRole ?? '')"
               size="large"
+              variant="flat"
             >
               {{ scopeStore.currentRoleLabel || 'No role' }}
             </v-chip>

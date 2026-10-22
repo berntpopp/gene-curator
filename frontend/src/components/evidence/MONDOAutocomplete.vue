@@ -5,7 +5,7 @@
     :items="searchResults"
     :loading="isSearching"
     :label="label"
-    :hint="hint"
+    :hint="`${hint}. Suggestions include human diseases; some susceptibility terms are excluded.`"
     :error-messages="errorMessages"
     :required="required"
     :disabled="disabled"
@@ -266,14 +266,15 @@
     () => props.modelValue,
     async newValue => {
       if (newValue && (!selectedItem.value || selectedItem.value.mondo_id !== newValue)) {
+        selectedItem.value = null
         // Try to find the term by searching
         try {
           const response = (await ontologyAPI.searchMONDO(
             newValue,
             1
           )) as Schema<'MONDOSearchResponse'>
-          const found = response.results[0]
-          if (found) {
+          const found = response.results.find(result => result.mondo_id === newValue)
+          if (found && props.modelValue === newValue) {
             selectedItem.value = {
               ...found,
               displayText: `${found.label} (${found.mondo_id})`

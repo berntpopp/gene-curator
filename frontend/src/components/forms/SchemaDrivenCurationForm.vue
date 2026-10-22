@@ -4,10 +4,10 @@
     <v-skeleton-loader v-if="!ready" type="card" />
 
     <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
-      <v-card>
+      <v-card class="overflow-visible">
         <!-- Header and actions: the workspace frame has its own -->
         <template v-if="!frame">
-          <v-card-title class="d-flex align-center">
+          <v-card-title class="d-flex align-center flex-wrap ga-2 text-wrap">
             <span>{{ gene?.symbol }} - {{ schema?.name || 'Curation' }}</span>
             <v-chip v-if="isDraft" color="warning" size="small" class="ml-2"> Draft </v-chip>
             <v-spacer />
@@ -480,17 +480,11 @@
 
       // Case 2: New curation - find approved precuration for gene+scope
       if (props.geneId && props.scopeId) {
-        await precurationsStore.fetchPrecurations({
-          gene_id: props.geneId,
-          scope_id: props.scopeId
-        })
-
-        // Find the approved precuration (list rows are summaries; fetch the full record)
-        const approvedPrecuration = precurationsStore.precurations.find(
-          p => p.status === 'approved'
+        const approvedPrecuration = await precurationsStore.fetchCurationPrecuration(
+          props.geneId,
+          props.scopeId
         )
-
-        if (approvedPrecuration) {
+        if (approvedPrecuration?.status === 'approved') {
           // Link the new curation (re-curations too): a source's old link may no longer be approved
           precurationId.value = approvedPrecuration.id
           const fullPrecuration = await precurationsStore.fetchPrecurationById(

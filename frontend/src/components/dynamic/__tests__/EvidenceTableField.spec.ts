@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount, type DOMWrapper } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
 import { normalizeField } from '../normalizeDefinition'
+import { publicationsAPI } from '@/api/publications'
 
 vi.mock('@/api/publications', () => ({
   publicationsAPI: { validatePMIDs: vi.fn().mockResolvedValue({ results: [] }) }
@@ -46,6 +47,37 @@ const emitted = (w: ReturnType<typeof mountTable>) =>
   (w.emitted('update:model-value') ?? []) as Array<[Array<Record<string, unknown>>]>
 
 describe('EvidenceTableField', () => {
+  it('renders true readonly cells as labelled values with links, then restores editable PMID checks', async () => {
+    vi.mocked(publicationsAPI.validatePMIDs).mockClear()
+    const wrapper = mountTable({
+      readonly: true,
+      modelValue: [{ ...row, lod_score: 0, de_novo: false, lod_score_method: 'published' }]
+    })
+    await flushPromises()
+    expect(wrapper.findAll('input, textarea, select')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Published LOD score')
+    expect(wrapper.text()).toContain('No')
+    expect(wrapper.find('a[href="https://pubmed.ncbi.nlm.nih.gov/123"]').exists()).toBe(true)
+    expect(wrapper.find('.add-row').exists()).toBe(false)
+    expect(wrapper.emitted('update:model-value')).toBeUndefined()
+    expect(publicationsAPI.validatePMIDs).not.toHaveBeenCalled()
+    await wrapper.setProps({ readonly: false })
+    await flushPromises()
+    expect(wrapper.find('input[aria-label="Pmid, row 1"]').exists()).toBe(true)
+    expect(publicationsAPI.validatePMIDs).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
+  it('checks saved PMIDs when a read-only table becomes editable', async () => {
+    vi.mocked(publicationsAPI.validatePMIDs).mockClear()
+    const wrapper = mountTable({ disabled: true })
+    await flushPromises()
+    expect(publicationsAPI.validatePMIDs).not.toHaveBeenCalled()
+    await wrapper.setProps({ disabled: false })
+    await flushPromises()
+    expect(publicationsAPI.validatePMIDs).toHaveBeenCalledWith(['123'], expect.any(AbortSignal))
+    wrapper.unmount()
+  })
+
   it('labels the table, the column headers and every cell', () => {
     const wrapper = mountTable()
     expect(wrapper.find('caption').text()).toContain('Segregation')
@@ -164,6 +196,24 @@ describe('EvidenceTableField', () => {
       await wrapper.find('.add-row').trigger('click')
       await flushPromises()
       expect(active()).toBe('Family label, row 2')
+    })
+
+    it('escapes quoted and bracketed column titles when focusing a new row', async () => {
+      const label = 'Variant "kind" [test]'
+      const schema = normalizeField({
+        type: 'array',
+        ui_component: 'EvidenceTable',
+        item_schema: { variant: { type: 'string', title: label } }
+      })
+      const wrapper = mountTable({
+        fieldSchema: schema,
+        modelValue: [],
+        'onUpdate:modelValue': (next: unknown) => wrapper.setProps({ modelValue: next })
+      })
+      await wrapper.find('.add-row').trigger('click')
+      await flushPromises()
+      expect(active()).toBe(`${label}, row 1`)
+      wrapper.unmount()
     })
 
     it("moves focus to the next row's remove button, or Add row after the last", async () => {

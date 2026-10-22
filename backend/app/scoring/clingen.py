@@ -13,11 +13,17 @@ import math
 import re
 from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
+from functools import partial
 from typing import Any
 
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
+from .clingen_successor import (
+    explicit_legacy_segregation,
+    explicit_points,
+    missing_score_warnings,
+)
 from .evidence_items import case_row_has_content, has_content, rows
 from .point_model import ItemRule, point_model, score, template
 
@@ -80,13 +86,32 @@ def segregation_points(item: dict[str, Any]) -> float:
 
 
 def _case_row(type_def: dict[str, Any], item: dict[str, Any]) -> float | None:
-    if not case_row_has_content(item, type_def["blank_at"]):
+    entered = (
+        has_content(
+            {
+                k: v
+                for k, v in item.items()
+                if k
+                not in {
+                    "id",
+                    "points",
+                    "proband_counted_points",
+                    "proband_not_counted_points",
+                    type_def.get("points_key", "points"),
+                }
+            }
+        )
+        if type_def["blank_at"] is None
+        else case_row_has_content(item, type_def["blank_at"])
+    )
+    if not entered:
         return None  # untouched form row: points still at the new-row default
     return float(item.get(type_def.get("points_key", "points")) or 0)
 
 
 RULES: dict[str, ItemRule] = {
     "case_row": _case_row,
+    "explicit_points": explicit_points,
     "segregation": lambda _type, item: segregation_points(item),
 }
 
@@ -180,7 +205,10 @@ _LEGACY_SECTION: dict[str, dict[str, Callable[[dict[str, Any]], float]]] = {
 
 
 def legacy_points(
-    section_key: str, items: list[Any], flags: list[Any]
+    section_key: str,
+    items: list[Any],
+    flags: list[Any],
+    explicit_segregation: dict[str, Any] | None = None,
 ) -> dict[str, list[float]]:
     """{category: [item points]} for a legacy flat list; unknown categories are ignored."""
     scorers = _LEGACY_SECTION.get(section_key, {})
@@ -188,11 +216,19 @@ def legacy_points(
     for index, item in enumerate(rows(items)):
         category = _LEGACY_CATEGORY.get(item.get("evidence_category", ""), "")
         if category in scorers:
-            value = scorers[category](item)
+            explicit = explicit_segregation if category == "segregation" else None
+            value = (
+                explicit_points(explicit, item) if explicit else scorers[category](item)
+            )
+            limits = explicit.get("range") if explicit else None
             finite = math.isfinite(value)
-            if not finite or value < 0:
+            if (
+                not finite
+                or value < 0
+                or (limits and not limits[0] <= value <= limits[1])
+            ):
                 key = "computed_score" if category == "case_control" else "points"
-                if category == "segregation":
+                if category == "segregation" and not explicit:
                     key = (
                         "lod_score"
                         if item.get("lod_score") is not None
@@ -202,7 +238,7 @@ def legacy_points(
                     {
                         "path": f"{section_key}[{index}].{key}",
                         "value": value if finite else str(value),
-                        "range": None,  # legacy categories do not identify a model type
+                        "range": list(limits) if limits else None,
                     }
                 )
             if finite:
@@ -242,7 +278,10 @@ class ClinGenEngine(ScoringEngine):
     ) -> ScoringResult:
         """Score evidence with the config's point model (ClinGen template by default)."""
         model = point_model(schema_config) or self._template()
-        result = score(model, evidence_data, RULES, legacy_points)
+        legacy = partial(
+            legacy_points, explicit_segregation=explicit_legacy_segregation(model)
+        )
+        result = score(model, evidence_data, RULES, legacy)
         scores = {f"{key}_total": value for key, value in result["sections"].items()}
         scores["total_score"] = result["total"]
         parts = ", ".join(
@@ -259,6 +298,7 @@ class ClinGenEngine(ScoringEngine):
             evidence_data.get("experimental_evidence", []),
         )
         warnings += map(_range_warning, result["trace"].get("out_of_range", []))
+        warnings += missing_score_warnings(model, evidence_data)
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],

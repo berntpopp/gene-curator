@@ -1,5 +1,11 @@
 <template>
-  <div ref="root" class="evidence-table-field">
+  <div
+    ref="root"
+    class="evidence-table-field"
+    role="region"
+    :aria-label="`${label} evidence table`"
+    tabindex="0"
+  >
     <v-table density="compact">
       <caption class="text-left text-body-medium font-weight-medium pb-2">
         {{
@@ -19,14 +25,20 @@
             {{ col.label }}
             <span v-if="col.schema.required" class="text-error" aria-hidden="true">*</span>
           </th>
-          <th v-if="!disabled" scope="col"><span class="d-sr-only">Actions</span></th>
+          <th v-if="!disabled && !readonly" scope="col"><span class="d-sr-only">Actions</span></th>
         </tr>
       </thead>
       <tbody>
         <tr v-for="(row, index) in rows" :key="rowKey(row, index)">
-          <td v-for="col in columns" :key="col.key">
+          <td
+            v-for="col in columns"
+            :key="col.key"
+            :class="{ 'text-cell': col.schema.type === 'string' }"
+          >
+            <ReadonlyValue v-if="readonly" :schema="col.schema" :model-value="row[col.key]" />
             <component
               :is="col.cell.is"
+              v-else
               v-bind="col.cell.props"
               :model-value="
                 draftKey(row, index, col.key) in drafts
@@ -44,7 +56,7 @@
               @keydown.escape="delete drafts[draftKey(row, index, col.key)]"
               @blur="(e: Event) => col.pmid && onPmidBlur(row, index, e)"
             />
-            <template v-if="col.pmid && row[col.key]">
+            <template v-if="!readonly && col.pmid && row[col.key]">
               <PubmedLinkButton :pmid="row[col.key]" />
               <span
                 v-for="r in [lookup.resultOf(row[col.key])]"
@@ -57,7 +69,7 @@
               </span>
             </template>
           </td>
-          <td v-if="!disabled">
+          <td v-if="!disabled && !readonly">
             <v-btn
               :aria-label="`Remove row ${index + 1}`"
               icon="mdi-delete"
@@ -73,7 +85,7 @@
 
     <div v-if="!rows.length" class="text-body-small text-medium-emphasis py-2">No rows yet</div>
     <v-btn
-      v-if="!disabled"
+      v-if="!disabled && !readonly"
       class="add-row"
       variant="outlined"
       size="small"
@@ -107,6 +119,7 @@
   import { usePmidLookup, type PmidResult } from '@/composables/usePmidLookup'
   import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import PubmedLinkButton from './PubmedLinkButton.vue'
+  import ReadonlyValue from './ReadonlyValue.vue'
   import { cellFor, emptyValue } from './componentRegistry'
   import { rulesFor } from './composables/useValidationRules'
   import { humanize } from './fieldLabels'
@@ -120,6 +133,7 @@
     label: string
     modelValue?: unknown
     disabled?: boolean
+    readonly?: boolean
     errorMessages?: string[]
   }>()
 
@@ -142,6 +156,9 @@
     }))
   )
 
+  // Only rows created in this mounted table may follow selector-driven suggestions.
+  const automaticDefaults = new Set<string | number>()
+
   // Row ids keep review diffs and comments anchored when rows are removed
   const rowKey = (row: Row, index: number) =>
     typeof row.id === 'string' || typeof row.id === 'number' ? row.id : index
@@ -151,11 +168,11 @@
   const lookup = usePmidLookup()
   const frame = inject(WORKSPACE_FRAME, null)
   const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
+  const tablePmids = computed(() =>
+    rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
+  )
   const unknownPmids = computed(() =>
-    rows.value
-      .flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
-      .filter(p => lookup.statusOf(p) === 'notfound')
-      .map(p => String(p).trim())
+    tablePmids.value.filter(p => lookup.statusOf(p) === 'notfound').map(p => String(p).trim())
   )
   watch(
     unknownPmids,
@@ -171,10 +188,13 @@
     { immediate: true }
   )
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
-  // PMIDs loaded with a saved draft or replaced from outside are checked too, not only on blur
+  // Retry on PMID-set/editability changes, not unrelated score edits or row reordering.
   watch(
-    () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
-    pmids => !props.disabled && lookup.checkAll(pmids),
+    [
+      () => JSON.stringify([...new Set(tablePmids.value)].sort()),
+      () => props.disabled || props.readonly
+    ],
+    () => !props.disabled && !props.readonly && lookup.checkAll(tablePmids.value),
     { immediate: true }
   )
   // Removing a row cancels its own lookup
@@ -182,12 +202,18 @@
     () => rows.value.map(rowKey),
     (keys, before) => {
       const live = new Set(keys)
-      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+      before
+        ?.filter(k => !live.has(k))
+        .forEach(k => {
+          lookup.cancel(k)
+          automaticDefaults.delete(k)
+        })
     }
   )
 
   function onPmidBlur(row: Row, index: number, event: Event) {
-    if (!props.disabled) lookup.check(rowKey(row, index), (event.target as HTMLInputElement).value)
+    if (!props.disabled && !props.readonly)
+      lookup.check(rowKey(row, index), (event.target as HTMLInputElement).value)
   }
 
   const PMID_NOTES: Partial<Record<string, string>> = {
@@ -217,11 +243,16 @@
   const draftKey = (row: Row, index: number, key: string) => `${rowKey(row, index)}:${key}`
 
   function onInput(row: Row, index: number, col: Column, value: unknown) {
+    if (props.readonly) return
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     if (col.cell.lazy) drafts[draftKey(row, index, col.key)] = value
     else commit(rowKey(row, index), col.key, value)
   }
 
   function onChange(row: Row, index: number, col: Column, event: Event) {
+    if (props.readonly) return
+    // A deliberate same-value edit is still manual, even when commit emits nothing.
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     delete drafts[draftKey(row, index, col.key)]
     commit(rowKey(row, index), col.key, inputValue(col.schema, event))
   }
@@ -232,23 +263,45 @@
     if (index < 0 || rows.value[index]![column] === value) return
     emit(
       'update:model-value',
-      rows.value.map((row, i) => (i === index ? { ...row, [column]: value } : row))
+      rows.value.map((row, i) => {
+        if (i !== index) return row
+        const changed = { ...row, [column]: value }
+        if (automaticDefaults.has(key)) {
+          for (const col of columns.value) {
+            if (col.schema.default_by?.field === column)
+              changed[col.key] = suggested(col.schema, changed)
+          }
+        }
+        return changed
+      })
     )
   }
 
   const focus = (selector: string) =>
     nextTick(() => root.value?.querySelector<HTMLElement>(selector)?.focus())
 
+  function suggested(schema: FieldSchema, row: Row): unknown {
+    const mapping = schema.default_by
+    return mapping?.values[String(row[mapping.field])] ?? emptyValue(schema)
+  }
+
   function addRow() {
+    if (props.readonly) return
     const row: Row = { id: generateUUID() }
     for (const col of columns.value) row[col.key] = emptyValue(col.schema)
+    for (const col of columns.value) {
+      if (col.schema.default_by) row[col.key] = suggested(col.schema, row)
+    }
+    automaticDefaults.add(rowKey(row, rows.value.length))
     const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
     const first = columns.value[0]
-    if (first) focus(`[aria-label="${first.label}, row ${position}"]`)
+    if (first) focus(`[aria-label=${CSS.escape(`${first.label}, row ${position}`)}]`)
   }
 
   function removeRow(index: number) {
+    if (props.readonly) return
+    automaticDefaults.delete(rowKey(rows.value[index]!, index))
     // The next row moves up into this position; without one, focus "Add row"
     const next =
       index < rows.value.length - 1 ? `[aria-label="Remove row ${index + 1}"]` : '.add-row'
@@ -262,7 +315,22 @@
 
 <style scoped>
   .evidence-table-field {
+    min-width: 0;
+    max-width: 100%;
     overflow-x: auto;
+  }
+
+  .evidence-table-field :deep(.v-table__wrapper) {
+    overflow: visible;
+  }
+
+  .evidence-table-field:focus-visible {
+    outline: 2px solid rgb(var(--v-theme-primary));
+    outline-offset: 2px;
+  }
+
+  .evidence-table-field :deep(.text-cell) {
+    min-width: 14rem;
   }
 
   .evidence-table-field :deep(td) {

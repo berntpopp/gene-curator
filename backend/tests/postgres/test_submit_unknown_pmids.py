@@ -26,6 +26,7 @@ class W:
     gene: UUID = field(default_factory=uuid4)
     pre: UUID = field(default_factory=uuid4)  # approved precuration of the gene
     pair: str = ""
+    extra_genes: list[UUID] = field(default_factory=list)
 
 
 def _owner() -> psycopg2.extensions.connection:
@@ -71,7 +72,10 @@ def w() -> Generator[W, None, None]:
     yield x
     with _owner() as conn, conn.cursor() as cur:
         cur.execute("DELETE FROM scopes WHERE id = %s", (str(x.scope),))
-        cur.execute("DELETE FROM genes WHERE id = %s", (str(x.gene),))
+        cur.execute(
+            "DELETE FROM genes WHERE id = ANY(%s::uuid[])",
+            ([str(g) for g in [x.gene, *x.extra_genes]],),
+        )
         cur.execute(
             "DELETE FROM audit_log WHERE user_id = %s OR scope_id = %s",
             (str(x.alice), str(x.scope)),

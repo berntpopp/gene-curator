@@ -70,7 +70,7 @@
               ORCID {{ member.user_orcid }}
             </a>
             <span v-if="member.is_pending" class="ml-2 text-warning">
-              Invited {{ member.invited_at.slice(0, 10) }}
+              Invited {{ formatDate(member.invited_at) }}
             </span>
           </v-list-item-subtitle>
 
@@ -164,6 +164,7 @@
   import type { Schema } from '@/types/api'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { showSnackbar } from '@/composables/useNotifications'
+  import { formatDate } from '@/utils/format'
 
   type ScopeMember = Schema<'ScopeMembershipResponse'>
   type ScopeRole = Schema<'ScopeRole'>

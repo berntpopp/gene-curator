@@ -91,4 +91,16 @@ describe('WorkspaceHeader', () => {
     expect(blocked.find('.ws-actions [data-testid="ws-blockers"]').exists()).toBe(false)
     expect(actions(blocked)).toBe(actions(mountHeader()))
   })
+
+  it('preserves the pressed Save control when blur updates status and blockers', async () => {
+    const w = mountHeader()
+    const save = w.find('[data-testid="ws-save"]')
+    await save.trigger('mousedown')
+    await w.setProps({ state: 'unsaved', blockers: ['PMID 99 was not found'], canSubmit: false })
+    expect(w.find('[data-testid="ws-save"]').element).toBe(save.element)
+    await save.trigger('mouseup')
+    await save.trigger('click')
+    expect(w.emitted('save')).toHaveLength(1)
+    expect(w.emitted('submit')).toBeUndefined()
+  })
 })
