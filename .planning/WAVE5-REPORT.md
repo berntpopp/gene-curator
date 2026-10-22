@@ -5,8 +5,7 @@ Status on 2026-10-22 after resumed actual Opus reviews: seven functional PRs are
 The accepted methodology epic #264 and W4S #266 are closed after #446's fresh postmerge gate.
 All functional fix/integration deltas have actual Opus5.5 SHIP verdicts. Final R source
 `06761a7063cf491bd04188608edc30b037d88a84` differs from reviewed I only in eight intended
-0.7.0 version files; its final full CI passed: 2,572 frontend tests, backend94.71%, full PostgreSQL and standard diff97/99%. R's latest fixture/docs/ignore delta
-still needs actual review. No tag or GitHub release exists. GitHub PR metadata currently
+0.7.0 version files; its final full CI passed: 2,572 frontend tests, backend94.71%, full PostgreSQL and standard diff97/99%. R's fixture/docs/ignore delta received actual Opus SHIP at01b6c77. Final fact/wording and issue-template updates still need the last narrow review. No tag or GitHub release exists. GitHub PR metadata currently
 lags some pushed branches; no merge proceeds on an unverified head or incomplete gate.
 
 ## Scope and decisions
@@ -110,7 +109,9 @@ Native factual audit confirms no tracked helper/artifact blobs or credential-pat
   existing unordered limit50. Local recovery retains one draft per record, with competing
   tabs last-writer-wins and exact-snapshot cleanup.
 
-Master is182a66a. Eight active project version files are0.7.0; old0.6.0 references in
+Master is182a66a. Eight active project version files are0.7.0; the feature-request milestone choice and
+bug-report free-text version example are also0.7.0. These are eight product version files
+plus two issue-template text updates; old0.6.0 references in
 historical release/README/milestone text remain intentional. README documents048/049.
 Release claims cite their PRs.
 Independent native factual audit at docs2fa74d7/source320a338 found no corrections:
@@ -120,8 +121,7 @@ credential-pattern matches were zero, and 860 source/config ignore probes matche
 This factual audit is supplementary and does not approve product changes or replace Opus.
 Release452 remains draft; no tag/release has been created.
 R actual integration/release SHIP at453a49b and cleanup delta SHIP ate02479b are recorded
-in sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b. Latest fixture/docs/ignore changes still
-need a narrow actual delta review. Before publication all functional PRs must merge individually after actual review/local
+in sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b. Latest fixture/docs/ignore changes received actual Opus SHIP at01b6c77; final status/wording/template updates still need a narrow actual delta review. Before publication all functional PRs must merge individually after actual review/local
 and GitHub CI/fresh UI gates. R must then have only intended release/version changes or
 explicitly reviewed integration fixes relative to master, and pass its own actual Opus
 review and final gates. See [resume checkpoint](WAVE5-RESUME.md) and [Wave6 prompt](WAVE6-PROMPT.md).

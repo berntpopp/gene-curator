@@ -117,7 +117,7 @@ body:
     attributes:
       label: Gene Curator Version
       description: Check `make version` or footer in the UI
-      placeholder: v2.0.0
+      placeholder: v0.7.0
 
   - type: input
     id: browser

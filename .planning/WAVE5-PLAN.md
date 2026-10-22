@@ -1,5 +1,7 @@
 # Wave 5 orchestration plan
 
+> The monkey-stack wrapper mentioned below is operator-local and ignored, not shipped tooling. Fresh checkouts require explicit isolated-stack provisioning; see [local browser notes](wave5-evidence/LOCAL-BROWSER-NOTES.md).
+
 Planning baseline: origin/master a7538d1 (v0.6.0), not the root checkout's v0.5.0 HEAD. Read-only source/issue review by planning specialist; root remains orchestrator only.
 Owner authorized research, brainstorming, testing and delivery without further questions. Scope assumption: #429–#437 and evidence-backed disposition of #438; finish #266/#264 only against accepted Wave 4 cuts. Explicit excluded issues remain excluded.
 Apply /ponytail full to every worker. Root's dirty planning/tooling files are preserved. Worktrees/setups run sequentially; no shared product-file ownership while slices overlap.

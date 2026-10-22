@@ -78,3 +78,12 @@ readonly UI mismatch is a documented follow-up, no implicit backfill. End with f
 report, accurate issue states, gates, decisions, follow-ups and Wave6 prompt.
 
 GitHub has an active PR/Actions service incident (https://www.githubstatus.com/), verified2026-10-22T17:43UTC. G remote branchd0 is correct but PR head15d is stale; ready event started CI on that older identical-tree head. Do not merge until final d0 head and its gate are verified. Do not manufacture empty commits or force-push to chase a service delay. R local preparation continues.
+
+## Root fast-forward preservation
+
+Follow [the preservation plan](W5-ROOT-SYNC-PRESERVATION.md) before final root sync.
+Verified external backups cover70 files, including all15 release-untracked raw files,
+six original dirty tracked files,48 Markdown files and the operator-local wrapper.
+Recompare against the final release first; restore local ignored raw files after Git’s
+fast-forward removes their tracked copies. No raw backup or authentication data is added
+to this release. Preserve newer root resume/ledger facts during final reconciliation.

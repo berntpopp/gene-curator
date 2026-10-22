@@ -8,8 +8,8 @@ G449/J450/I451 remain open. All have actual Opus SHIP and full localCI; final pa
 ancestry/PR metadata/GitHubCI/per-merge browser gates remain. Plan agent owns their
 ancestry sync. Root orchestrates merges only. Exact heads and sessions are in the queue.
 
-R final source06761a7 integrates Ifb24408 and differs only in eight0.7.0 version files.
-Canonical fullCI passed at06761a7 (2572 FE/backend94.71%, fullPG,diff97/99%); latest fixture/docs/ignore delta actual review is pending.
+R final source06761a7 integrates Ifb24408 and differs in eight0.7.0 version files within backend/frontend; issue-template version text is updated separately.
+Canonical fullCI passed at06761a7 (2572 FE/backend94.71%, fullPG,diff97/99%); fixture/docs/ignore actual review SHIP at01b6c77; last status/wording/bug-template delta review remains.
 Earlier R320a338 passed226 browser checks with identical product behavior. Release452
 stays draft; no tag or GitHub release. Every new merge still requires fresh browser gates.
 

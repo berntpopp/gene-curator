@@ -63,3 +63,10 @@ for identical product behavior, while functional per-merge browser gates are sep
 Actual R integrationSHIP at453a49b/cleanupSHIP ate02479b remain valid. This final fixture
 resolution, operator-local wrapper docs/ignore and refreshed facts need a narrow actual
 Opus delta review. No newclinical interpretation or product fix was introduced.
+
+Actual Opus final integration/docs delta review returned SHIP at01b6c77182fe678c6106a9beda4686e5de1f455a,
+sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b, is_error=false/modelUsage claude-opus-5-5.
+It verified exact I test-file equality, pure fixture extraction versus320a338, intended
+version-only product differences, precise local-wrapper ignore and accepted epic scope.
+Local artifact /tmp/W5R-final-delta-review.json. Subsequent final fact/wording updates
+and bug-report version-example correction still require the last narrow actual review.

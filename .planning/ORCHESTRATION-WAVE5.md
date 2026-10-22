@@ -1,21 +1,25 @@
 You are the Wave 5 orchestrator for Gene Curator (/home/bernt-popp/development/gene-curator,
 
+> The monkey-stack wrapper mentioned below is operator-local and ignored, not shipped tooling. Fresh checkouts require explicit isolated-stack provisioning; see [local browser notes](wave5-evidence/LOCAL-BROWSER-NOTES.md).
+
 > Historical planning snapshot. The current status, final gates and remaining blockers are recorded in [WAVE5-REPORT.md](WAVE5-REPORT.md).
-GitHub berntpopp/gene-curator, master at v0.6.0). Orchestrate only: dispatch, review, merge. Write no
-product code; do not read source files, issue bodies or full diffs into your own context.
-Use /ponytail full for yourself and every implementer.
+> GitHub berntpopp/gene-curator, master at v0.6.0). Orchestrate only: dispatch, review, merge. Write no
+> product code; do not read source files, issue bodies or full diffs into your own context.
+> Use /ponytail full for yourself and every implementer.
 
 Context: v0.6.0 shipped the methodology epic (#264) except the frontend score-trace work (W4S, #266).
 Read `.planning/WAVE4-REPORT.md` (decisions, lessons) and the Wave 4 follow-up issues filed after the release
 (label/title "Found in Wave 4"). Before planning, ASK the owner:
-  1. Scope: finish #266/#264 (W4S) plus which follow-ups? Offer the data-loss and correctness ones first
-     ("Restore unsaved changes?" overwrite, multi-reviewer Approve visibility, condition-semantics parity,
-     catalogue disease filter), then UI polish.
-  2. The open OWNER DECISION issue: AR blank-row defaults per variant (SOP v11 p.17/p.20).
-Out of scope unless the owner says otherwise: #282, the editable part of #284, #216, #218, #219, #105, #86, #104,
-#373-#381, #386, #390-#394, #399, #403, #406.
+
+1. Scope: finish #266/#264 (W4S) plus which follow-ups? Offer the data-loss and correctness ones first
+   ("Restore unsaved changes?" overwrite, multi-reviewer Approve visibility, condition-semantics parity,
+   catalogue disease filter), then UI polish.
+2. The open OWNER DECISION issue: AR blank-row defaults per variant (SOP v11 p.17/p.20).
+   Out of scope unless the owner says otherwise: #282, the editable part of #284, #216, #218, #219, #105, #86, #104,
+   #373-#381, #386, #390-#394, #399, #403, #406.
 
 Rules (Waves 3, 4 and v0.5.0/v0.6.0):
+
 - At most 6 implementers at once; one worktree each via .planning/orchestration/setup.sh (BASE=<ref> for
   stacked branches); run setups sequentially. NEVER put backticks inside double-quoted setup.sh notes.
 - Every PR gets an Opus ponytail:ponytail-review; fix rounds re-review only the delta.
