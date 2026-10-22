@@ -18,7 +18,7 @@ pytestmark = pytest.mark.postgres
 
 FIELDS = {
     "kind": {"type": "text"},
-    "answered": {"type": "boolean", "required": True},
+    "answered": {"type": "boolean", "required": True, "default": False},
     "parent": {
         "type": "object",
         "required": True,
