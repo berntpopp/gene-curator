@@ -52,3 +52,14 @@ docs/design/**/renders/
 docs/design/**/source/
 
 __pycache__/
+
+# Wave 5 local browser evidence; publish reports/runners, not generated artifacts
+/.planning/wave5-evidence/**/*.png
+/.planning/wave5-evidence/**/*.jpg
+/.planning/wave5-evidence/**/*.jpeg
+/.planning/wave5-evidence/**/*.webp
+/.planning/wave5-evidence/**/*.gif
+/.planning/wave5-evidence/**/*.json
+/.planning/wave5-evidence/**/*.har
+/.planning/wave5-evidence/**/auth-state*
+/.planning/wave5-evidence/**/storage-state*

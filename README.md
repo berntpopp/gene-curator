@@ -57,6 +57,24 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.7.0
+
+Run `make db-migrate` (048–049) before restarting the backend. Migration 048 corrects the
+catalogue view's genetic/experimental score expressions. Migration 049 publishes an immutable ClinGen successor for
+eligible unchanged stock schemas; it preserves existing versions, record pins, evidence and
+stored scores. New records use the latest published version; existing records keep their pin.
+No historical rescore or re-pinning is part of this upgrade.
+([#440](https://github.com/berntpopp/gene-curator/pull/440),
+[#450](https://github.com/berntpopp/gene-curator/pull/450))
+
+The successor uses variant-specific AR starting suggestions and requires explicit segregation
+points. Review the [release notes](docs/releases/v0.7.0.md) for clinical limits, the stricter
+required-content checks, MONDO suggestion filtering and known unresolved defects. Deployments
+older than v0.6.0 must first follow the earlier-release upgrade steps below.
+([#450](https://github.com/berntpopp/gene-curator/pull/450),
+[#445](https://github.com/berntpopp/gene-curator/pull/445),
+[#451](https://github.com/berntpopp/gene-curator/pull/451))
+
 ### Upgrading to v0.6.0
 
 Run `make db-migrate` (migrations 042-047) before restarting the backend, then recompute stored

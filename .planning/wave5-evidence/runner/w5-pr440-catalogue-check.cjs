@@ -1,0 +1,68 @@
+const fs=require('fs')
+const {run,USERS}=require('/tmp/w5-baseline-harness.cjs')
+const {queueAction,detailAction,submitCuration,clickAndCapture,desc}=require('/tmp/w5-baseline-core-runner.cjs')
+const UI='http://localhost:5190'
+const browserGet=(page,path)=>page.evaluate(async path=>{
+ const response=await fetch(`http://localhost:8052/api/v1${path}`,{headers:{Authorization:`Bearer ${localStorage.getItem('access_token')}`}})
+ return {status:response.status,data:await response.json()}
+},path)
+run('pr440-catalogue',async({as,check,shot,settle,vselect,ids,saveIds,api})=>{
+ const c=ids().catalogue
+ const alice=await as('alice'),bob=await as('bob')
+ const cases=[{gene:'PKD1',pre:'W5 inherited-only disease',own:''},{gene:'PKD2',pre:'W5 displaced-precuration disease',own:'W5 own-override disease'}]
+ const active=[]
+ for(const item of cases){
+  const pre=await api('alice','POST','/precurations/',{gene_id:c.genes[item.gene].id,scope_id:c.scopeId,precuration_schema_id:c.precurationSchemaId,evidence_data:{disease_name:item.pre,mode_of_inheritance:'AD',entity_confirmed:false}})
+  check(`${item.gene} fixture precuration created`,pre.status===201,pre.status)
+  await alice.goto(`${UI}/scopes/${c.scopeId}/precurations/${pre.data.id}`);await settle(alice)
+  const submitted=await clickAndCapture(alice,alice.getByRole('button',{name:/Submit for Review/i}),'/precurations')
+  check(`${item.gene} precuration submitted in UI`,submitted&&submitted.status()<300,await desc(submitted))
+  const approved=await queueAction(bob,{gene:item.gene,stage:'Precuration',action:'Approve',notes:'Catalogue fixture precuration review',shotName:`pr440-${item.gene}-pre-approve`,shot,check,settle})
+  check(`${item.gene} precuration approved in UI`,approved.ok,approved.detail)
+  const list=(await api('alice','GET',`/curations/?scope_id=${c.scopeId}`)).data
+  const cur=(list.curations||list.items||list).find(x=>x.gene_id===c.genes[item.gene].id)
+  await alice.goto(`${UI}/scopes/${c.scopeId}/curations/${cur.id}/edit`);await settle(alice)
+  await alice.getByRole('textbox',{name:'Disease Name'}).fill(item.own)
+  await vselect(alice,'Evidence Strength','Moderate')
+  await alice.getByRole('tab',{name:'Assessment'}).click()
+  await alice.getByRole('textbox',{name:'Evidence Summary'}).fill('Catalogue visibility fixture; no clinical score claim.')
+  const saved=await clickAndCapture(alice,alice.getByRole('button',{name:'Save draft'}),`/curations/${cur.id}`)
+  check(`${item.gene} curation saved via UI`,saved&&saved.status()<300,await desc(saved))
+  const {resp}=await submitCuration(alice,cur.id)
+  check(`${item.gene} curation submitted via UI`,resp&&resp.status()<300,await desc(resp))
+  const final=await detailAction(bob,{...c,curationId:cur.id},{action:'Approve',notes:'Catalogue first curation approval',shotName:`pr440-${item.gene}-active`,shot,settle})
+  check(`${item.gene} first curation activated via UI`,final.ok,final.detail)
+  const stored=(await api('alice','GET',`/curations/${cur.id}`)).data
+  check(`${item.gene} active first curation has correct own-disease input`,stored.status==='active'&&(stored.evidence_data.disease_name||'')===item.own,JSON.stringify({status:stored.status,disease:stored.evidence_data.disease_name}))
+  active.push({gene:item.gene,id:cur.id,pre:pre.data.id,own:item.own,expected:item.own||item.pre})
+  const found=await browserGet(alice,`/gene-catalogue/?scope_id=${c.scopeId}&disease=${encodeURIComponent(item.own||item.pre)}`)
+  check(`${item.gene} browser-origin disease filter finds first curation`,found.status===200&&found.data.entries.some(x=>x.gene_id===c.genes[item.gene].id),JSON.stringify(found.data).slice(0,220))
+  await alice.goto(`${UI}/genes/${c.genes[item.gene].id}`);await settle(alice)
+  const assertion=alice.getByRole('row').filter({hasText:item.own||item.pre})
+  check(`${item.gene} actual case-file UI shows effective disease`,await assertion.count()>0)
+  await shot(alice,`pr440-${item.gene}-casefile-disease`)
+ }
+ const options=await browserGet(alice,'/gene-catalogue/filters/diseases')
+ check('browser-origin disease options include inherited and own names',options.status===200&&options.data.includes(cases[0].pre)&&options.data.includes(cases[1].own),JSON.stringify(options.data))
+ const old=await browserGet(alice,`/gene-catalogue/?scope_id=${c.scopeId}&disease=${encodeURIComponent(cases[1].pre)}`)
+ check('curation own disease takes precedence over linked precuration filter',old.status===200&&old.data.total===0,JSON.stringify(old.data).slice(0,220))
+ await alice.goto(`${UI}/genes?scopes=${c.scopeId}`);await settle(alice)
+ check('matrix UI shows member private scope', (await alice.locator('main').innerText()).includes(c.displayName))
+ check('matrix UI links active first curations',await alice.locator(`a[href="/scopes/${c.scopeId}/curations/${active[0].id}"]`).count()===1)
+ check('matrix has no disease-filter control (coverage limitation)',await alice.getByRole('combobox',{name:/disease/i}).count()===0)
+ await shot(alice,'pr440-member-matrix')
+ USERS.outsider='w5.outsider@genecurator.org'
+ const outsider=await api('admin','POST','/users/',{email:USERS.outsider,name:'W5 Outsider',role:'user',password:process.env.W5_TEST_PASSWORD,is_active:true})
+ check('authenticated outsider fixture created',outsider.status===201,outsider.status)
+ const other=await as('outsider',{fresh:true})
+ await other.goto(`${UI}/genes?scopes=${c.scopeId}`);await settle(other)
+ check('outsider matrix does not expose private scope',!(await other.locator('main').innerText()).includes(c.displayName))
+ await other.goto(`${UI}/genes/${c.genes.PKD1.id}`);await settle(other)
+ check('outsider case file does not expose private disease',!(await other.locator('main').innerText()).includes(cases[0].pre))
+ const hidden=await browserGet(other,`/gene-catalogue/?scope_id=${c.scopeId}&disease=${encodeURIComponent(cases[0].pre)}`)
+ check('outsider browser-origin filter hides private curation',hidden.status===200&&hidden.data.total===0,JSON.stringify(hidden.data).slice(0,200))
+ const hiddenOptions=await browserGet(other,'/gene-catalogue/filters/diseases')
+ check('outsider browser-origin disease options hide private names',hiddenOptions.status===200&&!hiddenOptions.data.includes(cases[0].pre)&&!hiddenOptions.data.includes(cases[1].own),JSON.stringify(hiddenOptions.data))
+ await shot(other,'pr440-outsider-casefile')
+ saveIds({catalogue:{...c,active,outsiderId:outsider.data.id}})
+}).then(result=>{fs.writeFileSync('/tmp/w5-pr440-catalogue-results.json',JSON.stringify(result,null,2));if(result.fatal||result.checks.some(c=>!c.ok))process.exitCode=1})
