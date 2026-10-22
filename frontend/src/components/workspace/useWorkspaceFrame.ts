@@ -39,6 +39,7 @@ export function createWorkspaceFrame() {
   let inflight: string | null = null
   const savedAt = ref<number | null>(null)
   const score = ref<ScoreSnapshot | null>(null)
+  const scorePending = ref(false)
   const meta = ref<{ disease?: string; moi?: string }>({})
   // Things that must be fixed before saving, by source (e.g. an unknown PMID in a table)
   const blockerMap = ref<Record<string, string>>({})
@@ -110,6 +111,8 @@ export function createWorkspaceFrame() {
     dirty,
     savedAt,
     score,
+    scorePending,
+    setScorePending: (pending: boolean) => (scorePending.value = pending),
     meta,
     blockers,
     setBlocker: (id: string, reason: string | null) => {

@@ -72,11 +72,12 @@ class CurationSchemaUpdate(BaseModel):
         "validation_rules",
         "workflow_states",
         "ui_configuration",
+        "is_active",
         "use_dynamic_form",
     )
     @classmethod
     def _not_null(cls, v: Any) -> Any:
-        """NOT NULL columns: omit the field to keep it; an explicit null is invalid."""
+        """Required response fields: omit to keep the value; explicit null is invalid."""
         if v is None:
             raise ValueError("must not be null")
         return v

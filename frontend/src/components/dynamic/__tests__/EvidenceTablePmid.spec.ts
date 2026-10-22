@@ -150,6 +150,33 @@ describe('EvidenceTableField PMID cells', () => {
     expect(frame.blockers.value).toEqual([])
   })
 
+  it('does not retry failed lookups on score edits or row reorder, but retries on edit mode and blur', async () => {
+    validatePMIDs.mockRejectedValue(new Error('offline'))
+    const first = { id: 'r1', pmid: '123', points: 1 }
+    const second = { id: 'r2', pmid: '456', points: 2 }
+    const { wrapper, frame } = mountTable([first, second])
+    await flushPromises()
+    expect(validatePMIDs).toHaveBeenCalledTimes(1)
+    await wrapper.setProps({ modelValue: [{ ...first, points: 1.5 }, second] })
+    await flushPromises()
+    expect(validatePMIDs).toHaveBeenCalledTimes(1)
+    await wrapper.setProps({ modelValue: [second, { ...first, points: 1.5 }] })
+    await flushPromises()
+    expect(validatePMIDs).toHaveBeenCalledTimes(1)
+    expect(frame.blockers.value).toEqual([])
+    await wrapper.setProps({ disabled: true })
+    await wrapper.setProps({ disabled: false })
+    await flushPromises()
+    expect(validatePMIDs).toHaveBeenCalledTimes(2)
+    validatePMIDs.mockResolvedValue({
+      results: [{ pmid: '456', is_valid: false, error: 'Publication not found: 456' }]
+    })
+    await blurPmid(wrapper, '456')
+    expect(validatePMIDs).toHaveBeenCalledTimes(3)
+    expect(frame.blockers.value[0]).toContain('PMID 456 not found')
+    wrapper.unmount()
+  })
+
   it('leaves the blocker to the curation form when it checks the whole draft', async () => {
     validatePMIDs.mockResolvedValue({
       results: [{ pmid: '999', is_valid: false, error: 'Publication not found: 999' }]

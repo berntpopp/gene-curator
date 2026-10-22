@@ -163,7 +163,7 @@
           <ScoreDisplay
             :score-calculations="validationResult?.score_calculations"
             :scoring-configuration="jsonSchema?.scoring_configuration"
-            :loading="validating"
+            :loading="validationPending"
           />
         </div>
       </v-col>
@@ -182,6 +182,7 @@
   import { errorDetails } from './errorDetails'
   import { labelForPath } from './fieldLabels'
   import { normalizeDefinition } from './normalizeDefinition'
+  import { withDeclaredDefaults } from './formDefaults'
   import { FORM_DATA, resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
   import ValidationWarnings from './ValidationWarnings.vue'
@@ -232,6 +233,7 @@
     'save-draft': [data: FormData]
     'update:modelValue': [data: FormData]
     'validation-change': [result: FormValidationResult | undefined]
+    'validation-pending': [pending: boolean]
   }>()
 
   const validationStore = useValidationStore()
@@ -240,15 +242,18 @@
   provide(FORM_DATA, formData) // nested fields resolve their conditions against the whole form
   const saving = ref(false)
   const submitting = ref(false)
-  const validating = ref(false)
+  const validationPending = ref(false)
   const activeTab = ref<string | null>(null)
   const backendErrors = ref<Record<string, string[]>>({}) // { fieldPath: [error messages] }
   const nonFieldErrors = ref<string[]>([]) // Errors not mapped to specific fields
 
   // One debounce for every change: a validation (and its live score) per pause in typing
   let validateTimer: ReturnType<typeof setTimeout> | undefined
+  let validationRevision = 0
   const scheduleValidate = () => {
     clearTimeout(validateTimer)
+    validationRevision++
+    validationPending.value = true
     // Invalidate in-flight replies at the edit, not 500 ms later when the next request starts.
     validationStore.clearValidationResult('form')
     validateTimer = setTimeout(validateForm, 500)
@@ -304,19 +309,15 @@
     return !props.hideScoring && jsonSchema.value?.scoring_configuration?.engine != null
   })
 
-  // Initial data can arrive after mount (saved draft fetch, recovery restore). Adopt it unless
-  // the user already edited, i.e. the form no longer matches the previously seen initial data.
-  let userEdited = false // the parent mirrors edits into initialData, so compare alone is not enough
-  let seenInitial = JSON.stringify(props.initialData)
-  watch(
-    () => JSON.stringify(props.initialData),
-    next => {
-      if (next !== seenInitial && !userEdited && JSON.stringify(formData.value) === seenInitial) {
-        formData.value = JSON.parse(next)
-      }
-      seenInitial = next
+  // Defaults are not user edits: a late server load may still replace them.
+  let userEdited = false
+  watch([() => JSON.stringify(props.initialData), () => props.readonly], ([next, readonly]) => {
+    if (readonly || !userEdited) {
+      const loaded = JSON.parse(next)
+      formData.value = readonly ? loaded : withDeclaredDefaults(loaded, jsonSchema.value.properties)
     }
-  )
+    if (readonly) userEdited = false
+  })
 
   const hasChanges = computed(() => {
     return JSON.stringify(formData.value) !== JSON.stringify(props.initialData)
@@ -339,7 +340,8 @@
   }
 
   const validateForm = async () => {
-    validating.value = true
+    const revision = ++validationRevision
+    validationPending.value = true
     try {
       const result = await validationStore.validateEvidence(
         formData.value,
@@ -354,7 +356,7 @@
       logger.error('Form validation error:', errorDetails(err))
       return null
     } finally {
-      validating.value = false
+      if (revision === validationRevision) validationPending.value = false
     }
   }
 
@@ -566,6 +568,8 @@
     { deep: true }
   )
 
+  watch(validationPending, pending => emit('validation-pending', pending), { immediate: true })
+
   // Emit validation state changes for parent components
   watch(
     validationResult,
@@ -578,9 +582,19 @@
   // Results are kept per key: never show another record's score or validity
   validationStore.clearValidationResult('form')
   onBeforeUnmount(() => {
+    validationRevision++
     clearTimeout(validateTimer)
     validationStore.clearValidationResult('form')
   })
+
+  // Initialize before validation, including lazy tabs and asynchronously loaded schemas.
+  watch(
+    [jsonSchema, () => props.readonly],
+    ([schema, readonly]) => {
+      if (!readonly) formData.value = withDeclaredDefaults(formData.value, schema.properties)
+    },
+    { immediate: true }
+  )
 
   onMounted(async () => {
     if (props.schemaId) {
