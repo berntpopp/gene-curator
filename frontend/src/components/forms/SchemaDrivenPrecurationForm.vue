@@ -64,8 +64,9 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      :model-value="showRecoveryDialog && recoveryReady"
+      :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
+      :stale="recoveryStale"
       @restore="restoreRecovery"
       @discard="discardRecovery"
     />
@@ -168,14 +169,15 @@
     () => `precuration-${props.precurationId || 'new'}-schema-${props.schemaId}`
   )
 
-  const recoveryReady = ref(false) // offer recovery only after the saved draft is known
+  let serverVersion: string | null = null // the loaded precuration's, for the recovery baseline
   const {
     showRecoveryDialog,
     recoveryTimestamp,
+    recoveryStale,
     restoreRecovery,
     discardRecovery,
     clearRecovery,
-    dropIfSaved
+    setBaseline
   } = useFormRecovery(recoveryKey.value, evidenceData, {
     saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
@@ -428,7 +430,7 @@
         evidenceData.value = precuration.evidence_data
         pinnedVersionId.value = precuration.methodology_version_id ?? null
         isDraft.value = precuration.status === 'draft'
-        dropIfSaved(precuration.evidence_data)
+        serverVersion = `${precuration.lock_version}@${precuration.updated_at}`
       }
     } catch (error) {
       logger.error('Failed to load precuration', { error: (error as ApiErrorLike).message })
@@ -456,7 +458,8 @@
   onMounted(async () => {
     await loadPrecuration()
     await loadSchema()
-    recoveryReady.value = true
+    // Local drafts are compared with what the form now shows; none until the saved one loaded
+    if (!props.precurationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     logger.debug('SchemaDrivenPrecurationForm mounted', {
       schemaId: props.schemaId,
       precurationId: props.precurationId

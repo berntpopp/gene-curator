@@ -13,6 +13,7 @@ const push = vi.hoisted(() => vi.fn())
 const replace = vi.hoisted(() => vi.fn())
 const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
+  restoreRecovery: vi.fn(),
   lastSaved: null as null | { value: string | null }
 }))
 const PINNED = { id: 'v1', snapshot: { scoring_configuration: { engine: 'clingen_sop_v11' } } }
@@ -65,10 +66,11 @@ vi.mock('@/composables/useFormRecovery', async () => {
       showRecoveryDialog: ref(false),
       recoveryData: ref(null),
       recoveryTimestamp: ref('2026-01-01T00:00:00Z'),
+      recoveryStale: ref(true),
       lastSaved: recovery.lastSaved,
-      restoreRecovery: vi.fn(),
+      restoreRecovery: recovery.restoreRecovery,
       discardRecovery: vi.fn(),
-      dropIfSaved: vi.fn(),
+      setBaseline: vi.fn(),
       clearRecovery: recovery.clearRecovery
     })
   }
@@ -325,20 +327,17 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(logger.warn).toHaveBeenCalledWith('Failed to load precuration data', { error: 'down' })
   })
 
-  it('passes the recovery timestamp to the recovery dialog', async () => {
+  it('passes the recovery timestamp and staleness to the recovery dialog', async () => {
     const wrapper = await mountForm()
-    expect(wrapper.findComponent({ name: 'FormRecoveryDialog' }).props('timestamp')).toBe(
-      '2026-01-01T00:00:00Z'
-    )
+    const dialog = wrapper.findComponent({ name: 'FormRecoveryDialog' })
+    expect(dialog.props('timestamp')).toBe('2026-01-01T00:00:00Z')
+    expect(dialog.props('stale')).toBe(true)
   })
 
-  it('hands the form a new data reference after Restore', async () => {
+  it('restores through the recovery composable', async () => {
     const wrapper = await mountForm()
-    const before = wrapper.findComponent({ name: 'DynamicForm' }).props('initialData')
     wrapper.findComponent({ name: 'FormRecoveryDialog' }).vm.$emit('restore')
-    await flushPromises()
-    const after = wrapper.findComponent({ name: 'DynamicForm' }).props('initialData')
-    expect(after).not.toBe(before)
+    expect(recovery.restoreRecovery).toHaveBeenCalled()
   })
 
   it('offers no actions and ignores shortcuts for a read-only generic form', async () => {

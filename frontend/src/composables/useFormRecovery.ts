@@ -5,8 +5,9 @@
  * Follows best practices: KISS (simple save/restore), DRY (reusable), SOLID (single responsibility)
  *
  * Best practices implemented:
- * - Only saves when form has meaningful data (dirty checking)
- * - Only shows recovery dialog when recovered data is non-empty
+ * - Only saves local edits: form data that differs from the server copy (setBaseline)
+ * - Offers recovery only after the server copy is loaded, and flags a draft that started from
+ *   an older server version (restoring it would replace newer data)
  * - Pauses auto-save after discard to prevent immediate re-save of empty state
  * - Clear on successful submission
  *
@@ -19,8 +20,9 @@
  *
  * @example
  * const formData = ref({ gene: '', rationale: '' })
- * const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery } =
+ * const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery, setBaseline } =
  *   useFormRecovery('precuration-new', formData)
+ * // once loaded: setBaseline(formData.value, `${lock_version}@${updated_at}`) (null when new)
  */
 
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
@@ -39,19 +41,23 @@ interface RecoverySnapshot {
   timestamp: string
   url: string
   formId: string
+  /** Server version the edits started from (null: a new record; absent: stored before #436) */
+  baseVersion?: string | null
 }
 
 export interface UseFormRecoveryReturn {
   showRecoveryDialog: Ref<boolean>
   recoveryData: Ref<unknown>
   recoveryTimestamp: Ref<string | null>
+  /** The server copy changed after the stored edits were made: restoring replaces newer data */
+  recoveryStale: Ref<boolean>
   lastSaved: Ref<string | null>
   restoreRecovery: () => void
   discardRecovery: () => void
   clearRecovery: () => void
   resumeAutoSave: () => void
-  /** Forget the snapshot when it equals the data already saved on the server */
-  dropIfSaved: (saved: unknown) => void
+  /** The server copy the form shows (call again when it changes); recovery waits for it */
+  setBaseline: (saved: unknown, version: string | null) => void
 }
 
 /**
@@ -94,8 +100,11 @@ export function useFormRecovery<T extends object>(
   const showRecoveryDialog = ref(false)
   const recoveryData = ref<unknown>(null)
   const recoveryTimestamp = ref<string | null>(null)
+  const recoveryStale = ref(false)
   const lastSaved = ref<string | null>(null)
   const isPaused = ref(false) // Pause auto-save after discard
+  let baseline: string | null = null // canonical server copy; null until loaded
+  let baseVersion: string | null = null
 
   let saveTimer: ReturnType<typeof setInterval> | null = null
 
@@ -105,8 +114,8 @@ export function useFormRecovery<T extends object>(
    * Only saves if form has meaningful data
    */
   function saveToLocalStorage(): void {
-    // Skip if paused or no meaningful data
-    if (isPaused.value) {
+    // Skip while paused, before the server copy is known, or while a stored draft awaits a choice
+    if (isPaused.value || baseline === null || showRecoveryDialog.value) {
       return
     }
 
@@ -116,11 +125,17 @@ export function useFormRecovery<T extends object>(
     }
 
     try {
+      // No local edits (or all reverted): the server copy needs no recovery
+      if (canonical(formData.value) === baseline) {
+        localStorage.removeItem(recoveryKey)
+        return
+      }
       const snapshot: RecoverySnapshot = {
         data: JSON.parse(JSON.stringify(formData.value)),
         timestamp: new Date().toISOString(),
         url: window.location.href,
-        formId
+        formId,
+        baseVersion
       }
       localStorage.setItem(recoveryKey, JSON.stringify(snapshot))
       lastSaved.value = snapshot.timestamp
@@ -134,47 +149,7 @@ export function useFormRecovery<T extends object>(
     }
   }
 
-  /**
-   * Check for recoverable data on mount
-   * Shows recovery dialog only if recent data with meaningful content found
-   */
   onMounted(() => {
-    try {
-      const saved = localStorage.getItem(recoveryKey)
-      if (saved) {
-        const snapshot: RecoverySnapshot = JSON.parse(saved)
-        const age = Date.now() - new Date(snapshot.timestamp).getTime()
-
-        // Check if data is still valid (not expired)
-        if (age < maxAge) {
-          // Only offer recovery if data has meaningful content
-          if (hasNonEmptyData(snapshot.data)) {
-            recoveryData.value = snapshot.data
-            recoveryTimestamp.value = snapshot.timestamp
-            showRecoveryDialog.value = true
-            logger.info('Recovery data found', {
-              formId,
-              age: Math.floor(age / 1000),
-              timestamp: snapshot.timestamp
-            })
-          } else {
-            // Empty data - clean up silently
-            localStorage.removeItem(recoveryKey)
-            logger.debug('Empty recovery data removed', { formId })
-          }
-        } else {
-          // Stale data - clean up
-          localStorage.removeItem(recoveryKey)
-          logger.debug('Stale recovery data removed', { formId, age: Math.floor(age / 1000) })
-        }
-      }
-    } catch (error) {
-      logger.error('Failed to check recovery data', {
-        formId,
-        error: error instanceof Error ? error.message : undefined
-      })
-    }
-
     // Start auto-save timer
     saveTimer = setInterval(saveToLocalStorage, saveInterval)
     logger.debug('Form recovery initialized', { formId, saveInterval })
@@ -202,7 +177,8 @@ export function useFormRecovery<T extends object>(
    */
   function restoreRecovery(): void {
     if (recoveryData.value) {
-      Object.assign(formData.value, recoveryData.value)
+      // Replace, not merge: a field deleted locally stays deleted
+      formData.value = recoveryData.value as T
       showRecoveryDialog.value = false
       isPaused.value = false // Resume auto-save
       logger.info('Form data restored', { formId, timestamp: recoveryTimestamp.value })
@@ -251,17 +227,58 @@ export function useFormRecovery<T extends object>(
     isPaused.value = false
   }
 
-  function dropIfSaved(savedData: unknown): void {
-    if (showRecoveryDialog.value && canonical(recoveryData.value) === canonical(savedData)) {
-      localStorage.removeItem(recoveryKey)
-      recoveryData.value = null
-      recoveryTimestamp.value = null
-      showRecoveryDialog.value = false
+  /**
+   * Record the server copy the form shows, then offer a stored draft only if it differs from it.
+   * A draft that started from another server version is flagged stale, never restored silently.
+   */
+  function setBaseline(savedData: unknown, version: string | null): void {
+    baseline = canonical(savedData)
+    baseVersion = version
+    showRecoveryDialog.value = false
+    recoveryData.value = null
+    recoveryTimestamp.value = null
+    try {
+      const saved = localStorage.getItem(recoveryKey)
+      if (saved) {
+        const snapshot: RecoverySnapshot = JSON.parse(saved)
+        const age = Date.now() - new Date(snapshot.timestamp).getTime()
+
+        // Check if data is still valid (not expired)
+        if (age < maxAge) {
+          // Only offer recovery if data has meaningful content the server does not have
+          if (hasNonEmptyData(snapshot.data) && canonical(snapshot.data) !== baseline) {
+            recoveryData.value = snapshot.data
+            recoveryTimestamp.value = snapshot.timestamp
+            recoveryStale.value = (snapshot.baseVersion ?? null) !== version
+            showRecoveryDialog.value = true
+            logger.info('Recovery data found', {
+              formId,
+              age: Math.floor(age / 1000),
+              timestamp: snapshot.timestamp,
+              stale: recoveryStale.value
+            })
+          } else {
+            // Empty or already saved - clean up silently
+            localStorage.removeItem(recoveryKey)
+            logger.debug('Empty recovery data removed', { formId })
+          }
+        } else {
+          // Stale data - clean up
+          localStorage.removeItem(recoveryKey)
+          logger.debug('Stale recovery data removed', { formId, age: Math.floor(age / 1000) })
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to check recovery data', {
+        formId,
+        error: error instanceof Error ? error.message : undefined
+      })
     }
   }
 
   return {
-    dropIfSaved,
+    setBaseline,
+    recoveryStale,
     showRecoveryDialog,
     recoveryData,
     recoveryTimestamp,

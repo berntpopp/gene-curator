@@ -84,9 +84,10 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      :model-value="showRecoveryDialog && recoveryReady"
+      :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
-      @restore="handleRestore"
+      :stale="recoveryStale"
+      @restore="restoreRecovery"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -215,19 +216,14 @@
   })
   const {
     showRecoveryDialog,
-    restoreRecovery: restoreInPlace,
+    recoveryTimestamp,
+    recoveryStale,
+    restoreRecovery,
     discardRecovery,
     clearRecovery,
-    dropIfSaved
+    setBaseline
   } = formRecovery
-  const recoveryReady = ref(false) // offer recovery only after the saved curation is known
-  const recoveryTimestamp = formRecovery.recoveryTimestamp
-
-  // restore mutates evidenceData in place; a new reference lets reference watchers see it
-  function handleRestore() {
-    restoreInPlace()
-    evidenceData.value = { ...evidenceData.value }
-  }
+  let serverVersion: string | null = null // the loaded curation's, for the recovery baseline
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -555,7 +551,7 @@
           evidenceData.value = curation.evidence_data || {}
         }
 
-        dropIfSaved(evidenceData.value)
+        serverVersion = `${curation.lock_version}@${curation.updated_at}`
         pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
@@ -612,7 +608,8 @@
     }
     if (!props.readonly) void pmids.checkAll(pmidsIn(evidenceData.value))
     ready.value = true
-    recoveryReady.value = true
+    // Local drafts are compared with what the form now shows; none until the saved one loaded
+    if (!props.curationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,

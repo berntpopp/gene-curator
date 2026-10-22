@@ -18,7 +18,7 @@ const precurationsStore = vi.hoisted(() => ({
   error: null as { message?: string; isConflict?: boolean } | null
 }))
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
-const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn(), dropIfSaved: vi.fn() }))
+const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn(), setBaseline: vi.fn() }))
 const schemaFields = vi.hoisted(() => ({ value: undefined as Record<string, unknown> | undefined }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
@@ -47,8 +47,9 @@ vi.mock('@/composables/useFormRecovery', async () => {
       lastSaved: ref(null),
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
+      recoveryStale: ref(false),
       clearRecovery: recovery.clearRecovery,
-      dropIfSaved: recovery.dropIfSaved
+      setBaseline: recovery.setBaseline
     })
   }
 })
@@ -512,15 +513,35 @@ describe('SchemaDrivenPrecurationForm', () => {
       wrapper.unmount()
     })
 
-    it('drops a recovery snapshot equal to the loaded draft', async () => {
+    it('compares local drafts with the loaded precuration and its version (#436)', async () => {
       precurationsStore.fetchPrecurationById.mockResolvedValue({
         evidence_data: { a: 1 },
+        lock_version: 2,
+        updated_at: '2026-10-01T10:00:00Z',
         status: 'draft'
       })
       mountForm({ precurationId: 'p-1' })
       await flushPromises()
 
-      expect(recovery.dropIfSaved).toHaveBeenCalledWith({ a: 1 })
+      expect(recovery.setBaseline).toHaveBeenCalledExactlyOnceWith(
+        { a: 1 },
+        '2@2026-10-01T10:00:00Z'
+      )
+    })
+
+    it('compares a new precuration with the empty form, unversioned', async () => {
+      mountForm()
+      await flushPromises()
+
+      expect(recovery.setBaseline).toHaveBeenCalledExactlyOnceWith({}, null)
+    })
+
+    it('offers no draft while the saved precuration could not be loaded', async () => {
+      precurationsStore.fetchPrecurationById.mockRejectedValue(new Error('down'))
+      mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      expect(recovery.setBaseline).not.toHaveBeenCalled()
     })
 
     it('hides Save draft and Submit when read-only', async () => {
