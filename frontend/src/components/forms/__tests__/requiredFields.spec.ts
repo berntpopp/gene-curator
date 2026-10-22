@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { missingRequiredLabels } from '../requiredFields'
+import { missingRequiredLabels, missingRequiredPaths } from '../requiredFields'
+import cases from '@/components/dynamic/__tests__/conditionCases.json'
 
 // Shape of the seeded "ClinGen Precuration" schema (016_seed_precuration_schema.sql)
 const sections = {
@@ -62,8 +63,8 @@ describe('missingRequiredLabels with conditional fields', () => {
     ]
   }
 
-  it('treats an unset checkbox as false and skips fields hidden by it', () => {
-    expect(missingRequiredLabels(lumping, {})).toEqual([])
+  it('requires an answer to a required boolean and skips fields hidden by it', () => {
+    expect(missingRequiredLabels(lumping, {})).toEqual(['Applicable'])
     expect(missingRequiredLabels(lumping, { applicable: false })).toEqual([])
   })
 
@@ -86,7 +87,16 @@ describe('missingRequiredLabels with conditional fields', () => {
       ]
     }
     const rules = { required_fields: ['applicable', 'decision'] }
-    expect(missingRequiredLabels(plain, {}, rules)).toEqual([])
+    expect(missingRequiredLabels(plain, {}, rules)).toEqual(['Applicable'])
     expect(missingRequiredLabels(plain, { applicable: true }, rules)).toEqual(['Decision'])
+  })
+})
+
+// The shared table (#433): backend `missing_required_fields` runs the same cases
+describe('missingRequiredPaths', () => {
+  it.each(cases.required)('$name', ({ fields, data, missing, ...rest }) => {
+    expect(missingRequiredPaths(fields, data, 'rules' in rest ? rest.rules : undefined)).toEqual(
+      missing
+    )
   })
 })

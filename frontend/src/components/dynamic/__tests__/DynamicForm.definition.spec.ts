@@ -110,6 +110,65 @@ describe('DynamicForm from raw config', () => {
     expect(wrapper.find('input[type="number"]').attributes()).toHaveProperty('required')
   })
 
+  it('applies conditions to nested children against the whole form data (#433)', async () => {
+    const wrapper = mountForm(
+      {
+        field_definitions: {
+          moi: { type: 'text', label: 'MOI' },
+          details: {
+            type: 'object',
+            label: 'Details',
+            properties: {
+              note: { type: 'text', label: 'MOI note', visible_when: { moi: 'Other' } },
+              why: { type: 'text', label: 'Why other', required_when: { moi: 'Other' } }
+            }
+          }
+        }
+      },
+      { moi: 'AD', details: {} }
+    )
+    await flushPromises()
+    expect(wrapper.text()).not.toContain('MOI note')
+    expect(wrapper.findAll('input[required]')).toHaveLength(0)
+
+    vmOf(wrapper).formData.moi = 'Other'
+    await flushPromises()
+    expect(wrapper.text()).toContain('MOI note')
+    expect(wrapper.findAll('input[required]')).toHaveLength(1)
+  })
+
+  it('hides a dotted section field while its parent is hidden (#433)', async () => {
+    const wrapper = mountForm(
+      {
+        field_definitions: {
+          on: { type: 'boolean', label: 'Applicable' },
+          other: { type: 'text', label: 'Other' },
+          extra: {
+            type: 'object',
+            visible_when: { on: true },
+            properties: { why: { type: 'text', label: 'Reason given' } }
+          }
+        },
+        ui_configuration: {
+          layout: {
+            tabs: [
+              { id: 'a', name: 'A', sections: [{ name: 'S', fields: ['on', 'extra.why'] }] },
+              { id: 'b', name: 'B', sections: [{ name: 'T', fields: ['other'] }] }
+            ]
+          }
+        }
+      },
+      { on: false }
+    )
+    await flushPromises()
+    expect(wrapper.text()).toContain('Applicable')
+    expect(wrapper.text()).not.toContain('Reason given')
+
+    vmOf(wrapper).formData.on = true
+    await flushPromises()
+    expect(wrapper.text()).toContain('Reason given')
+  })
+
   it('writes evidence cells to the form on change, not per keystroke', async () => {
     const wrapper = mountForm(
       {

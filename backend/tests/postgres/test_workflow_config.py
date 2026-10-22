@@ -127,7 +127,16 @@ def w() -> Generator[W, None, None]:
                     str(gid),
                     str(x.scope),
                     pair,
-                    json.dumps({"summary": "ok"}),
+                    json.dumps(
+                        {
+                            "summary": "ok",
+                            "entity_definition": {
+                                "mondo_id": "MONDO:0000001",
+                                "disease_name": "disease",
+                                "mode_of_inheritance": "AD",
+                            },
+                        }
+                    ),
                     str(x.alice),
                 ),
             )
