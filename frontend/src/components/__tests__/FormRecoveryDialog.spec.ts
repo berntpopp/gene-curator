@@ -13,9 +13,9 @@ const NOW = new Date('2026-03-10T12:00:00Z')
 
 let wrapper: VueWrapper | undefined
 
-function mountDialog(timestamp: string | null = null) {
+function mountDialog(timestamp: string | null = null, stale = false) {
   wrapper = mount(FormRecoveryDialog, {
-    props: { modelValue: true, timestamp },
+    props: { modelValue: true, timestamp, stale },
     attachTo: document.body
   })
   return wrapper
@@ -47,7 +47,9 @@ describe('FormRecoveryDialog', () => {
   it('omits the time without a timestamp', () => {
     mountDialog(null)
 
-    expect(document.body.textContent).toContain('Restore unsaved changes? This replaces')
+    expect(document.body.textContent).toContain(
+      'Your local changes were not saved. Restoring replaces what the form shows now with them.'
+    )
   })
 
   it.each([
@@ -77,6 +79,20 @@ describe('FormRecoveryDialog', () => {
     clickButton('Discard')
     clickButton('Restore')
 
+    expect(w.emitted('discard')).toHaveLength(1)
+    expect(w.emitted('restore')).toHaveLength(1)
+  })
+
+  it('warns that restoring a stale draft replaces the newer saved version (#436)', () => {
+    const w = mountDialog(agoMs(5 * 60 * 1000), true)
+    const text = document.body.textContent
+
+    expect(text).toContain('A newer version was saved')
+    expect(text).toContain(
+      'saved again after your local changes from 5 minutes ago, for example in another tab or by another user. Restoring replaces that newer saved version with your local copy.'
+    )
+    clickButton('Keep newer version')
+    clickButton('Replace with local copy')
     expect(w.emitted('discard')).toHaveLength(1)
     expect(w.emitted('restore')).toHaveLength(1)
   })

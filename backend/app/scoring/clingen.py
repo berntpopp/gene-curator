@@ -24,7 +24,12 @@ from .point_model import ItemRule, point_model, score, template
 logger = get_logger(__name__)
 
 # Row keys that are not entered evidence (points are checked on their own)
-_NOT_EVIDENCE_KEYS = {"id", "pmid", "proband_counted_points"}
+_NOT_EVIDENCE_KEYS = {
+    "id",
+    "pmid",
+    "proband_counted_points",
+    "proband_not_counted_points",
+}
 
 ENGINE_NAME = "clingen_sop_v11"
 
@@ -36,8 +41,20 @@ def _positive(value: Any) -> bool:
         return False
 
 
+def _range_warning(flag: dict[str, Any]) -> str:
+    where = f"{flag['path']} = {flag['value']}"
+    if flag["range"] is None:
+        if isinstance(flag["value"], (int, float)) and flag["value"] < 0:
+            return f"{where} is below zero"
+        return f"{where} is not a finite number"
+    low, high = flag["range"]
+    return f"{where} is outside the pinned range {low:g}-{high:g}"
+
+
 def lod_to_points_sop11(lod_score: float) -> float:
     """SOP v11 segregation: LOD 0.6-1.2 -> 1, 1.2-2.4 -> 2, >= 2.4 -> 3 points."""
+    if not math.isfinite(lod_score):
+        return lod_score  # propagate to the shared non-finite flag/filter
     if lod_score < 0.6:
         return 0.0
     if lod_score < 1.2:
@@ -55,6 +72,8 @@ def segregation_points(item: dict[str, Any]) -> float:
     if lod_score is not None:
         return lod_to_points_sop11(float(lod_score))
     segregations = item.get("segregations_counted", 0)
+    if not math.isfinite(segregations):
+        return float(segregations)
     if segregations > 0:
         return lod_to_points_sop11(segregations * math.log10(2))
     return 0.0
@@ -104,6 +123,8 @@ def legacy_lod(family_count: int, inheritance: str) -> float:
 
 def legacy_lod_to_points(lod_score: float) -> float:
     """LOD < 3 -> 0, 3-5 -> 1, 5-7 -> 2, then +0.5 per LOD unit up to 7 points."""
+    if not math.isfinite(lod_score):
+        return lod_score
     if lod_score < 3.0:
         return 0.0
     if lod_score < 5.0:
@@ -158,14 +179,34 @@ _LEGACY_SECTION: dict[str, dict[str, Callable[[dict[str, Any]], float]]] = {
 }
 
 
-def legacy_points(section_key: str, items: list[Any]) -> dict[str, list[float]]:
+def legacy_points(
+    section_key: str, items: list[Any], flags: list[Any]
+) -> dict[str, list[float]]:
     """{category: [item points]} for a legacy flat list; unknown categories are ignored."""
     scorers = _LEGACY_SECTION.get(section_key, {})
     out: dict[str, list[float]] = {}
-    for item in rows(items):
+    for index, item in enumerate(rows(items)):
         category = _LEGACY_CATEGORY.get(item.get("evidence_category", ""), "")
         if category in scorers:
-            out.setdefault(category, []).append(scorers[category](item))
+            value = scorers[category](item)
+            finite = math.isfinite(value)
+            if not finite or value < 0:
+                key = "computed_score" if category == "case_control" else "points"
+                if category == "segregation":
+                    key = (
+                        "lod_score"
+                        if item.get("lod_score") is not None
+                        else "family_count"
+                    )
+                flags.append(
+                    {
+                        "path": f"{section_key}[{index}].{key}",
+                        "value": value if finite else str(value),
+                        "range": None,  # legacy categories do not identify a model type
+                    }
+                )
+            if finite:
+                out.setdefault(category, []).append(value)
     return out
 
 
@@ -217,6 +258,7 @@ class ClinGenEngine(ScoringEngine):
             evidence_data.get("genetic_evidence", []),
             evidence_data.get("experimental_evidence", []),
         )
+        warnings += map(_range_warning, result["trace"].get("out_of_range", []))
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],
@@ -262,6 +304,10 @@ class ClinGenEngine(ScoringEngine):
         problems = self._pmid_problems(genetic_evidence, experimental_evidence)
         if problems["scored"]:
             warnings.append(f"{problems['scored']} scored row(s) have no PMID")
+        if problems["not_counted"]:
+            warnings.append(
+                f"{problems['not_counted']} row(s) with only not-counted points have no PMID"
+            )
         if problems["invalid"]:
             warnings.append(
                 f"{problems['invalid']} evidence item(s) with invalid or missing PMID"
@@ -332,7 +378,7 @@ class ClinGenEngine(ScoringEngine):
             *self._iter_evidence_items(genetic_evidence),
             *self._iter_evidence_items(experimental_evidence),
         ]
-        counts = {"scored": 0, "invalid": 0}
+        counts = {"scored": 0, "not_counted": 0, "invalid": 0}
         for item in items:
             problem = self._pmid_problem(item)
             if problem:
@@ -341,12 +387,16 @@ class ClinGenEngine(ScoringEngine):
 
     def _pmid_problem(self, item: dict[str, Any]) -> str | None:
         """ "invalid": a filled-in bad PMID or other content without one; "scored":
-        points > 0 (preset ones too, they count) without a PMID. Blank rows: None."""
+        points > 0 (preset ones too, they count) without a PMID; "not_counted": only
+        not-counted points > 0 without a PMID. Blank rows: None."""
         pmid = str(item.get("pmid") or "").strip()
         if pmid:
             return None if self._is_valid_pmid(pmid) else "invalid"
-        if any(k.endswith("points") and _positive(v) for k, v in item.items()):
+        positive = [k for k, v in item.items() if k.endswith("points") and _positive(v)]
+        if any("not_counted" not in k for k in positive):
             return "scored"
+        if positive:
+            return "not_counted"
         rest = {k: v for k, v in item.items() if k not in _NOT_EVIDENCE_KEYS}
         return "invalid" if has_content(rest) else None
 

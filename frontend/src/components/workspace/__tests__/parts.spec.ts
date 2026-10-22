@@ -47,14 +47,17 @@ describe('SaveState', () => {
     expect(text('unsaved')).toBe('Unsaved changes')
     expect(text('failed')).toContain('Save failed')
     expect(text('conflict')).toContain('Edited elsewhere')
+    // Local edits survive the reload and are offered back (#436): never claim they are lost
+    expect(text('conflict')).toContain('your changes here are kept in this browser')
+    expect(text('conflict')).not.toContain('lost')
   })
 
-  it('conflict: warns that reloading discards local changes and reloads on click', async () => {
+  it('conflict: says local changes survive the reload, and reloads on click', async () => {
     const reload = vi.fn()
     vi.stubGlobal('location', { ...window.location, reload })
     const w = mount(SaveState, { props: { state: 'conflict', savedAt: null } })
     expect(w.attributes('role')).toBe('alert')
-    expect(w.text()).toContain('lost')
+    expect(w.text()).toContain('offered after the reload')
     expect(w.find('button').text()).toBe('Reload')
     await w.find('button').trigger('click')
     expect(reload).toHaveBeenCalledOnce()

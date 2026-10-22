@@ -84,8 +84,10 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      :model-value="showRecoveryDialog && recoveryReady"
+      v-if="!readonly"
+      :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
+      :stale="recoveryStale"
       @restore="handleRestore"
       @discard="discardRecovery"
     />
@@ -124,6 +126,7 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { recoveryVersion } from '@/utils/formRecoveryStorage'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
@@ -204,29 +207,30 @@
     hasDisputingRow(evidenceData.value.contradictory_evidence)
   )
 
-  // Form Recovery - schema-aware key to prevent cross-schema data restore
+  // Form Recovery - schema-aware key to prevent cross-schema data restore; a new curation's
+  // draft belongs to its scope and gene, never offered on another gene's new curation
   const recoveryKey = computed(
-    () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}-v2`
+    () =>
+      `curation-${props.curationId || `new-${props.scopeId}-${props.geneId}`}-schema-${props.schemaId}-v2`
   )
 
   const formRecovery = useFormRecovery(recoveryKey.value, evidenceData, {
-    saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
   const {
     showRecoveryDialog,
-    restoreRecovery: restoreInPlace,
+    recoveryTimestamp,
+    recoveryStale,
+    restoreRecovery,
     discardRecovery,
     clearRecovery,
-    dropIfSaved
+    setBaseline,
+    markSaved
   } = formRecovery
-  const recoveryReady = ref(false) // offer recovery only after the saved curation is known
-  const recoveryTimestamp = formRecovery.recoveryTimestamp
+  let serverVersion: string | null = null // the loaded curation's, for the recovery baseline
 
-  // restore mutates evidenceData in place; a new reference lets reference watchers see it
-  function handleRestore() {
-    restoreInPlace()
-    evidenceData.value = { ...evidenceData.value }
+  function handleRestore(): void {
+    if (!props.readonly) restoreRecovery()
   }
 
   // Clear recovery when schema changes (prevents invalid data restore)
@@ -298,6 +302,7 @@
       lockVersion,
       canSubmit: () => canSubmit.value,
       clearRecovery,
+      markSaved,
       clearHistory,
       onSaved: () => {
         savedAt.value = Date.now()
@@ -455,7 +460,7 @@
       )
         return
     }
-    clearRecovery()
+    if (!props.readonly) clearRecovery()
     clearHistory()
     emit('cancel')
   }
@@ -549,7 +554,7 @@
           evidenceData.value = curation.evidence_data || {}
         }
 
-        dropIfSaved(evidenceData.value)
+        serverVersion = recoveryVersion(curation)
         pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
@@ -606,7 +611,8 @@
     }
     if (!props.readonly) void pmids.checkAll(pmidsIn(evidenceData.value))
     ready.value = true
-    recoveryReady.value = true
+    // Local drafts are compared with what the form now shows; none until the saved one loaded
+    if (!props.curationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,
