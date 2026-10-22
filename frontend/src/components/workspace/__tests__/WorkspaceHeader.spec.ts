@@ -1,7 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
+import { defineComponent, h, ref } from 'vue'
 import { createRouter, createMemoryHistory } from 'vue-router'
 import WorkspaceHeader from '../WorkspaceHeader.vue'
+import EvidenceTableField from '@/components/dynamic/EvidenceTableField.vue'
+import { normalizeField } from '@/components/dynamic/normalizeDefinition'
+
+vi.mock('@/api/publications', () => ({
+  publicationsAPI: { validatePMIDs: vi.fn().mockResolvedValue({ results: [] }) }
+}))
 
 const router = createRouter({
   history: createMemoryHistory(),
@@ -79,5 +86,47 @@ describe('WorkspaceHeader', () => {
     const w = mountHeader({ moi: 'autosomal_dominant' })
     expect(w.text()).not.toContain('autosomal_dominant')
     expect(w.find('.ws-title__text').text()).toContain('Autosomal dominant')
+  })
+
+  // #267: the blocker text appearing or disappearing must never move the buttons
+  // (a click whose mousedown commits a PMID cell would otherwise land beside Save draft)
+  it('keeps the blocker message out of the button row', () => {
+    const actions = (w: ReturnType<typeof mountHeader>) => w.find('.ws-actions').element.outerHTML
+    const reason = 'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
+    const blocked = mountHeader({ canSubmit: true, blockers: [reason] })
+    expect(blocked.find('[data-testid="ws-blockers"]').text()).toBe(reason)
+    expect(blocked.find('.ws-actions [data-testid="ws-blockers"]').exists()).toBe(false)
+    expect(actions(blocked)).toBe(actions(mountHeader()))
+  })
+
+  it('saves the cell value committed by the blur of the Save click', async () => {
+    const field = normalizeField({
+      type: 'array',
+      ui_component: 'EvidenceTable',
+      item_schema: { pmid: { type: 'string', validation: 'pmid_format' } }
+    })
+    const saved: unknown[] = []
+    const Page = defineComponent(() => {
+      const rows = ref<unknown>([{ id: 'r1', pmid: '123' }])
+      return () => [
+        h(WorkspaceHeader, { ...base, state: 'unsaved', onSave: () => saved.push(rows.value) }),
+        h(EvidenceTableField, {
+          fieldSchema: field,
+          label: 'Evidence',
+          modelValue: rows.value,
+          'onUpdate:modelValue': (v: unknown) => (rows.value = v)
+        })
+      ]
+    })
+    const w = mount(Page, { global: { plugins: [router] }, attachTo: document.body })
+    const input = w.find<HTMLInputElement>('input[aria-label="Pmid, row 1"]')
+    input.element.value = '456'
+    await input.trigger('input')
+    // Mousedown on Save moves focus: the browser fires change, then blur, then click
+    await input.trigger('change')
+    await input.trigger('blur')
+    await w.find('[data-testid="ws-save"]').trigger('click')
+    expect(saved).toEqual([[{ id: 'r1', pmid: '456' }]])
+    w.unmount()
   })
 })
