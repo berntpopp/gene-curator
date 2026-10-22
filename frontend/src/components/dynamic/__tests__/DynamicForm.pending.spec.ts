@@ -5,11 +5,15 @@ import DynamicForm from '../DynamicForm.vue'
 import { validationAPI } from '@/api/validation'
 
 vi.mock('@/api/validation', () => ({ validationAPI: { validateEvidence: vi.fn() } }))
-const reply = {
+const reply: Awaited<ReturnType<typeof validationAPI.validateEvidence>> = {
   is_valid: true,
   errors: [],
   warnings: [],
   field_validations: {},
+  business_rule_violations: [],
+  completeness_score: 1,
+  required_fields_missing: [],
+  suggested_improvements: [],
   score_calculations: { total_score: 7.5, verdict: 'Current' }
 }
 let wrapper: VueWrapper
