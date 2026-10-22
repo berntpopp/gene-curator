@@ -1,3 +1,21 @@
+## Merge checkpoint — 2026-10-22 12:41 UTC
+
+PR442 merged at358ce6c after actual Opus SHIP, local CI/check, GitHub CI and candidate browser36+23 passed. Root master synced; mandatory fresh core underway. PR444 postmerge59+9+1 passed. PR443 is next after A fresh gate and H current-master integration/narrow browser. Native D/E/I fixes continue; actual Opus delta reviews wait19:00 Berlin.
+
+## Opus session limit — 2026-10-22 12:31 UTC
+
+CLI reports reset at19:00 Europe/Berlin. Completed reviews: A/H/F/G/J/I SHIP; D/E FIX. A candidate browser running, F merged and fresh gates passed. G/I attempted CLI implementers exited with limit errors and left both worktrees clean/unchanged. No further Opus calls until reset; native D/E fixes and already-reviewed merge gates continue.
+
+## Resume progress — 2026-10-22
+
+- Actual Opus5.5 is available. PR444 merged at785e573 after pinned SHIP, full local CI/check/diff97% and GitHub CI gate. Master synced; fresh post-merge browser gate running.
+- PR443 Opus SHIP atf312c08 after nullable is_active regression fix; full CI/check/diff100% passed. PR442 has three recovery fixes under regression/gate/re-review.
+- Actual Opus initial reviews of PR445/449/450 are running. No release tag exists.
+
+# Resume checkpoint
+
+Owner explicitly resumed. Actual Opus5.5 availability probe passed (session57dedd44-cbf1-4818-9a56-e0df900cbc3e). A442, F444 and H443 review lanes dispatched; no new merges yet. Root master remains7496d36; all pre-existing dirty files preserved. The prior paused checkpoint below is historical.
+
 # Wave 5 orchestration status
 
 > **Owner-paused 2026-10-22:** stop work while Opus is unavailable. See [resume checkpoint](WAVE5-RESUME.md); resume only on the owner's instruction.

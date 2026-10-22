@@ -1,8 +1,11 @@
 # Wave 5 resume checkpoint
 
-**Owner-paused on 2026-10-22.** The owner requested stopping because Opus is unavailable.
-Do not resume implementation, reviews or queued work until the owner explicitly resumes.
-No further Opus calls, billing/auth changes or substitute approvals are authorized.
+> **12:31 UTC update:** actual Opus reviews resumed successfully, then the CLI hit its session usage limit (reset 19:00 Europe/Berlin). Completed SHIP verdicts remain valid; no further calls before reset. Native fixes and already-reviewed merge/browser gates continue.
+
+**Owner resumed work on 2026-10-22.** A single actual Claude Opus 5.5 probe returned
+OPUS_READY with is_error=false and modelUsage claude-opus-5-5. Required independent
+Opus reviews are restarting from the saved queue. No billing/auth changes or substitute
+approvals are authorized. All previously recorded gates and exclusions remain binding.
 
 - Release draft: [#452](https://github.com/berntpopp/gene-curator/pull/452), branch `release/v0.7.0`.
   Last cleanup head before this documentation checkpoint: `985063af3927935d94fffb72622c3ef5292085e1`.
@@ -10,13 +13,13 @@ No further Opus calls, billing/auth changes or substitute approvals are authoriz
   `git log -1 --format=%H -- .planning/WAVE5-RESUME.md` (also recorded in the final handoff).
 - Master: `7496d3663e68b91c53263337d4ee0c936f176b49`; PRs #440 and #441 are merged.
 - Eight implemented functional drafts remain: #442, #443, #444, #445, #446, #449, #450, #451.
-  Mandatory independent Opus ponytail reviews remain blocked; native reviews do not replace them.
+  Mandatory independent Opus ponytail reviews have resumed; native reviews do not replace them.
 - Local required gates passed. Combined candidate `62fe62e` passed 171/171 browser checks.
   These candidate results do not replace future per-merge checks. No v0.7.0 tag/release exists.
 - All generated Wave 5 helpers/artifacts are ignored; evidence tracks Markdown only.
   Eight obsolete archive files are untracked but retained locally, including SOP PDFs.
   Deliberate Markdown, planning configuration and established orchestration tools are preserved.
-- Preserve every worktree. Ops is assigned to stop only isolated test servers and retain the DB.
+- Preserve every worktree. Ops owns isolated test servers and fresh post-merge browser gates.
   Do not touch the development stack or discard local work.
 - Root has pre-existing dirty planning/tooling, local `.gitignore` changes and untracked duplicate
   Wave 5 documents. Reconcile only verified task-owned duplicates before a future fast-forward;

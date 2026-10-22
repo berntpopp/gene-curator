@@ -1,9 +1,11 @@
 # Wave 5 implementation and verification report
 
-> **Owner-paused 2026-10-22:** stop work while Opus is unavailable. See [resume checkpoint](WAVE5-RESUME.md); resume only on the owner's instruction.
+> **12:31 UTC update:** actual Opus reviews resumed successfully, then the CLI hit its session usage limit (reset 19:00 Europe/Berlin). Completed SHIP verdicts remain valid; no further calls before reset. Native fixes and already-reviewed merge/browser gates continue.
 
-Status: release blocked by required Opus reviews. Two PRs are merged; eight functional
-PRs are implemented as drafts. The v0.7.0 release candidate is prepared and has passed
+> **Owner-resumed 2026-10-22:** actual Opus5.5 is available again. Reviews, fixes and sequential merge/browser gates are in progress; see [resume checkpoint](WAVE5-RESUME.md).
+
+Status: required Opus reviews and merge/browser gates are in progress. Four PRs are merged; six functional
+PRs remain in the queue. The v0.7.0 release candidate is prepared and has passed
 local CI. Final browser checks passed171/171; the release draft link is being recorded below.
 
 ## Scope and decisions
@@ -31,20 +33,20 @@ was introduced. Existing explicit admin edit policies were preserved.
 
 For drafts, CI means local `make ci`; required GitHub CI is deferred until ready.
 Changed-line coverage below is the reported task-specific result where available.
-Every remaining PR still needs actual Opus review, current-master integration checks,
+Every remaining PR needs a recorded actual Opus SHIP, current-master integration checks,
 required GitHub CI and its fresh postmerge browser gate. Native review is supplementary.
 
 | Issue | PR and tested head | State | Local gates / review |
 | --- | --- | --- | --- |
 | #431 catalogue | [440](https://github.com/berntpopp/gene-curator/pull/440), fdc745e | Closed, merged4fe8b6d | CI/check, diff100%; Opus SHIP; GitHub CI passed |
 | #430 reviewer approval | [441](https://github.com/berntpopp/gene-curator/pull/441), c51ad81 | Closed, merged7496d36 | CI/check, diff100%; Opus delta SHIP; GitHub CI passed |
-| #436 recovery | [442](https://github.com/berntpopp/gene-curator/pull/442), 6cdc7ee | Implemented draft | CI/check, diff97%; final Opus delta pending |
-| #432 derive/race | [443](https://github.com/berntpopp/gene-curator/pull/443), fad565a | Implemented draft | CI/check, diff100%; final Opus delta pending |
-| #434 scoring robustness | [444](https://github.com/berntpopp/gene-curator/pull/444), 5968924 | Implemented draft | CI/check, diff97%; all five review findings fixed, Opus delta pending |
+| #436 recovery | [442](https://github.com/berntpopp/gene-curator/pull/442), 9e04844 | Closed, merged358ce6c | CI/check, diff97%, fix100%; actual Opus delta SHIP, GitHub CI green; candidate browser36/36 +23/23 passed; fresh core running |
+| #432 derive/race | [443](https://github.com/berntpopp/gene-curator/pull/443), f312c08 | Reviewed draft | CI/check, diff100%; actual Opus delta SHIP after is_active:null fix; browser/integration pending |
+| #434 scoring robustness | [444](https://github.com/berntpopp/gene-curator/pull/444), 62b7c35 | Merged785e573 | CI/check, diff97%; actual Opus delta SHIP, GitHub CI passed; fresh core59/59 + narrow9/9 + font1/1 passed |
 | #433 condition parity | [445](https://github.com/berntpopp/gene-curator/pull/445), 4e7cf15 | Implemented draft | CI/check, 2538 frontend tests; initializer fix diff100%/100%; Opus pending |
 | #429 / #266 score trace | [446](https://github.com/berntpopp/gene-curator/pull/446), 01e85d7 | Implemented draft | CI/check, 2530 frontend tests; E-only diff96%; Opus pending |
 | #435 PMID/workflow | [449](https://github.com/berntpopp/gene-curator/pull/449), cdc199c | Implemented draft | CI/check, 2536 frontend tests; G-only diff95% backend/96% frontend; Opus pending |
-| #438 AR defaults | [450](https://github.com/berntpopp/gene-curator/pull/450), 6fbddc4 | Decision recorded, implemented draft | CI/check, 2547 frontend tests; J-only diff99%/100%; Opus pending |
+| #438 AR defaults | [450](https://github.com/berntpopp/gene-curator/pull/450), 547392d | Reviewed draft | CI/check, 2547 frontend tests; J-only diff99%/100%; actual Opus SHIP with SOP PDF; parent-fix integration pending |
 | #437 UI polish | [451](https://github.com/berntpopp/gene-curator/pull/451), 62fe62e | Implemented draft | CI/check, 2561 frontend tests; I-only frontend diff100%; Opus pending |
 | #264 methodology epic | #446 and dependencies | Partial until merged/verified | Accepted Wave4 scope reductions remain; original broader requirements are not claimed delivered |
 
@@ -66,8 +68,10 @@ actual UI actions, API fixture setup and supplementary browser-origin API checks
   There is no disease-filter UI control; API filter checks supplemented actual UI display.
 - PR441 candidate: core59/59 and narrow25/25. Fresh postmerge: core59/59 and narrow27/27.
   Already-approved reviewers retained comments/Request changes; legacy activation worked.
+- PR444 fresh postmerge at785e573: core59/59, narrow9/9 and font1/1 passed. Two narrow assertions were browser-origin API cap/trace readbacks; actual UI warning expansion/save/reload passed.
 - Recovery: editable23/23. A further read-only restore action changed displayed evidence
   without a server write; its fix passed fresh12/12, including later authorized restoration.
+- Resumed A at9e048445: actual Opus delta SHIP, expanded narrow36/36 plus existing recovery replay23/23 passed; includes readonly precuration/curation Escape/Discard and delayed-save Cancel lifecycle.
 - Trace:25/26, with the sole parity failure exactly matching excluded386. Custom caps,
   selected rules, pinned saved traces and delayed responses passed.
 - G PMID16/16 and pagination5/5; H Derive6/6; historical-pin preservation6/6.
@@ -122,7 +126,7 @@ no candidates; application/test source paths are unaffected.
 
 ## Release, sync and blocker
 
-Root master is synchronized to origin/master7496d366. All completed functional branches
+Root master is synchronized to origin/master358ce6c. All completed functional branches
 are pushed as drafts. Pre-existing root planning/tooling edits were preserved; the
 requested narrow .gitignore update is also present locally and in the release candidate.
 
@@ -134,10 +138,10 @@ references; package-lock ^10.6.0 is an unrelated dependency constraint. README e
 A separate native factual audit verified citations, versions and clinical limitations.
 
 Release PR: [452](https://github.com/berntpopp/gene-curator/pull/452), draft. No v0.7.0 tag or GitHub release
-has been created. Claude Code Opus5.5 hit the account monthly spend limit; incomplete
-review calls yielded no verdict. Mandatory reviews cannot be replaced by native reviews.
-No billing/authentication changes or retry loop were attempted. Remaining merges and
-publication are blocked on that review gate, not reported complete.
+has been created. The prior account monthly-spend failure caused a pause; the owner resumed
+after an actual Opus5.5 probe succeeded. Mandatory reviews cannot be replaced by native reviews.
+No billing/authentication changes were made. Remaining merges and publication still require
+all review, CI and fresh browser gates; the release is not reported complete.
 
 ## Wave 6 continuation
 

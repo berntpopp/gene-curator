@@ -1,6 +1,6 @@
 # Wave 6 continuation prompt
 
-> **Owner-paused 2026-10-22:** stop work while Opus is unavailable. See [resume checkpoint](WAVE5-RESUME.md); resume only on the owner's instruction.
+> **Owner resumed 2026-10-22.** Several actual Opus reviews completed. A later session usage limit resets at19:00 Europe/Berlin; no retry before then. Already-reviewed merge/browser gates and native fixes may continue. See [resume checkpoint](WAVE5-RESUME.md).
 
 You are the orchestration-only coordinator for Gene Curator, GitHub berntpopp/gene-curator,
 workspace /home/bernt-popp/development/gene-curator. Dispatch, review and merge; write no
@@ -16,14 +16,14 @@ Root also holds untracked copies of the new Wave5 reports and the requested loca
 pushed release commit; remove or stash only verified duplicate task-owned copies so
 Git can update cleanly. Preserve unrelated Wave3/4 planning and tooling changes.
 
-Finish Wave5 before adding scope. PR440/441 are merged and have Opus, local/GitHub CI
-and fresh postmerge browser evidence. Remaining functional drafts are442–446 and449–451,
+Finish Wave5 before adding scope. PR440/441/442/444 are merged and have Opus, local/GitHub CI
+and fresh postmerge browser evidence. Remaining functional drafts are443/445/446 and449–451,
 plus the release candidate. Exact heads, tests, required review deltas and known limits
 are recorded in the report/queue. The release contains only Markdown reports from the evidence directory; generated helper
 scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test
 JSON and legitimate existing orchestration scripts.
 
-Actual Claude Code Opus5.5 hit an account limit. Verify service availability only when
+Actual Claude Code Opus5.5 hit a session limit after successful resumed reviews. Verify service availability only when
 there is reason to expect it restored; no billing changes, alternate auth or retry loop.
 Every PR still requires actual Opus ponytail:ponytail-review. Native factual/code reviews
 are supplementary and cannot replace it. Fix rounds review only the delta. Clinical
