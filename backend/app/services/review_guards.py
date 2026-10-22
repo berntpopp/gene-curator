@@ -3,6 +3,7 @@
 from typing import Any
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.crud.precuration_required import (
@@ -11,6 +12,7 @@ from app.crud.precuration_required import (
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
+from app.schemas.curation import disease_fields
 from app.scoring.point_limits import enforce_clingen_point_ranges
 from app.services.publication_service import evidence_pmids, unknown_pmids
 
@@ -58,6 +60,31 @@ def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str
     }
 
 
+def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:
+    """Validate inherited disease fields without writing them into saved evidence."""
+    evidence = item.evidence_data or {}
+    entity = evidence.get("entity_definition", {})
+    if not item.precuration_id or not isinstance(entity, dict):
+        return evidence
+    precuration = db.scalar(
+        select(PrecurationNew).where(
+            PrecurationNew.id == item.precuration_id,
+            PrecurationNew.scope_id == item.scope_id,
+            PrecurationNew.gene_id == item.gene_id,
+        )
+    )
+    disease = disease_fields(
+        evidence, precuration.evidence_data if precuration else None
+    )
+    # Display falls back on empty values; validation must retain explicit empty answers.
+    entity = {
+        **disease,
+        **entity,
+        **{key: evidence[key] for key in disease if key in evidence},
+    }
+    return {**evidence, "entity_definition": entity}
+
+
 def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> None:
     """Network-free content checks before an item enters review, on every route there.
 
@@ -66,6 +93,8 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
     evidence = item.evidence_data or {}
     if isinstance(item, CurationNew) and not evidence:
         raise ValueError("Evidence data is required before review")
+    if isinstance(item, CurationNew):
+        evidence = _curation_review_evidence(db, item)
     definition = item_definition(db, item)
     if missing := missing_required_fields(
         definition.get("field_definitions"),
