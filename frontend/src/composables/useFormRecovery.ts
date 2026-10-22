@@ -252,7 +252,6 @@ export function useFormRecovery<T extends object>(
   function markSaved(savedData: unknown, version: string): void {
     baseline = canonical(savedData)
     baseVersion = version
-    isPaused.value = false
     saveToLocalStorage() // forgets this form's draft, or re-binds edits made since to the save
   }
 

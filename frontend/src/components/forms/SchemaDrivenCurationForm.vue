@@ -450,7 +450,7 @@
       )
         return
     }
-    clearRecovery()
+    if (!props.readonly) clearRecovery()
     clearHistory()
     emit('cancel')
   }
