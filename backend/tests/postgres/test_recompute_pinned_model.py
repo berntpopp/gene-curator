@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core import database
+from app.scoring.point_model import template
 from app.services import recompute_scores
 from tests.postgres.test_methodology_versions import W, _h, _owner, client, w
 from tests.postgres.test_point_model_pinned import _create
@@ -124,7 +125,26 @@ def test_api_draft_invalid_scores_are_flagged_and_storable(
     total: float,
     path: str,
 ) -> None:
+    # These regression cases exercise the retained v1 LOD fallback, not its successor.
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curation_schemas SET scoring_configuration = %s WHERE id = %s",
+            (
+                json.dumps(
+                    {
+                        "engine": "clingen_sop_v11",
+                        "point_model": template("clingen_sop_v11"),
+                    }
+                ),
+                w.schema,
+            ),
+        )
+    version = client.post(
+        f"/api/v1/schemas/curation-schemas/{w.schema}/versions", headers=_h(w.admin)
+    )
+    assert version.status_code == 201, version.text
     created = _create(client, w, w.genes[0])
+    assert created["methodology_version_id"] == version.json()["id"]
     url = f"/api/v1/curations/{created['id']}"
     saved = client.patch(
         f"{url}/draft",
