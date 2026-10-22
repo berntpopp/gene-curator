@@ -33,19 +33,15 @@
             hide-actions
             @update:model-value="handleEvidenceChange"
             @validation-change="handleValidationChange"
+            @validation-pending="frame?.setScorePending($event)"
             @submit="requestSubmit"
             @save-draft="handleSaveDraft"
           >
             <template #section="{ section }">
               <ScoreSummary
                 v-if="section.component === 'ScoreSummary' && score"
-                :genetic-score="score.genetic"
-                :experimental-score="score.experimental"
-                :total-score="score.total"
+                :scores="score"
                 :classification="score.classification"
-                :has-contradictory="score.hasContradictory"
-                :genetic-breakdown="score.geneticBreakdown"
-                :experimental-breakdown="score.experimentalBreakdown"
               />
               <LumpingSplittingSection
                 v-else-if="section.component === 'LumpingSplittingSection'"
@@ -135,7 +131,7 @@
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent, hasDisputingRow } from './hasContent'
-  import { scoreSnapshot, type ScoreCalculations } from './scorePreview'
+  import { scoreSnapshot } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
@@ -383,12 +379,7 @@
   ) {
     isValid.value = validationResult?.is_valid !== false
     // Live score: validate-evidence (debounced per edit) scores with the pinned point model
-    if (validationResult?.score_calculations) {
-      score.value = scoreSnapshot(
-        validationResult.score_calculations as ScoreCalculations,
-        hasContradictory.value
-      )
-    }
+    score.value = scoreSnapshot(validationResult?.score_calculations, hasContradictory.value)
   }
 
   /**

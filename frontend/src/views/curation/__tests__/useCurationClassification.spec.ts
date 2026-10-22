@@ -11,9 +11,9 @@ describe('useCurationClassification', () => {
     expect(classification.value).toBe('Moderate')
   })
 
-  it('is empty and zero before the curation has been scored', () => {
+  it('is empty and unavailable before the curation has been scored', () => {
     const { scores, classification } = useCurationClassification(() => null)
-    expect(scores.value.total).toBe(0)
+    expect(scores.value.total).toBeNull()
     expect(classification.value).toBe('')
   })
 })
