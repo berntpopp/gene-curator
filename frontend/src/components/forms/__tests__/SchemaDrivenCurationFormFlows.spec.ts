@@ -119,7 +119,7 @@ const stubs = {
   },
   ScoreSummary: {
     name: 'ScoreSummary',
-    props: ['totalScore', 'classification'],
+    props: ['scores', 'classification'],
     template: '<i />'
   },
   LumpingSplittingSection: {
@@ -554,9 +554,14 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
         total: 8,
         classification: 'Moderate',
         hasContradictory: true,
-        geneticBreakdown: { segregation: 1, caseLevel: 0 }
+        trace: {
+          sections: [{ key: 'genetic_evidence', categories: [{ key: 'segregation', score: 1 }] }]
+        }
       })
-      expect(wrapper.findComponent({ name: 'ScoreSummary' }).props('totalScore')).toBe(8)
+      expect(wrapper.findComponent({ name: 'ScoreSummary' }).props('scores').total).toBe(8)
+      form.vm.$emit('validation-change', undefined)
+      await flushPromises()
+      expect(frame.score.value).toBeNull()
       expect(curationsStore.calculateScore).not.toHaveBeenCalled()
     })
 

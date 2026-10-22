@@ -249,6 +249,8 @@
   let validateTimer: ReturnType<typeof setTimeout> | undefined
   const scheduleValidate = () => {
     clearTimeout(validateTimer)
+    // Invalidate in-flight replies at the edit, not 500 ms later when the next request starts.
+    validationStore.clearValidationResult('form')
     validateTimer = setTimeout(validateForm, 500)
   }
 
@@ -550,7 +552,7 @@
   watch(
     formData,
     () => {
-      if (Object.keys(formData.value).length > 0) scheduleValidate()
+      scheduleValidate()
     },
     { deep: true }
   )

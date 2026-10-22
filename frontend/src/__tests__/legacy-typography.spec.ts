@@ -3,9 +3,8 @@ import { describe, expect, it } from 'vitest'
 // Vuetify 4 removed the MD2 typography classes; they render unstyled.
 const LEGACY = /(?<![\w-])text-(h[1-6]|subtitle-[12]|body-[12]|caption|button|overline)(?![\w-])/
 
-// Dynamic builds (`text-${x}`, 'text-' + x) can hide old names; only this colour site is allowed.
+// Dynamic builds (`text-${x}`, 'text-' + x) can hide old names.
 const DYNAMIC = /text-\$\{|['"`]text-['"`]\s*\+/
-const DYNAMIC_ALLOWED = ['/src/components/dynamic/ScoreDisplay.vue']
 
 const sources = import.meta.glob<string>('/src/**/*.{vue,ts,scss,css,snap}', {
   query: '?raw',
@@ -25,6 +24,6 @@ describe('legacy Vuetify 3 typography classes', () => {
     const hits = Object.entries(sources)
       .filter(([file, text]) => !file.endsWith('legacy-typography.spec.ts') && DYNAMIC.test(text))
       .map(([file]) => file)
-    expect(hits.sort()).toEqual([...DYNAMIC_ALLOWED].sort())
+    expect(hits).toEqual([])
   })
 })

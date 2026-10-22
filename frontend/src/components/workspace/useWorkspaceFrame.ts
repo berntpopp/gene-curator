@@ -5,20 +5,13 @@
  */
 import { computed, ref, shallowRef, watch, type InjectionKey, type Ref } from 'vue'
 
+import type { EvidenceScores } from '@/views/curation/curationScores'
+
 export type SaveState = 'saved' | 'saving' | 'unsaved' | 'failed' | 'conflict'
 
-export interface ScoreSnapshot {
-  genetic: number
-  experimental: number
-  total: number
+export interface ScoreSnapshot extends EvidenceScores {
   classification: string
   hasContradictory: boolean
-  geneticBreakdown?: { caseLevel: number; segregation: number; caseControl: number }
-  experimentalBreakdown?: {
-    function: number
-    functionalAlteration: number
-    modelsAndRescue: number
-  }
 }
 
 export interface FormBinding {

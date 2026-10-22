@@ -190,10 +190,16 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Moderate')
     const dialog = wrapper.findComponent(ApproveChecklistDialog)
     expect(dialog.props('classification')).toBe('Moderate')
-    expect(dialog.props('total')).toBe('9.6')
+    expect(dialog.props('total')).toBe('9.60')
     // Caps come from the pinned model's trace, not the SOP defaults
-    expect(wrapper.text()).toContain('Experimental (max 2)')
-    expect(wrapper.text()).toContain('1.00 / 2')
+    const row = wrapper.findAll('tr').find(row => row.text().includes('Experimental evidence'))!
+    expect(row.findAll('th,td').map(cell => cell.text())).toEqual([
+      'Experimental evidence',
+      '—',
+      'Unavailable',
+      '1.00',
+      '2'
+    ])
     expect(wrapper.text()).not.toContain('/ 6')
   })
 

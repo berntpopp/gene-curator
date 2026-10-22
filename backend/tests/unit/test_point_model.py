@@ -539,3 +539,22 @@ def test_validate_evidence_scores_with_the_pinned_point_model(
     assert scores["trace"] == saved.evidence_breakdown["trace"]
     db_session.refresh(test_curation)
     assert test_curation.computed_scores == before
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        {},
+        {"replicated_over_time": True},
+        {"contradictory_evidence": [{"impact": "disputed"}]},
+    ],
+)
+def test_trace_records_exact_selected_classification_rule(evidence: dict) -> None:
+    model = copy.deepcopy(CLINGEN)
+    model["bands"] = [
+        {"class": "replicated", "min": 0, "requires": "replicated_over_time"},
+        {"class": "custom", "min": 0, "description": "Custom classification"},
+    ]
+    result = score(model, evidence)
+    assert result["trace"]["classification_rule"] == classify(model, 0, evidence)
+    assert result["total"] == 0
