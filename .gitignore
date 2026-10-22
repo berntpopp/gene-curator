@@ -63,3 +63,8 @@ __pycache__/
 /.planning/milestones/pre-gsd/plan/scripts/requirements.txt
 /.planning/milestones/pre-gsd/plan/scripts/downloads/
 /.planning/milestones/pre-gsd/plan/enhancements/tracking/.ui-ux-review-iterations
+
+# Duplicate legacy ClinGen download helper/cache; converted Markdown remains tracked
+/plan/scripts/download_clingen_docs.py
+/plan/scripts/requirements.txt
+/plan/scripts/downloads/
