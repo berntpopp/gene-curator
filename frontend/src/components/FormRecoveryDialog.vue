@@ -1,9 +1,26 @@
 <template>
-  <BaseDialog :model-value="modelValue" persistent size="md" title="Restore unsaved changes?">
-    Restore unsaved changes{{ when ? ` from ${when}` : '' }}? This replaces the current form.
+  <BaseDialog
+    :model-value="modelValue"
+    persistent
+    size="md"
+    :title="stale ? 'A newer version was saved' : 'Restore unsaved changes?'"
+  >
+    <template v-if="stale">
+      This record was saved again after your local changes{{ when ? ` from ${when}` : '' }}, for
+      example in another tab or by another user. Restoring replaces that newer saved version with
+      your local copy.
+    </template>
+    <template v-else>
+      Your local changes{{ when ? ` from ${when}` : '' }} were not saved. Restoring replaces what
+      the form shows now with them.
+    </template>
     <template #actions>
-      <v-btn variant="text" @click="$emit('discard')">Discard</v-btn>
-      <v-btn color="primary" variant="flat" @click="$emit('restore')">Restore</v-btn>
+      <v-btn variant="text" @click="$emit('discard')">
+        {{ stale ? 'Keep newer version' : 'Discard local changes' }}
+      </v-btn>
+      <v-btn :color="stale ? 'warning' : 'primary'" variant="flat" @click="$emit('restore')">
+        {{ stale ? 'Replace with local copy' : 'Restore local changes' }}
+      </v-btn>
     </template></BaseDialog
   >
 </template>
@@ -29,6 +46,8 @@
     modelValue: boolean
     /** ISO timestamp string */
     timestamp?: string | null
+    /** The server copy is newer than the local changes: restoring replaces it */
+    stale?: boolean
   }>()
 
   defineEmits<{

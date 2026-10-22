@@ -12,7 +12,8 @@
     <template v-else-if="state === 'saving'">Saving…</template>
     <template v-else-if="state === 'unsaved'">Unsaved changes</template>
     <template v-else-if="state === 'conflict'">
-      Edited elsewhere. Reload to get the newer version; your unsaved changes here will be lost.
+      Edited elsewhere. Reload to get the newer version; your changes here are kept in this browser
+      and offered after the reload.
       <v-btn variant="text" size="x-small" class="ml-1" @click="reload">Reload</v-btn>
     </template>
     <template v-else>
@@ -29,7 +30,7 @@
 
   const props = defineProps<{ state: SaveState; savedAt: number | null }>()
   const emit = defineEmits<{ retry: [] }>()
-  // The banner already warns that local changes are lost: no second browser prompt
+  // Local changes are kept for recovery after the reload: no browser leave prompt
   const reload = reloadDiscardingChanges
 
   const time = computed(() =>

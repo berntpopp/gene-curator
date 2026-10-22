@@ -25,6 +25,7 @@ interface Setup {
   lockVersion: Ref<number>
   canSubmit: { value: boolean }
   clearRecovery: () => void
+  markSaved: (saved: EvidenceData, version: string) => void
   clearHistory: () => void
   onSaved: () => void
   onSubmit: () => void
@@ -37,6 +38,7 @@ function setup(curationId: string | null = null) {
     lockVersion: ref(3),
     canSubmit: { value: true },
     clearRecovery: vi.fn(),
+    markSaved: vi.fn(),
     clearHistory: vi.fn(),
     onSaved: vi.fn(),
     onSubmit: vi.fn()
@@ -50,6 +52,7 @@ function setup(curationId: string | null = null) {
     lockVersion: s.lockVersion,
     canSubmit: () => s.canSubmit.value,
     clearRecovery: s.clearRecovery,
+    markSaved: s.markSaved,
     clearHistory: s.clearHistory,
     onSaved: s.onSaved,
     onSubmit: s.onSubmit
@@ -64,7 +67,7 @@ describe('useCurationSubmission', () => {
 
   describe('handleSaveDraft', () => {
     it('saves the draft of an existing curation and emits saved', async () => {
-      curationsStore.saveDraft.mockResolvedValue({ lock_version: 4 })
+      curationsStore.saveDraft.mockResolvedValue({ lock_version: 4, updated_at: 'T4' })
       const { api, s } = setup('cur-1')
 
       await api.handleSaveDraft()
@@ -76,8 +79,24 @@ describe('useCurationSubmission', () => {
       expect(s.lockVersion.value).toBe(4)
       expect(s.onSaved).toHaveBeenCalled()
       expect(addToast).toHaveBeenCalledWith('Draft saved', 'success')
-      expect(s.clearRecovery).toHaveBeenCalled()
+      // Local recovery compares with the saved copy from now on and keeps protecting edits (#436)
+      expect(s.markSaved).toHaveBeenCalledWith({ a: 1 }, '4@T4')
+      expect(s.clearRecovery).not.toHaveBeenCalled()
       expect(api.savingDraft.value).toBe(false)
+    })
+
+    it('re-bases recovery on what was sent, not on edits typed while the save was in flight', async () => {
+      let finish: (v: unknown) => void = () => {}
+      curationsStore.saveDraft.mockReturnValue(new Promise(r => (finish = r)))
+      const { api, s } = setup('cur-1')
+      s.evidenceData.value = { a: { b: 1 } }
+
+      const saving = api.handleSaveDraft()
+      ;(s.evidenceData.value.a as Record<string, unknown>).b = 2 // nested edits mutate in place
+      finish({ lock_version: 4, updated_at: 'T4' })
+      await saving
+
+      expect(s.markSaved).toHaveBeenCalledWith({ a: { b: 1 } }, '4@T4')
     })
 
     it('does not emit saved when the store returns nothing', async () => {
@@ -132,7 +151,7 @@ describe('useCurationSubmission', () => {
       expect(addToast).not.toHaveBeenCalledWith('Draft saved', 'success')
     })
 
-    it('drops the local recovery copy on a conflict, so a reload never offers the stale edits', async () => {
+    it('keeps the local recovery copy on a conflict, so a reload offers the edits back (#436)', async () => {
       curationsStore.saveDraft.mockResolvedValue(null)
       curationsStore.error = { message: 'x', isConflict: true }
       const { api, s } = setup('cur-1')
@@ -140,7 +159,8 @@ describe('useCurationSubmission', () => {
       await api.handleSaveDraft()
       await nextTick()
 
-      expect(s.clearRecovery).toHaveBeenCalled()
+      expect(s.clearRecovery).not.toHaveBeenCalled()
+      expect(s.markSaved).not.toHaveBeenCalled()
     })
 
     it('shows the API error, never a success toast, when the save is refused (403)', async () => {
@@ -170,7 +190,7 @@ describe('useCurationSubmission', () => {
 
     it('creates a curation and navigates to its editor when there is none yet', async () => {
       curationsStore.createCuration.mockResolvedValue({ id: 'new-cur' })
-      const { api } = setup()
+      const { api, s } = setup()
 
       await api.handleSaveDraft()
 
@@ -184,6 +204,8 @@ describe('useCurationSubmission', () => {
         name: 'curation-edit',
         params: { scopeId: 'scope-1', curationId: 'new-cur' }
       })
+      // The edit page loads the created curation; the new-record draft is done
+      expect(s.clearRecovery).toHaveBeenCalled()
     })
 
     it('reports failures and clears the saving flag', async () => {
@@ -235,11 +257,15 @@ describe('useCurationSubmission', () => {
     })
 
     it('reports failures without emitting submit', async () => {
-      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4 })
+      curationsStore.updateCuration.mockResolvedValue({ lock_version: 4, updated_at: 'T4' })
       curationsStore.submitCuration.mockRejectedValue({ message: 'locked' })
       const { api, s } = setup('cur-1')
 
       await api.handleSubmit()
+
+      // The evidence was saved before the refused submit: recovery compares with that save
+      expect(s.markSaved).toHaveBeenCalledWith({ a: 1 }, '4@T4')
+      expect(s.clearRecovery).not.toHaveBeenCalled()
 
       expect(logger.error).toHaveBeenCalledWith('Failed to submit curation', { error: 'locked' })
       expect(addToast).toHaveBeenCalledWith('Failed to submit curation', 'error')
