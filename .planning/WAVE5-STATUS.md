@@ -5,8 +5,8 @@ Root is orchestration-only. Owner delegated decisions/no more questions; Ponytai
 
 - Master7b98416:440/441/442/443/444 merged, each actual Opus/local+GitHub CI/fresh UI gate complete.
 - Drafts:44516b5285,446b85d8e0,44932b77d7,450547392d,451d0c87bd, release452.
-- Combined R source320a338: focused84BE+156FE pass; sole combined full CI passed at320a338
-  (2572 FE, backend94.71%, PostgreSQL, diff97/98%); fresh browser replay running. Source frozen, documentation refresh in progress.
+- Combined R source 320a338: focused84BE+156FE pass; sole combined full CI passed at 320a338
+  (2,572 FE, backend 94.71%, PostgreSQL, diff 97/98%); fresh browser replay passed226/226. Source frozen, final documentation checkpoint prepared.
 - D/E/G/I native fixes complete; actual Opus delta reviews pending. J actual SHIP valid.
   R needs both integration and release review, including three manually resolved product paths.
 - CLI session limit resets19:00 Europe/Berlin; no retry before reset/new owner signal.

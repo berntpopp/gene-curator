@@ -1,6 +1,6 @@
 # Wave 6 continuation prompt
 
-> **Owner resumed 2026-10-22.** Several actual Opus reviews completed. A later session usage limit resets at19:00 Europe/Berlin; no retry before then. Already-reviewed merge/browser gates and native fixes may continue. See [resume checkpoint](WAVE5-RESUME.md).
+> **Owner resumed 2026-10-22.** Several actual Opus reviews completed. A later session usage limit resets at 19:00 Europe/Berlin; no retry before then. Already-reviewed merge/browser gates and native fixes may continue. See [resume checkpoint](WAVE5-RESUME.md).
 
 You are the orchestration-only coordinator for Gene Curator, GitHub berntpopp/gene-curator,
 workspace /home/bernt-popp/development/gene-curator. Dispatch, review and merge; write no
@@ -16,9 +16,9 @@ Root also holds untracked copies of the new Wave5 reports and the requested loca
 pushed release commit; remove or stash only verified duplicate task-owned copies so
 Git can update cleanly. Preserve unrelated Wave3/4 planning and tooling changes.
 
-Combined source320a338 includes the native D/E/G/I fixes; see W5R-INTEGRATION-CHECKPOINT.md
-for exact manual product conflict resolutions requiring actual Opus coverage. Combined CI/browser
-results must be checked in the latest report; older171/171 is historical candidate evidence.
+Combined source 320a338 includes the native D/E/G/I fixes; see W5R-INTEGRATION-CHECKPOINT.md
+for exact manual product conflict resolutions requiring actual Opus coverage. Combined full CI and226/226 browser checks passed at320a338; check the latest report
+for exact gates. Older171/171 is historical candidate evidence.
 Do not describe R review as release-only until functional PRs merge and its remaining product
 diff is verified as intended version/docs changes or explicitly reviewed integration fixes.
 
@@ -29,7 +29,7 @@ are recorded in the report/queue. The release contains only Markdown reports fro
 scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test
 JSON and legitimate existing orchestration scripts.
 
-Actual Claude Code Opus5.5 hit a session limit after successful resumed reviews. Verify service availability only when
+Actual Claude Code Opus 5.5 hit a session limit after successful resumed reviews. Verify service availability only when
 there is reason to expect it restored; no billing changes, alternate auth or retry loop.
 Every PR still requires actual Opus ponytail:ponytail-review. Native factual/code reviews
 are supplementary and cannot replace it. Fix rounds review only the delta. Clinical

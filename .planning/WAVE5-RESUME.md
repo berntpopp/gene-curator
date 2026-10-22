@@ -4,14 +4,14 @@
 Master7b984161db6bbf1b678d881990c4bdd711e84fa1 includes440/441/442/443/444; all five
 have completed actual Opus/local+GitHub CI/fresh postmerge gates.
 
-Combined release source320a33835f847cb135714089858bedb0accc6bcc includes final
+Combined release source 320a33835f847cb135714089858bedb0accc6bcc includes final
 D16b5285, Eb85d8e0, G32b77d7, J547392d lineage and Id0c87bd. Focused84 backend and
-156 frontend tests pass. Combined full CI passed at320a338 (2572 FE, backend94.71%, full PostgreSQL, diff97/98%);
-fresh browser checks are running.
+156 frontend tests pass. Combined full CI passed at 320a338 (2,572 FE, backend 94.71%, full PostgreSQL, diff 97/98%);
+fresh browser checks passed226/226 with no product changes; see the combined report.
 See [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md) and
 [integration ledger](W5R-INTEGRATION-CHECKPOINT.md) for precise gates and pending work.
 
-Actual Opus5.5 resumed successfully, then hit its session limit; reset19:00 Europe/Berlin.
+Actual Opus 5.5 resumed successfully, then hit its session limit; reset19:00 Europe/Berlin.
 Do not retry before reset/new owner signal or alter billing/auth. D/E initial reviews
 returned FIX; native fixes are complete. G/I initial SHIP verdicts predate their native
 follow-up fixes. J SHIP is valid, with parent/integration checks still required. D/E/G/I
@@ -22,7 +22,7 @@ review is supplementary. No v0.7.0 tag or GitHub release exists;452 stays draft.
 
 1. Read the report/queue and verify remote metadata. Preserve every worktree and unrelated
    root Wave3/4/tooling/ignore changes; reconcile only verified duplicate task-owned reports.
-2. Complete combined candidate gates and record actual head/results. Ops owns isolated
+2. Combined candidate gates are complete at320a338; preserve their exact evidence. Ops owns isolated
    stack5455/8052/5190; never dev5454/8051/5193. Source is frozen after browser handoff
    except a real test/browser finding. Only Markdown evidence is tracked; raw artifacts
    and generated runners remain local and ignored.

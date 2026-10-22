@@ -35,7 +35,8 @@ The table above is historical candidate evidence. Current gates are authoritativ
   [G review checkpoint](G-opus-resume/REPORT.md), [I review checkpoint](I-opus-resume/REPORT.md).
 
 [Local browser notes](LOCAL-BROWSER-NOTES.md) describe retained ignored runners; helper
-code itself is not published. Combined R320a338 browser evidence is still pending.
+code itself is not published. [Combined R320a338 browser acceptance](R-combined/REPORT.md) passed226/226 without
+product changes. It remains candidate evidence; fresh per-merge gates are still required.
 
 ## Local reproduction
 
