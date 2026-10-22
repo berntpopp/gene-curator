@@ -349,6 +349,8 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     await wrapper.setProps({ readonly: true })
     internals(wrapper).handleRestore()
     expect(recovery.restoreRecovery).toHaveBeenCalledOnce()
+    await internals(wrapper).handleCancel()
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
     expect(recovery.clearRecovery).not.toHaveBeenCalled()
   })
 
@@ -443,11 +445,9 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     const wrapper = await mountForm()
     const vm = internals(wrapper)
     vm.evidenceData = { a: 1 }
-
     confirmMock.mockResolvedValueOnce(false)
     await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toBeUndefined()
-
     await vm.handleCancel()
     expect(wrapper.emitted('cancel')).toHaveLength(1)
   })

@@ -20,6 +20,8 @@ const precurationsStore = vi.hoisted(() => ({
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
 const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
+  restoreRecovery: vi.fn(),
+  showRecoveryDialog: null as null | { value: boolean },
   setBaseline: vi.fn(),
   markSaved: vi.fn(),
   formId: ''
@@ -45,13 +47,14 @@ vi.mock('@/stores/validation', () => ({
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
 vi.mock('@/composables/useFormRecovery', async () => {
   const { ref } = await import('vue')
+  recovery.showRecoveryDialog = ref(false)
   return {
     useFormRecovery: (formId: string) => ({
       ...((recovery.formId = formId), {}),
-      showRecoveryDialog: ref(false),
+      showRecoveryDialog: recovery.showRecoveryDialog,
       recoveryData: ref(null),
       lastSaved: ref(null),
-      restoreRecovery: vi.fn(),
+      restoreRecovery: recovery.restoreRecovery,
       discardRecovery: vi.fn(),
       recoveryStale: ref(false),
       clearRecovery: recovery.clearRecovery,
@@ -79,6 +82,7 @@ interface SchemaPrecurationVm {
   handleSaveDraft(): Promise<void>
   handleSubmit(): Promise<void>
   handleCancel(): void
+  handleRestore(): void
   handleValidationChange(result: { is_valid?: boolean }): void
   handleEvidenceChange(data: Record<string, unknown>): void
   formatRelativeTime(timestamp: string | null): string
@@ -107,6 +111,7 @@ describe('SchemaDrivenPrecurationForm', () => {
     precurationsStore.error = null
     vi.clearAllMocks()
     confirmMock.mockResolvedValue(true)
+    recovery.showRecoveryDialog!.value = false
     schemaFields.value = undefined
   })
 
@@ -293,6 +298,32 @@ describe('SchemaDrivenPrecurationForm', () => {
     await vm.handleSubmit()
 
     expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
+  })
+
+  it('hides readonly recovery, guards late restore, and offers it after editing resumes', async () => {
+    recovery.showRecoveryDialog!.value = true
+    const wrapper = mountForm({ readonly: true })
+    await flushPromises()
+    expect(wrapper.findComponent({ name: 'FormRecoveryDialog' }).exists()).toBe(false)
+    await wrapper.setProps({ readonly: false })
+    const dialog = wrapper.findComponent({ name: 'FormRecoveryDialog' })
+    expect(dialog.props('modelValue')).toBe(true)
+    dialog.vm.$emit('restore')
+    expect(recovery.restoreRecovery).toHaveBeenCalledOnce()
+    await wrapper.setProps({ readonly: true })
+    internals(wrapper).handleRestore()
+    expect(recovery.restoreRecovery).toHaveBeenCalledOnce()
+    expect(recovery.clearRecovery).not.toHaveBeenCalled()
+  })
+
+  it('readonly Escape navigation preserves the hidden local draft', async () => {
+    const wrapper = mountForm({ readonly: true })
+    await flushPromises()
+    internals(wrapper).evidenceData = { a: 'server' }
+    internals(wrapper).handleKeydown(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushPromises()
+    expect(wrapper.emitted('cancel')).toHaveLength(1)
+    expect(recovery.clearRecovery).not.toHaveBeenCalled()
   })
 
   it('reports a failed submission', async () => {
