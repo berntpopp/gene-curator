@@ -109,3 +109,39 @@ describe('selector-driven defaults', () => {
     w.unmount()
   })
 })
+
+describe('segregation score assignment', () => {
+  it.each([null, 0])(
+    'keeps the pinned new-row default %j until a manual score edit',
+    async value => {
+      const w = render()
+      await w.setProps({
+        fieldSchema: normalizeField({
+          type: 'array',
+          ui_component: 'EvidenceTable',
+          items: {
+            properties: {
+              lod_score: { type: 'number', title: 'LOD' },
+              points: { type: 'number', title: 'Points', default: value }
+            }
+          }
+        })
+      })
+      await w.find('.add-row').trigger('click')
+      expect(current(w).points).toBe(value)
+      const lod = w.find<HTMLInputElement>('input[aria-label="LOD, row 1"]')
+      lod.element.value = '3.1'
+      await lod.trigger('input')
+      await lod.trigger('change')
+      expect(current(w).points).toBe(value)
+      const points = w.find<HTMLInputElement>('input[aria-label="Points, row 1"]')
+      points.element.value = '0'
+      await points.trigger('input')
+      await points.trigger('change')
+      expect(current(w).points).toBe(0)
+      await w.setProps({ modelValue: [{ id: 'saved-without-points', lod_score: 3.1 }] })
+      expect(current(w)).not.toHaveProperty('points')
+      w.unmount()
+    }
+  )
+})

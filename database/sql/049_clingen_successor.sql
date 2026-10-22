@@ -108,6 +108,19 @@ BEGIN
       "genetic_evidence",
       "properties",
       "segregation",
+      "items",
+      "properties",
+      "points",
+      "default"
+    ],
+    "value": null
+  },
+  {
+    "path": [
+      "field_definitions",
+      "genetic_evidence",
+      "properties",
+      "segregation",
       "description"
     ],
     "value": "Enter curator-assigned segregation points after assessing all included families, eligibility and sequencing methods (category max 3). LOD and family counts do not generate automatic points. See ClinGen SOP v11 pp.28\u201335."
