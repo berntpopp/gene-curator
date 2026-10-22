@@ -318,3 +318,70 @@ def test_app_user_successor_ar_blank_entered_and_manual_zero_agree(
             detail.json()["computed_scores"]["trace"]
             == current["computed_scores"]["trace"]
         )
+
+
+def test_successor_new_segregation_rows_start_unassigned_while_v1_keeps_zero(
+    owner_session,
+):
+    defaults = owner_session.execute(
+        text(
+            "SELECT mv.version, mv.snapshot #> '{field_definitions,genetic_evidence,properties,segregation,items,properties,points,default}' FROM curation_schemas c JOIN methodology_versions mv ON mv.schema_id=c.id WHERE c.name IN ('ClinGen_SOP_v11', 'ClinGen Gene-Disease Validity SOP') ORDER BY c.name,mv.version"
+        )
+    ).all()
+    assert defaults == [(1, 0), (2, None)] * 2
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_app_user_untouched_segregation_default_differs_from_assigned_zero(
+    client, w: W, legacy
+):
+    pin = publish(client, w, successor_model())
+    published = client.get(
+        f"/api/v1/schemas/methodology-versions/{pin}", headers=_h(w.alice)
+    )
+    assert published.status_code == 200, published.text
+    default = published.json()["snapshot"]["field_definitions"]["genetic_evidence"][
+        "properties"
+    ]["segregation"]["items"]["properties"]["points"]["default"]
+    assert (
+        default is None
+    )  # untouched is unassigned; deliberate zero is a separate case
+    row = {"id": "new-row", "lod_score": 3.1, "family_count": 2, "points": default}
+    data = (
+        [{**row, "evidence_category": "segregation"}]
+        if legacy
+        else {"segregation": [row]}
+    )
+    evidence = {"genetic_evidence": data}
+    current = create(client, w, w.genes[0], evidence)
+    for points in (default, 0):
+        if legacy:
+            data[0]["points"] = points
+        else:
+            row["points"] = points
+        saved = client.patch(
+            f"/api/v1/curations/{current['id']}/draft",
+            headers=_h(w.alice),
+            json={"evidence_data": evidence, "lock_version": current["lock_version"]},
+        )
+        assert saved.status_code == 200, saved.text
+        current = saved.json()
+        assert current["computed_scores"]["total_score"] == 0
+        preview = client.post(
+            "/api/v1/validation/validate-evidence",
+            headers=_h(w.alice),
+            json={"evidence_data": evidence, "methodology_version_id": pin},
+        )
+        assert preview.status_code == 200, preview.text
+        assert any(
+            "Enter segregation points" in warning["message"]
+            for warning in preview.json()["warnings"]
+        ) is (points is None)
+        assert (
+            preview.json()["score_calculations"]["trace"]
+            == current["computed_scores"]["trace"]
+        )
+        loaded = client.get(f"/api/v1/curations/{current['id']}", headers=_h(w.alice))
+        assert loaded.status_code == 200, loaded.text
+        assert loaded.json()["evidence_data"] == evidence
+        assert loaded.json()["computed_scores"] == current["computed_scores"]
