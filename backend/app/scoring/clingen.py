@@ -24,7 +24,12 @@ from .point_model import ItemRule, point_model, score, template
 logger = get_logger(__name__)
 
 # Row keys that are not entered evidence (points are checked on their own)
-_NOT_EVIDENCE_KEYS = {"id", "pmid", "proband_counted_points"}
+_NOT_EVIDENCE_KEYS = {
+    "id",
+    "pmid",
+    "proband_counted_points",
+    "proband_not_counted_points",
+}
 
 ENGINE_NAME = "clingen_sop_v11"
 
@@ -34,6 +39,14 @@ def _positive(value: Any) -> bool:
         return not isinstance(value, bool) and float(value) > 0
     except (TypeError, ValueError):
         return False
+
+
+def _range_warning(flag: dict[str, Any]) -> str:
+    where = f"{flag['path']} = {flag['value']}"
+    if flag["range"] is None:
+        return f"{where} is not a finite number"
+    low, high = flag["range"]
+    return f"{where} is outside the pinned range {low:g}-{high:g}"
 
 
 def lod_to_points_sop11(lod_score: float) -> float:
@@ -217,6 +230,7 @@ class ClinGenEngine(ScoringEngine):
             evidence_data.get("genetic_evidence", []),
             evidence_data.get("experimental_evidence", []),
         )
+        warnings += map(_range_warning, result["trace"].get("out_of_range", []))
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],
@@ -262,6 +276,10 @@ class ClinGenEngine(ScoringEngine):
         problems = self._pmid_problems(genetic_evidence, experimental_evidence)
         if problems["scored"]:
             warnings.append(f"{problems['scored']} scored row(s) have no PMID")
+        if problems["not_counted"]:
+            warnings.append(
+                f"{problems['not_counted']} row(s) with only not-counted points have no PMID"
+            )
         if problems["invalid"]:
             warnings.append(
                 f"{problems['invalid']} evidence item(s) with invalid or missing PMID"
@@ -332,7 +350,7 @@ class ClinGenEngine(ScoringEngine):
             *self._iter_evidence_items(genetic_evidence),
             *self._iter_evidence_items(experimental_evidence),
         ]
-        counts = {"scored": 0, "invalid": 0}
+        counts = {"scored": 0, "not_counted": 0, "invalid": 0}
         for item in items:
             problem = self._pmid_problem(item)
             if problem:
@@ -341,12 +359,16 @@ class ClinGenEngine(ScoringEngine):
 
     def _pmid_problem(self, item: dict[str, Any]) -> str | None:
         """ "invalid": a filled-in bad PMID or other content without one; "scored":
-        points > 0 (preset ones too, they count) without a PMID. Blank rows: None."""
+        points > 0 (preset ones too, they count) without a PMID; "not_counted": only
+        not-counted points > 0 without a PMID. Blank rows: None."""
         pmid = str(item.get("pmid") or "").strip()
         if pmid:
             return None if self._is_valid_pmid(pmid) else "invalid"
-        if any(k.endswith("points") and _positive(v) for k, v in item.items()):
+        positive = [k for k, v in item.items() if k.endswith("points") and _positive(v)]
+        if any("not_counted" not in k for k in positive):
             return "scored"
+        if positive:
+            return "not_counted"
         rest = {k: v for k, v in item.items() if k not in _NOT_EVIDENCE_KEYS}
         return "invalid" if has_content(rest) else None
 
