@@ -3,11 +3,13 @@ Schema repository API endpoints.
 Manages curation methodology schemas and workflow pairs.
 """
 
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from contextlib import contextmanager
 from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core import deps
@@ -35,6 +37,27 @@ from app.schemas.schema_repository import (
 from app.scoring.registry import scoring_registry
 
 router = APIRouter()
+
+DUPLICATE_SCHEMA = "Schema with this name and version already exists"
+
+
+@contextmanager
+def _unique_name_version(db: Session) -> Iterator[None]:
+    """UNIQUE(name, version) decides a race the pre-check lost: same 400 as the check."""
+    try:
+        yield
+    except IntegrityError as exc:
+        diag = getattr(exc.orig, "diag", None)  # psycopg2 names the violated constraint
+        clash = (
+            diag.constraint_name == "curation_schemas_name_version_key"
+            if diag
+            else "UNIQUE constraint failed: curation_schemas.name, "
+            "curation_schemas.version" in str(exc.orig)
+        )
+        if not clash:
+            raise
+        db.rollback()
+        raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA) from exc
 
 
 def _require_active_schemas(db: Session, *schema_ids: UUID | None) -> None:
@@ -90,9 +113,7 @@ def create_curation_schema(
         db, name=schema_in.name, version=schema_in.version
     )
     if existing_schema:
-        raise HTTPException(
-            status_code=400, detail="Schema with this name and version already exists"
-        )
+        raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA)
 
     # Same gate as publish: on PostgreSQL the insert publishes v1 (042 trigger)
     errors = publish_errors(schema_in.model_dump())
@@ -101,9 +122,10 @@ def create_curation_schema(
             status_code=400, detail=f"Invalid schema structure: {', '.join(errors)}"
         )
 
-    schema = schema_crud.create_with_owner(
-        db, obj_in=schema_in, owner_id=current_user.id
-    )
+    with _unique_name_version(db):
+        schema = schema_crud.create_with_owner(
+            db, obj_in=schema_in, owner_id=current_user.id
+        )
     return schema  # type: ignore[return-value]
 
 
@@ -211,16 +233,15 @@ def derive_methodology(
     if schema_crud.get_by_name_and_version(
         db, name=derive_in.name, version=derive_in.version
     ):
-        raise HTTPException(
-            status_code=400, detail="Schema with this name and version already exists"
+        raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA)
+    with _unique_name_version(db):
+        return schema_crud.derive(  # type: ignore[return-value]
+            db,
+            source=source,
+            name=derive_in.name,
+            version=derive_in.version,
+            user_id=current_user.id,
         )
-    return schema_crud.derive(  # type: ignore[return-value]
-        db,
-        source=source,
-        name=derive_in.name,
-        version=derive_in.version,
-        user_id=current_user.id,
-    )
 
 
 @router.put("/curation-schemas/{schema_id}", response_model=CurationSchema)
@@ -238,7 +259,8 @@ def update_curation_schema(
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
 
-    schema = schema_crud.update(db, db_obj=schema, obj_in=schema_in)
+    with _unique_name_version(db):
+        schema = schema_crud.update(db, db_obj=schema, obj_in=schema_in)
     return schema  # type: ignore[return-value]
 
 
