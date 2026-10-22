@@ -195,9 +195,9 @@
                     >
                       Submit for review
                     </v-btn>
-                    <!-- Review Actions (for submitted curations) -->
+                    <!-- Approve waits while this reviewer's approval needs others (0 left: activates) -->
                     <v-btn
-                      v-if="canReview"
+                      v-if="canReview && !(curation.has_approved && curation.approvals_remaining)"
                       color="success"
                       variant="elevated"
                       prepend-icon="mdi-check-circle"
@@ -206,6 +206,9 @@
                     >
                       Approve
                     </v-btn>
+                    <div v-else-if="curation.has_approved" class="text-body-medium text-center">
+                      You approved; {{ curation.approvals_remaining }} more needed
+                    </div>
                     <v-btn
                       v-if="canReview"
                       color="warning"
@@ -430,6 +433,8 @@
     can_edit?: boolean
     can_delete?: boolean
     can_review?: boolean
+    has_approved?: boolean
+    approvals_remaining?: number | null
   }
 
   // Error shape from axios (API) and plain Error alike
@@ -487,8 +492,7 @@
 
   const canDelete = computed(() => curation.value?.can_delete ?? false)
 
-  // Can review: backend checks scope-specific roles and 4-eyes principle
-  // The creator never reviews their own curation (D1), whatever the backend flag says
+  // Backend: scope REVIEW role; the creator never reviews their own curation (D1), whatever the flag
   const myId = computed(() => (authStore.user as { id?: string } | null)?.id ?? '')
   const isCreator = computed(() => !!myId.value && curation.value?.created_by === myId.value)
   const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)
@@ -644,5 +648,3 @@
     loadCuration()
   })
 </script>
-
-<style scoped></style>
