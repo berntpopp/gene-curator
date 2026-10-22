@@ -10,6 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.crud.schema_repository import schema_crud
 from app.models import UserNew
 from tests.api.schema_api_support import auth, insert_schema
 
@@ -136,6 +137,29 @@ def test_derive_refusals(
     assert derive(other.id, vid, admin_token) == 404  # version of another schema
     assert derive(schema.id, vid, admin_token, {"name": "Taken", "version": "2"}) == 400
     assert derive(schema.id, vid, admin_token, {"name": "", "version": "1"}) == 422
+
+
+def test_derive_losing_a_race_gets_the_same_400(
+    client: TestClient,
+    db_session: Session,
+    admin_token: str,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#432: the check passed, a concurrent create took the name; the constraint decides."""
+    schema = insert_schema(db_session, name="Taken", version="2")
+    vid = client.post(f"{BASE}/{schema.id}/versions", headers=auth(admin_token)).json()[
+        "id"
+    ]
+    monkeypatch.setattr(schema_crud, "get_by_name_and_version", lambda *a, **k: None)
+
+    r = client.post(
+        f"{BASE}/{schema.id}/versions/{vid}/derive",
+        json={"name": "Taken", "version": "2"},
+        headers=auth(admin_token),
+    )
+
+    assert r.status_code == 400
+    assert r.json()["detail"] == "Schema with this name and version already exists"
 
 
 def test_unknown_schema_is_404(client: TestClient, admin_token: str) -> None:

@@ -167,6 +167,7 @@ export const useSchemasStore = defineStore('schemas', {
     /**
      * Derive an inactive copy (patch version bumped) from the schema's latest published
      * version; the copy's v1 records where it came from. The admin activates it after editing.
+     * Returns the copy and the version it was derived from.
      */
     async duplicateSchema(id: string) {
       const source = await schemasAPI.getSchemaById(id)
@@ -177,7 +178,7 @@ export const useSchemasStore = defineStore('schemas', {
         version: bumpPatch(source.version)
       })
       this.schemas.push(derived)
-      return derived
+      return { derived, source: latest }
     },
 
     /**
