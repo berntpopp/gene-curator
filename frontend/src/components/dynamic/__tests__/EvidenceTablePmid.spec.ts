@@ -111,8 +111,16 @@ describe('EvidenceTableField PMID cells', () => {
   })
 
   it('checks PMIDs loaded with a saved draft, without any blur (#267)', async () => {
-    const notFound = { is_valid: false, error: 'Publication not found in Europe PMC' }
-    const known = { is_valid: true, publication: { title: 'T', authors: ['Smith J'], year: 2020 } }
+    const notFound = {
+      pmid: '99999999',
+      is_valid: false,
+      error: 'Publication not found in Europe PMC'
+    }
+    const known = {
+      pmid: '123',
+      is_valid: true,
+      publication: { title: 'T', authors: ['Smith J'], year: 2020 }
+    }
     validatePMIDs.mockResolvedValue({ results: [notFound, known] })
     const { wrapper, frame } = mountTable([
       { id: 'r1', pmid: '99999999' },
@@ -129,7 +137,7 @@ describe('EvidenceTableField PMID cells', () => {
     expect(wrapper.find('.pmid-note').exists()).toBe(true)
 
     // Rows replaced from outside: only the new PMID is looked up; known ones don't block
-    validatePMIDs.mockResolvedValue({ results: [known] })
+    validatePMIDs.mockResolvedValue({ results: [{ ...known, pmid: '456' }] })
     await wrapper.setProps({
       modelValue: [
         { id: 'r2', pmid: '123' },
@@ -144,7 +152,7 @@ describe('EvidenceTableField PMID cells', () => {
 
   it('leaves the blocker to the curation form when it checks the whole draft', async () => {
     validatePMIDs.mockResolvedValue({
-      results: [{ is_valid: false, error: 'Publication not found: 999' }]
+      results: [{ pmid: '999', is_valid: false, error: 'Publication not found: 999' }]
     })
     const frame = createWorkspaceFrame()
     const Form = defineComponent({

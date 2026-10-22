@@ -37,6 +37,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransitionRequest,
     WorkflowValidationResult,
 )
+from app.services.review_entry import ReviewEntry, lookup_reviews, preflight_review
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -467,8 +468,31 @@ def bulk_workflow_transition(
     failed_transitions: list[dict[str, Any]] = []
     warnings: list[str] = []
 
+    prepared: dict[UUID, ReviewEntry] = {}
+    rejected: dict[UUID, str] = {}
+    if (
+        bulk_request.item_type == "curation"
+        and bulk_request.target_stage == WorkflowStage.REVIEW
+    ):
+        for item_id in bulk_request.item_ids:
+            try:
+                item = db.get(CurationNew, item_id)
+                if item is None:
+                    raise ValueError("curation not found")
+                prepared[item_id] = preflight_review(
+                    workflow_engine, db, item, current_user.id
+                )
+            except (ValueError, HTTPException) as exc:
+                rejected[item_id] = str(exc)
+        prepared = {
+            entry.item_id: entry
+            for entry in lookup_reviews(db, list(prepared.values()))
+        }
+
     for item_id in bulk_request.item_ids:
         try:
+            if item_id in rejected:
+                raise ValueError(rejected[item_id])
             workflow_engine.execute_transition(
                 db,
                 item_id,
@@ -477,9 +501,11 @@ def bulk_workflow_transition(
                 current_user.id,
                 bulk_request.notes,
                 bulk_request.metadata,
+                review_entry=prepared.get(item_id),
             )
             successful_transitions.append(item_id)
         except Exception as e:
+            db.rollback()
             failed_transitions.append({"item_id": item_id, "error": str(e)})
 
     return BulkWorkflowTransitionResult(

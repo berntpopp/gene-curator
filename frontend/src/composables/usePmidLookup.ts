@@ -10,7 +10,7 @@ export interface PmidResult {
 }
 
 const DEBOUNCE_MS = 300
-const BATCH = 50 // backend PMIDValidationRequest max_length
+const BATCH = 10 // at most two waves of five bounded backend lookups
 const PMID = /^\d{1,9}$/
 
 /** "PMID: 123" and "123" are the same PMID. */
@@ -105,16 +105,24 @@ export function usePmidLookup() {
   const batchCtrl = new AbortController()
   async function checkAll(raws: unknown[]) {
     const pmids = [...new Set(raws.map(normalize))].filter(
-      p => PMID.test(p) && (results[p]?.status ?? 'idle') === 'idle'
+      p => PMID.test(p) && ['idle', 'error'].includes(results[p]?.status ?? 'idle')
     )
     for (let i = 0; i < pmids.length; i += BATCH) {
+      if (batchCtrl.signal.aborted) return
       const chunk = pmids.slice(i, i + BATCH)
       chunk.forEach(p => (results[p] = { status: 'loading' }))
       try {
         const res = await publicationsAPI.validatePMIDs(chunk, batchCtrl.signal)
-        chunk.forEach((p, j) => (results[p] = toResult(res.results[j])))
+        if (batchCtrl.signal.aborted) {
+          chunk.forEach(p => {
+            if (results[p]?.status === 'loading') results[p] = { status: 'idle' }
+          })
+          return
+        }
+        const byPmid = new Map(res.results.map(result => [normalize(result.pmid), result]))
+        chunk.forEach(p => (results[p] = toResult(byPmid.get(p))))
       } catch {
-        chunk.forEach(p => (results[p] = { status: 'error' }))
+        chunk.forEach(p => (results[p] = { status: batchCtrl.signal.aborted ? 'idle' : 'error' }))
       }
     }
   }

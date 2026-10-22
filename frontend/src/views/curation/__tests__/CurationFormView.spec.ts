@@ -199,9 +199,8 @@ describe('CurationFormView', () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }
     const { vm } = await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'HNF1B' } as never)
-      vi.spyOn(precurations, 'fetchPrecurations').mockImplementation(async () => {
-        precurations.precurations = [{ status: 'approved' }] as never
-        return undefined as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockImplementation(async () => {
+        return { status: 'approved' } as never
       })
     })
     expect(vm.formGene).toEqual({ symbol: 'HNF1B' })
@@ -221,14 +220,14 @@ describe('CurationFormView', () => {
             { id: 'c-draft', status: 'draft' }
           ]
         } as never)
-        vi.spyOn(precurations, 'fetchPrecurations')
+        vi.spyOn(precurations, 'fetchCurationPrecuration')
       })
       expect(curations.fetchCurations).toHaveBeenCalledWith({ scope_id: 'sc1', gene_id: 'g1' })
       expect(routerReplace).toHaveBeenCalledWith({
         name: 'curation-edit',
         params: { scopeId: 'sc1', curationId: 'c-draft' }
       })
-      expect(precurations.fetchPrecurations).not.toHaveBeenCalled()
+      expect(precurations.fetchCurationPrecuration).not.toHaveBeenCalled()
     }
   )
 
@@ -238,9 +237,8 @@ describe('CurationFormView', () => {
     const toast = vi.spyOn(notifications, 'addToast')
     await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'HNF1B' } as never)
-      vi.spyOn(precurations, 'fetchPrecurations').mockImplementation(async () => {
-        precurations.precurations = [{ status: 'draft' }] as never
-        return undefined as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockImplementation(async () => {
+        return { status: 'draft' } as never
       })
     })
     expect(toast).toHaveBeenCalledWith(
@@ -257,9 +255,8 @@ describe('CurationFormView', () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }
     await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'X' } as never)
-      vi.spyOn(precurations, 'fetchPrecurations').mockImplementation(async () => {
-        precurations.precurations = [{ id: 'p9', status: 'draft' }] as never
-        return {} as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockImplementation(async () => {
+        return { id: 'p9', status: 'draft' } as never
       })
     })
     expect(routerPush).toHaveBeenCalledWith({
@@ -272,7 +269,7 @@ describe('CurationFormView', () => {
     routeState.query = { gene_id: 'g2' }
     const { vm } = await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue(null as never)
-      vi.spyOn(precurations, 'fetchPrecurations').mockRejectedValue(new Error('boom'))
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockRejectedValue(new Error('boom'))
     })
     expect(vm.precurationStatus).toBe('none')
     expect(logger.error).toHaveBeenCalledWith(
@@ -363,9 +360,8 @@ describe('CurationFormView', () => {
     routeState.params = { scopeId: 'sc1', geneId: 'g1' }
     const second = await mountView(({ genes, precurations }) => {
       vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({} as never)
-      vi.spyOn(precurations, 'fetchPrecurations').mockImplementation(async () => {
-        precurations.precurations = [{ status: 'approved' }] as never
-        return undefined as never
+      vi.spyOn(precurations, 'fetchCurationPrecuration').mockImplementation(async () => {
+        return { status: 'approved' } as never
       })
     })
     ;(second.vm.handleCancel as () => void)()

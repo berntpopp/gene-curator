@@ -173,8 +173,11 @@
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
   // PMIDs loaded with a saved draft or replaced from outside are checked too, not only on blur
   watch(
-    () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
-    pmids => !props.disabled && lookup.checkAll(pmids),
+    [
+      () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
+      () => props.disabled
+    ],
+    ([pmids, disabled]) => !disabled && lookup.checkAll(pmids),
     { immediate: true }
   )
   // Removing a row cancels its own lookup
@@ -245,7 +248,7 @@
     const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
     const first = columns.value[0]
-    if (first) focus(`[aria-label="${first.label}, row ${position}"]`)
+    if (first) focus(`[aria-label=${CSS.escape(`${first.label}, row ${position}`)}]`)
   }
 
   function removeRow(index: number) {

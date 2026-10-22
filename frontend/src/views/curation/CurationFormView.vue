@@ -182,11 +182,6 @@
     id: string
   }
 
-  interface PrecurationRecord {
-    id?: string
-    status: string
-  }
-
   type ErrorLike = { message?: string }
   // undefined (not null) so values pass to child props, whose defaults are null
   type RouteId = string | undefined
@@ -434,7 +429,7 @@
           return
         }
 
-        await checkPrecurationStatus()
+        await checkPrecurationStatus(geneId.value)
 
         // Redirect if no approved precuration exists
         if (precurationStatus.value !== 'approved') {
@@ -483,30 +478,24 @@
     }
   }
 
-  async function checkPrecurationStatus() {
+  async function checkPrecurationStatus(curationGeneId: string) {
     try {
-      // Fetch precurations for this gene in this scope
-      await precurationsStore.fetchPrecurations({
-        scope_id: scopeId.value,
-        gene_id: geneId.value
-      })
-
-      // Check for approved precuration
-      const precurations = (precurationsStore.precurations || []) as PrecurationRecord[]
-      const approvedPrecuration = precurations.find(p => p.status === 'approved')
-
-      if (approvedPrecuration) {
+      const precuration = await precurationsStore.fetchCurationPrecuration(
+        curationGeneId,
+        scopeId.value
+      )
+      if (precuration?.status === 'approved') {
         precurationStatus.value = 'approved'
-      } else if (precurations.length > 0) {
+      } else if (precuration) {
         precurationStatus.value = 'pending'
-        pendingPrecurationId.value = precurations[0]?.id
+        pendingPrecurationId.value = precuration.id
       } else {
         precurationStatus.value = 'none'
       }
 
       logger.debug('Precuration status checked', {
         status: precurationStatus.value,
-        precurationCount: precurations.length
+        precurationCount: precuration ? 1 : 0
       })
     } catch (error) {
       logger.error('Failed to check precuration status', { error: (error as ErrorLike).message })
