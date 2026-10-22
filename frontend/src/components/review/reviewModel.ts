@@ -180,14 +180,7 @@ export function groupDiff(items: DiffItem[], ctx: DiffContext = {}): DiffGroup[]
   return [...groups.values()].map(g => Object.assign(g, name(g.key, ctx, g.fields)))
 }
 
-/** A value for people: enum labels from the schema, Yes/No, `none` for nothing. */
-export function formatValue(v: unknown, options?: FieldDef['options']): string {
-  if (v === null || v === undefined || v === '') return 'none'
-  const option = options?.find(o => (typeof o === 'string' ? o : o.value) === v)
-  if (typeof option === 'object' && option.label) return option.label
-  if (typeof v === 'boolean') return v ? 'Yes' : 'No'
-  return typeof v === 'object' ? JSON.stringify(v) : String(v)
-}
+export { formatValue } from '@/utils/evidenceValue'
 
 export type ItemStatus = 'unreviewed' | 'accepted' | 'queried' | 'answered'
 

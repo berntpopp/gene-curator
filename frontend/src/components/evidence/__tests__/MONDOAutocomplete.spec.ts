@@ -157,6 +157,22 @@ describe('MONDOAutocomplete', () => {
     expect(vm.selectedItem).toBeNull()
   })
 
+  it('retains a saved susceptibility ID and label when human-only search cannot resolve it', async () => {
+    vi.mocked(ontologyAPI.searchMONDO).mockResolvedValue({
+      query: 'MONDO:0009100',
+      total_results: 1,
+      results: [hit]
+    })
+    const { wrapper, vm } = mountAutocomplete({
+      modelValue: 'MONDO:0009100',
+      diseaseName: 'Type 1 diabetes mellitus 1'
+    })
+    await flushPromises()
+    expect(vm.selectedId?.mondo_id).toBe('MONDO:0009100')
+    expect(vm.selectedId?.label).toBe('Type 1 diabetes mellitus 1')
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+  })
+
   it('requires a disease when marked required', () => {
     const { vm } = mountAutocomplete({ required: true })
 

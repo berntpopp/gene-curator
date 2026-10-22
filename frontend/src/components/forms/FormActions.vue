@@ -1,5 +1,5 @@
 <template>
-  <v-card-actions class="px-4 py-3 flex-wrap ga-2">
+  <v-card-actions class="form-actions px-4 py-3 flex-wrap ga-2">
     <v-btn variant="outlined" aria-label="Cancel" @click="$emit('cancel')">
       <v-icon start>mdi-close</v-icon>
       Cancel
@@ -121,3 +121,13 @@
     cancel: []
   }>()
 </script>
+
+<style scoped>
+  .form-actions {
+    position: sticky;
+    bottom: var(--v-layout-bottom, 0px);
+    z-index: 3;
+    background: rgb(var(--v-theme-surface));
+    border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  }
+</style>

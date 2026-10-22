@@ -1,9 +1,15 @@
 <template>
   <div class="dynamic-field">
+    <ReadonlyValue
+      v-if="readonly && !typeEditor && !(fieldSchema.properties || fieldSchema.items?.properties)"
+      :schema="fieldSchema"
+      :model-value="modelValue"
+      :label="getFieldLabel()"
+    />
     <!-- Custom Component from Registry -->
     <component
       :is="customComponent"
-      v-if="customComponent"
+      v-else-if="customComponent"
       :model-value="modelValue"
       :label="fieldSchema.title || fieldSchema.label || getFieldLabel()"
       :hint="fieldSchema.description || fieldSchema.hint"
@@ -373,6 +379,7 @@
       :label="getFieldLabel()"
       :model-value="modelValue"
       :disabled="isDisabled"
+      :readonly="readonly"
       :error-messages="getErrorMessages()"
       @update:model-value="updateValue"
     />
@@ -385,8 +392,9 @@
       :model-value="modelValue"
       :depth="depth"
       :disabled="isDisabled"
+      :readonly="readonly"
       :error-messages="getErrorMessages()"
-      @update:model-value="emit('update:model-value', $event)"
+      @update:model-value="!readonly && emit('update:model-value', $event)"
       @component-fallback="emit('component-fallback', $event)"
     />
 
@@ -415,7 +423,7 @@
 
     <!-- Help Text -->
     <div
-      v-if="fieldSchema.description && !fieldSchema.hint"
+      v-if="fieldSchema.description && !fieldSchema.hint && !typeEditor"
       class="text-body-small text-medium-emphasis mt-1"
     >
       {{ fieldSchema.description }}
@@ -430,14 +438,12 @@
   import { useLogger } from '@/composables/useLogger'
   import { useValidationRules } from './composables/useValidationRules'
   import DynamicNestedField from './DynamicNestedField.vue'
+  import ReadonlyValue from './ReadonlyValue.vue'
   import type { ComponentFallbackEvent, FieldSchema, FieldValidation, FieldVariant } from './types'
 
   const logger = useLogger()
 
-  /**
-   * Maximum recursion depth for nested object/array fields.
-   * Prevents infinite recursion and stack overflow.
-   */
+  // Bound nested recursion to prevent infinite recursion and stack overflow.
   const MAX_DEPTH = 10
 
   /**
@@ -454,6 +460,7 @@
       backendErrors?: string[]
       variant?: FieldVariant
       disabled?: boolean
+      readonly?: boolean
       depth?: number
     }>(),
     {
@@ -502,7 +509,9 @@
   })
 
   const typeEditor = computed(() => fieldTypes[props.fieldSchema.type ?? '']?.editor)
-  const isDisabled = computed(() => props.disabled || !!props.fieldSchema.readOnly)
+  const isDisabled = computed(
+    () => props.disabled || props.readonly || !!props.fieldSchema.readOnly
+  )
 
   /**
    * Check if nested rendering is allowed based on current depth.
@@ -605,6 +614,7 @@
   }
 
   const updateValue = (value: unknown) => {
+    if (props.readonly) return
     emit('update:model-value', value)
     emit('clear-backend-error') // Signal to parent to clear backend error
   }
@@ -632,5 +642,7 @@
 <style scoped>
   .dynamic-field {
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
   }
 </style>

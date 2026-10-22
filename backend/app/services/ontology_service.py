@@ -153,6 +153,9 @@ class OntologyService:
                     "exactMatch": "false",
                     "includeObsoleteEntities": "false",
                     "ontologyId": "mondo",
+                    # shortcut: excludes susceptibility outside the human branch; use
+                    # non-human exclusion if OLS adds a supported negative ancestor filter.
+                    "directAncestor": "http://purl.obolibrary.org/obo/MONDO_0700096",
                 },
             )
 
