@@ -378,12 +378,12 @@
   const duplicateSchema = async () => {
     if (!schema.value) return
     try {
-      const duplicated = await schemasStore.duplicateSchema(schemaId.value)
-      router.push({ name: 'SchemaEditor', params: { id: duplicated.id } })
+      const { derived } = await schemasStore.duplicateSchema(schemaId.value)
+      router.push({ name: 'SchemaEditor', params: { id: derived.id } })
     } catch (error) {
       const err = error as ApiError
-      logger.error('Failed to duplicate schema:', { error: err.message, stack: err.stack })
-      showError(errorMessage(error, 'Failed to duplicate schema'))
+      logger.error('Failed to derive schema:', { error: err.message, stack: err.stack })
+      showError(errorMessage(error, 'Failed to derive schema'))
     }
   }
 

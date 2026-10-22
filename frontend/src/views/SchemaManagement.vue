@@ -285,12 +285,10 @@
 
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
-      // the version the store derives from; ponytail: a publish in between makes N stale by one
-      const source = await schemasStore.fetchPinnedVersion(null, schema.id)
-      const duplicated = await schemasStore.duplicateSchema(schema.id)
+      const { derived, source } = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema derived', {
         originalId: schema.id,
-        duplicatedId: duplicated.id,
+        duplicatedId: derived.id,
         schemaName: schema.name
       })
       showSuccess(`Derived from v${source.version} (unpublished edits not included)`)

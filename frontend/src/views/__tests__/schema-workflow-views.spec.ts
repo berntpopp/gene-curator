@@ -323,16 +323,18 @@ describe('SchemaManagement', () => {
 
   it('duplicates a schema through the store', async () => {
     const { vm, schemas } = await mountView()
-    const duplicate = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's2' } as never)
-    vi.spyOn(schemas, 'fetchPinnedVersion').mockResolvedValue({ version: 3 } as never)
+    const pinned = vi.spyOn(schemas, 'fetchPinnedVersion')
+    const duplicate = vi
+      .spyOn(schemas, 'duplicateSchema')
+      .mockResolvedValue({ derived: { id: 's2' }, source: { version: 3 } } as never)
     await call(vm, 'duplicateSchema', row)
+    expect(pinned).not.toHaveBeenCalled() // the store reports the version it derived from
     expect(duplicate).toHaveBeenCalledWith('s1')
     expect(showSuccess).toHaveBeenCalledWith('Derived from v3 (unpublished edits not included)')
   })
 
   it('reports a failed duplicate with the backend reason', async () => {
     const { vm, schemas } = await mountView()
-    vi.spyOn(schemas, 'fetchPinnedVersion').mockResolvedValue({ version: 3 } as never)
     vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue({
       response: { data: { detail: 'Schema with this name and version already exists' } }
     })
@@ -572,12 +574,17 @@ describe('SchemaEditor', () => {
 
   it('duplicates the schema and opens the copy, or shows the reason', async () => {
     const { vm, schemas } = await mountView()
-    const create = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's9' } as never)
+    const create = vi
+      .spyOn(schemas, 'duplicateSchema')
+      .mockResolvedValue({ derived: { id: 's9' }, source: { version: 1 } } as never)
     await call(vm, 'duplicateSchema')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 's9' } })
     create.mockRejectedValueOnce(new Error('dup'))
     await call(vm, 'duplicateSchema')
     expect(showError).toHaveBeenCalledWith('dup')
+    create.mockRejectedValueOnce({})
+    await call(vm, 'duplicateSchema')
+    expect(showError).toHaveBeenCalledWith('Failed to derive schema')
   })
 
   it('deletes after confirmation and returns to the list', async () => {

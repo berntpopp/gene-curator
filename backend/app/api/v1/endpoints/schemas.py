@@ -47,6 +47,15 @@ def _unique_name_version(db: Session) -> Iterator[None]:
     try:
         yield
     except IntegrityError as exc:
+        diag = getattr(exc.orig, "diag", None)  # psycopg2 names the violated constraint
+        clash = (
+            diag.constraint_name == "curation_schemas_name_version_key"
+            if diag
+            else "UNIQUE constraint failed: curation_schemas.name, "
+            "curation_schemas.version" in str(exc.orig)
+        )
+        if not clash:
+            raise
         db.rollback()
         raise HTTPException(status_code=400, detail=DUPLICATE_SCHEMA) from exc
 

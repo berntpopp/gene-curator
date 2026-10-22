@@ -9,6 +9,7 @@ from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.crud.schema_repository import schema_crud
@@ -202,6 +203,61 @@ class TestCurationSchemaWrite:
             f"{BASE}/curation-schemas/{other.id}", headers=auth(admin_token)
         )
         assert kept.json()["name"] == "Other"
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "name",
+            "version",
+            "field_definitions",
+            "validation_rules",
+            "workflow_states",
+            "ui_configuration",
+            "use_dynamic_form",
+        ],
+    )
+    def test_update_explicit_null_is_422_and_changes_nothing(
+        self,
+        client: TestClient,
+        owned_schema: CurationSchema,
+        admin_token: str,
+        field: str,
+    ):
+        """NOT NULL columns: omitting keeps the value, an explicit null is invalid input."""
+        response = client.put(
+            f"{BASE}/curation-schemas/{owned_schema.id}",
+            json={field: None},
+            headers=auth(admin_token),
+        )
+
+        assert response.status_code == 422
+        assert response.json()["detail"][0]["loc"] == ["body", field]
+        kept = client.get(
+            f"{BASE}/curation-schemas/{owned_schema.id}", headers=auth(admin_token)
+        )
+        assert kept.json()["name"] == "Owned"
+
+    def test_other_integrity_errors_are_not_reported_as_duplicates(
+        self,
+        client: TestClient,
+        admin_token: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """Only the name/version clash becomes the 400; anything else propagates as before."""
+
+        def fail(*args: object, **kwargs: object) -> None:
+            raise IntegrityError(
+                "INSERT", {}, Exception("NOT NULL constraint failed: x.schema_hash")
+            )
+
+        monkeypatch.setattr(schema_crud, "create_with_owner", fail)
+
+        with pytest.raises(IntegrityError, match="schema_hash"):
+            client.post(
+                f"{BASE}/curation-schemas",
+                json=schema_payload(name="Other error"),
+                headers=auth(admin_token),
+            )
 
     def test_create_missing_required_fields_is_422(
         self, client: TestClient, admin_token: str
