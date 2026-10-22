@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from app.core.schema_defaults import check_default_mappings, finite_number
 from app.core.schema_validation_result import SchemaValidationResult
 
 # One copy of the condition semantics (#433), shared with submit and the frontend
@@ -134,6 +135,7 @@ def check_schema_definition(schema: dict[str, Any]) -> list[Diagnostic]:
         for path, name, cfg in _field_items(fields):
             names.add(name)
             out += _check_field(path, name, cfg)
+    out += check_default_mappings(fields)
     out += _check_workflow(schema.get("workflow_states"))
     ui = schema.get("ui_configuration")
     if ui is not None and not isinstance(ui, dict):
@@ -342,6 +344,16 @@ def _check_type(item: dict[str, Any], path: str) -> list[Diagnostic]:
     out += _optional(item, path, ("rule", "points_key"))
     if "default" in item and not _is_number(item["default"]):
         out.append(("error", f"{path}.default", "default must be a number"))
+    if (
+        "blank_at" in item
+        and item["blank_at"] is not None
+        and not finite_number(item["blank_at"])
+    ):
+        out.append(
+            ("error", f"{path}.blank_at", "blank_at must be null or a finite number")
+        )
+    if item.get("rule") == "case_row" and "blank_at" not in item:
+        out.append(("error", f"{path}.blank_at", "case_row requires blank_at"))
     rng = item.get("range")
     if rng is not None and not (
         isinstance(rng, list)

@@ -142,6 +142,9 @@
     }))
   )
 
+  // Only rows created in this mounted table may follow selector-driven suggestions.
+  const automaticDefaults = new Set<string | number>()
+
   // Row ids keep review diffs and comments anchored when rows are removed
   const rowKey = (row: Row, index: number) =>
     typeof row.id === 'string' || typeof row.id === 'number' ? row.id : index
@@ -185,7 +188,12 @@
     () => rows.value.map(rowKey),
     (keys, before) => {
       const live = new Set(keys)
-      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+      before
+        ?.filter(k => !live.has(k))
+        .forEach(k => {
+          lookup.cancel(k)
+          automaticDefaults.delete(k)
+        })
     }
   )
 
@@ -220,11 +228,14 @@
   const draftKey = (row: Row, index: number, key: string) => `${rowKey(row, index)}:${key}`
 
   function onInput(row: Row, index: number, col: Column, value: unknown) {
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     if (col.cell.lazy) drafts[draftKey(row, index, col.key)] = value
     else commit(rowKey(row, index), col.key, value)
   }
 
   function onChange(row: Row, index: number, col: Column, event: Event) {
+    // A deliberate same-value edit is still manual, even when commit emits nothing.
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     delete drafts[draftKey(row, index, col.key)]
     commit(rowKey(row, index), col.key, inputValue(col.schema, event))
   }
@@ -235,16 +246,35 @@
     if (index < 0 || rows.value[index]![column] === value) return
     emit(
       'update:model-value',
-      rows.value.map((row, i) => (i === index ? { ...row, [column]: value } : row))
+      rows.value.map((row, i) => {
+        if (i !== index) return row
+        const changed = { ...row, [column]: value }
+        if (automaticDefaults.has(key)) {
+          for (const col of columns.value) {
+            if (col.schema.default_by?.field === column)
+              changed[col.key] = suggested(col.schema, changed)
+          }
+        }
+        return changed
+      })
     )
   }
 
   const focus = (selector: string) =>
     nextTick(() => root.value?.querySelector<HTMLElement>(selector)?.focus())
 
+  function suggested(schema: FieldSchema, row: Row): unknown {
+    const mapping = schema.default_by
+    return mapping?.values[String(row[mapping.field])] ?? emptyValue(schema)
+  }
+
   function addRow() {
     const row: Row = { id: generateUUID() }
     for (const col of columns.value) row[col.key] = emptyValue(col.schema)
+    for (const col of columns.value) {
+      if (col.schema.default_by) row[col.key] = suggested(col.schema, row)
+    }
+    automaticDefaults.add(rowKey(row, rows.value.length))
     const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
     const first = columns.value[0]
@@ -252,6 +282,7 @@
   }
 
   function removeRow(index: number) {
+    automaticDefaults.delete(rowKey(rows.value[index]!, index))
     // The next row moves up into this position; without one, focus "Add row"
     const next =
       index < rows.value.length - 1 ? `[aria-label="Remove row ${index + 1}"]` : '.add-row'
