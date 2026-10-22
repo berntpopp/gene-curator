@@ -105,7 +105,6 @@ function internals(wrapper: { vm: unknown }): SchemaCurationVm {
 }
 const stubs = {
   ErrorBoundary: { name: 'ErrorBoundary', template: '<div><slot /></div>' },
-  // Renders the form's component sections like the real one does
   DynamicForm: {
     name: 'DynamicForm',
     props: {
@@ -235,7 +234,6 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     expect(curationsStore.fetchCurationById).toHaveBeenCalledWith('active-1')
     // Only the evidence: resolved disease fields are not copied to the top level (#409)
     expect(vm.evidenceData).toEqual(evidence)
-    // The new curation is a fresh draft, not the active one
     expect(vm.lockVersion).toBe(0)
     expect(vm.curationStatus).toBe('draft')
 

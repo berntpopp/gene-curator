@@ -122,7 +122,11 @@ export function usePmidLookup() {
         const byPmid = new Map(res.results.map(result => [normalize(result.pmid), result]))
         chunk.forEach(p => (results[p] = toResult(byPmid.get(p))))
       } catch {
-        chunk.forEach(p => (results[p] = { status: batchCtrl.signal.aborted ? 'idle' : 'error' }))
+        chunk.forEach(p => {
+          if (results[p]?.status === 'loading') {
+            results[p] = { status: batchCtrl.signal.aborted ? 'idle' : 'error' }
+          }
+        })
       }
     }
   }

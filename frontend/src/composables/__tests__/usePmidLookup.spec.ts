@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { createApp, defineComponent, h } from 'vue'
+import { createApp, defineComponent, h, nextTick, ref } from 'vue'
 
 const api = vi.hoisted(() => ({ validatePMIDs: vi.fn() }))
 vi.mock('@/api/publications', () => ({ publicationsAPI: api }))
@@ -253,6 +253,59 @@ describe('usePmidLookup', () => {
     expect(api.validatePMIDs).toHaveBeenCalledTimes(1)
     expect(child.statusOf('61')).toBe('found')
   })
+
+  it.each(['found', 'notfound'] as const)(
+    'preserves another caller’s %s result when a closing table batch rejects',
+    async status => {
+      let parent!: ReturnType<typeof usePmidLookup>
+      let child!: ReturnType<typeof usePmidLookup>
+      let rejectBatch!: (reason: Error) => void
+      const visible = ref(true)
+      const Child = defineComponent({
+        setup() {
+          child = usePmidLookup()
+          return () => h('i')
+        }
+      })
+      const app = createApp(
+        defineComponent({
+          setup() {
+            parent = usePmidLookup()
+            return () => (visible.value ? h(Child) : h('div'))
+          }
+        })
+      )
+      app.mount(document.createElement('div'))
+      api.validatePMIDs
+        .mockImplementationOnce(
+          () =>
+            new Promise((_, reject) => {
+              rejectBatch = reject
+            })
+        )
+        .mockResolvedValueOnce(
+          status === 'found'
+            ? found('61')
+            : {
+                results: [{ pmid: '61', is_valid: false, error: 'Publication not found: 61' }]
+              }
+        )
+      const request = child.checkAll(['61', '62'])
+      const signal = api.validatePMIDs.mock.calls[0]![1] as AbortSignal
+      parent.check('another-cell', '61')
+      await vi.advanceTimersByTimeAsync(300)
+      expect(parent.statusOf('61')).toBe(status)
+      visible.value = false
+      await nextTick()
+      expect(signal.aborted).toBe(true)
+      rejectBatch(new Error('aborted'))
+      await request
+      expect(parent.statusOf('61')).toBe(status)
+      expect(parent.hasUnknown(['61'])).toBe(status === 'notfound')
+      expect(parent.statusOf('62')).toBe('idle')
+      app.unmount()
+    }
+  )
 
   it('pmidsIn collects every pmid key at any depth, normalized', () => {
     expect(pmidsIn({ a: [{ pmid: 'PMID: 1' }], b: { c: [{ pmid: 2, x: 'PMID: 3' }] } })).toEqual([
