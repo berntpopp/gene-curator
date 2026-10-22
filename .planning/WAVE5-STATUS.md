@@ -1,5 +1,7 @@
 # Wave 5 orchestration status
 
+> Historical planning snapshot. The current status, final gates and remaining blockers are recorded in [WAVE5-REPORT.md](WAVE5-REPORT.md).
+
 ## Current checkpoint (supersedes historical notes below)
 
 - Owner requested generatedscreenshots/JSON cleanup: narrow.gitignore rules inroot/R;

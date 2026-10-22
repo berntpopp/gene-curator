@@ -122,7 +122,7 @@ references; package-lock ^10.6.0 is an unrelated dependency constraint. README e
 048/049 upgrades and unchanged historical pins. Every release-note claim cites a PR.
 A separate native factual audit verified citations, versions and clinical limitations.
 
-Release PR: pending final report refresh and draft creation. No v0.7.0 tag or GitHub release
+Release PR: [452](https://github.com/berntpopp/gene-curator/pull/452), draft. No v0.7.0 tag or GitHub release
 has been created. Claude Code Opus5.5 hit the account monthly spend limit; incomplete
 review calls yielded no verdict. Mandatory reviews cannot be replaced by native reviews.
 No billing/authentication changes or retry loop were attempted. Remaining merges and

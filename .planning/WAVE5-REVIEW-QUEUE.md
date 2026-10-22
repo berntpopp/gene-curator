@@ -17,6 +17,8 @@ No unreviewed draft becomes ready or merges. Actual SOPv11 PDF required for clin
 |450 immutable successor|6fbddc40c99ad416b873754b04f3d11f0017d42f|Initial full task review plus actual SOPv11 PDF; new version only, existing snapshots/pins/evidence invariant, legacy explicit-points containment|
 |451 UI polish|62fe62e (includes D/J browser fixes)|Initial full task review; actual browser timings/readonly/contrast/scroll/ontology suggestion limits|
 
+|452 release preparation|0bebdb9a1522f5125f08a0ac445d6727ae253d0a (plus report-link follow-up)|Initial release-only Opus ponytail review; PR-cited release notes, immutable upgrade guidance, all active versions, sanitized report/runner provenance; parent functional reviews remain required|
+
 Completed:440 actual Opus SHIP atfdc745e;441 actual Opus delta SHIP atc51ad81,
 sessionf5ce24c1-8b30-4d37-9039-f4c8ebd70e00. Both merged with local/GitHub CI and
 fresh browser evidence. Do not rereview them absent new changes.

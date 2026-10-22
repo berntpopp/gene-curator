@@ -9,6 +9,10 @@ requested no more questions, and authorized end-to-end work and final sync.
 Read WAVE5-REPORT.md, WAVE5-REVIEW-QUEUE.md, WAVE5-CLINICAL-RESEARCH.md and the release
 candidate notes. First inspect Git/PR metadata and preserve unrelated dirty work.
 Do not restart completed work or claim the unmerged release candidate was released.
+Root also holds untracked copies of the new Wave5 reports and the requested local
+.gitignore edit. Before the final release fast-forward, reconcile those against the
+pushed release commit; remove or stash only verified duplicate task-owned copies so
+Git can update cleanly. Preserve unrelated Wave3/4 planning and tooling changes.
 
 Finish Wave5 before adding scope. PR440/441 are merged and have Opus, local/GitHub CI
 and fresh postmerge browser evidence. Remaining functional drafts are442–446 and449–451,

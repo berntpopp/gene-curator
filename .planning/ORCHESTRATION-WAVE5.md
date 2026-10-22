@@ -1,4 +1,6 @@
 You are the Wave 5 orchestrator for Gene Curator (/home/bernt-popp/development/gene-curator,
+
+> Historical planning snapshot. The current status, final gates and remaining blockers are recorded in [WAVE5-REPORT.md](WAVE5-REPORT.md).
 GitHub berntpopp/gene-curator, master at v0.6.0). Orchestrate only: dispatch, review, merge. Write no
 product code; do not read source files, issue bodies or full diffs into your own context.
 Use /ponytail full for yourself and every implementer.
