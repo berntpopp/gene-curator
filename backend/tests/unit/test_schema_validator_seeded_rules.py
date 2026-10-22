@@ -80,7 +80,6 @@ def test_conditional_required_applies_only_when_condition_holds() -> None:
     "rules",
     [
         {"required_fields": "mondo_id", "conditional_required": ["x"]},
-        {"conditional_required": {"a": "x", "b": {"when": ["x"]}}},
         {
             "custom_validators": [
                 "junk",
@@ -95,6 +94,14 @@ def test_malformed_list_rules_are_skipped(rules: dict[str, Any]) -> None:
     schema = {"field_definitions": FIELDS, "validation_rules": rules}
     result = SchemaValidator().validate_evidence_data({"mondo_id": "x"}, schema)
     assert result.is_valid
+
+
+def test_malformed_conditions_of_named_fields_require_them() -> None:
+    """#433: a malformed `when` holds, so a schema typo never drops a required check."""
+    rules = {"conditional_required": {"a": "x", "b": {"when": ["x"]}}}
+    schema = {"field_definitions": FIELDS, "validation_rules": rules}
+    result = SchemaValidator().validate_evidence_data({"mondo_id": "x"}, schema)
+    assert result.required_fields_missing == ["a", "b"]
 
 
 # The lumping/splitting section as 016_seed_precuration_schema.sql seeds it

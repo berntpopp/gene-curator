@@ -28,7 +28,7 @@
 
             <v-row>
               <v-col
-                v-for="(subFieldSchema, subFieldName) in fieldSchema.items?.properties"
+                v-for="(subFieldSchema, subFieldName) in shown(fieldSchema.items?.properties)"
                 :key="subFieldName"
                 cols="12"
                 sm="6"
@@ -71,7 +71,7 @@
       <v-card-text>
         <v-row>
           <v-col
-            v-for="(subFieldSchema, subFieldName) in fieldSchema.properties"
+            v-for="(subFieldSchema, subFieldName) in shown(fieldSchema.properties)"
             :key="subFieldName"
             cols="12"
             :sm="Object.keys(fieldSchema.properties ?? {}).length > 2 ? 6 : 12"
@@ -105,9 +105,10 @@
    * parent's depth check) and keeps a local copy of the value so child edits
    * can be emitted as a whole.
    */
-  import { ref, watch } from 'vue'
+  import { inject, ref, watch } from 'vue'
   import { generateUUID } from '@/utils/uuidPolyfill'
   import DynamicField from './DynamicField.vue'
+  import { FORM_DATA, resolveField } from './conditions'
   import type { ComponentFallbackEvent, FieldSchema } from './types'
 
   const props = defineProps<{
@@ -127,6 +128,18 @@
   }>()
 
   type Item = Record<string, unknown>
+
+  // Condition paths start at the root of the form data (DynamicForm provides it)
+  const root = inject(FORM_DATA, undefined)
+
+  /** Child fields as the form data shows them: hidden ones dropped, `required_when` resolved */
+  const shown = (fields?: Record<string, FieldSchema>) =>
+    Object.fromEntries(
+      Object.entries(fields ?? {}).flatMap(([name, field]) => {
+        const resolved = resolveField(field, root?.value ?? {})
+        return resolved ? [[name, resolved]] : []
+      })
+    )
 
   const arrayValue = ref<Item[]>(
     Array.isArray(props.modelValue) ? [...(props.modelValue as Item[])] : []

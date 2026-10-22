@@ -172,7 +172,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onBeforeUnmount, onMounted, watch, nextTick } from 'vue'
+  import { ref, computed, onBeforeUnmount, onMounted, provide, watch, nextTick } from 'vue'
   import { useLogger } from '@/composables/useLogger'
   import { useValidationStore } from '@/stores'
   import DynamicField from './DynamicField.vue'
@@ -182,7 +182,7 @@
   import { errorDetails } from './errorDetails'
   import { labelForPath } from './fieldLabels'
   import { normalizeDefinition } from './normalizeDefinition'
-  import { resolveField } from './conditions'
+  import { FORM_DATA, resolveField } from './conditions'
   import { toFormValidation } from './validationResult'
   import ValidationWarnings from './ValidationWarnings.vue'
   import type {
@@ -237,6 +237,7 @@
   const validationStore = useValidationStore()
   const formRef = ref<FormHandle | null>(null)
   const formData = ref<FormData>({ ...props.initialData })
+  provide(FORM_DATA, formData) // nested fields resolve their conditions against the whole form
   const saving = ref(false)
   const submitting = ref(false)
   const validating = ref(false)

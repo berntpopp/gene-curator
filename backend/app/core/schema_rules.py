@@ -4,8 +4,12 @@ from typing import Any
 
 from app.core.schema_validation_result import SchemaValidationResult
 
-# One copy of the condition semantics (equals / in, True is not 1), shared with submit
-from app.crud.precuration_required import condition_holds
+# One copy of the condition semantics (#433), shared with submit and the frontend
+from app.crud.precuration_required import (
+    condition_holds,
+    is_visible,
+    required_when_holds,
+)
 
 
 def resolve_named_rules(schema_definition: dict[str, Any]) -> Any:
@@ -39,9 +43,29 @@ def _resolve(fields: Any, rules: dict[str, Any]) -> Any:
     return out
 
 
-def is_visible(config: dict[str, Any], data: dict[str, Any]) -> bool:
-    """False when the field's `visible_when` / `show_when` condition does not hold."""
-    return condition_holds(config.get("visible_when", config.get("show_when")), data)
+def resolve_conditions(fields: Any, data: Any, shown: bool = True) -> Any:
+    """The fields as `data` shows them (frontend `resolveField`): one hidden by its own or a
+    parent's condition is not required, a shown one whose `required_when` holds is."""
+    if not isinstance(fields, dict):
+        return fields
+    return {
+        name: _resolve_field(cfg, data, shown) if isinstance(cfg, dict) else cfg
+        for name, cfg in fields.items()
+    }
+
+
+def _resolve_field(cfg: dict[str, Any], data: Any, shown: bool) -> dict[str, Any]:
+    visible = shown and is_visible(cfg, data)
+    cfg = dict(cfg)
+    if not visible:
+        cfg["required"] = False
+    elif required_when_holds(cfg, data):
+        cfg["required"] = True
+    if "properties" in cfg:
+        cfg["properties"] = resolve_conditions(cfg["properties"], data, visible)
+    if isinstance(cfg.get("items"), dict):
+        cfg["items"] = _resolve_field(cfg["items"], data, visible)
+    return cfg
 
 
 # Rule keys the seeded schemas store as lists/maps of fields rather than one rule config
@@ -49,23 +73,28 @@ FIELD_LIST_RULES = ("required_fields", "conditional_required", "custom_validator
 
 
 def apply_field_list_rules(
-    data: dict[str, Any], rules: dict[str, Any], result: SchemaValidationResult
+    data: dict[str, Any],
+    rules: dict[str, Any],
+    result: SchemaValidationResult,
+    fields: dict[str, Any],
 ) -> dict[str, Any]:
     """Apply `required_fields`, `conditional_required` and `custom_validators` (#408).
 
-    Returns the remaining (per-rule config) rules.
+    A field hidden by its condition in `fields` is not required. Returns the remaining
+    (per-rule config) rules.
     """
-    # Malformed rules are skipped, as the per-rule try/except did before
+    # Malformed lists are skipped, as the per-rule try/except did before
     required = [
         n for n in _as(list, rules.get("required_fields")) if isinstance(n, str)
     ]
     for name, cond in _as(dict, rules.get("conditional_required")).items():
-        when = _as(dict, cond.get("when") if isinstance(cond, dict) else None)
-        if when and condition_holds(when, data):
+        # a malformed `when` holds, like every condition
+        if condition_holds(cond.get("when") if isinstance(cond, dict) else cond, data):
             required.append(name)
     for name in required:
         if (
             data.get(name) in (None, "", [])
+            and is_visible(_as(dict, fields.get(name)), data)
             and name not in result.required_fields_missing
         ):
             result.add_error(name, "Required field is missing", "required")

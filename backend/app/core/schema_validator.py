@@ -13,10 +13,11 @@ from app.core.schema_rules import (
     VALID_FIELD_TYPES,
     apply_field_list_rules,
     check_schema_definition,
-    is_visible,
+    resolve_conditions,
     resolve_named_rules,
 )
 from app.core.schema_validation_result import SchemaValidationResult
+from app.crud.precuration_required import visible_when as _when
 from app.scoring.registry import scoring_registry
 
 logger = get_logger(__name__)
@@ -82,7 +83,9 @@ class SchemaValidator:
         """
         result = SchemaValidationResult()
 
-        field_definitions = flatten_sections(resolve_named_rules(schema_definition))
+        field_definitions = resolve_conditions(
+            flatten_sections(resolve_named_rules(schema_definition)), evidence_data
+        )
         validation_rules = schema_definition.get("validation_rules", {})
         scoring_config = schema_definition.get("scoring_configuration", {})
         business_rules = schema_definition.get("business_rules", [])
@@ -91,7 +94,9 @@ class SchemaValidator:
         self._validate_fields(evidence_data, field_definitions, result)
 
         # 2. Apply validation rules
-        self._apply_validation_rules(evidence_data, validation_rules, result)
+        self._apply_validation_rules(
+            evidence_data, validation_rules, result, field_definitions
+        )
 
         # 3. Apply business rules
         self._apply_business_rules(evidence_data, business_rules, result, context)
@@ -158,13 +163,12 @@ class SchemaValidator:
         for field_name, field_config in field_definitions.items():
             field_value = evidence_data.get(field_name)
 
-            # Required unless hidden by its condition (a hidden value is still checked)
+            # `required` as resolve_conditions left it (a hidden value is still checked)
             required = field_config.get("required", False)
             if (
                 required
                 and field_value in (None, "")
                 and field_config.get("type") != "boolean"  # unset checkbox is false
-                and is_visible(field_config, evidence_data)
             ):
                 result.add_error(field_name, "Required field is missing", "required")
                 result.required_fields_missing.append(field_name)
@@ -546,9 +550,10 @@ class SchemaValidator:
         evidence_data: dict[str, Any],
         validation_rules: dict[str, Any],
         result: SchemaValidationResult,
+        fields: dict[str, Any],
     ) -> None:
         """Apply custom validation rules."""
-        rules = apply_field_list_rules(evidence_data, validation_rules, result)
+        rules = apply_field_list_rules(evidence_data, validation_rules, result, fields)
         for rule_name, rule_config in rules.items():
             try:
                 rule_type = rule_config.get("type", "condition")
@@ -942,16 +947,14 @@ class SchemaValidator:
 
         if _when(field_config):
             json_schema_prop["visible_when"] = _when(field_config)
+        if field_config.get("required_when") is not None:
+            json_schema_prop["required_when"] = field_config["required_when"]
 
         # Add description
         if "description" in field_config:
             json_schema_prop["description"] = field_config["description"]
 
         return json_schema_prop
-
-
-def _when(config: dict[str, Any]) -> Any:
-    return config.get("visible_when", config.get("show_when"))
 
 
 # Create singleton instance
