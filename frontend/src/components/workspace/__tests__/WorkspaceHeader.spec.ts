@@ -80,4 +80,15 @@ describe('WorkspaceHeader', () => {
     expect(w.text()).not.toContain('autosomal_dominant')
     expect(w.find('.ws-title__text').text()).toContain('Autosomal dominant')
   })
+
+  // #267: the blocker text appearing or disappearing must never move the buttons
+  // (a click whose mousedown commits a PMID cell would otherwise land beside Save draft)
+  it('keeps the blocker message out of the button row', () => {
+    const actions = (w: ReturnType<typeof mountHeader>) => w.find('.ws-actions').element.outerHTML
+    const reason = 'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
+    const blocked = mountHeader({ canSubmit: true, blockers: [reason] })
+    expect(blocked.find('[data-testid="ws-blockers"]').text()).toBe(reason)
+    expect(blocked.find('.ws-actions [data-testid="ws-blockers"]').exists()).toBe(false)
+    expect(actions(blocked)).toBe(actions(mountHeader()))
+  })
 })
