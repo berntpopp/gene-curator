@@ -57,6 +57,15 @@ The API connects to PostgreSQL as `app_user` (no superuser, so row-level securit
 `DATABASE_URL`/`DATABASE_URL_DOCKER`; production needs distinct strong passwords for both roles.
 An existing database gets the role with `make db-migrate` before the backend restarts.
 
+### Upgrading to v0.6.0
+
+Run `make db-migrate` (migrations 042-047) before restarting the backend, then recompute stored
+scores once: `make recompute-scores`. It logs every curation whose total or class changes (SOP v11
+corrections: Models and Rescue cap 4, case-control summed cap 12, AR other-variant proband up to 3,
+and the contradictory-evidence rule). Contradictory rows with no Impact no longer dispute a
+curation: re-label any that really dispute. Custom point models are untouched, and published
+methodology versions are immutable. Details: [docs/releases/v0.6.0.md](docs/releases/v0.6.0.md).
+
 ### Upgrading to v0.5.0
 
 Run `make db-migrate` (migrations 036-041) before restarting the backend. Curation and precuration
