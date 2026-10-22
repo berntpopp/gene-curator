@@ -324,13 +324,15 @@ describe('SchemaManagement', () => {
   it('duplicates a schema through the store', async () => {
     const { vm, schemas } = await mountView()
     const duplicate = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's2' } as never)
+    vi.spyOn(schemas, 'fetchPinnedVersion').mockResolvedValue({ version: 3 } as never)
     await call(vm, 'duplicateSchema', row)
     expect(duplicate).toHaveBeenCalledWith('s1')
-    expect(showSuccess).toHaveBeenCalledWith('Derived a new draft from "ClinGen curation"')
+    expect(showSuccess).toHaveBeenCalledWith('Derived from v3 (unpublished edits not included)')
   })
 
   it('reports a failed duplicate with the backend reason', async () => {
     const { vm, schemas } = await mountView()
+    vi.spyOn(schemas, 'fetchPinnedVersion').mockResolvedValue({ version: 3 } as never)
     vi.spyOn(schemas, 'duplicateSchema').mockRejectedValue({
       response: { data: { detail: 'Schema with this name and version already exists' } }
     })
@@ -409,6 +411,8 @@ describe('SchemaEditor', () => {
 
   it('shows the real schema fields and their count', async () => {
     const { wrapper } = await mountView()
+    expect(wrapper.text()).toContain('Derive')
+    expect(wrapper.text()).not.toContain('Duplicate schema')
     expect(wrapper.text()).toContain('curation schema v2.0.0')
     expect(wrapper.text()).toContain('"max": 12')
     const stats = wrapper.text().replace(/\s+/g, ' ')

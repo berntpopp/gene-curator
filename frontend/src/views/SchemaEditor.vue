@@ -210,7 +210,7 @@
 
                 <v-btn color="warning" variant="outlined" block @click="duplicateSchema">
                   <v-icon start>mdi-content-copy</v-icon>
-                  Duplicate schema
+                  Derive
                 </v-btn>
 
                 <v-btn color="error" variant="outlined" block @click="deleteSchema">

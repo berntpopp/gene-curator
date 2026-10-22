@@ -11,6 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.crud.schema_repository import schema_crud
 from app.models.models import CurationSchema, Scope, UserNew
 from tests.api.schema_api_support import (
     auth,
@@ -22,6 +23,7 @@ from tests.api.schema_api_support import (
 pytestmark = pytest.mark.unit
 
 BASE = "/api/v1/schemas"
+DUPLICATE = "Schema with this name and version already exists"
 
 
 @pytest.fixture
@@ -159,6 +161,47 @@ class TestCurationSchemaWrite:
 
         assert response.status_code == 400
         assert "already exists" in response.json()["detail"]
+
+    def test_create_losing_a_race_gets_the_same_400(
+        self,
+        client: TestClient,
+        db_session: Session,
+        admin_token: str,
+        monkeypatch: pytest.MonkeyPatch,
+    ):
+        """#432: the check passed, a concurrent create took the name; the constraint decides."""
+        insert_schema(db_session, name="Race", version="1.0")
+        monkeypatch.setattr(
+            schema_crud, "get_by_name_and_version", lambda *a, **k: None
+        )
+
+        response = client.post(
+            f"{BASE}/curation-schemas",
+            json=schema_payload(name="Race", version="1.0"),
+            headers=auth(admin_token),
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == DUPLICATE
+
+    def test_rename_to_taken_name_version_rejected(
+        self, client: TestClient, db_session: Session, admin_token: str
+    ):
+        insert_schema(db_session, name="Taken", version="2.0")
+        other = insert_schema(db_session, name="Other", version="2.0")
+
+        response = client.put(
+            f"{BASE}/curation-schemas/{other.id}",
+            json={"name": "Taken"},
+            headers=auth(admin_token),
+        )
+
+        assert response.status_code == 400
+        assert response.json()["detail"] == DUPLICATE
+        kept = client.get(
+            f"{BASE}/curation-schemas/{other.id}", headers=auth(admin_token)
+        )
+        assert kept.json()["name"] == "Other"
 
     def test_create_missing_required_fields_is_422(
         self, client: TestClient, admin_token: str

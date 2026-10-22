@@ -285,13 +285,15 @@
 
   const duplicateSchema = async (schema: SchemaRow) => {
     try {
+      // the version the store derives from; ponytail: a publish in between makes N stale by one
+      const source = await schemasStore.fetchPinnedVersion(null, schema.id)
       const duplicated = await schemasStore.duplicateSchema(schema.id)
       logger.info('Schema derived', {
         originalId: schema.id,
         duplicatedId: duplicated.id,
         schemaName: schema.name
       })
-      showSuccess(`Derived a new draft from "${schema.name}"`)
+      showSuccess(`Derived from v${source.version} (unpublished edits not included)`)
     } catch (error) {
       const err = error as ApiError
       logger.error('Failed to derive schema', {
