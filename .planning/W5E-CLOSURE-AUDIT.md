@@ -1,5 +1,7 @@
 # W5E closure audit
 
+> Historical checkpoint entries below are retained for provenance. Current review, merge and gate status is in [the Wave5 report](WAVE5-REPORT.md); later entries supersede earlier pending statements.
+
 Parent integration: d4f6688062e4082d2afc771ca5d7af838a901be3 (F/A/B/D); isolated B+D fixture compatibility commit f9c05f3b439fc26434a8a06fa8dcf49b5b3bb7d7. E-only changed-line coverage compares against f9c05f3.
 
 - #429: shared backend trace presentation in live workspace, schema/dynamic form, saved detail. Generic section/category/type keys; raw/count/cap, reductions and exact selected band/override. Pending draft publication/review/merge at time of this note.

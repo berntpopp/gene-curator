@@ -1,6 +1,6 @@
 # Wave 6 continuation prompt
 
-> **Owner resumed 2026-10-22.** Several actual Opus reviews completed. A later session usage limit resets at 19:00 Europe/Berlin; no retry before then. Already-reviewed merge/browser gates and native fixes may continue. See [resume checkpoint](WAVE5-RESUME.md).
+> **Checkpoint2026-10-22:** actual Opus reviews resumed and all functional fix deltas are SHIP. Finish the remaining G/J/I merge gates and final R delta/release gates before new scope. No v0.7.0 tag/release exists yet.
 
 You are the orchestration-only coordinator for Gene Curator, GitHub berntpopp/gene-curator,
 workspace /home/bernt-popp/development/gene-curator. Dispatch, review and merge; write no
@@ -22,8 +22,11 @@ for exact gates. Older171/171 is historical candidate evidence.
 Do not describe R review as release-only until functional PRs merge and its remaining product
 diff is verified as intended version/docs changes or explicitly reviewed integration fixes.
 
-Finish Wave5 before adding scope. PR440/441/442/443/444 are merged and have Opus, local/GitHub CI
-and fresh postmerge browser evidence. Remaining functional drafts are445/446 and449–451,
+Epic264 and W4S266 are CLOSED under the accepted scope after E fresh59+17+1.
+Read W5-EPIC-CLOSURE-AUDIT.md; do not claim the original broader redesign was implemented.
+
+Finish Wave5 before adding scope. PR440/441/442/443/444/445/446 are merged and have Opus, local/GitHub CI
+and fresh postmerge browser evidence. Remaining functional PRs are449–451,
 plus the release candidate. Exact heads, tests, required review deltas and known limits
 are recorded in the report/queue. The release contains only Markdown reports from the evidence directory; generated helper
 scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test

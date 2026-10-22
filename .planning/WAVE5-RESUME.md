@@ -1,45 +1,80 @@
-# Wave 5 resume checkpoint
+# Wave 5 live resume checkpoint
 
-2026-10-22: five functional PRs merged, five functional drafts plus release452 remain.
-Master7b984161db6bbf1b678d881990c4bdd711e84fa1 includes440/441/442/443/444; all five
-have completed actual Opus/local+GitHub CI/fresh postmerge gates.
+Updated 2026-10-22 after the 19:00 Europe/Berlin Opus reset. Owner authorized end-to-end
+continuation without questions. Actual claude-opus-5-5 is available; probe session
+707fd27d-0ed5-41f1-903f-a9ff52ad7d65 returned OPUS_READY with model provenance.
 
-Combined release source 320a33835f847cb135714089858bedb0accc6bcc includes final
-D16b5285, Eb85d8e0, G32b77d7, J547392d lineage and Id0c87bd. Focused84 backend and
-156 frontend tests pass. Combined full CI passed at 320a338 (2,572 FE, backend 94.71%, full PostgreSQL, diff 97/98%);
-fresh browser checks passed226/226 with no product changes; see the combined report.
-See [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md) and
-[integration ledger](W5R-INTEGRATION-CHECKPOINT.md) for precise gates and pending work.
+## Merged and verified
 
-Actual Opus 5.5 resumed successfully, then hit its session limit; reset19:00 Europe/Berlin.
-Do not retry before reset/new owner signal or alter billing/auth. D/E initial reviews
-returned FIX; native fixes are complete. G/I initial SHIP verdicts predate their native
-follow-up fixes. J SHIP is valid, with parent/integration checks still required. D/E/G/I
-actual delta reviews and R integration/release review remain mandatory. Native factual
-review is supplementary. No v0.7.0 tag or GitHub release exists;452 stays draft.
+Master/origin/master: 182a66a1179faf845fed8f3627eb16ee0c87c401.
+Previous merges440/441/442/443/444 retain their actual Opus/local+GitHub CI/fresh browser gates.
+D445 merged f9d6fa9fcbafd53edd6ad6eef1b6c8920f2e505b, reviewed820bc706, fullCI/check
+2564 frontend/backend94.70%, diff99/100. Fresh postmerge core59+D16+font1 passed;
+see wave5-evidence/pr445-postmerge/REPORT.md. GitHub aggregate check initially stuck
+in progress despite completed successful workflow; gate-only retry then merge.sh retry
+published green. No product failure or bypass.
 
-## Continue without restarting completed work
+E446 merged182a66a, finalhead1e2a5c4b78e5a682e4a1d31b25b52f14858fde65. Actual Opus
+SHIP and fullCI at29091ca; final ancestry merge has identical tree315067fa5ba9081584a15865ce1064dade14348f.
+FullCI2546 frontend/backend94.70%, fullPG, diff99/98, E-only97%. Initial combined
+659-line test gate failed; unchanged stub extraction fixed it, all assertions retained,
+actual narrow Opus review passed. GitHub all gates green; fresh postmerge browser gate passed core59+E17+font1. See W5E-RESUMED-GATES.md. Issues266/429/433 are GitHubCLOSED.
+Epic264 is CLOSED after E fresh browser PASS; accepted-scope audit and closing-comment URL are in W5-EPIC-CLOSURE-AUDIT.md.
+Do not describe the original broader redesign or excluded386 as implemented.
 
-1. Read the report/queue and verify remote metadata. Preserve every worktree and unrelated
-   root Wave3/4/tooling/ignore changes; reconcile only verified duplicate task-owned reports.
-2. Combined candidate gates are complete at320a338; preserve their exact evidence. Ops owns isolated
-   stack5455/8052/5190; the existing workspace retains its ignored machine-specific
-   monkey-stack.sh wrapper, while a fresh checkout needs explicit isolated-stack provisioning; never dev5454/8051/5193. Source is frozen after browser handoff
-   except a real test/browser finding. Only Markdown evidence is tracked; raw artifacts
-   and generated runners remain local and ignored.
-3. Once service access is restored, obtain required actual Opus delta/integration reviews.
-   Fix actual findings regression-first and re-review only the delta. Clinical reviews
-   inspect the actual SOPv11 PDF; preserve published snapshots and historical goldens.
-4. For each remaining functional PR, integrate current master, run required local gates,
-   push, ensure behind=0, then use `set -o pipefail; merge.sh N | tail`. Never merge red;
-   retry the initial empty CI gate after draft promotion and independently verify MERGED.
-5. After EACH functional merge reset the fresh monkey stack and exercise every role,
-   two review rounds and re-curation in real UI. Fixes also require narrow real-browser
-   reload/lazy-tab/pointer checks. Do not batch merges ahead of their fresh gate.
-6. After all functional merges, inspect R versus master: only intended versions/docs or
-   explicitly reviewed integration fixes may remain. Complete R actual Opus/CI gates,
-   update release facts, then release/tag only when all required gates pass.
+## Remaining sequence
 
-Owner authorized end-to-end continuation without more questions. All exclusions and
-accepted Wave4 scope reductions persist; #264/#266 remain open until their accepted
-scope is merged/verified. #268 is already GitHub-closed, with broader cuts documented.
+G449 finalhead d0d4088a9ebffbec4833ff02d3d8988d18e784f6, exact tested tree
+17646df5143d427ce5d180af7345bacadb56a89c from15d6ea45, clean/remote0-0/behindmaster0.
+FullCI/check2555 frontend/backend94.68%, fullPG, standard97/98, G-only95/96;
+normal push hook passed. Actual Opus deltaSHIP32b77d7 sessione2d6733c-aa33-4c18-b2c8-9a4b2867637e.
+D/E automatic integration adds no manual product changes. PR metadata may briefly lag
+remote branch. Promote only verified finalhead; merge only after E fresh gate PASS.
+
+J450 candidatef1549c43c64ad930c1bcb458c27a9d7d3b5beab9, tree467809e89e95074deb84b52a431772759f41454a,
+includes reviewed G15d6ea45. FullCI/check2565 frontend/backend94.72%, fullPG,
+standard97/97, J-only99/100; push passed. Actual Opus integration SHIP session
+6a3bf1ae-0a73-4e10-94ee-0f4e226d6435. Manual schema-validator/review-guard blobs
+match independently reviewed R; test merge retains all assertions. Migration049,
+scoring and goldens unchanged; prior actual SOP PDF review stands. Reconcile master
+only after G merges, verify tree unchanged, normal push hook. See W5J-RESUMED-GATES.md.
+
+I451 candidatefb244082654ed1ce6340ad271b37652613cb838f, treee13717fcd16d29302261340aba76b4cc96101ce5,
+includes Jf1549. Single manual EvidenceTableField resolution matches full R320a338 blob.
+FullCI2572 frontend/backend94.72%, fullPG and actual narrow integration SHIP passed. Earlier exact-ID
+fix actualSHIP atd0c87bd, session45f7fe7a-786c-4d1b-a793-5acaf635a108. Reconcile J master ancestry before merge; plan agent owns J/I ancestry sync.
+
+R452 final source06761a7063cf491bd04188608edc30b037d88a84, treebdfe607ddcb4d17071bced2b20a13396b179c203. Actual Opus integration/release
+SHIP at453a49b and cleanup deltaSHIP ate02479b, sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b.
+Seven duplicate legacy plan/scripts helper/cache files precisely untracked/ignored;
+local files and Markdown retained. Existing combined source320a338 fullCI+226browser
+passed, but E test-fixture extraction is now integrated; product diff versus reviewed I is only eight release-version files. Final canonical CI passed at06761a7:2572 frontend/backend94.71%, fullPG, diff97/99%.
+After all functional merges, reconcile R with master, verify remaining diff is only
+intended release/docs/cleanup, update PR-cited facts and all version files, run final
+CI and actual delta review, then merge/tag/GitHub release. No v0.7.0 tag/release exists yet.
+
+## Ownership and preservation
+
+Root orchestrates only: no product source, issue bodies or full diffs in root context;
+no product edits. Ponytail full, independent actual Opus reviews; no model fallback.
+Plan agent owns G/J/I final ancestry sync; epic264 closure is complete.
+Clinical agent owns final R integration/docs. Ops owns fresh isolated browser
+stack5455/8052/5190; never dev5454/8051/5193. Servers close fd9; every functional
+merge requires fresh every-role/two-round/recuration UI gate before next merge.
+Use set -o pipefail; .planning/orchestration/merge.sh N | tail and independently
+verify MERGED. Local fullCI can be reused only for proven byte-identical tree after
+ancestry-only merge; normal hooks and GitHub CI still run. Heavy local gates serialize
+on /tmp/gene-curator-wave5-gates.lock.
+
+Preserve root dirty Wave3/4/tooling/ignore changes and unique local artifacts. Reconcile
+only verified task-owned duplicates before final root fast-forward. Markdown-only
+evidence is tracked; helpers/screenshots/JSON stay ignored. Root monkey-stack.sh is
+an operator-local machine-specific wrapper, not shipped tooling; R530a5d4 added a
+precise ignore and explicit fresh-checkout provisioning note. Preserve the wrapper.
+
+All original exclusions and accepted cuts remain. Published methodology snapshots
+are immutable, D1 holds, no admin RLS bypass. Legacy missing-own-and-linked-disease
+readonly UI mismatch is a documented follow-up, no implicit backfill. End with final
+report, accurate issue states, gates, decisions, follow-ups and Wave6 prompt.
+
+GitHub has an active PR/Actions service incident (https://www.githubstatus.com/), verified2026-10-22T17:43UTC. G remote branchd0 is correct but PR head15d is stale; ready event started CI on that older identical-tree head. Do not merge until final d0 head and its gate are verified. Do not manufacture empty commits or force-push to chase a service delay. R local preparation continues.

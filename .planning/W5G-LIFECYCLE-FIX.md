@@ -1,5 +1,7 @@
 # W5G resumed lifecycle fixes
 
+> Historical checkpoint entries below are retained for provenance. Current review, merge and gate status is in [the Wave5 report](WAVE5-REPORT.md); later entries supersede earlier pending statements.
+
 PR [#449](https://github.com/berntpopp/gene-curator/pull/449) remains draft. Actual independent Opus 5.5 initial review at `cdc199c6f937022b590ccbb7663a0eeb071c3c42` returned SHIP (session `e2d6733c-aa33-4c18-b2c8-9a4b2867637e`), with two small lifecycle observations. That verdict does not cover subsequent fixes/integrations.
 
 Native fix `28f3608` prevents a closing table batch from resetting a different caller's completed found/notfound result. Automatic retry watches the PMID set and editability, so unrelated score edits and row reordering no longer retry failed lookups. Explicit PMID blur still retries. Three regressions failed first; all 42 focused frontend cases pass afterward.

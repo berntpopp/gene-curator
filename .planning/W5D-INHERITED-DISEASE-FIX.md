@@ -1,5 +1,7 @@
 # W5D inherited disease review fix
 
+> Historical checkpoint entries below are retained for provenance. Current review, merge and gate status is in [the Wave5 report](WAVE5-REPORT.md); later entries supersede earlier pending statements.
+
 Owner resumed Wave 5 on 2026-10-22. PR [#445](https://github.com/berntpopp/gene-curator/pull/445) remains draft.
 
 Actual Opus 5.5 initial review at `4e7cf15519d51d2c8360895141756df9e88cb2d4` returned FIX (session `c01a6d5e-4428-4680-9912-f09d92c1045e`). Required readonly disease fields blocked direct-created or historical curations even when their linked precuration held the disease. The reviewer also requested actual app_user ACTIVE-to-REVIEW refusal coverage.

@@ -1,5 +1,7 @@
 # W5I saved MONDO label follow-up
 
+> Historical checkpoint entries below are retained for provenance. Current review, merge and gate status is in [the Wave5 report](WAVE5-REPORT.md); later entries supersede earlier pending statements.
+
 Initial actual Opus 5.5 review: SHIP at 62fe62e, with one nonblocking label regression.
 Session: 45f7fe7a-786c-4d1b-a793-5acaf635a108.
 Review evidence: /tmp/w5-root-I-initial-review.json.

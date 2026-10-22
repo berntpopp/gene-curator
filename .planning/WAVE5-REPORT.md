@@ -1,12 +1,13 @@
 # Wave 5 implementation and verification report
 
-Status on 2026-10-22: five functional PRs are merged; five functional drafts and release
-[#452](https://github.com/berntpopp/gene-curator/pull/452) remain. Combined candidate
-`320a33835f847cb135714089858bedb0accc6bcc` includes every completed fix. Its full CI passed (2,572 frontend tests, backend 94.71%, full fresh PostgreSQL,
-standard changed-line coverage97% backend/98% frontend); fresh combined browser checks passed226/226. No v0.7.0 tag or GitHub release exists.
-Actual Opus 5.5 reviews resumed, then reached a session limit resetting at 19:00
-Europe/Berlin. Completed verdicts remain valid; new deltas and integration review remain
-mandatory. Native implementation, review and factual audits do not replace that gate.
+Status on 2026-10-22 after resumed actual Opus reviews: seven functional PRs are merged;
+#449/#450/#451 and release [#452](https://github.com/berntpopp/gene-curator/pull/452) remain open.
+The accepted methodology epic #264 and W4S #266 are closed after #446's fresh postmerge gate.
+All functional fix/integration deltas have actual Opus5.5 SHIP verdicts. Final R source
+`06761a7063cf491bd04188608edc30b037d88a84` differs from reviewed I only in eight intended
+0.7.0 version files; its final full CI passed: 2,572 frontend tests, backend94.71%, full PostgreSQL and standard diff97/99%. R's latest fixture/docs/ignore delta
+still needs actual review. No tag or GitHub release exists. GitHub PR metadata currently
+lags some pushed branches; no merge proceeds on an unverified head or incomplete gate.
 
 ## Scope and decisions
 
@@ -38,19 +39,19 @@ save and immutable-version changes have real API tests as app_user.
 Draft CI below means local `make ci`; GitHub CI is required before merge. Parent
 integration and native fixes require the review deltas in the [queue](WAVE5-REVIEW-QUEUE.md).
 
-| Issue                 | PR / final head                                                      | State and evidence                                                                                                                                        |
-| --------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| #431 catalogue        | [440](https://github.com/berntpopp/gene-curator/pull/440) / fdc745e  | Closed, merged 4fe8b6d; local/GitHub CI, diff 100%, actual Opus SHIP; fresh core 58/59 (known430), catalogue28/28                                         |
-| #430 approval         | [441](https://github.com/berntpopp/gene-curator/pull/441) / c51ad81  | Closed, merged 7496d36; local/GitHub CI, diff 100%, actual Opus delta SHIP; fresh core 59/59+narrow 27/27                                                 |
-| #436 recovery         | [442](https://github.com/berntpopp/gene-curator/pull/442) / 9e048445 | Closed, merged 358ce6c; local/GitHub CI, diff 97%/fix100%, actual Opus delta SHIP; candidate 36+23, fresh core 59/font1                                   |
-| #432 derive           | [443](https://github.com/berntpopp/gene-curator/pull/443) / ccd90aa  | Closed, merged 7b98416; local/GitHub CI, diff 100%, actual Opus delta SHIP; fresh core 59+narrow 10+font 1                                                |
-| #434 robustness       | [444](https://github.com/berntpopp/gene-curator/pull/444) / 62b7c35  | Closed, merged 785e573; local/GitHub CI, diff 97%, actual Opus delta SHIP/SOP PDF; fresh core 59+narrow 9+font 1                                          |
-| #433 conditions       | [445](https://github.com/berntpopp/gene-curator/pull/445) / 16b5285  | Open draft; fullCI at 16b5285, 2564 FE, backend 94.69%, diff 99/100%; native inherited-disease fix after actual Opus FIX; delta pending                   |
-| #429/#266 trace       | [446](https://github.com/berntpopp/gene-curator/pull/446) / b85d8e0  | Open draft; fullCI atb85d8e0, 2535 FE, backend 94.68%, pending-layout fix 100%; actual Opus FIX then native fix; delta pending                            |
-| #435 PMID             | [449](https://github.com/berntpopp/gene-curator/pull/449) / 32b77d7  | Open draft; fullCI at 57c76f8, 2573 FE, backend 94.66%, G-only95/96%; after H60 BE/107 FE/42 PG pass; initial Opus SHIP, native lifecycle delta pending   |
-| #438 AR decision      | [450](https://github.com/berntpopp/gene-curator/pull/450) / 547392d  | Open reviewed draft; fullCI at 547392d, 2547 FE, backend 94.71%, J-only99/100%; actual Opus SHIP/SOP PDF; parent/integration gates pending                |
-| #437 UI               | [451](https://github.com/berntpopp/gene-curator/pull/451) / d0c87bd  | Open draft; fullCI at 74b662c, 2564 FE, backend 94.71%, exact-ID fix 100%; after H41 BE/4 PG and push check pass; initial Opus SHIP, native delta pending |
-| #264 methodology epic | #446 and dependencies                                                | Open until accepted scope is merged and verified; #268 is GitHub-closed from v0.6.0, while its accepted broader scope cuts remain                         |
+| Issue                 | PR / final head                                                                   | State and evidence                                                                                                                                                                     |
+| --------------------- | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| #431 catalogue        | [440](https://github.com/berntpopp/gene-curator/pull/440) / fdc745e               | Closed, merged 4fe8b6d; local/GitHub CI, diff 100%, actual Opus SHIP; fresh core 58/59 (known430), catalogue28/28                                                                      |
+| #430 approval         | [441](https://github.com/berntpopp/gene-curator/pull/441) / c51ad81               | Closed, merged 7496d36; local/GitHub CI, diff 100%, actual Opus delta SHIP; fresh core 59/59+narrow 27/27                                                                              |
+| #436 recovery         | [442](https://github.com/berntpopp/gene-curator/pull/442) / 9e048445              | Closed, merged 358ce6c; local/GitHub CI, diff 97%/fix100%, actual Opus delta SHIP; candidate 36+23, fresh core 59/font1                                                                |
+| #432 derive           | [443](https://github.com/berntpopp/gene-curator/pull/443) / ccd90aa               | Closed, merged 7b98416; local/GitHub CI, diff 100%, actual Opus delta SHIP; fresh core 59+narrow 10+font 1                                                                             |
+| #434 robustness       | [444](https://github.com/berntpopp/gene-curator/pull/444) / 62b7c35               | Closed, merged 785e573; local/GitHub CI, diff 97%, actual Opus delta SHIP/SOP PDF; fresh core 59+narrow 9+font 1                                                                       |
+| #433 conditions       | [445](https://github.com/berntpopp/gene-curator/pull/445) /820bc706               | Closed, merged f9d6fa9; actual Opus delta SHIP, fullCI/check2564 FE/backend94.70%, diff99/100%; GitHubCI; fresh core59+D16+font1                                                       |
+| #429/#266 trace       | [446](https://github.com/berntpopp/gene-curator/pull/446) /1e2a5c4                | Closed, merged182a66a; actual Opus SHIP; fullCI29091ca2546 FE/backend94.70%, diff99/98%, E-only97%; final tree identical; GitHubCI; fresh core59+E17+font1                             |
+| #435 PMID             | [449](https://github.com/berntpopp/gene-curator/pull/449) /d0d4088 branch         | Open; actual Opus delta SHIP; fullCI15d6ea45,2555 FE/backend94.68%, fullPG,diff97/98%, G-only95/96%; final tree identical; PR metadata/GitHub gates pending                            |
+| #438 AR decision      | [450](https://github.com/berntpopp/gene-curator/pull/450) /f1549c4 branch         | Open reviewed draft; actual initial PDF review+integration SHIP; fullCI2565 FE/backend94.72%, fullPG,diff97/97%, J-only99/100%; master ancestry/GitHub/postmerge gates pending         |
+| #437 UI               | [451](https://github.com/berntpopp/gene-curator/pull/451) /fb24408 branch         | Open reviewed draft; actual exact-ID+integration SHIP; fullCI2572 FE/backend94.72%, fullPG,diff97/99%, I-only100/100%; master ancestry/GitHub/postmerge gates pending                  |
+| #264 methodology epic | [446](https://github.com/berntpopp/gene-curator/pull/446) and prior accepted work | Closed after E fresh gate; all children265–271 closed under accepted scope. Original broader redesign and268 cuts are not claimed delivered; [closure audit](W5-EPIC-CLOSURE-AUDIT.md) |
 
 Each draft passed its recorded check/push hook. Full CI includes fresh PostgreSQL,
 static/type/security checks, coverage and production build. R focused integration checks
@@ -67,7 +68,8 @@ API fixture setup and browser-origin API supplements are identified separately.
 The existing root workspace retains the machine-specific, ignored monkey-stack.sh wrapper.
 It is operator-local tooling, not a release asset; a fresh checkout must provision the
 isolated browser stack explicitly. Maintained setup/merge/restart tools remain tracked.
-All five merged slices have fresh postmerge gates. A's expanded recovery36/36 and
+All seven merged slices have fresh postmerge gates. D passed core59+D16+font1;
+E passed core59+E17+font1. A's expanded recovery36/36 and
 existing23/23 were candidate checks; its postmerge replay was core 59/59 plus font 1/1.
 H's postmerge core 59/59, narrow 10/10 and font 1/1 include API boundary checks explicitly.
 F's narrow 9/9 includes two API trace readbacks alongside actual UI save/reload/warnings.
@@ -86,8 +88,8 @@ failure. Original failing runs remain separately documented.
 
 Only Markdown evidence is tracked. Screenshots, JSON and generated helper scripts remain
 ignored local artifacts; counts change as browser work continues. Legitimate application
-JSON and orchestration scripts are preserved. The release-candidate archive cleanup removed eight
-obsolete downloads/helpers from R tracking while retaining local copies, including SOP PDFs.
+JSON and orchestration scripts are preserved. The release-candidate archive cleanup removed eight pre-GSD files and seven duplicate
+legacy helper/cache files from R tracking while retaining every local byte, including SOP PDFs.
 They remain tracked on current root master until the release integrates; ignore rules alone
 do not untrack them.
 Native factual audit confirms no tracked helper/artifact blobs or credential-pattern matches.
@@ -108,7 +110,7 @@ Native factual audit confirms no tracked helper/artifact blobs or credential-pat
   existing unordered limit50. Local recovery retains one draft per record, with competing
   tabs last-writer-wins and exact-snapshot cleanup.
 
-Master is7b98416. Eight active project version files are0.7.0; old0.6.0 references in
+Master is182a66a. Eight active project version files are0.7.0; old0.6.0 references in
 historical release/README/milestone text remain intentional. README documents048/049.
 Release claims cite their PRs.
 Independent native factual audit at docs2fa74d7/source320a338 found no corrections:
@@ -117,7 +119,9 @@ all eight active versions, PR citations, gate counts and review provenance match
 credential-pattern matches were zero, and 860 source/config ignore probes matched none.
 This factual audit is supplementary and does not approve product changes or replace Opus.
 Release452 remains draft; no tag/release has been created.
-Before publication all functional PRs must merge individually after actual review/local
+R actual integration/release SHIP at453a49b and cleanup delta SHIP ate02479b are recorded
+in sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b. Latest fixture/docs/ignore changes still
+need a narrow actual delta review. Before publication all functional PRs must merge individually after actual review/local
 and GitHub CI/fresh UI gates. R must then have only intended release/version changes or
 explicitly reviewed integration fixes relative to master, and pass its own actual Opus
 review and final gates. See [resume checkpoint](WAVE5-RESUME.md) and [Wave6 prompt](WAVE6-PROMPT.md).

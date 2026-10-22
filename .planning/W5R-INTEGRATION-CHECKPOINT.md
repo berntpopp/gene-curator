@@ -42,3 +42,24 @@ Independent native factual audit at docs2fa74d7/source320a338 found no correctio
 versions, PR citations, gate/review provenance or exclusions. It is supplementary, not
 actual Opus product approval. All required Opus delta/integration/release reviews remain
 in [the queue](WAVE5-REVIEW-QUEUE.md); no tag or GitHub release exists.
+
+## J current-master integration preparation
+
+Read-only prep at J547392d/master7b98416: J contains final B/C/F, initial D33fa1b9 via E01e85d7, Gcdc199c, Hfad565a, A readonly guard e35ae58, and clinical successor5ec0326/null-points6fbddc4. Later A cancellation, D defaults/inherited-disease, E pending-panel, G lifecycle, H null-guard and I exact-ID changes are absent. Remaining D→E→G→J→I order is valid; integrate reviewed parents before isolating J's clinical delta. Migration files match accepted R320a338.
+
+Merge-tree simulation against master7b98416 reports only `frontend/src/components/forms/__tests__/SchemaDrivenCurationFormFlows.spec.ts`. Against D820bc70 it additionally reports `backend/app/core/schema_validator.py` and `backend/app/services/review_guards.py`; against G32b77d7 it reports schema_validator and the form-flow test. E64aa666+G32b77d7 merges automatically. These are predictions for those exact heads, not completed integrations; recheck after actual parent merges.
+
+Use the existing ledger resolutions: retain description/default/default_by union; retain final G review guard composition with D inherited disease; preserve A cancel assertions and historical J fixture correction. Later I integration must combine sorted unique PMID watching with disabled-or-readonly editability while preserving J automatic-default tracking in EvidenceTableField.vue. No code/stack changes or duplicate tests were made for this prep.
+
+## Final source integration after resumed reviews
+
+R06761a7063cf491bd04188608edc30b037d88a84 merged reviewed Ifb24408. Only manual conflict
+was frontend/src/components/forms/**tests**/SchemaDrivenCurationFormFlows.spec.ts: chose
+I's complete reviewed file and retained schemaCurationFormStubs.ts. Every assertion remains.
+Product comparison against I across backend/frontend/database/scripts shows exactly the
+eight intended0.7.0 version files and no other changes. Treebdfe607ddcb4d17071bced2b20a13396b179c203.
+Final canonicalCI passed at06761a7:2572frontend/backend94.71%, fullPG/allgates, diff97/99%; prior candidate226browser evidence remains valid
+for identical product behavior, while functional per-merge browser gates are separate.
+Actual R integrationSHIP at453a49b/cleanupSHIP ate02479b remain valid. This final fixture
+resolution, operator-local wrapper docs/ignore and refreshed facts need a narrow actual
+Opus delta review. No newclinical interpretation or product fix was introduced.

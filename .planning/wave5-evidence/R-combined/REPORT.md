@@ -2,20 +2,20 @@
 
 Exact product candidate `320a33835f847cb135714089858bedb0accc6bcc`, fresh isolated Postgres5455/API8052/Vite5190. This is candidate integration evidence, not a release or postmerge gate. Mandatory actual Opus fix-delta reviews remain pending; browser acceptance does not replace them. No product changes were needed during this run.
 
-| Check                       | Result | Scope                                                                                                       |
-| --------------------------- | ------ | ----------------------------------------------------------------------------------------------------------- |
-| Canonical workflow          | 59/59  | Every role, untouched required-false defaults, two review rounds, independent approvals, re-curation and D1 |
-| D inherited disease         | 16/16  | Flat/nested linked disease submits; missing source refused; no inherited evidence copied                    |
-| E pending score panel       | 17/17  | Stable aside/checklist, debounce/request skeleton, stale-response protection, error termination             |
-| G affected flow             | 16/16  | Save during lookup, unknown blocker, known-PMID submit, readonly lazy view and return to editing            |
-| G lifecycle fixes           | 7/7    | No retry on score edit; intentional blur retry; completed result survives conditional hide/remount          |
-| I stored MONDO label        | 6/6    | Exact stored susceptibility label restored once, ID/evidence unchanged, free-text suggestions narrowed      |
-| Clinical successor          | 19/19  | AR defaults/manual overrides, empty rows, segregation null warning versus explicit0, save/reload            |
-| Historical pin              | 6/6    | Loaded absent points remain absent, historical scoring retained, save preserves absence                     |
-| Responsive evidence/actions | 57/57  | 1440/390 light/dark, horizontal table scroll, long HGVS, readonly values, stable pointer target             |
-| Scope/review controls       | 17/17  | Full titles, review counts, role contrast, local invitation date                                            |
-| Pointer/blocker timing      | 5/5    | Blocker appears during pointer-down, Save target stays fixed, exactly one save                              |
-| Actual loaded font          | 1/1    | IBM Plex Sans loaded                                                                                        |
+| Check | Result | Scope |
+| --- | --- | --- |
+| Canonical workflow | 59/59 | Every role, untouched required-false defaults, two review rounds, independent approvals, re-curation and D1 |
+| D inherited disease | 16/16 | Flat/nested linked disease submits; missing source refused; no inherited evidence copied |
+| E pending score panel | 17/17 | Stable aside/checklist, debounce/request skeleton, stale-response protection, error termination |
+| G affected flow | 16/16 | Save during lookup, unknown blocker, known-PMID submit, readonly lazy view and return to editing |
+| G lifecycle fixes | 7/7 | No retry on score edit; intentional blur retry; completed result survives conditional hide/remount |
+| I stored MONDO label | 6/6 | Exact stored susceptibility label restored once, ID/evidence unchanged, free-text suggestions narrowed |
+| Clinical successor | 19/19 | AR defaults/manual overrides, empty rows, segregation null warning versus explicit0, save/reload |
+| Historical pin | 6/6 | Loaded absent points remain absent, historical scoring retained, save preserves absence |
+| Responsive evidence/actions | 57/57 | 1440/390 light/dark, horizontal table scroll, long HGVS, readonly values, stable pointer target |
+| Scope/review controls | 17/17 | Full titles, review counts, role contrast, local invitation date |
+| Pointer/blocker timing | 5/5 | Blocker appears during pointer-down, Save target stays fixed, exactly one save |
+| Actual loaded font | 1/1 | IBM Plex Sans loaded |
 
 D: complete flat/nested linked precurations permit actual UI submit with absent readonly entity_definition in curation evidence. Supplementary authenticated reads verify only own evidence is stored and precuration evidence is unchanged. Missing linked disease returns400. The test awaits the actual successful PUT-save response before POST-submit, then verifies the refused transition preserves that exact lock_version, evidence and workflow state.
 

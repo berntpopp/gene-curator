@@ -31,6 +31,7 @@ The table above is historical candidate evidence. Current gates are authoritativ
 - [A expanded candidate](A-resume-candidate/REPORT.md) and [A fresh postmerge](pr442-postmerge/REPORT.md).
 - [H resumed candidate](H-resume/REPORT.md) and [H fresh postmerge](pr443-postmerge/REPORT.md).
 - [F fresh postmerge](pr444-postmerge/REPORT.md).
+- [D fresh postmerge](pr445-postmerge/REPORT.md) and [E fresh postmerge](pr446-postmerge/REPORT.md).
 - [D review checkpoint](D-opus-resume/REPORT.md), [E review checkpoint](E-opus-resume/REPORT.md),
   [G review checkpoint](G-opus-resume/REPORT.md), [I review checkpoint](I-opus-resume/REPORT.md).
 

@@ -1,21 +1,23 @@
-# Wave 5 current status
+# Wave5 current checkpoint
 
-Authoritative checkpoint2026-10-22; historical dispatch details remain in Git history.
-Root is orchestration-only. Owner delegated decisions/no more questions; Ponytail full.
+Seven functional PRs440/441/442/443/444/445/446 are merged and have completed actual
+Opus/local+GitHubCI/fresh postmerge gates. Master182a66a. Epic264 and W4S266 are CLOSED
+under accepted scope; original redesign cuts and excluded386 remain explicit.
 
-- Master7b98416:440/441/442/443/444 merged, each actual Opus/local+GitHub CI/fresh UI gate complete.
-- Drafts:44516b5285,446b85d8e0,44932b77d7,450547392d,451d0c87bd, release452.
-- Combined R source 320a338: focused84BE+156FE pass; sole combined full CI passed at 320a338
-  (2,572 FE, backend 94.71%, PostgreSQL, diff 97/98%); fresh browser replay passed226/226. Source frozen, final documentation checkpoint prepared.
-- D/E/G/I native fixes complete; actual Opus delta reviews pending. J actual SHIP valid.
-  R needs both integration and release review, including three manually resolved product paths.
-- CLI session limit resets19:00 Europe/Berlin; no retry before reset/new owner signal.
-  No auth/billing changes. Native factual review never substitutes for actual Opus.
-- Ops owns isolated5455/8052/5190 stack and real UI checks. Canonical heavy gate lock:
-  /tmp/gene-curator-wave5-gates.lock. Worktrees and unrelated root changes preserved.
-  -048 merged;049 immutable successor remains draft. Historical snapshots/pins/evidence/goldens
-  unchanged. D1 applies to admins; required false is answered, hidden fields not required.
-- Release0.7.0 versions prepared; no tag/GitHub release. Reports track Markdown evidence only.
+G449/J450/I451 remain open. All have actual Opus SHIP and full localCI; final parent
+ancestry/PR metadata/GitHubCI/per-merge browser gates remain. Plan agent owns their
+ancestry sync. Root orchestrates merges only. Exact heads and sessions are in the queue.
 
-See [full report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md),
-[integration ledger](W5R-INTEGRATION-CHECKPOINT.md) and [resume order](WAVE5-RESUME.md).
+R final source06761a7 integrates Ifb24408 and differs only in eight0.7.0 version files.
+Canonical fullCI passed at06761a7 (2572 FE/backend94.71%, fullPG,diff97/99%); latest fixture/docs/ignore delta actual review is pending.
+Earlier R320a338 passed226 browser checks with identical product behavior. Release452
+stays draft; no tag or GitHub release. Every new merge still requires fresh browser gates.
+
+Local monkey-stack.sh is a retained operator wrapper, precisely ignored, not release
+tooling. Fresh clones must provision an isolated5455/8052/5190 stack explicitly.
+Maintained tooling and unrelated root Wave3/4 changes are preserved. Heavy gates use
+/tmp/gene-curator-wave5-gates.lock. Markdown evidence only; raw helpers/artifacts stay local.
+
+See [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md),
+[integration ledger](W5R-INTEGRATION-CHECKPOINT.md), [epic audit](W5-EPIC-CLOSURE-AUDIT.md)
+and [resume order](WAVE5-RESUME.md).

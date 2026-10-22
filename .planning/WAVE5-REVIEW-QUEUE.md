@@ -1,45 +1,32 @@
-# Required Opus review queue
+# Wave5 review and remaining merge gates
 
-Checkpoint 2026-10-22: actual Claude Code Opus 5.5 completed the reviews below, then hit a
-session limit resetting 19:00 Europe/Berlin. No retry before reset/new owner signal.
-No billing/auth changes. Native fixes, tests and audits do not satisfy mandatory review.
-Use ponytail:ponytail-review full; fix rounds review only the new delta and connected code.
-Clinical review requires the actual official SOPv11 PDF and per-case golden rationale.
+Actual Opus5.5 resumed after the19:00 Europe/Berlin reset. No review-service blocker
+remains. Native tests/audits are supplementary; every required verdict below is actual
+claude-opus-5-5 with is_error=false. Fix rounds reviewed only deltas and connected behavior.
 
-## Remaining functional reviews
+| PR  | Actual verdict and session                                                                         | Current gate state                                                                                                       |
+| --- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 440 | SHIP atfdc745e                                                                                     | Merged4fe8b6d, local/GitHubCI and fresh browser complete                                                                 |
+| 441 | DeltaSHIP atc51ad81; f5ce24c1-8b30-4d37-9039-f4c8ebd70e00                                          | Merged7496d36, all gates complete                                                                                        |
+| 442 | DeltaSHIP at9e048445;98bfc166-0239-48b0-9f23-92815e8a7bd9                                          | Merged358ce6c, all gates complete                                                                                        |
+| 443 | DeltaSHIP including null guard;a953e0a5-2768-47d9-9517-37a38926b954                                | Merged7b98416, all gates complete                                                                                        |
+| 444 | DeltaSHIP at62b7c35;ef53a327-7c16-49b2-b434-d0d0608a854d, SOP PDF checked                          | Merged785e573, all gates complete                                                                                        |
+| 445 | DeltaSHIP at820bc706;c01a6d5e-4428-4680-9912-f09d92c1045e                                          | Mergedf9d6fa9, fullCI/GitHub and fresh59+16+1 complete                                                                   |
+| 446 | Delta+fixture/integrationSHIP at29091ca;05a8493c-5865-449e-b94e-01ead94c8a8f                       | Merged182a66a via identical-tree1e2a5c4; fullCI/GitHub and fresh59+17+1 complete                                         |
+| 449 | DeltaSHIP at32b77d7;e2d6733c-aa33-4c18-b2c8-9a4b2867637e                                           | Reviewed parent integrations/fullCI15d6ea45 pass; finald0d4088 tree identical; PR-head/GitHub/postmerge gates pending    |
+| 450 | Initial clinical/PDFSHIP and narrow integrationSHIP atf1549c4;6a3bf1ae-0a73-4e10-94ee-0f4e226d6435 | FullCI+push pass; current-master ancestry/GitHub/postmerge pending                                                       |
+| 451 | Exact-ID and manualintegrationSHIP atfb24408;45f7fe7a-786c-4d1b-a793-5acaf635a108                  | FullCI+push pass; current-master ancestry/GitHub/postmerge pending                                                       |
+| 452 | Integration/releaseSHIP at453a49b; cleanupdeltaSHIP ate02479b;b09f17b0-07b0-4e07-bb88-b14dedb9c10b | Finalsource06761a7 fullCI passed; new fixture/docs/local-wrapper-ignore delta review pending; functional merges required |
 
-| PR / candidate | Completed actual review                                                                                         | Remaining delta and gates                                                                                                                                       |
-| -------------- | --------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 445 /16b5285   | FIX at 4e7cf15, session c01a6d5e-4428-4680-9912-f09d92c1045e                                                    | Native inherited-disease fallback 31242e8 plus integration, real app_user submit/direct/bulk/ACTIVE cases; [checkpoint](W5D-INHERITED-DISEASE-FIX.md)           |
-| 446 /b85d8e0   | FIX at 01e85d7, session 05a8493c-5865-449e-b94e-01ead94c8a8f                                                    | Native stable pending layout 3659fa1, fixture completionb85d8e0; debounce/request/superseded response lifecycle, mounted checklist and no stale numeric display |
-| 449 /32b77d7   | SHIP atcdc199c, sessione2d6733c-aa33-4c18-b2c8-9a4b2867637e                                                     | Native lifecycle 28f3608, race regression 57c76f8 and D integration; [checkpoint](W5G-LIFECYCLE-FIX.md)                                                         |
-| 450 /547392d   | SHIP, session 6a3bf1ae-0a73-4e10-94ee-0f4e226d6435; reviewed 6fbddc4 and tree-identical 547392d; actual SOP PDF | No new J product fix awaiting review; reconcile newer parents/integration, final local/GitHub CI and fresh postmerge gate                                       |
-| 451 /d0c87bd   | SHIP at 62fe62e, session 45f7fe7a-786c-4d1b-a793-5acaf635a108                                                   | Native exact-ID 4594ed1, isolated test-fixture 74b662c and parent integrations; [checkpoint](W5I-MONDO-FIX.md)                                                  |
+The R manual product resolutions have actual Opus coverage, with exact blob matches
+rechecked in J/I. Latest R06761a7 manually chooses I's already-reviewed complete form-flow
+test while retaining its extracted helper; no assertion or product behavior changes.
+[Integration ledger](W5R-INTEGRATION-CHECKPOINT.md) preserves exact commits and paths.
 
-Combined R source 320a338 passed full CI; fresh browser checks passed226/226. Each functional PR still
-needs current-master integration, required local/GitHub CI and fresh per-merge UI gates.
-Do not call a parent initial SHIP approval of subsequent native fixes.
-
-## Release and integration review
-
-Draft 452 requires an actual initial Opus review. It includes both release changes and
-manual product conflict resolutions; a release-only review is insufficient now.
-[Exact merge/path ledger](W5R-INTEGRATION-CHECKPOINT.md) identifies schema-validator,
-review-guard and EvidenceTableField resolutions. Cover their connected D/G/J/I behavior,
-PR-cited claims, 048/049 upgrade guidance, active versions, historical references, and
-Markdown-only evidence/provenance. Before publication, all functional PRs must be merged;
-verify the remaining product diff is only intended versions/docs or explicitly reviewed
-integration fixes. Then final CI/review/merge/tag/release gates apply.
-
-## Completed merged reviews
-
-- #440 fdc745e actual Opus SHIP; merged 4fe8b6d.
-- #441 c51ad81 actual Opus delta SHIP, sessionf5ce24c1-8b30-4d37-9039-f4c8ebd70e00; merged 7496d36.
-- #442 9e048445 actual Opus delta SHIP, session 98bfc166-0239-48b0-9f23-92815e8a7bd9; merged 358ce6c.
-- #443 ccd90aa includes reviewed is_active:null fix; actual Opus delta SHIP, sessiona953e0a5-2768-47d9-9517-37a38926b954; merged 7b98416.
-- #444 62b7c35 actual Opus delta SHIP/SOP PDF, sessionef53a327-7c16-49b2-b434-d0d0608a854d; merged 785e573.
-
-All five have local/GitHub CI and fresh postmerge evidence. Do not repeat their reviews
-absent new changes. Tool errors, missing model usage and partial output are not SHIP.
-CLI review JSONs remain local under /tmp; substantive verdicts/session/model provenance
-are recorded here and in evidence reports.
+Before each merge, verify current master and exact pushed PR head, required GitHubCI and
+fresh preceding-merge gate. GitHub metadata may lag remote branches; never manufacture
+empty commits or force-push to hide it. Proven identical-tree ancestry merges reuse precise
+localCI evidence while normal hooks/GitHubCI still apply. Every functional merge needs its
+own fresh browser replay. Final publication requires all functional merges, a release-only
+remaining diff (or explicit reviewed integration fix), finalR review/gates and verified facts.
+No tag/GitHub release exists yet. Clinical golden expectations and prior PDF reasoning stand.
