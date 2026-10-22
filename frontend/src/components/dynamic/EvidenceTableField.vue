@@ -142,6 +142,9 @@
     }))
   )
 
+  // Only rows created in this mounted table may follow selector-driven suggestions.
+  const automaticDefaults = new Set<string | number>()
+
   // Row ids keep review diffs and comments anchored when rows are removed
   const rowKey = (row: Row, index: number) =>
     typeof row.id === 'string' || typeof row.id === 'number' ? row.id : index
@@ -151,11 +154,11 @@
   const lookup = usePmidLookup()
   const frame = inject(WORKSPACE_FRAME, null)
   const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
+  const tablePmids = computed(() =>
+    rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
+  )
   const unknownPmids = computed(() =>
-    rows.value
-      .flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
-      .filter(p => lookup.statusOf(p) === 'notfound')
-      .map(p => String(p).trim())
+    tablePmids.value.filter(p => lookup.statusOf(p) === 'notfound').map(p => String(p).trim())
   )
   watch(
     unknownPmids,
@@ -171,10 +174,10 @@
     { immediate: true }
   )
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
-  // PMIDs loaded with a saved draft or replaced from outside are checked too, not only on blur
+  // Retry on PMID-set/editability changes, not unrelated score edits or row reordering.
   watch(
-    () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
-    pmids => !props.disabled && lookup.checkAll(pmids),
+    [() => JSON.stringify([...new Set(tablePmids.value)].sort()), () => props.disabled],
+    () => !props.disabled && lookup.checkAll(tablePmids.value),
     { immediate: true }
   )
   // Removing a row cancels its own lookup
@@ -182,7 +185,12 @@
     () => rows.value.map(rowKey),
     (keys, before) => {
       const live = new Set(keys)
-      before?.filter(k => !live.has(k)).forEach(k => lookup.cancel(k))
+      before
+        ?.filter(k => !live.has(k))
+        .forEach(k => {
+          lookup.cancel(k)
+          automaticDefaults.delete(k)
+        })
     }
   )
 
@@ -217,11 +225,14 @@
   const draftKey = (row: Row, index: number, key: string) => `${rowKey(row, index)}:${key}`
 
   function onInput(row: Row, index: number, col: Column, value: unknown) {
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     if (col.cell.lazy) drafts[draftKey(row, index, col.key)] = value
     else commit(rowKey(row, index), col.key, value)
   }
 
   function onChange(row: Row, index: number, col: Column, event: Event) {
+    // A deliberate same-value edit is still manual, even when commit emits nothing.
+    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
     delete drafts[draftKey(row, index, col.key)]
     commit(rowKey(row, index), col.key, inputValue(col.schema, event))
   }
@@ -232,23 +243,43 @@
     if (index < 0 || rows.value[index]![column] === value) return
     emit(
       'update:model-value',
-      rows.value.map((row, i) => (i === index ? { ...row, [column]: value } : row))
+      rows.value.map((row, i) => {
+        if (i !== index) return row
+        const changed = { ...row, [column]: value }
+        if (automaticDefaults.has(key)) {
+          for (const col of columns.value) {
+            if (col.schema.default_by?.field === column)
+              changed[col.key] = suggested(col.schema, changed)
+          }
+        }
+        return changed
+      })
     )
   }
 
   const focus = (selector: string) =>
     nextTick(() => root.value?.querySelector<HTMLElement>(selector)?.focus())
 
+  function suggested(schema: FieldSchema, row: Row): unknown {
+    const mapping = schema.default_by
+    return mapping?.values[String(row[mapping.field])] ?? emptyValue(schema)
+  }
+
   function addRow() {
     const row: Row = { id: generateUUID() }
     for (const col of columns.value) row[col.key] = emptyValue(col.schema)
+    for (const col of columns.value) {
+      if (col.schema.default_by) row[col.key] = suggested(col.schema, row)
+    }
+    automaticDefaults.add(rowKey(row, rows.value.length))
     const position = rows.value.length + 1
     emit('update:model-value', [...rows.value, row])
     const first = columns.value[0]
-    if (first) focus(`[aria-label="${first.label}, row ${position}"]`)
+    if (first) focus(`[aria-label=${CSS.escape(`${first.label}, row ${position}`)}]`)
   }
 
   function removeRow(index: number) {
+    automaticDefaults.delete(rowKey(rows.value[index]!, index))
     // The next row moves up into this position; without one, focus "Add row"
     const next =
       index < rows.value.length - 1 ? `[aria-label="Remove row ${index + 1}"]` : '.add-row'

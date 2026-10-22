@@ -210,49 +210,60 @@ class PublicationService:
         Returns:
             PMIDValidationResponse with all validation results
         """
-        results: list[PMIDValidationResult] = []
-        valid_count = 0
-        invalid_count = 0
-
-        for pmid in pmids:
-            # Normalize PMID
-            clean_pmid = pmid.strip().upper()
-            if clean_pmid.startswith("PMID:"):
-                clean_pmid = clean_pmid[5:]
-            clean_pmid = clean_pmid.strip()
-
-            # Check database cache first
-            cached = await self._get_cached_publication(clean_pmid)
-            if cached:
-                results.append(
-                    PMIDValidationResult(
-                        pmid=clean_pmid,
-                        is_valid=True,
-                        publication=cached,
-                        error=None,
-                    )
+        normalized = [p.strip().upper().removeprefix("PMID:").strip() for p in pmids]
+        results: dict[str, PMIDValidationResult] = {}
+        try:
+            async with asyncio.timeout(
+                8.0
+            ):  # leave room under the browser's 10s timeout
+                for pmid in dict.fromkeys(normalized):
+                    cached = await self._get_cached_publication(pmid)
+                    if cached:
+                        results[pmid] = PMIDValidationResult(
+                            pmid=pmid, is_valid=True, publication=cached
+                        )
+                fetched = await self.fetch_many(
+                    [p for p in dict.fromkeys(normalized) if p not in results]
                 )
-                valid_count += 1
-                logger.debug("Publication found in cache", pmid=clean_pmid)
-                continue
-
-            # Fetch from API
-            result = await self.fetch_publication(clean_pmid)
-            results.append(result)
-
-            if result.is_valid and result.publication:
-                valid_count += 1
-                # Cache the publication
-                await self._cache_publication(result.publication, user_id)
-            else:
-                invalid_count += 1
-
+                results.update((r.pmid, r) for r in fetched)
+                # Only pure HTTP work runs concurrently; the cache session remains serial.
+                for result in fetched:
+                    if result.is_valid and result.publication:
+                        await self._cache_publication(result.publication, user_id)
+        except TimeoutError:
+            await self._db.rollback()
+        ordered = [results.get(p) or _timed_out(p) for p in normalized]
+        valid = sum(r.is_valid for r in ordered)
         return PMIDValidationResponse(
             total_requested=len(pmids),
-            valid_count=valid_count,
-            invalid_count=invalid_count,
-            results=results,
+            valid_count=valid,
+            invalid_count=len(pmids) - valid,
+            results=ordered,
         )
+
+    async def fetch_many(self, pmids: list[str]) -> list[PMIDValidationResult]:
+        """Bound HTTP concurrency and total time; retain each completed answer."""
+        if not pmids:
+            return []
+        gate = asyncio.Semaphore(LOOKUP_CONCURRENCY)
+
+        async def one(pmid: str) -> PMIDValidationResult:
+            async with gate:
+                return await self.fetch_publication(pmid)
+
+        tasks = {p: asyncio.create_task(one(p)) for p in dict.fromkeys(pmids)}
+        try:
+            _, pending = await asyncio.wait(tasks.values(), timeout=LOOKUP_TIMEOUT_S)
+            if pending:
+                logger.warning("PMID lookup timed out", pmids=pmids)
+            return [
+                tasks[p].result() if tasks[p].done() else _timed_out(p) for p in pmids
+            ]
+        finally:
+            for task in tasks.values():
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks.values(), return_exceptions=True)
 
     async def _get_cached_publication(self, pmid: str) -> PublicationData | None:
         """Get publication from database cache
@@ -397,7 +408,7 @@ class PublicationService:
 
 
 LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
-LOOKUP_TIMEOUT_S = 20.0  # whole lookup; slower counts as offline (never blocks)
+LOOKUP_TIMEOUT_S = 5.0  # whole HTTP batch; frontend requests time out after 10s
 
 # pmid_format as the forms accept it: optional "PMID:" prefix, 1-9 digits
 _PMID = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
@@ -433,24 +444,16 @@ def unknown_pmids(db: Session, pmids: set[str]) -> list[str]:
     return unknown
 
 
+def _timed_out(pmid: str) -> PMIDValidationResult:
+    return PMIDValidationResult(
+        pmid=pmid, is_valid=False, error="API timeout; retry lookup"
+    )
+
+
 async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
-    """Europe PMC results, at most LOOKUP_CONCURRENCY at a time; [] after LOOKUP_TIMEOUT_S."""
-    # fetch_publication never touches the cache session
+    """Pure bounded HTTP work; no database session is shared by network tasks."""
     service = PublicationService(cast(AsyncSession, None))
-    gate = asyncio.Semaphore(LOOKUP_CONCURRENCY)
-
-    async def one(pmid: str) -> PMIDValidationResult:
-        async with gate:
-            return await service.fetch_publication(pmid)
-
     try:
-        return list(
-            await asyncio.wait_for(
-                asyncio.gather(*(one(p) for p in pmids)), LOOKUP_TIMEOUT_S
-            )
-        )
-    except TimeoutError:
-        logger.warning("PMID lookup timed out, not blocking submit", pmids=pmids)
-        return []
+        return await service.fetch_many(pmids)
     finally:
         await service.close()

@@ -946,7 +946,7 @@ class SchemaValidator:
         if field_config.get("required_when") is not None:
             json_schema_prop["required_when"] = field_config["required_when"]
 
-        for key in ("description", "default"):
+        for key in ("description", "default", "default_by"):
             if key in field_config:
                 json_schema_prop[key] = field_config[key]
 

@@ -28,6 +28,8 @@ export interface FieldSchema {
   pattern?: string
   step?: number
   default?: unknown
+  /** Starting numeric suggestion selected by another column; never replaces manual input. */
+  default_by?: { field: string; values: Record<string, number> }
   errorMessage?: string
   enum?: Array<string | number>
   enumOptions?: Array<string | { label?: string; value?: string }>
