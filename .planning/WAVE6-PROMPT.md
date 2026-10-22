@@ -1,5 +1,7 @@
 # Wave 6 continuation prompt
 
+> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
+
 > **Checkpoint2026-10-22:** actual Opus reviews resumed and all functional fix deltas are SHIP. Finish the remaining G/J/I merge gates and final R delta/release gates before new scope. No v0.7.0 tag/release exists yet.
 
 You are the orchestration-only coordinator for Gene Curator, GitHub berntpopp/gene-curator,
@@ -25,15 +27,15 @@ diff is verified as intended version/docs changes or explicitly reviewed integra
 Epic264 and W4S266 are CLOSED under the accepted scope after E fresh59+17+1.
 Read W5-EPIC-CLOSURE-AUDIT.md; do not claim the original broader redesign was implemented.
 
-Finish Wave5 before adding scope. PR440/441/442/443/444/445/446 are merged and have Opus, local/GitHub CI
-and fresh postmerge browser evidence. Remaining functional PRs are449–451,
+Finish Wave5 before adding scope. PR440/441/442/443/444/445/446/449 are merged and have Opus, local/GitHub CI
+and required CI. Fresh postmerge browser evidence is complete through446; G449 is still pending. Remaining functional PRs are450/451,
 plus the release candidate. Exact heads, tests, required review deltas and known limits
 are recorded in the report/queue. The release contains only Markdown reports from the evidence directory; generated helper
 scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test
 JSON and legitimate existing orchestration scripts.
 
-Actual Claude Code Opus 5.5 hit a session limit after successful resumed reviews. Verify service availability only when
-there is reason to expect it restored; no billing changes, alternate auth or retry loop.
+Actual Claude Code Opus 5.5 is working again; the earlier session limit is superseded.
+STOP remains active: do not start reviews or other work without an explicit resume.
 Every PR still requires actual Opus ponytail:ponytail-review. Native factual/code reviews
 are supplementary and cannot replace it. Fix rounds review only the delta. Clinical
 reviews must inspect the official SOPv11 PDF, not memory. Preserve per-case golden reasons.
@@ -75,3 +77,8 @@ and intentional historical references, then tag and gh release. Synchronize mast
 update the final issue/gate ledger, decisions, follow-ups and next-wave prompt. If the
 required review service remains unavailable, report the exact blocker and pending work
 without pretending completion or weakening the gate.
+
+After explicit resume, G449's missing fresh postmerge gate at1215920 is first. Do not
+merge J/I/R beforehand. Include follow-up453 with447/448 and excluded386 in scope
+accounting; no implicit legacy backfill. Use the shutdown handover's exact heads,
+commands and preservation steps instead of historical pending statements above.

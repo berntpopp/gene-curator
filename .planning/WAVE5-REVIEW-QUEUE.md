@@ -1,5 +1,7 @@
 # Wave5 review and remaining merge gates
 
+> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
+
 Actual Opus5.5 resumed after the19:00 Europe/Berlin reset. No review-service blocker
 remains. Native tests/audits are supplementary; every required verdict below is actual
 claude-opus-5-5 with is_error=false. Fix rounds reviewed only deltas and connected behavior.
@@ -13,7 +15,7 @@ claude-opus-5-5 with is_error=false. Fix rounds reviewed only deltas and connect
 | 444 | DeltaSHIP at62b7c35;ef53a327-7c16-49b2-b434-d0d0608a854d, SOP PDF checked                                                           | Merged785e573, all gates complete                                                                                     |
 | 445 | DeltaSHIP at820bc706;c01a6d5e-4428-4680-9912-f09d92c1045e                                                                           | Mergedf9d6fa9, fullCI/GitHub and fresh59+16+1 complete                                                                |
 | 446 | Delta+fixture/integrationSHIP at29091ca;05a8493c-5865-449e-b94e-01ead94c8a8f                                                        | Merged182a66a via identical-tree1e2a5c4; fullCI/GitHub and fresh59+17+1 complete                                      |
-| 449 | DeltaSHIP at32b77d7;e2d6733c-aa33-4c18-b2c8-9a4b2867637e                                                                            | Reviewed parent integrations/fullCI15d6ea45 pass; finald0d4088 tree identical; PR-head/GitHub/postmerge gates pending |
+|449|DeltaSHIP; e2d6733c-aa33-4c18-b2c8-9a4b2867637e|Merged1215920 before STOP, exactd0/GitHubCI pass; fresh postmerge NOT RUN, first resume gate|
 | 450 | Initial clinical/PDFSHIP and narrow integrationSHIP atf1549c4;6a3bf1ae-0a73-4e10-94ee-0f4e226d6435                                  | FullCI+push pass; current-master ancestry/GitHub/postmerge pending                                                    |
 | 451 | Exact-ID and manualintegrationSHIP atfb24408;45f7fe7a-786c-4d1b-a793-5acaf635a108                                                   | FullCI+push pass; current-master ancestry/GitHub/postmerge pending                                                    |
 | 452 | Integration/releaseSHIP at453a49b; cleanupdeltaSHIP ate02479b; finalfixture/docsSHIP at01b6c77;b09f17b0-07b0-4e07-bb88-b14dedb9c10b | Finalsource06761a7 fullCI passed; last status/wording/bug-template delta review pending; functional merges required   |

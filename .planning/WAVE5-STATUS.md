@@ -1,10 +1,12 @@
 # Wave5 current checkpoint
 
-Seven functional PRs440/441/442/443/444/445/446 are merged and have completed actual
-Opus/local+GitHubCI/fresh postmerge gates. Master182a66a. Epic264 and W4S266 are CLOSED
+> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
+
+Eight functional PRs440/441/442/443/444/445/446/449 are merged with actual Opus/local+GitHubCI. Fresh postmerge gates are complete through446; G449
+requires the FIRST fresh gate on resume. Master1215920. Epic264 and W4S266 are CLOSED
 under accepted scope; original redesign cuts and excluded386 remain explicit.
 
-G449/J450/I451 remain open. All have actual Opus SHIP and full localCI; final parent
+J450/I451 remain open; G449 merged1215920 before STOP and its fresh gate has not run. All have actual Opus SHIP and full localCI; final parent
 ancestry/PR metadata/GitHubCI/per-merge browser gates remain. Plan agent owns their
 ancestry sync. Root orchestrates merges only. Exact heads and sessions are in the queue.
 

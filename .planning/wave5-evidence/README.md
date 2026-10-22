@@ -57,3 +57,5 @@ real invitations. Newly created workflow pairs cannot configure `data_mapping` t
 current UI/API. A one-section derived schema renders no fields; fixtures use two valid sections.
 Non-admin dashboard `/members` 403 noise and occasional Vuetify scroll warnings remain. Original
 v0.6.0 screenshots used fallback fonts; #440 and #441 use the restricted font fix.
+
+[Actual populated v0.6.0 upgrade rehearsal](upgrade-v060/REPORT.md) passed in place through048/049. It does not replace the missing G449 postmerge gate.

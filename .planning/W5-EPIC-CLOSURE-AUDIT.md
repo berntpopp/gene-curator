@@ -16,3 +16,7 @@ Excluded [#386](https://github.com/berntpopp/gene-curator/issues/386) qualitativ
 ## Closure provenance
 
 Root explicitly authorized closure after verifying the browser report. Native planning worker posted the audited scope-qualified note and closed [#264](https://github.com/berntpopp/gene-curator/issues/264) as completed. GitHub readback confirmed `CLOSED`, closedAt `2026-10-22T17:40:52Z`. [Closure comment](https://github.com/berntpopp/gene-curator/issues/264#issuecomment-6347255318) records supporting PRs, accepted cuts and the unresolved #386 exclusion. This was a metadata action; no product/worktree change or new independent review was claimed.
+
+## Recorded follow-up
+
+Filed [#453 — Found in Wave 5: legacy disease gaps leave readonly curations without a correction path](https://github.com/berntpopp/gene-curator/issues/453) after checking existing open titles (#403 is broader polish, not a duplicate). This records D's nonblocking actual-review finding and the fresh PR445 missing-linked-disease UI400 evidence. Required-content refusal remains correct and preserves the post-save evidence/state/version; the follow-up addresses readiness messaging and a supported permission-aware correction path. Acceptance preserves explicit blank/null precedence, real API app_user/RLS tests and browser verification; implicit backfill/pin rewrites are forbidden and any future data repair requires an explicit owner decision. Existing bug/UI/frontend labels were used. No implementation or data mutation accompanied filing.

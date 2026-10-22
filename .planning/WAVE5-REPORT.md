@@ -1,7 +1,9 @@
 # Wave 5 implementation and verification report
 
-Status on 2026-10-22 after resumed actual Opus reviews: seven functional PRs are merged;
-#449/#450/#451 and release [#452](https://github.com/berntpopp/gene-curator/pull/452) remain open.
+> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
+
+Status on 2026-10-22 after resumed actual Opus reviews: eight functional PRs are merged;
+#450/#451 and release [#452](https://github.com/berntpopp/gene-curator/pull/452) remain open.
 The accepted methodology epic #264 and W4S #266 are closed after #446's fresh postmerge gate.
 All functional fix/integration deltas have actual Opus5.5 SHIP verdicts. Final R source
 `06761a7063cf491bd04188608edc30b037d88a84` differs from reviewed I only in eight intended
@@ -47,7 +49,7 @@ integration and native fixes require the review deltas in the [queue](WAVE5-REVI
 | #434 robustness       | [444](https://github.com/berntpopp/gene-curator/pull/444) / 62b7c35               | Closed, merged 785e573; local/GitHub CI, diff 97%, actual Opus delta SHIP/SOP PDF; fresh core 59+narrow 9+font 1                                                                       |
 | #433 conditions       | [445](https://github.com/berntpopp/gene-curator/pull/445) /820bc706               | Closed, merged f9d6fa9; actual Opus delta SHIP, fullCI/check2564 FE/backend94.70%, diff99/100%; GitHubCI; fresh core59+D16+font1                                                       |
 | #429/#266 trace       | [446](https://github.com/berntpopp/gene-curator/pull/446) /1e2a5c4                | Closed, merged182a66a; actual Opus SHIP; fullCI29091ca2546 FE/backend94.70%, diff99/98%, E-only97%; final tree identical; GitHubCI; fresh core59+E17+font1                             |
-| #435 PMID             | [449](https://github.com/berntpopp/gene-curator/pull/449) /d0d4088 branch         | Open; actual Opus delta SHIP; fullCI15d6ea45,2555 FE/backend94.68%, fullPG,diff97/98%, G-only95/96%; final tree identical; PR metadata/GitHub gates pending                            |
+| #435 PMID | [449](https://github.com/berntpopp/gene-curator/pull/449) /d0d4088 | Closed, merged1215920 before STOP; actual Opus/local+GitHubCI pass; fullCI15d6ea45,2555 FE/backend94.68%, G-only95/96%; fresh postmerge NOT RUN, first resume gate |
 | #438 AR decision      | [450](https://github.com/berntpopp/gene-curator/pull/450) /f1549c4 branch         | Open reviewed draft; actual initial PDF review+integration SHIP; fullCI2565 FE/backend94.72%, fullPG,diff97/97%, J-only99/100%; master ancestry/GitHub/postmerge gates pending         |
 | #437 UI               | [451](https://github.com/berntpopp/gene-curator/pull/451) /fb24408 branch         | Open reviewed draft; actual exact-ID+integration SHIP; fullCI2572 FE/backend94.72%, fullPG,diff97/99%, I-only100/100%; master ancestry/GitHub/postmerge gates pending                  |
 | #264 methodology epic | [446](https://github.com/berntpopp/gene-curator/pull/446) and prior accepted work | Closed after E fresh gate; all children265–271 closed under accepted scope. Original broader redesign and268 cuts are not claimed delivered; [closure audit](W5-EPIC-CLOSURE-AUDIT.md) |
@@ -67,7 +69,7 @@ API fixture setup and browser-origin API supplements are identified separately.
 The existing root workspace retains the machine-specific, ignored monkey-stack.sh wrapper.
 It is operator-local tooling, not a release asset; a fresh checkout must provision the
 isolated browser stack explicitly. Maintained setup/merge/restart tools remain tracked.
-All seven merged slices have fresh postmerge gates. D passed core59+D16+font1;
+Seven merged slices have fresh postmerge gates; newly merged G449 has NOT run its fresh gate. D passed core59+D16+font1;
 E passed core59+E17+font1. A's expanded recovery36/36 and
 existing23/23 were candidate checks; its postmerge replay was core 59/59 plus font 1/1.
 H's postmerge core 59/59, narrow 10/10 and font 1/1 include API boundary checks explicitly.
@@ -109,7 +111,7 @@ Native factual audit confirms no tracked helper/artifact blobs or credential-pat
   existing unordered limit50. Local recovery retains one draft per record, with competing
   tabs last-writer-wins and exact-snapshot cleanup.
 
-Master is182a66a. Eight active project version files are0.7.0; the feature-request milestone choice and
+Master is1215920. Eight active project version files are0.7.0; the feature-request milestone choice and
 bug-report free-text version example are also0.7.0. These are eight product version files
 plus two issue-template text updates; old0.6.0 references in
 historical release/README/milestone text remain intentional. README documents048/049.
@@ -125,3 +127,14 @@ in sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b. Latest fixture/docs/ignore chang
 and GitHub CI/fresh UI gates. R must then have only intended release/version changes or
 explicitly reviewed integration fixes relative to master, and pass its own actual Opus
 review and final gates. See [resume checkpoint](WAVE5-RESUME.md) and [Wave6 prompt](WAVE6-PROMPT.md).
+
+## Shutdown additions
+
+The owner stopped work after G449 merged1215920. Its fresh postmerge gate is NOT RUN;
+J/I/R remain unmerged. [Shutdown handover](WAVE5-SHUTDOWN-HANDOVER.md) records exact trees,
+remaining reviews/gates, backups and resume commands. The populated v0.6 upgrade rehearsal
+passed baseline4/migration6/upgradedUIAPI16/idempotence6, preserving11 old version rows
+and all captured old pins/evidence/scores; see [upgrade evidence](wave5-evidence/upgrade-v060/REPORT.md).
+New follow-up [453](https://github.com/berntpopp/gene-curator/issues/453) records legacy
+disease gaps with no readonly correction path; correct rejection remains and no backfill
+was done. No tag/release exists. Shutdown performs no further product work or review.
