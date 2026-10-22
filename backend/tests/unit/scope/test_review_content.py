@@ -19,7 +19,12 @@ from app.models.models import (
     WorkflowStage,
 )
 from app.services.review_guards import check_review_content
-from tests.api.scopes.factories import make_curation, make_gene, make_precuration
+from tests.api.scopes.factories import (
+    make_curation,
+    make_gene,
+    make_precuration,
+    make_scope,
+)
 
 pytestmark = pytest.mark.unit
 
@@ -147,3 +152,100 @@ def test_lumping_splitting_needs_a_valid_decision(
         check_review_content(db_session, PrecurationNew(evidence_data=evidence))
     evidence["lumping_splitting_decision"] = "LUMP"
     check_review_content(db_session, PrecurationNew(evidence_data=evidence))
+
+
+@pytest.mark.parametrize(
+    ("own", "allowed"),
+    [
+        ({}, True),
+        ({"entity_definition": {"disease_name": "Own disease"}}, True),
+        ({"disease_name": "Own flat disease"}, True),
+        ({"entity_definition": {"disease_name": ""}}, False),
+        ({"entity_definition": {"disease_name": None}}, False),
+        ({"disease_name": ""}, False),
+        ({"disease_name": None}, False),
+        ({"entity_definition": None}, False),
+        ({"entity_definition": "malformed"}, False),
+    ],
+)
+def test_linked_disease_fills_only_absent_values_without_mutating_evidence(
+    db_session: Session,
+    scope: Scope,
+    creator: UserNew,
+    own: dict[str, Any],
+    allowed: bool,
+) -> None:
+    item = _item(db_session, "curation", scope, creator)
+    assert isinstance(item, CurationNew)
+    precuration = make_precuration(
+        db_session, scope=scope, gene=item.gene, creator=creator
+    )
+    disease = {
+        "disease_name": "Linked disease",
+        "mondo_id": "MONDO:0000001",
+        "mode_of_inheritance": "AD",
+    }
+    precuration.evidence_data = disease
+    item.precuration_id = precuration.id
+    evidence = {"summary": "Actual curation evidence", **own}
+    item.evidence_data = evidence
+    pair = db_session.get(WorkflowPair, item.workflow_pair_id)
+    assert pair
+    schema = db_session.get(CurationSchema, pair.curation_schema_id)
+    assert schema
+    schema.field_definitions = {
+        "entity_definition": {
+            "type": "object",
+            "readonly": True,
+            "properties": {key: {"required": True} for key in disease},
+        }
+    }
+    # Own disease wins over the linked value in condition evaluation, too.
+    schema.validation_rules = {
+        "conditional_required": {
+            "own_note": {"when": {"entity_definition.disease_name": "Linked disease"}}
+        }
+    }
+    if not own:
+        evidence["own_note"] = "present"
+    db_session.commit()
+    if allowed:
+        check_review_content(db_session, item)
+    else:
+        with pytest.raises(MissingRequiredFieldsError):
+            check_review_content(db_session, item)
+    assert item.evidence_data == evidence
+    assert precuration.evidence_data == disease
+    assert not db_session.is_modified(item)
+
+
+@pytest.mark.parametrize("mismatch", ["scope", "gene"])
+def test_linked_disease_must_belong_to_the_same_gene_and_scope(
+    db_session: Session, scope: Scope, creator: UserNew, mismatch: str
+) -> None:
+    item = _item(db_session, "curation", scope, creator)
+    assert isinstance(item, CurationNew)
+    precuration = make_precuration(
+        db_session, scope=scope, gene=item.gene, creator=creator
+    )
+    precuration.evidence_data = {"disease_name": "Private disease"}
+    if mismatch == "scope":
+        precuration.scope_id = make_scope(db_session).id
+    elif mismatch == "gene":
+        precuration.gene_id = make_gene(db_session).id
+    item.precuration_id = precuration.id
+    pair = db_session.get(WorkflowPair, item.workflow_pair_id)
+    assert pair
+    schema = db_session.get(CurationSchema, pair.curation_schema_id)
+    assert schema
+    schema.field_definitions = {
+        "entity_definition": {
+            "type": "object",
+            "properties": {"disease_name": {"required": True}},
+        }
+    }
+    db_session.commit()
+    with pytest.raises(
+        MissingRequiredFieldsError, match=r"entity_definition\.disease_name"
+    ):
+        check_review_content(db_session, item)
