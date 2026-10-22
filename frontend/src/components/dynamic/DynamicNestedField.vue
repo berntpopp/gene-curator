@@ -16,6 +16,7 @@
             <div class="d-flex justify-space-between align-center mb-2">
               <h4 class="text-title-small">Item {{ index + 1 }}</h4>
               <v-btn
+                v-if="!readonly"
                 aria-label="Remove item"
                 icon="mdi-delete"
                 size="small"
@@ -40,6 +41,7 @@
                   :depth="depth + 1"
                   variant="outlined"
                   :disabled="disabled"
+                  :readonly="readonly"
                   @update:model-value="updateArrayItem(index, subFieldName, $event)"
                   @component-fallback="$emit('component-fallback', $event)"
                 />
@@ -48,7 +50,14 @@
           </div>
         </div>
 
-        <v-btn color="primary" variant="outlined" block :disabled="disabled" @click="addArrayItem">
+        <v-btn
+          v-if="!readonly"
+          color="primary"
+          variant="outlined"
+          block
+          :disabled="disabled"
+          @click="addArrayItem"
+        >
           <v-icon start>mdi-plus</v-icon>
           Add {{ fieldSchema.itemTitle || 'Item' }}
         </v-btn>
@@ -83,6 +92,7 @@
               :depth="depth + 1"
               variant="outlined"
               :disabled="disabled"
+              :readonly="readonly"
               @update:model-value="updateObjectField(subFieldName, $event)"
               @component-fallback="$emit('component-fallback', $event)"
             />
@@ -118,6 +128,7 @@
     modelValue?: unknown
     depth: number
     disabled?: boolean
+    readonly?: boolean
     /** Error messages to show below the block */
     errorMessages: string[]
   }>()

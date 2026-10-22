@@ -593,10 +593,6 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     })
 
     it('submits through the frame after confirming, saving the evidence first', async () => {
-      curationsStore.fetchCurationById.mockResolvedValue({
-        evidence_data: { a: 1 },
-        lock_version: 2
-      })
       curationsStore.updateCuration.mockResolvedValue({ lock_version: 3 })
       precurationsStore.fetchPrecurationById.mockResolvedValue({
         id: 'p-1',

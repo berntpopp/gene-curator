@@ -36,9 +36,13 @@ vi.mock('@/components/evidence/HPOInput.vue', () => ({
 
 import DynamicForm from '../DynamicForm.vue'
 
-function mountForm(definition: Record<string, unknown>, initialData: Record<string, unknown> = {}) {
+function mountForm(
+  definition: Record<string, unknown>,
+  initialData: Record<string, unknown> = {},
+  readonly = false
+) {
   return mount(DynamicForm, {
-    props: { schemaId: 's1', definition, initialData, hideActions: true },
+    props: { schemaId: 's1', definition, initialData, hideActions: true, readonly },
     attachTo: document.body
   })
 }
@@ -46,6 +50,82 @@ function mountForm(definition: Record<string, unknown>, initialData: Record<stri
 beforeEach(() => vi.clearAllMocks())
 
 describe('DynamicForm from raw config', () => {
+  it('renders readonly scalar and nested evidence as selectable values, preserving false and zero', async () => {
+    const wrapper = mountForm(
+      {
+        field_definitions: {
+          enabled: { type: 'boolean', label: 'Enabled' },
+          zero: { type: 'number', label: 'Score' },
+          kind: {
+            type: 'enum',
+            label: 'Kind',
+            options: [{ value: 'cohort', label: 'Cohort label' }]
+          },
+          date: { type: 'date', label: 'Date' },
+          notes: { type: 'text', label: 'Notes', multiline: true },
+          tags: { type: 'array', label: 'Tags' },
+          nested: {
+            type: 'object',
+            label: 'Details',
+            properties: {
+              absent: { type: 'text', label: 'Empty value' },
+              hidden: { type: 'text', label: 'Hidden detail', visible_when: { enabled: true } }
+            }
+          },
+          records: {
+            type: 'array',
+            label: 'Records',
+            items: { properties: { text: { type: 'text', label: 'Record text' } } }
+          }
+        }
+      },
+      {
+        enabled: false,
+        zero: 0,
+        kind: 'cohort',
+        date: '2026-10-22',
+        notes: 'Line one\nLine two',
+        tags: ['Alpha', 'Beta'],
+        nested: { absent: '' },
+        records: [{ text: 'Nested record' }]
+      },
+      true
+    )
+    await flushPromises()
+    expect(wrapper.findAll('input, textarea, select')).toHaveLength(0)
+    for (const value of [
+      'No',
+      '0',
+      'Cohort label',
+      '2026-10-22',
+      'Line one',
+      'Line two',
+      'Alpha, Beta',
+      'none',
+      'Nested record'
+    ])
+      expect(wrapper.text()).toContain(value)
+    expect(wrapper.text()).not.toContain('Hidden detail')
+    expect(wrapper.find('[aria-label="Remove item"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('Add Item')
+    wrapper.unmount()
+  })
+
+  it('prints an evidence table description once', async () => {
+    const wrapper = mountForm({
+      field_definitions: {
+        cases: {
+          type: 'evidence_table',
+          label: 'Cases',
+          description: 'Description shown once',
+          columns: { label: { type: 'text' } }
+        }
+      }
+    })
+    await flushPromises()
+    expect(wrapper.text().match(/Description shown once/g)).toHaveLength(1)
+    wrapper.unmount()
+  })
   it('renders the seeded precuration as steps without fetching a generated schema', async () => {
     const wrapper = mountForm(precurationSeed)
     await flushPromises()

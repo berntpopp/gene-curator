@@ -35,6 +35,7 @@
                 :validation-result="getFieldValidation(fieldPath)"
                 :backend-errors="backendErrors[fieldPath] || []"
                 :disabled="readonly"
+                :readonly="readonly"
                 @update:model-value="$emit('update:field', fieldPath, $event)"
                 @clear-backend-error="$emit('clear-backend-error', fieldPath)"
               />

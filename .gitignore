@@ -52,3 +52,22 @@ docs/design/**/renders/
 docs/design/**/source/
 
 __pycache__/
+
+# Wave 5 browser evidence: publish Markdown reports only; keep helpers/artifacts local
+/.planning/wave5-evidence/**
+!/.planning/wave5-evidence/**/
+!/.planning/wave5-evidence/**/*.md
+
+# Archived pre-GSD download tooling/cache and generated UI iteration state
+/.planning/milestones/pre-gsd/plan/scripts/download_clingen_docs.py
+/.planning/milestones/pre-gsd/plan/scripts/requirements.txt
+/.planning/milestones/pre-gsd/plan/scripts/downloads/
+/.planning/milestones/pre-gsd/plan/enhancements/tracking/.ui-ux-review-iterations
+
+# Duplicate legacy ClinGen download helper/cache; converted Markdown remains tracked
+/plan/scripts/download_clingen_docs.py
+/plan/scripts/requirements.txt
+/plan/scripts/downloads/
+
+# Operator-local isolated-stack wrapper (machine-specific paths; not release tooling)
+/.planning/orchestration/monkey-stack.sh
