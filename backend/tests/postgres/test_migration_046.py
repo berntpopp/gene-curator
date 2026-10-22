@@ -1,10 +1,13 @@
 """046 on real PostgreSQL: ClinGen v1 snapshots corrected in place, still immutable, re-run is a
 no-op, pins unchanged, and validate-evidence on a seeded v1 accepts real form data (as app_user)."""
 
+import json
 import os
+import re
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import psycopg2
 import pytest
@@ -20,9 +23,11 @@ from app.scoring.clingen import ClinGenEngine
 from app.scoring.point_model import template
 from tests.postgres.conftest import set_test_user_context
 from tests.unit.test_clingen_v1_correction import NULL_AD, _at, _evidence
+from tests.unit.test_point_model import _custom_model
 
 pytestmark = pytest.mark.postgres
 
+ENGINE = "clingen_sop_v11"
 MIGRATION = Path(__file__).parents[3] / "database/sql/046_clingen_v1_correction.sql"
 CLINGEN_V1 = (
     "SELECT id FROM methodology_versions WHERE version = 1 "
@@ -129,3 +134,83 @@ def test_corrected_version_is_immutable_for_app_user(db: Session) -> None:
         assert case_level["order"] == 1
         model = snapshot["scoring_configuration"]["point_model"]
         assert model == template("clingen_sop_v11")
+
+
+def test_046_replaces_only_the_old_template_model(owner_session: Session) -> None:
+    """The real 046 on fresh v1 snapshots and its pg_temp helper: the pre-046 template is
+    replaced, a custom point model kept, re-runs change nothing, versions stay immutable."""
+    s = owner_session
+    sql = MIGRATION.read_text()
+
+    def literal(tag: str) -> Any:  # 046's own models; 047 changed the template since
+        match = re.search(rf"\${tag}\$(.*?)\${tag}\$", sql, re.S)
+        assert match
+        return json.loads(match[1])
+
+    old, custom, new = literal("old"), _custom_model(), literal("model")
+    assert old != new != custom
+    seeded = s.scalar(
+        text(
+            "SELECT id FROM curation_schemas WHERE schema_type = 'curation' "
+            "AND scoring_configuration->>'engine' = :e LIMIT 1"
+        ),
+        {"e": ENGINE},
+    )
+    snapshot = "SELECT snapshot FROM methodology_versions WHERE id = :v"
+    versions, before = {}, {}
+    for name, model in (("old", old), ("custom", custom)):
+        schema = s.scalar(
+            text(
+                "INSERT INTO curation_schemas (name, version, schema_type, "
+                "field_definitions, validation_rules, scoring_configuration, "
+                "workflow_states, ui_configuration, schema_hash) SELECT :n, version, "
+                "schema_type, field_definitions, validation_rules, CAST(:c AS jsonb), "
+                "workflow_states, ui_configuration, schema_hash FROM curation_schemas "
+                "WHERE id = :s RETURNING id"
+            ),
+            {
+                "n": f"046-{name}-{uuid4()}",
+                "c": json.dumps({"engine": ENGINE, "point_model": model}),
+                "s": seeded,
+            },
+        )  # publishes v1 with this point model
+        versions[name] = s.scalar(
+            text(
+                "SELECT id FROM methodology_versions WHERE schema_id = :s AND version = 1"
+            ),
+            {"s": schema},
+        )
+        before[name] = s.scalar(text(snapshot), {"v": versions[name]})
+        assert before[name]["scoring_configuration"]["point_model"] == model
+
+    s.execute(text(sql))
+    fixed = s.scalar(text(snapshot), {"v": versions["old"]})
+    config = {"engine": ENGINE, "point_model": new}
+    assert fixed == {**before["old"], "scoring_configuration": config}
+    assert s.scalar(text(snapshot), {"v": versions["custom"]}) == before["custom"]
+    state = _state(s)
+    s.execute(text(sql))
+    assert _state(s) == state
+    for vid in versions.values():
+        with pytest.raises(DBAPIError, match="immutable"), s.begin_nested():
+            s.execute(
+                text("UPDATE methodology_versions SET snapshot = '{}' WHERE id = :v"),
+                {"v": vid},
+            )
+
+    def helper(doc: dict[str, Any], with_model: bool = True) -> Any:
+        return s.scalar(
+            text("SELECT pg_temp.clingen_046(CAST(:d AS jsonb), :m)"),
+            {"d": json.dumps(doc), "m": with_model},
+        )
+
+    for given, expected in (({"point_model": old}, new), ({}, new), (config, new)):
+        doc = {"scoring_configuration": {"engine": ENGINE, **given}}
+        out = helper(doc)
+        assert out["scoring_configuration"]["point_model"] == expected
+        assert helper(out) == out  # idempotent per document
+        assert (
+            helper(doc, False)["scoring_configuration"] == doc["scoring_configuration"]
+        )
+    doc = {"scoring_configuration": {"engine": ENGINE, "point_model": custom}}
+    assert helper(doc)["scoring_configuration"] == doc["scoring_configuration"]

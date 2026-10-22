@@ -2,7 +2,9 @@
 
 Run once after deploying 046 (Models & Rescue as one category capped at 4):
 ``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
-total or class changes is logged with its gene and old -> new total and class.
+total or class changes is logged with its gene and old -> new total and class. Rows are
+scored with their pinned point model, custom categories included (reported); rows holding
+evidence keys that model does not score are skipped and reported with those keys.
 """
 
 from typing import Any
@@ -14,30 +16,41 @@ from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
 from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
+from app.scoring.evidence_items import has_content
 from app.scoring.point_limits import scoring_configuration
+from app.scoring.point_model import point_model
 
 logger = get_logger(__name__)
 
-
-_TOP = {"genetic_evidence", "experimental_evidence", "contradictory_evidence"}
-_TOP |= {"replicated_over_time", "evidence_summary"}
-_GENETIC = {"case_level", "segregation", "case_control"}
-_EXPERIMENTAL = {"function", "functional_alteration", "models", "rescue"}
+_TEXT = {"evidence_summary"}  # free text the ClinGen forms write; never scored
 
 
-def _has_unscored_keys(evidence: Any) -> bool:
-    """True when non-empty evidence holds keys the engine does not score."""
+def _unscored_keys(evidence: Any, model: dict[str, Any]) -> list[str]:
+    """Non-empty evidence outside complete model type paths, override and band inputs."""
     if not isinstance(evidence, dict):
-        return bool(evidence)
-    if set(evidence) - _TOP:
-        return True
-    for key, known in (
-        ("genetic_evidence", _GENETIC),
-        ("experimental_evidence", _EXPERIMENTAL),
-    ):
-        if isinstance(evidence.get(key), dict) and set(evidence[key]) - known:
-            return True
-    return False
+        return ["evidence_data"] if has_content(evidence) else []
+    sections = {s["key"] for s in model["sections"]}
+    known = {
+        f"{s['key']}.{t['path']}"
+        for s in model["sections"]
+        for c in s["categories"]
+        for t in c["types"]
+    }
+    known |= _TEXT | {o["when"] for o in model.get("overrides", [])}
+    known |= {b["requires"] for b in model["bands"] if "requires" in b}
+
+    def unknown(node: Any, path: str) -> list[str]:
+        if path in known or not has_content(node):
+            return []
+        if path in sections and isinstance(node, list):
+            return []  # the engine also supports legacy section lists
+        if not any(k.startswith(f"{path}.") for k in known):
+            return [path]
+        if isinstance(node, dict):
+            return [p for k, v in node.items() for p in unknown(v, f"{path}.{k}")]
+        return [path]  # non-empty data where the model requires a parent object
+
+    return sorted(p for key, value in evidence.items() for p in unknown(value, key))
 
 
 def recompute_all_scores(db: Session) -> int:
@@ -59,6 +72,9 @@ def recompute_all_scores(db: Session) -> int:
     ).all()
     updated = unchanged = 0
     skipped: list[str] = []
+    unscored: dict[str, list[str]] = {}
+    custom: set[str] = set()
+    flagged: dict[str, list[str]] = {}
     failed = 0
     for (
         curation_id,
@@ -69,11 +85,6 @@ def recompute_all_scores(db: Session) -> int:
         version_id,
         gene,
     ) in curations:
-        if _has_unscored_keys(evidence):
-            skipped.append(
-                str(curation_id)
-            )  # never overwrite with an unjustified verdict
-            continue
         try:
             config = scoring_configuration(db, pair_id, version_id)
             if config.get("engine", ENGINE_NAME) != ENGINE_NAME:
@@ -81,6 +92,14 @@ def recompute_all_scores(db: Session) -> int:
                     str(curation_id)
                 )  # GenCC/qualitative: not ClinGen points
                 continue
+            model = point_model(config) or engine._template()
+            if keys := _unscored_keys(evidence, model):
+                # never overwrite with an unjustified verdict
+                skipped.append(str(curation_id))
+                unscored[str(curation_id)] = keys
+                continue
+            # keys the template would not score but the pinned model does
+            custom.update(_unscored_keys(evidence, engine._template()))
             result = engine.calculate_scores(evidence or {}, config)
         except Exception:  # one bad legacy row must not abort the backfill
             failed += 1
@@ -88,6 +107,10 @@ def recompute_all_scores(db: Session) -> int:
                 "Score recompute failed", curation_id=str(curation_id), exc_info=True
             )
             continue
+        flagged[str(curation_id)] = [
+            flag["path"]
+            for flag in result.evidence_breakdown["trace"].get("out_of_range", [])
+        ]
         scores = {**result.scores, **result.evidence_breakdown}
         if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
@@ -121,6 +144,9 @@ def recompute_all_scores(db: Session) -> int:
         unchanged=unchanged,
         skipped=len(skipped),
         skipped_ids=skipped,
+        unscored=unscored,
+        custom_categories=sorted(custom),
+        out_of_range={key: paths for key, paths in flagged.items() if paths},
         failed=failed,
     )
     if failed:
