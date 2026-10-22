@@ -28,6 +28,10 @@ vi.mock('vue-router', async importOriginal => ({
   useRoute: () => routeState
 }))
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
+// The dashboard lazily imports this already-stubbed child; do not leave its imports running at teardown.
+vi.mock('@/components/gene/GeneList.vue', () => ({
+  default: { name: 'GeneList', template: '<div />' }
+}))
 vi.mock('@/api/users', () => ({ usersApi: { searchUsers: vi.fn() } }))
 vi.mock('@/api/schemas', () => ({
   schemasAPI: {

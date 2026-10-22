@@ -11,6 +11,7 @@ Design Principles:
 - Graceful degradation: Returns empty results on API failures
 """
 
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -144,20 +145,22 @@ class OntologyService:
             MONDOSearchResponse with matching diseases
         """
         try:
-            response = await self._mondo_client.get(
-                "/entities",
-                params={
-                    "search": query,
-                    "size": limit,
-                    "lang": "en",
-                    "exactMatch": "false",
-                    "includeObsoleteEntities": "false",
-                    "ontologyId": "mondo",
-                    # shortcut: excludes susceptibility outside the human branch; use
-                    # non-human exclusion if OLS adds a supported negative ancestor filter.
-                    "directAncestor": "http://purl.obolibrary.org/obo/MONDO_0700096",
-                },
-            )
+            params: dict[str, str | int] = {
+                "search": query,
+                "size": limit,
+                "lang": "en",
+                "exactMatch": "false",
+                "includeObsoleteEntities": "false",
+                "ontologyId": "mondo",
+            }
+            # Restore saved IDs outside the suggestion branch without remapping them.
+            if not re.fullmatch(r"MONDO:[0-9]{7}", query):
+                # shortcut: excludes susceptibility outside the human branch; use
+                # non-human exclusion if OLS adds a supported negative ancestor filter.
+                params["directAncestor"] = (
+                    "http://purl.obolibrary.org/obo/MONDO_0700096"
+                )
+            response = await self._mondo_client.get("/entities", params=params)
 
             if response.status_code != 200:
                 logger.error(
