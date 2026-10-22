@@ -1,5 +1,6 @@
-import { ref, watch, type Ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { recoveryVersion } from '@/utils/formRecoveryStorage'
 import { useCurationsStore } from '@/stores/curations'
 import { useNotificationsStore } from '@/stores/notifications'
 import { useLogger } from '@/composables/useLogger'
@@ -13,6 +14,7 @@ export type EvidenceData = Record<string, unknown>
 interface CurationRecord {
   id: string
   lock_version?: number | null
+  updated_at?: string | null
 }
 
 export interface CurationSubmissionOptions {
@@ -26,6 +28,8 @@ export interface CurationSubmissionOptions {
   lockVersion: Ref<number>
   canSubmit: () => boolean
   clearRecovery: () => void
+  /** The evidence reached the server at this version: local recovery compares with it now */
+  markSaved: (saved: EvidenceData, version: string) => void
   clearHistory: () => void
   onSaved: () => void
   /** Receives the id of the submitted curation (new when it was created on submit). */
@@ -43,6 +47,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     lockVersion,
     canSubmit,
     clearRecovery,
+    markSaved,
     clearHistory
   } = options
   const router = useRouter()
@@ -51,10 +56,9 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
   const notificationsStore = useNotificationsStore()
 
   const savingDraft = ref(false)
-  // Another tab saved first: saving is blocked until the page is reloaded (see SaveState)
+  // Another tab saved first: saving is blocked until the page is reloaded (see SaveState); the
+  // local recovery copy is kept and offered back after the reload, flagged as older
   const conflict = ref(false)
-  // The local copy is older than the server's: never offer it back after the reload
-  watch(conflict, isConflict => isConflict && clearRecovery())
   const submitting = ref(false)
   // Created by a submit that was then refused: a retry reuses it rather than creating another
   let createdId: string | null = null
@@ -129,7 +133,8 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
     savingDraft.value = true
     try {
       const payload = {
-        evidence_data: evidenceData.value,
+        // A copy: nested edits typed during the save mutate the form's objects in place
+        evidence_data: JSON.parse(JSON.stringify(evidenceData.value)) as EvidenceData,
         lock_version: lockVersion.value
       }
 
@@ -146,6 +151,7 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
           return false
         }
         lockVersion.value = updated.lock_version as number
+        markSaved(payload.evidence_data, recoveryVersion(updated))
         options.onSaved()
       } else {
         // Create new curation as draft
@@ -155,10 +161,10 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
         lockVersion.value = created.lock_version ?? 0
         options.onSaved()
         await openCreated(created.id)
+        clearRecovery() // the edit page loads the created curation under its own key
       }
 
       notificationsStore.addToast('Draft saved', 'success')
-      clearRecovery()
       return true
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
@@ -179,12 +185,14 @@ export function useCurationSubmission(options: CurationSubmissionOptions) {
       const id = existingId()
       if (id) {
         // Update existing curation evidence and submit
+        const evidence = JSON.parse(JSON.stringify(evidenceData.value)) as EvidenceData
         const updated = (await curationsStore.updateCuration(id, {
-          evidence_data: { ...evidenceData.value },
+          evidence_data: evidence,
           lock_version: lockVersion.value
         })) as CurationRecord
         // The update bumped the version: keep it, so a retry after a refused submit is not stale
         lockVersion.value = updated.lock_version as number
+        markSaved(evidence, recoveryVersion(updated))
         submittedId = await submitAt(id, lockVersion.value)
       } else {
         // Create and submit new curation

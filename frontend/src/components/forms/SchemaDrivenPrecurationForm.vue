@@ -64,8 +64,9 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      :model-value="showRecoveryDialog && recoveryReady"
+      :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
+      :stale="recoveryStale"
       @restore="restoreRecovery"
       @discard="discardRecovery"
     />
@@ -105,6 +106,7 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { recoveryVersion } from '@/utils/formRecoveryStorage'
   import { apiDetail } from './apiDetail'
   import { missingRequiredLabels } from './requiredFields'
   import { useHistory } from '@/composables/useHistory'
@@ -154,7 +156,8 @@
   const isDraft = ref(true)
   const loadingSchema = ref(false)
   const savingDraft = ref(false)
-  // Another tab saved first: saving and submitting are blocked until the page is reloaded
+  // Another tab saved first: saving and submitting are blocked until the page is reloaded; the
+  // local recovery copy is kept and offered back after the reload, flagged as older
   const conflict = ref(false)
   const submitting = ref(false)
   const createdId = ref<string | null>(null)
@@ -163,21 +166,24 @@
   const version = ref<Schema<'MethodologyVersion'> | null>(null)
   const pinnedVersionId = ref<string | null>(null) // the loaded precuration's
 
-  // Form Recovery - schema-aware key to prevent cross-schema data restore
+  // Form Recovery - schema-aware key to prevent cross-schema data restore; a new precuration's
+  // draft belongs to its scope and gene, never offered on another gene's new precuration
   const recoveryKey = computed(
-    () => `precuration-${props.precurationId || 'new'}-schema-${props.schemaId}`
+    () =>
+      `precuration-${props.precurationId || `new-${props.scopeId}-${props.geneId}`}-schema-${props.schemaId}`
   )
 
-  const recoveryReady = ref(false) // offer recovery only after the saved draft is known
+  let serverVersion: string | null = null // the loaded precuration's, for the recovery baseline
   const {
     showRecoveryDialog,
     recoveryTimestamp,
+    recoveryStale,
     restoreRecovery,
     discardRecovery,
     clearRecovery,
-    dropIfSaved
+    setBaseline,
+    markSaved
   } = useFormRecovery(recoveryKey.value, evidenceData, {
-    saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
 
@@ -192,8 +198,6 @@
       }
     }
   )
-  // The local copy is older than the server's: never offer it back after the reload
-  watch(conflict, isConflict => isConflict && clearRecovery())
 
   // Undo/Redo
   const {
@@ -288,6 +292,9 @@
     logger.debug('Redo performed')
   }
 
+  // A copy for a save: nested edits typed during the request mutate the form's objects in place
+  const evidenceCopy = () => JSON.parse(JSON.stringify(evidenceData.value)) as EvidenceData
+
   /** Payload for a new precuration; the API requires a gene. */
   function createPayload() {
     if (!props.geneId) throw new Error('A gene is required')
@@ -309,12 +316,14 @@
       const existingId = props.precurationId ?? createdId.value
       if (existingId) {
         // Update existing precuration draft
-        const updated = await precurationsStore.saveDraft(existingId, evidenceData.value)
+        const sent = evidenceCopy()
+        const updated = await precurationsStore.saveDraft(existingId, sent)
         // The store swallows save errors and returns nothing
         if (!updated) {
           if (precurationsStore.error?.isConflict) conflict.value = true
           throw new Error('Draft not saved')
         }
+        markSaved(sent, recoveryVersion(updated))
         emit('saved')
       } else {
         // Create new precuration as draft
@@ -323,11 +332,11 @@
           name: 'precuration-edit',
           params: { scopeId: props.scopeId, precurationId: created.id }
         })
+        clearRecovery() // the editor loads the created precuration under its own key
       }
       savedAt.value = Date.now()
 
       notificationsStore.addToast('Draft saved', 'success')
-      clearRecovery()
     } catch (error) {
       logger.error('Failed to save draft', { error: (error as ApiErrorLike).message })
       notificationsStore.addToast(apiDetail(error, 'Failed to save draft'), 'error')
@@ -360,10 +369,15 @@
       if (!id) {
         id = (await precurationsStore.createPrecuration(createPayload())).id
         createdId.value = id
-      } else if (!(await precurationsStore.saveDraft(id, evidenceData.value))) {
+      } else {
         // Persist the current edits first; the store swallows errors and returns nothing
-        if (precurationsStore.error?.isConflict) conflict.value = true
-        throw new Error('Draft not saved')
+        const sent = evidenceCopy()
+        const updated = await precurationsStore.saveDraft(id, sent)
+        if (!updated) {
+          if (precurationsStore.error?.isConflict) conflict.value = true
+          throw new Error('Draft not saved')
+        }
+        markSaved(sent, recoveryVersion(updated))
       }
       await precurationsStore.submitForReview(id)
 
@@ -428,7 +442,7 @@
         evidenceData.value = precuration.evidence_data
         pinnedVersionId.value = precuration.methodology_version_id ?? null
         isDraft.value = precuration.status === 'draft'
-        dropIfSaved(precuration.evidence_data)
+        serverVersion = recoveryVersion(precuration)
       }
     } catch (error) {
       logger.error('Failed to load precuration', { error: (error as ApiErrorLike).message })
@@ -456,7 +470,8 @@
   onMounted(async () => {
     await loadPrecuration()
     await loadSchema()
-    recoveryReady.value = true
+    // Local drafts are compared with what the form now shows; none until the saved one loaded
+    if (!props.precurationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     logger.debug('SchemaDrivenPrecurationForm mounted', {
       schemaId: props.schemaId,
       precurationId: props.precurationId

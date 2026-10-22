@@ -38,6 +38,7 @@ const Host = defineComponent({
       lockVersion: ref(0),
       canSubmit: () => true,
       clearRecovery: vi.fn(),
+      markSaved: vi.fn(),
       clearHistory: vi.fn(),
       onSaved: vi.fn(),
       onSubmit: id => {
@@ -62,6 +63,7 @@ const Form = defineComponent({
       lockVersion: ref(0),
       canSubmit: () => true,
       clearRecovery: vi.fn(),
+      markSaved: vi.fn(),
       clearHistory: vi.fn(),
       onSaved: vi.fn(),
       onSubmit: id => emit('submit', id)
