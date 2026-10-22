@@ -573,6 +573,10 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       form.vm.$emit('validation-change', undefined)
       await flushPromises()
       expect(frame.score.value).toBeNull()
+      form.vm.$emit('validation-pending', true)
+      expect(frame.scorePending.value).toBe(true)
+      form.vm.$emit('validation-pending', false)
+      expect(frame.scorePending.value).toBe(false)
       expect(curationsStore.calculateScore).not.toHaveBeenCalled()
     })
 

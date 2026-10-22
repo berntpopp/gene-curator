@@ -33,6 +33,7 @@
             hide-actions
             @update:model-value="handleEvidenceChange"
             @validation-change="handleValidationChange"
+            @validation-pending="frame?.setScorePending($event)"
             @submit="requestSubmit"
             @save-draft="handleSaveDraft"
           >

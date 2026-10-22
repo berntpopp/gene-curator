@@ -2,7 +2,9 @@
   <div class="score-panel">
     <section class="panel">
       <h2 class="panel__title">Calculated classification</h2>
-      <ScoreTrace :scores="score" :classification="score.classification" />
+      <v-skeleton-loader v-if="loading" type="article" />
+      <ScoreTrace v-else-if="score" :scores="score" :classification="score.classification" />
+      <p v-else>Score preview unavailable.</p>
     </section>
 
     <section v-if="!readonly" class="panel">
@@ -26,7 +28,8 @@
 
   const props = withDefaults(
     defineProps<{
-      score: ScoreSnapshot
+      score: ScoreSnapshot | null
+      loading?: boolean
       canSubmit: boolean
       readonly: boolean
       blockers?: string[]
@@ -39,11 +42,13 @@
     ...(props.blockers.length
       ? []
       : [
-          props.canSubmit
-            ? { text: 'Ready to submit', warn: false }
-            : { text: 'Complete the required evidence before submitting', warn: true }
+          props.loading
+            ? { text: 'Checking evidence…', warn: false }
+            : props.canSubmit
+              ? { text: 'Ready to submit', warn: false }
+              : { text: 'Complete the required evidence before submitting', warn: true }
         ]),
-    ...(props.score.hasContradictory
+    ...(props.score?.hasContradictory
       ? [
           {
             text: 'Contradictory evidence is recorded',
