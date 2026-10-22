@@ -54,6 +54,39 @@ MONDO_ELEMENT = {
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("query", ["canine", "MONDO:0007258", "Marfan"])
+async def test_mondo_uses_human_ancestry_before_pagination(query: str) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.url.params["directAncestor"] == (
+            "http://purl.obolibrary.org/obo/MONDO_0700096"
+        )
+        assert request.url.params["includeObsoleteEntities"] == "false"
+        assert request.url.params["search"] == query
+        assert request.url.params["size"] == "5"
+        # A human canine-tooth disorder must not be removed by name heuristics.
+        return httpx.Response(
+            200,
+            json={
+                "elements": [
+                    {
+                        "curie": "MONDO:0007258",
+                        "label": ["absence of upper permanent canine teeth"],
+                    }
+                ],
+                "totalElements": 1,
+            },
+        )
+
+    svc = _service(handler)
+    try:
+        response = await svc.search_mondo(query, limit=5)
+    finally:
+        await svc.close()
+    assert response.total_results == 1
+    assert [r.mondo_id for r in response.results] == ["MONDO:0007258"]
+
+
+@pytest.mark.asyncio
 async def test_search_mondo_parses_elements_and_filters_foreign_curies() -> None:
     payload = {
         "elements": [MONDO_ELEMENT, {"curie": "DOID:1612", "label": ["x"]}],

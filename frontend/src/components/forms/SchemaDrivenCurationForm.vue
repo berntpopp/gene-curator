@@ -4,10 +4,10 @@
     <v-skeleton-loader v-if="!ready" type="card" />
 
     <v-form v-else @submit.prevent="handleSubmit" @keydown="handleKeydown">
-      <v-card>
+      <v-card class="overflow-visible">
         <!-- Header and actions: the workspace frame has its own -->
         <template v-if="!frame">
-          <v-card-title class="d-flex align-center">
+          <v-card-title class="d-flex align-center flex-wrap ga-2 text-wrap">
             <span>{{ gene?.symbol }} - {{ schema?.name || 'Curation' }}</span>
             <v-chip v-if="isDraft" color="warning" size="small" class="ml-2"> Draft </v-chip>
             <v-spacer />
