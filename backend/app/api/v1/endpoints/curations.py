@@ -318,11 +318,9 @@ def get_curation(
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)
-    # An approval is final for its round: no second Approve (#430)
+    response.can_review = _can_user_review_curation(db, current_user, curation)
+    # The view hides Approve while this approval waits for others (#430)
     response.has_approved = _has_approved(db, current_user, curation)
-    response.can_review = not response.has_approved and _can_user_review_curation(
-        db, current_user, curation
-    )
     response.can_delete = _can_user_delete_curation(db, current_user, curation)
     if curation.status == CurationStatus.IN_REVIEW:
         required = reviewers_required(WorkflowEngine.workflow_states(db, curation))

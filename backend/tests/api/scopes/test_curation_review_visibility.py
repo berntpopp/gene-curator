@@ -1,8 +1,8 @@
 """GET /curations/{id} tells a reviewer whether they can still approve (#430).
 
 With `reviewers_required: 2` a reviewer who approved sees `has_approved` and the remaining count
-instead of `can_review`; a second approval by the same reviewer is not counted, and a new review
-round starts again from the full count.
+and keeps `can_review` (request changes, replies); a second approval by the same reviewer is not
+counted, and a new review round starts again from the full count.
 """
 
 from typing import Any
@@ -88,10 +88,10 @@ def test_approver_sees_remaining_count_and_cannot_approve_twice(
 ) -> None:
     assert _view(client, curation, reviewer) == (True, False, 2)
     assert _move(client, curation, reviewer, "active") == "review"
-    assert _view(client, curation, reviewer) == (False, True, 1)
+    assert _view(client, curation, reviewer) == (True, True, 1)
     # a second approval by the same reviewer does not count
     assert _move(client, curation, reviewer, "active") == "review"
-    assert _view(client, curation, reviewer) == (False, True, 1)
+    assert _view(client, curation, reviewer) == (True, True, 1)
     assert _view(client, curation, second) == (True, False, 1)
     assert _move(client, curation, second, "active") == "active"
     assert _view(client, curation, reviewer) == (False, False, None)
@@ -127,3 +127,34 @@ def test_author_and_non_member_admin_cannot_review(
         db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=author
     )
     assert _view(client, own, author) == (False, False, 1)
+
+
+def test_approval_recorded_by_review_submit_can_still_activate(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    second: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """An approval via /reviews/{id}/submit waits for the other open review; Approve activates."""
+    cur = make_curation(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
+    )
+    review_ids = []
+    for user in (reviewer, second):
+        r = client.post(
+            f"/api/v1/workflow/curation/{cur.id}/assign-reviewer",
+            json={"reviewer_id": str(user.id)},
+            headers=auth_headers(curator),
+        )
+        assert r.status_code == 200, r.text
+        review_ids.append(r.json()["review_id"])
+    r = client.post(
+        f"/api/v1/workflow/reviews/{review_ids[0]}/submit",
+        json={"decision": "approve", "comments": "ok"},
+        headers=auth_headers(reviewer),
+    )
+    assert r.json()["auto_transitioned"] is False, r.text
+    assert _view(client, cur, reviewer) == (True, True, 0)
+    assert _move(client, cur, reviewer, "active") == "active"

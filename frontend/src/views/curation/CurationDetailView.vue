@@ -195,9 +195,9 @@
                     >
                       Submit for review
                     </v-btn>
-                    <!-- Review Actions (for submitted curations) -->
+                    <!-- Approve waits while this reviewer's approval needs others (0 left: activates) -->
                     <v-btn
-                      v-if="canReview"
+                      v-if="canReview && !(curation.has_approved && curation.approvals_remaining)"
                       color="success"
                       variant="elevated"
                       prepend-icon="mdi-check-circle"
@@ -206,6 +206,9 @@
                     >
                       Approve
                     </v-btn>
+                    <div v-else-if="curation.has_approved" class="text-body-medium text-center">
+                      You approved; {{ curation.approvals_remaining }} more needed
+                    </div>
                     <v-btn
                       v-if="canReview"
                       color="warning"
@@ -228,11 +231,8 @@
                     >
                       Delete
                     </v-btn>
-                    <div v-if="curation.has_approved" class="text-body-medium text-center py-2">
-                      You approved; {{ curation.approvals_remaining }} more needed
-                    </div>
                     <div
-                      v-else-if="!canSubmitForReview && !canDelete && !canReview"
+                      v-if="!canSubmitForReview && !canDelete && !canReview"
                       class="text-body-medium text-medium-emphasis text-center py-2"
                     >
                       {{
@@ -492,7 +492,7 @@
 
   const canDelete = computed(() => curation.value?.can_delete ?? false)
 
-  // Backend: scope reviewer who has not approved this round; never the creator (D1), whatever the flag
+  // Backend: scope REVIEW role; the creator never reviews their own curation (D1), whatever the flag
   const myId = computed(() => (authStore.user as { id?: string } | null)?.id ?? '')
   const isCreator = computed(() => !!myId.value && curation.value?.created_by === myId.value)
   const canReview = computed(() => (curation.value?.can_review ?? false) && !isCreator.value)

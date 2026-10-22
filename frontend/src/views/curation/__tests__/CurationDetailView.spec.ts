@@ -263,7 +263,7 @@ describe('CurationDetailView', () => {
       id: 'c1',
       status: 'in_review',
       created_by: 'alice',
-      can_review: false,
+      can_review: true,
       has_approved: true,
       approvals_remaining: 1
     } as never)
@@ -272,6 +272,22 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('You approved; 1 more needed')
     expect(approveButton()).toBeUndefined()
     expect(wrapper.text()).not.toContain('No actions available')
+    // only Approve is gated: request changes, replies and item actions stay
+    expect(wrapper.text()).toContain('Request changes')
+    expect(wrapper.findComponent(ReviewDiff).props('reviewer')).toBe(true)
+    expect(wrapper.findComponent(ReviewDiff).props('canReply')).toBe(true)
+  })
+
+  it('keeps Approve when the recorded approval leaves none needed, so it can activate (#430)', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const wrapper = await load({
+      can_review: true,
+      created_by: 'alice',
+      has_approved: true,
+      approvals_remaining: 0
+    })
+    expect(wrapper.findAll('button').some(b => b.text() === 'Approve')).toBe(true)
+    expect(wrapper.text()).not.toContain('You approved')
   })
 
   it('keeps the approval note next to other actions such as Delete (#430)', async () => {

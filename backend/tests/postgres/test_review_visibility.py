@@ -1,9 +1,11 @@
 """Review visibility for `reviewers_required: 2`, as the API runs (app_user, RLS) (#430).
 
-After approving, a reviewer gets can_review=false with has_approved and the remaining count; a
-repeated approval is not counted; request changes + resubmit starts a new round where earlier
-decisions do not count. The author (a platform admin) and a platform admin without membership
-never review (D1).
+After approving, a reviewer keeps can_review (request changes, replies) and gets has_approved
+with the remaining count; a repeated approval is not counted; an approval recorded through
+/reviews/{id}/submit that leaves 0 needed can still activate; request changes + resubmit starts a
+new round where earlier decisions do not count. The author (platform admin and scope admin, so
+review-capable), a platform admin without membership and a pending reviewer invitation never
+review (D1).
 """
 
 import json
@@ -27,10 +29,12 @@ pytestmark = pytest.mark.postgres
 @dataclass
 class W:
     scope: UUID = field(default_factory=uuid4)
-    alice: UUID = field(default_factory=uuid4)  # platform admin + scope curator, author
+    alice: UUID = field(default_factory=uuid4)  # platform admin + scope admin, author
     bob: UUID = field(default_factory=uuid4)  # reviewer
     carol: UUID = field(default_factory=uuid4)  # reviewer
+    erin: UUID = field(default_factory=uuid4)  # reviewer
     dave: UUID = field(default_factory=uuid4)  # platform admin, no membership
+    eve: UUID = field(default_factory=uuid4)  # pending reviewer invitation
     gene: UUID = field(default_factory=uuid4)
     cur: UUID = field(default_factory=uuid4)
     schema: str = ""
@@ -45,7 +49,14 @@ def _owner() -> psycopg2.extensions.connection:
 def w() -> Generator[W, None, None]:
     x = W()
     tag = str(x.scope)[:8]
-    users = ((x.alice, "admin"), (x.bob, "user"), (x.carol, "user"), (x.dave, "admin"))
+    users = (
+        (x.alice, "admin"),
+        (x.bob, "user"),
+        (x.carol, "user"),
+        (x.erin, "user"),
+        (x.dave, "admin"),
+        (x.eve, "user"),
+    )
     with _owner() as conn, conn.cursor() as cur:
         for uid, role in users:
             cur.execute(
@@ -63,15 +74,17 @@ def w() -> Generator[W, None, None]:
             "VALUES (%s, %s, 'RV', false, %s)",
             (str(x.scope), f"rv-{x.scope}", str(x.alice)),
         )
-        for uid, role in (
-            (x.alice, "curator"),
-            (x.bob, "reviewer"),
-            (x.carol, "reviewer"),
+        for uid, role, accepted in (
+            (x.alice, "admin", True),
+            (x.bob, "reviewer", True),
+            (x.carol, "reviewer", True),
+            (x.erin, "reviewer", True),
+            (x.eve, "reviewer", False),
         ):
             cur.execute(
                 "INSERT INTO scope_memberships (scope_id, user_id, role, invited_by, "
-                "accepted_at) VALUES (%s, %s, %s, %s, now())",
-                (str(x.scope), str(uid), role, str(x.alice)),
+                "accepted_at) VALUES (%s, %s, %s, %s, CASE WHEN %s THEN now() END)",
+                (str(x.scope), str(uid), role, str(x.alice), accepted),
             )
         cur.execute(
             "INSERT INTO curation_schemas (name, version, schema_type, field_definitions, "
@@ -169,12 +182,17 @@ def test_approver_sees_count_until_the_second_reviewer_completes(
 ) -> None:
     _submit(client, w)
     assert _view(client, w, w.bob) == (True, False, 2)
-    # D1: the author (platform admin) and a non-member platform admin never review
+    # D1: the review-capable author and a non-member platform admin never review
     for who in (w.alice, w.dave):
         assert _view(client, w, who) == (False, False, 2)
         assert _move(client, w, who, "active").status_code == 400
+    # a pending invitation grants nothing: RLS hides the curation, approve is refused
+    assert (
+        client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.eve)).status_code == 404
+    )
+    assert _move(client, w, w.eve, "active").status_code == 400
     assert _move(client, w, w.bob, "active").json()["to_stage"] == "review"
-    assert _view(client, w, w.bob) == (False, True, 1)
+    assert _view(client, w, w.bob) == (True, True, 1)
     # approving again is not counted
     assert _move(client, w, w.bob, "active").json()["to_stage"] == "review"
     assert _view(client, w, w.carol) == (True, False, 1)
@@ -190,5 +208,30 @@ def test_resubmit_starts_a_new_approval_round(client: TestClient, w: W) -> None:
     # bob's approval belongs to the earlier round
     assert _view(client, w, w.bob) == (True, False, 2)
     assert _move(client, w, w.bob, "active").json()["to_stage"] == "review"
-    assert _view(client, w, w.bob) == (False, True, 1)
+    assert _view(client, w, w.bob) == (True, True, 1)
     assert _view(client, w, w.carol) == (True, False, 1)
+
+
+def test_approval_recorded_by_review_submit_can_still_activate(
+    client: TestClient, w: W
+) -> None:
+    _submit(client, w)
+    reviews = {}
+    for who in (w.bob, w.carol, w.erin):
+        r = client.post(
+            f"/api/v1/workflow/curation/{w.cur}/assign-reviewer",
+            json={"reviewer_id": str(who)},
+            headers=_h(w.alice),
+        )
+        assert r.status_code == 200, r.text
+        reviews[who] = r.json()["review_id"]
+    for who in (w.bob, w.carol):
+        r = client.post(
+            f"/api/v1/workflow/reviews/{reviews[who]}/submit",
+            json={"decision": "approve", "comments": "ok"},
+            headers=_h(who),
+        )
+        assert r.json()["auto_transitioned"] is False, r.text
+    # enough approvals, erin's review still open: Approve stays available and activates
+    assert _view(client, w, w.bob) == (True, True, 0)
+    assert _move(client, w, w.bob, "active").json()["to_stage"] == "active"
