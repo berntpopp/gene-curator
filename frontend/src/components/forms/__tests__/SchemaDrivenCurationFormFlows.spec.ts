@@ -14,6 +14,7 @@ const replace = vi.hoisted(() => vi.fn())
 const recovery = vi.hoisted(() => ({
   clearRecovery: vi.fn(),
   restoreRecovery: vi.fn(),
+  showRecoveryDialog: null as null | { value: boolean },
   lastSaved: null as null | { value: string | null }
 }))
 const PINNED = { id: 'v1', snapshot: { scoring_configuration: { engine: 'clingen_sop_v11' } } }
@@ -61,9 +62,10 @@ vi.mock('@/utils/evidenceDataMigration', () => ({
 vi.mock('@/composables/useFormRecovery', async () => {
   const { ref } = await import('vue')
   recovery.lastSaved = ref<string | null>(null)
+  recovery.showRecoveryDialog = ref(false)
   return {
     useFormRecovery: () => ({
-      showRecoveryDialog: ref(false),
+      showRecoveryDialog: recovery.showRecoveryDialog,
       recoveryData: ref(null),
       recoveryTimestamp: ref('2026-01-01T00:00:00Z'),
       recoveryStale: ref(true),
@@ -86,7 +88,6 @@ vi.mock('@/composables/useHistory', () => ({
     clearHistory: vi.fn()
   })
 }))
-
 /** Internal state read through wrapper.vm. */
 interface SchemaCurationVm {
   evidenceData: Record<string, unknown>
@@ -95,14 +96,13 @@ interface SchemaCurationVm {
   isDraft: boolean
   curationStatus: string
   formatRelativeTime(timestamp: string | null): string
+  handleRestore(): void
   handleCancel(): void | Promise<void>
   handleKeydown(event: KeyboardEvent): void
 }
-
 function internals(wrapper: { vm: unknown }): SchemaCurationVm {
   return wrapper.vm as SchemaCurationVm
 }
-
 const stubs = {
   ErrorBoundary: { name: 'ErrorBoundary', template: '<div><slot /></div>' },
   // Renders the form's component sections like the real one does
@@ -130,7 +130,6 @@ const stubs = {
   FormActions: true,
   FormRecoveryDialog: true
 }
-
 async function mountForm(props: Record<string, unknown> = {}) {
   const wrapper = mount(SchemaDrivenCurationForm, {
     props: { schemaId: 'schema-1', scopeId: 'scope-1', ...props },
@@ -139,7 +138,6 @@ async function mountForm(props: Record<string, unknown> = {}) {
   await flushPromises()
   return wrapper
 }
-
 describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -147,6 +145,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     curationsStore.currentCuration = null
     precurationsStore.precurations = []
     recovery.lastSaved!.value = null
+    recovery.showRecoveryDialog!.value = false
     utils.isLegacyFormat.mockReturnValue(false)
     confirmMock.mockResolvedValue(true)
   })
@@ -336,6 +335,21 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     const wrapper = await mountForm()
     wrapper.findComponent({ name: 'FormRecoveryDialog' }).vm.$emit('restore')
     expect(recovery.restoreRecovery).toHaveBeenCalled()
+  })
+
+  it('keeps local recovery unavailable while readonly, including a late restore action', async () => {
+    recovery.showRecoveryDialog!.value = true
+    const wrapper = await mountForm({ readonly: true })
+    expect(wrapper.findComponent({ name: 'FormRecoveryDialog' }).exists()).toBe(false)
+    await wrapper.setProps({ readonly: false })
+    const dialog = wrapper.findComponent({ name: 'FormRecoveryDialog' })
+    expect(dialog.props('modelValue')).toBe(true)
+    dialog.vm.$emit('restore')
+    expect(recovery.restoreRecovery).toHaveBeenCalledOnce()
+    await wrapper.setProps({ readonly: true })
+    internals(wrapper).handleRestore()
+    expect(recovery.restoreRecovery).toHaveBeenCalledOnce()
+    expect(recovery.clearRecovery).not.toHaveBeenCalled()
   })
 
   it('offers no actions and ignores shortcuts for a read-only generic form', async () => {
