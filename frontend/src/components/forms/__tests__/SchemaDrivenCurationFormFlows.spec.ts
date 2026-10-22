@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import SchemaDrivenCurationForm from '../SchemaDrivenCurationForm.vue'
+import { stubs } from './schemaCurationFormStubs'
 import { WORKSPACE_FRAME, createWorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
 
 const confirmMock = vi.hoisted(() => vi.fn())
@@ -103,33 +104,7 @@ interface SchemaCurationVm {
 function internals(wrapper: { vm: unknown }): SchemaCurationVm {
   return wrapper.vm as SchemaCurationVm
 }
-const stubs = {
-  ErrorBoundary: { name: 'ErrorBoundary', template: '<div><slot /></div>' },
-  // Renders the form's component sections like the real one does
-  DynamicForm: {
-    name: 'DynamicForm',
-    props: {
-      definition: Object,
-      methodologyVersionId: String,
-      initialData: Object,
-      hideScoring: Boolean
-    },
-    template:
-      '<div><slot name="section" :section="{ component: \'ScoreSummary\' }" /><slot name="section" :section="{ component: \'LumpingSplittingSection\' }" /></div>'
-  },
-  ScoreSummary: {
-    name: 'ScoreSummary',
-    props: ['scores', 'classification'],
-    template: '<i />'
-  },
-  LumpingSplittingSection: {
-    name: 'LumpingSplittingSection',
-    props: ['precurationData'],
-    template: '<i />'
-  },
-  FormActions: true,
-  FormRecoveryDialog: true
-}
+
 async function mountForm(props: Record<string, unknown> = {}) {
   const wrapper = mount(SchemaDrivenCurationForm, {
     props: { schemaId: 'schema-1', scopeId: 'scope-1', ...props },
