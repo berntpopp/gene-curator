@@ -90,6 +90,14 @@ The final audit covers154 ignored files:77 screenshots,49 result JSON and28 help
 Application/test JSON and legitimate existing orchestration scripts are unchanged. The
 release-only added-file audit found no generated helpers outside the evidence directory.
 
+The wider planning audit inspected357 root files and193 release-worktree files. Eight
+obsolete archived files were also removed from tracking: the one-off ClinGen downloader,
+its dependency list, five raw PDF/HTML downloads and the migrated UI iteration counter.
+Exact ignore paths retain all local copies, including the SOP PDFs. Deliberate Markdown
+plans/reports, planning config and established orchestration tools remain; two runtime logs
+and31 task briefs were already ignored. Credential-pattern and auth/env-filename scans found
+no candidates; application/test source paths are unaffected.
+
 ## Follow-ups and limits
 
 - Excluded [#386](https://github.com/berntpopp/gene-curator/issues/386) remains: qualitative

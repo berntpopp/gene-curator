@@ -57,3 +57,9 @@ __pycache__/
 /.planning/wave5-evidence/**
 !/.planning/wave5-evidence/**/
 !/.planning/wave5-evidence/**/*.md
+
+# Archived pre-GSD download tooling/cache and generated UI iteration state
+/.planning/milestones/pre-gsd/plan/scripts/download_clingen_docs.py
+/.planning/milestones/pre-gsd/plan/scripts/requirements.txt
+/.planning/milestones/pre-gsd/plan/scripts/downloads/
+/.planning/milestones/pre-gsd/plan/enhancements/tracking/.ui-ux-review-iterations
