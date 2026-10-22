@@ -159,6 +159,9 @@ class CurationDetail(CurationInDBBase):
     can_edit: bool = False
     can_review: bool = False
     can_delete: bool = False
+    # Open review round only: the user's approval is recorded / approvals still needed (#430)
+    has_approved: bool = False
+    approvals_remaining: int | None = None
 
     @classmethod
     def from_orm_with_relations(cls, curation: Any) -> "CurationDetail":
