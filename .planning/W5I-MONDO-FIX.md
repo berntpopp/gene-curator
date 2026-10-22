@@ -28,3 +28,20 @@ No post-fix browser or review success is claimed yet. PR451 remains a draft.
 Logs: /tmp/W5I-mondo-red.log, /tmp/W5I-mondo-green-backend.log,
 /tmp/W5I-mondo-green-frontend.log, /tmp/W5I-resume-ci.log,
 /tmp/W5I-A-targeted.log, /tmp/W5I-integrated-ci.log.
+
+Final native verification: full canonical-lock CI passed at 74b662c344b9503b4ebee223dd0ab54f8c1e24e4
+with backend94.71%,2564 frontend tests, fresh PostgreSQL and all static/build/repository gates.
+Exact-ID changed backend lines100% (five lines) versusf9890ba; combinedmaster98%/98%.
+The preceding combined run passed2564 tests but failed on nine late async imports from an
+existing dashboard test. Test-only74b662c makes its already-intended GeneList stub apply at
+the module boundary;32 dashboard assertions remain unchanged. Full rerun passed.
+
+H7b98416 integrated at d0c87bd81ef6b7c91d8e2e436b8fc763f159eb0f, now remotely verified on
+draft451. Only new product delta is H's reviewed is_active:null rejection. All41 affected
+schema/version API tests, four fresh PostgreSQL schema-name/nullable-flow tests and normal
+pre-push make check pass. The direct PostgreSQL invocation first lacked Make's test SECRET_KEY;
+rerun with the test-only environment passed. Full CI is precisely74b662c, with current-master
+full gate reserved for final release/merge preparation as the orchestrator instructed.
+Worktree clean and ownership released. Actual Opus delta and narrow browser remain pending.
+Final logs: /tmp/W5I-integrated-ci-final.log, /tmp/W5I-mondo-diff-cover.log,
+/tmp/W5I-H-api.log, /tmp/W5I-H-postgres.log, /tmp/W5I-H-push.log.

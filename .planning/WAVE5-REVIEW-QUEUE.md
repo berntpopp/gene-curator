@@ -1,31 +1,45 @@
 # Required Opus review queue
 
-> **12:31 UTC update:** actual Opus reviews resumed successfully, then the CLI hit its session usage limit (reset 19:00 Europe/Berlin). Completed SHIP verdicts remain valid; no further calls before reset. Native fixes and already-reviewed merge/browser gates continue.
+Checkpoint2026-10-22: actual Claude Code Opus5.5 completed the reviews below, then hit a
+session limit resetting19:00 Europe/Berlin. No retry before reset/new owner signal.
+No billing/auth changes. Native fixes, tests and audits do not satisfy mandatory review.
+Use ponytail:ponytail-review full; fix rounds review only the new delta and connected code.
+Clinical review requires the actual official SOPv11 PDF and per-case golden rationale.
 
-Every entry requires actual Claude Code Opus5.5 using ponytail:ponytail-review.
-Owner resumed on 2026-10-22. Actual Opus5.5 is available again; do not substitute native approval.
-Review the latest pushed head and reconcile merge-only parent changes. Fix rounds
-review only the task delta plus connected behavior, not every already-reviewed line.
-No unreviewed draft becomes ready or merges. Actual SOPv11 PDF required for clinical work.
+## Remaining functional reviews
 
-| PR | Last substantive head | Required review |
-| --- | --- | --- |
-|442 recovery|9e04844515da90e5fe08b11cb92bab9d3b8007b3|Actual resumed Opus delta SHIP after readonly precuration restore, readonly discard and late-save resurrection fixes; fullCI/check/diff97%, fix100% passed. Candidate browser36/36 expanded +23/23 replay passed; merged358ce6c with GitHub CI pass; fresh core running. Session98bfc166-0239-48b0-9f23-92815e8a7bd9.|
-|443 derive|f312c08fef8bbd33f92f12305b61f41488c75442|Actual Opus delta SHIP after is_active:null guard and app_user regression. Full CI/check/diff100% passed; pushed draft; narrow browser and current-master integration pending. Sessiona953e0a5-2768-47d9-9517-37a38926b954.|
-|444 robustness|62b7c35ab1a7f0d1f1d03d96469d4f7a8e8ce1b5|Actual Opus delta SHIP; all five findings resolved, SOP PDF checked. Locked full CI/check passed, diff97%. Merged at785e573 with GitHub CI gate pass; fresh post-merge core59/59, narrow9/9, font1/1 passed. Sessionef53a327-7c16-49b2-b434-d0d0608a854d.|
-|445 conditions|4e7cf15519d51d2c8360895141756df9e88cb2d4|Actual Opus FIX sessionc01a6d5e-4428-4680-9912-f09d92c1045e: readonly disease fields missing on historical/direct-created curations must use legitimate linked-precuration fallback; add real app_user route matrix and ACTIVE rejection.|
-|446 score trace|01e85d7abd3ffe82adb3c40365a1d73a1c9aabbc|Actual Opus FIX session05a8493c-5865-449e-b94e-01ead94c8a8f: stale-score clearing unmounts sidebar/checklist every edit; preserve stable pending layout through debounce.|
-|449 PMID/workflow|cdc199c6f937022b590ccbb7663a0eeb071c3c42|Actual Opus SHIP sessione2d6733c-aa33-4c18-b2c8-9a4b2867637e; two scoped nonblocking client lifecycle observations queued; integration/gates/browser pending.|
-|450 immutable successor|6fbddc40c99ad416b873754b04f3d11f0017d42f|Actual Opus SHIP session6a3bf1ae-0a73-4e10-94ee-0f4e226d6435 at547392d (identical tree to6fbddc4), actual SOP PDF inspected; full CI/check and diff99/100 passed. Future parent-fix integration/browser gates required.|
-|451 UI polish|62fe62e (includes D/J browser fixes)|Actual Opus SHIP session45f7fe7a-786c-4d1b-a793-5acaf635a108 at62fe62e; stored susceptibility label resolution regression assigned for scoped fix and delta review.|
+| PR / candidate | Completed actual review                                                                                      | Remaining delta and gates                                                                                                                                      |
+| -------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 445 /16b5285   | FIX at4e7cf15, session c01a6d5e-4428-4680-9912-f09d92c1045e                                                  | Native inherited-disease fallback31242e8 plus integration, real app_user submit/direct/bulk/ACTIVE cases; [checkpoint](W5D-INHERITED-DISEASE-FIX.md)           |
+| 446 /b85d8e0   | FIX at01e85d7, session05a8493c-5865-449e-b94e-01ead94c8a8f                                                   | Native stable pending layout3659fa1, fixture completionb85d8e0; debounce/request/superseded response lifecycle, mounted checklist and no stale numeric display |
+| 449 /32b77d7   | SHIP atcdc199c, sessione2d6733c-aa33-4c18-b2c8-9a4b2867637e                                                  | Native lifecycle28f3608, race regression57c76f8 and D integration; [checkpoint](W5G-LIFECYCLE-FIX.md)                                                          |
+| 450 /547392d   | SHIP, session6a3bf1ae-0a73-4e10-94ee-0f4e226d6435; reviewed6fbddc4 and tree-identical547392d; actual SOP PDF | No new J product fix awaiting review; reconcile newer parents/integration, final local/GitHub CI and fresh postmerge gate                                      |
+| 451 /d0c87bd   | SHIP at62fe62e, session45f7fe7a-786c-4d1b-a793-5acaf635a108                                                  | Native exact-ID4594ed1, isolated test-fixture74b662c and parent integrations; [checkpoint](W5I-MONDO-FIX.md)                                                   |
 
-|452 release preparation|0bebdb9a1522f5125f08a0ac445d6727ae253d0a (plus report-link follow-up)|Initial release-only Opus ponytail review; PR-cited release notes, immutable upgrade guidance, all active versions, sanitized report provenance and local-only helper/artifact exclusions; parent functional reviews remain required|
+Combined R source320a338 has full CI/browser checks running. Each functional PR still
+needs current-master integration, required local/GitHub CI and fresh per-merge UI gates.
+Do not call a parent initial SHIP approval of subsequent native fixes.
 
-Completed:440 actual Opus SHIP atfdc745e;441 actual Opus delta SHIP atc51ad81,
-sessionf5ce24c1-8b30-4d37-9039-f4c8ebd70e00. Both merged with local/GitHub CI and
-fresh browser evidence. Do not rereview them absent new changes.
+## Release and integration review
 
-Stored CLI results live under /tmp/w5-W5?-review?.json; do not treat tool errors or
-partial responses as SHIP. Preserve accurate native versus Opus implementation/review
-provenance in reports. Before merge, update against current master, rerun required
-local gates, push, check behind=0, then pipefail merge.sh; independently verify MERGED.
+Draft452 requires an actual initial Opus review. It includes both release changes and
+manual product conflict resolutions; a release-only review is insufficient now.
+[Exact merge/path ledger](W5R-INTEGRATION-CHECKPOINT.md) identifies schema-validator,
+review-guard and EvidenceTableField resolutions. Cover their connected D/G/J/I behavior,
+PR-cited claims,048/049 upgrade guidance, active versions, historical references, and
+Markdown-only evidence/provenance. Before publication, all functional PRs must be merged;
+verify the remaining product diff is only intended versions/docs or explicitly reviewed
+integration fixes. Then final CI/review/merge/tag/release gates apply.
+
+## Completed merged reviews
+
+-440 fdc745e actual Opus SHIP; merged4fe8b6d.
+-441 c51ad81 actual Opus delta SHIP, sessionf5ce24c1-8b30-4d37-9039-f4c8ebd70e00; merged7496d36.
+-442 9e048445 actual Opus delta SHIP, session98bfc166-0239-48b0-9f23-92815e8a7bd9; merged358ce6c.
+-443 ccd90aa includes reviewed is_active:null fix; actual Opus delta SHIP, sessiona953e0a5-2768-47d9-9517-37a38926b954; merged7b98416.
+-444 62b7c35 actual Opus delta SHIP/SOP PDF, sessionef53a327-7c16-49b2-b434-d0d0608a854d; merged785e573.
+
+All five have local/GitHub CI and fresh postmerge evidence. Do not repeat their reviews
+absent new changes. Tool errors, missing model usage and partial output are not SHIP.
+CLI review JSONs remain local under/tmp; substantive verdicts/session/model provenance
+are recorded here and in evidence reports.

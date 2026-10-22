@@ -16,8 +16,14 @@ Root also holds untracked copies of the new Wave5 reports and the requested loca
 pushed release commit; remove or stash only verified duplicate task-owned copies so
 Git can update cleanly. Preserve unrelated Wave3/4 planning and tooling changes.
 
-Finish Wave5 before adding scope. PR440/441/442/444 are merged and have Opus, local/GitHub CI
-and fresh postmerge browser evidence. Remaining functional drafts are443/445/446 and449–451,
+Combined source320a338 includes the native D/E/G/I fixes; see W5R-INTEGRATION-CHECKPOINT.md
+for exact manual product conflict resolutions requiring actual Opus coverage. Combined CI/browser
+results must be checked in the latest report; older171/171 is historical candidate evidence.
+Do not describe R review as release-only until functional PRs merge and its remaining product
+diff is verified as intended version/docs changes or explicitly reviewed integration fixes.
+
+Finish Wave5 before adding scope. PR440/441/442/443/444 are merged and have Opus, local/GitHub CI
+and fresh postmerge browser evidence. Remaining functional drafts are445/446 and449–451,
 plus the release candidate. Exact heads, tests, required review deltas and known limits
 are recorded in the report/queue. The release contains only Markdown reports from the evidence directory; generated helper
 scripts/screenshots/JSON stay local and ignored. Preserve that Markdown-only rule, application/test

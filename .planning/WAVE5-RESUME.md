@@ -1,39 +1,43 @@
 # Wave 5 resume checkpoint
 
-> **12:31 UTC update:** actual Opus reviews resumed successfully, then the CLI hit its session usage limit (reset 19:00 Europe/Berlin). Completed SHIP verdicts remain valid; no further calls before reset. Native fixes and already-reviewed merge/browser gates continue.
+2026-10-22: five functional PRs merged, five functional drafts plus release452 remain.
+Master7b984161db6bbf1b678d881990c4bdd711e84fa1 includes440/441/442/443/444; all five
+have completed actual Opus/local+GitHub CI/fresh postmerge gates.
 
-**Owner resumed work on 2026-10-22.** A single actual Claude Opus 5.5 probe returned
-OPUS_READY with is_error=false and modelUsage claude-opus-5-5. Required independent
-Opus reviews are restarting from the saved queue. No billing/auth changes or substitute
-approvals are authorized. All previously recorded gates and exclusions remain binding.
+Combined release source320a33835f847cb135714089858bedb0accc6bcc includes final
+D16b5285, Eb85d8e0, G32b77d7, J547392d lineage and Id0c87bd. Focused84 backend and
+156 frontend tests pass. Combined full CI and fresh browser checks are running.
+See [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md) and
+[integration ledger](W5R-INTEGRATION-CHECKPOINT.md) for precise gates and pending work.
 
-- Release draft: [#452](https://github.com/berntpopp/gene-curator/pull/452), branch `release/v0.7.0`.
-  Last cleanup head before this documentation checkpoint: `985063af3927935d94fffb72622c3ef5292085e1`.
-  The checkpoint commit is the commit adding this file; obtain its full SHA with
-  `git log -1 --format=%H -- .planning/WAVE5-RESUME.md` (also recorded in the final handoff).
-- Master: `7496d3663e68b91c53263337d4ee0c936f176b49`; PRs #440 and #441 are merged.
-- Eight implemented functional drafts remain: #442, #443, #444, #445, #446, #449, #450, #451.
-  Mandatory independent Opus ponytail reviews have resumed; native reviews do not replace them.
-- Local required gates passed. Combined candidate `62fe62e` passed 171/171 browser checks.
-  These candidate results do not replace future per-merge checks. No v0.7.0 tag/release exists.
-- All generated Wave 5 helpers/artifacts are ignored; evidence tracks Markdown only.
-  Eight obsolete archive files are untracked but retained locally, including SOP PDFs.
-  Deliberate Markdown, planning configuration and established orchestration tools are preserved.
-- Preserve every worktree. Ops owns isolated test servers and fresh post-merge browser gates.
-  Do not touch the development stack or discard local work.
-- Root has pre-existing dirty planning/tooling, local `.gitignore` changes and untracked duplicate
-  Wave 5 documents. Reconcile only verified task-owned duplicates before a future fast-forward;
-  preserve unrelated Wave 3/4 edits and local ignored evidence.
+Actual Opus5.5 resumed successfully, then hit its session limit; reset19:00 Europe/Berlin.
+Do not retry before reset/new owner signal or alter billing/auth. D/E initial reviews
+returned FIX; native fixes are complete. G/I initial SHIP verdicts predate their native
+follow-up fixes. J SHIP is valid, with parent/integration checks still required. D/E/G/I
+actual delta reviews and R integration/release review remain mandatory. Native factual
+review is supplementary. No v0.7.0 tag or GitHub release exists;452 stays draft.
 
-## Resume order
+## Continue without restarting completed work
 
-1. Read [report](WAVE5-REPORT.md), [review queue](WAVE5-REVIEW-QUEUE.md) and
-   [Wave 6 prompt](WAVE6-PROMPT.md); verify current remote heads and owner-resume authorization.
-2. When Opus is actually available, complete each required review; fix rounds review only the
-   delta and connected behavior. Clinical reviews must use the actual SOP v11 PDF.
-3. Update each candidate against current master, run required local/GitHub CI, then merge one PR
-   at a time via `set -o pipefail; merge.sh N | tail`. Never merge red or bypass reviews.
-4. After each functional merge, use a fresh isolated stack for every role, two review rounds and
-   re-curation in the UI. After fixes, narrowly recheck that exact flow in a real browser.
-5. Reconcile the release draft, fact-check notes/versions, complete its Opus/CI gates, then release
-   only after all mandated gates pass. Refresh the final report and continuation prompt.
+1. Read the report/queue and verify remote metadata. Preserve every worktree and unrelated
+   root Wave3/4/tooling/ignore changes; reconcile only verified duplicate task-owned reports.
+2. Complete combined candidate gates and record actual head/results. Ops owns isolated
+   stack5455/8052/5190; never dev5454/8051/5193. Source is frozen after browser handoff
+   except a real test/browser finding. Only Markdown evidence is tracked; raw artifacts
+   and generated runners remain local and ignored.
+3. Once service access is restored, obtain required actual Opus delta/integration reviews.
+   Fix actual findings regression-first and re-review only the delta. Clinical reviews
+   inspect the actual SOPv11 PDF; preserve published snapshots and historical goldens.
+4. For each remaining functional PR, integrate current master, run required local gates,
+   push, ensure behind=0, then use `set -o pipefail; merge.sh N | tail`. Never merge red;
+   retry the initial empty CI gate after draft promotion and independently verify MERGED.
+5. After EACH functional merge reset the fresh monkey stack and exercise every role,
+   two review rounds and re-curation in real UI. Fixes also require narrow real-browser
+   reload/lazy-tab/pointer checks. Do not batch merges ahead of their fresh gate.
+6. After all functional merges, inspect R versus master: only intended versions/docs or
+   explicitly reviewed integration fixes may remain. Complete R actual Opus/CI gates,
+   update release facts, then release/tag only when all required gates pass.
+
+Owner authorized end-to-end continuation without more questions. All exclusions and
+accepted Wave4 scope reductions persist; #264/#266 remain open until their accepted
+scope is merged/verified. #268 is already GitHub-closed, with broader cuts documented.
