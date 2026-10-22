@@ -125,6 +125,21 @@ export const usePrecurationsStore = defineStore('precurations', {
     /**
      * Fetch precurations with optional filters
      */
+    /** The create/re-curation flow must not inherit the list's page or filters. */
+    async fetchCurationPrecuration(
+      geneId: string,
+      scopeId: string
+    ): Promise<PrecurationRecord | undefined> {
+      const params = { gene_id: geneId, scope_id: scopeId, skip: 0, limit: 1 }
+      const approved = await precurationsAPI.getPrecurations({
+        ...params,
+        precuration_status: 'approved'
+      })
+      if (approved.precurations[0]) return approved.precurations[0]
+      const pending = await precurationsAPI.getPrecurations(params)
+      return pending.precurations[0]
+    },
+
     async fetchPrecurations(params: Record<string, unknown> = {}) {
       this.loading = true
       this.error = null

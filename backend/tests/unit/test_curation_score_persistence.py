@@ -64,15 +64,12 @@ def test_evidence_writes_persist_engine_result(
     approved_precuration: PrecurationNew,
     operation: str,
 ) -> None:
-    from unittest.mock import patch
-
     from app.schemas.curation import (
         CurationCreate,
         CurationDraftSave,
         CurationSubmit,
         CurationUpdate,
     )
-    from app.schemas.workflow_engine import WorkflowValidationResult
     from app.scoring.clingen import ClinGenEngine
 
     evidence = {
@@ -117,22 +114,12 @@ def test_evidence_writes_persist_engine_result(
     else:
         test_curation.evidence_data = evidence
         db_session.commit()
-        with (
-            patch(
-                "app.crud.curation.workflow_engine.validate_transition",
-                return_value=WorkflowValidationResult(is_valid=True),
-            ),
-            patch(
-                "app.crud.curation.workflow_engine.execute_transition",
-                side_effect=lambda *args: db_session.commit(),
-            ),
-        ):
-            result = curation_crud.submit_for_review(
-                db_session,
-                db_obj=test_curation,
-                submit_data=CurationSubmit(lock_version=test_curation.lock_version),
-                user_id=user_id,
-            )
+        result = curation_crud.submit_for_review(
+            db_session,
+            db_obj=test_curation,
+            submit_data=CurationSubmit(lock_version=test_curation.lock_version),
+            user_id=user_id,
+        )
     assert result is not None
     db_session.expire(result)
     expected = ClinGenEngine().calculate_scores(evidence, {})
