@@ -43,8 +43,12 @@ behind=0. Merge one at a time using set -o pipefail; merge.sh N | tail. Independ
 confirm GitHub MERGED; retry an initial empty CI gate after leaving draft. Never merge red,
 skip tests, suppress failures or Prettier api.generated.ts.
 
-After EACH functional merge reset .planning/orchestration/monkey-stack.sh up origin/master
-and exercise every role, two review rounds and re-curation in real UI. Use5455/8052/5190,
+After EACH functional merge reset the isolated stack and exercise every role, two review
+rounds and re-curation in real UI. This existing workspace retains the operator-local
+`.planning/orchestration/monkey-stack.sh up origin/master` wrapper. That machine-specific
+wrapper is ignored and is not shipped: a fresh checkout must provision its own isolated
+Postgres/API/Vite stack before these browser gates. Do not assume the script is available
+in a fresh clone or fall back to the development stack. Use5455/8052/5190,
 never dev5454/8051/5193; close fd9 when starting servers. Fixes get narrow real-browser
 rechecks, including reload/lazy tabs/pointer timing. Distinguish fixtures/API supplements
 from actual UI assertions; retain original failures separately from corrected reruns.

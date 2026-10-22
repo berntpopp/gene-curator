@@ -68,3 +68,6 @@ __pycache__/
 /plan/scripts/download_clingen_docs.py
 /plan/scripts/requirements.txt
 /plan/scripts/downloads/
+
+# Operator-local isolated-stack wrapper (machine-specific paths; not release tooling)
+/.planning/orchestration/monkey-stack.sh

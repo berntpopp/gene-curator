@@ -23,7 +23,8 @@ review is supplementary. No v0.7.0 tag or GitHub release exists;452 stays draft.
 1. Read the report/queue and verify remote metadata. Preserve every worktree and unrelated
    root Wave3/4/tooling/ignore changes; reconcile only verified duplicate task-owned reports.
 2. Combined candidate gates are complete at320a338; preserve their exact evidence. Ops owns isolated
-   stack5455/8052/5190; never dev5454/8051/5193. Source is frozen after browser handoff
+   stack5455/8052/5190; the existing workspace retains its ignored machine-specific
+   monkey-stack.sh wrapper, while a fresh checkout needs explicit isolated-stack provisioning; never dev5454/8051/5193. Source is frozen after browser handoff
    except a real test/browser finding. Only Markdown evidence is tracked; raw artifacts
    and generated runners remain local and ignored.
 3. Once service access is restored, obtain required actual Opus delta/integration reviews.

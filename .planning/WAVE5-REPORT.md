@@ -64,6 +64,9 @@ formatting was used.
 [Evidence index](wave5-evidence/README.md) links durable Markdown reports. Only isolated
 Postgres 5455/API 8052/Vite 5190 were used, with server lock fd closed. UI interactions,
 API fixture setup and browser-origin API supplements are identified separately.
+The existing root workspace retains the machine-specific, ignored monkey-stack.sh wrapper.
+It is operator-local tooling, not a release asset; a fresh checkout must provision the
+isolated browser stack explicitly. Maintained setup/merge/restart tools remain tracked.
 All five merged slices have fresh postmerge gates. A's expanded recovery36/36 and
 existing23/23 were candidate checks; its postmerge replay was core 59/59 plus font 1/1.
 H's postmerge core 59/59, narrow 10/10 and font 1/1 include API boundary checks explicitly.

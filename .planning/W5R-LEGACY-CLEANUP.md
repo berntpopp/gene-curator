@@ -30,3 +30,12 @@ removed or altered by this worktree’s index cleanup.
 This new cleanup delta still needs actual Opus re-review together with final release facts.
 Existing product CI/browser evidence remains attributable to unchanged source320a338.
 No publication or approval bypass is implied by this documentation-only cleanup.
+
+The seven-file cleanup received actual Opus delta SHIP at e02479b in the same independent
+R sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b; local cleanup-result.json records it.
+A later tooling audit confirmed monkey-stack.sh was root-untracked and absent from R.
+It hard-codes machine paths and local dependencies, so the owner selected explicit
+operator-local documentation plus one precise rooted ignore, preserving the root file.
+No copy of the wrapper is added to the release, and existing setup/rules edits stay untouched.
+Fresh clones require explicit isolated-stack provisioning; the tracked make test-postgres
+lane is unaffected. This documentation/ignore follow-up awaits final R delta review.
