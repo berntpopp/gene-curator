@@ -1,8 +1,11 @@
-"""A restored stale local draft never silently overwrites a newer save (#436).
+"""What the server guarantees for local draft recovery (#436), via the real API as app_user.
 
-The forms bind a local draft to the server version it started from (lock_version@updated_at)
-and save at the lock_version they loaded. Through the real API as app_user: another save moves
-both version fields, and the stale save is refused with 409 and changes nothing.
+Two different cases:
+- A tab still holding the lock_version it loaded cannot save over a newer save: the stale save
+  gets 409 and changes nothing (the form keeps its local copy for the reload).
+- After a reload the form holds the new lock_version, so an explicit "Replace with local copy"
+  saves by design. Only the frontend guards that case: every save moves lock_version and
+  updated_at, the version a local draft is bound to, so the reopened form flags the draft older.
 """
 
 import os
@@ -97,7 +100,7 @@ def client() -> Generator[TestClient, None, None]:
 
 
 @pytest.mark.parametrize("kind", ["curations", "precurations"])
-def test_a_restored_stale_draft_is_refused_and_the_newer_save_kept(
+def test_a_stale_loaded_version_gets_409_and_a_reopened_explicit_restore_saves(
     client: TestClient, w: W, kind: str
 ) -> None:
     h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
@@ -128,11 +131,11 @@ def test_a_restored_stale_draft_is_refused_and_the_newer_save_kept(
     )
     assert newer.status_code == 200, newer.text
     reopened = client.get(url, headers=h).json()
-    # Both parts of the version the local draft is bound to move on
+    # Both parts of the version a local draft is bound to move on: the reopened form flags it
     assert reopened["lock_version"] == loaded["lock_version"] + 1
     assert reopened["updated_at"] != loaded["updated_at"]
 
-    # The stale local draft, restored and saved at the version its form loaded
+    # The tab that loaded before that save still holds the old lock_version: refused
     stale = client.patch(
         f"{url}/draft",
         json={
@@ -143,3 +146,16 @@ def test_a_restored_stale_draft_is_refused_and_the_newer_save_kept(
     )
     assert stale.status_code == 409, stale.text
     assert client.get(url, headers=h).json()["evidence_data"] == {"a": "their edit"}
+
+    # Reopened, the form holds the new lock_version: replacing the newer save with the flagged
+    # local copy is the user's explicit choice in the dialog, and it saves
+    replaced = client.patch(
+        f"{url}/draft",
+        json={
+            "evidence_data": {"a": "my stale edit"},
+            "lock_version": reopened["lock_version"],
+        },
+        headers=h,
+    )
+    assert replaced.status_code == 200, replaced.text
+    assert client.get(url, headers=h).json()["evidence_data"] == {"a": "my stale edit"}

@@ -125,6 +125,7 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { recoveryVersion } from '@/utils/formRecoveryStorage'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
@@ -205,13 +206,14 @@
     hasDisputingRow(evidenceData.value.contradictory_evidence)
   )
 
-  // Form Recovery - schema-aware key to prevent cross-schema data restore
+  // Form Recovery - schema-aware key to prevent cross-schema data restore; a new curation's
+  // draft belongs to its scope and gene, never offered on another gene's new curation
   const recoveryKey = computed(
-    () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}-v2`
+    () =>
+      `curation-${props.curationId || `new-${props.scopeId}-${props.geneId}`}-schema-${props.schemaId}-v2`
   )
 
   const formRecovery = useFormRecovery(recoveryKey.value, evidenceData, {
-    saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
   const {
@@ -221,7 +223,8 @@
     restoreRecovery,
     discardRecovery,
     clearRecovery,
-    setBaseline
+    setBaseline,
+    markSaved
   } = formRecovery
   let serverVersion: string | null = null // the loaded curation's, for the recovery baseline
 
@@ -294,6 +297,7 @@
       lockVersion,
       canSubmit: () => canSubmit.value,
       clearRecovery,
+      markSaved,
       clearHistory,
       onSaved: () => {
         savedAt.value = Date.now()
@@ -551,7 +555,7 @@
           evidenceData.value = curation.evidence_data || {}
         }
 
-        serverVersion = `${curation.lock_version}@${curation.updated_at}`
+        serverVersion = recoveryVersion(curation)
         pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'

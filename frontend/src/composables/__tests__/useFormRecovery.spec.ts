@@ -103,9 +103,9 @@ describe('useFormRecovery', () => {
 
   it('auto-saves meaningful form data and skips empty forms', async () => {
     const form = ref({ gene: '' })
-    const { api } = mountRecovery(form, { saveInterval: 1000 })
+    const { api } = mountRecovery(form)
 
-    await vi.advanceTimersByTimeAsync(1000)
+    await vi.advanceTimersByTimeAsync(10_000)
     expect(localStorage.getItem(KEY)).toBeNull()
 
     form.value.gene = 'TP53'
@@ -116,19 +116,17 @@ describe('useFormRecovery', () => {
     expect(api.lastSaved.value).toBe(stored.timestamp)
   })
 
-  it('does not save while paused after discard', async () => {
+  it('manual discard: forgets the offered draft and protects edits made right after it', async () => {
+    localStorage.setItem(KEY, saved({ gene: 'mine' }, 1000))
     const form = ref({ gene: 'X1' })
-    const { api } = mountRecovery(form, { saveInterval: 1000 })
+    const { api } = mountRecovery(form)
 
     api.discardRecovery()
-    form.value.gene = 'changed'
-    await nextTick()
     expect(localStorage.getItem(KEY)).toBeNull()
 
-    // Pause lifts after the 10 second grace period
-    await vi.advanceTimersByTimeAsync(10_000)
-    await vi.advanceTimersByTimeAsync(1000)
-    expect(localStorage.getItem(KEY)).not.toBeNull()
+    form.value.gene = 'changed'
+    await nextTick()
+    expect(stored().data).toEqual({ gene: 'changed' })
   })
 
   it('restoreRecovery replaces the form with stored data and hides the dialog', () => {
@@ -208,17 +206,6 @@ describe('useFormRecovery', () => {
     setItem.mockRestore()
   })
 
-  it('stops the auto-save timer on unmount', async () => {
-    const clearSpy = vi.spyOn(globalThis, 'clearInterval')
-    const form = ref({ gene: 'A' })
-    const { wrapper } = mountRecovery(form)
-
-    wrapper.unmount()
-
-    expect(clearSpy).toHaveBeenCalled()
-    clearSpy.mockRestore()
-  })
-
   it('keys drafts by user so another account never sees them, and sign-out wipes them', () => {
     const auth = useAuthStore()
     auth.user = { id: 'user-1' } as typeof auth.user
@@ -238,7 +225,7 @@ describe('useFormRecovery', () => {
   describe('against the server copy (#436)', () => {
     it('stores nothing before the server copy is loaded, nor the unedited server copy', async () => {
       const form = ref<Record<string, unknown>>({})
-      const { api } = mountRecovery(form, { saveInterval: 1000 }, false)
+      const { api } = mountRecovery(form, {}, false)
 
       form.value = { a: 'server' } // the load
       await vi.advanceTimersByTimeAsync(1000)
@@ -287,9 +274,9 @@ describe('useFormRecovery', () => {
 
     it('keeps the stored draft while the prompt is open', async () => {
       localStorage.setItem(KEY, saved({ a: 'mine' }, 1000, 'v1'))
-      mountRecovery(ref({ a: 'server' }), { saveInterval: 1000 }, 'v1')
+      mountRecovery(ref({ a: 'server' }), {}, 'v1')
 
-      await vi.advanceTimersByTimeAsync(1000)
+      await vi.advanceTimersByTimeAsync(10_000)
 
       expect(stored().data).toEqual({ a: 'mine' })
     })
@@ -348,6 +335,130 @@ describe('useFormRecovery', () => {
 
       expect(reopened.value).toEqual({ a: 1 })
       expect(reopened.value).not.toBe(before) // a new reference reaches reference watchers
+    })
+  })
+
+  describe('across tabs and saves (#436 review)', () => {
+    type Form = Ref<Record<string, unknown>>
+    const tab = (data: Record<string, unknown>, version: string | null = 'v1') => {
+      const form: Form = ref({ ...data })
+      return { form, ...mountRecovery(form, {}, version) }
+    }
+
+    it('an idle tab never deletes the draft another tab wrote', async () => {
+      const a = tab({ a: 1 })
+      const b = tab({ a: 1 })
+
+      b.form.value = { a: 2 }
+      await nextTick()
+      b.wrapper.unmount() // tab B crashes; tab A stays open, untouched
+      await vi.advanceTimersByTimeAsync(60_000)
+
+      expect(stored().data).toEqual({ a: 2 })
+      a.wrapper.unmount()
+    })
+
+    it("both tabs wrote, one reverted: the other tab's newer draft stays", async () => {
+      const a = tab({ a: 1 })
+      const b = tab({ a: 1 })
+      a.form.value = { a: 'A' }
+      await nextTick()
+      b.form.value = { a: 'B' }
+      await nextTick()
+
+      a.form.value = { a: 1 }
+      await nextTick()
+      a.form.value = {}
+      await nextTick()
+
+      expect(stored().data).toEqual({ a: 'B' })
+    })
+
+    it('submit or cancel in one tab keeps the draft of another', async () => {
+      const a = tab({ a: 1 })
+      const b = tab({ a: 1 })
+      b.form.value = { a: 2 }
+      await nextTick()
+
+      a.api.clearRecovery()
+
+      expect(stored().data).toEqual({ a: 2 })
+    })
+
+    it('manual discard keeps a newer draft another tab wrote after the offer', async () => {
+      localStorage.setItem(KEY, saved({ a: 'mine' }, 1000, 'v1'))
+      const a = tab({ a: 1 })
+      const b = tab({ a: 1 })
+      b.api.restoreRecovery()
+      b.form.value = { a: 'mine, more' }
+      await nextTick()
+
+      a.api.discardRecovery()
+
+      expect(stored().data).toEqual({ a: 'mine, more' })
+    })
+
+    it('emptying an edited field forgets the draft, so older text is never offered', async () => {
+      const first = tab({ a: 'server' })
+      first.form.value = { a: 'abc' }
+      await nextTick()
+      first.form.value = { a: '' }
+      await nextTick()
+      expect(localStorage.getItem(KEY)).toBeNull()
+      first.wrapper.unmount()
+
+      expect(tab({ a: 'server' }).api.showRecoveryDialog.value).toBe(false)
+    })
+
+    it('emptying a new form forgets its draft', async () => {
+      const { form } = tab({}, null)
+      form.value = { a: 'abc' }
+      await nextTick()
+      form.value = { a: '  ' }
+      await nextTick()
+
+      expect(localStorage.getItem(KEY)).toBeNull()
+    })
+
+    it('edit, save, edit, reload: the later edits are offered, bound to the saved version', async () => {
+      const first = tab({ a: 1 })
+      first.form.value = { a: 2 }
+      await nextTick()
+
+      first.api.markSaved({ a: 2 }, 'v2')
+      expect(localStorage.getItem(KEY)).toBeNull()
+
+      first.form.value = { a: 3 }
+      await nextTick()
+      expect(stored()).toMatchObject({ data: { a: 3 }, baseVersion: 'v2' })
+      first.wrapper.unmount()
+
+      const reopened = tab({ a: 2 }, 'v2')
+      expect(reopened.api.showRecoveryDialog.value).toBe(true)
+      expect(reopened.api.recoveryStale.value).toBe(false)
+      expect(reopened.api.recoveryData.value).toEqual({ a: 3 })
+    })
+
+    it('edits made while the save was in flight stay stored, bound to the saved version', async () => {
+      const { form, api } = tab({ a: 1 })
+      form.value = { a: 2 }
+      await nextTick()
+      form.value = { a: 3 } // typed after the request left
+
+      api.markSaved({ a: 2 }, 'v2')
+
+      expect(stored()).toMatchObject({ data: { a: 3 }, baseVersion: 'v2' })
+    })
+
+    it('a save resumes auto-save after a submit or cancel paused it', async () => {
+      const { form, api } = tab({ a: 1 })
+      api.clearRecovery()
+
+      api.markSaved({ a: 1 }, 'v2')
+      form.value = { a: 2 }
+      await nextTick()
+
+      expect(stored()).toMatchObject({ data: { a: 2 }, baseVersion: 'v2' })
     })
   })
 })

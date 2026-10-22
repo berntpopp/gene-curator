@@ -13,7 +13,8 @@ const h = vi.hoisted(() => ({
   schema: null as unknown,
   curation: null as unknown,
   precuration: null as unknown,
-  setBaseline: vi.fn()
+  setBaseline: vi.fn(),
+  formId: ''
 }))
 const store = vi.hoisted(() => ({ currentCuration: null as unknown }))
 
@@ -41,7 +42,8 @@ vi.mock('@/stores/precurations', () => ({
 }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast: vi.fn() }) }))
 vi.mock('@/composables/useFormRecovery', () => ({
-  useFormRecovery: () => ({
+  useFormRecovery: (formId: string) => ({
+    ...((h.formId = formId), {}),
     showRecoveryDialog: ref(false),
     recoveryData: ref(null),
     recoveryTimestamp: ref(null),
@@ -50,6 +52,7 @@ vi.mock('@/composables/useFormRecovery', () => ({
     discardRecovery: vi.fn(),
     recoveryStale: ref(false),
     setBaseline: h.setBaseline,
+    markSaved: vi.fn(),
     clearRecovery: vi.fn()
   })
 }))
@@ -133,6 +136,22 @@ describe('SchemaDrivenCurationForm loading', () => {
     await flushPromises()
 
     expect(h.setBaseline).toHaveBeenCalledExactlyOnceWith({ panel: 'active' }, null)
+  })
+
+  it('keys a new curation draft by scope, gene and schema, never the shared legacy key (#436)', async () => {
+    h.schema = { id: 'v1', snapshot: {} }
+    mount(SchemaDrivenCurationForm, {
+      props: { schemaId: 's1', scopeId: 'sc1', geneId: 'g1' },
+      global: { stubs }
+    })
+    expect(h.formId).toBe('curation-new-sc1-g1-schema-s1-v2')
+
+    mount(SchemaDrivenCurationForm, {
+      props: { schemaId: 's1', scopeId: 'sc1', curationId: 'c1' },
+      global: { stubs }
+    })
+    expect(h.formId).toBe('curation-c1-schema-s1-v2')
+    await flushPromises()
   })
 
   it('offers no draft while the saved curation could not be loaded (#436)', async () => {

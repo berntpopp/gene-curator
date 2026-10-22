@@ -5,27 +5,26 @@
  * Follows best practices: KISS (simple save/restore), DRY (reusable), SOLID (single responsibility)
  *
  * Best practices implemented:
- * - Only saves local edits: form data that differs from the server copy (setBaseline)
+ * - Only saves local edits: form data that differs from the server copy (setBaseline), on change
  * - Offers recovery only after the server copy is loaded, and flags a draft that started from
  *   an older server version (restoring it would replace newer data)
- * - Pauses auto-save after discard to prevent immediate re-save of empty state
- * - Clear on successful submission
+ * - A save re-bases the comparison (markSaved); later edits stay protected
+ * - Only ever removes the draft this form stored or was offered: other tabs share the key
  *
- * @param formId - Unique form identifier (e.g., 'precuration-new', 'curation-123')
+ * @param formId - Unique form identifier (e.g., 'precuration-p1-...', 'curation-new-<scope>-<gene>-...')
  * @param formData - Reactive form data reference
  * @param options - Configuration options
  * @param options.maxAge - Maximum age of recovery data in milliseconds (default: 24h)
- * @param options.saveInterval - Auto-save interval in milliseconds (default: 5s)
  * @returns Recovery state and methods
  *
  * @example
  * const formData = ref({ gene: '', rationale: '' })
  * const { showRecoveryDialog, lastSaved, restoreRecovery, discardRecovery, clearRecovery, setBaseline } =
  *   useFormRecovery('precuration-new', formData)
- * // once loaded: setBaseline(formData.value, `${lock_version}@${updated_at}`) (null when new)
+ * // once loaded: setBaseline(formData.value, recoveryVersion(record)) (null when new; utils)
  */
 
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch } from 'vue'
 import type { Ref } from 'vue'
 import { useLogger } from './useLogger'
 import { useAuthStore } from '@/stores/auth'
@@ -33,7 +32,6 @@ import { FORM_RECOVERY_PREFIX } from '@/utils/formRecoveryStorage'
 
 export interface FormRecoveryOptions {
   maxAge?: number
-  saveInterval?: number
 }
 
 interface RecoverySnapshot {
@@ -58,6 +56,8 @@ export interface UseFormRecoveryReturn {
   resumeAutoSave: () => void
   /** The server copy the form shows (call again when it changes); recovery waits for it */
   setBaseline: (saved: unknown, version: string | null) => void
+  /** A save reached the server: compare later edits with what was sent, bound to its version */
+  markSaved: (saved: unknown, version: string) => void
 }
 
 /**
@@ -95,18 +95,24 @@ export function useFormRecovery<T extends object>(
   // Keyed by user so drafts never cross accounts on a shared browser
   const recoveryKey = `${FORM_RECOVERY_PREFIX}${useAuthStore().user?.id ?? 'anon'}_${formId}`
   const maxAge = options.maxAge || 24 * 60 * 60 * 1000 // 24 hours
-  const saveInterval = options.saveInterval || 5000 // 5 seconds
 
   const showRecoveryDialog = ref(false)
   const recoveryData = ref<unknown>(null)
   const recoveryTimestamp = ref<string | null>(null)
   const recoveryStale = ref(false)
   const lastSaved = ref<string | null>(null)
-  const isPaused = ref(false) // Pause auto-save after discard
+  const isPaused = ref(false) // after submit or cancel
   let baseline: string | null = null // canonical server copy; null until loaded
   let baseVersion: string | null = null
+  // The exact draft this form stored (or was offered): another tab's draft is never removed
+  let written: string | null = null
 
-  let saveTimer: ReturnType<typeof setInterval> | null = null
+  function forgetOwn(): void {
+    if (written !== null && localStorage.getItem(recoveryKey) === written) {
+      localStorage.removeItem(recoveryKey)
+    }
+    written = null
+  }
 
   /**
    * Save form data to localStorage with metadata
@@ -119,15 +125,10 @@ export function useFormRecovery<T extends object>(
       return
     }
 
-    if (!hasNonEmptyData(formData.value)) {
-      logger.debug('Form auto-save skipped - no meaningful data', { formId })
-      return
-    }
-
     try {
-      // No local edits (or all reverted): the server copy needs no recovery
-      if (canonical(formData.value) === baseline) {
-        localStorage.removeItem(recoveryKey)
+      // No local edits (all reverted or emptied): this form's draft would only offer older text
+      if (!hasNonEmptyData(formData.value) || canonical(formData.value) === baseline) {
+        forgetOwn()
         return
       }
       const snapshot: RecoverySnapshot = {
@@ -137,7 +138,8 @@ export function useFormRecovery<T extends object>(
         formId,
         baseVersion
       }
-      localStorage.setItem(recoveryKey, JSON.stringify(snapshot))
+      written = JSON.stringify(snapshot)
+      localStorage.setItem(recoveryKey, written)
       lastSaved.value = snapshot.timestamp
       logger.debug('Form auto-saved', { formId, timestamp: snapshot.timestamp })
     } catch (error) {
@@ -149,25 +151,9 @@ export function useFormRecovery<T extends object>(
     }
   }
 
-  onMounted(() => {
-    // Start auto-save timer
-    saveTimer = setInterval(saveToLocalStorage, saveInterval)
-    logger.debug('Form recovery initialized', { formId, saveInterval })
-  })
-
-  /**
-   * Clean up timer on unmount
-   */
-  onBeforeUnmount(() => {
-    if (saveTimer) {
-      clearInterval(saveTimer)
-      logger.debug('Form recovery cleanup', { formId })
-    }
-  })
-
   /**
    * Watch for changes and save (only if has meaningful data)
-   * Deep watch to catch nested property changes
+   * Deep watch to catch nested property changes; no timer, so an idle tab never touches storage
    */
   watch(formData, saveToLocalStorage, { deep: true })
 
@@ -186,35 +172,21 @@ export function useFormRecovery<T extends object>(
   }
 
   /**
-   * Discard recovery data and start fresh
-   * Pauses auto-save temporarily to prevent immediate re-save of empty state
+   * Discard the offered draft and start fresh; edits made from now on are protected again
    */
   function discardRecovery(): void {
-    localStorage.removeItem(recoveryKey)
+    forgetOwn()
     recoveryData.value = null
     recoveryTimestamp.value = null
     showRecoveryDialog.value = false
-
-    // Pause auto-save temporarily to prevent immediate re-save of empty form
-    // Will resume automatically when user adds meaningful data
-    isPaused.value = true
-
-    // Resume after a delay (gives user time to start typing)
-    // Or rely on the dirty check in saveToLocalStorage
-    setTimeout(() => {
-      isPaused.value = false
-      logger.debug('Auto-save resumed after discard', { formId })
-    }, 10000) // 10 second grace period
-
     logger.info('Recovery data discarded', { formId })
   }
 
   /**
-   * Clear recovery data on successful submit
-   * Call this after form is successfully submitted
+   * Clear recovery data on submit or cancel (a save calls markSaved instead)
    */
   function clearRecovery(): void {
-    localStorage.removeItem(recoveryKey)
+    forgetOwn()
     lastSaved.value = null
     isPaused.value = true // Prevent re-saving after submit
     logger.debug('Recovery data cleared', { formId })
@@ -247,6 +219,7 @@ export function useFormRecovery<T extends object>(
         if (age < maxAge) {
           // Only offer recovery if data has meaningful content the server does not have
           if (hasNonEmptyData(snapshot.data) && canonical(snapshot.data) !== baseline) {
+            written = saved // offered here: a discard may remove it, unless another tab replaced it
             recoveryData.value = snapshot.data
             recoveryTimestamp.value = snapshot.timestamp
             recoveryStale.value = (snapshot.baseVersion ?? null) !== version
@@ -276,8 +249,16 @@ export function useFormRecovery<T extends object>(
     }
   }
 
+  function markSaved(savedData: unknown, version: string): void {
+    baseline = canonical(savedData)
+    baseVersion = version
+    isPaused.value = false
+    saveToLocalStorage() // forgets this form's draft, or re-binds edits made since to the save
+  }
+
   return {
     setBaseline,
+    markSaved,
     recoveryStale,
     showRecoveryDialog,
     recoveryData,
