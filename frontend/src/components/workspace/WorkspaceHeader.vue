@@ -127,6 +127,12 @@
     gap: 12px;
   }
 
+  /* Fits "Unsaved changes": the label flipping at mousedown must not move the buttons (#267) */
+  .ws-actions > .save-state {
+    min-width: 9.5em;
+    justify-content: flex-end;
+  }
+
   .ws-blockers {
     margin-top: 6px;
     text-align: right;
