@@ -450,15 +450,21 @@ describe('useFormRecovery', () => {
       expect(stored()).toMatchObject({ data: { a: 3 }, baseVersion: 'v2' })
     })
 
-    it('a save resumes auto-save after a submit or cancel paused it', async () => {
+    it('a late save cannot resurrect edits discarded while its request was in flight', async () => {
       const { form, api } = tab({ a: 1 })
-      api.clearRecovery()
-
-      api.markSaved({ a: 1 }, 'v2')
       form.value = { a: 2 }
       await nextTick()
+      form.value = { a: 3 } // typed after Save sent a:2
+      await nextTick()
+      expect(stored()).toMatchObject({ data: { a: 3 } })
+      api.clearRecovery() // confirmed Cancel discards the newer local edits
+      expect(localStorage.getItem(KEY)).toBeNull()
 
-      expect(stored()).toMatchObject({ data: { a: 2 }, baseVersion: 'v2' })
+      api.markSaved({ a: 2 }, 'v2') // late response must respect the cancellation
+      expect(localStorage.getItem(KEY)).toBeNull()
+      form.value = { a: 4 }
+      await nextTick()
+      expect(localStorage.getItem(KEY)).toBeNull()
     })
   })
 })

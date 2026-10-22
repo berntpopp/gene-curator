@@ -323,10 +323,14 @@ describe('SchemaManagement', () => {
 
   it('duplicates a schema through the store', async () => {
     const { vm, schemas } = await mountView()
-    const duplicate = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's2' } as never)
+    const pinned = vi.spyOn(schemas, 'fetchPinnedVersion')
+    const duplicate = vi
+      .spyOn(schemas, 'duplicateSchema')
+      .mockResolvedValue({ derived: { id: 's2' }, source: { version: 3 } } as never)
     await call(vm, 'duplicateSchema', row)
+    expect(pinned).not.toHaveBeenCalled() // the store reports the version it derived from
     expect(duplicate).toHaveBeenCalledWith('s1')
-    expect(showSuccess).toHaveBeenCalledWith('Derived a new draft from "ClinGen curation"')
+    expect(showSuccess).toHaveBeenCalledWith('Derived from v3 (unpublished edits not included)')
   })
 
   it('reports a failed duplicate with the backend reason', async () => {
@@ -409,6 +413,8 @@ describe('SchemaEditor', () => {
 
   it('shows the real schema fields and their count', async () => {
     const { wrapper } = await mountView()
+    expect(wrapper.text()).toContain('Derive')
+    expect(wrapper.text()).not.toContain('Duplicate schema')
     expect(wrapper.text()).toContain('curation schema v2.0.0')
     expect(wrapper.text()).toContain('"max": 12')
     const stats = wrapper.text().replace(/\s+/g, ' ')
@@ -568,12 +574,17 @@ describe('SchemaEditor', () => {
 
   it('duplicates the schema and opens the copy, or shows the reason', async () => {
     const { vm, schemas } = await mountView()
-    const create = vi.spyOn(schemas, 'duplicateSchema').mockResolvedValue({ id: 's9' } as never)
+    const create = vi
+      .spyOn(schemas, 'duplicateSchema')
+      .mockResolvedValue({ derived: { id: 's9' }, source: { version: 1 } } as never)
     await call(vm, 'duplicateSchema')
     expect(routerPush).toHaveBeenCalledWith({ name: 'SchemaEditor', params: { id: 's9' } })
     create.mockRejectedValueOnce(new Error('dup'))
     await call(vm, 'duplicateSchema')
     expect(showError).toHaveBeenCalledWith('dup')
+    create.mockRejectedValueOnce({})
+    await call(vm, 'duplicateSchema')
+    expect(showError).toHaveBeenCalledWith('Failed to derive schema')
   })
 
   it('deletes after confirmation and returns to the list', async () => {

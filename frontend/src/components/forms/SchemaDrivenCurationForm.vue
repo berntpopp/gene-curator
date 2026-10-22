@@ -80,10 +80,11 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
+      v-if="!readonly"
       :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
       :stale="recoveryStale"
-      @restore="restoreRecovery"
+      @restore="handleRestore"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -223,6 +224,10 @@
     markSaved
   } = formRecovery
   let serverVersion: string | null = null // the loaded curation's, for the recovery baseline
+
+  function handleRestore(): void {
+    if (!props.readonly) restoreRecovery()
+  }
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -446,7 +451,7 @@
       )
         return
     }
-    clearRecovery()
+    if (!props.readonly) clearRecovery()
     clearHistory()
     emit('cancel')
   }

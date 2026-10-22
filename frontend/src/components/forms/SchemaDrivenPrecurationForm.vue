@@ -64,10 +64,11 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
+      v-if="!readonly"
       :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
       :stale="recoveryStale"
-      @restore="restoreRecovery"
+      @restore="handleRestore"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -186,6 +187,10 @@
   } = useFormRecovery(recoveryKey.value, evidenceData, {
     maxAge: 24 * 60 * 60 * 1000
   })
+
+  function handleRestore(): void {
+    if (!props.readonly) restoreRecovery()
+  }
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -410,7 +415,7 @@
       )
         return
     }
-    clearRecovery()
+    if (!props.readonly) clearRecovery()
     clearHistory()
     emit('cancel')
   }
