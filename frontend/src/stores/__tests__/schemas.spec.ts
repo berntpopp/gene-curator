@@ -228,11 +228,13 @@ describe('useSchemasStore', () => {
       api.getVersions.mockResolvedValue([version('v2'), version('v1')])
       api.deriveSchema.mockResolvedValue(schema('b', { name: 'orig', is_active: false }))
 
-      const copy = await store.duplicateSchema('a')
+      const { derived, source } = await store.duplicateSchema('a')
 
       expect(api.deriveSchema).toHaveBeenCalledWith('a', 'v2', { name: 'orig', version: '1.0.1' })
       expect(api.createSchema).not.toHaveBeenCalled()
-      expect(copy.id).toBe('b')
+      expect(derived.id).toBe('b')
+      expect(source.id).toBe('v2') // the version actually derived from, for the toast
+      expect(api.getVersions).toHaveBeenCalledTimes(1)
       expect(store.schemas.map(s => s.id)).toEqual(['b'])
     })
 

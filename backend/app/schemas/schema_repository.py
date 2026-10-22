@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 # Schema Repository Base Schemas
@@ -64,6 +64,22 @@ class CurationSchemaUpdate(BaseModel):
     scoring_configuration: dict[str, Any] | None = None
     is_active: bool | None = None
     use_dynamic_form: bool | None = None
+
+    @field_validator(
+        "name",
+        "version",
+        "field_definitions",
+        "validation_rules",
+        "workflow_states",
+        "ui_configuration",
+        "use_dynamic_form",
+    )
+    @classmethod
+    def _not_null(cls, v: Any) -> Any:
+        """NOT NULL columns: omit the field to keep it; an explicit null is invalid."""
+        if v is None:
+            raise ValueError("must not be null")
+        return v
 
 
 class CurationSchemaInDBBase(CurationSchemaBase):
