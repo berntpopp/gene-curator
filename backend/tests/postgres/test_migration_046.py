@@ -98,8 +98,18 @@ def _state(s: Session) -> Any:
     ).one()
 
 
+def restore_046_working_copies(s: Session) -> None:
+    """Replay 046 against its historical working copies, before successor publication."""
+    s.execute(
+        text(
+            "UPDATE curation_schemas c SET field_definitions=mv.snapshot->'field_definitions', scoring_configuration=mv.snapshot->'scoring_configuration' FROM methodology_versions mv WHERE mv.schema_id=c.id AND mv.version=1 AND c.scoring_configuration->>'engine'='clingen_sop_v11'"
+        )
+    )
+
+
 def test_rerun_is_a_noop_and_versions_stay_immutable(owner_session: Session) -> None:
     s = owner_session
+    restore_046_working_copies(s)
     before = _state(s)
     assert before[-1] == 1
     s.execute(text(MIGRATION.read_text()))
@@ -140,6 +150,7 @@ def test_046_replaces_only_the_old_template_model(owner_session: Session) -> Non
     """The real 046 on fresh v1 snapshots and its pg_temp helper: the pre-046 template is
     replaced, a custom point model kept, re-runs change nothing, versions stay immutable."""
     s = owner_session
+    restore_046_working_copies(s)
     sql = MIGRATION.read_text()
 
     def literal(tag: str) -> Any:  # 046's own models; 047 changed the template since

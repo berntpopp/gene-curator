@@ -85,21 +85,25 @@ def _state(s: Session) -> Any:
     ).one()
 
 
-def test_seeded_working_copies_match_their_v1(owner_session: Session) -> None:
+def test_seeded_v1_unchanged_and_working_copies_match_latest(
+    owner_session: Session,
+) -> None:
     rows = owner_session.execute(
         text(
             "SELECT c.field_definitions, c.ui_configuration, c.scoring_configuration,"
-            " mv.snapshot FROM curation_schemas c JOIN methodology_versions mv"
+            " mv.snapshot, latest.snapshot FROM curation_schemas c JOIN methodology_versions mv"
             " ON mv.schema_id = c.id AND mv.version = 1"
+            " JOIN LATERAL (SELECT snapshot FROM methodology_versions WHERE schema_id=c.id ORDER BY version DESC LIMIT 1) latest ON TRUE"
             " WHERE c.schema_type = 'curation'"
             " AND c.scoring_configuration->>'engine' = 'clingen_sop_v11'"
         )
     ).all()
     assert len(rows) == 2  # ClinGen_SOP_v11 and the legacy-seeded ClinGen schema
-    for fields, ui, scoring, snapshot in rows:
-        assert scoring["point_model"] == NEW
+    for fields, ui, scoring, snapshot, latest in rows:
+        assert scoring == latest["scoring_configuration"]
         assert snapshot["scoring_configuration"]["point_model"] == NEW
-        assert fields == snapshot["field_definitions"]
+        assert fields == latest["field_definitions"]
+        assert ui == latest["ui_configuration"]
         assert ui == snapshot["ui_configuration"]
 
 
