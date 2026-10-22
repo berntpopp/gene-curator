@@ -60,6 +60,43 @@ describe('usePrecurationsStore', () => {
     vi.clearAllMocks()
   })
 
+  it('finds the approved precuration independently of list pagination and filters', async () => {
+    const store = usePrecurationsStore()
+    store.pagination.page = 4
+    store.filters.status = 'draft'
+    store.precurations = [row('unrelated')]
+    api.getPrecurations.mockResolvedValue({
+      precurations: [row('approved', { status: 'approved' })],
+      total: 1
+    } as never)
+    expect((await store.fetchCurationPrecuration('gene', 'scope'))?.id).toBe('approved')
+    expect(api.getPrecurations).toHaveBeenCalledWith({
+      gene_id: 'gene',
+      scope_id: 'scope',
+      precuration_status: 'approved',
+      skip: 0,
+      limit: 1
+    })
+    expect(store.pagination.page).toBe(4)
+    expect(store.precurations[0]?.id).toBe('unrelated')
+  })
+
+  it('returns a pending precuration or none only after checking for an approved one', async () => {
+    const store = usePrecurationsStore()
+    api.getPrecurations
+      .mockResolvedValueOnce({ precurations: [], total: 0 } as never)
+      .mockResolvedValueOnce({ precurations: [row('pending')], total: 1 } as never)
+    expect((await store.fetchCurationPrecuration('g1', 's1'))?.id).toBe('pending')
+    expect(api.getPrecurations).toHaveBeenLastCalledWith({
+      gene_id: 'g1',
+      scope_id: 's1',
+      skip: 0,
+      limit: 1
+    })
+    api.getPrecurations.mockResolvedValue({ precurations: [], total: 0 } as never)
+    expect(await store.fetchCurationPrecuration('g1', 's1')).toBeUndefined()
+  })
+
   describe('getters', () => {
     it('filters by id, scope, gene and status', () => {
       const store = usePrecurationsStore()

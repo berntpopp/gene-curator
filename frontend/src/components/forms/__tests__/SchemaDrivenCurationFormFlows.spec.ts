@@ -30,7 +30,7 @@ const curationsStore = vi.hoisted(() => ({
 }))
 const precurationsStore = vi.hoisted(() => ({
   precurations: [] as unknown[],
-  fetchPrecurations: vi.fn(),
+  fetchCurationPrecuration: vi.fn(),
   fetchPrecurationById: vi.fn()
 }))
 const schemasStore = vi.hoisted(() => ({
@@ -195,10 +195,10 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       status: 'active'
     })
     curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
-    precurationsStore.precurations = [
-      { id: 'stale-pre', status: 'rejected' },
-      { id: 'pre-2', status: 'approved' }
-    ]
+    precurationsStore.fetchCurationPrecuration.mockResolvedValue({
+      id: 'pre-2',
+      status: 'approved'
+    })
 
     const wrapper = await mountForm({
       geneId: 'g-1',
@@ -234,7 +234,10 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
       status: 'active'
     })
     curationsStore.createCuration.mockResolvedValue({ id: 'new-c', lock_version: 0 })
-    precurationsStore.precurations = [{ id: 'stale-pre', status: 'rejected' }]
+    precurationsStore.fetchCurationPrecuration.mockResolvedValue({
+      id: 'stale-pre',
+      status: 'rejected'
+    })
 
     const wrapper = await mountForm({
       geneId: 'g-1',
@@ -272,20 +275,14 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   })
 
   it('loads the full approved precuration for a new curation', async () => {
-    precurationsStore.precurations = [
-      { id: 'p-1', status: 'draft' },
-      { id: 'p-2', status: 'approved' }
-    ]
+    precurationsStore.fetchCurationPrecuration.mockResolvedValue({ id: 'p-2', status: 'approved' })
     precurationsStore.fetchPrecurationById.mockResolvedValue({
       evidence_data: { disease_name: 'Cancer' }
     })
 
     const wrapper = await mountForm({ geneId: 'g-1', workflowPairId: 'wp-1' })
 
-    expect(precurationsStore.fetchPrecurations).toHaveBeenCalledWith({
-      gene_id: 'g-1',
-      scope_id: 'scope-1'
-    })
+    expect(precurationsStore.fetchCurationPrecuration).toHaveBeenCalledWith('g-1', 'scope-1')
     expect(precurationsStore.fetchPrecurationById).toHaveBeenCalledWith('p-2')
     expect(internals(wrapper).precurationData).toEqual({ disease_name: 'Cancer', id: 'p-2' })
     expect(
@@ -295,7 +292,7 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
   })
 
   it('logs and continues when the precuration lookup fails', async () => {
-    precurationsStore.fetchPrecurations.mockRejectedValue({ message: 'down' })
+    precurationsStore.fetchCurationPrecuration.mockRejectedValue({ message: 'down' })
 
     await mountForm({ geneId: 'g-1' })
 

@@ -152,7 +152,9 @@ def test_lookups_are_capped_and_a_slow_europe_pmc_does_not_block(
         publication_service.logger, "warning", lambda msg, **kw: warnings.append(msg)
     )
     many = {str(31000100 + i) for i in range(12)}
-    assert asyncio.run(publication_service._fetch_all(sorted(many))) == []
+    results = asyncio.run(publication_service._fetch_all(sorted(many)))
+    assert [r.pmid for r in results] == sorted(many)
+    assert all(not r.is_valid and "timeout" in (r.error or "").lower() for r in results)
     assert peak == publication_service.LOOKUP_CONCURRENCY
     assert _submit(client, admin_token, stored).status_code == 200
     assert warnings

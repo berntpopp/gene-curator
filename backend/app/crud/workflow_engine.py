@@ -48,7 +48,12 @@ from app.schemas.workflow_engine import (
     WorkflowTransition,
     WorkflowValidationResult,
 )
-from app.services.review_guards import check_review_content, review_guards
+from app.services.review_entry import (
+    ReviewEntry,
+    prepare_review_entry,
+    transition_to_review,
+)
+from app.services.review_guards import check_review_content
 
 
 class WorkflowEngine:
@@ -213,6 +218,9 @@ class WorkflowEngine:
         user_id: UUID,
         notes: str | None = None,
         metadata: dict[str, Any] | None = None,
+        *,
+        expected_version: int | None = None,
+        review_entry: ReviewEntry | None = None,
     ) -> WorkflowTransition:
         """Execute a workflow state transition."""
 
@@ -227,6 +235,10 @@ class WorkflowEngine:
             raise ValueError(f"Invalid transition: {', '.join(validation.errors)}")
 
         try:
+            if isinstance(item, CurationNew) and target_stage == WorkflowStage.REVIEW:
+                item = prepare_review_entry(
+                    self, db, item, user_id, expected_version, review_entry
+                )
             waiting = False
             if item_type == "curation" and current_stage == WorkflowStage.REVIEW:
                 record_review_decision(db, item, user_id, target_stage, notes)
@@ -804,19 +816,7 @@ class WorkflowEngine:
         metadata: dict[str, Any] | None,
     ) -> dict[str, Any]:
         """Handle transition to review stage."""
-        item.workflow_stage = WorkflowStage.REVIEW  # a curation or precuration
-        item.status = CurationStatus.IN_REVIEW
-        if isinstance(item, CurationNew):
-            review_guards(db, item)  # on every route into review; raising rolls back
-            item.submitted_at = datetime.now(UTC)  # starts a new review round
-            item.submitted_by = user_id
-        if isinstance(item, PrecurationNew):
-            item.status = CurationStatus.SUBMITTED
-            item.is_draft = False
-            item.updated_by = user_id
-            item.updated_at = datetime.now(UTC)
-        db.flush()
-        return {"success": True, "message": "Transitioned to review"}
+        return transition_to_review(db, item, user_id)
 
     def _transition_to_active(
         self,

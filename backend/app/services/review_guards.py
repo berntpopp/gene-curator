@@ -2,7 +2,6 @@
 
 from typing import Any
 
-from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -13,27 +12,8 @@ from app.crud.precuration_required import (
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
 from app.schemas.curation import disease_fields
-from app.scoring.point_limits import enforce_clingen_point_ranges
-from app.services.publication_service import evidence_pmids, unknown_pmids
 
 LS_DECISIONS = ("LUMP", "NOT_APPLICABLE", "SPLIT")
-
-
-def review_guards(db: Session, curation: CurationNew) -> None:
-    """422 on out-of-range points or a PMID Europe PMC does not know."""
-    enforce_clingen_point_ranges(
-        db,
-        curation.workflow_pair_id,
-        curation.evidence_data,
-        curation.methodology_version_id,
-    )
-    pmids = evidence_pmids(curation.evidence_data)
-    if unknown := unknown_pmids(db, pmids) if pmids else []:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail=f"PMID {', '.join(unknown)} not found in Europe PMC; "
-            "fix or remove before submitting",
-        )
 
 
 def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str, Any]:
