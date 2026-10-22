@@ -163,7 +163,7 @@
           <ScoreDisplay
             :score-calculations="validationResult?.score_calculations"
             :scoring-configuration="jsonSchema?.scoring_configuration"
-            :loading="validating"
+            :loading="validationPending"
           />
         </div>
       </v-col>
@@ -232,6 +232,7 @@
     'save-draft': [data: FormData]
     'update:modelValue': [data: FormData]
     'validation-change': [result: FormValidationResult | undefined]
+    'validation-pending': [pending: boolean]
   }>()
 
   const validationStore = useValidationStore()
@@ -240,15 +241,18 @@
   provide(FORM_DATA, formData) // nested fields resolve their conditions against the whole form
   const saving = ref(false)
   const submitting = ref(false)
-  const validating = ref(false)
+  const validationPending = ref(false)
   const activeTab = ref<string | null>(null)
   const backendErrors = ref<Record<string, string[]>>({}) // { fieldPath: [error messages] }
   const nonFieldErrors = ref<string[]>([]) // Errors not mapped to specific fields
 
   // One debounce for every change: a validation (and its live score) per pause in typing
   let validateTimer: ReturnType<typeof setTimeout> | undefined
+  let validationRevision = 0
   const scheduleValidate = () => {
     clearTimeout(validateTimer)
+    validationRevision++
+    validationPending.value = true
     // Invalidate in-flight replies at the edit, not 500 ms later when the next request starts.
     validationStore.clearValidationResult('form')
     validateTimer = setTimeout(validateForm, 500)
@@ -339,7 +343,8 @@
   }
 
   const validateForm = async () => {
-    validating.value = true
+    const revision = ++validationRevision
+    validationPending.value = true
     try {
       const result = await validationStore.validateEvidence(
         formData.value,
@@ -354,7 +359,7 @@
       logger.error('Form validation error:', errorDetails(err))
       return null
     } finally {
-      validating.value = false
+      if (revision === validationRevision) validationPending.value = false
     }
   }
 
@@ -566,6 +571,8 @@
     { deep: true }
   )
 
+  watch(validationPending, pending => emit('validation-pending', pending), { immediate: true })
+
   // Emit validation state changes for parent components
   watch(
     validationResult,
@@ -578,6 +585,7 @@
   // Results are kept per key: never show another record's score or validity
   validationStore.clearValidationResult('form')
   onBeforeUnmount(() => {
+    validationRevision++
     clearTimeout(validateTimer)
     validationStore.clearValidationResult('form')
   })

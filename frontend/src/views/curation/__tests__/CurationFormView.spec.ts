@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { defineComponent, h, inject, onMounted, ref, type Ref } from 'vue'
-import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
+import { WORKSPACE_FRAME, type WorkspaceFrame } from '@/components/workspace/useWorkspaceFrame'
 import { useNotificationsStore } from '@/stores/notifications'
 import CurationFormView from '@/views/curation/CurationFormView.vue'
 import { useSchemasStore } from '@/stores/schemas'
@@ -393,12 +393,17 @@ describe('CurationFormView', () => {
         })
         frame.setMeta({ disease: 'Alport syndrome', moi: 'X-linked' })
         onMounted(() => emit('ready'))
+        formApi.frame = frame
         formApi.evidence = evidence
         formApi.save = save
         return () => h('div', { class: 'form' })
       }
     })
-    const formApi = {} as { evidence: Ref<unknown>; save: ReturnType<typeof vi.fn> }
+    const formApi = {} as {
+      evidence: Ref<unknown>
+      save: ReturnType<typeof vi.fn>
+      frame: WorkspaceFrame
+    }
 
     async function mountFramed(curation: Record<string, unknown> = { workflow_stage: 'curation' }) {
       routeState.params = { scopeId: 'sc1', curationId: 'c1' }
@@ -432,6 +437,26 @@ describe('CurationFormView', () => {
       expect(wrapper.text()).toContain('Saved')
       expect(wrapper.text()).toContain('Calculated classification')
       expect(wrapper.text()).toContain('7.5')
+    })
+
+    it('keeps the same score panel and checklist mounted while a new score is pending', async () => {
+      const { wrapper } = await mountFramed()
+      const panel = wrapper.get('.ws-panel').element
+      const checklist = wrapper.get('.checklist').element
+      formApi.frame.setScorePending(true)
+      formApi.frame.setScore(null)
+      await flushPromises()
+      expect(wrapper.get('.ws-panel').element).toBe(panel)
+      expect(wrapper.get('.checklist').element).toBe(checklist)
+      expect(wrapper.find('.ws-panel .v-skeleton-loader').exists()).toBe(true)
+      expect(wrapper.text()).not.toContain('7.5')
+      expect(wrapper.text()).not.toContain('Ready to submit')
+      formApi.frame.setScorePending(false)
+      await flushPromises()
+      expect(wrapper.get('.ws-panel').element).toBe(panel)
+      expect(wrapper.find('.ws-panel .v-skeleton-loader').exists()).toBe(false)
+      expect(wrapper.get('.ws-panel').text()).toContain('unavailable')
+      wrapper.unmount()
     })
 
     it('shows unsaved changes after an edit and saves from the header', async () => {

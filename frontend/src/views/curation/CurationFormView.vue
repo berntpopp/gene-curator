@@ -104,9 +104,10 @@
         </v-alert>
       </div>
 
-      <aside v-if="showPanel && frame.score.value" class="ws-panel" aria-label="Score">
+      <aside v-if="showPanel" class="ws-panel" aria-label="Score">
         <ScorePanel
           :score="frame.score.value"
+          :loading="frame.scorePending.value"
           :can-submit="frame.canSubmit.value"
           :readonly="readonly"
           :blockers="frame.blockers.value"
@@ -136,7 +137,7 @@
    * - /scopes/:scopeId/genes/:geneId/curation/new (new from gene)
    */
 
-  import { ref, computed, onMounted, provide } from 'vue'
+  import { ref, computed, watch, onMounted, provide } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useSchemasStore } from '@/stores/schemas'
   import { useScopesStore } from '@/stores/scopes'
@@ -262,7 +263,15 @@
     () => frame.save(),
     () => formReady.value && !readonly.value
   )
-  const showPanel = computed(() => formReady.value && !!frame.score.value)
+  const scoreShown = ref(false)
+  watch(
+    frame.score,
+    score => {
+      if (score) scoreShown.value = true
+    },
+    { immediate: true }
+  )
+  const showPanel = computed(() => formReady.value && scoreShown.value)
 
   const crumbs = computed(() => [
     { text: scope.value?.display_name || 'Scope', to: `/scopes/${scopeId.value}` },
