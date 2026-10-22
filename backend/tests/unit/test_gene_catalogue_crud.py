@@ -1,8 +1,4 @@
-"""Unit tests for app.crud.gene_catalogue (scoring helpers and catalogue queries).
-
-Disease-name filters use JSONB operators (`->>`) and are PostgreSQL-only, so they
-are not exercised on SQLite.
-"""
+"""Unit tests for app.crud.gene_catalogue (scoring helpers and catalogue queries)."""
 
 from datetime import UTC, datetime
 from typing import Any
@@ -431,3 +427,96 @@ def test_classification_list_hides_private_scope_verdicts(
         "refuted",
         "strong",
     ]
+
+
+@pytest.mark.parametrize(
+    ("curation_evidence", "precuration_evidence", "disease", "miss"),
+    [
+        # first curation: no disease of its own, the linked precuration has it (#431)
+        ({}, {"disease_name": "NAA10-related syndrome"}, "NAA10-related syndrome", "%"),
+        (
+            {"disease_name": ""},
+            {"entity_definition": {"disease_name": "Ogden syndrome"}},
+            "Ogden syndrome",
+            "_",
+        ),
+        # the curation's own disease (flat or nested) overrides the precuration
+        (
+            {"entity_definition": {"disease_name": "Ogden syndrome"}},
+            {"disease_name": "NAA10-related syndrome"},
+            "Ogden syndrome",
+            "NAA10",
+        ),
+        (
+            {"disease_name": "Ogden syndrome"},
+            {"disease_name": "NAA10-related syndrome"},
+            "Ogden syndrome",
+            "NAA10",
+        ),
+    ],
+)
+def test_disease_filter_and_options_resolve_like_detail(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_precuration,
+    curation_evidence: dict[str, Any],
+    precuration_evidence: dict[str, Any],
+    disease: str,
+    miss: str,
+) -> None:
+    test_precuration.evidence_data = precuration_evidence
+    test_curation.precuration_id = test_precuration.id
+    test_curation.evidence_data = curation_evidence
+    db_session.add(
+        ActiveCuration(
+            gene_id=test_curation.gene_id,
+            scope_id=test_curation.scope_id,
+            curation_id=test_curation.id,
+            activated_at=datetime.now(UTC),
+        )
+    )
+    db_session.commit()
+
+    entries, total = catalogue.get_catalogue_entries(
+        db_session, GeneCatalogueFilters(disease=disease.split()[0].lower())
+    )
+    assert total == 1
+    assert entries[0].diseases == [disease]
+    assert entries[0].scope_curations[0].disease_name == disease
+    assert catalogue.get_available_diseases(db_session) == [disease]
+    _, missed = catalogue.get_catalogue_entries(
+        db_session, GeneCatalogueFilters(disease=miss)
+    )
+    assert missed == 0
+
+
+def test_disease_filter_and_options_hide_private_scope(
+    db_session: Session,
+    test_scope: Scope,
+    test_curation: CurationNew,
+    test_precuration,
+    test_user_curator: UserNew,
+) -> None:
+    test_scope.is_public = False  # the curator is its member
+    test_curation.precuration_id = test_precuration.id
+    test_curation.evidence_data = {}
+    db_session.add(
+        ActiveCuration(
+            gene_id=test_curation.gene_id,
+            scope_id=test_curation.scope_id,
+            curation_id=test_curation.id,
+            activated_at=datetime.now(UTC),
+        )
+    )
+    db_session.commit()
+    filters = GeneCatalogueFilters(disease="Test Disease")
+
+    assert catalogue.get_available_diseases(db_session) == []
+    assert catalogue.get_catalogue_entries(db_session, filters) == ([], 0)
+    assert catalogue.get_available_diseases(
+        db_session, user_id=test_user_curator.id
+    ) == ["Test Disease"]
+    _, total = catalogue.get_catalogue_entries(
+        db_session, filters, test_user_curator.id
+    )
+    assert total == 1

@@ -15,7 +15,7 @@ from app.core.logging import get_logger
 from app.core.search_text import escape_like
 from app.crud.curation import get_disease_fields
 from app.crud.scope_visibility import visible_scope_ids
-from app.models import ActiveCuration, CurationNew, Gene, Scope, UserNew
+from app.models import ActiveCuration, CurationNew, Gene, PrecurationNew, Scope, UserNew
 from app.schemas.gene_catalogue import (
     GeneCatalogueEntry,
     GeneCatalogueFilters,
@@ -30,6 +30,24 @@ logger = get_logger(__name__)
 def _visible(user_id: UUID | None) -> Any:
     """Active curations of scopes the caller may see (public, or accepted membership)."""
     return ActiveCuration.scope_id.in_(visible_scope_ids(user_id))
+
+
+def _disease_name() -> Any:
+    """SQL twin of get_disease_fields: the curation's flat or nested name, else the precuration's."""
+    return func.coalesce(
+        *(
+            func.nullif(column[path].as_string(), "")
+            for column in (CurationNew.evidence_data, PrecurationNew.evidence_data)
+            for path in ("disease_name", ("entity_definition", "disease_name"))
+        )
+    )
+
+
+def _where_disease[*Ts](query: Select[*Ts], disease: str) -> Select[*Ts]:
+    """Filter curations by disease name substring; needs CurationNew in the query."""
+    return query.outerjoin(
+        PrecurationNew, CurationNew.precuration_id == PrecurationNew.id
+    ).where(_disease_name().ilike(f"%{escape_like(disease)}%", escape="\\"))
 
 
 def get_catalogue_summary_stats(
@@ -153,17 +171,12 @@ def get_catalogue_entries(
         )
 
     if filters.disease:
-        disease_term = f"%{escape_like(filters.disease)}%"
         # Need to join to curation to filter by evidence_data
         if not filters.classification:
             base_query = base_query.join(
                 CurationNew, ActiveCuration.curation_id == CurationNew.id
             )
-        base_query = base_query.where(
-            CurationNew.evidence_data["disease_name"].astext.ilike(
-                disease_term, escape="\\"
-            )
-        )
+        base_query = _where_disease(base_query, filters.disease)
 
     # Count total before pagination
     count_query = select(func.count()).select_from(base_query.subquery())
@@ -269,12 +282,7 @@ def _build_catalogue_entry(
             func.lower(CurationNew.computed_verdict) == filters.classification.lower()
         )
     if filters.disease:
-        disease_term = f"%{escape_like(filters.disease)}%"
-        curation_query = curation_query.where(
-            CurationNew.evidence_data["disease_name"].astext.ilike(
-                disease_term, escape="\\"
-            )
-        )
+        curation_query = _where_disease(curation_query, filters.disease)
 
     results = db.execute(curation_query).all()
     if not results:
@@ -381,16 +389,17 @@ def get_available_diseases(
 
     Returns unique disease names from active curations.
     """
-    # Query distinct disease names from evidence_data
+    disease = _disease_name()
     results = (
         db.execute(
-            select(func.distinct(CurationNew.evidence_data["disease_name"].astext))
+            select(func.distinct(disease))
+            .select_from(CurationNew)
             .join(ActiveCuration, ActiveCuration.curation_id == CurationNew.id)
+            .outerjoin(PrecurationNew, CurationNew.precuration_id == PrecurationNew.id)
             .where(
                 ActiveCuration.archived_at.is_(None),
                 _visible(user_id),
-                CurationNew.evidence_data["disease_name"].astext.isnot(None),
-                CurationNew.evidence_data["disease_name"].astext != "",
+                disease.isnot(None),
             )
             .limit(limit)
         )
