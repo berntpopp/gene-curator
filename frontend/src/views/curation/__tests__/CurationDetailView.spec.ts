@@ -253,6 +253,32 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Waiting for review by another scope reviewer (4-eyes)')
   })
 
+  it('replaces Approve with the remaining count once this reviewer approved (#430)', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    vi.mocked(workflowAPI.transitionCuration).mockResolvedValue({ to_stage: 'review' } as never)
+    const wrapper = await load({ can_review: true, created_by: 'alice' })
+    const approveButton = () => wrapper.findAll('button').find(b => b.text() === 'Approve')
+    expect(approveButton()).toBeDefined()
+    vi.mocked(curationsAPI.getCuration).mockResolvedValue({
+      id: 'c1',
+      status: 'in_review',
+      created_by: 'alice',
+      can_review: false,
+      has_approved: true,
+      approvals_remaining: 1
+    } as never)
+    wrapper.findComponent(ApproveChecklistDialog).vm.$emit('approve', 'ok')
+    await flushPromises()
+    expect(wrapper.text()).toContain('You approved; 1 more needed')
+    expect(approveButton()).toBeUndefined()
+    expect(wrapper.text()).not.toContain('No actions available')
+  })
+
+  it('keeps the approval note next to other actions such as Delete (#430)', async () => {
+    const wrapper = await load({ has_approved: true, approvals_remaining: 1, can_delete: true })
+    expect(wrapper.text()).toContain('You approved; 1 more needed')
+  })
+
   it('opens the approve checklist with the unreviewed items as blockers', async () => {
     useAuthStore().user = { id: 'bob' } as never
     const wrapper = await load({ can_review: true, created_by: 'alice' })

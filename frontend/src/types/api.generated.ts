@@ -4313,6 +4313,13 @@ export interface components {
              * @default false
              */
             can_delete: boolean;
+            /**
+             * Has Approved
+             * @default false
+             */
+            has_approved: boolean;
+            /** Approvals Remaining */
+            approvals_remaining?: number | null;
         };
         /**
          * CurationDiff

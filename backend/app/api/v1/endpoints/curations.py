@@ -7,6 +7,7 @@ Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
@@ -22,8 +23,14 @@ from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.curation import OpenCurationExistsError, curation_crud
 from app.crud.precuration import precuration_crud
-from app.crud.review_round import holds_review_capability
-from app.models import CurationNew, CurationStatus, UserNew
+from app.crud.review_round import (
+    approving_reviewers,
+    holds_review_capability,
+    in_current_round,
+    reviewers_required,
+)
+from app.crud.workflow_engine import WorkflowEngine
+from app.models import CurationNew, CurationStatus, Review, ReviewStatus, UserNew
 from app.schemas.curation import (
     Curation,
     CurationConflictResponse,
@@ -110,6 +117,22 @@ def _can_user_review_curation(
 
     # REVIEW capability by membership; platform admins get no bypass
     return holds_review_capability(db, user.id, curation.scope_id)
+
+
+def _has_approved(db: Session, user: UserNew, curation: CurationNew) -> bool:
+    """The user approved in the open review round; same rule as approving_reviewers (D1)."""
+    return curation.created_by != user.id and (
+        db.scalar(
+            select(Review.id).where(
+                Review.curation_id == curation.id,
+                Review.reviewer_id == user.id,
+                Review.status == ReviewStatus.APPROVED,
+                Review.recommendation == "approve",
+                in_current_round,
+            )
+        )
+        is not None
+    )
 
 
 def _can_user_delete_curation(
@@ -295,8 +318,17 @@ def get_curation(
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)
-    response.can_review = _can_user_review_curation(db, current_user, curation)
+    # An approval is final for its round: no second Approve (#430)
+    response.has_approved = _has_approved(db, current_user, curation)
+    response.can_review = not response.has_approved and _can_user_review_curation(
+        db, current_user, curation
+    )
     response.can_delete = _can_user_delete_curation(db, current_user, curation)
+    if curation.status == CurationStatus.IN_REVIEW:
+        required = reviewers_required(WorkflowEngine.workflow_states(db, curation))
+        response.approvals_remaining = max(
+            0, required - approving_reviewers(db, curation)
+        )
 
     return response
 
