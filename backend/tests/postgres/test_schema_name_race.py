@@ -146,3 +146,28 @@ def test_rename_onto_a_taken_name_is_400_and_changes_nothing(
     assert (
         client.get(f"{BASE}/{ids[1]}", headers=_h(admin)).json()["name"] == f"{tag}-b"
     )
+
+
+def test_null_active_update_cannot_make_a_schema_unreadable(
+    client: TestClient, tag: str
+) -> None:
+    admin, _, schema, _ = _seeded()
+    source = client.get(f"{BASE}/{schema}", headers=_h(admin)).json()
+    created = client.post(
+        BASE, json={**source, "name": tag, "schema_hash": None}, headers=_h(admin)
+    )
+    assert created.status_code == 200, created.text
+    url = f"{BASE}/{created.json()['id']}"
+    disabled = client.put(url, json={"is_active": False}, headers=_h(admin))
+    assert disabled.status_code == 200, disabled.text
+    assert disabled.json()["is_active"] is False
+
+    rejected = client.put(url, json={"is_active": None}, headers=_h(admin))
+
+    assert rejected.status_code == 422, rejected.text
+    kept = client.get(url, headers=_h(admin))
+    assert kept.status_code == 200, kept.text
+    assert kept.json()["is_active"] is False
+    listing = client.get(BASE, params={"active_only": False}, headers=_h(admin))
+    assert listing.status_code == 200, listing.text
+    assert any(row["id"] == created.json()["id"] for row in listing.json())
