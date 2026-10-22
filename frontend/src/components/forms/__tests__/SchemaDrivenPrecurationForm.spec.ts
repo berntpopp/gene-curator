@@ -18,7 +18,12 @@ const precurationsStore = vi.hoisted(() => ({
   error: null as { message?: string; isConflict?: boolean } | null
 }))
 const history = vi.hoisted(() => ({ undo: vi.fn(), redo: vi.fn(), clearHistory: vi.fn() }))
-const recovery = vi.hoisted(() => ({ clearRecovery: vi.fn(), dropIfSaved: vi.fn() }))
+const recovery = vi.hoisted(() => ({
+  clearRecovery: vi.fn(),
+  setBaseline: vi.fn(),
+  markSaved: vi.fn(),
+  formId: ''
+}))
 const schemaFields = vi.hoisted(() => ({ value: undefined as Record<string, unknown> | undefined }))
 
 vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
@@ -41,14 +46,17 @@ vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addTo
 vi.mock('@/composables/useFormRecovery', async () => {
   const { ref } = await import('vue')
   return {
-    useFormRecovery: () => ({
+    useFormRecovery: (formId: string) => ({
+      ...((recovery.formId = formId), {}),
       showRecoveryDialog: ref(false),
       recoveryData: ref(null),
       lastSaved: ref(null),
       restoreRecovery: vi.fn(),
       discardRecovery: vi.fn(),
+      recoveryStale: ref(false),
       clearRecovery: recovery.clearRecovery,
-      dropIfSaved: recovery.dropIfSaved
+      markSaved: recovery.markSaved,
+      setBaseline: recovery.setBaseline
     })
   }
 })
@@ -120,6 +128,15 @@ describe('SchemaDrivenPrecurationForm', () => {
       params: { scopeId: 'scope-1', precurationId: 'new-p' }
     })
     expect(addToast).toHaveBeenCalledWith('Draft saved', 'success')
+    expect(recovery.clearRecovery).toHaveBeenCalled() // the editor loads the created record
+  })
+
+  it('keys a new precuration draft by scope, gene and schema; a saved one by its id (#436)', async () => {
+    mountForm({ geneId: 'g-1' })
+    expect(recovery.formId).toBe('precuration-new-scope-1-g-1-schema-schema-1')
+    mountForm({ precurationId: 'p-1' })
+    expect(recovery.formId).toBe('precuration-p-1-schema-schema-1')
+    await flushPromises()
   })
 
   it('does not create a precuration without a gene', async () => {
@@ -133,14 +150,20 @@ describe('SchemaDrivenPrecurationForm', () => {
   })
 
   it('saves the draft of an existing precuration and emits saved', async () => {
-    precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+    precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1', lock_version: 2, updated_at: 'T2' })
     const wrapper = mountForm({ precurationId: 'p-1' })
     await flushPromises()
+    internals(wrapper).handleEvidenceChange({ a: { b: 1 } })
 
-    await internals(wrapper).handleSaveDraft()
+    const saving = internals(wrapper).handleSaveDraft()
+    ;(internals(wrapper).evidenceData.a as Record<string, unknown>).b = 2 // typed during the save
+    await saving
 
-    expect(precurationsStore.saveDraft).toHaveBeenCalledWith('p-1', {})
+    expect(precurationsStore.saveDraft).toHaveBeenCalledWith('p-1', { a: { b: 1 } })
     expect(wrapper.emitted('saved')).toHaveLength(1)
+    // Recovery compares with what was saved and keeps protecting later edits (#436)
+    expect(recovery.markSaved).toHaveBeenCalledWith({ a: { b: 1 } }, '2@T2')
+    expect(recovery.clearRecovery).not.toHaveBeenCalled()
   })
 
   describe('conflict (another tab saved first)', () => {
@@ -164,12 +187,16 @@ describe('SchemaDrivenPrecurationForm', () => {
       await internals(wrapper).handleSubmit()
       expect(precurationsStore.saveDraft).not.toHaveBeenCalled()
       expect(precurationsStore.submitForReview).not.toHaveBeenCalled()
-      // Reload must not offer the stale local copy back
-      expect(recovery.clearRecovery).toHaveBeenCalled()
+      // The local copy is kept: after the reload it is offered back, flagged as older (#436)
+      expect(recovery.clearRecovery).not.toHaveBeenCalled()
     })
 
     it('shows it when the submit itself is refused as stale', async () => {
-      precurationsStore.saveDraft.mockResolvedValue({ id: 'p-1' })
+      precurationsStore.saveDraft.mockResolvedValue({
+        id: 'p-1',
+        lock_version: 3,
+        updated_at: 'T3'
+      })
       precurationsStore.submitForReview.mockRejectedValue({ message: 'Request failed' })
       precurationsStore.error = conflictError
       const wrapper = mountForm({ precurationId: 'p-1' })
@@ -180,6 +207,8 @@ describe('SchemaDrivenPrecurationForm', () => {
 
       expect(wrapper.text()).toContain('Edited elsewhere')
       expect(addToast).not.toHaveBeenCalledWith('Precuration submitted for review', 'success')
+      // The evidence was saved before the refused submit: recovery compares with that save
+      expect(recovery.markSaved).toHaveBeenCalledWith({ a: 1 }, '3@T3')
     })
   })
 
@@ -512,15 +541,35 @@ describe('SchemaDrivenPrecurationForm', () => {
       wrapper.unmount()
     })
 
-    it('drops a recovery snapshot equal to the loaded draft', async () => {
+    it('compares local drafts with the loaded precuration and its version (#436)', async () => {
       precurationsStore.fetchPrecurationById.mockResolvedValue({
         evidence_data: { a: 1 },
+        lock_version: 2,
+        updated_at: '2026-10-01T10:00:00Z',
         status: 'draft'
       })
       mountForm({ precurationId: 'p-1' })
       await flushPromises()
 
-      expect(recovery.dropIfSaved).toHaveBeenCalledWith({ a: 1 })
+      expect(recovery.setBaseline).toHaveBeenCalledExactlyOnceWith(
+        { a: 1 },
+        '2@2026-10-01T10:00:00Z'
+      )
+    })
+
+    it('compares a new precuration with the empty form, unversioned', async () => {
+      mountForm()
+      await flushPromises()
+
+      expect(recovery.setBaseline).toHaveBeenCalledExactlyOnceWith({}, null)
+    })
+
+    it('offers no draft while the saved precuration could not be loaded', async () => {
+      precurationsStore.fetchPrecurationById.mockRejectedValue(new Error('down'))
+      mountForm({ precurationId: 'p-1' })
+      await flushPromises()
+
+      expect(recovery.setBaseline).not.toHaveBeenCalled()
     })
 
     it('hides Save draft and Submit when read-only', async () => {

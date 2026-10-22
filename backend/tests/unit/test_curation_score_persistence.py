@@ -227,13 +227,17 @@ def test_recompute_continues_past_a_failing_curation(
 def test_recompute_skips_unscored_keys_and_counts_unchanged(
     db_session: Session, test_curation: CurationNew, test_user_admin: object
 ) -> None:
-    from app.services.recompute_scores import _has_unscored_keys, recompute_all_scores
+    from app.scoring.point_model import template
+    from app.services.recompute_scores import _unscored_keys, recompute_all_scores
 
-    assert _has_unscored_keys({"genetic_evidence_score": 3})
-    assert _has_unscored_keys({"genetic_evidence": {"case_level_ad_xl": {}}})
-    assert _has_unscored_keys("x")
-    assert not _has_unscored_keys({"genetic_evidence": [], "evidence_summary": {}})
-    assert not _has_unscored_keys(None)
+    model = template("clingen_sop_v11")
+    assert _unscored_keys({"genetic_evidence_score": 3}, model)
+    assert _unscored_keys(
+        {"genetic_evidence": {"case_level_ad_xl": {"points": 1}}}, model
+    )
+    assert _unscored_keys("x", model)
+    assert not _unscored_keys({"genetic_evidence": [], "evidence_summary": {}}, model)
+    assert not _unscored_keys(None, model)
 
     test_curation.evidence_data = {"genetic_evidence_score": 3}
     test_curation.computed_verdict = "keep"
@@ -242,3 +246,51 @@ def test_recompute_skips_unscored_keys_and_counts_unchanged(
     db_session.refresh(test_curation)
     assert test_curation.computed_verdict == "keep"
     recompute_all_scores(db_session)  # second run: unchanged branch
+
+
+def test_recompute_scores_custom_categories_of_the_pinned_model(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Known keys come from the pinned point model: its custom categories are scored and
+    reported; keys it does not score still skip the row and are reported (#434)."""
+    from app.services import recompute_scores
+    from tests.unit.test_point_model import CUSTOM_EVIDENCE, _custom_model, _version
+
+    summaries: list[dict] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: summaries.append(kw)
+    )
+    v1 = _version(db_session, test_curation, 1, {"point_model": _custom_model()})
+    v2 = _version(db_session, test_curation, 2, {"engine": "clingen_sop_v11"})
+    test_curation.methodology_version_id = v1.id
+    custom_evidence = {"genetic_evidence": CUSTOM_EVIDENCE["genetic_evidence"]}
+    test_curation.evidence_data = {**custom_evidence, "evidence_summary": "cohort"}
+    test_curation.computed_scores = {"total_score": 0.0}
+    test_curation.computed_verdict = "no_known"
+    db_session.commit()
+    recompute_scores.recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_scores["total_score"] == 1.5
+    assert test_curation.computed_verdict == "limited"
+    assert summaries[-1]["custom_categories"] == [
+        "genetic_evidence.patient_registry_cohort"
+    ]
+    assert summaries[-1]["unscored"] == {}
+
+    unknown = {"genetic_evidence": {"made_up": [{"points": 9}]}, "extra": 1}
+    for version, evidence, keys in (
+        (v1, unknown, ["extra", "genetic_evidence.made_up"]),
+        (v2, custom_evidence, ["genetic_evidence.patient_registry_cohort"]),
+    ):  # v2 is the template: the custom key is unknown there
+        test_curation.methodology_version_id = version.id
+        test_curation.evidence_data = evidence
+        test_curation.computed_verdict = "keep"
+        db_session.commit()
+        recompute_scores.recompute_all_scores(db_session)
+        db_session.refresh(test_curation)
+        assert test_curation.computed_verdict == "keep"
+        assert summaries[-1]["unscored"] == {str(test_curation.id): keys}
+        assert summaries[-1]["custom_categories"] == []

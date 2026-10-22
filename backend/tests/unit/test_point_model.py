@@ -420,12 +420,14 @@ def test_recompute_scores_with_the_pinned_version(
         "experimental_evidence": {"rescue": {"human": [{"points": 2}]}}
     }
     test_curation.methodology_version_id = v1.id
+    test_curation.computed_scores = {"total_score": 2.0}
+    test_curation.computed_verdict = "limited"
     db_session.commit()
     recompute_all_scores(db_session)
     db_session.refresh(test_curation)
-    assert (
-        test_curation.computed_scores["total_score"] == 0
-    )  # v1 has no rescue in human
+    # The pinned custom model cannot score this nested type: preserve the stored result.
+    assert test_curation.computed_scores == {"total_score": 2.0}
+    assert test_curation.computed_verdict == "limited"
 
 
 def test_recompute_logs_class_changes_and_skips_other_engines(
@@ -537,3 +539,22 @@ def test_validate_evidence_scores_with_the_pinned_point_model(
     assert scores["trace"] == saved.evidence_breakdown["trace"]
     db_session.refresh(test_curation)
     assert test_curation.computed_scores == before
+
+
+@pytest.mark.parametrize(
+    "evidence",
+    [
+        {},
+        {"replicated_over_time": True},
+        {"contradictory_evidence": [{"impact": "disputed"}]},
+    ],
+)
+def test_trace_records_exact_selected_classification_rule(evidence: dict) -> None:
+    model = copy.deepcopy(CLINGEN)
+    model["bands"] = [
+        {"class": "replicated", "min": 0, "requires": "replicated_over_time"},
+        {"class": "custom", "min": 0, "description": "Custom classification"},
+    ]
+    result = score(model, evidence)
+    assert result["trace"]["classification_rule"] == classify(model, 0, evidence)
+    assert result["total"] == 0

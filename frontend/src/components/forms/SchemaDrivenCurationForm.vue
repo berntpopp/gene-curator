@@ -39,13 +39,8 @@
             <template #section="{ section }">
               <ScoreSummary
                 v-if="section.component === 'ScoreSummary' && score"
-                :genetic-score="score.genetic"
-                :experimental-score="score.experimental"
-                :total-score="score.total"
+                :scores="score"
                 :classification="score.classification"
-                :has-contradictory="score.hasContradictory"
-                :genetic-breakdown="score.geneticBreakdown"
-                :experimental-breakdown="score.experimentalBreakdown"
               />
               <LumpingSplittingSection
                 v-else-if="section.component === 'LumpingSplittingSection'"
@@ -84,9 +79,10 @@
 
     <!-- Form Recovery Dialog -->
     <FormRecoveryDialog
-      :model-value="showRecoveryDialog && recoveryReady"
+      :model-value="showRecoveryDialog"
       :timestamp="recoveryTimestamp"
-      @restore="handleRestore"
+      :stale="recoveryStale"
+      @restore="restoreRecovery"
       @discard="discardRecovery"
     />
   </ErrorBoundary>
@@ -124,6 +120,7 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useNotificationsStore } from '@/stores/notifications'
   import { useFormRecovery } from '@/composables/useFormRecovery'
+  import { recoveryVersion } from '@/utils/formRecoveryStorage'
   import { useHistory } from '@/composables/useHistory'
   import { useLogger } from '@/composables/useLogger'
   import { migrateLegacyFormat, isLegacyFormat } from '@/utils/evidenceDataMigration'
@@ -132,7 +129,7 @@
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent, hasDisputingRow } from './hasContent'
-  import { scoreSnapshot, type ScoreCalculations } from './scorePreview'
+  import { scoreSnapshot } from './scorePreview'
   import FormRecoveryDialog from '@/components/FormRecoveryDialog.vue'
   import DynamicForm from '@/components/dynamic/DynamicForm.vue'
   import FormActions from '@/components/forms/FormActions.vue'
@@ -204,30 +201,27 @@
     hasDisputingRow(evidenceData.value.contradictory_evidence)
   )
 
-  // Form Recovery - schema-aware key to prevent cross-schema data restore
+  // Form Recovery - schema-aware key to prevent cross-schema data restore; a new curation's
+  // draft belongs to its scope and gene, never offered on another gene's new curation
   const recoveryKey = computed(
-    () => `curation-${props.curationId || 'new'}-schema-${props.schemaId}-v2`
+    () =>
+      `curation-${props.curationId || `new-${props.scopeId}-${props.geneId}`}-schema-${props.schemaId}-v2`
   )
 
   const formRecovery = useFormRecovery(recoveryKey.value, evidenceData, {
-    saveInterval: 5000,
     maxAge: 24 * 60 * 60 * 1000
   })
   const {
     showRecoveryDialog,
-    restoreRecovery: restoreInPlace,
+    recoveryTimestamp,
+    recoveryStale,
+    restoreRecovery,
     discardRecovery,
     clearRecovery,
-    dropIfSaved
+    setBaseline,
+    markSaved
   } = formRecovery
-  const recoveryReady = ref(false) // offer recovery only after the saved curation is known
-  const recoveryTimestamp = formRecovery.recoveryTimestamp
-
-  // restore mutates evidenceData in place; a new reference lets reference watchers see it
-  function handleRestore() {
-    restoreInPlace()
-    evidenceData.value = { ...evidenceData.value }
-  }
+  let serverVersion: string | null = null // the loaded curation's, for the recovery baseline
 
   // Clear recovery when schema changes (prevents invalid data restore)
   watch(
@@ -298,6 +292,7 @@
       lockVersion,
       canSubmit: () => canSubmit.value,
       clearRecovery,
+      markSaved,
       clearHistory,
       onSaved: () => {
         savedAt.value = Date.now()
@@ -378,12 +373,7 @@
   ) {
     isValid.value = validationResult?.is_valid !== false
     // Live score: validate-evidence (debounced per edit) scores with the pinned point model
-    if (validationResult?.score_calculations) {
-      score.value = scoreSnapshot(
-        validationResult.score_calculations as ScoreCalculations,
-        hasContradictory.value
-      )
-    }
+    score.value = scoreSnapshot(validationResult?.score_calculations, hasContradictory.value)
   }
 
   /**
@@ -549,7 +539,7 @@
           evidenceData.value = curation.evidence_data || {}
         }
 
-        dropIfSaved(evidenceData.value)
+        serverVersion = recoveryVersion(curation)
         pinnedVersionId.value = curation.methodology_version_id ?? null
         lockVersion.value = curation.lock_version || 0
         isDraft.value = curation.status === 'draft'
@@ -606,7 +596,8 @@
     }
     if (!props.readonly) void pmids.checkAll(pmidsIn(evidenceData.value))
     ready.value = true
-    recoveryReady.value = true
+    // Local drafts are compared with what the form now shows; none until the saved one loaded
+    if (!props.curationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     emit('ready')
     logger.debug('SchemaDrivenCurationForm mounted', {
       schemaId: props.schemaId,

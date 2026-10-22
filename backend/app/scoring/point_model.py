@@ -7,6 +7,7 @@ overrides: [{when, field?, in?, class}], bands}``. ``path`` is dotted and relati
 """
 
 import json
+import math
 from collections.abc import Callable
 from functools import cache
 from pathlib import Path
@@ -18,7 +19,7 @@ TEMPLATES = Path(__file__).parent / "templates"
 # (type definition, evidence row) -> points; None means the row is not entered evidence
 ItemRule = Callable[[dict[str, Any], dict[str, Any]], float | None]
 # (section key, flat legacy item list) -> {category key: [item points]}
-LegacyRule = Callable[[str, list[Any]], dict[str, list[float]]]
+LegacyRule = Callable[[str, list[Any], list[Any]], dict[str, list[float]]]
 
 
 @cache
@@ -72,15 +73,48 @@ def _category(
     }
 
 
+def _type_points(
+    path: str, type_def: dict[str, Any], data: Any, rule: ItemRule, flags: list[Any]
+) -> list[float]:
+    """Entered rows' points; rows outside the type's range are flagged, not clamped, so
+    stored totals stay reproducible. Non-finite points cannot be summed: not counted."""
+    limits = type_def.get("range")
+    points = []
+    for i, row in enumerate(rows(_at(data, type_def["path"]))):
+        value = rule(type_def, row)
+        if value is None:
+            continue
+        finite = math.isfinite(value)
+        if not finite or (limits and not limits[0] <= value <= limits[1]):
+            key = type_def.get("points_key", "points")
+            if not finite and type_def.get("rule") == "segregation" and key not in row:
+                key = (
+                    "lod_score"
+                    if row.get("lod_score") is not None
+                    else "segregations_counted"
+                )
+            flags.append(
+                {
+                    "path": f"{path}[{i}].{key}",
+                    "value": value if finite else str(value),  # JSONB has no NaN
+                    "range": list(limits) if limits else None,  # not the cached model's
+                }
+            )
+        if finite:
+            points.append(value)
+    return points
+
+
 def _section_points(
     section: dict[str, Any],
     data: Any,
     rules: dict[str, ItemRule],
     legacy: LegacyRule | None,
+    flags: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
-        by_category = legacy(section["key"], data)
+        by_category = legacy(section["key"], data, flags)
         return {
             c["key"]: {"legacy": by_category.get(c["key"], [])}
             for c in section["categories"]
@@ -90,10 +124,10 @@ def _section_points(
         out[category["key"]] = {}
         for type_def in category["types"]:
             rule = rules.get(type_def.get("rule", ""), default_points)
-            values = [rule(type_def, row) for row in rows(_at(data, type_def["path"]))]
-            out[category["key"]][type_def["path"]] = [
-                v for v in values if v is not None
-            ]
+            path = f"{section['key']}.{type_def['path']}"
+            out[category["key"]][type_def["path"]] = _type_points(
+                path, type_def, data, rule, flags
+            )
     return out
 
 
@@ -125,9 +159,10 @@ def score(
 ) -> dict[str, Any]:
     """Interpret ``model`` over ``evidence``: {total, class, sections, trace}."""
     sections = []
+    flags: list[Any] = []
     for section in model["sections"]:
         points = _section_points(
-            section, evidence.get(section["key"]), rules or {}, legacy
+            section, evidence.get(section["key"]), rules or {}, legacy, flags
         )
         categories = [_category(c, points[c["key"]]) for c in section["categories"]]
         raw = sum(c["score"] for c in categories)
@@ -145,16 +180,20 @@ def score(
     total_cap = model.get("total_cap")
     total = raw_total if total_cap is None else min(raw_total, total_cap)
     band = classify(model, total, evidence)
+    trace = {
+        "raw_total": raw_total,
+        "total_cap": total_cap,
+        "total": total,
+        "class": band["class"],
+        "classification_rule": band,
+        "sections": sections,
+    }
+    if flags:  # only then: unflagged traces stay as stored
+        trace["out_of_range"] = flags
     return {
         "total": total,
         "class": band["class"],
         "description": band.get("description", ""),
         "sections": {s["key"]: s["score"] for s in sections},
-        "trace": {
-            "raw_total": raw_total,
-            "total_cap": total_cap,
-            "total": total,
-            "class": band["class"],
-            "sections": sections,
-        },
+        "trace": trace,
     }

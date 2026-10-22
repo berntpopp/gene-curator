@@ -382,8 +382,7 @@ describe('CurationFormView', () => {
         frame.attachForm({ evidence, saving, savedAt, save })
         frame.attachSubmit({ canSubmit: ref(true), run: () => emit('submit') })
         frame.setScore({
-          genetic: 6,
-          experimental: 1.5,
+          trace: null,
           total: 7.5,
           classification: 'Moderate',
           hasContradictory: false

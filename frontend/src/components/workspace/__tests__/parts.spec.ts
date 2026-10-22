@@ -47,14 +47,17 @@ describe('SaveState', () => {
     expect(text('unsaved')).toBe('Unsaved changes')
     expect(text('failed')).toContain('Save failed')
     expect(text('conflict')).toContain('Edited elsewhere')
+    // Local edits survive the reload and are offered back (#436): never claim they are lost
+    expect(text('conflict')).toContain('your changes here are kept in this browser')
+    expect(text('conflict')).not.toContain('lost')
   })
 
-  it('conflict: warns that reloading discards local changes and reloads on click', async () => {
+  it('conflict: says local changes survive the reload, and reloads on click', async () => {
     const reload = vi.fn()
     vi.stubGlobal('location', { ...window.location, reload })
     const w = mount(SaveState, { props: { state: 'conflict', savedAt: null } })
     expect(w.attributes('role')).toBe('alert')
-    expect(w.text()).toContain('lost')
+    expect(w.text()).toContain('offered after the reload')
     expect(w.find('button').text()).toBe('Reload')
     await w.find('button').trigger('click')
     expect(reload).toHaveBeenCalledOnce()
@@ -73,59 +76,21 @@ describe('SaveState', () => {
 })
 
 const score = (over: Partial<ScoreSnapshot> = {}): ScoreSnapshot => ({
-  genetic: 6,
-  experimental: 1.5,
   total: 7.5,
+  trace: null,
   classification: 'Moderate',
   hasContradictory: false,
-  geneticBreakdown: { caseLevel: 4, segregation: 2, caseControl: 0 },
-  experimentalBreakdown: { function: 1.5, functionalAlteration: 0, modelsAndRescue: 0 },
   ...over
 })
 
 describe('ScorePanel', () => {
-  it('shows the one live score with the classification mark and band bar', () => {
+  it('shows backend totals and verdict without guessed thresholds', () => {
     const w = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
-    expect(w.text()).toContain('7.5')
-    expect(w.text()).toContain('/ 18')
+    expect(w.text()).toContain('7.50')
     expect(w.text()).toContain('Moderate')
-    const bar = w.find('[role="meter"]')
-    expect(bar.attributes('aria-valuenow')).toBe('7.5')
-    expect(bar.attributes('aria-valuemax')).toBe('18')
-    expect(w.text()).toContain('4.5 points to Strong')
-  })
-
-  it('lists the categories with counted and max points', () => {
-    const w = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
-    const rows = w.findAll('tbody tr').map(r =>
-      r
-        .findAll('td')
-        .map(td => td.text())
-        .join(' ')
-    )
-    expect(rows).toContain('Case-level 4.0 12')
-    expect(rows).toContain('Segregation 2.0 3')
-    expect(rows.find(r => r.startsWith('Genetic'))).toContain('6.0')
-    expect(rows.find(r => r.startsWith('Experimental'))).toContain('1.5')
-  })
-
-  it('says how far the next band is, and nothing at the top band', () => {
-    const top = mount(ScorePanel, {
-      props: {
-        score: score({ total: 13, classification: 'Strong' }),
-        canSubmit: true,
-        readonly: false
-      }
-    })
-    expect(top.text()).not.toContain('points to')
-    const none = mount(ScorePanel, {
-      props: {
-        score: score({ total: 0, classification: 'No Known Disease Relationship' }),
-        canSubmit: false,
-        readonly: false
-      }
-    })
-    expect(none.text()).toContain('0.1 points to Limited')
+    expect(w.text()).toContain('Score breakdown unavailable')
+    expect(w.text()).not.toContain('/ 18')
+    expect(w.text()).not.toContain('points to')
   })
 
   it('lists what blocks submitting and flags contradictory evidence', () => {
@@ -133,7 +98,7 @@ describe('ScorePanel', () => {
       props: { score: score({ hasContradictory: true }), canSubmit: false, readonly: false }
     })
     expect(blocked.text()).toContain('Before you submit')
-    expect(blocked.text()).toContain('Add at least one scored genetic evidence item')
+    expect(blocked.text()).toContain('Complete the required evidence before submitting')
     expect(blocked.text()).toContain('Contradictory evidence is recorded')
     const ready = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
     expect(ready.text()).not.toContain('Add at least one')
