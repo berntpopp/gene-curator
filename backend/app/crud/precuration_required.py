@@ -42,7 +42,9 @@ def _is_empty(value: Any) -> bool:
     )
 
 
-def _fields(defs: Any, prefix: str = "") -> list[tuple[str, dict[str, Any]]]:
+def _fields(
+    defs: Any, prefix: str = "", data: Any = None
+) -> list[tuple[str, dict[str, Any]]]:
     """(dotted path, config) of every field in a flat/nested definition dict or `sections`."""
     if not isinstance(defs, dict):
         return []
@@ -50,13 +52,25 @@ def _fields(defs: Any, prefix: str = "") -> list[tuple[str, dict[str, Any]]]:
     for section in defs.get("sections") or []:
         for field in section.get("fields", []) if isinstance(section, dict) else []:
             if isinstance(field, dict):
-                found.append((f"{prefix}{field.get('id')}", field))
+                found += (
+                    _fields({field["id"]: field}, prefix, data)
+                    if field.get("id")
+                    else []
+                )
     for name, config in defs.items():
         if name == "sections" or not isinstance(config, dict):
             continue
         found.append((f"{prefix}{name}", config))
-        if config.get("required") is not True and config.get("type") == "object":
-            found += _fields(config.get("properties"), f"{prefix}{name}.")
+        if config.get("type") == "object":
+            found += _fields(config.get("properties"), f"{prefix}{name}.", data)
+        if config.get("type") == "array":
+            rows = _value_at(data, f"{prefix}{name}")
+            if isinstance(rows, list) and isinstance(config.get("items"), dict):
+                found += _fields(
+                    {str(index): config["items"] for index in range(len(rows))},
+                    f"{prefix}{name}.",
+                    data,
+                )
     return found
 
 
@@ -118,9 +132,9 @@ def missing_required_fields(
     """Dotted paths of required fields empty in ``data``.
 
     Fields from flat/nested definitions or ``sections[].fields[]``; required and shown as the
-    module docstring says. A checkbox is never missing. Mirrored by the frontend requiredFields.ts.
+    module docstring says. False is an answered boolean. Mirrored by the frontend requiredFields.ts.
     """
-    fields = _fields(field_definitions)
+    fields = _fields(field_definitions, data=data)
     configs = dict(fields)
     rules = validation_rules if isinstance(validation_rules, dict) else {}
     paths = [
@@ -144,10 +158,7 @@ def missing_required_fields(
     return [
         path
         for path in dict.fromkeys(paths)
-        if _shown(configs, path, data)
-        # an unset checkbox is false, not missing
-        and configs.get(path, {}).get("type") != "boolean"
-        and _is_empty(_value_at(data, path))
+        if _shown(configs, path, data) and _is_empty(_value_at(data, path))
     ]
 
 

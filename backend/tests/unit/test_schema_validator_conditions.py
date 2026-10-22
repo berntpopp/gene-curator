@@ -96,3 +96,34 @@ def test_json_schema_carries_required_when_for_the_form() -> None:
     assert detail["required_when"] == {"kind": "other"}
     note = schema["properties"]["moi"]["properties"]["note"]
     assert note["visible_when"] == {"moi.code": "Other"}
+
+
+@pytest.mark.parametrize(
+    ("data", "missing"), [({}, ["answer"]), ({"answer": False}, [])]
+)
+def test_required_boolean_needs_an_answer(
+    data: dict[str, Any], missing: list[str]
+) -> None:
+    assert (
+        required_errors(data, {"answer": {"type": "boolean", "required": True}})
+        == missing
+    )
+
+
+def test_dotted_required_rules_respect_values_and_parent_visibility() -> None:
+    fields = {
+        "parent": {
+            "type": "object",
+            "show_when": {"on": True},
+            "properties": {"child": TEXT},
+        },
+    }
+    rules = {"required_fields": ["parent.child"]}
+    assert (
+        required_errors({"on": True, "parent": {"child": "answered"}}, fields, rules)
+        == []
+    )
+    assert required_errors({"on": False}, fields, rules) == []
+    assert required_errors({"on": True, "parent": {}}, fields, rules) == [
+        "parent.child"
+    ]

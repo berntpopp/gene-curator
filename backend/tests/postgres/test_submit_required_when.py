@@ -18,7 +18,22 @@ pytestmark = pytest.mark.postgres
 
 FIELDS = {
     "kind": {"type": "text"},
+    "answered": {"type": "boolean", "required": True},
+    "parent": {
+        "type": "object",
+        "required": True,
+        "properties": {"child": {"type": "text", "required": True}},
+    },
     "detail": {"type": "text", "required_when": {"kind": "other"}},
+    "rows": {
+        "type": "array",
+        "items": {
+            "type": "object",
+            "properties": {
+                "detail": {"type": "text", "required_when": {"kind": "other"}},
+            },
+        },
+    },
     "extra": {
         "type": "object",
         "visible_when": {"kind": "other"},
@@ -34,6 +49,8 @@ class W:
     alice: UUID = field(default_factory=uuid4)  # curator
     gene: UUID = field(default_factory=uuid4)
     schema: str = ""
+    curation_schema: str = ""
+    pair: str = ""
 
 
 def _owner() -> psycopg2.extensions.connection:
@@ -75,6 +92,21 @@ def w() -> Generator[W, None, None]:
         )
         x.schema = str(cur.fetchone()[0])
         cur.execute(
+            "INSERT INTO curation_schemas (name, version, schema_type, field_definitions, "
+            "validation_rules, scoring_configuration, workflow_states, ui_configuration, "
+            "schema_hash, created_by) SELECT %s, version, 'curation', %s, %s, "
+            "'{}', '{}', ui_configuration, schema_hash, %s "
+            "FROM curation_schemas WHERE id = %s RETURNING id",
+            (f"rc-{tag}", json.dumps(FIELDS), json.dumps(RULES), str(x.alice), seeded),
+        )
+        x.curation_schema = str(cur.fetchone()[0])
+        cur.execute(
+            "INSERT INTO workflow_pairs (name, version, precuration_schema_id, "
+            "curation_schema_id) VALUES (%s, '1.0', %s, %s) RETURNING id",
+            (f"rw-{tag}", x.schema, x.curation_schema),
+        )
+        x.pair = str(cur.fetchone()[0])
+        cur.execute(
             "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "
             "VALUES (%s, %s, %s, %s)",
             (str(x.gene), f"HGNC:{x.gene.int % 10**9}", f"RW{tag}", x.gene.hex * 2),
@@ -86,7 +118,11 @@ def w() -> Generator[W, None, None]:
             "DELETE FROM audit_log WHERE user_id = %s OR scope_id = %s OR schema_id = %s",
             (str(x.alice), str(x.scope), x.schema),
         )
-        cur.execute("DELETE FROM curation_schemas WHERE id = %s", (x.schema,))
+        cur.execute("DELETE FROM workflow_pairs WHERE id = %s", (x.pair,))
+        cur.execute(
+            "DELETE FROM curation_schemas WHERE id IN (%s, %s)",
+            (x.schema, x.curation_schema),
+        )
         cur.execute("DELETE FROM genes WHERE id = %s", (str(x.gene),))
         cur.execute("DELETE FROM users WHERE id = %s", (str(x.alice),))
 
@@ -120,7 +156,12 @@ def test_submit_requires_required_when_fields_and_skips_hidden_ones(
             "gene_id": str(w.gene),
             "scope_id": str(w.scope),
             "precuration_schema_id": w.schema,
-            "evidence_data": {"kind": "other", "rows": [{"kind": "case"}]},
+            "evidence_data": {
+                "kind": "other",
+                "answered": False,
+                "parent": {"child": "yes"},
+                "rows": [{"kind": "case"}],
+            },
         },
         headers=h,
     )
@@ -135,7 +176,12 @@ def test_submit_requires_required_when_fields_and_skips_hidden_ones(
     )
     assert refused.status_code == 422, refused.text
     # jsonb keeps no key order
-    assert sorted(refused.json()["detail"]["fields"]) == ["detail", "extra.why", "note"]
+    assert sorted(refused.json()["detail"]["fields"]) == [
+        "detail",
+        "extra.why",
+        "note",
+        "rows.0.detail",
+    ]
     assert _state(pid) == before  # a refused submit changes nothing
 
     # kind AD: detail is not required, extra (and its required child) is hidden;
@@ -143,7 +189,12 @@ def test_submit_requires_required_when_fields_and_skips_hidden_ones(
     saved = client.patch(
         f"/api/v1/precurations/{pid}/draft",
         json={
-            "evidence_data": {"kind": "AD", "rows": [{"kind": "other"}]},
+            "evidence_data": {
+                "kind": "AD",
+                "answered": False,
+                "parent": {"child": "yes"},
+                "rows": [{"kind": "other"}],
+            },
             "lock_version": before[1],
         },
         headers=h,
@@ -156,3 +207,209 @@ def test_submit_requires_required_when_fields_and_skips_hidden_ones(
     )
     assert ok.status_code == 200, ok.text
     assert _state(pid)[0] == "review"
+
+
+def _item_state(item_type: str, item_id: str) -> tuple[object, ...]:
+    from psycopg2 import sql
+
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            sql.SQL(
+                "SELECT status, workflow_stage, lock_version, evidence_data, "
+                "is_draft FROM {} WHERE id = %s"
+            ).format(sql.Identifier(f"{item_type}s")),
+            (item_id,),
+        )
+        row = cur.fetchone()
+        assert row
+        return row
+
+
+def _enter_review(
+    client: TestClient,
+    headers: dict[str, str],
+    item_type: str,
+    item_id: str,
+    route: str,
+    lock_version: int,
+):
+    if route == "bulk":
+        return client.post(
+            "/api/v1/workflow/bulk-transition",
+            json={
+                "item_ids": [item_id],
+                "item_type": item_type,
+                "target_stage": "review",
+            },
+            headers=headers,
+        )
+    if route == "direct":
+        return client.post(
+            f"/api/v1/workflow/{item_type}/{item_id}/transition",
+            json={"target_stage": "review"},
+            headers=headers,
+        )
+    return client.post(
+        f"/api/v1/{item_type}s/{item_id}/{route}",
+        json={"lock_version": lock_version} if route == "submit" else None,
+        headers=headers,
+    )
+
+
+@pytest.mark.parametrize(
+    ("item_type", "route"),
+    [
+        ("curation", "submit"),
+        ("curation", "direct"),
+        ("curation", "bulk"),
+        ("precuration", "submit"),
+        ("precuration", "direct"),
+        ("precuration", "bulk"),
+        ("precuration", "complete"),
+    ],
+)
+def test_every_route_checks_pinned_required_fields_without_mutating_a_refusal(
+    client: TestClient,
+    w: W,
+    item_type: str,
+    route: str,
+) -> None:
+    h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
+    if route == "bulk":
+        # Platform admin still needs the accepted scope membership and content checks.
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET role = 'admin' WHERE id = %s", (str(w.alice),)
+            )
+    if item_type == "curation":
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+                "status, workflow_stage, is_draft, created_by) VALUES "
+                "(%s, %s, %s, 'approved', 'curation', false, %s)",
+                (str(w.gene), str(w.scope), w.schema, str(w.alice)),
+            )
+    made = client.post(
+        f"/api/v1/{item_type}s/",
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            **(
+                {"workflow_pair_id": w.pair}
+                if item_type == "curation"
+                else {"precuration_schema_id": w.schema}
+            ),
+            "evidence_data": {
+                "kind": "other",
+                "answered": False,
+                "parent": {"other": "present"},
+                "rows": [{"kind": "case"}],
+            },
+        },
+        headers=h,
+    )
+    assert made.status_code == 201, made.text
+    item_id = made.json()["id"]
+    assert made.json()["methodology_version_id"]
+    # The pinned definition must win over edits to the working schema.
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curation_schemas SET field_definitions = '{}', validation_rules = '{}' "
+            "WHERE id = %s",
+            (w.curation_schema if item_type == "curation" else w.schema,),
+        )
+    before = _item_state(item_type, item_id)
+    refused = _enter_review(client, h, item_type, item_id, route, int(before[2]))
+    if route == "bulk":
+        assert refused.status_code == 200, refused.text
+        assert refused.json()["total_failed"] == 1
+        error = refused.json()["failed_transitions"][0]["error"]
+    else:
+        assert refused.status_code == (
+            422
+            if item_type == "precuration" and route in ("submit", "complete")
+            else 400
+        ), refused.text
+        error = str(refused.json()["detail"])
+    for path in ("detail", "extra.why", "note", "parent.child", "rows.0.detail"):
+        assert path in error
+    assert _item_state(item_type, item_id) == before
+    saved = client.patch(
+        f"/api/v1/{item_type}s/{item_id}/draft",
+        json={
+            "evidence_data": {
+                "kind": "AD",
+                "answered": False,
+                "parent": {"child": "yes"},
+                "rows": [{"kind": "other"}],
+            },
+            "lock_version": before[2],
+        },
+        headers=h,
+    )
+    assert saved.status_code == 200, saved.text
+    accepted = _enter_review(
+        client, h, item_type, item_id, route, saved.json()["lock_version"]
+    )
+    assert accepted.status_code == 200, accepted.text
+    if route == "bulk":
+        assert accepted.json()["total_successful"] == 1, accepted.text
+    assert _item_state(item_type, item_id)[1] == "review"
+
+
+@pytest.mark.parametrize("route", ["submit", "direct", "bulk", "complete"])
+def test_lumping_decision_cannot_bypass_review_validation(
+    client: TestClient,
+    w: W,
+    route: str,
+) -> None:
+    headers = {
+        "Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"
+    }
+    if route == "bulk":
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE users SET role = 'admin' WHERE id = %s", (str(w.alice),)
+            )
+    evidence = {
+        "kind": "AD",
+        "answered": False,
+        "parent": {"child": "yes"},
+        "lumping_splitting_applicable": True,
+        "lumping_splitting_decision": "UNDECIDED",
+    }
+    made = client.post(
+        "/api/v1/precurations/",
+        headers=headers,
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "precuration_schema_id": w.schema,
+            "evidence_data": evidence,
+        },
+    )
+    assert made.status_code == 201, made.text
+    item_id = made.json()["id"]
+    before = _item_state("precuration", item_id)
+    refused = _enter_review(
+        client, headers, "precuration", item_id, route, int(before[2])
+    )
+    assert "no decision" in refused.text
+    if route == "bulk":
+        assert refused.status_code == 200, refused.text
+        assert refused.json()["total_failed"] == 1
+    else:
+        assert refused.status_code == 400, refused.text
+    assert _item_state("precuration", item_id) == before
+    evidence["lumping_splitting_decision"] = "LUMP"
+    saved = client.patch(
+        f"/api/v1/precurations/{item_id}/draft",
+        headers=headers,
+        json={"evidence_data": evidence, "lock_version": before[2]},
+    )
+    assert saved.status_code == 200, saved.text
+    accepted = _enter_review(
+        client, headers, "precuration", item_id, route, saved.json()["lock_version"]
+    )
+    assert accepted.status_code == 200, accepted.text
+    assert _item_state("precuration", item_id)[1] == "review"

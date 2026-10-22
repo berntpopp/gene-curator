@@ -63,8 +63,8 @@ describe('missingRequiredLabels with conditional fields', () => {
     ]
   }
 
-  it('treats an unset checkbox as false and skips fields hidden by it', () => {
-    expect(missingRequiredLabels(lumping, {})).toEqual([])
+  it('requires an answer to a required boolean and skips fields hidden by it', () => {
+    expect(missingRequiredLabels(lumping, {})).toEqual(['Applicable'])
     expect(missingRequiredLabels(lumping, { applicable: false })).toEqual([])
   })
 
@@ -87,7 +87,7 @@ describe('missingRequiredLabels with conditional fields', () => {
       ]
     }
     const rules = { required_fields: ['applicable', 'decision'] }
-    expect(missingRequiredLabels(plain, {}, rules)).toEqual([])
+    expect(missingRequiredLabels(plain, {}, rules)).toEqual(['Applicable'])
     expect(missingRequiredLabels(plain, { applicable: true }, rules)).toEqual(['Decision'])
   })
 })

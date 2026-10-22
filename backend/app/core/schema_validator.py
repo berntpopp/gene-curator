@@ -165,11 +165,7 @@ class SchemaValidator:
 
             # `required` as resolve_conditions left it (a hidden value is still checked)
             required = field_config.get("required", False)
-            if (
-                required
-                and field_value in (None, "")
-                and field_config.get("type") != "boolean"  # unset checkbox is false
-            ):
+            if required and field_value in (None, ""):
                 result.add_error(field_name, "Required field is missing", "required")
                 result.required_fields_missing.append(field_name)
                 continue

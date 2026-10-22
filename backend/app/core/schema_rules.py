@@ -6,8 +6,8 @@ from app.core.schema_validation_result import SchemaValidationResult
 
 # One copy of the condition semantics (#433), shared with submit and the frontend
 from app.crud.precuration_required import (
-    condition_holds,
     is_visible,
+    missing_required_fields,
     required_when_holds,
 )
 
@@ -83,20 +83,12 @@ def apply_field_list_rules(
     A field hidden by its condition in `fields` is not required. Returns the remaining
     (per-rule config) rules.
     """
-    # Malformed lists are skipped, as the per-rule try/except did before
-    required = [
-        n for n in _as(list, rules.get("required_fields")) if isinstance(n, str)
-    ]
-    for name, cond in _as(dict, rules.get("conditional_required")).items():
-        # a malformed `when` holds, like every condition
-        if condition_holds(cond.get("when") if isinstance(cond, dict) else cond, data):
-            required.append(name)
-    for name in required:
+    listed = _as(list, rules.get("required_fields"))
+    conditional = _as(dict, rules.get("conditional_required"))
+    for name in missing_required_fields(fields, data, rules):
         if (
-            data.get(name) in (None, "", [])
-            and is_visible(_as(dict, fields.get(name)), data)
-            and name not in result.required_fields_missing
-        ):
+            name in listed or name in conditional
+        ) and name not in result.required_fields_missing:
             result.add_error(name, "Required field is missing", "required")
             result.required_fields_missing.append(name)
     for rule in _as(list, rules.get("custom_validators")):

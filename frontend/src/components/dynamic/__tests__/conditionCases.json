@@ -356,6 +356,105 @@
       },
       "data": { "kind": "other" },
       "missing": ["detail"]
+    },
+    {
+      "name": "a required parent keeps checking its required children",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "b": { "required": true }, "c": {} }
+        }
+      },
+      "data": { "a": { "c": "x" } },
+      "missing": ["a.b"]
+    },
+    {
+      "name": "a missing required parent and its required child",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "b": { "required": true }, "c": {} }
+        }
+      },
+      "data": {},
+      "missing": ["a", "a.b"]
+    },
+    {
+      "name": "required_when child of a required parent",
+      "fields": {
+        "a": {
+          "type": "object",
+          "required": true,
+          "properties": { "k": {}, "why": { "required_when": { "a.k": "x" } } }
+        }
+      },
+      "data": { "a": { "k": "x" } },
+      "missing": ["a.why"]
+    },
+    {
+      "name": "required boolean must be answered",
+      "fields": { "answer": { "type": "boolean", "required": true } },
+      "data": {},
+      "missing": ["answer"]
+    },
+    {
+      "name": "required false and zero are answered",
+      "fields": {
+        "answer": { "type": "boolean", "required": true },
+        "points": { "type": "number", "required": true }
+      },
+      "data": { "answer": false, "points": 0 },
+      "missing": []
+    },
+    {
+      "name": "required section parent does not mask required children",
+      "fields": {
+        "sections": [
+          {
+            "fields": [
+              {
+                "id": "parent",
+                "type": "object",
+                "required": true,
+                "properties": { "child": { "type": "text", "required": true } }
+              }
+            ]
+          }
+        ]
+      },
+      "data": { "parent": { "other": 1 } },
+      "missing": ["parent.child"]
+    },
+    {
+      "name": "array row children enforce root required_when",
+      "fields": {
+        "rows": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": { "detail": { "type": "text", "required_when": { "mode": "on" } } }
+          }
+        }
+      },
+      "data": { "mode": "on", "rows": [{}, { "detail": "answered" }] },
+      "missing": ["rows.0.detail"]
+    },
+    {
+      "name": "hidden array parent suppresses child required_when",
+      "fields": {
+        "rows": {
+          "type": "array",
+          "show_when": { "shown": true },
+          "items": {
+            "type": "object",
+            "properties": { "detail": { "type": "text", "required_when": { "mode": "on" } } }
+          }
+        }
+      },
+      "data": { "shown": false, "mode": "on", "rows": [{}] },
+      "missing": []
     }
   ]
 }
