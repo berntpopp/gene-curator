@@ -413,3 +413,127 @@ def test_lumping_decision_cannot_bypass_review_validation(
     )
     assert accepted.status_code == 200, accepted.text
     assert _item_state("precuration", item_id)[1] == "review"
+
+
+@pytest.mark.parametrize("route", ["submit", "direct", "bulk"])
+@pytest.mark.parametrize("source", ["flat", "nested", "missing"])
+def test_linked_disease_is_validated_without_copying_it_into_curation(
+    client: TestClient, w: W, route: str, source: str
+) -> None:
+    disease = {
+        "disease_name": "Linked disease",
+        "mondo_id": "MONDO:0000001",
+        "mode_of_inheritance": "AD",
+    }
+    entity = {
+        "type": "object",
+        "readonly": True,
+        "properties": {
+            key: {"type": "text", "required": True, "readonly": True} for key in disease
+        },
+    }
+    pre_evidence = (
+        {"entity_definition": disease}
+        if source == "nested"
+        else disease
+        if source == "flat"
+        else {}
+    )
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE curation_schemas SET field_definitions = %s, validation_rules = '{}' "
+            "WHERE id = %s",
+            (json.dumps({"entity_definition": entity}), w.curation_schema),
+        )
+        cur.execute(
+            "INSERT INTO methodology_versions (schema_id, version, snapshot, created_by) "
+            "SELECT id, 2, methodology_snapshot(s), created_by FROM curation_schemas s "
+            "WHERE id = %s",
+            (w.curation_schema,),
+        )
+        if route == "bulk":
+            cur.execute(
+                "UPDATE users SET role = 'admin' WHERE id = %s", (str(w.alice),)
+            )
+        cur.execute(
+            "INSERT INTO precurations (gene_id, scope_id, precuration_schema_id, "
+            "status, workflow_stage, is_draft, created_by, evidence_data) VALUES "
+            "(%s, %s, %s, 'approved', 'curation', false, %s, %s) RETURNING id",
+            (
+                str(w.gene),
+                str(w.scope),
+                w.schema,
+                str(w.alice),
+                json.dumps(pre_evidence),
+            ),
+        )
+        pre_id = str(cur.fetchone()[0])
+    headers = {
+        "Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"
+    }
+    evidence = {"summary": "Evidence reviewed"}
+    made = client.post(
+        "/api/v1/curations/",
+        headers=headers,
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "workflow_pair_id": w.pair,
+            "precuration_id": pre_id,
+            "evidence_data": evidence,
+        },
+    )
+    assert made.status_code == 201, made.text
+    item_id = made.json()["id"]
+    assert made.json()["methodology_version_id"]
+    before = _item_state("curation", item_id)
+    result = _enter_review(client, headers, "curation", item_id, route, int(before[2]))
+    after = _item_state("curation", item_id)
+    if source == "missing":
+        assert result.status_code == (200 if route == "bulk" else 400), result.text
+        if route == "bulk":
+            assert result.json()["total_failed"] == 1
+        for key in disease:
+            assert f"entity_definition.{key}" in result.text
+        assert after == before
+    else:
+        assert result.status_code == 200, result.text
+        if route == "bulk":
+            assert result.json()["total_successful"] == 1, result.text
+        assert after[1] == "review"
+    assert after[3] == evidence
+    assert _item_state("precuration", pre_id)[3] == pre_evidence
+
+
+def test_active_curation_cannot_reenter_review_with_missing_content(
+    client: TestClient, w: W
+) -> None:
+    headers = {
+        "Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"
+    }
+    # Seed a historical active record; the transition itself must run through app_user.
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scope_memberships SET role = 'admin' WHERE scope_id = %s AND user_id = %s",
+            (str(w.scope), str(w.alice)),
+        )
+        cur.execute(
+            "INSERT INTO curations (gene_id, scope_id, workflow_pair_id, status, "
+            "workflow_stage, is_draft, created_by, evidence_data) VALUES "
+            "(%s, %s, %s, 'active', 'active', false, %s, %s) RETURNING id",
+            (
+                str(w.gene),
+                str(w.scope),
+                w.pair,
+                str(w.alice),
+                json.dumps({"kind": "AD", "answered": False}),
+            ),
+        )
+        item_id = str(cur.fetchone()[0])
+    before = _item_state("curation", item_id)
+    refused = _enter_review(
+        client, headers, "curation", item_id, "direct", int(before[2])
+    )
+    assert refused.status_code == 400, refused.text
+    assert "parent.child" in refused.text
+    assert _item_state("curation", item_id) == before

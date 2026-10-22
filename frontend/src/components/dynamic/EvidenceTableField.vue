@@ -168,11 +168,11 @@
   const lookup = usePmidLookup()
   const frame = inject(WORKSPACE_FRAME, null)
   const blockerId = `evidence-table-${getCurrentInstance()?.uid}`
+  const tablePmids = computed(() =>
+    rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
+  )
   const unknownPmids = computed(() =>
-    rows.value
-      .flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key]))
-      .filter(p => lookup.statusOf(p) === 'notfound')
-      .map(p => String(p).trim())
+    tablePmids.value.filter(p => lookup.statusOf(p) === 'notfound').map(p => String(p).trim())
   )
   watch(
     unknownPmids,
@@ -188,13 +188,13 @@
     { immediate: true }
   )
   onBeforeUnmount(() => frame?.setBlocker(blockerId, null))
-  // PMIDs loaded with a saved draft or replaced from outside are checked too, not only on blur
+  // Retry on PMID-set/editability changes, not unrelated score edits or row reordering.
   watch(
     [
-      () => rows.value.flatMap(row => columns.value.filter(c => c.pmid).map(c => row[c.key])),
+      () => JSON.stringify([...new Set(tablePmids.value)].sort()),
       () => props.disabled || props.readonly
     ],
-    ([pmids, disabled]) => !disabled && lookup.checkAll(pmids),
+    () => !props.disabled && !props.readonly && lookup.checkAll(tablePmids.value),
     { immediate: true }
   )
   // Removing a row cancels its own lookup

@@ -1,6 +1,7 @@
 """PMID preflight never holds the curation lock; stale remote results cannot submit."""
 
 import asyncio
+import json
 from concurrent.futures import ThreadPoolExecutor
 from threading import Event, Lock
 from uuid import uuid4
@@ -316,3 +317,73 @@ def test_viewer_cannot_start_remote_lookup_for_private_work(client, w, monkeypat
     response = _submit(client, w, item, "direct")
     assert response.status_code == 400, response.text
     assert not fetched
+
+
+@pytest.mark.parametrize("route", ["submit", "direct", "bulk"])
+@pytest.mark.parametrize("remove_linked_disease", [False, True])
+def test_inherited_disease_is_rechecked_after_remote_lookup(
+    client, w, monkeypatch, route, remove_linked_disease
+):
+    disease = _evidence()["entity_definition"]
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE precurations SET evidence_data = %s WHERE id = %s",
+            (json.dumps(disease), str(w.pre)),
+        )
+        if route == "bulk":
+            cur.execute(
+                "UPDATE users SET role = 'admin' WHERE id = %s", (str(w.alice),)
+            )
+    evidence = {"rows": [{"pmid": "31000001"}]}
+    made = client.post(
+        "/api/v1/curations/",
+        headers=_headers(w),
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "workflow_pair_id": w.pair,
+            "precuration_id": str(w.pre),
+            "evidence_data": evidence,
+        },
+    )
+    assert made.status_code == 201, made.text
+    item = made.json()
+    fetched = []
+
+    async def fetch(self, pmid):
+        fetched.append(pmid)
+        if remove_linked_disease:
+            # A separate connection changes the inherited source during remote I/O.
+            with _owner() as conn, conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE precurations SET evidence_data = '{}' WHERE id = %s",
+                    (str(w.pre),),
+                )
+        return PMIDValidationResult(pmid=pmid, is_valid=True)
+
+    monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
+    result = _submit(client, w, item, route)
+    assert fetched == ["31000001"]
+    loaded = client.get(f"/api/v1/curations/{item['id']}", headers=_headers(w))
+    assert loaded.status_code == 200, loaded.text
+    after = loaded.json()
+    assert after["evidence_data"] == evidence
+    if remove_linked_disease:
+        assert result.status_code == (200 if route == "bulk" else 400), result.text
+        if route == "bulk":
+            assert result.json()["total_failed"] == 1
+        assert "entity_definition.disease_name" in result.text
+        for field in (
+            "status",
+            "workflow_stage",
+            "lock_version",
+            "evidence_data",
+            "is_draft",
+        ):
+            assert after[field] == item[field]
+    else:
+        assert result.status_code == 200, result.text
+        if route == "bulk":
+            assert result.json()["total_successful"] == 1
+        assert after["workflow_stage"] == "review"
+        assert after["lock_version"] == item["lock_version"] + 1
