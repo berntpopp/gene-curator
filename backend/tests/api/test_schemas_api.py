@@ -213,6 +213,7 @@ class TestCurationSchemaWrite:
             "validation_rules",
             "workflow_states",
             "ui_configuration",
+            "is_active",
             "use_dynamic_form",
         ],
     )
@@ -223,7 +224,7 @@ class TestCurationSchemaWrite:
         admin_token: str,
         field: str,
     ):
-        """NOT NULL columns: omitting keeps the value, an explicit null is invalid input."""
+        """Required response fields: omitting keeps the value, explicit null is invalid."""
         response = client.put(
             f"{BASE}/curation-schemas/{owned_schema.id}",
             json={field: None},
