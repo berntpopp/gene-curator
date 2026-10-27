@@ -14,6 +14,7 @@ from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func as sa_func, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
@@ -141,7 +142,7 @@ class GeneSummaryService:
         Consensus and conflicts are recomputed from the visible active rows only,
         so a private scope never influences what a non-member sees.
         """
-        summary = self.compute_summary(gene_id)
+        summary = self._build(gene_id)
         member_ids = self._member_scope_ids(user)
         entries = [
             e
@@ -189,20 +190,39 @@ class GeneSummaryService:
             **agg,
         )
 
-    @timed_operation("compute_gene_summary", warning_threshold_ms=1000)
     def compute_summary(self, gene_id: UUID) -> GeneSummary:
-        """Compute or update gene summary
+        """Recompute the gene summary and store it in the gene_summaries cache.
 
-        This method aggregates data from all active curations for a gene,
-        computing classification consensus, detecting conflicts, and
-        generating per-scope summaries.
-
-        Args:
-            gene_id: UUID of the gene to summarize
-
-        Returns:
-            Updated GeneSummary record
+        Only the admin recompute endpoint writes; read endpoints use `_build`.
+        A concurrent first insert (unique gene_id) is retried once as an update.
         """
+        summary = self._build(gene_id)
+        for attempt in range(2):
+            summary.id = (
+                self.db.query(GeneSummary.id)
+                .filter(GeneSummary.gene_id == gene_id)
+                .scalar()
+            )
+            row = self.db.merge(summary)
+            try:
+                self.db.commit()
+                break
+            except IntegrityError:
+                self.db.rollback()
+                if attempt:
+                    raise
+        self.db.refresh(row)
+        return row
+
+    @timed_operation("compute_gene_summary", warning_threshold_ms=1000)
+    def _build(self, gene_id: UUID) -> GeneSummary:
+        """Aggregate the active curations of a gene into an unsaved GeneSummary.
+
+        Computes classification consensus, conflicts and per-scope summaries
+        without touching the cache table.
+        """
+        summary = GeneSummary(gene_id=gene_id, is_stale=False)
+        summary.last_computed_at = datetime.now(UTC)
         # Get all ACTIVE curations for gene via ActiveCuration table
         # This ensures we only summarize the current active curation per scope
         active_curation_records = (
@@ -219,15 +239,6 @@ class GeneSummaryService:
                 "No active curations found for gene",
                 gene_id=str(gene_id),
             )
-            summary = (
-                self.db.query(GeneSummary)
-                .filter(GeneSummary.gene_id == gene_id)
-                .first()
-            )
-            if not summary:
-                summary = GeneSummary(gene_id=gene_id)
-                self.db.add(summary)
-            # Drop anything cached from curations that are no longer active.
             summary.total_scopes_curated = 0
             summary.public_scopes_count = 0
             summary.private_scopes_count = 0
@@ -236,10 +247,6 @@ class GeneSummaryService:
             summary.has_conflicts = False
             summary.consensus_classification = None
             summary.consensus_confidence = None
-            summary.is_stale = False
-            summary.last_computed_at = datetime.now(UTC)
-            self.db.commit()
-            self.db.refresh(summary)
             return summary
 
         # Get curation IDs
@@ -279,15 +286,6 @@ class GeneSummaryService:
         }
         has_conflicts = len(unique_classifications) > 1
 
-        # Get or create summary
-        summary = (
-            self.db.query(GeneSummary).filter(GeneSummary.gene_id == gene_id).first()
-        )
-
-        if not summary:
-            summary = GeneSummary(gene_id=gene_id)
-            self.db.add(summary)
-
         # Update fields
         summary.total_scopes_curated = len(scope_ids)
         summary.public_scopes_count = public_count
@@ -295,8 +293,6 @@ class GeneSummaryService:
         summary.classification_summary = classification_summary
         summary.scope_summaries = scope_summaries
         summary.has_conflicts = has_conflicts
-        summary.is_stale = False
-        summary.last_computed_at = datetime.now(UTC)
 
         # Compute consensus (simple majority for MVP)
         if classification_summary:
@@ -309,9 +305,6 @@ class GeneSummaryService:
         else:
             summary.consensus_classification = None
             summary.consensus_confidence = None
-
-        self.db.commit()
-        self.db.refresh(summary)
 
         logger.info(
             "Gene summary computed",
@@ -340,7 +333,7 @@ class GeneSummaryService:
         """
         # Always recompute (as the full summary does): the cached row is not marked
         # stale when a scope turns private or an activation is archived.
-        summary = self.compute_summary(gene_id)
+        summary = self._build(gene_id)
         public_scope_summaries = [
             e for e in summary.scope_summaries if e.get("is_public", False)
         ]
