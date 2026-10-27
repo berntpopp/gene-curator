@@ -1888,8 +1888,8 @@ export interface paths {
         };
         /**
          * Calculate Score
-         * @description Preview the score. Rows with a malformed or unknown PMID score 0 points and are
-         *     listed in breakdown.excluded with the reason.
+         * @description Preview the score. Rows with points but no PMID, an unknown PMID or (case-level) no
+         *     real variant score 0 points and are listed in breakdown.excluded with the reason.
          */
         get: operations["calculate_score_api_v1_curations__curation_id__score_get"];
         put?: never;

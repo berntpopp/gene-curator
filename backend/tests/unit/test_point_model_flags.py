@@ -16,7 +16,9 @@ AD_NULL = "genetic_evidence.case_level.autosomal_dominant_or_x_linked.predicted_
 
 
 def _null_rows(*points: object) -> dict:
-    rows = [{"pmid": "1", "proband_counted_points": p} for p in points]
+    rows = [
+        {"pmid": "1", "variant": "c.1A>T", "proband_counted_points": p} for p in points
+    ]
     return {
         "genetic_evidence": {
             "case_level": {
@@ -60,7 +62,9 @@ def test_types_without_a_range_only_flag_non_finite_points() -> None:
         ],
         "bands": [{"class": "any"}],
     }
-    result = score(model, {"s": {"t": [{"points": 50}, {"points": "nan"}]}})
+    result = score(
+        model, {"s": {"t": [{"points": 50, "pmid": "1"}, {"points": "nan"}]}}
+    )
     assert result["total"] == 50
     assert result["trace"]["out_of_range"] == [
         {"path": "s.t[1].points", "value": "nan", "range": None}

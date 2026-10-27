@@ -18,10 +18,12 @@ def test_legacy_summary_dicts_and_stray_strings_do_not_crash():
         },
         "experimental_evidence": {
             "function": {
-                "protein_interaction": {"count": 1, "points": 0.5},
-                "biochemical_function": ["junk", {"points": 0.5}],
+                "protein_interaction": {"count": 1, "points": 0.5, "pmid": "1"},
+                "biochemical_function": ["junk", {"points": 0.5, "pmid": "1"}],
             },
-            "models": {"non_human_model_organism": {"count": 1, "points": 0.5}},
+            "models": {
+                "non_human_model_organism": {"count": 1, "points": 0.5, "pmid": "1"}
+            },
         },
     }
     result = ClinGenEngine().calculate_scores(evidence, {})

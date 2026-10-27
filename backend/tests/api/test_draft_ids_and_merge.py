@@ -154,7 +154,7 @@ def test_unknown_pmid_warns_and_scores_zero(
         {
             "path": f"{ROWS}[0]",
             "pmid": "99999999",
-            "reason": "PMID 99999999 not found in PubMed",
+            "reason": "unknown_pmid",
         }
     ]
 

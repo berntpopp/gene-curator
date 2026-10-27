@@ -13,13 +13,13 @@ from functools import cache
 from pathlib import Path
 from typing import Any
 
-from .evidence_items import has_content, rows
+from .evidence_items import has_content, indexed, rows, uncited
 
 TEMPLATES = Path(__file__).parent / "templates"
 # (type definition, evidence row) -> points; None means the row is not entered evidence
 ItemRule = Callable[[dict[str, Any], dict[str, Any]], float | None]
-# (section key, flat legacy item list) -> {category key: [item points]}
-LegacyRule = Callable[[str, list[Any], list[Any]], dict[str, list[float]]]
+# (section key, flat legacy item list, flags, excluded) -> {category key: [item points]}
+LegacyRule = Callable[[str, list[Any], list[Any], list[Any]], dict[str, list[float]]]
 
 
 @cache
@@ -74,13 +74,19 @@ def _category(
 
 
 def _type_points(
-    path: str, type_def: dict[str, Any], data: Any, rule: ItemRule, flags: list[Any]
+    path: str,
+    type_def: dict[str, Any],
+    data: Any,
+    rule: ItemRule,
+    flags: list[Any],
+    excluded: list[Any],
 ) -> list[float]:
     """Entered rows' points; rows outside the type's range are flagged, not clamped, so
-    stored totals stay reproducible. Non-finite points cannot be summed: not counted."""
+    stored totals stay reproducible. Non-finite points cannot be summed: not counted.
+    Rows with points but no citation count nothing and are listed in ``excluded``."""
     limits = type_def.get("range")
     points = []
-    for i, row in enumerate(rows(_at(data, type_def["path"]))):
+    for i, row in indexed(_at(data, type_def["path"])):
         value = rule(type_def, row)
         if value is None:
             continue
@@ -100,7 +106,9 @@ def _type_points(
                     "range": list(limits) if limits else None,  # not the cached model's
                 }
             )
-        if finite:
+        if value > 0 and (why := uncited(row, type_def.get("rule") == "case_row")):
+            excluded.append({"path": f"{path}[{i}]", **why})
+        elif finite:
             points.append(value)
     return points
 
@@ -111,10 +119,11 @@ def _section_points(
     rules: dict[str, ItemRule],
     legacy: LegacyRule | None,
     flags: list[Any],
+    excluded: list[Any],
 ) -> dict[str, dict[str, list[float]]]:
     """{category key: {type path: [item points]}} for one section's evidence."""
     if isinstance(data, list) and legacy is not None:
-        by_category = legacy(section["key"], data, flags)
+        by_category = legacy(section["key"], data, flags, excluded)
         return {
             c["key"]: {"legacy": by_category.get(c["key"], [])}
             for c in section["categories"]
@@ -126,7 +135,7 @@ def _section_points(
             rule = rules.get(type_def.get("rule", ""), default_points)
             path = f"{section['key']}.{type_def['path']}"
             out[category["key"]][type_def["path"]] = _type_points(
-                path, type_def, data, rule, flags
+                path, type_def, data, rule, flags, excluded
             )
     return out
 
@@ -157,12 +166,13 @@ def score(
     rules: dict[str, ItemRule] | None = None,
     legacy: LegacyRule | None = None,
 ) -> dict[str, Any]:
-    """Interpret ``model`` over ``evidence``: {total, class, sections, trace}."""
+    """Interpret ``model`` over ``evidence``: {total, class, sections, trace, excluded}."""
     sections = []
     flags: list[Any] = []
+    excluded: list[Any] = []
     for section in model["sections"]:
         points = _section_points(
-            section, evidence.get(section["key"]), rules or {}, legacy, flags
+            section, evidence.get(section["key"]), rules or {}, legacy, flags, excluded
         )
         categories = [_category(c, points[c["key"]]) for c in section["categories"]]
         raw = sum(c["score"] for c in categories)
@@ -196,4 +206,5 @@ def score(
         "description": band.get("description", ""),
         "sections": {s["key"]: s["score"] for s in sections},
         "trace": trace,
+        "excluded": excluded,
     }

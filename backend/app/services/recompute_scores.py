@@ -4,7 +4,9 @@ Run once after deploying 046 (Models & Rescue as one category capped at 4):
 ``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
 total or class changes is logged with its gene and old -> new total and class. Rows are
 scored with their pinned point model, custom categories included (reported); rows holding
-evidence keys that model does not score are skipped and reported with those keys.
+evidence keys that model does not score are skipped and reported with those keys. Active
+curations whose rows now lack a PMID or a real variant keep their result (counted unchanged)
+until edited and resubmitted.
 """
 
 from typing import Any, cast
@@ -16,7 +18,7 @@ from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
 from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
-from app.scoring.evidence_items import has_content
+from app.scoring.evidence_items import UNCITED, has_content
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.point_model import point_model
 from app.services.evidence_ids import score_scorable
@@ -94,6 +96,12 @@ def _save(
     return True
 
 
+def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
+    """An active curation keeps its result until resubmitted when rows now lack a citation."""
+    excluded = breakdown.get("excluded", [])
+    return status == "active" and any(e.get("reason") in UNCITED for e in excluded)
+
+
 def recompute_all_scores(db: Session) -> int:
     """Run the engine over every curation under an admin RLS context; returns the count."""
     admin = db.scalars(
@@ -108,7 +116,11 @@ def recompute_all_scores(db: Session) -> int:
     pin = (CurationNew.workflow_pair_id, CurationNew.methodology_version_id)
     curations = db.execute(
         select(
-            *cols, CurationNew.computed_verdict, *pin, Gene.approved_symbol
+            *cols,
+            CurationNew.computed_verdict,
+            *pin,
+            Gene.approved_symbol,
+            CurationNew.status,
         ).outerjoin(Gene, Gene.id == CurationNew.gene_id)
     ).all()
     # One bounded lookup for all PMIDs, as saves do: unknown ones score nothing
@@ -128,6 +140,7 @@ def recompute_all_scores(db: Session) -> int:
         pair_id,
         version_id,
         gene,
+        status,
     ) in curations:
         try:
             config = scoring_configuration(db, pair_id, version_id)
@@ -160,7 +173,9 @@ def recompute_all_scores(db: Session) -> int:
             **result.evidence_breakdown,
             "warnings": result.warnings,
         }
-        if (old_scores, old_verdict) == (scores, result.verdict):
+        if (old_scores, old_verdict) == (scores, result.verdict) or _keeps_result(
+            status, scores
+        ):
             unchanged += 1
             continue
         if not _save(db, curation_id, scores, result, old_scores, old_verdict, gene):

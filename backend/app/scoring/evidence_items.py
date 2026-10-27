@@ -2,6 +2,8 @@
 
 from typing import Any
 
+from .case_rows import is_variant
+
 
 def rows(value: Any) -> list[dict[str, Any]]:
     """Evidence items from stored data: lists lose non-dict entries; a legacy
@@ -39,3 +41,32 @@ def case_row_has_content(item: dict[str, Any], default_points: float) -> bool:
     if item.get("proband_counted_points") == default_points:
         item = {**item, "proband_counted_points": None}
     return has_content(item)
+
+
+def _blank(value: Any) -> bool:
+    return not str(value if value is not None else "").strip()
+
+
+# Reasons uncited() gives; rows with points they name score 0
+UNCITED = ("no_pmid", "no_variant", "placeholder_variant")
+
+
+def uncited(row: dict[str, Any], case_level: bool) -> dict[str, str] | None:
+    """Why a row with points scores none (owner decisions 2026-10-27/28): no PMID, or a
+    case-level row without a real variant (AD rows hold ``variant``, AR rows ``variant_1``):
+    blank is no_variant, prose without HGVS, rsID or coordinate is placeholder_variant."""
+    if _blank(row.get("pmid")):
+        return {"field": "pmid", "reason": "no_pmid"}
+    variant = "variant_1" if "variant_1" in row else "variant"
+    if case_level and _blank(row.get(variant)):
+        return {"field": variant, "reason": "no_variant"}
+    if case_level and not is_variant(row.get(variant)):
+        return {"field": variant, "reason": "placeholder_variant"}
+    return None
+
+
+def indexed(value: Any) -> list[tuple[int, dict[str, Any]]]:
+    """(index, row) pairs like ``rows``; indices stay those of the stored list, so a row
+    dropped as None (unknown PMID) does not shift the paths of the rows after it."""
+    items = value if isinstance(value, list) else rows(value)
+    return [(i, row) for i, row in enumerate(items) if isinstance(row, dict)]

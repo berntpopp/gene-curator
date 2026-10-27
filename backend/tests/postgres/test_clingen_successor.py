@@ -227,7 +227,7 @@ def test_app_user_old_pin_stays_old_and_successor_save_preview_reload_agree(
     client, w: W, legacy
 ):
     old_pin = publish(client, w, template("clingen_sop_v11"))
-    row = {"lod_score": 9 if legacy else 1.2}
+    row = {"lod_score": 9 if legacy else 1.2, "pmid": "12345678"}
     evidence = {
         "genetic_evidence": [{**row, "evidence_category": "segregation"}]
         if legacy
@@ -291,7 +291,7 @@ def test_app_user_successor_ar_blank_entered_and_manual_zero_agree(
     }
     current = create(client, w, w.genes[0], evidence)
     assert current["computed_scores"]["total_score"] == 0
-    row["pmid"] = "12345678"
+    row |= {"pmid": "12345678", "variant_1": "c.1A>T"}
     for expected in (points, 0):
         row["proband_counted_points"] = expected
         saved = client.patch(

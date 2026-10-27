@@ -21,6 +21,7 @@ from app.scoring.point_limits import (
     point_ranges,
 )
 from app.scoring.point_model import classify, point_model, score, template
+from tests.unit.test_cited_evidence import uncited_off  # noqa: F401 (fixture)
 
 pytestmark = pytest.mark.unit
 
@@ -42,6 +43,7 @@ def _golden() -> list[dict]:
     return [json.loads(line) for line in GOLDEN.read_text().splitlines()]
 
 
+@pytest.mark.usefixtures("uncited_off")
 @pytest.mark.parametrize("case", _golden(), ids=lambda c: c["verdict"])
 def test_golden_parity_with_pre_interpreter_engine(case: dict) -> None:
     """Captured from the hard-coded ClinGenEngine before it became an interpreter."""
@@ -115,7 +117,11 @@ def test_row_field_override_passes_the_static_check() -> None:
 
 
 def _row(type_def: dict, points: float) -> dict:
-    return {type_def.get("points_key", "points"): points, "pmid": PMID}
+    return {
+        type_def.get("points_key", "points"): points,
+        "pmid": PMID,
+        "variant": "c.1A>T",
+    }
 
 
 def _put(evidence: dict, path: str, rows: list) -> None:
@@ -158,8 +164,8 @@ def test_models_and_rescue_share_one_cap_of_four(
 ) -> None:
     """SOP v11 experimental matrix: Models & Rescue is one category, max 4 points."""
     experimental = {
-        "models": {"non_human_model_organism": [{"points": models}]},
-        "rescue": {"human": [{"points": rescue}]},
+        "models": {"non_human_model_organism": [{"points": models, "pmid": PMID}]},
+        "rescue": {"human": [{"points": rescue, "pmid": PMID}]},
     }
     result = ClinGenEngine().calculate_scores(
         {"experimental_evidence": experimental}, {}
@@ -167,8 +173,8 @@ def test_models_and_rescue_share_one_cap_of_four(
     assert _categories(result)["models_and_rescue"] == expected
     assert result.total_score == expected
     legacy = [
-        {"evidence_category": "models", "points": models},
-        {"evidence_category": "rescue", "points": rescue},
+        {"evidence_category": "models", "points": models, "pmid": PMID},
+        {"evidence_category": "rescue", "points": rescue, "pmid": PMID},
     ]
     flat = ClinGenEngine().calculate_scores({"experimental_evidence": legacy}, {})
     assert _categories(flat)["models_and_rescue"] == expected
@@ -184,18 +190,21 @@ def test_experimental_categories_follow_sop_v11() -> None:
 
 def test_section_and_total_caps() -> None:
     experimental = {
-        "function": {"expression": [{"points": 2}]},
-        "functional_alteration": {"patient_cells": [{"points": 2}]},
-        "models": {"cell_culture_model": [{"points": 2}]},
-        "rescue": {"cell_culture": [{"points": 1}]},
+        "function": {"expression": [{"points": 2, "pmid": PMID}]},
+        "functional_alteration": {"patient_cells": [{"points": 2, "pmid": PMID}]},
+        "models": {"cell_culture_model": [{"points": 2, "pmid": PMID}]},
+        "rescue": {"cell_culture": [{"points": 1, "pmid": PMID}]},
     }  # 7 raw
     genetic = {
         "case_level": {
             "autosomal_recessive": {
-                "predicted_or_proven_null": [{"proband_counted_points": 3}] * 4
+                "predicted_or_proven_null": [
+                    {"proband_counted_points": 3, "pmid": PMID, "variant_1": "c.1A>T"}
+                ]
+                * 4
             }
         },
-        "segregation": [{"points": 1}],
+        "segregation": [{"points": 1, "pmid": PMID}],
     }  # 13 raw
     result = ClinGenEngine().calculate_scores(
         {"genetic_evidence": genetic, "experimental_evidence": experimental}, {}
@@ -236,8 +245,12 @@ def _custom_model() -> dict:
 
 
 CUSTOM_EVIDENCE = {
-    "genetic_evidence": {"patient_registry_cohort": {"cohorts": [{}, {"points": 0.5}]}},
-    "experimental_evidence": {"rescue": {"human": [{"points": 2}]}},
+    "genetic_evidence": {
+        "patient_registry_cohort": {
+            "cohorts": [{"pmid": PMID}, {"points": 0.5, "pmid": PMID}]
+        }
+    },
+    "experimental_evidence": {"rescue": {"human": [{"points": 2, "pmid": PMID}]}},
 }
 
 
@@ -265,9 +278,14 @@ def test_plain_model_needs_no_clingen_rules() -> None:
         ],
         "bands": [{"class": "high", "min": 3}, {"class": "low"}],
     }
-    result = score(model, {"s": {"t": [{}, {}]}})
+    result = score(model, {"s": {"t": [{"pmid": PMID}, {"pmid": PMID}]}})
     assert (result["total"], result["class"]) == (4, "high")
-    assert score(model, {"s": {"t": [{}]}})["class"] == "low"
+    assert score(model, {"s": {"t": [{"pmid": PMID}]}})["class"] == "low"
+    uncited = score(model, {"s": {"t": [{}]}})  # default points need a citation too
+    assert (uncited["total"], uncited["excluded"]) == (
+        0,
+        [{"path": "s.t[0]", "field": "pmid", "reason": "no_pmid"}],
+    )
     assert score({**model, "bands": []}, {})["class"] == "no_known"
 
 
@@ -389,9 +407,11 @@ def test_update_and_submit_check_ranges_of_the_pinned_version(
     headers = {"Authorization": f"Bearer {admin_token}"}
     url = f"/api/v1/curations/{test_curation.id}"
     ok_v1 = {
-        "genetic_evidence": {"patient_registry_cohort": {"cohorts": [{"points": 1.5}]}}
+        "genetic_evidence": {
+            "patient_registry_cohort": {"cohorts": [{"points": 1.5, "pmid": PMID}]}
+        }
     }
-    ok_v2_only = {"genetic_evidence": {"segregation": [{"points": 4}]}}
+    ok_v2_only = {"genetic_evidence": {"segregation": [{"points": 4, "pmid": PMID}]}}
 
     r = client.put(
         url, json={"evidence_data": ok_v1, "lock_version": 0}, headers=headers
@@ -446,12 +466,12 @@ def test_recompute_logs_class_changes_and_skips_other_engines(
     test_curation.methodology_version_id = v1.id
     test_curation.evidence_data = {
         "genetic_evidence": {
-            "segregation": [{"points": 3}],
-            "case_control": {"single_variant_analysis": [{"points": 4}]},
+            "segregation": [{"points": 3, "pmid": PMID}],
+            "case_control": {"single_variant_analysis": [{"points": 4, "pmid": PMID}]},
         },  # 7
         "experimental_evidence": {
-            "models": {"non_human_model_organism": [{"points": 4}]},
-            "rescue": {"human": [{"points": 4}]},
+            "models": {"non_human_model_organism": [{"points": 4, "pmid": PMID}]},
+            "rescue": {"human": [{"points": 4, "pmid": PMID}]},
         },
     }  # two caps of 4 gave 7 + 6 = 13 Strong; SOP v11 one cap of 4: 7 + 4 = 11 Moderate
     test_curation.computed_scores = {"total_score": 13.0}
@@ -506,8 +526,8 @@ def test_case_control_analyses_are_summed_up_to_twelve() -> None:
     for single, aggregate, expected in ((4, 3, 7), (6, 6, 12), (6, 0, 6)):
         evidence = {
             "case_control": {
-                "single_variant_analysis": [{"points": single}],
-                "aggregate_variant_analysis": [{"points": aggregate}],
+                "single_variant_analysis": [{"points": single, "pmid": PMID}],
+                "aggregate_variant_analysis": [{"points": aggregate, "pmid": PMID}],
             }
         }
         result = ClinGenEngine().calculate_scores({"genetic_evidence": evidence}, {})
