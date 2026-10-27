@@ -238,6 +238,7 @@
                 :statistics="scopeStats"
                 @deleted="handleScopeDeleted"
               />
+              <ScopeLlmSettings v-if="scope" :scope-id="scope.id" class="mt-6" />
             </v-card-text>
           </v-window-item>
         </v-window>
@@ -287,6 +288,9 @@
   const GeneList = defineAsyncComponent(() => import('@/components/gene/GeneList.vue'))
   const CurationList = defineAsyncComponent(() => import('@/components/curation/CurationList.vue'))
   const ScopeSettings = defineAsyncComponent(() => import('@/components/scope/ScopeSettings.vue'))
+  const ScopeLlmSettings = defineAsyncComponent(
+    () => import('@/components/scope/ScopeLlmSettings.vue')
+  )
 
   // ============================================
   // COMPOSABLES & STORE

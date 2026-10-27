@@ -2,7 +2,7 @@
 
 from app.models.curation import ActiveCuration, CurationNew, PrecurationNew, Review
 from app.models.evidence import EvidenceItem, Publication
-from app.models.genes import Gene, GeneScopeAssignment, GeneSummary
+from app.models.genes import Gene, GeneScopeAssignment
 from app.models.identity import SchemaMigration, Scope, ScopeMembership, UserNew
 from app.models.llm import (
     LLMCredential,
@@ -34,7 +34,6 @@ __all__ = [
     "EvidenceItem",
     "Gene",
     "GeneScopeAssignment",
-    "GeneSummary",
     "LLMCredential",
     "LLMModel",
     "LLMProvider",

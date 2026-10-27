@@ -102,31 +102,6 @@ export const useGeneSummaryStore = defineStore('geneSummary', {
     },
 
     /**
-     * Manually recompute gene summary (admin only)
-     */
-    async recomputeSummary(geneId: string) {
-      this.loading = true
-      this.error = null
-
-      try {
-        await geneSummaryAPI.recomputeSummary(geneId)
-        // Invalidate cached summaries
-        this.publicSummaries.delete(geneId)
-        this.fullSummaries.delete(geneId)
-        logService.info('Gene summary recomputed', { geneId })
-      } catch (error) {
-        this.error = errorMessage(error, 'Failed to recompute summary')
-        logService.error('Failed to recompute summary', {
-          geneId,
-          error: toApiError(error).message
-        })
-        throw error
-      } finally {
-        this.loading = false
-      }
-    },
-
-    /**
      * Clear all summaries from store
      */
     clearSummaries() {
