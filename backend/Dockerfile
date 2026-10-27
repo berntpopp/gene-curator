@@ -1,72 +1,39 @@
-# Multi-stage build for production optimization
-FROM python:3.12-slim AS base
+# Base images are pinned by digest; Dependabot (docker ecosystem) bumps tag and digest together.
+# All dependencies ship wheels, so no compiler or libpq is installed.
+FROM ghcr.io/astral-sh/uv:0.11.28@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa AS uv
 
-# Install uv from official image (replaces curl-based install)
-COPY --from=ghcr.io/astral-sh/uv:0.11.28 /uv /uvx /usr/local/bin/
-
-# Set environment variables for Python and uv
+FROM python:3.12-slim@sha256:12316debbfb86890f6b2d825820612741ba527ad5a44e3902759141d572bfe8f AS base
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
-    UV_CACHE_DIR=/tmp/uv_cache \
-    UV_LINK_MODE=copy
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
+    UV_LINK_MODE=copy \
+    PATH="/app/.venv/bin:$PATH"
+RUN useradd --create-home --uid 1000 --shell /usr/sbin/nologin app
 WORKDIR /app
-
-# Copy dependency files
-COPY pyproject.toml uv.lock* ./
-
-# Development stage
-FROM base AS development
-
-# Create non-root user first
-RUN useradd --create-home --shell /bin/bash app
-
-# Install dependencies including dev dependencies
-RUN uv sync --frozen --extra dev && rm -rf $UV_CACHE_DIR
-
-# Copy application code with correct ownership
-COPY --chown=app:app . .
-
-# Switch to non-root user and set environment
-USER app
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Expose port
 EXPOSE 8000
 
-# Development command (will be overridden by docker-compose)
+# Development stage (docker-compose.dev.yml mounts the source over /app)
+FROM base AS development
+COPY --from=uv /uv /uvx /usr/local/bin/
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --extra dev --no-install-project
+COPY --chown=app:app . .
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --extra dev
+USER app
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
-# Production stage
-FROM base AS production
-
-# Create non-root user first
-RUN useradd --create-home --shell /bin/bash app
-
-# Enable bytecode compilation for production performance
+# Build stage: dependencies first (cached until uv.lock changes), then the code
+FROM base AS build
+COPY --from=uv /uv /usr/local/bin/
 ENV UV_COMPILE_BYTECODE=1
+COPY pyproject.toml uv.lock ./
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev --no-install-project
+COPY . .
+RUN --mount=type=cache,target=/root/.cache/uv uv sync --frozen --no-dev
 
-# Install only production dependencies (two-step for layer caching)
-RUN uv sync --frozen --no-dev --no-install-project && rm -rf $UV_CACHE_DIR
-
-# Copy application code with correct ownership
-COPY --chown=app:app . .
-
-# Install project itself (separate layer for better caching)
-RUN uv sync --frozen --no-dev && rm -rf $UV_CACHE_DIR
-
-# Switch to non-root user
+# Production stage: no uv, no build cache; code and venv stay root-owned (read-only to the app user)
+FROM base AS production
+COPY --from=build /app /app
 USER app
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Expose port
-EXPOSE 8000
-
-# Production command
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
 CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

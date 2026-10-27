@@ -1,9 +1,15 @@
 node_modules/
 dist/
 coverage/
-.env.local
-.env.development
+# Secrets and local env: the build takes its settings from build args only
+.env
+.env.*
 *.log
 .DS_Store
 .vscode/
 .idea/
+# Tests and E2E output are not build inputs
+tests/
+playwright-report/
+test-results/
+README.md
