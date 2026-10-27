@@ -22,6 +22,7 @@ from app.core.logging import configure_logging, get_logger
 from app.core.logging.database_logger import get_database_logger
 from app.middleware import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.services.llm_worker import worker_running
 
 # Configure unified logging system
 configure_logging(
@@ -45,7 +46,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         ),
         clingen_sop_version=settings.CLINGEN_SOP_VERSION,
     )
-    yield
+    async with worker_running():
+        yield
     logger.info("Shutting down Gene Curator API...")
     await get_database_logger().flush()
     await async_engine.dispose()

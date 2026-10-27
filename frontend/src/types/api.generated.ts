@@ -3997,6 +3997,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/llm-runs/{run_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Run */
+        get: operations["get_run_api_v1_llm_runs__run_id__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/curations/{curation_id}/llm-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Preview
+         * @description Exactly what a run would send for this curation with the scope's current choice.
+         */
+        get: operations["preview_api_v1_scopes__scope_id__curations__curation_id__llm_preview_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-versions/{version_id}/test-run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test Run
+         * @description Run a prompt version (draft or published) over the golden set with one model.
+         */
+        post: operations["test_run_api_v1_admin_llm_prompt_versions__version_id__test_run_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/logs/": {
         parameters: {
             query?: never;
@@ -6761,6 +6818,15 @@ export interface components {
             field_count: number;
             /** Validation Rules Count */
             validation_rules_count: number;
+        };
+        /** LLMPreview */
+        LLMPreview: {
+            /** Model Id */
+            model_id: string;
+            /** System */
+            system: string;
+            /** User */
+            user: string;
         };
         /**
          * LogEntry
@@ -9689,6 +9755,38 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+        };
+        /** TestRunCase */
+        TestRunCase: {
+            /** Case */
+            case: string;
+            /** Ok */
+            ok: boolean;
+            /** Error Code */
+            error_code: string | null;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+        };
+        /** TestRunOut */
+        TestRunOut: {
+            /** Model */
+            model: string;
+            /** Passed */
+            passed: number;
+            /** Total */
+            total: number;
+            /** Cases */
+            cases: components["schemas"]["TestRunCase"][];
+        };
+        /** TestRunRequest */
+        TestRunRequest: {
+            /**
+             * Model Id
+             * Format: uuid
+             */
+            model_id: string;
         };
         /**
          * Token
@@ -16827,6 +16925,106 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["VersionDiff"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_run_api_v1_llm_runs__run_id__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    preview_api_v1_scopes__scope_id__curations__curation_id__llm_preview_get: {
+        parameters: {
+            query: {
+                strategy: "skeptic" | "advocate";
+            };
+            header?: never;
+            path: {
+                scope_id: string;
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMPreview"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    test_run_api_v1_admin_llm_prompt_versions__version_id__test_run_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestRunRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestRunOut"];
                 };
             };
             /** @description Validation Error */

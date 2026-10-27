@@ -100,6 +100,9 @@ rotate-llm-keys: ## Re-encrypt all LLM credentials to LLM_CREDENTIAL_ACTIVE_KID 
 	cd backend && OWNER_DATABASE_URL="$${OWNER_DATABASE_URL:-postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)}" \
 		uv run python -m app.llm.rotate
 
+llm-eval: ## Opt-in: real provider over backend/tests/llm_golden (LLM_EVAL_KIND/BASE_URL/API_KEY/MODEL); never in CI
+	cd backend && uv run python -m tests.llm_golden.eval
+
 db-shell: ## Open psql in the dev DB
 	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
@@ -212,6 +215,6 @@ clean-all: ## DESTRUCTIVE: stop everything and delete Docker volumes
 	$(DC_DEV) down -v --remove-orphans
 
 .PHONY: help install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
-	prod prod-build prod-down prod-logs db-reset db-migrate rotate-llm-keys db-shell db-backup db-restore status health \
+	prod prod-build prod-down prod-logs db-reset db-migrate rotate-llm-keys llm-eval db-shell db-backup db-restore status health \
 	check format test test-postgres test-frontend test-e2e ci ci-backend ci-frontend ci-repo diff-cover \
 	api-types api-types-check workflows docker-images docker-scan clean clean-all
