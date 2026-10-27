@@ -162,3 +162,35 @@ def test_curator_and_platform_endpoints_are_forbidden(
         client.get("/api/v1/admin/llm/providers", headers=auth(scope_admin)).status_code
         == 403
     )
+
+
+def test_scope_admin_of_another_scope_and_pending_invite_get_403(
+    client: TestClient, db_session: Session, scope_admin: str, test_scope: Scope
+) -> None:
+    other = Scope(id=uuid4(), name="other", display_name="Other", is_active=True)
+    invitee = UserNew(
+        id=uuid4(),
+        email="pending@test.com",
+        hashed_password=get_password_hash("x"),
+        name="Pending",
+        role="user",
+        is_active=True,
+    )
+    db_session.add_all([other, invitee])
+    db_session.commit()
+    db_session.add(
+        ScopeMembership(
+            scope_id=test_scope.id, user_id=invitee.id, role="admin", accepted_at=None
+        )
+    )
+    db_session.commit()
+    pending = create_access_token(data={"sub": str(invitee.id)})
+    body = {"lock_version": 0, "enabled": False}
+    for token, scope_id in ((scope_admin, other.id), (pending, test_scope.id)):
+        for path in ("llm-settings", "llm-options"):
+            url = f"/api/v1/scopes/{scope_id}/{path}"
+            assert client.get(url, headers=auth(token)).status_code == 403, path
+        put = client.put(
+            f"/api/v1/scopes/{scope_id}/llm-settings", json=body, headers=auth(token)
+        )
+        assert put.status_code == 403
