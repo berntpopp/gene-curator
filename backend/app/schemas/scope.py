@@ -8,6 +8,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+SCOPE_NAME = "Scope name or display name, instead of scope_id"
+
 
 # Base Scope Schema
 class ScopeBase(BaseModel):

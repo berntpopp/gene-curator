@@ -28,6 +28,7 @@ from app.crud.review_round import (
     approving_reviewers,
     reviewers_required,
 )
+from app.crud.scope_visibility import scope_id_for
 from app.crud.workflow_engine import WorkflowEngine
 from app.models import (
     CurationNew,
@@ -51,6 +52,7 @@ from app.schemas.curation import (
     CurationWriteResult,
     lean_scores,
 )
+from app.schemas.scope import SCOPE_NAME
 from app.scoring.point_limits import enforce_clingen_point_ranges
 from app.services.curation_access import (
     _can_user_delete_curation,
@@ -140,7 +142,7 @@ def list_curations(
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
     gene_symbol: str | None = Query(None, description="Filter by gene symbol"),
-    scope_name: str | None = Query(None, description="Filter by scope name"),
+    scope_name: str | None = Query(None, description=SCOPE_NAME),
     pending_review: bool = Query(
         False,
         description="Only scopes where the caller can review, excluding their own",
@@ -154,10 +156,7 @@ def list_curations(
         gene_id := _id_for_name(db, Gene.approved_symbol, gene_symbol, gene_id)
     ):
         return empty
-    if scope_name and not (
-        scope_id := _id_for_name(db, Scope.name, scope_name, scope_id)
-    ):
-        return empty
+    scope_id = scope_id_for(db, current_user.id, scope_id, scope_name)
 
     scope_ids = None
     if pending_review:

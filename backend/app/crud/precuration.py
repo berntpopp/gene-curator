@@ -254,7 +254,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         now = _utc_now()
         db_obj = PrecurationNew(
             gene_id=obj_in.gene_id,
-            scope_id=obj_in.scope_id,
+            scope_id=scope.id,
             precuration_schema_id=obj_in.precuration_schema_id,
             evidence_data=obj_in.evidence_data,
             status=CurationStatus.DRAFT,
@@ -272,7 +272,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             # A concurrent create won the partial unique index on open drafts.
             db.rollback()
             existing = self.get_open_draft(
-                db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id, user_id=user_id
+                db, gene_id=obj_in.gene_id, scope_id=scope.id, user_id=user_id
             )
             if existing is None:
                 raise

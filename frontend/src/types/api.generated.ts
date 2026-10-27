@@ -8288,10 +8288,14 @@ export interface components {
             gene_id: string;
             /**
              * Scope Id
-             * Format: uuid
-             * @description Scope UUID
+             * @description Scope UUID, or send scope_name
              */
-            scope_id: string;
+            scope_id?: string | null;
+            /**
+             * Scope Name
+             * @description Scope name or display name, instead of scope_id
+             */
+            scope_name?: string | null;
             /**
              * Precuration Schema Id
              * @description Precuration schema UUID; default: the scope's workflow pair schema
@@ -13430,6 +13434,8 @@ export interface operations {
             query?: {
                 /** @description Filter by scope membership */
                 scope_id?: string | null;
+                /** @description Scope name, not scope_id */
+                scope_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -13918,7 +13924,7 @@ export interface operations {
                 curator_id?: string | null;
                 /** @description Filter by gene symbol */
                 gene_symbol?: string | null;
-                /** @description Filter by scope name */
+                /** @description Scope name or display name, instead of scope_id */
                 scope_name?: string | null;
                 /** @description Only scopes where the caller can review, excluding their own */
                 pending_review?: boolean;
@@ -14362,6 +14368,8 @@ export interface operations {
                 limit?: number;
                 /** @description Filter by scope */
                 scope_id?: string | null;
+                /** @description Scope name or display name, instead of scope_id */
+                scope_name?: string | null;
                 /** @description Filter by gene */
                 gene_id?: string | null;
                 /** @description Filter by status */

@@ -22,6 +22,7 @@ from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_required import MissingRequiredFieldsError
+from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew
 from app.schemas.precuration import (
     Precuration,
@@ -35,6 +36,7 @@ from app.schemas.precuration import (
     PrecurationSubmit,
     PrecurationUpdate,
 )
+from app.schemas.scope import SCOPE_NAME
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.scope_permissions import ScopePermissionService
 
@@ -80,6 +82,7 @@ def list_precurations(
         description="Max records",
     ),
     scope_id: UUID | None = Query(None, description="Filter by scope"),
+    scope_name: str | None = Query(None, description=SCOPE_NAME),
     gene_id: UUID | None = Query(None, description="Filter by gene"),
     precuration_status: CurationStatus | None = Query(
         None, description="Filter by status"
@@ -96,6 +99,7 @@ def list_precurations(
     """
     # CRITICAL: Set RLS context for current user
     set_rls_context(db, current_user)
+    scope_id = scope_id_for(db, current_user.id, scope_id, scope_name)
 
     # Determine scope filtering
     scope_ids = None
@@ -195,11 +199,18 @@ def create_precuration(
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
-    # Verify scope access
-    require(db, current_user, precuration_in.scope_id, EDIT)
+    scope_id = scope_id_for(
+        db, current_user.id, precuration_in.scope_id, precuration_in.scope_name
+    )
+    if scope_id is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Send scope_id or scope_name"
+        )
+    precuration_in = precuration_in.model_copy(update={"scope_id": scope_id})
+    require(db, current_user, scope_id, EDIT)
 
     if precuration_in.precuration_schema_id is None:
-        scope = db.get(Scope, precuration_in.scope_id)
+        scope = db.get(Scope, scope_id)
         pair = scope.default_workflow_pair if scope else None
         if pair is None or pair.precuration_schema_id is None:
             raise HTTPException(
@@ -213,7 +224,7 @@ def create_precuration(
     existing = precuration_crud.get_open_draft(
         db,
         gene_id=precuration_in.gene_id,
-        scope_id=precuration_in.scope_id,
+        scope_id=scope_id,
         user_id=current_user.id,
     )
     if existing:
