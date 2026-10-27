@@ -78,6 +78,9 @@ conflict, re-read the item and retry with its lock_version. Confirm destructive 
 with the user.
 """
 
+# Docstring sections that describe the Python function, not the tool
+_DOC_NOISE = re.compile(r"\n\s*(Args|Returns|Raises|Example[^\n:]*):\s*\n.*", re.S)
+
 # State-changing actions a client should confirm (besides every DELETE)
 _DESTRUCTIVE = re.compile(
     r"/(approve|reject|transition|bulk-transition|submit|merge|deactivate|publish)$"
@@ -139,6 +142,7 @@ def tool_names(spec: dict[str, Any]) -> dict[str, str]:
 def _annotate(route: HTTPRoute, tool: Any) -> None:
     if not isinstance(tool, Tool):
         return
+    tool.description = _DOC_NOISE.sub("", tool.description or "").strip()
     read_only = route.method == "GET"
     destructive = (
         route.method == "DELETE"

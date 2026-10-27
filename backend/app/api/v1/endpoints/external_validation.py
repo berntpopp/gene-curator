@@ -182,6 +182,7 @@ async def validate_pubmed(
 
     Validates PubMed ID using NCBI E-utilities API. Returns publication
     metadata including title, authors, and journal if valid.
+    For evidence PMIDs prefer validate_pmids (batch, and caches the publications).
 
     Caching: Results are cached for 90 days (publications are immutable).
 

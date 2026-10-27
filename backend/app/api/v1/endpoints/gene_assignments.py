@@ -367,9 +367,8 @@ def bulk_create_gene_assignments(
     bulk_request: BulkGeneScopeAssignmentCreate,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> BulkGeneScopeAssignmentResponse:
-    """
-    Bulk create gene-scope assignments. Scope admins and application admins only.
-    """
+    """Bulk create gene-scope assignments. Scope admins and application admins only;
+    curators add genes one at a time with create_gene_assignment."""
     if not ScopePermissionService.has_scope_access(
         db, current_user, bulk_request.scope_id, required_roles=_ADMINS
     ):

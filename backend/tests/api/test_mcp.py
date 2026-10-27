@@ -109,6 +109,15 @@ def test_server_instructions_and_lean_tool_descriptions(
     assert "Entry -> Precuration -> Curation -> Review -> Active" in instructions
     assert "4-eyes" in instructions
 
+    tools = rpc(client, token, "tools/list", {}).json()["result"]["tools"]
+    by_name = {t["name"]: t for t in tools}
+    assert not [t["name"] for t in tools if re.search(r"\n\s*Args:", t["description"])]
+    assert "approved precuration" in by_name["create_curation"]["description"]
+    bulk = by_name["bulk_create_gene_assignments"]["description"]
+    assert "create_gene_assignment" in bulk
+    for name in ("get_publication", "list_publications", "validate_pubmed"):
+        assert "validate_pmids" in by_name[name]["description"], name
+
 
 def test_every_api_operation_has_a_tool_except_documented_exclusions(
     client: TestClient, db_session: Session, test_user_admin: UserNew
