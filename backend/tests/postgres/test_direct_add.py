@@ -194,3 +194,43 @@ def test_exactly_one_default_pair_used_by_create_scope(
     )
     assert r.status_code == 201, r.text
     assert r.json()["default_workflow_pair_id"] == str(defaults[0][0])
+
+
+def _as_app_user(uid: UUID, sql: str, *args: str) -> None:
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+        cur.execute("SELECT set_config('app.current_user_id', %s, true)", (str(uid),))
+        cur.execute(sql, args)
+
+
+def test_member_cannot_change_own_role_but_can_accept(client: TestClient, w: W) -> None:
+    with pytest.raises(psycopg2.errors.InsufficientPrivilege):
+        _as_app_user(
+            w.cur,
+            "UPDATE scope_memberships SET role = 'admin' WHERE user_id = %s AND scope_id = %s",
+            str(w.cur),
+            str(w.scope),
+        )
+    r = client.post(
+        f"/api/v1/scopes/{w.scope}/invitations",
+        json={"user_id": str(w.c), "role": "viewer"},
+        headers=_h(w.sadmin),
+    )
+    assert r.status_code == 201, r.text
+    ok = client.post(
+        f"/api/v1/scopes/{w.scope}/invitations/{r.json()['id']}/accept",
+        headers=_h(w.c),
+    )
+    assert ok.status_code == 200, ok.text
+    r = client.post(
+        f"/api/v1/scopes/{w.scope}/invitations",
+        json={"user_id": str(w.b), "role": "viewer"},
+        headers=_h(w.sadmin),
+    )
+    no = client.post(f"/api/v1/invitations/{r.json()['id']}/decline", headers=_h(w.b))
+    assert no.status_code == 204, no.text  # declining (is_active -> false) still works
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT role FROM scope_memberships WHERE user_id = %s AND scope_id = %s",
+            (str(w.cur), str(w.scope)),
+        )
+        assert cur.fetchone() == ("curator",)
