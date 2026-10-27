@@ -54,6 +54,8 @@ def stage_reviewer(
     item: CurationNew | PrecurationNew,
     reviewer_id: UUID,
     assigned_by: UUID,
+    *,
+    on_submit: bool = False,
 ) -> Review | None:
     """Check the reviewer and add the review row (curations) and notification, uncommitted,
     so a submit can route its item in the same transaction. None for a precuration."""
@@ -71,6 +73,8 @@ def stage_reviewer(
     review = None
     if isinstance(item, CurationNew):
         if has_pending_review(db, item.id, reviewer_id):
+            if on_submit:  # a resubmit already reassigned this earlier reviewer
+                return None
             raise ValueError("Reviewer already has a pending review")
         review = Review(
             curation_id=item.id,

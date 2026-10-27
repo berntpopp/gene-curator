@@ -274,7 +274,7 @@ class WorkflowEngine:
                 db, item, item_type, current_stage, target_stage, user_id
             )
             if reviewer_id:  # same rules as assign-reviewer, same transaction
-                stage_reviewer(db, item, reviewer_id, user_id)
+                stage_reviewer(db, item, reviewer_id, user_id, on_submit=True)
 
             transition = WorkflowTransition(
                 item_id=item_id,

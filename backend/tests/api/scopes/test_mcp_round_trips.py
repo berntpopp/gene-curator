@@ -201,3 +201,34 @@ def test_submit_precuration_and_transition_route_to_reviewer(
         select(NotificationNew.link).where(NotificationNew.user_id == reviewer.id)
     ).all()
     assert {str(p.id) in link for link in links} == {True, False}
+
+
+def test_resubmit_with_the_earlier_reviewer_succeeds(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """A resubmit reassigns earlier reviewers itself; naming the same one is no conflict."""
+    c = _draft_curation(db_session, scope_with_admin, curator)
+    url = f"/api/v1/curations/{c.id}"
+    h = auth_headers(curator)
+    for _ in range(2):
+        lock = client.get(url, headers=h).json()["lock_version"]
+        r = client.post(
+            f"{url}/submit",
+            json={"lock_version": lock, "reviewer_id": str(reviewer.id)},
+            headers=h,
+        )
+        assert r.status_code == 200, r.text
+        back = client.post(
+            f"/api/v1/workflow/curation/{c.id}/transition",
+            json={"target_stage": "curation", "notes": "Add segregation data"},
+            headers=auth_headers(reviewer),
+        )
+        assert back.status_code == 200, back.text
+    statuses = db_session.scalars(
+        select(Review.status).where(Review.curation_id == c.id)
+    ).all()
+    assert len(statuses) == 2  # one review per round, none duplicated
