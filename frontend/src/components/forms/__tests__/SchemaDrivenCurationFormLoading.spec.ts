@@ -29,6 +29,9 @@ vi.mock('@/stores/schemas', () => ({
     fetchPinnedVersion: () => h.schema
   })
 }))
+vi.mock('@/stores/workflow', () => ({
+  useWorkflowStore: () => ({ validateTransition: async () => ({ missing_fields: [] }) })
+}))
 vi.mock('@/stores/curations', () => ({
   useCurationsStore: () => ({
     get currentCuration() {

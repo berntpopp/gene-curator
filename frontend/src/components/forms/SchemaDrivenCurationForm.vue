@@ -129,6 +129,7 @@
   import type { Schema } from '@/types/api'
   import type { ApiErrorLike, PrecurationData } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
+  import { useDiseaseGap } from './useDiseaseGap'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent, hasDisputingRow } from './hasContent'
   import { scoreSnapshot } from './scorePreview'
@@ -340,6 +341,13 @@
           : null
       )
   )
+  // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
+  useDiseaseGap({
+    curationId: () => (props.readonly ? undefined : (props.curationId ?? undefined)),
+    linked: () => !!curationsStore.currentCuration?.precuration_id,
+    checkAt: savedAt,
+    report: message => frame?.setBlocker('curation-disease', message)
+  })
   watch(score, s => frame?.setScore(s))
   watch(
     precurationData,
@@ -352,9 +360,10 @@
   )
 
   async function requestSubmit() {
+    // A focused cell's edit may be what allows submitting (#406): commit it before checking.
     // The frame adds its blockers (unknown PMIDs); never submit over a save in flight
-    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
     await commitFocusedCell()
+    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
     const ok = await confirm({
       title: 'Submit for review',
       text: `Submit this curation for ${props.gene?.symbol ?? 'this gene'} for review? It is locked for editing until the review is complete.`,

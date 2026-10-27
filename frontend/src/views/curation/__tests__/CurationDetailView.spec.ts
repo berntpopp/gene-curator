@@ -321,6 +321,23 @@ describe('CurationDetailView', () => {
     expect(wrapper.findComponent(ApproveChecklistDialog).props('modelValue')).toBe(true)
   })
 
+  // #406: the approve blocker names the record like the diff does, not by its position
+  it('names approve blockers by their record label', async () => {
+    useAuthStore().user = { id: 'bob' } as never
+    const { reviewCommentsAPI } = await import('@/api/reviewComments')
+    vi.mocked(reviewCommentsAPI.getDiff).mockResolvedValueOnce({
+      baseline: null,
+      items: [{ path: 'g.null_variants[0].points', change: 'changed', before: 1, after: 2 }]
+    } as never)
+    const wrapper = await load({
+      can_review: true,
+      created_by: 'alice',
+      evidence_data: { g: { null_variants: [{ proband_label: 'Patient 1', points: 2 }] } }
+    })
+    const blockers = wrapper.findComponent(ApproveChecklistDialog).props('blockers')
+    expect(blockers.map((b: { label: string }) => b.label)).toEqual(['Null variants · Patient 1'])
+  })
+
   it('prefills request changes with the open queries as to-dos', async () => {
     useAuthStore().user = { id: 'bob' } as never
     const { useReviewStore } = await import('@/stores/review')

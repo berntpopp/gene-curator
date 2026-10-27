@@ -498,13 +498,17 @@
   const showReviewDiff = computed(
     () => curation.value.status === 'in_review' || curation.value.status === 'draft'
   )
+  const reviewContext = computed(() => ({ fields: schemaFields.value, evidence: evidence.value }))
   // A review that is not loaded (failed, or another curation's) must block approval, never pass
   const blockers = computed(() =>
     reviewStore.ready(curationId.value)
-      ? approveBlockers(groupDiff(reviewStore.diff?.items ?? []), reviewStore.comments, myId.value)
+      ? approveBlockers(
+          groupDiff(reviewStore.diff?.items ?? [], reviewContext.value),
+          reviewStore.comments,
+          myId.value
+        )
       : [{ key: '', label: 'The review has not loaded' }]
   )
-  const reviewContext = computed(() => ({ fields: schemaFields.value, evidence: evidence.value }))
   const todos = computed(() =>
     queryTodos(curation.value?.created_by ?? '', reviewStore.comments, reviewContext.value)
   )

@@ -93,6 +93,13 @@ def test_entering_review_needs_the_required_fields(
 
     assert "Missing required fields: detail" in errors({"kind": "other"})
     assert errors({"kind": "AD"}) == []
+    # The form reads the paths to explain a gap it cannot fix itself (#453)
+    item.evidence_data = {"kind": "other"}
+    db_session.commit()
+    result = engine.validate_transition(
+        db_session, current, S.REVIEW, creator.id, item.id, item_type
+    )
+    assert result.missing_fields == ["detail"]
 
 
 def test_a_re_review_of_an_active_curation_requires_complete_content(

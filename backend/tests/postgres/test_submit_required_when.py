@@ -487,6 +487,19 @@ def test_linked_disease_is_validated_without_copying_it_into_curation(
     item_id = made.json()["id"]
     assert made.json()["methodology_version_id"]
     before = _item_state("curation", item_id)
+    # The form's early hint (#453): the same pinned check as a dry run, changing nothing
+    hint = client.post(
+        f"/api/v1/workflow/curation/{item_id}/validate-transition",
+        json={"target_stage": "review"},
+        headers=headers,
+    )
+    assert hint.status_code == 200, hint.text
+    assert sorted(hint.json()["missing_fields"]) == (
+        sorted(f"entity_definition.{key}" for key in disease)
+        if source == "missing"
+        else []
+    )
+    assert _item_state("curation", item_id) == before
     result = _enter_review(client, headers, "curation", item_id, route, int(before[2]))
     after = _item_state("curation", item_id)
     if source == "missing":

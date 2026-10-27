@@ -124,17 +124,13 @@ describe('groupDiff, first review (whole sections added)', () => {
     ])
   })
 
-  it('keeps one "none" row for an empty value added or removed', () => {
+  // #406: a first submission lists empty sections as added; there is nothing to review in them
+  it('drops an empty value added, keeps one "none" row for an empty record removed', () => {
     const groups = groupDiff([
       { path: 'contradictory_evidence', change: 'added', before: null, after: [] },
       { path: 'g.cases[r9]', change: 'removed', before: { id: 'r9', note: '' }, after: null }
     ])
     expect(groups.map(g => [g.key, g.change, g.fields])).toEqual([
-      [
-        'contradictory_evidence',
-        'added',
-        [{ name: '', label: '', change: 'added', before: undefined, after: 'none' }]
-      ],
       [
         'g.cases[r9]',
         'removed',

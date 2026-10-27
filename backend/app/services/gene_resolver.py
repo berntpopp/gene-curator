@@ -6,7 +6,8 @@ from dataclasses import dataclass, field
 from typing import Literal
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import ARRAY, Text, cast, func, or_, select
+from sqlalchemy.dialects.postgresql import array
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -60,16 +61,24 @@ def _classify(token: str, genes: list[_Gene]) -> tuple[MatchType, list[_Gene]] |
 def _local_genes(db: Session, tokens: set[str]) -> list[_Gene]:
     keys = {t.upper() for t in tokens}
     ids = {f"HGNC:{m.group(1)}" for t in tokens if (m := _HGNC_ID.match(t))}
-    rows = db.execute(
-        select(
-            Gene.id,
-            Gene.hgnc_id,
-            Gene.approved_symbol,
-            Gene.previous_symbols,
-            Gene.alias_symbols,
-        )
-    ).all()
-    # ponytail: scans the whole genes table (cols only); index prev/alias if it outgrows ~50k rows
+    query = select(
+        Gene.id,
+        Gene.hgnc_id,
+        Gene.approved_symbol,
+        Gene.previous_symbols,
+        Gene.alias_symbols,
+    )
+    # Postgres prefilters on the indexed expressions of migration 052; SQLite (unit tests) has no
+    # upper_text_array and scans. The Python filter below stays the single matching rule.
+    wanted = cast(array(sorted(keys)), ARRAY(Text))
+    indexed = or_(
+        func.upper(Gene.approved_symbol).in_(keys),
+        func.upper(Gene.hgnc_id).in_(ids),
+        func.upper_text_array(Gene.previous_symbols).op("&&")(wanted),
+        func.upper_text_array(Gene.alias_symbols).op("&&")(wanted),
+    )
+    postgres = db.get_bind().dialect.name == "postgresql"
+    rows = db.execute(query.where(indexed) if postgres else query).all()
     return [
         _Gene(
             r.hgnc_id,

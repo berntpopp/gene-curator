@@ -25,6 +25,7 @@ from app.main import app
 pytestmark = pytest.mark.postgres
 
 MIGRATION = Path(__file__).parents[3] / "database/sql/037_review_item_comments.sql"
+HARDENING = Path(__file__).parents[3] / "database/sql/051_reviewer_policy_hardening.sql"
 
 
 @dataclass
@@ -370,6 +371,9 @@ def test_migration_is_idempotent_and_self_recording() -> None:
         cur.execute(sql)
         cur.execute(sql)
         cur.execute(
+            HARDENING.read_text()
+        )  # 051 replaces two 037 policies; restore head state
+        cur.execute(
             "SELECT count(*) FROM schema_migrations WHERE filename = '037_review_item_comments.sql'"
         )
         assert cur.fetchone()[0] == 1
@@ -566,3 +570,41 @@ def test_security_definer_helpers_pin_their_search_path() -> None:
     assert len(rows) == 3
     for name, config in rows:
         assert "search_path=public, pg_temp" in (config or []), name
+
+
+def test_only_the_accepting_reviewer_withdraws_an_accept(
+    world: World, db: Session
+) -> None:
+    """#375: no scope admin or other reviewer flips someone else's accept."""
+    row = _accepted_row(world)
+    assert _update(db, world.scope_admin, row, "status = 'resolved'") in (0, -1)
+    assert _update(db, world.reviewer, row, "status = 'resolved'") == 1
+
+
+@pytest.mark.parametrize("demoted_to", ["curator", "viewer"])
+def test_a_demoted_reviewer_cannot_flip_their_accept(
+    world: World, db: Session, demoted_to: str
+) -> None:
+    """#375: the author policy alone no longer lets a former reviewer change an accept."""
+    row = _accepted_row(world)
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scope_memberships SET role = %s WHERE scope_id = %s AND user_id = %s",
+            (demoted_to, str(world.scope), str(world.reviewer)),
+        )
+    assert _update(db, world.reviewer, row, "status = 'resolved'") in (0, -1)
+    # their own query stays theirs to edit
+    assert _update(db, world.reviewer, world.comment, "body = 'Still?'") == 1
+
+
+def test_api_scope_admin_cannot_withdraw_a_reviewers_accept(
+    client: TestClient, world: World
+) -> None:
+    row = _accepted_row(world)
+    url = f"/api/v1/curations/{world.curation}/review-comments/{row}"
+    denied = client.patch(
+        url, json={"status": "resolved"}, headers=_auth(world.scope_admin)
+    )
+    assert denied.status_code == 403
+    ok = client.patch(url, json={"status": "resolved"}, headers=_auth(world.reviewer))
+    assert ok.status_code == 200, ok.text
