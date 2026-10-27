@@ -242,7 +242,7 @@ def test_app_user_old_pin_stays_old_and_successor_save_preview_reload_agree(
     assert new["computed_scores"]["total_score"] == 0
     for current in (old, new):
         saved = client.patch(
-            f"/api/v1/curations/{current['id']}/draft",
+            f"/api/v1/curations/{current['id']}/draft?detail=true",
             json={"evidence_data": evidence, "lock_version": current["lock_version"]},
             headers=_h(w.alice),
         )
@@ -293,7 +293,7 @@ def test_app_user_successor_ar_blank_entered_and_manual_zero_agree(
     for expected in (points, 0):
         row["proband_counted_points"] = expected
         saved = client.patch(
-            f"/api/v1/curations/{current['id']}/draft",
+            f"/api/v1/curations/{current['id']}/draft?detail=true",
             json={"evidence_data": evidence, "lock_version": current["lock_version"]},
             headers=_h(w.alice),
         )
@@ -360,7 +360,7 @@ def test_app_user_untouched_segregation_default_differs_from_assigned_zero(
         else:
             row["points"] = points
         saved = client.patch(
-            f"/api/v1/curations/{current['id']}/draft",
+            f"/api/v1/curations/{current['id']}/draft?detail=true",
             headers=_h(w.alice),
             json={"evidence_data": evidence, "lock_version": current["lock_version"]},
         )

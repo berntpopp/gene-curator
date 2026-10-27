@@ -97,7 +97,7 @@ export const identityRows: Row[] = [
     name: 'schemas.getSchemas',
     run: () => schemasAPI.getSchemas({ q: 1 }),
     method: 'get',
-    args: ['/schemas/curation-schemas', { params: { q: 1 } }]
+    args: ['/schemas/curation-schemas', { params: { detail: true, q: 1 } }]
   },
   {
     name: 'schemas.getSchemaById',

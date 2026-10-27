@@ -262,6 +262,60 @@ class CurationScoreResponse(BaseModel):
     calculated_at: datetime
 
 
+class CurationWriteResult(BaseModel):
+    """Concise result of a save or submit; detail=true returns the full curation."""
+
+    id: UUID
+    status: CurationStatus
+    workflow_stage: WorkflowStage
+    lock_version: int
+    total_score: float | None
+    verdict: str | None
+    warnings: list[str] = Field(default_factory=list, description="Scoring warnings")
+
+    model_config = ConfigDict(use_enum_values=True)
+
+    @classmethod
+    def of(cls, curation: Any) -> "CurationWriteResult":
+        scores = curation.computed_scores or {}
+        return cls(
+            id=curation.id,
+            status=curation.status,
+            workflow_stage=curation.workflow_stage,
+            lock_version=curation.lock_version,
+            total_score=scores.get("total_score"),
+            verdict=curation.computed_verdict,
+            warnings=scores.get("warnings") or [],
+        )
+
+
+def lean_scores(scores: dict[str, Any]) -> dict[str, Any]:
+    """computed_scores without the trace's zero-point rows (types with no items and no
+    points, then categories left empty with no points)."""
+    trace = scores.get("trace")
+    if not isinstance(trace, dict):
+        return scores
+
+    def lean(category: dict[str, Any]) -> dict[str, Any]:
+        types = [
+            t for t in category.get("types", []) if t.get("score") or t.get("items")
+        ]
+        return {**category, "types": types}
+
+    sections = [
+        {
+            **section,
+            "categories": [
+                c
+                for c in map(lean, section.get("categories", []))
+                if c["types"] or c.get("score") or c.get("raw")
+            ],
+        }
+        for section in trace.get("sections", [])
+    ]
+    return {**scores, "trace": {**trace, "sections": sections}}
+
+
 class CurationConflictResponse(BaseModel):
     """409 Conflict response for optimistic locking."""
 

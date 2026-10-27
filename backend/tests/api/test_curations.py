@@ -340,7 +340,7 @@ class TestCurationUpdate:
 
         # Act
         response = client.put(
-            f"/api/v1/curations/{test_curation.id}",
+            f"/api/v1/curations/{test_curation.id}?detail=true",
             json=update_data,
             headers={"Authorization": f"Bearer {admin_token}"},
         )
@@ -419,7 +419,7 @@ class TestCurationDraft:
 
         # Act
         response = client.patch(
-            f"/api/v1/curations/{test_curation.id}/draft",
+            f"/api/v1/curations/{test_curation.id}/draft?detail=true",
             json=draft_data,
             headers={"Authorization": f"Bearer {admin_token}"},
         )

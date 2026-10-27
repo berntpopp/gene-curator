@@ -66,6 +66,11 @@ class TestCurationSchemaRead:
         assert response.status_code == 200
         names = [s["name"] for s in response.json()]
         assert names == ["Active One"]
+        assert "field_definitions" not in response.json()[0]  # summary rows by default
+        full = client.get(
+            f"{BASE}/curation-schemas?detail=true", headers=auth(viewer_token)
+        ).json()
+        assert "field_definitions" in full[0]
 
     def test_list_active_only_false_includes_inactive(
         self, client: TestClient, db_session: Session, admin_token: str

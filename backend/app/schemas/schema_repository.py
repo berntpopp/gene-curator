@@ -102,6 +102,19 @@ class CurationSchema(CurationSchemaInDBBase):
     pass
 
 
+class CurationSchemaSummary(BaseModel):
+    """One row of the schema list; detail=true lists full schemas."""
+
+    id: UUID
+    name: str
+    version: str
+    schema_type: str
+    institution: str | None = None
+    is_active: bool
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class MethodologyVersion(BaseModel):
     """An immutable, numbered snapshot of a curation schema."""
 

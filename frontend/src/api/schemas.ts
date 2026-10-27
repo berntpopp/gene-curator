@@ -7,8 +7,9 @@ export const schemasAPI = {
    * Get all curation schemas
    */
   async getSchemas(params: Record<string, unknown> = {}): Promise<Schema<'CurationSchema'>[]> {
+    // Full schemas for the UI; the API lists summary rows by default
     const response = await apiClient.get<Schema<'CurationSchema'>[]>('/schemas/curation-schemas', {
-      params
+      params: { detail: true, ...params }
     })
     return response.data
   },

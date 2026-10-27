@@ -4890,6 +4890,27 @@ export interface components {
             use_dynamic_form: boolean;
         };
         /**
+         * CurationSchemaSummary
+         * @description One row of the schema list; detail=true lists full schemas.
+         */
+        CurationSchemaSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Schema Type */
+            schema_type: string;
+            /** Institution */
+            institution?: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /**
          * CurationSchemaUpdate
          * @description Schema for updating a curation schema.
          */
@@ -5046,6 +5067,30 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+        };
+        /**
+         * CurationWriteResult
+         * @description Concise result of a save or submit; detail=true returns the full curation.
+         */
+        CurationWriteResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Lock Version */
+            lock_version: number;
+            /** Total Score */
+            total_score: number | null;
+            /** Verdict */
+            verdict: string | null;
+            /**
+             * Warnings
+             * @description Scoring warnings
+             */
+            warnings?: string[];
         };
         /**
          * CuratorAssignmentRequest
@@ -11657,6 +11702,8 @@ export interface operations {
                 institution?: string | null;
                 /** @description Filter for active schemas only */
                 active_only?: boolean;
+                /** @description Full schemas (fields, scoring, UI) instead of summary rows */
+                detail?: boolean;
             };
             header?: never;
             path?: never;
@@ -11670,7 +11717,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurationSchema"][];
+                    "application/json": components["schemas"]["CurationSchema"][] | components["schemas"]["CurationSchemaSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -13645,7 +13692,10 @@ export interface operations {
     };
     get_curation_api_v1_curations__curation_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Keep the score trace's zero-point rows */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13676,7 +13726,10 @@ export interface operations {
     };
     update_curation_api_v1_curations__curation_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13695,7 +13748,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13749,7 +13802,10 @@ export interface operations {
     };
     save_draft_api_v1_curations__curation_id__draft_patch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13768,7 +13824,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13793,7 +13849,10 @@ export interface operations {
     };
     submit_curation_api_v1_curations__curation_id__submit_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13812,7 +13871,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */

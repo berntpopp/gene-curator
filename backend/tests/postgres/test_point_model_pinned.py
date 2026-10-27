@@ -55,7 +55,7 @@ def test_saves_score_with_the_pinned_point_model(client: TestClient, w: W) -> No
     assert new["computed_scores"]["trace"]["total"] == 1.5
 
     saved = client.patch(
-        f"/api/v1/curations/{old['id']}/draft",
+        f"/api/v1/curations/{old['id']}/draft?detail=true",
         json={"evidence_data": CUSTOM_EVIDENCE, "lock_version": old["lock_version"]},
         headers=_h(w.alice),
     )
