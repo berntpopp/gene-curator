@@ -282,15 +282,17 @@ def test_update_gene_hgnc_conflict_and_missing(
     client: TestClient,
     db_session: Session,
     curator_token: str,
+    admin_token: str,
     test_gene: Gene,
     test_user_admin: UserNew,
 ) -> None:
     _gene(db_session, test_user_admin, "HGNC:4000", "OTHER")
 
+    # Repointing is platform-admin only (#478)
     conflict = client.put(
         f"{BASE}/{test_gene.id}",
         json={"hgnc_id": "HGNC:4000"},
-        headers=_auth(curator_token),
+        headers=_auth(admin_token),
     )
     assert conflict.status_code == 400
 
