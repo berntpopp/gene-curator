@@ -118,7 +118,8 @@ export const useScopesStore = defineStore('scopes', () => {
       // Update in list if exists
       const index = scopes.value.findIndex(s => s.id === scopeId)
       if (index !== -1) {
-        scopes.value[index] = scope
+        // The detail response has no user_role; keep the one from the list (nav depends on it)
+        scopes.value[index] = { ...scopes.value[index], ...scope }
       } else {
         scopes.value.push(scope)
       }

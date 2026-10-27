@@ -231,4 +231,25 @@ def _reviews_waiting_done(
         ):
             items.append(_item(r, "done", "done", f"Finished {kind}", link))
 
+    # My own approvals as reviewer (#391); requested changes go back to the curator
+    my_approval = exists().where(
+        Review.curation_id == CurationNew.id,
+        Review.reviewer_id == user.id,
+        Review.status == ReviewStatus.APPROVED,
+        Review.reviewed_at >= cutoff,
+    )
+    for r in rows(
+        CurationNew, "curation", CurationNew.created_by != user.id, my_approval
+    ):
+        items.append(_item(r, "done", "done", "Approved curation", cview))
+    for r in rows(
+        PrecurationNew,
+        "precuration",
+        PrecurationNew.created_by != user.id,
+        PrecurationNew.updated_by == user.id,
+        PrecurationNew.status == _S.APPROVED,
+        PrecurationNew.updated_at >= cutoff,
+    ):
+        items.append(_item(r, "done", "done", "Approved precuration", pview))
+
     return items
