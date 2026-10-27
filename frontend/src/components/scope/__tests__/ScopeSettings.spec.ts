@@ -56,7 +56,8 @@ const pair = {
   description: 'Standard workflow',
   precuration_schema_id: 'sch-pre',
   curation_schema_id: 'sch-cur',
-  is_active: true
+  is_active: true,
+  is_default: true
 }
 const schemas = [
   { id: 'sch-pre', name: 'Precuration v1' },

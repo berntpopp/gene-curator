@@ -66,6 +66,8 @@ def create_scope(
 
     Any authenticated user can create a scope and automatically becomes an admin
     of that scope. This follows GitHub's model where anyone can create an organization.
+    Without default_workflow_pair_id the scope gets the pair marked is_default=true
+    in get_workflow_pairs.
 
     Args:
         db: Database session
@@ -96,14 +98,17 @@ def create_scope(
             detail=f"Scope with name '{scope_in.name}' already exists. Please choose a different name.",
         )
 
-    pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
+    if scope_in.default_workflow_pair_id is None:
+        pair = db.scalar(select(WorkflowPair).where(WorkflowPair.is_default))
+    else:
+        pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
     if not pair or not pair.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Workflow pair not found or inactive",
         )
 
-    # Create scope
+    scope_in.default_workflow_pair_id = pair.id
     scope = scope_crud.create_with_owner(db, obj_in=scope_in, owner_id=current_user.id)
 
     logger.debug(

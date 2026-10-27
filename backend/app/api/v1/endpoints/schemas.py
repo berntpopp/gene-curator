@@ -439,7 +439,9 @@ def get_workflow_pairs(
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> Sequence[WorkflowPair]:
     """
-    Retrieve workflow pairs with optional filtering.
+    List workflow pairs (methodologies). Each pairs a precuration schema with a
+    curation schema; they differ in those schemas and their scoring. The pair with
+    is_default=true is what create_scope uses when no default_workflow_pair_id is given.
     """
     workflow_pairs = workflow_pair_crud.get_multi(
         db, skip=skip, limit=limit, active_only=active_only
