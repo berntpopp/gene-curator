@@ -5,17 +5,20 @@ from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
+from starlette.concurrency import run_in_threadpool
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.types import ASGIApp
 
 from app.core.api_config import get_feature_flags, get_rate_limit
-from app.core.security import verify_token
+from app.core.security import PAT_PREFIX, verify_token
+from app.mcp.audit import is_internal
+from app.mcp.auth import pat_owner
 
 MAX_BUCKETS = 10_000
 
 
 class RateLimitMiddleware(BaseHTTPMiddleware):
-    """Per user (valid bearer token) or per client IP; off unless features.enable_rate_limiting.
+    """Per user (valid JWT or personal access token) or per client IP; off unless features.enable_rate_limiting.
 
     ponytail: buckets live in process memory, so each uvicorn worker limits on its own;
     move to Redis if exact cross-worker limits matter. Anonymous clients are keyed by
@@ -29,13 +32,22 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(
         self, request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
-        if not get_feature_flags().enable_rate_limiting:
+        # In-process MCP calls were already counted on their /mcp request
+        if not get_feature_flags().enable_rate_limiting or is_internal(request.scope):
             return await call_next(request)
 
         auth = request.headers.get("Authorization", "")
-        payload = verify_token(auth[7:]) if auth.lower().startswith("bearer ") else None
+        bearer = auth[7:] if auth.lower().startswith("bearer ") else ""
+        pat = (
+            await run_in_threadpool(pat_owner, request.app, bearer)
+            if bearer.startswith(PAT_PREFIX)
+            else None
+        )
+        payload = verify_token(bearer) if bearer and pat is None else None
+        if pat:  # personal access tokens share their owner's bucket
+            key, tier = f"user:{pat[0]}", "authenticated"
         # Refresh tokens are not bearer credentials: they stay in the IP bucket
-        if payload and payload.get("sub") and payload.get("type") != "refresh":
+        elif payload and payload.get("sub") and payload.get("type") != "refresh":
             key = f"user:{payload['sub']}"
             tier = "admin" if payload.get("role") == "admin" else "authenticated"
         else:

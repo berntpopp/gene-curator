@@ -144,10 +144,27 @@ Details are in [AGENTS.md](AGENTS.md).
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
 Vuetify 4 · PostgreSQL 15.
 
+## MCP server
+
+Gene Curator is also an MCP server at `<API base URL>/mcp`, so Claude Code, Claude Desktop or an
+agent can work as you: every tool is an existing API endpoint and runs with your identity, scope
+roles, row-level security and four-eyes rules. Create a personal access token under
+**Access tokens** in the user menu, then:
+
+```bash
+claude mcp add --transport http gene-curator http://localhost:8051/mcp \
+  --header "Authorization: Bearer gc_pat_..."
+```
+
+Writes are audited with channel `mcp` and the token name. Claude Desktop, revocation and the tool
+list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). OAuth 2.1 sign-in
+and dynamic client registration come in phase 2. Existing databases need `make db-migrate` (057).
+
 ## Documentation
 
 - [AGENTS.md](AGENTS.md): developer and coding-agent guide (setup, commands, architecture, rules)
 - [CONTRIBUTING.md](CONTRIBUTING.md): how to propose changes
+- [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md): connecting MCP clients with a token
 - API reference: http://localhost:8051/docs (interactive OpenAPI) while the backend runs
 - `backend/docs/`: architecture and schema format notes
 

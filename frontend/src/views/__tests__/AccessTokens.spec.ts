@@ -78,6 +78,11 @@ describe('AccessTokens view', () => {
     expect(Math.round(days)).toBe(90) // default expiry
     expect(vm.showToken).toBe(true)
     expect(vm.plaintext).toBe(SECRET)
+    expect(vm.mcpCommand).toMatch(
+      new RegExp(
+        `^claude mcp add --transport http gene-curator \\S+/mcp --header "Authorization: Bearer ${SECRET}"$`
+      )
+    )
     expect(useTokensStore().tokens[0]).not.toHaveProperty('token')
 
     call(vm, 'closeToken')
@@ -104,10 +109,10 @@ describe('AccessTokens view', () => {
     const w = await mountView()
     const vm = vmOf(w)
     vm.plaintext = SECRET
-    await call(vm, 'copy')
+    await call(vm, 'copy', SECRET)
     expect(writeText).toHaveBeenCalledWith(SECRET)
-    expect(showSuccess).toHaveBeenCalledWith('Token copied')
-    await call(vm, 'copy')
+    expect(showSuccess).toHaveBeenCalledWith('Copied')
+    await call(vm, 'copy', SECRET)
     expect(showError).toHaveBeenCalled()
   })
 
