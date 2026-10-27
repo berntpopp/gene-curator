@@ -183,11 +183,29 @@ def score_scorable(
     return result
 
 
-def check_submittable(
-    db: Session, evidence: Any, definition: dict[str, Any], lookup: bool
-) -> None:
-    """422 naming each field path: schema errors (required fields are checked at review
-    entry), malformed IDs and, with ``lookup``, ontology IDs upstream reports unknown."""
+class InvalidEvidenceError(ValueError):
+    """Review entry refused: values that fail the schema or the ID formats, by path."""
+
+    def __init__(self, errors: list[EvidenceWarning]) -> None:
+        listed = "; ".join(f"{e.path}: {e.message}" for e in errors)
+        super().__init__(f"Evidence has invalid values: {listed}")
+        self.errors = errors
+
+
+def unprocessable(error: InvalidEvidenceError) -> HTTPException:
+    """422 listing each {path, message}."""
+    return HTTPException(
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        detail={
+            "message": "Evidence has invalid values; fix these fields and resubmit",
+            "errors": [e.model_dump() for e in error.errors],
+        },
+    )
+
+
+def evidence_errors(evidence: Any, definition: dict[str, Any]) -> list[EvidenceWarning]:
+    """Network-free, by path: schema errors (required fields are checked separately) and
+    malformed PMID, MONDO, OMIM and HPO IDs."""
     fields = {
         k: definition.get(k) or {} for k in ("field_definitions", "validation_rules")
     }
@@ -198,22 +216,20 @@ def check_submittable(
         if e.get("type") != "required"
     ]
     seen = {e.path for e in errors}
-    errors += [e for e in format_errors(evidence) if e.path not in seen]
-    if lookup and not errors:
-        terms = {r.id for r in _refs(evidence) if r.kind != "pmid" and r.id}
-        unknown, _ = lookup_terms(terms)
-        errors += [
-            EvidenceWarning(
-                path=r.path, message=f"{r.value} not found in {_KINDS[r.kind][2]}"
-            )
-            for r in _refs(evidence)
-            if r.id in unknown
-        ]
-    if errors:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={
-                "message": "Evidence has invalid values; fix these fields and resubmit",
-                "errors": [e.model_dump() for e in errors],
-            },
+    return errors + [e for e in format_errors(evidence) if e.path not in seen]
+
+
+def ontology_ids(evidence: Any) -> set[str]:
+    """Well-formed MONDO, OMIM and HPO IDs, normalized."""
+    return {r.id for r in _refs(evidence) if r.kind != "pmid" and r.id}
+
+
+def not_found(evidence: Any, unknown: set[str]) -> list[EvidenceWarning]:
+    """Each path whose ID is in ``unknown``."""
+    return [
+        EvidenceWarning(
+            path=r.path, message=f"{r.value} not found in {_KINDS[r.kind][2]}"
         )
+        for r in _refs(evidence)
+        if r.id in unknown
+    ]

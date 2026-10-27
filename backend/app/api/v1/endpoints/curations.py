@@ -59,6 +59,7 @@ from app.services.curation_access import (
     _check_scope_access,
     _has_approved,
 )
+from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -482,6 +483,8 @@ def submit_curation(
             submit_data=submit_in,
             user_id=current_user.id,
         )
+    except InvalidEvidenceError as e:
+        raise unprocessable(e) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,

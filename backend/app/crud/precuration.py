@@ -36,8 +36,8 @@ from app.schemas.precuration import (
     PrecurationSummary,
     PrecurationUpdate,
 )
-from app.services.evidence_ids import check_ids, check_submittable
-from app.services.review_guards import check_review_content, item_definition
+from app.services.evidence_ids import check_ids
+from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
 
@@ -360,8 +360,6 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew | None:
         """Submit precuration for review via workflow engine. None if lock_version is stale."""
-        # Unknown IDs only warn: review entry does not refuse a precuration's unknown PMIDs
-        check_submittable(db, db_obj.evidence_data, item_definition(db, db_obj), False)
         # Compare-and-bump in one UPDATE first: a stale submit matches no row and changes nothing
         if not claim_version(db, PrecurationNew, db_obj.id, submit_data.lock_version):
             return None

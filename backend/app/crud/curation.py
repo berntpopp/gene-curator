@@ -37,8 +37,8 @@ from app.schemas.curation import (
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
-from app.services.evidence_ids import check_ids, check_submittable, score_scorable
-from app.services.review_guards import item_definition
+from app.services.evidence_ids import check_ids, score_scorable
+from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
 
@@ -445,7 +445,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         user_id: UUID,
     ) -> CurationNew | None:
         """Submit curation for review via workflow engine."""
-        check_submittable(db, db_obj.evidence_data, item_definition(db, db_obj), True)
+        check_review_content(db, db_obj)  # typed errors by path; the engine repeats it
         # Validate transition
         validation = workflow_engine.validate_transition(
             db,

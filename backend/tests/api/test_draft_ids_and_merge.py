@@ -9,7 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.crud.curation import merge_patch
 from app.models import CurationNew, PrecurationNew
-from app.services import evidence_ids, ontology_service, publication_service
+from app.services import (
+    evidence_ids,
+    ontology_service,
+    publication_service,
+    review_entry,
+)
 from app.services.ontology_service import OntologyService
 from tests.api.test_submit_unknown_pmids import _fake_fetch
 
@@ -42,6 +47,7 @@ def _terms(monkeypatch: MonkeyPatch, outcome: dict[str, bool | None]) -> None:
         return outcome.get(curie, True)
 
     monkeypatch.setattr(evidence_ids, "lookup_terms", ontology_service.lookup_terms)
+    monkeypatch.setattr(review_entry, "lookup_terms", ontology_service.lookup_terms)
     monkeypatch.setattr(ontology_service, "_known_terms", set())
     monkeypatch.setattr(OntologyService, "term_found", found)
 
@@ -328,3 +334,60 @@ def test_concise_draft_result_carries_id_warnings_and_merge_conflicts_name_keys(
     r = client.patch(url, json=stale, headers=_h(admin_token))
     assert r.status_code == 409, r.text
     assert r.json()["detail"]["changed_keys"] == ["notes"]
+
+
+def _transition(client: TestClient, token: str, kind: str, item: Any) -> Any:
+    return client.post(
+        f"/api/v1/workflow/{kind}/{item.id}/transition",
+        json={"target_stage": "review"},
+        headers=_h(token),
+    )
+
+
+def test_workflow_transition_refuses_malformed_ids_with_the_path(
+    client: TestClient,
+    admin_token: str,
+    curator_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    test_precuration: PrecurationNew,
+) -> None:
+    test_curation.evidence_data = _evidence("PMID12x")
+    test_precuration.evidence_data = {
+        **test_precuration.evidence_data,
+        "mondo_id": "MONDO:1",
+    }
+    db_session.commit()
+
+    r = _transition(client, admin_token, "curation", test_curation)
+    assert r.status_code == 400, r.text
+    assert f"{ROWS}[0].pmid: Expected 1-9 digits" in r.json()["detail"]
+    r = _transition(client, curator_token, "precuration", test_precuration)
+    assert r.status_code == 400, r.text
+    assert "mondo_id: Expected MONDO:NNNNNNN" in r.json()["detail"]
+    db_session.refresh(test_curation)
+    db_session.refresh(test_precuration)
+    assert (test_curation.workflow_stage, test_precuration.workflow_stage) == (
+        "curation",
+        "precuration",
+    )
+
+
+def test_workflow_transition_refuses_unknown_ontology_ids(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _terms(online, {"HP:0009999": False})
+    test_curation.evidence_data = {
+        "status": "x",
+        "phenotypes": {"hpo_id": "HP:0009999"},
+    }
+    db_session.commit()
+    r = _transition(client, admin_token, "curation", test_curation)
+    assert r.status_code == 422, r.text
+    assert r.json()["detail"]["errors"] == [
+        {"path": "phenotypes.hpo_id", "message": "HP:0009999 not found in HPO"}
+    ]

@@ -35,6 +35,7 @@ from app.schemas.precuration import (
     PrecurationSubmit,
     PrecurationUpdate,
 )
+from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -410,6 +411,8 @@ def submit_precuration(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(e), "fields": e.fields},
         ) from e
+    except InvalidEvidenceError as e:
+        raise unprocessable(e) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
