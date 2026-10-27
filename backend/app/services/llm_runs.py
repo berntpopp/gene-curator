@@ -18,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.llm.output import InvalidLLMOutputError, parse_structured_output
-from app.llm.prompts import _wrap, render_messages
+from app.llm.prompts import render_messages, wrap_untrusted
 from app.llm.providers import LLMProvider as Adapter, LLMProviderError, LLMRequest
 from app.models import CurationNew, CurationSchema, Gene, UserNew
 from app.models.llm import (
@@ -44,10 +44,10 @@ GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 # --- data sharing ---------------------------------------------------------------
 
 
-# The only evidence_data keys (at any depth) sent to a provider: the curation content fields
-# of the seeded schemas (014-049). Anything else, e.g. a curator_name a custom schema adds,
-# is dropped. ponytail: new schema fields need adding here; upgrade to a per-field
-# share flag in the schema when custom schemas should share more.
+# The only evidence_data keys (at any depth) sent to a provider: every curation content
+# field of the seeded schemas (tests/postgres/test_llm_shared_fields.py keeps it complete).
+# Anything else, e.g. a curator_name a custom schema adds, is dropped. ponytail: custom
+# schema fields need adding here; upgrade to a per-field share flag in the schema.
 SHARED_EVIDENCE_KEYS = frozenset(
     {
         "age",
@@ -76,6 +76,7 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "controls_with_variant",
         "controls_with_variants",
         "de_novo",
+        "decision",
         "description",
         "disease_mechanism_relevance",
         "disease_name",
@@ -83,6 +84,7 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "disease_tissue_relevance",
         "entity_definition",
         "ethnicity",
+        "evidence_quality",
         "evidence_summary",
         "evidence_type",
         "experimental_category",
@@ -100,12 +102,18 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "human",
         "human_phenotype_match",
         "impact",
+        "inheritance_consistency",
         "inheritance_pattern_match",
+        "initial_assessment",
         "interacting_protein",
         "interaction_method",
+        "key_references",
+        "label",
         "literature_review",
+        "literature_search_strategy",
         "lod_score",
         "lod_score_method",
+        "lumping_splitting",
         "methods",
         "mode_of_inheritance",
         "model_type",
@@ -122,22 +130,27 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "patient_cells",
         "pedigree_description",
         "phase_confirmed",
+        "phenotype_match",
         "phenotype_observed",
         "phenotype_rescued",
         "phenotypes",
         "pmid",
         "points",
         "predicted_or_proven_null",
+        "preliminary_verdict",
         "previous_testing",
         "proband_counted_points",
         "proband_label",
         "proband_not_counted_points",
         "proband_with_variant",
         "protein_interaction",
+        "rationale",
+        "replicated_over_time",
         "rescue",
         "rescue_extent",
         "rescue_method",
         "score_status",
+        "sections",
         "segregation",
         "segregation_data",
         "segregations",
@@ -146,9 +159,12 @@ SHARED_EVIDENCE_KEYS = frozenset(
         "sex",
         "single_variant_analysis",
         "statistical_test",
+        "study_design_strength",
         "study_label",
         "tissue_organ",
         "variant",
+        "variant_1",
+        "variant_2",
         "variant_engineered",
         "variant_tested",
         "variant_type",
@@ -191,7 +207,7 @@ MOI_CODES = frozenset(
 def _typed(name: str, value: str, trusted: bool) -> str:
     """Curator-typed values go to trusted placeholders only when they are a strict
     ID or code; anything else is wrapped as untrusted data like free text."""
-    return value if trusted or not value else _wrap(name, value)
+    return value if trusted or not value else wrap_untrusted(name, value)
 
 
 def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
