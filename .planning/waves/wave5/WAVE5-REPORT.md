@@ -63,7 +63,7 @@ formatting was used.
 
 ## Browser evidence and provenance
 
-[Evidence index](wave5-evidence/README.md) links durable Markdown reports. Only isolated
+[Evidence index](evidence/README.md) links durable Markdown reports. Only isolated
 Postgres 5455/API 8052/Vite 5190 were used, with server lock fd closed. UI interactions,
 API fixture setup and browser-origin API supplements are identified separately.
 The existing root workspace retains the machine-specific, ignored monkey-stack.sh wrapper.
@@ -79,7 +79,7 @@ Earlier combined candidateI 62fe62e passed 171/171, including clinical19/19, old
 responsive57/57, scope/date/contrast17/17, pointer5/5 and warning/custom-cap7/7. Those
 results predate the resumed D/E/G/I fixes and are historical candidate evidence, not a
 claim that the new R candidate passed. The current combined replay passed226/226 at source320a338 without product changes.
-[Combined browser report](wave5-evidence/R-combined/REPORT.md): core59, D16, E17,
+[Combined browser report](evidence/R-combined/REPORT.md): core59, D16, E17,
 G16+7, I6, clinical19, historical-pin6, responsive57, scope/review17, pointer5 and font1.
 These are candidate integration checks; each future merge still needs its fresh gate.
 The exact concurrent child-batch cancellation race is unit-tested, not claimed as
@@ -126,7 +126,7 @@ R actual integration/release SHIP at453a49b and cleanup delta SHIP ate02479b are
 in sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b. Latest fixture/docs/ignore changes received actual Opus SHIP at01b6c77; final status/wording/template updates still need a narrow actual delta review. Before publication all functional PRs must merge individually after actual review/local
 and GitHub CI/fresh UI gates. R must then have only intended release/version changes or
 explicitly reviewed integration fixes relative to master, and pass its own actual Opus
-review and final gates. See [resume checkpoint](WAVE5-RESUME.md) and [Wave6 prompt](WAVE6-PROMPT.md).
+review and final gates. See [resume checkpoint](WAVE5-RESUME.md) and [Wave6 prompt](../wave6/WAVE6-PROMPT.md).
 
 ## Shutdown additions
 
@@ -134,7 +134,7 @@ The owner stopped work after G449 merged1215920. Its fresh postmerge gate is NOT
 J/I/R remain unmerged. [Shutdown handover](WAVE5-SHUTDOWN-HANDOVER.md) records exact trees,
 remaining reviews/gates, backups and resume commands. The populated v0.6 upgrade rehearsal
 passed baseline4/migration6/upgradedUIAPI16/idempotence6, preserving11 old version rows
-and all captured old pins/evidence/scores; see [upgrade evidence](wave5-evidence/upgrade-v060/REPORT.md).
+and all captured old pins/evidence/scores; see [upgrade evidence](evidence/upgrade-v060/REPORT.md).
 New follow-up [453](https://github.com/berntpopp/gene-curator/issues/453) records legacy
 disease gaps with no readonly correction path; correct rejection remains and no backfill
 was done. No tag/release exists. Shutdown performs no further product work or review.

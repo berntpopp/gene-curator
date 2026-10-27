@@ -18,6 +18,6 @@ planning reports, all worktrees and ignored local evidence. External backup loca
 fifteen raw-file restoration requirements and exact future commands are in the handover.
 
 The genuine populated-v0.6.0 upgrade rehearsal passed; its
-[report](wave5-evidence/upgrade-v060/REPORT.md) preserves migration/API/UI and fingerprint
+[report](evidence/upgrade-v060/REPORT.md) preserves migration/API/UI and fingerprint
 provenance. It is separate from G's missing postmerge gate. Follow-ups447/448/453 and
 excluded386 remain unresolved; accepted-scope epic264 is closed. No backfill or new scope.

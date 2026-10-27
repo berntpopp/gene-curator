@@ -32,7 +32,7 @@ is97% backend/98% frontend. Full CI log: /tmp/W5R-combined-ci.log. Focused logs:
 
 ## Final candidate acceptance
 
-[Combined real-browser report](wave5-evidence/R-combined/REPORT.md) records core59,
+[Combined real-browser report](evidence/R-combined/REPORT.md) records core59,
 D16, E17, G16+7, I6, clinical19, old-pin6, responsive57, scope17, pointer5 and font1:
 226/226 passed on the exact320a338 product candidate. Actual UI, fixture/read-back API
 checks and the unit-only concurrent cancellation race are distinguished. Excluded386

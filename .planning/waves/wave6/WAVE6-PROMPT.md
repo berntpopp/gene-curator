@@ -1,6 +1,6 @@
 # Wave 6 continuation prompt
 
-> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
+> **OWNER STOP — shutdown checkpoint only.** Do not continue without an explicit resume. [Current handover](../wave5/WAVE5-SHUTDOWN-HANDOVER.md) is authoritative: eight PRs merged, G fresh postmerge gate not run, J/I/R unmerged, no tag/release.
 
 > **Checkpoint2026-10-22:** actual Opus reviews resumed and all functional fix deltas are SHIP. Finish the remaining G/J/I merge gates and final R delta/release gates before new scope. No v0.7.0 tag/release exists yet.
 

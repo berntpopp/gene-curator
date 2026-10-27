@@ -17,7 +17,7 @@ Recompute the deletion list and refresh changed files immediately before an actu
 
 The 15 deletions are the archived `.ui-ux-review-iterations` state plus seven files in each of the old `.planning/milestones/pre-gsd/plan/scripts/` and `plan/scripts/` trees: downloader, requirements, downloaded HTML and four PDFs. Their filenames and byte hashes are in the manifests. Deliberate planning documents and maintained orchestration scripts are preserved.
 
-The six dirty tracked files are `.gitignore`, `.planning/ORCHESTRATION-WAVE3.md`, the archived scripts README and ClinGen INDEX, `.planning/orchestration/rules.md`, and `.planning/orchestration/setup.sh`. The maintained untracked monkey-stack helper is separately preserved. Existing user edits must survive the eventual sync.
+The six dirty tracked files are `.gitignore`, `.planning/waves/wave3/ORCHESTRATION-WAVE3.md`, the archived scripts README and ClinGen INDEX, `.planning/orchestration/rules.md`, and `.planning/orchestration/setup.sh`. The maintained untracked monkey-stack helper is separately preserved. Existing user edits must survive the eventual sync.
 
 ## Eventual reconciliation procedure (not executed)
 

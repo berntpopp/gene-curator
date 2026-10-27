@@ -116,7 +116,7 @@ body:
     id: version
     attributes:
       label: Gene Curator Version
-      description: Check `make version` or footer in the UI
+      description: Shown in the app bar (Version: x.y.z)
       placeholder: v0.7.0
 
   - type: input

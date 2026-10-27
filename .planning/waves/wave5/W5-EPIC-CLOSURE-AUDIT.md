@@ -7,7 +7,7 @@ Completed: root authorized closure after the fresh postmerge browser gate for #4
 - All seven child issues #265–271 are now GitHub-closed. This means their accepted scope is complete, not every original design proposal.
 - Config-rendered ClinGen forms and removal of `components/clingen` shipped in [#421](https://github.com/berntpopp/gene-curator/pull/421); the old component directory is absent at current master.
 - One-scoring acceptance follows the interpreter and boundary/cap test lineage [#416](https://github.com/berntpopp/gene-curator/pull/416), [#417](https://github.com/berntpopp/gene-curator/pull/417), [#419](https://github.com/berntpopp/gene-curator/pull/419), [#420](https://github.com/berntpopp/gene-curator/pull/420), [#423](https://github.com/berntpopp/gene-curator/pull/423), custom recompute corrections [#444](https://github.com/berntpopp/gene-curator/pull/444), and shared trace/client-calculator removal [#446](https://github.com/berntpopp/gene-curator/pull/446).
-- [Wave 4 report](WAVE4-REPORT.md) explicitly left the epic open for W4S only. [E closure audit](W5E-CLOSURE-AUDIT.md) maps the remaining #266 requirements to evidence.
+- [Wave 4 report](../wave4/WAVE4-REPORT.md) explicitly left the epic open for W4S only. [E closure audit](W5E-CLOSURE-AUDIT.md) maps the remaining #266 requirements to evidence.
 
 Accepted reductions remain explicit: no methodology language, expert-panel stage, assign/recurate effects or expression language; derive provenance is a pointer; impact preview has no apply operation; ClinGen adapter and GenCC/qualitative engines remain. #268 is closed under its reduced accepted scope. No claim that its original broader design was implemented.
 

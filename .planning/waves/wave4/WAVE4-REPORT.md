@@ -76,7 +76,7 @@ total or class changes. Re-label old contradictory rows that really dispute a cu
 
 ## Follow-ups (to file as issues)
 
-See `.planning/WAVE4-SLICES.md`, "Follow-ups collected in Wave A", minus items resolved in this wave. Open items:
+See `.planning/waves/wave4/WAVE4-SLICES.md`, "Follow-ups collected in Wave A", minus items resolved in this wave. Open items:
 W4S frontend score trace (#266); approve button for a reviewer who already approved (reviewers_required > 1);
 catalogue disease filter reads top-level disease_name only; 003 view reads a never-written score key; derive toast and
 SchemaEditor label; duplicate schema names race; required_when not enforced by the backend and condition-evaluation

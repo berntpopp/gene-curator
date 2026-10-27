@@ -57,7 +57,7 @@ are provenance; durable summaries are tracked Markdown. No tokens/auth-state dum
 
 ## Newly completed upgrade evidence
 
-[Populated v0.6.0 upgrade rehearsal](wave5-evidence/upgrade-v060/REPORT.md) passed on the
+[Populated v0.6.0 upgrade rehearsal](evidence/upgrade-v060/REPORT.md) passed on the
 same isolated database, from actual tagv0.6.0/a7538d1 through048/049 to source06761a7.
 Eleven original published-version/snapshot fingerprints plus pinned curation/precuration
 records remained identical. Baseline4/4, migration6/6, upgraded UI/API16/16 and final
@@ -70,7 +70,7 @@ G's separate fresh postmerge gate is still not run.
 Owned monkey API/Vite processes555034/555101 were terminated and `docker stop gc-monkey-db`
 completed successfully. No listeners remain on8052/5190/5455; dev services were untouched.
 The stopped container, populated upgrade volume and monkey checkout06761a7 are preserved.
-No OS shutdown command was issued. The [upgrade report](wave5-evidence/upgrade-v060/REPORT.md#owner-requested-shutdown-checkpoint)
+No OS shutdown command was issued. The [upgrade report](evidence/upgrade-v060/REPORT.md#owner-requested-shutdown-checkpoint)
 records exact restart/reset and ordered G browser commands. Starting the preserved database
 for inspection and resetting it for the required fresh G gate are distinct operations.
 
@@ -100,7 +100,7 @@ for inspection and resetting it for the required fresh G gate are distinct opera
    This wrapper is retained operator-local and ignored, not shipped tooling. A fresh clone
    must explicitly provision that isolated stack. Never use dev5454/8051/5193. Close fd9
    when starting retained API/Vite servers. Restore the ignored local browser runners to
-   /tmp as described in [local browser notes](wave5-evidence/LOCAL-BROWSER-NOTES.md).
+   /tmp as described in [local browser notes](evidence/LOCAL-BROWSER-NOTES.md).
    Run a fresh bootstrap and canonical core59 (every role, two rounds, re-curation), then
    G original PMID flow16 plus lifecycle7 and font check, using the exact ordered commands
    in the upgrade report; distinguish UI actions from
@@ -142,7 +142,7 @@ for inspection and resetting it for the required fresh G gate are distinct opera
 ## Preserved workspace and backup safety
 
 Root is on1215920 with six pre-existing dirty tracked paths: .gitignore,
-.planning/ORCHESTRATION-WAVE3.md, archived scripts README and ClinGen INDEX,
+.planning/waves/wave3/ORCHESTRATION-WAVE3.md, archived scripts README and ClinGen INDEX,
 .planning/orchestration/rules.md and setup.sh. Task reports and the local monkey wrapper
 remain locally untracked there. Preserve these and all worktrees; do not reset/clean/stash
 whole directories. Planning-only checkpoint copies may be reconciled deliberately.
