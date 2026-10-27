@@ -255,3 +255,29 @@ def test_nobody_updates_curations_of_an_inactive_scope(
         ).rowcount
         savepoint.rollback()  # keep the row active, and release its lock, for the next round
         assert n == expected, (who, active)
+
+
+def test_api_admin_delete_in_inactive_scope_is_409_not_500(
+    client: TestClient, w: W
+) -> None:
+    """#483: the 054 policy made the archive UPDATE match no row (StaleDataError -> 500)."""
+    admin = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "INSERT INTO users (id, email, hashed_password, name, role) "
+            "VALUES (%s, %s, %s, 'a', 'admin')",
+            (str(admin), f"{admin}@sel483.org", get_password_hash("pw")),
+        )
+        cur.execute(
+            "UPDATE scopes SET is_active = false WHERE id = %s", (str(w.scope),)
+        )
+    try:
+        r = client.delete(f"/api/v1/curations/{w.draft}", headers=_h(admin))
+        assert r.status_code == 409, r.text
+        detail = client.get(f"/api/v1/curations/{w.draft}", headers=_h(admin)).json()
+        assert detail["status"] == "draft"
+        assert detail["can_delete"] is False
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM audit_log WHERE user_id = %s", (str(admin),))
+            cur.execute("DELETE FROM users WHERE id = %s", (str(admin),))

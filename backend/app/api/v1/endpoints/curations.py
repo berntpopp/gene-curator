@@ -68,6 +68,15 @@ def _conflict(curation: CurationNew, sent: int) -> HTTPException:
     )
 
 
+def _require_active_scope(curation: CurationNew) -> None:
+    """RLS (054) blocks every write to an inactive scope's curations; refuse clearly, not with a 500."""
+    if not curation.scope.is_active:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="This scope is inactive; its curations are read-only",
+        )
+
+
 def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | None:
     """Get user's role for a specific scope from scope_memberships."""
     from app.models import ScopeMembership
@@ -90,6 +99,8 @@ def _can_user_edit_curation(
 ) -> bool:
     """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
+        return False
+    if not curation.scope.is_active:
         return False
     if user.role == "admin":
         return True
@@ -139,6 +150,8 @@ def _can_user_delete_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
     """Check if user can delete this curation."""
+    if not curation.scope.is_active:
+        return False
     # Admin can delete anything
     if user.role == "admin":
         return True
@@ -419,6 +432,7 @@ def update_curation(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
     require(db, current_user, curation.scope_id, EDIT)
+    _require_active_scope(curation)
 
     # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -476,6 +490,7 @@ def save_draft(
         )
 
     require(db, current_user, curation.scope_id, EDIT)
+    _require_active_scope(curation)
 
     # Same rule as PUT: evidence is frozen once submitted (4-eyes), for every role
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -528,6 +543,7 @@ def submit_curation(
         )
 
     require(db, current_user, curation.scope_id, EDIT)
+    _require_active_scope(curation)
 
     # Only creator or admin can submit
     if current_user.role != "admin" and curation.created_by != current_user.id:
@@ -610,6 +626,7 @@ def delete_curation(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "delete")
     require(db, current_user, curation.scope_id, EDIT)
+    _require_active_scope(curation)
 
     # Only allow deletion of drafts (or by admin)
     if curation.status != CurationStatus.DRAFT and current_user.role != "admin":

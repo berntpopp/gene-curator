@@ -41,12 +41,15 @@ const rows = [
 function setup(
   user: { role: string; id: string } | null,
   curations = rows,
-  scopeRole: 'admin' | 'curator' | 'reviewer' | 'viewer' | null = 'curator'
+  scopeRole: 'admin' | 'curator' | 'reviewer' | 'viewer' | null = 'curator',
+  scopeActive = true
 ) {
   setActivePinia(createPinia())
   const auth = useAuthStore()
   auth.user = user as typeof auth.user
-  useScopesStore().currentUserRole = scopeRole
+  const scopes = useScopesStore()
+  scopes.currentUserRole = scopeRole
+  scopes.currentScope = { id: 'scope-1', is_active: scopeActive } as typeof scopes.currentScope
   const store = useCurationsStore()
   store.curations = curations as unknown as typeof store.curations
   store.loading = false
@@ -57,7 +60,10 @@ function setup(
   const toast = vi.spyOn(notifications, 'addToast').mockImplementation(() => undefined as never)
   const wrapper = mount(CurationList, {
     props: { scopeId: 'scope-1' },
-    global: { plugins: [] }
+    global: {
+      plugins: [],
+      stubs: { VMenu: { template: '<div><slot name="activator" :props="{}" /><slot /></div>' } }
+    }
   })
   return { wrapper, store, fetch, remove, toast }
 }
@@ -129,5 +135,17 @@ describe('CurationList', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('ClinGen Score')
     expect(wrapper.text()).toContain('/ 18 points')
+  })
+
+  it('offers Edit and Delete only while the scope is active (#483)', async () => {
+    const active = setup({ role: 'admin', id: 'u1' }, rows, 'admin')
+    await flushPromises()
+    expect(active.wrapper.text()).toContain('Edit')
+    expect(active.wrapper.text()).toContain('Delete')
+
+    const inactive = setup({ role: 'admin', id: 'u1' }, rows, 'admin', false)
+    await flushPromises()
+    expect(inactive.wrapper.text()).not.toContain('Edit')
+    expect(inactive.wrapper.text()).not.toContain('Delete')
   })
 })
