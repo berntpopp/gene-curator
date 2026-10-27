@@ -22,7 +22,14 @@ from app.mcp.audit import (
     request_channel,
 )
 from app.mcp.server import EXCLUDED_OPERATIONS, tool_names
-from app.models import CurationNew, Gene, PrecurationNew, Scope, UserNew
+from app.models import (
+    CurationNew,
+    Gene,
+    PrecurationNew,
+    Scope,
+    ScopeMembership,
+    UserNew,
+)
 from app.schemas.personal_access_token import PersonalAccessTokenCreate
 
 pytestmark = pytest.mark.unit
@@ -102,35 +109,63 @@ def test_every_api_operation_has_a_tool_except_documented_exclusions(
 _NETWORK = re.compile(r"/(external-validation|ontology|publications)\b|/genes/resolve")
 
 
-@pytest.mark.parametrize("role", ["admin", "curator", "viewer", "outsider"])
-def test_each_role_gets_the_same_status_through_mcp_and_api(
-    role: str,
-    client: TestClient,
+ROLES = ["admin", "curator", "reviewer", "viewer", "outsider"]
+
+
+def _user(db: Session, scope: Scope, scope_role: str | None) -> UserNew:
+    """A platform user with the given accepted scope role (None: no membership)."""
+    user = UserNew(
+        id=uuid4(),
+        email=f"{scope_role or 'outsider'}-{uuid4().hex[:6]}@test.com",
+        hashed_password=get_password_hash("x"),
+        name=scope_role or "outsider",
+        role="user",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+    if scope_role:
+        db.add(
+            ScopeMembership(
+                scope_id=scope.id,
+                user_id=user.id,
+                role=scope_role,
+                accepted_at=datetime.now(UTC),
+            )
+        )
+        db.commit()
+    return user
+
+
+@pytest.fixture
+def users(
     db_session: Session,
     test_user_admin: UserNew,
     test_user_curator: UserNew,
     test_user_viewer: UserNew,
     test_scope: Scope,
+) -> dict[str, UserNew]:
+    return {
+        "admin": test_user_admin,
+        "curator": test_user_curator,
+        "reviewer": _user(db_session, test_scope, "reviewer"),
+        "viewer": test_user_viewer,
+        "outsider": _user(db_session, test_scope, None),
+    }
+
+
+@pytest.mark.parametrize("role", ROLES)
+def test_each_role_gets_the_same_status_through_mcp_and_api(
+    role: str,
+    client: TestClient,
+    db_session: Session,
+    users: dict[str, UserNew],
+    test_user_curator: UserNew,
+    test_scope: Scope,
     test_gene: Gene,
     test_curation: CurationNew,
     test_precuration: PrecurationNew,
 ) -> None:
-    outsider = UserNew(
-        id=uuid4(),
-        email="outsider@test.com",
-        hashed_password=get_password_hash("x"),
-        name="Outsider",
-        role="user",
-        is_active=True,
-    )
-    db_session.add(outsider)
-    db_session.commit()
-    users = {
-        "admin": test_user_admin,
-        "curator": test_user_curator,
-        "viewer": test_user_viewer,
-        "outsider": outsider,
-    }
     token = pat(db_session, users[role])
     ids = {
         "scope_id": test_scope.id,
