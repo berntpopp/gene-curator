@@ -11,6 +11,7 @@ Design Principles:
 - Graceful degradation: Returns empty results on API failures
 """
 
+import asyncio
 import re
 from typing import Any
 from urllib.parse import quote
@@ -524,3 +525,57 @@ class OntologyService:
             return HPOInheritanceResponse(
                 total_patterns=0, mendelian=[], non_mendelian=[], cached=False
             )
+
+    async def term_found(self, curie: str) -> bool | None:
+        """True if the MONDO:, OMIM: or HP: term exists, False if not, None if unreachable."""
+        try:
+            if curie.startswith("MONDO:"):
+                params = {"search": curie, "ontologyId": "mondo", "exactMatch": "true"}
+                response = await self._mondo_client.get("/entities", params=params)
+                if response.status_code == 200:
+                    elements = response.json().get("elements", [])
+                    return any(e.get("curie") == curie for e in elements)
+            else:
+                client = (
+                    self._omim_client if curie.startswith("OMIM:") else self._hpo_client
+                )
+                path = "/annotation/" if curie.startswith("OMIM:") else "/terms/"
+                response = await client.get(path + quote(curie, safe=""))
+        except (httpx.HTTPError, ValueError) as e:
+            logger.warning("Ontology lookup failed", curie=curie, error=e)
+            return None
+        return {200: True, 404: False}.get(response.status_code)
+
+
+TERM_LOOKUP_TIMEOUT_S = 5.0  # whole batch, like the PMID lookup
+# ponytail: per-process cache of found terms; terms are rarely retired. Unknown ones are re-asked.
+_known_terms: set[str] = set()
+
+
+async def _lookup_all(curies: list[str]) -> dict[str, bool | None]:
+    service = OntologyService()
+    try:
+        tasks = {c: asyncio.create_task(service.term_found(c)) for c in curies}
+        _, pending = await asyncio.wait(tasks.values(), timeout=TERM_LOOKUP_TIMEOUT_S)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*tasks.values(), return_exceptions=True)
+        return {
+            c: None if t.cancelled() or t.exception() else t.result()
+            for c, t in tasks.items()
+        }
+    finally:
+        await service.close()
+
+
+def lookup_terms(curies: set[str]) -> tuple[list[str], list[str]]:
+    """(not found, lookup failed) among MONDO:, OMIM: and HP: IDs; found ones are cached."""
+    missing = sorted(curies - _known_terms)
+    if not missing:
+        return [], []
+    found = asyncio.run(_lookup_all(missing))
+    _known_terms.update(c for c, ok in found.items() if ok)
+    return (
+        [c for c, ok in found.items() if ok is False],
+        [c for c, ok in found.items() if ok is None],
+    )
