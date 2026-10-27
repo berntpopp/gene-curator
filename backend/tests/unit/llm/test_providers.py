@@ -205,6 +205,20 @@ async def test_malformed_response_is_bad_response(body: bytes) -> None:
     assert exc.value.code == "bad_response"
 
 
+@pytest.mark.asyncio
+async def test_openai_refusal_without_content_is_bad_response() -> None:
+    body = openai_body()
+    body["choices"][0]["message"] = {"content": None, "refusal": "I can't help"}
+    provider = make(
+        OpenAICompatibleProvider,
+        lambda r: httpx.Response(200, json=body),
+        model="gpt-x-2026-01-01",
+    )
+    with pytest.raises(LLMProviderError) as exc:
+        await provider.complete(REQ)
+    assert exc.value.code == "bad_response"
+
+
 def test_timeout_clamped_to_30_60() -> None:
     assert (clamp_timeout(1), clamp_timeout(45), clamp_timeout(600)) == (30, 45, 60)
     provider = make(AnthropicProvider, lambda r: httpx.Response(200), timeout_s=999)

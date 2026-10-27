@@ -185,8 +185,11 @@ class OpenAICompatibleProvider(_HTTPProvider):
 
     def _parse(self, body: dict[str, Any]) -> LLMResponse:
         usage = body["usage"]
+        text = body["choices"][0]["message"]["content"]
+        if not isinstance(text, str):  # refusals come back as content=null
+            raise TypeError("message content is not text")
         return LLMResponse(
-            text=body["choices"][0]["message"]["content"],
+            text=text,
             model=body["model"],
             input_tokens=int(usage["prompt_tokens"]),
             output_tokens=int(usage["completion_tokens"]),
