@@ -12,7 +12,7 @@ from starlette.types import ASGIApp
 from app.core.api_config import get_feature_flags, get_rate_limit
 from app.core.security import PAT_PREFIX, verify_token
 from app.mcp.audit import is_internal
-from app.mcp.auth import pat_owner
+from app.mcp.auth import pat_user
 
 MAX_BUCKETS = 10_000
 
@@ -39,13 +39,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         auth = request.headers.get("Authorization", "")
         bearer = auth[7:] if auth.lower().startswith("bearer ") else ""
         pat = (
-            await run_in_threadpool(pat_owner, request.app, bearer)
+            await run_in_threadpool(pat_user, request.app, bearer)
             if bearer.startswith(PAT_PREFIX)
             else None
         )
         payload = verify_token(bearer) if bearer and pat is None else None
         if pat:  # personal access tokens share their owner's bucket
-            key, tier = f"user:{pat[0]}", "authenticated"
+            key, tier = f"user:{pat}", "authenticated"
         # Refresh tokens are not bearer credentials: they stay in the IP bucket
         elif payload and payload.get("sub") and payload.get("type") != "refresh":
             key = f"user:{payload['sub']}"

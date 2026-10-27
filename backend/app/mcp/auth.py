@@ -4,7 +4,8 @@ No service token, no service principal, no anonymous mode: every tool call reach
 the API with the caller's own token (see server._as_caller).
 """
 
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Iterator
+from contextlib import contextmanager
 from typing import Any, cast
 
 from fastapi import FastAPI
@@ -19,20 +20,32 @@ from app.crud import personal_access_token as pat_crud
 from app.models import PersonalAccessToken
 
 
-def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:
-    """(user id, scopes, token name) of a live personal access token, else None.
-
-    Uses the app's get_db (honours dependency overrides, so tests hit their database).
-    """
-    if not token.startswith(PAT_PREFIX):
-        return None
+@contextmanager
+def _session(app: FastAPI) -> Iterator[Session]:
+    """The app's get_db (honours dependency overrides, so tests hit their database)."""
     factory = cast(
         Callable[[], Generator[Session, None, None]],
         app.dependency_overrides.get(get_db, get_db),
     )
     gen = factory()
-    db = next(gen)
     try:
+        yield next(gen)
+    finally:
+        gen.close()
+
+
+def pat_user(app: FastAPI, token: str) -> str | None:
+    """Owner id of a live token for the rate limiter: one lookup, nothing committed."""
+    with _session(app) as db:
+        found = pat_crud.authenticate(db, token)
+        return found[0] if found else None
+
+
+def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:
+    """(user id, scopes, token name) of a live personal access token, else None."""
+    if not token.startswith(PAT_PREFIX):
+        return None
+    with _session(app) as db:
         found = pat_crud.authenticate(db, token)
         if found is None:
             return None
@@ -43,10 +56,7 @@ def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:
                 PersonalAccessToken.token_hash == hash_personal_access_token(token)
             )
         )
-        db.commit()  # keep the last_used_at stamp
         return user_id, scopes, name or ""
-    finally:
-        gen.close()
 
 
 class PersonalAccessTokenVerifier(TokenVerifier):
