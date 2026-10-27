@@ -189,7 +189,12 @@ def read_api_key(db: Session, provider_id: UUID) -> str | None:
                 LLMCredential.provider_id == provider_id
             )
         )
-    return _cipher().decrypt(bytes(ciphertext)) if ciphertext else None
+    if not ciphertext:
+        return None
+    try:
+        return _cipher().decrypt(bytes(ciphertext))
+    except CredentialCipherError as exc:  # e.g. its kid was removed from the key ring
+        raise HTTPException(status_code=503, detail=str(exc)) from None
 
 
 def call_config(db: Session, provider: LLMProvider, model: LLMModel) -> dict[str, Any]:

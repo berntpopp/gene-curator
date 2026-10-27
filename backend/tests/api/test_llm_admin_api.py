@@ -533,3 +533,28 @@ def test_repointing_base_url_deletes_the_key_before_any_call(
     ping = client.post(f"{url}/ping", json={}, headers=h)
     assert ping.status_code == 422 and "no API key" in ping.text
     assert calls == []
+
+
+def test_undecryptable_key_is_503_not_500(
+    client: TestClient, h: dict[str, str], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from cryptography.fernet import Fernet
+
+    from app.core.config import settings
+
+    provider = _provider(
+        client, h, kind="anthropic", base_url="https://llm.example.org"
+    )
+    _model(client, h, provider["id"])
+    client.put(
+        f"{BASE}/providers/{provider['id']}/key", json={"api_key": SECRET}, headers=h
+    )
+    # the key ring lost the kid the key was stored under
+    monkeypatch.setattr(
+        settings,
+        "LLM_CREDENTIAL_KEYS",
+        json.dumps({"k1": Fernet.generate_key().decode()}),
+    )
+    r = client.post(f"{BASE}/providers/{provider['id']}/ping", json={}, headers=h)
+    assert r.status_code == 503 and "cannot be decrypted" in r.text
+    assert SECRET not in r.text
