@@ -49,13 +49,10 @@ class ProviderKey(BaseModel):
     @model_validator(mode="before")
     @classmethod
     def _mask(cls, data: Any) -> Any:
-        if isinstance(data, dict):
-            value = data.get("api_key")
-            data = {
-                **data,
-                "api_key": SecretStr(value if isinstance(value, str) else ""),
-            }
-        return data
+        if not isinstance(data, dict):  # a bare string body may itself be the key
+            data = {}
+        value = data.get("api_key")
+        return {**data, "api_key": SecretStr(value if isinstance(value, str) else "")}
 
     @field_validator("api_key")
     @classmethod
