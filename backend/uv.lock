@@ -532,7 +532,7 @@ wheels = [
 
 [[package]]
 name = "gene-curator-backend"
-version = "0.7.0"
+version = "0.8.0"
 source = { editable = "." }
 dependencies = [
     { name = "asyncpg" },
