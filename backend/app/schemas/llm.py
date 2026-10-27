@@ -5,7 +5,14 @@ from decimal import Decimal
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, SecretStr
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    SecretStr,
+    field_validator,
+    model_validator,
+)
 
 ProviderKind = Literal["openai_compatible", "anthropic", "mock"]
 Strategy = Literal["skeptic", "advocate"]
@@ -35,7 +42,27 @@ class ProviderUpdate(Revision):
 
 
 class ProviderKey(BaseModel):
-    api_key: SecretStr = Field(min_length=1, max_length=4096)
+    """Validation errors carry the field input; masking it first keeps keys out of 422s."""
+
+    api_key: SecretStr
+
+    @model_validator(mode="before")
+    @classmethod
+    def _mask(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            value = data.get("api_key")
+            data = {
+                **data,
+                "api_key": SecretStr(value if isinstance(value, str) else ""),
+            }
+        return data
+
+    @field_validator("api_key")
+    @classmethod
+    def _length(cls, value: SecretStr) -> SecretStr:
+        if not 1 <= len(value.get_secret_value()) <= 4096:
+            raise ValueError("api_key must be a string of 1 to 4096 characters")
+        return value
 
 
 class ProviderOut(_Out):

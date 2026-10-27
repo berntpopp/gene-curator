@@ -558,3 +558,15 @@ def test_undecryptable_key_is_503_not_500(
     r = client.post(f"{BASE}/providers/{provider['id']}/ping", json={}, headers=h)
     assert r.status_code == 503 and "cannot be decrypted" in r.text
     assert SECRET not in r.text
+
+
+@pytest.mark.parametrize("bad", [SECRET * 200, 4242424242, "", None])
+def test_invalid_key_is_not_echoed_in_422(
+    client: TestClient, h: dict[str, str], bad: object
+) -> None:
+    provider = _provider(client, h)
+    r = client.put(
+        f"{BASE}/providers/{provider['id']}/key", json={"api_key": bad}, headers=h
+    )
+    assert r.status_code == 422
+    assert SECRET not in r.text and "4242424242" not in r.text

@@ -8228,7 +8228,10 @@ export interface components {
              */
             enabled: boolean;
         };
-        /** ProviderKey */
+        /**
+         * ProviderKey
+         * @description Validation errors carry the field input; masking it first keeps keys out of 422s.
+         */
         ProviderKey: {
             /**
              * Api Key
