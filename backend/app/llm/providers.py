@@ -130,7 +130,7 @@ class AnthropicProvider(_HTTPProvider):
     path = "/v1/messages"
 
     def _headers(self) -> dict[str, str]:
-        return {"x-api-key": self._api_key, "anthropic-version": "2026-10-21"}
+        return {"x-api-key": self._api_key, "anthropic-version": "2023-06-01"}
 
     def _payload(self, request: LLMRequest) -> dict[str, Any]:
         payload: dict[str, Any] = {

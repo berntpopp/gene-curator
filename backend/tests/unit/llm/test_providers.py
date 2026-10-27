@@ -87,6 +87,7 @@ async def test_anthropic_request_shape_and_parse() -> None:
     sent = seen[0]
     assert str(sent.url) == "https://llm.example.org/v1/messages"
     assert sent.headers["x-api-key"] == API_KEY
+    assert sent.headers["anthropic-version"] == "2023-06-01"
     body = json.loads(sent.content)
     assert body["model"] == MODEL and body["system"] == "sys"
     assert body["output_config"]["format"]["type"] == "json_schema"
