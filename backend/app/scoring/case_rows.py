@@ -6,13 +6,19 @@ import re
 from collections import defaultdict
 from typing import Any
 
-# HGVS (optionally on a reference sequence), rsID, chr1:12345 / 1-12345 / chrX:g.
+# HGVS (optionally on a reference sequence), rsID, chr1:12345 / 1-12345 / chrX:g., and
+# structural: exon-level or whole-gene del/dup, ISCN (arr[GRCh37] 6p12.3(...)x1) or a cytoband
 _VARIANT = re.compile(
     r"(?:^|[\s:(\[,;])[cgmnrp]\.\(?[\d*?A-Z_-]"
     r"|\brs\d+\b"
-    r"|\b(?:chr)?(?:\d{1,2}|X|Y|MT?)[:-]\d{3,}",
+    r"|\b(?:chr)?(?:\d{1,2}|X|Y|MT?)[:-]\d{3,}"
+    r"|\bexons?\s*\d+(?:\s*[-\u2013]\s*\d+)?\s*(?:del|dup)"
+    r"|\bwhole[- ]gene\s*(?:del|dup)"
+    r"|\b(?:arr|seq)\s*\[|\b(?:\d{1,2}|X|Y)[pq]\d{1,2}(?:\.\d+)?\b"
+    r"|\b(?:del|dup|inv|ins|t)\([\dXY;]+\)\([pq]\d",
     re.IGNORECASE,
 )
+_DIGIT_GROUPS = re.compile(r"(?<=\d),(?=\d{3})")  # chr6:51,775,000 -> chr6:51775000
 # Predicted null: frameshift, stop gain, canonical +/-1,2 splice, exon or whole-gene deletion
 _NULL = re.compile(
     r"fs\b|fs\*|p\.\(?[A-Z](?:[a-z]{2})?\d+(?:Ter|\*|X\b)"
@@ -31,8 +37,10 @@ _VARIANT_KEYS = ("variant", "variant_1", "variant_2")
 
 
 def is_variant(text: Any) -> bool:
-    """True for an HGVS notation, an rsID or a genomic coordinate."""
-    return isinstance(text, str) and _VARIANT.search(text) is not None
+    """True for an HGVS notation, an rsID, a genomic coordinate or a structural variant."""
+    if not isinstance(text, str):
+        return False
+    return _VARIANT.search(_DIGIT_GROUPS.sub("", text)) is not None
 
 
 def _case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
