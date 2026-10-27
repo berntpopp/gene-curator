@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.core.database import get_async_db
+from app.core.deps import get_async_db
 from app.crud import logs as crud_logs
 from app.main import app
 from tests.api.scopes.factories import auth_headers, make_member, make_scope, make_user

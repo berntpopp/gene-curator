@@ -103,6 +103,19 @@ describe('GeneAssignments (My Work)', () => {
     expect(wrapper.find('.manager-stub').exists()).toBe(true)
   })
 
+  it.each([
+    ['viewer', false],
+    ['reviewer', false],
+    ['admin', true]
+  ])('offers New assignment to a scope %s: %s (#391)', async (role, shown) => {
+    const store = setup()
+    useScopesStore().scopes = [{ id: 's1', name: 'k', user_role: role }] as never
+    vi.spyOn(store, 'fetchCuratorAssignments').mockResolvedValue([])
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.text().includes('New assignment')).toBe(shown)
+  })
+
   it('titles the page like its route', async () => {
     const wrapper = await mountView()
     expect(wrapper.find('h1').text()).toBe('Assignments')

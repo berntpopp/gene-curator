@@ -212,7 +212,7 @@ describe('MemberManagement', () => {
   })
 
   it('asks for confirmation, then removes the member and reloads', async () => {
-    const { store, vm } = await mountMembers()
+    const { store, vm, wrapper } = await mountMembers()
     const remove = vi.spyOn(store, 'removeMember').mockResolvedValue(undefined as never)
 
     vm.confirmRemoveMember({ user_id: 'u2', role: 'viewer' })
@@ -225,6 +225,7 @@ describe('MemberManagement', () => {
     expect(vm.showRemoveDialog).toBe(false)
     expect(vm.memberToRemove).toBeNull()
     expect(snackbarState.message).toBe('Member removed successfully')
+    expect(wrapper.emitted('changed')).toHaveLength(1)
   })
 
   it('keeps the confirmation open and reports a failed removal', async () => {
@@ -248,13 +249,14 @@ describe('MemberManagement', () => {
   })
 
   it('announces an invitation and reloads the list', async () => {
-    const { vm } = await mountMembers()
+    const { vm, wrapper } = await mountMembers()
 
     await vm.handleInvited({ userName: 'Grace Hopper', id: 'm-9' })
     await flushPromises()
 
     expect(snackbarState.message).toBe('Invitation sent to Grace Hopper')
     expect(scopeService.fetchMembers).toHaveBeenCalledTimes(2)
+    expect(wrapper.emitted('changed')).toHaveLength(1) // the scope header's counts refresh (#393)
   })
 
   it('falls back to the invitee email in the announcement', async () => {

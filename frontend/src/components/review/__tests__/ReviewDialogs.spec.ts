@@ -56,6 +56,23 @@ describe('ApproveChecklistDialog', () => {
     expect(w.find('[data-testid=approve-confirm]').attributes('disabled')).toBeDefined()
   })
 
+  it('names unaccepted items and open queries separately (#390)', () => {
+    const w = mount(
+      ApproveChecklistDialog,
+      opts({
+        ...approveProps,
+        blockers: [
+          { key: 'a', label: 'Case C1', queried: false },
+          { key: 'b', label: 'Case C2', queried: true }
+        ]
+      })
+    )
+    const text = w.find('[data-testid=blockers]').text()
+    expect(text).toContain('Accept these items first: Case C1')
+    expect(text).toContain('Resolve the open queries on: Case C2')
+    expect(text).not.toContain('Accept or resolve')
+  })
+
   it('emits approve with the note, and cancel', async () => {
     const w = mount(ApproveChecklistDialog, opts({ ...approveProps, classification: 'Strong' }))
     for (const cb of w.findAll('input[type=checkbox]')) await cb.setValue(true)

@@ -10,6 +10,13 @@ from .base import ScoringEngine, ScoringResult
 from .qualitative_checker import check_qualitative_warnings
 
 
+def _answers(section: Any) -> dict[str, str]:
+    """Answered fields as text; drafts may hold null, empty or non-text values."""
+    if not isinstance(section, dict):
+        return {}
+    return {k: str(v) for k, v in section.items() if v not in (None, "")}
+
+
 class QualitativeEngine(ScoringEngine):
     """Qualitative assessment engine for institutional use."""
 
@@ -40,8 +47,8 @@ class QualitativeEngine(ScoringEngine):
     ) -> ScoringResult:
         """Calculate qualitative assessment."""
 
-        clinical_assessment = evidence_data.get("clinical_assessment", {})
-        literature_review = evidence_data.get("literature_review", {})
+        clinical_assessment = _answers(evidence_data.get("clinical_assessment"))
+        literature_review = _answers(evidence_data.get("literature_review"))
 
         # Qualitative scoring based on categorical assessments
         clinical_score = self._assess_clinical_evidence(clinical_assessment)
@@ -261,8 +268,8 @@ class QualitativeEngine(ScoringEngine):
 
         errors = []
 
-        clinical_assessment = evidence_data.get("clinical_assessment", {})
-        literature_review = evidence_data.get("literature_review", {})
+        clinical_assessment = _answers(evidence_data.get("clinical_assessment"))
+        literature_review = _answers(evidence_data.get("literature_review"))
 
         # Validate clinical assessment
         if clinical_assessment:

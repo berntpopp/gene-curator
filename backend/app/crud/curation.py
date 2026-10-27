@@ -34,8 +34,8 @@ from app.schemas.curation import (
     CurationUpdate,
     disease_fields,
 )
-from app.scoring.clingen import ClinGenEngine
 from app.scoring.point_limits import scoring_configuration
+from app.scoring.registry import engine_for
 
 logger = get_logger(__name__)
 
@@ -78,7 +78,7 @@ def _computed(
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )
-    result = ClinGenEngine().calculate_scores(evidence_data, config)
+    result = engine_for(config).calculate_scores(evidence_data, config)
     return {
         "computed_scores": {**result.scores, **result.evidence_breakdown},
         "computed_verdict": result.verdict,
@@ -454,14 +454,12 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         Preview the score without modifying the curation or committing the session.
         Accepts scoring engine via DI for testability.
         """
-        if scoring_engine is None:
-            scoring_engine = ClinGenEngine()
-
-        result = scoring_engine.calculate_scores(
+        config = scoring_configuration(
+            db, db_obj.workflow_pair_id, db_obj.methodology_version_id
+        )
+        result = (scoring_engine or engine_for(config)).calculate_scores(
             evidence_data=db_obj.evidence_data,
-            schema_config=scoring_configuration(
-                db, db_obj.workflow_pair_id, db_obj.methodology_version_id
-            ),
+            schema_config=config,
             scope_context=None,
         )
 

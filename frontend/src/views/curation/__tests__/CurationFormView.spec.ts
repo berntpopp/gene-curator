@@ -594,6 +594,14 @@ describe('CurationFormView', () => {
       expect(wrapper.find('schema-driven-curation-form-stub').exists()).toBe(false)
     })
 
+    it.each(['viewer', 'reviewer'])('gives a %s no dead Save draft (#391)', async role => {
+      const { wrapper } = await mountView(({ scopes }) => {
+        vi.spyOn(scopes, 'fetchUserRole').mockResolvedValue(role as never)
+      })
+      expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(true)
+      expect(wrapper.find('[data-testid=ws-save]').exists()).toBe(false)
+    })
+
     it('never shows the form when the role lookup fails, and retries', async () => {
       const { wrapper, scopes, schemas } = await mountView(({ scopes, schemas }) => {
         vi.spyOn(scopes, 'fetchUserRole').mockRejectedValue(new Error('500'))

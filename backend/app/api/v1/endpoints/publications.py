@@ -9,8 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.database import get_async_db
-from app.core.deps import get_current_active_user
+from app.core.deps import get_async_db, get_current_active_user
 from app.core.logging import api_endpoint, get_logger
 from app.core.search_text import SearchText, escape_like
 from app.models.models import Publication, UserNew
