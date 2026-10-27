@@ -434,7 +434,7 @@ def save_draft(
     if saved is None:
         raise _conflict(curation, draft_in.lock_version, _mine(curation, draft_in))
     if not detail:
-        return CurationWriteResult.of(saved[0], saved[1])
+        return CurationWriteResult.of(saved[0])
     result = CurationDraftResult.model_validate(saved[0])
     result.warnings = saved[1]
     return result

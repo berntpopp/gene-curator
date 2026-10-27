@@ -433,3 +433,38 @@ def test_found_pmids_are_cached_so_the_next_save_asks_no_one(
         ).title
         == "T"
     )
+
+
+def test_put_and_create_exclude_unknown_pmids_and_warn(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    approved_precuration: PrecurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _fake_fetch(online, {"99999999": "Publication not found: 99999999"})
+    warning = f"{ROWS}[0].pmid: 99999999 not found in PubMed"
+    r = client.put(
+        f"/api/v1/curations/{test_curation.id}",
+        json={"evidence_data": _evidence("99999999"), "lock_version": 0},
+        headers=_h(admin_token),
+    )
+    assert r.status_code == 200, r.text
+    assert (r.json()["total_score"], r.json()["warnings"]) == (0, [warning])
+
+    test_curation.status = "archived"  # an open curation blocks a new one
+    db_session.commit()
+    r = client.post(
+        "/api/v1/curations/",
+        json={
+            "gene_id": str(test_curation.gene_id),
+            "scope_id": str(test_curation.scope_id),
+            "workflow_pair_id": str(test_curation.workflow_pair_id),
+            "evidence_data": _evidence("99999999"),
+        },
+        headers=_h(admin_token),
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["computed_scores"]["total_score"] == 0
+    assert warning in r.json()["computed_scores"]["warnings"]

@@ -37,7 +37,7 @@ from app.schemas.curation import (
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
-from app.services.evidence_ids import check_ids, score_scorable
+from app.services.evidence_ids import check_ids, format_errors, score_scorable
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
@@ -91,27 +91,40 @@ def _computed(
     db: Session,
     curation: CurationNew,
     evidence_data: dict[str, Any],
-    unknown: set[str] | None = None,
+    ids: tuple[list[EvidenceWarning], set[str]] | None = None,
+    lookup: bool = True,
 ) -> dict[str, Any]:
-    """Score with the row's pinned version (latest on create), persisted with the evidence."""
+    """Score with the row's pinned version (latest on create), persisted with the evidence.
+    Rows with a malformed or unknown PMID score nothing; ID warnings join the scoring
+    ones as "path: message". ``lookup=False`` checks formats only (no network)."""
+    if ids is None:
+        ids = (
+            check_ids(db, evidence_data)
+            if lookup
+            else (format_errors(evidence_data), set())
+        )
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )
-    result = score_scorable(engine_for(config), config, evidence_data, unknown or set())
+    result = score_scorable(engine_for(config), config, evidence_data, ids[1])
     return {
         "computed_scores": {
             **result.scores,
             **result.evidence_breakdown,
-            "warnings": result.warnings,
+            "warnings": [*result.warnings, *(f"{w.path}: {w.message}" for w in ids[0])],
         },
         "computed_verdict": result.verdict,
         "computed_summary": result.verdict_rationale,
     }
 
 
-def _update_computed_scores(db: Session, curation: CurationNew) -> None:
+def _update_computed_scores(
+    db: Session, curation: CurationNew, lookup: bool = True
+) -> None:
     """Persist engine output in the same transaction as the evidence write."""
-    for key, value in _computed(db, curation, curation.evidence_data).items():
+    for key, value in _computed(
+        db, curation, curation.evidence_data, lookup=lookup
+    ).items():
         setattr(curation, key, value)
 
 
@@ -424,7 +437,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         warnings, unknown = check_ids(db, evidence)
         values = {
             "evidence_data": evidence,
-            **_computed(db, db_obj, evidence, unknown),
+            **_computed(db, db_obj, evidence, (warnings, unknown)),
             "is_draft": True,
             "auto_saved_at": _utc_now(),
             "updated_by": user_id,

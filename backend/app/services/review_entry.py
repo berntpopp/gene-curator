@@ -192,7 +192,7 @@ def transition_to_review(
 
         # Queries used by scoring must not autoflush half of the submission metadata.
         with db.no_autoflush:
-            _update_computed_scores(db, item)
+            _update_computed_scores(db, item, lookup=False)  # IDs were looked up
         item.submitted_at = datetime.now(UTC)
         item.submitted_by = user_id
     else:

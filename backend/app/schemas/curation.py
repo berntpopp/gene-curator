@@ -304,16 +304,13 @@ class CurationWriteResult(BaseModel):
     verdict: str | None
     warnings: list[str] = Field(
         default_factory=list,
-        description="Scoring warnings, then a draft save's bad or unknown ID warnings",
+        description="Scoring warnings, then bad or unknown ID warnings as 'path: message'",
     )
 
     model_config = ConfigDict(use_enum_values=True)
 
     @classmethod
-    def of(
-        cls, curation: Any, drafted: list["EvidenceWarning"] | None = None
-    ) -> "CurationWriteResult":
-        """``drafted``: a draft save's ID warnings, as "path: message" after the scoring ones."""
+    def of(cls, curation: Any) -> "CurationWriteResult":
         scores = curation.computed_scores or {}
         return cls(
             id=curation.id,
@@ -322,10 +319,7 @@ class CurationWriteResult(BaseModel):
             lock_version=curation.lock_version,
             total_score=scores.get("total_score"),
             verdict=curation.computed_verdict,
-            warnings=[
-                *(scores.get("warnings") or []),
-                *(f"{w.path}: {w.message}" for w in drafted or []),
-            ],
+            warnings=scores.get("warnings") or [],
         )
 
 
