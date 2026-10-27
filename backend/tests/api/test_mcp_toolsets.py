@@ -272,3 +272,21 @@ def test_every_tool_named_in_a_hint_description_or_instructions_exists(
     }
     assert {name: found for name, found in missing.items() if found} == {}
     assert "create_scope" in named(INSTRUCTIONS)  # the check sees real names
+
+
+def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
+    assert len(INSTRUCTIONS) < 4096  # Claude Code cuts server instructions there
+    for shortcut in (
+        "scope_name",
+        "submit_curation(reviewer_email=",
+        "submit_precuration(reviewer_email=",
+        "add_genes_to_scope(symbols, scope_name)",
+        "read_curation_for_review",
+        "search_pubmed(gene_symbol",
+        "validate_pmids(pmids, gene_symbol)",
+        "get_curation_schema(path=)",
+    ):
+        assert shortcut in INSTRUCTIONS, shortcut
+    # the old multi-step gene entry and reviewer routing are gone
+    assert "create_gene_assignment" not in INSTRUCTIONS
+    assert "assign_peer_reviewer" not in INSTRUCTIONS
