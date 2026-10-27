@@ -4,7 +4,7 @@ The MCP layer calls the API in process and marks those calls in the ASGI scope (
 key no network client can set). Only marked calls may carry X-GC-Channel/X-GC-Client;
 they are stripped from every other request, so callers cannot spoof the channel.
 The values reach PostgreSQL as app.channel/app.client (transaction-local), and the
-audit_log trigger from 057 copies them into change_metadata.
+audit_log trigger from 059 copies them into change_metadata.
 """
 
 import time

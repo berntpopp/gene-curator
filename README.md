@@ -158,7 +158,7 @@ claude mcp add --transport http gene-curator http://localhost:8051/mcp \
 
 Writes are audited with channel `mcp` and the token name. Claude Desktop, revocation and the tool
 list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). OAuth 2.1 sign-in
-and dynamic client registration come in phase 2. Existing databases need `make db-migrate` (057).
+and dynamic client registration come in phase 2. Existing databases need `make db-migrate` (059).
 
 ## Documentation
 

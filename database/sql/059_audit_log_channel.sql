@@ -1,5 +1,5 @@
 -- =============================================================================
--- 057: audit_log records the channel and client of a write (#462)
+-- 059: audit_log records the channel and client of a write (#462)
 -- =============================================================================
 -- Writes made through the MCP server run with app.channel = 'mcp' and app.client = the
 -- token name (set transaction-locally by the API, app/mcp/audit.py). This BEFORE INSERT
@@ -32,5 +32,5 @@ CREATE TRIGGER trigger_audit_log_channel
     FOR EACH ROW EXECUTE FUNCTION audit_log_stamp_channel();
 
 INSERT INTO schema_migrations (filename)
-VALUES ('057_audit_log_channel.sql')
+VALUES ('059_audit_log_channel.sql')
 ON CONFLICT DO NOTHING;
