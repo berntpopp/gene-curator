@@ -292,3 +292,28 @@ def test_recompute_keeps_active_results_until_resubmitted(
     recompute_all_scores(db_session)
     db_session.refresh(test_curation)
     assert test_curation.computed_scores["total_score"] == 0
+
+
+def test_submit_refuses_uncited_gencc_rows(
+    client: TestClient,
+    curator_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+) -> None:
+    from tests.unit.test_point_model import _version
+
+    version = _version(db_session, test_curation, 1, {"engine": "gencc_based"})
+    test_curation.methodology_version_id = version.id
+    test_curation.evidence_data = {
+        "genetic_evidence": {"case_level_data": [{"points": 2, "proband": "P1"}]}
+    }
+    db_session.commit()
+    r = client.post(
+        f"/api/v1/curations/{test_curation.id}/submit",
+        json={"lock_version": test_curation.lock_version},
+        headers={"Authorization": f"Bearer {curator_token}"},
+    )
+    assert r.status_code == 422, r.text
+    assert [e["path"] for e in r.json()["detail"]["errors"]] == [
+        "genetic_evidence.case_level_data[0].pmid"
+    ]
