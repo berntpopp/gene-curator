@@ -34,3 +34,12 @@ def test_shutdown_disposes_the_async_engine(monkeypatch: MonkeyPatch) -> None:
     with TestClient(app):
         engine.dispose.assert_not_awaited()
     engine.dispose.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_logger_flush_gives_up_on_a_hung_write() -> None:
+    logger = DatabaseLogger()
+    hung = asyncio.create_task(asyncio.Event().wait())
+    logger._pending_tasks.add(hung)
+    await logger.flush(timeout=0.01)
+    assert hung.cancelled()
