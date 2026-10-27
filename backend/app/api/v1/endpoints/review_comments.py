@@ -10,7 +10,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
@@ -33,9 +33,11 @@ from app.schemas.review_comment import (
     ReviewCommentCreate,
     ReviewCommentUpdate,
 )
-from app.services.evidence_diff import diff_evidence
+from app.services.evidence_diff import diff_evidence, snapshot_at, submitted_snapshots
 
 router = APIRouter()
+# ?baseline= name: index into the submissions, newest first
+_SUBMISSION = {"submitted": 0, "previous_submission": 1}
 
 _DENIED = HTTPException(
     status.HTTP_403_FORBIDDEN, "Not authorized to comment on this item"
@@ -157,26 +159,6 @@ def update_review_comment(
     return comment
 
 
-def _submissions(db: Session, curation_id: UUID) -> list[AuditLogNew]:
-    """Audit rows of status transitions into submitted/in_review, newest first (an edit made while
-    already submitted is not a submission)."""
-    return list(
-        db.scalars(
-            select(AuditLogNew)
-            .where(
-                AuditLogNew.entity_type == "curations",
-                AuditLogNew.entity_id == curation_id,
-                AuditLogNew.new_status.in_(("submitted", "in_review")),
-                or_(
-                    AuditLogNew.previous_status.is_(None),
-                    AuditLogNew.previous_status != AuditLogNew.new_status,
-                ),
-            )
-            .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
-        )
-    )
-
-
 def _baseline(
     db: Session, curation_id: UUID, user_id: UUID
 ) -> tuple[AuditLogNew, str, datetime] | None:
@@ -197,19 +179,10 @@ def _baseline(
         decided = db.scalars(query).first()
         if decided is None:
             continue
-        row = db.scalars(
-            select(AuditLogNew)
-            .where(
-                AuditLogNew.entity_type == "curations",
-                AuditLogNew.entity_id == curation_id,
-                AuditLogNew.timestamp <= decided,
-            )
-            .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
-            .limit(1)
-        ).first()
+        row = snapshot_at(db, curation_id, decided)
         if row is not None:
             return row, source, decided
-    submissions = _submissions(db, curation_id)
+    submissions = submitted_snapshots(db, curation_id)
     if len(submissions) >= 2:
         return submissions[1], "previous_submission", submissions[1].timestamp
     return None
@@ -242,9 +215,10 @@ def _requested(
             **info,
             "source": "active_curation",
         }, active.curation.evidence_data or {}
-    if baseline == "submitted":
-        rows = _submissions(db, curation.id)
-        row = rows[0] if rows else None
+    rows = submitted_snapshots(db, curation.id)
+    if baseline in _SUBMISSION:
+        index = _SUBMISSION[baseline]
+        row = rows[index] if len(rows) > index else None
     else:
         row = db.get(AuditLogNew, int(baseline))
         if row is not None and (row.entity_type, row.entity_id) != (
@@ -254,9 +228,20 @@ def _requested(
             row = None
     if row is None:
         raise HTTPException(404, f"No {baseline} snapshot of this curation")
-    source = "submitted" if baseline == "submitted" else "audit"
+    source = baseline if baseline in _SUBMISSION else "audit"
     snapshot = (row.changes or {}).get("evidence_data") or {}
-    return {"audit_id": row.id, "as_of": row.timestamp, "source": source}, snapshot
+    found: dict[str, Any] = {
+        "audit_id": row.id,
+        "as_of": row.timestamp,
+        "source": source,
+    }
+    current = curation.evidence_data or {}
+    if source == "submitted" and len(rows) > 1 and snapshot == current:
+        found["note"] = (
+            f"The latest submission (audit {row.id}) is the current evidence; "
+            f"baseline=previous_submission compares with audit {rows[1].id}"
+        )
+    return found, snapshot
 
 
 @router.get("/{curation_id}/diff", response_model=CurationDiff)
@@ -265,9 +250,10 @@ def curation_diff(
     curation_id: UUID,
     baseline: str | None = Query(
         None,
-        pattern=r"^(submitted|active|\d{1,18})$",
-        description="submitted (last submission), active (the active curation) or an "
-        "audit id; default: the version the caller last reviewed",
+        pattern=r"^(submitted|previous_submission|active|\d{1,18})$",
+        description="submitted (last submission), previous_submission (the one before "
+        "it), active (the active curation) or an audit id (get_workflow_audit_trail "
+        "entries carry them); default: the version the caller last reviewed",
     ),
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),

@@ -11,10 +11,19 @@ from app.crud.precuration_required import (
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
-from app.schemas.curation import disease_fields
+from app.schemas.curation import EvidenceWarning, disease_fields
+from app.scoring.point_limits import scoring_configuration
+from app.scoring.registry import engine_for
 from app.services.evidence_ids import InvalidEvidenceError, evidence_errors
 
 LS_DECISIONS = ("LUMP", "NOT_APPLICABLE", "SPLIT")
+# Why a row with points scores 0 (scoring/evidence_items.uncited): refused on review entry
+_UNCITED = {
+    "no_pmid": "Scored row needs a PMID",
+    "no_variant": "Scored case-level row needs a variant",
+    "placeholder_variant": "Scored case-level row needs a real variant: HGVS (c./p./g.), "
+    "an rsID or a genomic coordinate",
+}
 
 
 def item_definition(db: Session, item: CurationNew | PrecurationNew) -> dict[str, Any]:
@@ -66,6 +75,21 @@ def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:
     return {**evidence, "entity_definition": entity}
 
 
+def _uncited_rows(
+    db: Session, item: CurationNew, evidence: dict[str, Any]
+) -> list[EvidenceWarning]:
+    """Rows the pinned engine scores 0 for a missing citation or variant, by field path."""
+    config = scoring_configuration(
+        db, item.workflow_pair_id, item.methodology_version_id
+    )
+    excluded = engine_for(config).calculate_scores(evidence, config).evidence_breakdown
+    return [
+        EvidenceWarning(path=f"{e['path']}.{e['field']}", message=_UNCITED[e["reason"]])
+        for e in excluded.get("excluded", [])
+        if e.get("reason") in _UNCITED
+    ]
+
+
 def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> None:
     """Network-free content checks before an item enters review, on every route there.
 
@@ -86,6 +110,8 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
         raise MissingRequiredFieldsError(missing)
     if errors := evidence_errors(evidence, definition):
         raise InvalidEvidenceError(errors)
+    if isinstance(item, CurationNew) and (uncited := _uncited_rows(db, item, evidence)):
+        raise InvalidEvidenceError(uncited)
     if isinstance(item, PrecurationNew) and evidence.get(
         "lumping_splitting_applicable"
     ):

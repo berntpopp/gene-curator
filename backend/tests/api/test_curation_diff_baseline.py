@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models.models import ActiveCuration, AuditLogNew, CurationNew, UserNew
+from app.models.models import ActiveCuration, AuditLogNew, CurationNew, Review, UserNew
 from tests.api.test_review_comments_api import (  # noqa: F401 (fixture)
     _auth,
     _snapshot,
@@ -73,6 +73,7 @@ def test_audit_id_baseline_and_missing_baselines(
         "audit_id": row.id,
         "as_of": body["baseline"]["as_of"],
         "source": "audit",
+        "note": None,
     }
     assert body["changed"] is False
 
@@ -106,3 +107,83 @@ def test_active_baseline_compares_with_the_active_curation(
     body = _get(client, reviewer, test_curation, "active").json()
     assert body["baseline"]["source"] == "active_curation"
     assert body["changed"] is True
+
+
+def test_resubmission_is_compared_with_the_previous_submission(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,  # noqa: F811
+    test_curation: CurationNew,
+) -> None:
+    """MCP study round 3 T6: baseline=submitted silently returned no changes after a
+    resubmission; previous_submission is the one before, and submitted says so."""
+    now = datetime.now(UTC)
+    _snapshot(db_session, test_curation, {"score": 1}, "submitted", now - timedelta(2))
+    assert (
+        _get(client, reviewer, test_curation, "previous_submission").status_code == 404
+    )
+    _snapshot(
+        db_session,
+        test_curation,
+        {"score": 2},
+        "submitted",
+        now - timedelta(1),
+        "draft",
+    )
+    first, latest = db_session.query(AuditLogNew).order_by(AuditLogNew.id).all()
+    test_curation.evidence_data = {"score": 2}
+    db_session.commit()
+
+    same = _get(client, reviewer, test_curation, "submitted").json()
+    assert (same["changed"], same["baseline"]["audit_id"]) == (False, latest.id)
+    assert same["baseline"]["note"] == (
+        f"The latest submission (audit {latest.id}) is the current evidence; "
+        f"baseline=previous_submission compares with audit {first.id}"
+    )
+    before = _get(client, reviewer, test_curation, "previous_submission").json()
+    assert before["baseline"]["source"] == "previous_submission"
+    assert before["baseline"]["audit_id"] == first.id
+    assert before["baseline"]["note"] is None
+    assert [i["path"] for i in before["items"]] == ["score"]
+
+    test_curation.evidence_data = {"score": 3}  # edited since: no note needed
+    db_session.commit()
+    moved = _get(client, reviewer, test_curation, "submitted").json()
+    assert (moved["changed"], moved["baseline"]["note"]) == (True, None)
+
+
+def test_audit_trail_lists_every_submission_with_its_snapshot_id(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,  # noqa: F811
+    test_curation: CurationNew,
+) -> None:
+    now = datetime.now(UTC)
+    _snapshot(db_session, test_curation, {"score": 1}, "submitted", now - timedelta(3))
+    _snapshot(db_session, test_curation, {"score": 2}, "submitted", now - timedelta(1))
+    first, latest = db_session.query(AuditLogNew).order_by(AuditLogNew.id).all()
+    db_session.add(
+        Review(
+            curation_id=test_curation.id,
+            reviewer_id=reviewer.id,
+            assigned_by=test_curation.created_by,
+            status="needs_revision",
+            reviewed_at=now - timedelta(2),
+            comments="Add variants",
+        )
+    )
+    db_session.commit()
+
+    trail = client.get(
+        f"/api/v1/workflow/curation/{test_curation.id}/audit-trail",
+        headers=_auth(reviewer),
+    )
+    assert trail.status_code == 200, trail.text
+    entries = trail.json()["entries"]
+    assert [(e["to_stage"], e["audit_id"]) for e in entries] == [
+        ("review", first.id),
+        ("curation", first.id),  # the decision reviewed the first submission
+        ("review", latest.id),
+    ]
+    body = _get(client, reviewer, test_curation, str(entries[1]["audit_id"])).json()
+    assert body["baseline"]["source"] == "audit"

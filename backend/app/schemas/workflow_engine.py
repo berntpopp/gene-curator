@@ -262,6 +262,11 @@ class WorkflowAuditEntry(BaseModel):
     executed_at: datetime
     notes: str | None
     metadata: dict[str, Any]
+    audit_id: int | None = Field(
+        None,
+        description="Evidence snapshot (submitted, or the one reviewed); pass as "
+        "curation_diff baseline",
+    )
 
     model_config = ConfigDict(use_enum_values=True)
 

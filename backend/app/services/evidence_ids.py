@@ -128,21 +128,17 @@ def check_ids(db: Session, evidence: Any) -> tuple[list[EvidenceWarning], set[st
     return warnings, unknown
 
 
-def _pmid_problem(row: dict[str, Any], unknown: set[str]) -> str | None:
+def _unknown_pmid(row: dict[str, Any], unknown: set[str]) -> bool:
+    """A PMID is entered but malformed or not in PubMed."""
     text = _text(row.get("pmid"))
-    if not text:
-        return None
-    pmid = _normalize("pmid", text)
-    if pmid is None:
-        return f"Malformed PMID {text!r}"
-    return f"PMID {pmid} not found in PubMed" if pmid in unknown else None
+    return bool(text) and _normalize("pmid", text) in (None, *unknown)
 
 
 def scorable(
     evidence: Any, unknown: set[str], path: str = ""
 ) -> tuple[Any, list[dict[str, str]]]:
-    """Evidence without the rows whose PMID is malformed or unknown, and those rows'
-    {path, pmid, reason}: such rows score no points."""
+    """Evidence with each row whose PMID is malformed or unknown replaced by None (such rows
+    score no points; later rows keep their index), and those rows' {path, pmid, reason}."""
     excluded: list[dict[str, str]] = []
     if isinstance(evidence, dict):
         out = {}
@@ -154,17 +150,17 @@ def scorable(
         return out, excluded
     if not isinstance(evidence, list):
         return evidence, excluded
-    rows = []
+    rows: list[Any] = []
     for i, value in enumerate(evidence):
-        problem = _pmid_problem(value, unknown) if isinstance(value, dict) else None
-        if problem:
+        if isinstance(value, dict) and _unknown_pmid(value, unknown):
             excluded.append(
                 {
                     "path": f"{path}[{i}]",
                     "pmid": _text(value.get("pmid")),
-                    "reason": problem,
+                    "reason": "unknown_pmid",
                 }
             )
+            rows.append(None)
             continue
         kept, dropped = scorable(value, unknown, f"{path}[{i}]")
         rows.append(kept)
@@ -175,9 +171,11 @@ def scorable(
 def score_scorable(
     engine: Any, config: Any, evidence: dict[str, Any], unknown: set[str]
 ) -> Any:
-    """Score without the rows whose PMID is malformed or unknown; the breakdown lists them."""
+    """Score without the rows whose PMID is malformed or unknown; the breakdown lists them
+    with the engine's own exclusions (no_pmid, no_variant)."""
     data, excluded = scorable(evidence, unknown)
     result = engine.calculate_scores(data, config)
+    excluded += result.evidence_breakdown.get("excluded", [])
     if excluded:
         result.evidence_breakdown = {**result.evidence_breakdown, "excluded": excluded}
     return result

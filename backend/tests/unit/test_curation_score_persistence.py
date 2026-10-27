@@ -8,7 +8,7 @@ from app.models.models import CurationNew, CurationStatus, PrecurationNew
 
 pytestmark = pytest.mark.unit
 
-_NULL = {"pmid": "12345678", "proband_counted_points": 1.5}
+_NULL = {"pmid": "12345678", "variant": "c.1A>T", "proband_counted_points": 1.5}
 
 
 def test_calculate_score_reports_without_persisting_genetic_score(
@@ -74,7 +74,9 @@ def test_evidence_writes_persist_engine_result(
 
     evidence = {
         "genetic_evidence": {
-            "case_control": {"single_variant_analysis": [{"points": 2}]}
+            "case_control": {
+                "single_variant_analysis": [{"points": 2, "pmid": "12345678"}]
+            }
         }
     }
     user_id = test_curation.created_by

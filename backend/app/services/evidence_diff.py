@@ -5,7 +5,14 @@ a record with an "id" (so an inserted case does not shift the rest). A subtree t
 disappears is one item, not one per leaf.
 """
 
+from datetime import datetime
 from typing import Any
+from uuid import UUID
+
+from sqlalchemy import or_, select
+from sqlalchemy.orm import Session
+
+from app.models import AuditLogNew
 
 _MISSING = object()
 
@@ -65,3 +72,37 @@ def diff_evidence(
     out: list[dict[str, Any]] = []
     _walk("", before, after, out)
     return out
+
+
+def submitted_snapshots(db: Session, curation_id: UUID) -> list[AuditLogNew]:
+    """Audit rows of status transitions into submitted/in_review, newest first (an edit made while
+    already submitted is not a submission)."""
+    return list(
+        db.scalars(
+            select(AuditLogNew)
+            .where(
+                AuditLogNew.entity_type == "curations",
+                AuditLogNew.entity_id == curation_id,
+                AuditLogNew.new_status.in_(("submitted", "in_review")),
+                or_(
+                    AuditLogNew.previous_status.is_(None),
+                    AuditLogNew.previous_status != AuditLogNew.new_status,
+                ),
+            )
+            .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
+        )
+    )
+
+
+def snapshot_at(db: Session, curation_id: UUID, when: datetime) -> AuditLogNew | None:
+    """The curation's latest audit snapshot at or before ``when``."""
+    return db.scalars(
+        select(AuditLogNew)
+        .where(
+            AuditLogNew.entity_type == "curations",
+            AuditLogNew.entity_id == curation_id,
+            AuditLogNew.timestamp <= when,
+        )
+        .order_by(AuditLogNew.timestamp.desc(), AuditLogNew.id.desc())
+        .limit(1)
+    ).first()

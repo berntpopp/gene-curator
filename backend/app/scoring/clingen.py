@@ -19,12 +19,13 @@ from typing import Any
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
+from .case_rows import case_row_warnings
 from .clingen_successor import (
     explicit_legacy_segregation,
     explicit_points,
     missing_score_warnings,
 )
-from .evidence_items import case_row_has_content, has_content, rows
+from .evidence_items import case_row_has_content, has_content, indexed, rows, uncited
 from .point_model import ItemRule, point_model, score, template
 
 logger = get_logger(__name__)
@@ -208,12 +209,13 @@ def legacy_points(
     section_key: str,
     items: list[Any],
     flags: list[Any],
+    excluded: list[Any],
     explicit_segregation: dict[str, Any] | None = None,
 ) -> dict[str, list[float]]:
     """{category: [item points]} for a legacy flat list; unknown categories are ignored."""
     scorers = _LEGACY_SECTION.get(section_key, {})
     out: dict[str, list[float]] = {}
-    for index, item in enumerate(rows(items)):
+    for index, item in indexed(items):
         category = _LEGACY_CATEGORY.get(item.get("evidence_category", ""), "")
         if category in scorers:
             explicit = explicit_segregation if category == "segregation" else None
@@ -241,7 +243,9 @@ def legacy_points(
                         "range": list(limits) if limits else None,
                     }
                 )
-            if finite:
+            if value > 0 and (why := uncited(item, category == "case_level")):
+                excluded.append({"path": f"{section_key}[{index}]", **why})
+            elif finite:
                 out.setdefault(category, []).append(value)
     return out
 
@@ -299,6 +303,7 @@ class ClinGenEngine(ScoringEngine):
         )
         warnings += map(_range_warning, result["trace"].get("out_of_range", []))
         warnings += missing_score_warnings(model, evidence_data)
+        warnings += case_row_warnings(evidence_data)
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],
@@ -310,7 +315,8 @@ class ClinGenEngine(ScoringEngine):
             total_score=result["total"],
             verdict=result["class"],
             verdict_rationale=rationale,
-            evidence_breakdown={"trace": result["trace"]},
+            evidence_breakdown={"trace": result["trace"]}
+            | ({"excluded": result["excluded"]} if result["excluded"] else {}),
             warnings=warnings,
             metadata={
                 "sop_version": "v11",
@@ -325,15 +331,7 @@ class ClinGenEngine(ScoringEngine):
         genetic_evidence: list[dict[str, Any]],
         experimental_evidence: list[dict[str, Any]] | dict[str, Any],
     ) -> list[str]:
-        """Check for potential issues or warnings in evidence data
-
-        Args:
-            genetic_evidence: List of genetic evidence items
-            experimental_evidence: Experimental evidence (list or nested dict)
-
-        Returns:
-            List of warning messages
-        """
+        """Warnings for genetic (list or nested dict) and experimental evidence."""
         warnings = []
 
         # Check genetic evidence
@@ -343,7 +341,9 @@ class ClinGenEngine(ScoringEngine):
 
         problems = self._pmid_problems(genetic_evidence, experimental_evidence)
         if problems["scored"]:
-            warnings.append(f"{problems['scored']} scored row(s) have no PMID")
+            warnings.append(
+                f"{problems['scored']} row(s) with points have no PMID and score 0"
+            )
         if problems["not_counted"]:
             warnings.append(
                 f"{problems['not_counted']} row(s) with only not-counted points have no PMID"
