@@ -54,6 +54,37 @@ def test_golden_parity_with_pre_interpreter_engine(case: dict) -> None:
     assert categories == pytest.approx(case["categories"])
 
 
+def _slot(evidence: dict, path: str) -> tuple[object, object]:
+    """(container, key) of the row at ``a.b[i]``; a legacy {points} summary dict is row 0."""
+    head, index = path.rsplit("[", 1)
+    *parents, leaf = head.split(".")
+    node: object = evidence
+    for key in parents:
+        node = node[key]  # type: ignore[index]
+    if isinstance(node[leaf], dict):  # type: ignore[index]
+        return node, leaf
+    return node[leaf], int(index.rstrip("]"))  # type: ignore[index]
+
+
+@pytest.mark.parametrize("case", _golden(), ids=lambda c: c["verdict"])
+def test_golden_with_the_citation_policy_on(case: dict) -> None:
+    """Real-shaped rows: each excluded row really lacks its citation, and the policy only
+    removes those rows' points (the rest scores exactly as with the policy off)."""
+    result = ClinGenEngine().calculate_scores(case["evidence"], {})
+    excluded = result.evidence_breakdown.get("excluded", [])
+    assert result.total_score <= case["scores"]["total_score"] + 1e-9
+    trimmed = copy.deepcopy(case["evidence"])
+    for entry in excluded:
+        container, key = _slot(trimmed, entry["path"])
+        value = container[key].get(entry["field"])  # type: ignore[index]
+        assert entry["reason"] in ("no_pmid", "no_variant", "placeholder_variant")
+        assert entry["reason"] == "placeholder_variant" or not str(value or "").strip()
+        container[key] = None  # type: ignore[index]
+    again = ClinGenEngine().calculate_scores(trimmed, {})
+    assert again.total_score == pytest.approx(result.total_score)
+    assert "excluded" not in again.evidence_breakdown
+
+
 @pytest.mark.parametrize(
     ("total", "flags", "expected"),
     [
