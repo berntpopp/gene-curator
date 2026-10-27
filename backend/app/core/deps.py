@@ -46,6 +46,7 @@ PAT_BLOCKED_OPERATIONS: tuple[tuple[str, str], ...] = (
     ("PUT", "/api/v1/users/{user_id}/password"),
     ("PUT", "/api/v1/users/{user_id}/activate"),
     ("PUT", "/api/v1/users/{user_id}/deactivate"),
+    ("DELETE", "/api/v1/users/{user_id}"),
     ("PUT", "/api/v1/auth/me/password"),
     ("POST", "/api/v1/auth/change-password"),
     ("POST", "/api/v1/me/tokens/"),

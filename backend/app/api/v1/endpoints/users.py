@@ -250,7 +250,7 @@ async def deactivate_user(
     return {"message": "User deactivated successfully"}
 
 
-@router.delete("/{user_id}")
+@router.delete("/{user_id}", dependencies=[Depends(reject_personal_access_token)])
 async def delete_user(
     user_id: UUID,
     db: Session = Depends(get_db),

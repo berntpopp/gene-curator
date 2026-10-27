@@ -222,3 +222,19 @@ def test_admin_pat_keeps_ordinary_admin_rights(
         client.put(url, json={"role": "admin"}, headers=_bearer(pat)).status_code == 403
     )
     assert client.get(url, headers=_bearer(pat)).json()["role"] == "user"
+
+
+def test_delete_user_needs_a_signed_in_session(
+    client: TestClient, admin_token: str, db_session: Session
+) -> None:
+    target = UserNew(
+        email="gone@test.com", hashed_password="x", name="Gone", role="user"
+    )
+    db_session.add(target)
+    db_session.commit()
+    pat = _create(client, admin_token)["token"]
+    url = f"/api/v1/users/{target.id}"
+
+    assert client.delete(url, headers=_bearer(pat)).status_code == 403
+    assert client.get(url, headers=_bearer(admin_token)).status_code == 200
+    assert client.delete(url, headers=_bearer(admin_token)).status_code == 200
