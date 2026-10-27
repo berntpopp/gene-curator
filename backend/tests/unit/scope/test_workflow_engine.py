@@ -424,7 +424,7 @@ def test_workflow_state_lists_transitions_and_progress(
         db_session, scope=scope, gene=gene, creator=creator, stage=S.CURATION
     )
 
-    state = engine.get_workflow_state(db_session, curation.id, "curation")
+    state = engine.get_workflow_state(db_session, curation.id, "curation", creator.id)
 
     assert state.current_stage == S.CURATION
     assert S.REVIEW in state.available_transitions
@@ -437,7 +437,7 @@ def test_workflow_state_unknown_item_raises(
     db_session: Session, engine: WorkflowEngine
 ) -> None:
     with pytest.raises(ValueError, match="not found"):
-        engine.get_workflow_state(db_session, uuid4(), "curation")
+        engine.get_workflow_state(db_session, uuid4(), "curation", uuid4())
 
 
 def test_progress_metrics_fall_back_for_unknown_stage(engine: WorkflowEngine) -> None:

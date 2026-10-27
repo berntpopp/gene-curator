@@ -36,7 +36,7 @@ def test_recompute_scores_api_saved_custom_evidence(
     created = _create(client, w, w.genes[0])  # curator alice, pinned to the latest
     assert created["methodology_version_id"] == r.json()["id"]
     saved = client.patch(
-        f"/api/v1/curations/{created['id']}/draft",
+        f"/api/v1/curations/{created['id']}/draft?detail=true",
         json={
             "evidence_data": {"genetic_evidence": CUSTOM_EVIDENCE["genetic_evidence"]},
             "lock_version": created["lock_version"],
@@ -147,7 +147,7 @@ def test_api_draft_invalid_scores_are_flagged_and_storable(
     assert created["methodology_version_id"] == version.json()["id"]
     url = f"/api/v1/curations/{created['id']}"
     saved = client.patch(
-        f"{url}/draft",
+        f"{url}/draft?detail=true",
         json={"evidence_data": evidence, "lock_version": created["lock_version"]},
         headers=_h(w.alice),
     )
@@ -156,7 +156,7 @@ def test_api_draft_invalid_scores_are_flagged_and_storable(
     assert scores["total_score"] == total
     assert [f["path"] for f in scores["trace"]["out_of_range"]] == [path]
     json.dumps(scores, allow_nan=False)
-    loaded = client.get(url, headers=_h(w.alice))
+    loaded = client.get(f"{url}?detail=true", headers=_h(w.alice))
     assert loaded.status_code == 200, loaded.text
     assert loaded.json()["computed_scores"] == scores
     assert loaded.json()["evidence_data"] == evidence

@@ -1,6 +1,9 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
 
+/** The UI needs the full curation and score trace; the API defaults to concise answers. */
+const FULL = { params: { detail: true } }
+
 /**
  * Curation API client
  *
@@ -26,7 +29,7 @@ export const curationsAPI = {
    * @param id - Curation UUID
    */
   async getCuration(id: string): Promise<Schema<'CurationDetail'>> {
-    const response = await apiClient.get<Schema<'CurationDetail'>>(`/curations/${id}`)
+    const response = await apiClient.get<Schema<'CurationDetail'>>(`/curations/${id}`, FULL)
     return response.data
   },
 
@@ -46,7 +49,7 @@ export const curationsAPI = {
    * @throws {409} If lock_version doesn't match (conflict)
    */
   async updateCuration(id: string, data: Schema<'CurationUpdate'>): Promise<Schema<'Curation'>> {
-    const response = await apiClient.put<Schema<'Curation'>>(`/curations/${id}`, data)
+    const response = await apiClient.put<Schema<'Curation'>>(`/curations/${id}`, data, FULL)
     return response.data
   },
 
@@ -56,7 +59,7 @@ export const curationsAPI = {
    * @param data - Draft data
    */
   async saveDraft(id: string, data: Schema<'CurationDraftSave'>): Promise<Schema<'Curation'>> {
-    const response = await apiClient.patch<Schema<'Curation'>>(`/curations/${id}/draft`, data)
+    const response = await apiClient.patch<Schema<'Curation'>>(`/curations/${id}/draft`, data, FULL)
     return response.data
   },
 
@@ -69,7 +72,7 @@ export const curationsAPI = {
     id: string,
     data: Partial<Schema<'CurationSubmit'>> = {}
   ): Promise<Schema<'Curation'>> {
-    const response = await apiClient.post<Schema<'Curation'>>(`/curations/${id}/submit`, data)
+    const response = await apiClient.post<Schema<'Curation'>>(`/curations/${id}/submit`, data, FULL)
     return response.data
   },
 

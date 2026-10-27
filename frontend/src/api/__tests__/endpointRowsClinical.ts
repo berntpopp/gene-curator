@@ -20,7 +20,7 @@ export const clinicalRows: Row[] = [
     name: 'curations.getCuration',
     run: () => curationsAPI.getCuration('c'),
     method: 'get',
-    args: ['/curations/c']
+    args: ['/curations/c', { params: { detail: true } }]
   },
   {
     name: 'curations.createCuration',
@@ -32,19 +32,19 @@ export const clinicalRows: Row[] = [
     name: 'curations.updateCuration',
     run: () => curationsAPI.updateCuration('c', { lock_version: 2 } as never),
     method: 'put',
-    args: ['/curations/c', { lock_version: 2 }]
+    args: ['/curations/c', { lock_version: 2 }, { params: { detail: true } }]
   },
   {
     name: 'curations.saveDraft',
     run: () => curationsAPI.saveDraft('c', { draft: true } as never),
     method: 'patch',
-    args: ['/curations/c/draft', { draft: true }]
+    args: ['/curations/c/draft', { draft: true }, { params: { detail: true } }]
   },
   {
     name: 'curations.submitCuration defaults to an empty body',
     run: () => curationsAPI.submitCuration('c'),
     method: 'post',
-    args: ['/curations/c/submit', {}]
+    args: ['/curations/c/submit', {}, { params: { detail: true } }]
   },
   {
     name: 'curations.deleteCuration',

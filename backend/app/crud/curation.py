@@ -80,7 +80,11 @@ def _computed(
     )
     result = engine_for(config).calculate_scores(evidence_data, config)
     return {
-        "computed_scores": {**result.scores, **result.evidence_breakdown},
+        "computed_scores": {
+            **result.scores,
+            **result.evidence_breakdown,
+            "warnings": result.warnings,
+        },
         "computed_verdict": result.verdict,
         "computed_summary": result.verdict_rationale,
     }

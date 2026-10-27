@@ -26,6 +26,7 @@ from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
+    CurationSchemaSummary,
     CurationSchemaUpdate,
     MethodologyDerive,
     MethodologyVersion,
@@ -75,7 +76,10 @@ def _require_active_schemas(db: Session, *schema_ids: UUID | None) -> None:
 # ========================================
 
 
-@router.get("/curation-schemas", response_model=list[CurationSchema])
+@router.get(
+    "/curation-schemas",
+    response_model=list[CurationSchema] | list[CurationSchemaSummary],
+)
 def get_curation_schemas(
     db: Session = Depends(get_db),
     skip: int = 0,
@@ -83,8 +87,11 @@ def get_curation_schemas(
     schema_type: str | None = Query(None, description="Filter by schema type"),
     institution: str | None = Query(None, description="Filter by institution"),
     active_only: bool = Query(True, description="Filter for active schemas only"),
+    detail: bool = Query(
+        False, description="Full schemas (fields, scoring, UI) instead of summary rows"
+    ),
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> Sequence[CurationSchema]:
+) -> Sequence[CurationSchema] | list[CurationSchemaSummary]:
     """
     Retrieve curation schemas with optional filtering.
     """
@@ -96,6 +103,8 @@ def get_curation_schemas(
         institution=institution,
         active_only=active_only,
     )
+    if not detail:
+        return [CurationSchemaSummary.model_validate(x) for x in schemas]
     return schemas  # type: ignore[return-value]
 
 

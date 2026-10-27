@@ -27,7 +27,10 @@ class PrecurationCreate(BaseModel):
 
     gene_id: UUID = Field(..., description="Gene UUID")
     scope_id: UUID = Field(..., description="Scope UUID")
-    precuration_schema_id: UUID = Field(..., description="Precuration schema UUID")
+    precuration_schema_id: UUID | None = Field(
+        None,
+        description="Precuration schema UUID; default: the scope's workflow pair schema",
+    )
     evidence_data: dict[str, Any] = Field(
         default_factory=dict, description="Precuration evidence data"
     )

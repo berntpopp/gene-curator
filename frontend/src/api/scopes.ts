@@ -3,14 +3,6 @@ import type { Schema } from '@/types/api'
 
 export const scopesAPI = {
   /**
-   * Get all scopes
-   */
-  async getScopes(params: Record<string, unknown> = {}): Promise<Schema<'ScopeListItem'>[]> {
-    const response = await apiClient.get<Schema<'ScopeListItem'>[]>('/scopes/', { params })
-    return response.data
-  },
-
-  /**
    * Get scope by ID
    */
   async getScopeById(id: string): Promise<Schema<'ScopeWithStats'>> {

@@ -111,17 +111,45 @@ def error_code(status: int) -> str:
     return "upstream_unavailable" if status in (502, 503, 504) else "internal"
 
 
-def _tool_error(cause: httpx.HTTPStatusError) -> ToolError:
+# One-line next step per error, so an agent recovers without probing (MCP study F8)
+_HINTS = {
+    400: "fix what the detail names and retry",
+    401: "the access token is invalid or expired; create a new one in the web app",
+    403: "check your role with list_scopes (user_role); nobody approves their own work",
+    404: "check the id; list_scopes and list_curations return valid ids",
+    409: "the detail says why; a retry will not help",
+    422: "fix the arguments the detail names and retry",
+    429: "wait a minute and retry",
+}
+_TOOL_HINTS = {
+    (
+        "bulk_create_gene_assignments",
+        403,
+    ): "scope admins only; curators assign one gene "
+    "at a time with create_gene_assignment",
+    ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
+    "make and why the others are blocked",
+}
+_STALE_HINT = (
+    "re-read the item (get_curation or get_precuration), merge your change and retry"
+)
+
+
+def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     status = cause.response.status_code
     message = f"{error_code(status)}: HTTP {status}"
+    detail: Any = None
     if status < 500:  # the API's own detail, as the same user would see it
         try:
-            detail: Any = cause.response.json().get("detail")
+            detail = cause.response.json().get("detail")
         except ValueError:
             detail = None
         if detail:
             message += f": {detail}"
-    return ToolError(message)
+    hint = _TOOL_HINTS.get((tool, status)) or _HINTS.get(status)
+    if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
+        hint = _STALE_HINT
+    return ToolError(f"{message}\nnext: {hint}" if hint else message)
 
 
 def correlation_id() -> str | None:
@@ -152,7 +180,7 @@ class ToolAuditMiddleware(Middleware):
             if cause is None:
                 outcome = "error"
                 raise  # mask_error_details hides unexpected details
-            error = _tool_error(cause)
+            error = _tool_error(cause, context.message.name)
             outcome = str(error).split(":", 1)[0]
             raise error from exc
         finally:

@@ -4,7 +4,14 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    computed_field,
+    field_validator,
+    model_validator,
+)
 
 # One limit for a query and for the request-changes feedback built from the open queries.
 REVIEW_TEXT_MAX = 2000
@@ -78,7 +85,14 @@ class DiffBaseline(BaseModel):
 
     audit_id: int | None
     as_of: datetime
-    source: Literal["review", "any_review", "previous_submission", "active_curation"]
+    source: Literal[
+        "review",
+        "any_review",
+        "previous_submission",
+        "active_curation",
+        "submitted",
+        "audit",
+    ]
 
 
 class CurationDiff(BaseModel):
@@ -86,3 +100,9 @@ class CurationDiff(BaseModel):
 
     baseline: DiffBaseline | None
     items: list[DiffItem]
+
+    @computed_field  # type: ignore[prop-decorator]  # pydantic's documented idiom
+    @property
+    def changed(self) -> bool:
+        """True when the evidence differs from the baseline."""
+        return bool(self.items)

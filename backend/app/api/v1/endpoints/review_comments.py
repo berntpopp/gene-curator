@@ -6,9 +6,10 @@ has no platform-admin bypass; a write it refuses becomes a 403 here.
 """
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import or_, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
@@ -214,10 +215,60 @@ def _baseline(
     return None
 
 
+def _active(
+    db: Session, curation: CurationNew, *, others_only: bool
+) -> ActiveCuration | None:
+    """The active curation of the curation's gene and scope (others_only: not itself)."""
+    query = select(ActiveCuration).where(
+        ActiveCuration.gene_id == curation.gene_id,
+        ActiveCuration.scope_id == curation.scope_id,
+        ActiveCuration.archived_at.is_(None),
+    )
+    if others_only:
+        query = query.where(ActiveCuration.curation_id != curation.id)
+    return db.scalars(query).first()
+
+
+def _requested(
+    db: Session, curation: CurationNew, baseline: str
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """(baseline info, evidence snapshot) for an explicit ?baseline=; 404 when there is none."""
+    if baseline == "active":
+        active = _active(db, curation, others_only=False)
+        if active is None:
+            raise HTTPException(404, "No active curation for this gene and scope")
+        info = {"audit_id": None, "as_of": active.activated_at}
+        return {
+            **info,
+            "source": "active_curation",
+        }, active.curation.evidence_data or {}
+    if baseline == "submitted":
+        rows = _submissions(db, curation.id)
+        row = rows[0] if rows else None
+    else:
+        row = db.get(AuditLogNew, int(baseline))
+        if row is not None and (row.entity_type, row.entity_id) != (
+            "curations",
+            curation.id,
+        ):
+            row = None
+    if row is None:
+        raise HTTPException(404, f"No {baseline} snapshot of this curation")
+    source = "submitted" if baseline == "submitted" else "audit"
+    snapshot = (row.changes or {}).get("evidence_data") or {}
+    return {"audit_id": row.id, "as_of": row.timestamp, "source": source}, snapshot
+
+
 @router.get("/{curation_id}/diff", response_model=CurationDiff)
 @api_endpoint()
 def curation_diff(
     curation_id: UUID,
+    baseline: str | None = Query(
+        None,
+        pattern=r"^(submitted|active|\d{1,18})$",
+        description="submitted (last submission), active (the active curation) or an "
+        "audit id; default: the version the caller last reviewed",
+    ),
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDiff:
@@ -226,17 +277,15 @@ def curation_diff(
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
     current = curation.evidence_data or {}
+    if baseline is not None:
+        info, snapshot = _requested(db, curation, baseline)
+        return CurationDiff.model_validate(
+            {"baseline": info, "items": diff_evidence(snapshot, current)}
+        )
     found = _baseline(db, curation_id, current_user.id)
     if found is None:
         # A re-curation's first review compares against the active curation it replaces
-        active = db.scalars(
-            select(ActiveCuration).where(
-                ActiveCuration.gene_id == curation.gene_id,
-                ActiveCuration.scope_id == curation.scope_id,
-                ActiveCuration.archived_at.is_(None),
-                ActiveCuration.curation_id != curation.id,
-            )
-        ).first()
+        active = _active(db, curation, others_only=True)
         if active is None:
             return CurationDiff.model_validate(
                 {"baseline": None, "items": diff_evidence({}, current)}

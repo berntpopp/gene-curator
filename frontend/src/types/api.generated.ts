@@ -4263,6 +4263,15 @@ export interface components {
             /** Location */
             location: string | null;
         };
+        /**
+         * BlockedTransition
+         * @description A next stage the caller cannot move the item to, and why.
+         */
+        BlockedTransition: {
+            stage: components["schemas"]["WorkflowStage"];
+            /** Reason */
+            reason: string;
+        };
         /** Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post */
         Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post: {
             /** Evidence Data */
@@ -4486,6 +4495,18 @@ export interface components {
             };
             /** Your Lock Version */
             your_lock_version: number;
+            /**
+             * Updated By Name
+             * @description Who saved the current version
+             */
+            updated_by_name?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Changed Keys
+             * @description Top-level evidence keys where your save and theirs differ
+             */
+            changed_keys?: string[] | null;
         };
         /**
          * CurationCreate
@@ -4609,6 +4630,10 @@ export interface components {
             hgnc_id?: string | null;
             /** Scope Name */
             scope_name?: string | null;
+            /** Curation Schema Id */
+            curation_schema_id?: string | null;
+            /** Precuration Schema Id */
+            precuration_schema_id?: string | null;
             /** Curator Name */
             curator_name?: string | null;
             /** Curator Id */
@@ -4650,6 +4675,11 @@ export interface components {
             baseline: components["schemas"]["DiffBaseline"] | null;
             /** Items */
             items: components["schemas"]["DiffItem"][];
+            /**
+             * Changed
+             * @description True when the evidence differs from the baseline.
+             */
+            readonly changed: boolean;
         };
         /**
          * CurationDraftSave
@@ -4880,6 +4910,27 @@ export interface components {
             use_dynamic_form: boolean;
         };
         /**
+         * CurationSchemaSummary
+         * @description One row of the schema list; detail=true lists full schemas.
+         */
+        CurationSchemaSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Schema Type */
+            schema_type: string;
+            /** Institution */
+            institution?: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /**
          * CurationSchemaUpdate
          * @description Schema for updating a curation schema.
          */
@@ -5038,6 +5089,30 @@ export interface components {
             lock_version: number;
         };
         /**
+         * CurationWriteResult
+         * @description Concise result of a save or submit; detail=true returns the full curation.
+         */
+        CurationWriteResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Lock Version */
+            lock_version: number;
+            /** Total Score */
+            total_score: number | null;
+            /** Verdict */
+            verdict: string | null;
+            /**
+             * Warnings
+             * @description Scoring warnings
+             */
+            warnings?: string[];
+        };
+        /**
          * CuratorAssignmentRequest
          * @description Request to assign a curator to a gene-scope assignment.
          */
@@ -5125,7 +5200,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "review" | "any_review" | "previous_submission" | "active_curation";
+            source: "review" | "any_review" | "previous_submission" | "active_curation" | "submitted" | "audit";
         };
         /** DiffItem */
         DiffItem: {
@@ -8091,10 +8166,9 @@ export interface components {
             scope_id: string;
             /**
              * Precuration Schema Id
-             * Format: uuid
-             * @description Precuration schema UUID
+             * @description Precuration schema UUID; default: the scope's workflow pair schema
              */
-            precuration_schema_id: string;
+            precuration_schema_id?: string | null;
             /**
              * Evidence Data
              * @description Precuration evidence data
@@ -8897,63 +8971,20 @@ export interface components {
         };
         /**
          * ScopeListItem
-         * @description Scope with basic counts for list views.
+         * @description Compact scope row with counts; detail=true adds the remaining scope fields.
          */
         ScopeListItem: {
-            /**
-             * Name
-             * @description Unique scope identifier (e.g., 'kidney-genetics')
-             */
-            name: string;
-            /**
-             * Display Name
-             * @description Human-readable scope name
-             */
-            display_name: string;
-            /**
-             * Description
-             * @description Scope description
-             */
-            description?: string | null;
-            /**
-             * Institution
-             * @description Owning institution
-             */
-            institution?: string | null;
-            /**
-             * Is Public
-             * @description Whether scope is publicly visible
-             * @default false
-             */
-            is_public: boolean;
-            /**
-             * Scope Config
-             * @description Scope-specific configuration
-             */
-            scope_config?: {
-                [key: string]: unknown;
-            };
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Is Active */
-            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Created By */
-            created_by: string | null;
             /** @description Basic scope statistics */
             stats?: components["schemas"]["ScopeListStats"] | null;
             /**
@@ -8961,6 +8992,24 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Scope Config */
+            scope_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
         };
         /**
          * ScopeListStats
@@ -9664,6 +9713,16 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Curation Schema Id
+             * @description Curation schema of the default workflow pair
+             */
+            curation_schema_id?: string | null;
+            /**
+             * Precuration Schema Id
+             * @description Precuration schema of the default workflow pair
+             */
+            precuration_schema_id?: string | null;
         };
         /** SearchResponse */
         SearchResponse: {
@@ -10483,8 +10542,16 @@ export interface components {
             /** Item Type */
             item_type: string;
             current_stage: components["schemas"]["WorkflowStage"];
-            /** Available Transitions */
+            /**
+             * Available Transitions
+             * @description Stages the caller may move the item to now
+             */
             available_transitions: components["schemas"]["WorkflowStage"][];
+            /**
+             * Blocked
+             * @description Other next stages and why the caller cannot
+             */
+            blocked?: components["schemas"]["BlockedTransition"][];
             /** Workflow History */
             workflow_history: {
                 [key: string]: unknown;
@@ -11004,6 +11071,10 @@ export interface operations {
                 limit?: number;
                 /** @description Filter for active scopes only */
                 active_only?: boolean;
+                /** @description Case-insensitive part of the scope name or display name */
+                name?: string | null;
+                /** @description Full scope fields (config, description, timestamps) */
+                detail?: boolean;
             };
             header?: never;
             path?: never;
@@ -11700,6 +11771,8 @@ export interface operations {
                 institution?: string | null;
                 /** @description Filter for active schemas only */
                 active_only?: boolean;
+                /** @description Full schemas (fields, scoring, UI) instead of summary rows */
+                detail?: boolean;
             };
             header?: never;
             path?: never;
@@ -11713,7 +11786,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurationSchema"][];
+                    "application/json": components["schemas"]["CurationSchema"][] | components["schemas"]["CurationSchemaSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -13688,7 +13761,10 @@ export interface operations {
     };
     get_curation_api_v1_curations__curation_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Keep the score trace's zero-point rows */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13719,7 +13795,10 @@ export interface operations {
     };
     update_curation_api_v1_curations__curation_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13738,7 +13817,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13792,7 +13871,10 @@ export interface operations {
     };
     save_draft_api_v1_curations__curation_id__draft_patch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13811,7 +13893,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13836,7 +13918,10 @@ export interface operations {
     };
     submit_curation_api_v1_curations__curation_id__submit_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13855,7 +13940,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -14013,7 +14098,10 @@ export interface operations {
     };
     curation_diff_api_v1_curations__curation_id__diff_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description submitted (last submission), active (the active curation) or an audit id; default: the version the caller last reviewed */
+                baseline?: string | null;
+            };
             header?: never;
             path: {
                 curation_id: string;

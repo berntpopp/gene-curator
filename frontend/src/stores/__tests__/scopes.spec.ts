@@ -211,7 +211,7 @@ describe('useScopesStore', () => {
     it('keeps unrelated current scope and records errors', async () => {
       const store = useScopesStore()
       store.currentScope = scope('other')
-      api.updateScope.mockResolvedValueOnce(scope('a'))
+      api.updateScope.mockResolvedValueOnce(scope('a') as Schema<'Scope'>)
       await store.updateScope('a', {} as Schema<'ScopeUpdate'>)
       expect(store.currentScope?.id).toBe('other')
 

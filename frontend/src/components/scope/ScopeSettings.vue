@@ -167,7 +167,7 @@
     display_name?: string | null
     description?: string | null
     institution?: string | null
-    is_public?: boolean
+    is_public?: boolean | null
     created_by?: string | null
     default_workflow_pair_id?: string | null
   }

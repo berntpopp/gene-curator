@@ -273,14 +273,19 @@ export const useWorkflowStore = defineStore('workflow', {
       try {
         const state = await workflowAPI.getWorkflowState(payload.entity_type, payload.entity_id)
         const current = stageOrder(state.current_stage)
+        const inDirection = (t: Stage) =>
+          direction === 'forward' ? stageOrder(t) > current : stageOrder(t) < current
         const candidates = state.available_transitions
-          .filter(t =>
-            direction === 'forward' ? stageOrder(t) > current : stageOrder(t) < current
-          )
+          .filter(inDirection)
           .sort((a, b) => stageOrder(a) - stageOrder(b))
         const target = direction === 'forward' ? candidates[0] : candidates[candidates.length - 1]
         if (!target) {
-          throw new Error(`No ${direction} transition available from ${state.current_stage}`)
+          // The backend says why the caller cannot move (e.g. 4-eyes on their own work)
+          const reasons = (state.blocked ?? []).filter(b => inDirection(b.stage))
+          throw new Error(
+            reasons.map(b => b.reason).join('; ') ||
+              `No ${direction} transition available from ${state.current_stage}`
+          )
         }
         const result = await workflowAPI.transitionItem(payload.entity_type, payload.entity_id, {
           target_stage: target,

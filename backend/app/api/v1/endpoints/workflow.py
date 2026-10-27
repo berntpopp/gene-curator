@@ -107,7 +107,9 @@ def get_workflow_state(
     # RLS policies handle scope-based access
 
     try:
-        state_info = workflow_engine.get_workflow_state(db, item_id, item_type)
+        state_info = workflow_engine.get_workflow_state(
+            db, item_id, item_type, current_user.id
+        )
         return state_info
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
