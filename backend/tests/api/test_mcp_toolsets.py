@@ -195,7 +195,11 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     text = json.dumps(list(tools.values()))
     assert '"title"' not in text and ".0," not in text
     for name in ("save_draft_curations", "update_curation", "create_curation"):
-        assert "genetic_evidence.case_level" in tools[name]["description"], name
+        text = tools[name]["description"]
+        assert "genetic_evidence.case_level" in text, name
+        assert "One row per proband" in text and "variant_1 and variant_2" in text
+        assert "frameshift, canonical" in text and "missense" in text
+        assert "get_curation_schema(schema_id,\npath=" in text
     assert tools["read_my_work"]["description"].startswith("My work queue")
     assert "get_publication" in tools["validate_pmids"]["description"]
 

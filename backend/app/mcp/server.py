@@ -150,9 +150,16 @@ MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": Tr
 _EVIDENCE_PATHS = """
 
 Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
-- genetic_evidence.case_level.{autosomal_dominant_or_x_linked|autosomal_recessive}.
-  {predicted_or_proven_null|other_variant_type}[]: proband_label, variant, pmid,
-  proband_counted_points
+- genetic_evidence.case_level.autosomal_dominant_or_x_linked.{predicted_or_proven_null|
+  other_variant_type}[]: proband_label, variant, variant_type, pmid,
+  proband_counted_points; .autosomal_recessive.{...}[]: variant_1 and variant_2
+- One row per proband the paper describes, never one per paper or cohort; each row
+  has its own variant(s) as HGVS (c./p.), rsID or genomic coordinate, and the PMID
+  that reports that proband.
+- predicted_or_proven_null: nonsense, frameshift, canonical +/-1,2 splice, initiation
+  codon, exon or whole-gene deletion; other_variant_type: missense, in-frame indel,
+  other splice, UTR, intronic. Recessive: both alleles null -> predicted_or_proven_null
+  (two_null), else other_variant_type (null_and_other, two_other, homozygous_other).
 - genetic_evidence.segregation[]: family_label, lod_score or segregations_counted, pmid
 - genetic_evidence.case_control.{single_variant_analysis|aggregate_variant_analysis}[]
 - experimental_evidence.function.{biochemical_function|protein_interaction|expression}[],
@@ -161,7 +168,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   .rescue.{human|non_human_model_organism|cell_culture|patient_cells}[]: label, pmid,
   points, explanation
 - contradictory_evidence[]: pmid, impact
-Field rules and point ranges: get_curation_schema (compact by default)."""
+Row fields, options and point ranges of one table: get_curation_schema(schema_id,
+path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null")."""
 # Routes without a docstring: lead with the words an agent searches for
 _DESCRIPTIONS = {
     "read_users_me": "Me: the current user's profile (id, name, application role).",
