@@ -18,6 +18,9 @@ from app.api.v1.endpoints import (
     genes,
     health,
     invitations,
+    llm_admin,
+    llm_prompts,
+    llm_scope,
     logs,
     my_work,
     notifications,
@@ -50,6 +53,7 @@ api_router.include_router(
 api_router.include_router(
     invitations.router, tags=["invitations"]
 )  # User-facing invitation endpoints (/me/invitations, /invitations/{id}/...)
+api_router.include_router(llm_scope.router, prefix="/scopes", tags=["llm"])
 api_router.include_router(my_work.router, tags=["my-work"])  # /me/work
 api_router.include_router(
     personal_access_tokens.router, prefix="/me/tokens", tags=["tokens"]
@@ -110,6 +114,10 @@ api_router.include_router(
 api_router.include_router(
     notifications.router, prefix="/notifications", tags=["notifications"]
 )
+
+# LLM admin console (platform admins)
+api_router.include_router(llm_admin.router, prefix="/admin/llm", tags=["llm-admin"])
+api_router.include_router(llm_prompts.router, prefix="/admin/llm", tags=["llm-admin"])
 
 # System monitoring endpoints
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])
