@@ -290,3 +290,26 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     # the old multi-step gene entry and reviewer routing are gone
     assert "create_gene_assignment" not in INSTRUCTIONS
     assert "assign_peer_reviewer" not in INSTRUCTIONS
+
+
+# Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
+# only on purpose. Bytes are the tools/list response as a client receives it.
+SURFACE_BUDGET = {"curator": (78, 64_000), "admin": (78, 64_000)}
+
+
+@pytest.mark.parametrize("role", SURFACE_BUDGET)
+def test_core_tool_surface_stays_in_budget(
+    role: str,
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    test_user_curator: UserNew,
+) -> None:
+    user = test_user_admin if role == "admin" else test_user_curator
+    response = rpc(client, pat(db_session, user), "tools/list", {}, "/mcp")
+    count, max_bytes = SURFACE_BUDGET[role]
+    tools = response.json()["result"]["tools"]
+    assert (len(tools), len(response.content) <= max_bytes) == (count, True), (
+        len(tools),
+        len(response.content),
+    )
