@@ -256,6 +256,44 @@ def _lean_block(block: mt.ContentBlock, drop: frozenset[str]) -> mt.ContentBlock
     return mt.TextContent(type="text", text=text)
 
 
+def _types(prop: dict[str, Any]) -> set[str]:
+    kind = prop.get("type")
+    found = {kind} if isinstance(kind, str) else set(kind or [])
+    for alternative in prop.get("anyOf", []) + prop.get("oneOf", []):
+        found |= _types(alternative)
+    return found
+
+
+_BOOLEANS = {"true": True, "false": False, "1": True, "0": False}
+_PARSERS: tuple[tuple[str, Any], ...] = (
+    ("integer", int),
+    ("number", float),
+    ("boolean", lambda text: _BOOLEANS[text.lower()]),
+)
+
+
+def coerce_arguments(schema: dict[str, Any], args: dict[str, Any]) -> dict[str, Any]:
+    """Numbers and booleans sent as strings ("20", "true"), parsed as FastAPI did.
+
+    Only where the argument cannot be a string and the text parses cleanly; anything
+    else is left for argument_errors to report.
+    """
+    props: dict[str, Any] = schema.get("properties", {})
+    out = dict(args)
+    for key, value in args.items():
+        types = _types(props.get(key) or {})
+        if not isinstance(value, str) or "string" in types:
+            continue
+        for kind, parse in _PARSERS:
+            if kind in types:
+                try:
+                    out[key] = parse(value.strip())
+                    break
+                except (KeyError, ValueError):
+                    continue
+    return out
+
+
 def argument_errors(schema: dict[str, Any], args: dict[str, Any]) -> list[str]:
     """What is wrong with a tool call's arguments, naming each field (empty: fine).
 
@@ -340,9 +378,10 @@ class ToolAuditMiddleware(Middleware):
             )
             tool = await server.get_tool(name) if server else None
             if tool is not None:  # unknown tools: FastMCP answers
-                problems = argument_errors(
+                context.message.arguments = coerce_arguments(
                     tool.parameters, context.message.arguments or {}
                 )
+                problems = argument_errors(tool.parameters, context.message.arguments)
                 if problems:
                     outcome = "invalid_input"
                     raise _invalid_arguments(name, tool.parameters, problems)
