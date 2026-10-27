@@ -96,6 +96,10 @@ db-migrate: ## Apply pending SQL files once (optional FILE=database/sql/NNN_x.sq
 		done; \
 	} | docker exec -i -e APP_DB_PASSWORD $(POSTGRES_CONTAINER) psql -X -v ON_ERROR_STOP=1 --single-transaction -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
+rotate-llm-keys: ## Re-encrypt all LLM credentials to LLM_CREDENTIAL_ACTIVE_KID (as DB owner)
+	cd backend && OWNER_DATABASE_URL="$${OWNER_DATABASE_URL:-postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@localhost:$(POSTGRES_PORT)/$(POSTGRES_DB)}" \
+		uv run python -m app.llm.rotate
+
 db-shell: ## Open psql in the dev DB
 	docker exec -it $(POSTGRES_CONTAINER) psql -U $(POSTGRES_USER) -d $(POSTGRES_DB)
 
@@ -208,6 +212,6 @@ clean-all: ## DESTRUCTIVE: stop everything and delete Docker volumes
 	$(DC_DEV) down -v --remove-orphans
 
 .PHONY: help install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
-	prod prod-build prod-down prod-logs db-reset db-migrate db-shell db-backup db-restore status health \
+	prod prod-build prod-down prod-logs db-reset db-migrate rotate-llm-keys db-shell db-backup db-restore status health \
 	check format test test-postgres test-frontend test-e2e ci ci-backend ci-frontend ci-repo diff-cover \
 	api-types api-types-check workflows docker-images docker-scan clean clean-all

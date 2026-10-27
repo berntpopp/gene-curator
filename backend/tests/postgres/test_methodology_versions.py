@@ -454,7 +454,8 @@ def _downgrade(s: Session) -> None:
             "DROP TRIGGER trigger_publish_initial_methodology_version ON curation_schemas"
         )
     )
-    s.execute(text("DROP TABLE methodology_versions"))
+    # CASCADE drops later FKs into it (057 llm_runs); the test rolls back
+    s.execute(text("DROP TABLE methodology_versions CASCADE"))
     s.execute(
         text(
             "DELETE FROM schema_migrations WHERE filename = '042_methodology_versions.sql'"
