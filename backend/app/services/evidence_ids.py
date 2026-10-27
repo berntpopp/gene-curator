@@ -172,6 +172,17 @@ def scorable(
     return rows, excluded
 
 
+def score_scorable(
+    engine: Any, config: Any, evidence: dict[str, Any], unknown: set[str]
+) -> Any:
+    """Score without the rows whose PMID is malformed or unknown; the breakdown lists them."""
+    data, excluded = scorable(evidence, unknown)
+    result = engine.calculate_scores(data, config)
+    if excluded:
+        result.evidence_breakdown = {**result.evidence_breakdown, "excluded": excluded}
+    return result
+
+
 def check_submittable(
     db: Session, evidence: Any, definition: dict[str, Any], lookup: bool
 ) -> None:

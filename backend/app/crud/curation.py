@@ -37,7 +37,7 @@ from app.schemas.curation import (
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
-from app.services.evidence_ids import check_ids, check_submittable, scorable
+from app.services.evidence_ids import check_ids, check_submittable, score_scorable
 from app.services.review_guards import item_definition
 
 logger = get_logger(__name__)
@@ -87,17 +87,6 @@ def merge_patch(target: Any, patch: Any) -> Any:
     return out
 
 
-def _score(
-    engine: Any, config: Any, evidence: dict[str, Any], unknown: set[str]
-) -> Any:
-    """Rows with a malformed or unknown PMID score nothing; the breakdown lists them."""
-    data, excluded = scorable(evidence, unknown)
-    result = engine.calculate_scores(data, config)
-    if excluded:
-        result.evidence_breakdown = {**result.evidence_breakdown, "excluded": excluded}
-    return result
-
-
 def _computed(
     db: Session,
     curation: CurationNew,
@@ -108,7 +97,7 @@ def _computed(
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )
-    result = _score(engine_for(config), config, evidence_data, unknown or set())
+    result = score_scorable(engine_for(config), config, evidence_data, unknown or set())
     return {
         "computed_scores": {**result.scores, **result.evidence_breakdown},
         "computed_verdict": result.verdict,
@@ -497,7 +486,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             db, db_obj.workflow_pair_id, db_obj.methodology_version_id
         )
         _, unknown = check_ids(db, db_obj.evidence_data)
-        result = _score(
+        result = score_scorable(
             scoring_engine or engine_for(config), config, db_obj.evidence_data, unknown
         )
 

@@ -272,3 +272,28 @@ def test_precuration_draft_merges_and_warns_submit_refuses_malformed(
     assert submit.status_code == 422, submit.text
     # unknown HPO only warns: review entry does not refuse a precuration's unknown IDs
     assert [e["path"] for e in submit.json()["detail"]["errors"]] == ["mondo_id"]
+
+
+def test_recompute_scores_bad_pmid_rows_as_zero(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: MonkeyPatch,
+) -> None:
+    from app.services import recompute_scores
+
+    monkeypatch.setattr(
+        recompute_scores, "lookup_pmids", lambda db, pmids: (["99999999"], [])
+    )
+    rows = _evidence("99999999")["genetic_evidence"]["case_control"]
+    rows["single_variant_analysis"].append({"points": 1, "pmid": "PMID12x"})
+    rows["single_variant_analysis"].append({"points": 1.5, "pmid": "31000001"})
+    test_curation.evidence_data = {"genetic_evidence": {"case_control": rows}}
+    db_session.commit()
+    recompute_scores.recompute_all_scores(db_session)
+    db_session.refresh(test_curation)
+    assert test_curation.computed_scores["total_score"] == 1.5
+    assert [e["pmid"] for e in test_curation.computed_scores["excluded"]] == [
+        "99999999",
+        "PMID12x",
+    ]
