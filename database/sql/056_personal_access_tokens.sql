@@ -78,7 +78,10 @@ REVOKE ALL ON FUNCTION authenticate_personal_access_token(TEXT) FROM PUBLIC;
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_user') THEN
-        GRANT SELECT, INSERT, UPDATE ON personal_access_tokens TO app_user;
+        -- 031's default privileges grant everything; the API only revokes.
+        REVOKE UPDATE, DELETE ON personal_access_tokens FROM app_user;
+        GRANT SELECT, INSERT ON personal_access_tokens TO app_user;
+        GRANT UPDATE (revoked_at) ON personal_access_tokens TO app_user;
         GRANT EXECUTE ON FUNCTION authenticate_personal_access_token(TEXT) TO app_user;
     END IF;
 END $$;

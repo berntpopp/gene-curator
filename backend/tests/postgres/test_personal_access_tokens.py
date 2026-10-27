@@ -135,3 +135,15 @@ def test_pat_acts_as_owner_under_rls_and_only_the_owner_can_revoke(
     )
     assert client.delete(f"{URL}{token_id}", headers=_jwt(w.alice)).status_code == 204
     assert client.get("/api/v1/auth/me", headers=pat).status_code == 401
+
+
+def test_app_user_can_only_update_revoked_at() -> None:
+    with psycopg2.connect(os.environ["DATABASE_URL"]) as conn, conn.cursor() as cur:
+        cur.execute(
+            "SELECT has_column_privilege('personal_access_tokens', c, 'UPDATE') "
+            "FROM unnest(ARRAY['revoked_at', 'expires_at', 'scopes', 'user_id', "
+            "'last_used_at']) c"
+        )
+        assert [r[0] for r in cur.fetchall()] == [True, False, False, False, False]
+        cur.execute("SELECT has_table_privilege('personal_access_tokens', 'DELETE')")
+        assert cur.fetchone()[0] is False
