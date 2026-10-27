@@ -50,3 +50,23 @@ Read-only prep at J547392d/master7b98416: J contains final B/C/F, initial D33fa1
 Merge-tree simulation against master7b98416 reports only `frontend/src/components/forms/__tests__/SchemaDrivenCurationFormFlows.spec.ts`. Against D820bc70 it additionally reports `backend/app/core/schema_validator.py` and `backend/app/services/review_guards.py`; against G32b77d7 it reports schema_validator and the form-flow test. E64aa666+G32b77d7 merges automatically. These are predictions for those exact heads, not completed integrations; recheck after actual parent merges.
 
 Use the existing ledger resolutions: retain description/default/default_by union; retain final G review guard composition with D inherited disease; preserve A cancel assertions and historical J fixture correction. Later I integration must combine sorted unique PMID watching with disabled-or-readonly editability while preserving J automatic-default tracking in EvidenceTableField.vue. No code/stack changes or duplicate tests were made for this prep.
+
+## Final source integration after resumed reviews
+
+R06761a7063cf491bd04188608edc30b037d88a84 merged reviewed Ifb24408. Only manual conflict
+was frontend/src/components/forms/**tests**/SchemaDrivenCurationFormFlows.spec.ts: chose
+I's complete reviewed file and retained schemaCurationFormStubs.ts. Every assertion remains.
+Product comparison against I across backend/frontend/database/scripts shows exactly the
+eight intended0.7.0 version files and no other changes. Treebdfe607ddcb4d17071bced2b20a13396b179c203.
+Final canonicalCI passed at06761a7:2572frontend/backend94.71%, fullPG/allgates, diff97/99%; prior candidate226browser evidence remains valid
+for identical product behavior, while functional per-merge browser gates are separate.
+Actual R integrationSHIP at453a49b/cleanupSHIP ate02479b remain valid. This final fixture
+resolution, operator-local wrapper docs/ignore and refreshed facts need a narrow actual
+Opus delta review. No newclinical interpretation or product fix was introduced.
+
+Actual Opus final integration/docs delta review returned SHIP at01b6c77182fe678c6106a9beda4686e5de1f455a,
+sessionb09f17b0-07b0-4e07-bb88-b14dedb9c10b, is_error=false/modelUsage claude-opus-5-5.
+It verified exact I test-file equality, pure fixture extraction versus320a338, intended
+version-only product differences, precise local-wrapper ignore and accepted epic scope.
+Local artifact /tmp/W5R-final-delta-review.json. Subsequent final fact/wording updates
+and bug-report version-example correction still require the last narrow actual review.

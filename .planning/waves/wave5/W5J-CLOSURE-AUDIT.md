@@ -1,5 +1,7 @@
 # W5J closure audit
 
+> Historical checkpoint entries below are retained for provenance. Current review, merge and gate status is in [the Wave5 report](WAVE5-REPORT.md); later entries supersede earlier pending statements.
+
 J product commit 5ec0326; A readonly integration e35ae58; historical fixture-only commit65d4a25.
 Migration049 creates immutable successor versions for unchanged stock definitions, never mutating old snapshots, pins, evidence or scores. Custom/derived/changed stock definitions are preserved. Exact historical golden expectations remain unchanged.
 
