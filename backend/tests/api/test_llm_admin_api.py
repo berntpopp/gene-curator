@@ -589,3 +589,13 @@ def test_concurrent_first_key_save_is_409(
     assert r.status_code == 409
     monkeypatch.undo()
     assert len(db_session.scalars(select(LLMCredential)).all()) == 1
+
+
+@pytest.mark.parametrize("body", [SECRET, [SECRET], 4242424242])
+def test_bare_body_key_is_not_echoed_in_422(
+    client: TestClient, h: dict[str, str], body: object
+) -> None:
+    provider = _provider(client, h)
+    r = client.put(f"{BASE}/providers/{provider['id']}/key", json=body, headers=h)
+    assert r.status_code == 422
+    assert SECRET not in r.text and "4242424242" not in r.text
