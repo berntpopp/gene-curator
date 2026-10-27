@@ -258,6 +258,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scopes/genes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Genes To Scope
+         * @description Add genes to a scope by HGNC symbol in one call: resolves each symbol (also previous
+         *     symbols, aliases, HGNC ids), creates genes missing locally from HGNC, assigns them to the
+         *     scope and reports per symbol. Scope curators and admins.
+         */
+        post: operations["add_genes_to_scope_api_v1_scopes_genes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/scopes/{scope_id}": {
         parameters: {
             query?: never;
@@ -9158,6 +9180,35 @@ export interface components {
              */
             is_active: boolean;
         };
+        /** ScopeGeneAdded */
+        ScopeGeneAdded: {
+            /** Input */
+            input: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "added" | "already_in_scope" | "ambiguous" | "not_found";
+            /** Gene Id */
+            gene_id?: string | null;
+            /** Symbol */
+            symbol?: string | null;
+            /** Hgnc Id */
+            hgnc_id?: string | null;
+            /**
+             * Created
+             * @description The gene row was created from HGNC
+             * @default false
+             */
+            created: boolean;
+            /**
+             * Candidates
+             * @description ambiguous: pick one and send its hgnc_id
+             */
+            candidates?: components["schemas"]["GeneCandidate"][];
+            /** Reason */
+            reason?: string | null;
+        };
         /**
          * ScopeGeneListResponse
          * @description Response for scope-specific gene lists.
@@ -9186,6 +9237,36 @@ export interface components {
             has_next: boolean;
             /** Has Prev */
             has_prev: boolean;
+        };
+        /**
+         * ScopeGenesAdd
+         * @description Add genes to a scope by HGNC symbol, previous symbol, alias or HGNC id.
+         */
+        ScopeGenesAdd: {
+            /**
+             * Scope Id
+             * @description Scope UUID, or send scope_name
+             */
+            scope_id?: string | null;
+            /**
+             * Scope Name
+             * @description Scope name or display name, instead of scope_id
+             */
+            scope_name?: string | null;
+            /** Symbols */
+            symbols: string[];
+        };
+        /** ScopeGenesAdded */
+        ScopeGenesAdded: {
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Added */
+            added: number;
+            /** Items */
+            items: components["schemas"]["ScopeGeneAdded"][];
         };
         /** ScopeHit */
         ScopeHit: {
@@ -11364,6 +11445,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Scope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_genes_to_scope_api_v1_scopes_genes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeGenesAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeGenesAdded"];
                 };
             };
             /** @description Validation Error */

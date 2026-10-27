@@ -14,6 +14,7 @@ Created: 2025-10-13
 Author: Claude Code (Automated Implementation)
 """
 
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,13 +22,24 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
+from app.core.capabilities import CREATE_GENE, EDIT, require, require_active_scope
 from app.core.database import get_db
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
+from app.crud.gene import gene_crud
+from app.crud.gene_assignment import gene_assignment_crud
 from app.crud.scope import scope_crud
 from app.crud.scope_counts import get_counts_for_scopes
 from app.crud.scope_membership import scope_membership_crud
-from app.models import Scope, User, WorkflowPair
+from app.crud.scope_visibility import scope_id_for
+from app.models import Gene, Scope, User, WorkflowPair
+from app.schemas.gene import GeneCreate
+from app.schemas.gene_assignment import (
+    GeneScopeAssignmentCreate,
+    ScopeGeneAdded,
+    ScopeGenesAdd,
+    ScopeGenesAdded,
+)
 from app.schemas.scope import (
     Scope as ScopeResponse,
     ScopeCreate,
@@ -37,6 +49,8 @@ from app.schemas.scope import (
     ScopeUpdate,
     ScopeWithStats,
 )
+from app.services.gene_resolver import resolve_genes
+from app.services.gene_verification import verify_rows
 
 logger = get_logger(__name__)
 
@@ -152,6 +166,90 @@ def create_scope(
     )
 
     return scope
+
+
+@router.post("/genes", response_model=ScopeGenesAdded)
+def add_genes_to_scope(
+    *,
+    db: Session = Depends(get_db),
+    body: ScopeGenesAdd,
+    current_user: User = Depends(deps.get_current_active_user),
+) -> ScopeGenesAdded:
+    """Add genes to a scope by HGNC symbol in one call: resolves each symbol (also previous
+    symbols, aliases, HGNC ids), creates genes missing locally from HGNC, assigns them to the
+    scope and reports per symbol. Scope curators and admins."""
+    deps.set_rls_context(db, current_user)
+    scope_id = scope_id_for(db, current_user.id, body.scope_id, body.scope_name)
+    if scope_id is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, "Send scope_id or scope_name"
+        )
+    require(db, current_user, scope_id, EDIT)
+    require_active_scope(db.get(Scope, scope_id))
+    resolved = asyncio.run(resolve_genes(db, body.symbols)).items
+    hits = {i.index: i.candidates[0] for i in resolved if i.status == "resolved"}
+    missing = {c.hgnc_id: c.symbol for c in hits.values() if c.gene_id is None}
+    if missing:
+        require(db, current_user, scope_id, CREATE_GENE)
+        rows, _ = verify_rows(
+            db, [GeneCreate(hgnc_id=h, approved_symbol=s) for h, s in missing.items()]
+        )
+        gene_crud.bulk_create(db, genes_data=rows, owner_id=current_user.id)
+    ids = dict(
+        db.execute(
+            select(Gene.hgnc_id, Gene.id).where(
+                Gene.hgnc_id.in_({c.hgnc_id for c in hits.values()})
+            )
+        ).all()
+    )
+    items = []
+    for item in resolved:
+        hit = hits.get(item.index)
+        gene_id = ids.get(hit.hgnc_id) if hit else None
+        if hit is None:
+            items.append(
+                ScopeGeneAdded(
+                    input=item.input,
+                    status="ambiguous" if item.status == "ambiguous" else "not_found",
+                    candidates=item.candidates,
+                    reason=item.reason,
+                )
+            )
+            continue
+        added = gene_id is not None and _assign(db, gene_id, scope_id, current_user.id)
+        items.append(
+            ScopeGeneAdded(
+                input=item.input,
+                status="added"
+                if added
+                else "already_in_scope"
+                if gene_id
+                else "not_found",
+                gene_id=gene_id,
+                symbol=hit.symbol,
+                hgnc_id=hit.hgnc_id,
+                created=added and hit.hgnc_id in missing,
+                reason=None if gene_id else "HGNC could not verify this gene",
+            )
+        )
+    db.commit()
+    return ScopeGenesAdded(
+        scope_id=scope_id, added=sum(i.status == "added" for i in items), items=items
+    )
+
+
+def _assign(db: Session, gene_id: UUID, scope_id: UUID, user_id: UUID) -> bool:
+    """Assign one gene; False when it is already active in the scope."""
+    try:
+        gene_assignment_crud.create_assignment(
+            db,
+            obj_in=GeneScopeAssignmentCreate(gene_id=gene_id, scope_id=scope_id),
+            assigned_by=user_id,
+            commit=False,
+        )
+    except ValueError:
+        return False
+    return True
 
 
 @router.get("/", response_model=list[ScopeListItem], response_model_exclude_unset=True)
