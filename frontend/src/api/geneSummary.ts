@@ -1,6 +1,5 @@
 import apiClient from './client'
 import type { Schema } from '@/types/api'
-import type { MessageResponse } from './responses'
 
 /**
  * Gene Summary API client for cross-scope aggregation
@@ -29,15 +28,6 @@ export const geneSummaryAPI = {
    */
   async getFullSummary(geneId: string): Promise<Schema<'GeneSummaryFull'>> {
     const response = await apiClient.get<Schema<'GeneSummaryFull'>>(`/genes/${geneId}/summary/full`)
-    return response.data
-  },
-
-  /**
-   * Manually recompute gene summary (admin only)
-   * @param geneId - Gene UUID
-   */
-  async recomputeSummary(geneId: string): Promise<MessageResponse> {
-    const response = await apiClient.post<MessageResponse>(`/genes/${geneId}/summary/recompute`)
     return response.data
   }
 }

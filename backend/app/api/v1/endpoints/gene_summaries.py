@@ -14,7 +14,6 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.core.deps import (
     get_current_active_user,
-    get_current_admin_user,
     get_current_user_optional,
 )
 from app.core.logging import api_endpoint, get_logger
@@ -172,44 +171,3 @@ async def get_gene_curating_scopes(
     )
 
     return scope_list
-
-
-@router.post(
-    "/genes/{gene_id}/summary/recompute",
-    status_code=status.HTTP_202_ACCEPTED,
-)
-@api_endpoint()
-async def recompute_gene_summary(
-    *,
-    db: Session = Depends(get_db),
-    gene_id: UUID,
-    current_user: UserNew = Depends(get_current_admin_user),
-) -> dict[str, str]:
-    """Manually trigger gene summary recomputation (admin only)
-
-    Forces immediate recomputation of gene summary aggregations.
-    Normally summaries are computed on-demand or via background jobs.
-
-    Args:
-        db: Database session
-        gene_id: UUID of the gene
-        current_user: Current admin user
-
-    Returns:
-        Success message with recomputation status
-    """
-    service = GeneSummaryService(db)
-    summary = service.compute_summary(gene_id)
-
-    logger.info(
-        "Gene summary manually recomputed",
-        gene_id=str(gene_id),
-        total_scopes=summary.total_scopes_curated,
-        user_id=str(current_user.id),
-    )
-
-    return {
-        "message": "Gene summary recomputed successfully",
-        "gene_id": str(gene_id),
-        "total_scopes": str(summary.total_scopes_curated),
-    }

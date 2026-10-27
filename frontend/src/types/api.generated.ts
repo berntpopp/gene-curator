@@ -2868,37 +2868,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/genes/{gene_id}/summary/recompute": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Recompute Gene Summary
-         * @description Manually trigger gene summary recomputation (admin only)
-         *
-         *     Forces immediate recomputation of gene summary aggregations.
-         *     Normally summaries are computed on-demand or via background jobs.
-         *
-         *     Args:
-         *         db: Database session
-         *         gene_id: UUID of the gene
-         *         current_user: Current admin user
-         *
-         *     Returns:
-         *         Success message with recomputation status
-         */
-        post: operations["recompute_gene_summary_api_v1_genes__gene_id__summary_recompute_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/external-validation/validate/batch": {
         parameters: {
             query?: never;
@@ -15661,39 +15630,6 @@ export interface operations {
                     "application/json": {
                         [key: string]: unknown;
                     }[];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
-    recompute_gene_summary_api_v1_genes__gene_id__summary_recompute_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                gene_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
                 };
             };
             /** @description Validation Error */

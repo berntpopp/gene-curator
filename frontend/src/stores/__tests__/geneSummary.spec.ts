@@ -7,8 +7,7 @@ import type { Schema } from '@/types/api'
 vi.mock('@/api/geneSummary', () => ({
   geneSummaryAPI: {
     getPublicSummary: vi.fn(),
-    getFullSummary: vi.fn(),
-    recomputeSummary: vi.fn()
+    getFullSummary: vi.fn()
   }
 }))
 
@@ -100,37 +99,6 @@ describe('useGeneSummaryStore', () => {
 
       await expect(store.fetchFullSummary('g1')).rejects.toEqual({})
       expect(store.error).toBe('Failed to fetch full summary')
-    })
-  })
-
-  describe('recomputeSummary', () => {
-    it('invalidates both cached summaries for the gene', async () => {
-      const store = useGeneSummaryStore()
-      store.publicSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryPublic'>)
-      store.fullSummaries.set('g1', { gene_id: 'g1' } as Schema<'GeneSummaryFull'>)
-      api.recomputeSummary.mockResolvedValue({})
-
-      await store.recomputeSummary('g1')
-
-      expect(api.recomputeSummary).toHaveBeenCalledWith('g1')
-      expect(store.getPublicSummary('g1')).toBeNull()
-      expect(store.getFullSummary('g1')).toBeNull()
-    })
-
-    it('records the error and rethrows', async () => {
-      const store = useGeneSummaryStore()
-      api.recomputeSummary.mockRejectedValue(new Error('admin only'))
-
-      await expect(store.recomputeSummary('g1')).rejects.toThrow('admin only')
-      expect(store.error).toBe('admin only')
-    })
-
-    it('uses a fallback message when the error has none', async () => {
-      const store = useGeneSummaryStore()
-      api.recomputeSummary.mockRejectedValue({})
-
-      await expect(store.recomputeSummary('g1')).rejects.toEqual({})
-      expect(store.error).toBe('Failed to recompute summary')
     })
   })
 
