@@ -5,7 +5,7 @@ SCR=${SCR:-$(dirname "$(readlink -f "$0")")}; MAIN=${MAIN:-$(git rev-parse --sho
 WS=$1 BRANCH=$2 OWNS=$3 ISSUES=$4 NOTE=${5:-}
 WT=$MAIN/../gc-wt/$WS; WT=$(readlink -m "$WT")
 git -C "$MAIN" fetch -q origin master
-git -C "$MAIN" worktree add -q "$WT" -b "$BRANCH" origin/master
+git -C "$MAIN" worktree add -q "$WT" -b "$BRANCH" "${BASE:-origin/master}"
 ln -s "$MAIN/frontend/node_modules" "$WT/frontend/node_modules"
 (cd "$WT/backend" && uv sync --extra dev --frozen -q)
 B=$SCR/$WS.brief.md
