@@ -96,7 +96,9 @@ class PublicationService:
             title=result.get("title", ""),
             authors=authors,
             author_string=result.get("authorString"),
-            journal=result.get("journalTitle", "Unknown"),
+            journal=result.get("journalTitle")
+            or result.get("journalInfo", {}).get("journal", {}).get("title")
+            or "Unknown",
             journal_abbrev=result.get("journalIssueId"),
             year=year,
             volume=result.get("journalVolume"),
@@ -512,3 +514,58 @@ async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
         return await service.fetch_many(pmids)
     finally:
         await service.close()
+
+
+SEARCH_TIMEOUT_S = 8.0  # one Europe PMC search request
+
+
+def search_term(*parts: str | None) -> str:
+    """Europe PMC query: every given part must match, PubMed records only."""
+    return " AND ".join(
+        [f"({p.strip()})" for p in parts if p and p.strip()] + ["SRC:MED"]
+    )
+
+
+async def _search(term: str, limit: int) -> tuple[int, list[PublicationData]]:
+    service = PublicationService(cast(AsyncSession, None))
+    try:
+        response = await asyncio.wait_for(
+            service._client.get(
+                "/search",
+                params={
+                    "query": term,
+                    "resultType": "core",
+                    "pageSize": limit,
+                    "format": "json",
+                },
+            ),
+            SEARCH_TIMEOUT_S,
+        )
+        response.raise_for_status()
+        data = response.json()
+    finally:
+        await service.close()
+    found = [
+        pub
+        for row in data.get("resultList", {}).get("result", [])
+        if row.get("pmid")
+        and (pub := service._parse_publication_response({"result": row}, row["pmid"]))
+    ]
+    return int(data.get("hitCount") or 0), found
+
+
+def search_publications(
+    db: Session, term: str, limit: int
+) -> tuple[int, list[PublicationData]]:
+    """(hit count, top records) from Europe PMC; the records are cached like validated PMIDs.
+    Raises httpx.HTTPError or TimeoutError when Europe PMC is unavailable."""
+    total, found = asyncio.run(_search(term, limit))
+    _cache_found(
+        db,
+        [
+            PMIDValidationResult(pmid=p.pmid, is_valid=True, publication=p)
+            for p in found
+        ],
+    )
+    db.commit()
+    return total, found

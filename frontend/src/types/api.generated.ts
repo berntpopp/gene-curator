@@ -3602,6 +3602,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publications/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Pubmed
+         * @description Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
+         *     terms, all of which must match. Returns pmid, title, journal, year and an abstract
+         *     snippet, best match first; the records are cached, so validate_pmids knows them.
+         */
+        get: operations["search_pubmed_api_v1_publications_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/publications/{pmid}": {
         parameters: {
             query?: never;
@@ -8765,6 +8787,37 @@ export interface components {
              * @description Full publication date
              */
             publication_date?: string | null;
+        };
+        /** PublicationSearchHit */
+        PublicationSearchHit: {
+            /** Pmid */
+            pmid: string;
+            /** Title */
+            title: string;
+            /** Journal */
+            journal: string;
+            /** Year */
+            year?: number | null;
+            /**
+             * Abstract Snippet
+             * @description First 300 characters
+             */
+            abstract_snippet?: string | null;
+        };
+        /** PublicationSearchResponse */
+        PublicationSearchResponse: {
+            /**
+             * Query
+             * @description The Europe PMC query that ran
+             */
+            query: string;
+            /**
+             * Total
+             * @description Hits in PubMed; results holds the first ones
+             */
+            total: number;
+            /** Results */
+            results: components["schemas"]["PublicationSearchHit"][];
         };
         /** ReviewComment */
         ReviewComment: {
@@ -16720,6 +16773,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PMIDValidationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_pubmed_api_v1_publications_search_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+                gene_symbol?: string | null;
+                disease?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSearchResponse"];
                 };
             };
             /** @description Validation Error */

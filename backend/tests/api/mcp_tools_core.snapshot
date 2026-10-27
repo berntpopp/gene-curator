@@ -1,4 +1,5 @@
 accept_invitation read_only=False destructive=False
+add_genes_to_scope read_only=False destructive=False
 approve_precuration read_only=False destructive=True
 assign_curator_to_gene read_only=False destructive=False
 assign_peer_reviewer read_only=False destructive=False
@@ -45,6 +46,7 @@ list_precurations read_only=True destructive=False
 list_review_comments read_only=True destructive=False
 list_scopes read_only=True destructive=False
 mark_notification_read read_only=False destructive=False
+read_curation_for_review read_only=True destructive=False
 read_my_work read_only=True destructive=False
 read_users_me read_only=True destructive=False
 reject_precuration read_only=False destructive=True
@@ -56,6 +58,7 @@ search_hgnc_genes read_only=False destructive=False
 search_hpo_terms read_only=False destructive=False
 search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
+search_pubmed read_only=True destructive=False
 submit_curation read_only=False destructive=True
 submit_peer_review read_only=False destructive=True
 submit_precuration read_only=False destructive=True
