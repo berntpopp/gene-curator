@@ -28,7 +28,9 @@ describe('scopeService', () => {
       client.get.mockResolvedValue(response([{ id: 's1' }]))
 
       await expect(scopeService.fetchScopes({ limit: 5 })).resolves.toEqual([{ id: 's1' }])
-      expect(client.get).toHaveBeenCalledWith('/scopes/', { params: { limit: 5 } })
+      expect(client.get).toHaveBeenCalledWith('/scopes/', {
+        params: { detail: true, limit: 5 }
+      })
     })
   })
 

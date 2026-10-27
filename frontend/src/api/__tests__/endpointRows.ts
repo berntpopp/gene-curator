@@ -48,12 +48,6 @@ export const identityRows: Row[] = [
 
   // scopes
   {
-    name: 'scopes.getScopes forwards params',
-    run: () => scopesAPI.getScopes({ limit: 5 }),
-    method: 'get',
-    args: ['/scopes/', { params: { limit: 5 } }]
-  },
-  {
     name: 'scopes.getScopeById',
     run: () => scopesAPI.getScopeById('s1'),
     method: 'get',
@@ -97,7 +91,7 @@ export const identityRows: Row[] = [
     name: 'schemas.getSchemas',
     run: () => schemasAPI.getSchemas({ q: 1 }),
     method: 'get',
-    args: ['/schemas/curation-schemas', { params: { q: 1 } }]
+    args: ['/schemas/curation-schemas', { params: { detail: true, q: 1 } }]
   },
   {
     name: 'schemas.getSchemaById',

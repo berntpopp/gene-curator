@@ -131,7 +131,7 @@ def test_snapshot_forbidding_an_edge_refuses_it_without_state_change(
         S.CURATION,
         CurationStatus.DRAFT,
     )
-    state = engine.get_workflow_state(db_session, curation.id, "curation")
+    state = engine.get_workflow_state(db_session, curation.id, "curation", creator.id)
     assert state.available_transitions == [S.PRECURATION]
 
 

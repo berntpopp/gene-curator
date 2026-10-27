@@ -155,7 +155,11 @@ def recompute_all_scores(db: Session) -> int:
             flag["path"]
             for flag in result.evidence_breakdown["trace"].get("out_of_range", [])
         ]
-        scores = {**result.scores, **result.evidence_breakdown}
+        scores = {
+            **result.scores,
+            **result.evidence_breakdown,
+            "warnings": result.warnings,
+        }
         if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
             continue

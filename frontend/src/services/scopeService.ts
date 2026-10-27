@@ -54,7 +54,10 @@ export const scopeService = {
    * const scopes = await scopeService.fetchScopes({ limit: 50 })
    */
   async fetchScopes(params: Record<string, unknown> = {}): Promise<ScopeListItem[]> {
-    const response = await apiClient.get<ScopeListItem[]>('/scopes/', { params })
+    // The UI shows descriptions and visibility; the API default is compact rows
+    const response = await apiClient.get<ScopeListItem[]>('/scopes/', {
+      params: { detail: true, ...params }
+    })
     return response.data
   },
 

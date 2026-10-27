@@ -62,7 +62,7 @@ def test_patch_warns_scores_zero_409s_when_stale_and_submit_names_the_path(
 
     patch = {"evidence_data": {"genetic_evidence": _rows("99999999")}, "merge": True}
     r = client.patch(
-        f"/api/v1/curations/{cid}/draft",
+        f"/api/v1/curations/{cid}/draft?detail=true",
         json={**patch, "lock_version": version},
         headers=h,
     )
@@ -75,7 +75,7 @@ def test_patch_warns_scores_zero_409s_when_stale_and_submit_names_the_path(
     after = _stage(cid)
 
     stale = client.patch(
-        f"/api/v1/curations/{cid}/draft",
+        f"/api/v1/curations/{cid}/draft?detail=true",
         json={**patch, "lock_version": version},
         headers=h,
     )
@@ -84,7 +84,7 @@ def test_patch_warns_scores_zero_409s_when_stale_and_submit_names_the_path(
 
     bad = {"evidence_data": {"genetic_evidence": _rows("PMID12x")}, "merge": True}
     r = client.patch(
-        f"/api/v1/curations/{cid}/draft",
+        f"/api/v1/curations/{cid}/draft?detail=true",
         json={**bad, "lock_version": after[2]},
         headers=h,
     )

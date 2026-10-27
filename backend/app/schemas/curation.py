@@ -165,6 +165,10 @@ class CurationDetail(CurationInDBBase):
     # Expanded from scope relationship
     scope_name: str | None = None
 
+    # Schemas of the workflow pair, for the schema read and field contract
+    curation_schema_id: UUID | None = None
+    precuration_schema_id: UUID | None = None
+
     # Expanded from creator relationship
     curator_name: str | None = None
     curator_id: UUID | None = None
@@ -216,6 +220,11 @@ class CurationDetail(CurationInDBBase):
         if hasattr(curation, "gene") and curation.gene:
             data["gene_symbol"] = curation.gene.approved_symbol
             data["hgnc_id"] = curation.gene.hgnc_id
+
+        pair = getattr(curation, "workflow_pair", None)
+        if pair is not None:
+            data["curation_schema_id"] = pair.curation_schema_id
+            data["precuration_schema_id"] = pair.precuration_schema_id
 
         # Expand scope relationship
         if hasattr(curation, "scope") and curation.scope:
@@ -284,6 +293,69 @@ class CurationScoreResponse(BaseModel):
     calculated_at: datetime
 
 
+class CurationWriteResult(BaseModel):
+    """Concise result of a save or submit; detail=true returns the full curation."""
+
+    id: UUID
+    status: CurationStatus
+    workflow_stage: WorkflowStage
+    lock_version: int
+    total_score: float | None
+    verdict: str | None
+    warnings: list[str] = Field(
+        default_factory=list,
+        description="Scoring warnings, then a draft save's bad or unknown ID warnings",
+    )
+
+    model_config = ConfigDict(use_enum_values=True)
+
+    @classmethod
+    def of(
+        cls, curation: Any, drafted: list["EvidenceWarning"] | None = None
+    ) -> "CurationWriteResult":
+        """``drafted``: a draft save's ID warnings, as "path: message" after the scoring ones."""
+        scores = curation.computed_scores or {}
+        return cls(
+            id=curation.id,
+            status=curation.status,
+            workflow_stage=curation.workflow_stage,
+            lock_version=curation.lock_version,
+            total_score=scores.get("total_score"),
+            verdict=curation.computed_verdict,
+            warnings=[
+                *(scores.get("warnings") or []),
+                *(f"{w.path}: {w.message}" for w in drafted or []),
+            ],
+        )
+
+
+def lean_scores(scores: dict[str, Any]) -> dict[str, Any]:
+    """computed_scores without the trace's zero-point rows (types with no items and no
+    points, then categories left empty with no points)."""
+    trace = scores.get("trace")
+    if not isinstance(trace, dict):
+        return scores
+
+    def lean(category: dict[str, Any]) -> dict[str, Any]:
+        types = [
+            t for t in category.get("types", []) if t.get("score") or t.get("items")
+        ]
+        return {**category, "types": types}
+
+    sections = [
+        {
+            **section,
+            "categories": [
+                c
+                for c in map(lean, section.get("categories", []))
+                if c["types"] or c.get("score") or c.get("raw")
+            ],
+        }
+        for section in trace.get("sections", [])
+    ]
+    return {**scores, "trace": {**trace, "sections": sections}}
+
+
 class CurationConflictResponse(BaseModel):
     """409 Conflict response for optimistic locking."""
 
@@ -291,3 +363,10 @@ class CurationConflictResponse(BaseModel):
     current_lock_version: int
     current_state: dict[str, Any]
     your_lock_version: int
+    updated_by_name: str | None = Field(
+        None, description="Who saved the current version"
+    )
+    updated_at: datetime | None = None
+    changed_keys: list[str] | None = Field(
+        None, description="Top-level evidence keys where your save and theirs differ"
+    )

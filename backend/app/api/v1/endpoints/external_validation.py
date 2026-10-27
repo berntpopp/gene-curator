@@ -4,7 +4,7 @@ Provides validation of external identifiers (HGNC, PubMed, HPO) with caching.
 Uses asynchronous validation services for optimal performance.
 """
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Path, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -182,6 +182,7 @@ async def validate_pubmed(
 
     Validates PubMed ID using NCBI E-utilities API. Returns publication
     metadata including title, authors, and journal if valid.
+    For evidence PMIDs prefer validate_pmids (batch, and caches the publications).
 
     Caching: Results are cached for 90 days (publications are immutable).
 
@@ -399,7 +400,7 @@ async def search_hgnc_genes(
 @api_endpoint()
 async def fetch_hgnc_gene(
     *,
-    hgnc_id: str,
+    hgnc_id: str = Path(..., description='HGNC ID, "HGNC:1100" or "1100"'),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> HGNCSearchResponse:
     """Fetch a single gene by HGNC ID

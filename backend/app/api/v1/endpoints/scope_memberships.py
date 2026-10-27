@@ -62,6 +62,26 @@ def _other_active_admins(db: Session, scope_id: UUID, membership_id: UUID) -> in
     return count or 0
 
 
+def _new_member_response(membership: ScopeMembership) -> ScopeMembershipResponse:
+    return ScopeMembershipResponse(
+        id=membership.id,
+        scope_id=membership.scope_id,
+        user_id=membership.user_id,
+        role=ScopeRole(membership.role),
+        invited_by=membership.invited_by,
+        invited_at=membership.invited_at,
+        accepted_at=membership.accepted_at,
+        is_active=membership.is_active,
+        is_pending=membership.accepted_at is None,
+        team_id=membership.team_id,
+        notes=membership.notes,
+        user_username=None,
+        user_email=None,
+        user_full_name=None,
+        user_orcid=None,
+    )
+
+
 @router.get("/{scope_id}/users/search", response_model=list[UserResponse])
 def search_users_for_invitation(
     *,
@@ -158,6 +178,8 @@ def invite_member(
     accept_invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept),
     using the returned id as membership_id. The invitee sees it in
     get_my_pending_invitations (GET /me/invitations) and may decline it instead.
+    To give a user access at once without their consent step, a platform or scope
+    admin uses add_member (POST /scopes/{scope_id}/members) instead.
 
     Args:
         db: Database session
@@ -193,26 +215,7 @@ def invite_member(
             invited_by_username=current_user.name,
         )
 
-        # Build response with user details
-        member_response = ScopeMembershipResponse(
-            id=membership.id,
-            scope_id=membership.scope_id,
-            user_id=membership.user_id,
-            role=ScopeRole(membership.role),
-            invited_by=membership.invited_by,
-            invited_at=membership.invited_at,
-            accepted_at=membership.accepted_at,
-            is_active=membership.is_active,
-            is_pending=membership.accepted_at is None,
-            team_id=membership.team_id,
-            notes=membership.notes,
-            user_username=None,  # Will be populated if user exists
-            user_email=None,
-            user_full_name=None,
-            user_orcid=None,
-        )
-
-        return member_response
+        return _new_member_response(membership)
 
     except ValueError as e:
         logger.warning(
@@ -225,6 +228,55 @@ def invite_member(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         ) from e
+
+
+@router.post(
+    "/{scope_id}/members",
+    response_model=ScopeMembershipResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def add_member(
+    *,
+    db: Session = Depends(get_db),
+    scope_id: UUID,
+    member_in: ScopeMembershipCreate,
+    scope: Scope = Depends(require_scope_role(ScopeRole.ADMIN)),
+    current_user: User = Depends(get_current_active_user),
+) -> ScopeMembershipResponse:
+    """
+    Add an existing user to a scope as an accepted member in one step (platform or
+    scope admin only; scope admin is the highest role, so any role may be given).
+
+    Unlike invite_member, there is no invitation to accept: the response has
+    is_pending=false, the role takes effect immediately, the add is written to the
+    audit log and the user gets a notification. You cannot add yourself. Use
+    invite_member when the user should consent first.
+    """
+    if member_in.user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You cannot add yourself to a scope",
+        )
+    try:
+        membership = scope_membership_crud.create_invitation(
+            db,
+            scope_id=scope_id,
+            invited_by_id=current_user.id,
+            obj_in=member_in,
+            direct=True,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)
+        ) from e
+    logger.info(
+        "Scope member added directly",
+        scope_id=str(scope_id),
+        user_id=str(member_in.user_id),
+        role=member_in.role.value,
+        added_by=str(current_user.id),
+    )
+    return _new_member_response(membership)
 
 
 @router.post(

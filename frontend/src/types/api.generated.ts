@@ -237,6 +237,8 @@ export interface paths {
          *
          *     Any authenticated user can create a scope and automatically becomes an admin
          *     of that scope. This follows GitHub's model where anyone can create an organization.
+         *     Without default_workflow_pair_id the scope gets the pair marked is_default=true
+         *     in get_workflow_pairs.
          *
          *     Args:
          *         db: Database session
@@ -406,6 +408,8 @@ export interface paths {
          *     accept_invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept),
          *     using the returned id as membership_id. The invitee sees it in
          *     get_my_pending_invitations (GET /me/invitations) and may decline it instead.
+         *     To give a user access at once without their consent step, a platform or scope
+         *     admin uses add_member (POST /scopes/{scope_id}/members) instead.
          *
          *     Args:
          *         db: Database session
@@ -421,6 +425,48 @@ export interface paths {
          *         HTTPException 400: User not found or already a member
          */
         post: operations["invite_member_api_v1_scopes__scope_id__invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Members
+         * @description List all members of a scope with statistics.
+         *
+         *     Any scope member can view the member list. Returns member details including
+         *     user information, roles, and membership statistics.
+         *
+         *     Args:
+         *         db: Database session
+         *         scope_id: Scope UUID
+         *         include_pending: Include pending invitations
+         *         scope: Scope object (dependency ensures member access)
+         *
+         *     Returns:
+         *         ScopeMemberListResponse with members and statistics
+         */
+        get: operations["list_members_api_v1_scopes__scope_id__members_get"];
+        put?: never;
+        /**
+         * Add Member
+         * @description Add an existing user to a scope as an accepted member in one step (platform or
+         *     scope admin only; scope admin is the highest role, so any role may be given).
+         *
+         *     Unlike invite_member, there is no invitation to accept: the response has
+         *     is_pending=false, the role takes effect immediately, the add is written to the
+         *     audit log and the user gets a notification. You cannot add yourself. Use
+         *     invite_member when the user should consent first.
+         */
+        post: operations["add_member_api_v1_scopes__scope_id__members_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -457,38 +503,6 @@ export interface paths {
          *         HTTPException 400: User mismatch, already accepted or expired
          */
         post: operations["accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/scopes/{scope_id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Members
-         * @description List all members of a scope with statistics.
-         *
-         *     Any scope member can view the member list. Returns member details including
-         *     user information, roles, and membership statistics.
-         *
-         *     Args:
-         *         db: Database session
-         *         scope_id: Scope UUID
-         *         include_pending: Include pending invitations
-         *         scope: Scope object (dependency ensures member access)
-         *
-         *     Returns:
-         *         ScopeMemberListResponse with members and statistics
-         */
-        get: operations["list_members_api_v1_scopes__scope_id__members_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -905,7 +919,9 @@ export interface paths {
         };
         /**
          * Get Workflow Pairs
-         * @description Retrieve workflow pairs with optional filtering.
+         * @description List workflow pairs (methodologies). Each pairs a precuration schema with a
+         *     curation schema; they differ in those schemas and their scoring. The pair with
+         *     is_default=true is what create_scope uses when no default_workflow_pair_id is given.
          */
         get: operations["get_workflow_pairs_api_v1_schemas_workflow_pairs_get"];
         put?: never;
@@ -1291,7 +1307,8 @@ export interface paths {
         put?: never;
         /**
          * Bulk Create Gene Assignments
-         * @description Bulk create gene-scope assignments. Scope admins and application admins only.
+         * @description Bulk create gene-scope assignments. Scope admins and application admins only;
+         *     curators add genes one at a time with create_gene_assignment.
          */
         post: operations["bulk_create_gene_assignments_api_v1_gene_assignments_bulk_post"];
         delete?: never;
@@ -1518,7 +1535,8 @@ export interface paths {
         put?: never;
         /**
          * Execute Workflow Transition
-         * @description Execute a workflow state transition.
+         * @description Execute a workflow state transition. Approve a curation: target_stage=active,
+         *     by a reviewer or admin of the scope who is not its author (4-eyes).
          */
         post: operations["execute_workflow_transition_api_v1_workflow__item_type___item_id__transition_post"];
         delete?: never;
@@ -1561,7 +1579,8 @@ export interface paths {
         put?: never;
         /**
          * Submit Peer Review
-         * @description Submit a peer review decision.
+         * @description Submit a peer review decision. decision=approve by an assigned reviewer, never
+         *     the author, moves the curation to active.
          */
         post: operations["submit_peer_review_api_v1_workflow_reviews__review_id__submit_post"];
         delete?: never;
@@ -1732,8 +1751,9 @@ export interface paths {
         put?: never;
         /**
          * Create Curation
-         * @description Create a new curation.
-         *     Requires curator or admin role in the target scope.
+         * @description Create a curation (curator or admin of the scope). Needs an approved precuration
+         *     for the gene and scope unless one is active; the approval already opens a draft
+         *     curation (list_curations), and this fails while one is open.
          */
         post: operations["create_curation_api_v1_curations__post"];
         delete?: never;
@@ -2940,6 +2960,7 @@ export interface paths {
          *
          *     Validates PubMed ID using NCBI E-utilities API. Returns publication
          *     metadata including title, authors, and journal if valid.
+         *     For evidence PMIDs prefer validate_pmids (batch, and caches the publications).
          *
          *     Caching: Results are cached for 90 days (publications are immutable).
          *
@@ -3548,6 +3569,7 @@ export interface paths {
          *
          *     Retrieves publication from cache or fetches from Europe PMC API.
          *     Valid publications are cached for future requests.
+         *     To check PMIDs before citing them, use validate_pmids (up to 50 at once).
          *
          *     Args:
          *         pmid: PubMed ID (numeric string)
@@ -3581,7 +3603,7 @@ export interface paths {
          * @description List cached publications
          *
          *     Returns publications from the local cache. Use this to browse
-         *     previously validated publications.
+         *     previously validated publications. To check PMIDs, use validate_pmids.
          *
          *     Args:
          *         skip: Pagination offset
@@ -4252,6 +4274,15 @@ export interface components {
             /** Location */
             location: string | null;
         };
+        /**
+         * BlockedTransition
+         * @description A next stage the caller cannot move the item to, and why.
+         */
+        BlockedTransition: {
+            stage: components["schemas"]["WorkflowStage"];
+            /** Reason */
+            reason: string;
+        };
         /** Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post */
         Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post: {
             /** Evidence Data */
@@ -4475,6 +4506,18 @@ export interface components {
             };
             /** Your Lock Version */
             your_lock_version: number;
+            /**
+             * Updated By Name
+             * @description Who saved the current version
+             */
+            updated_by_name?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Changed Keys
+             * @description Top-level evidence keys where your save and theirs differ
+             */
+            changed_keys?: string[] | null;
         };
         /**
          * CurationCreate
@@ -4598,6 +4641,10 @@ export interface components {
             hgnc_id?: string | null;
             /** Scope Name */
             scope_name?: string | null;
+            /** Curation Schema Id */
+            curation_schema_id?: string | null;
+            /** Precuration Schema Id */
+            precuration_schema_id?: string | null;
             /** Curator Name */
             curator_name?: string | null;
             /** Curator Id */
@@ -4639,6 +4686,11 @@ export interface components {
             baseline: components["schemas"]["DiffBaseline"] | null;
             /** Items */
             items: components["schemas"]["DiffItem"][];
+            /**
+             * Changed
+             * @description True when the evidence differs from the baseline.
+             */
+            readonly changed: boolean;
         };
         /**
          * CurationDraftResult
@@ -4960,6 +5012,27 @@ export interface components {
             use_dynamic_form: boolean;
         };
         /**
+         * CurationSchemaSummary
+         * @description One row of the schema list; detail=true lists full schemas.
+         */
+        CurationSchemaSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Version */
+            version: string;
+            /** Schema Type */
+            schema_type: string;
+            /** Institution */
+            institution?: string | null;
+            /** Is Active */
+            is_active: boolean;
+        };
+        /**
          * CurationSchemaUpdate
          * @description Schema for updating a curation schema.
          */
@@ -5123,6 +5196,30 @@ export interface components {
             merge?: boolean | null;
         };
         /**
+         * CurationWriteResult
+         * @description Concise result of a save or submit; detail=true returns the full curation.
+         */
+        CurationWriteResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Lock Version */
+            lock_version: number;
+            /** Total Score */
+            total_score: number | null;
+            /** Verdict */
+            verdict: string | null;
+            /**
+             * Warnings
+             * @description Scoring warnings, then a draft save's bad or unknown ID warnings
+             */
+            warnings?: string[];
+        };
+        /**
          * CuratorAssignmentRequest
          * @description Request to assign a curator to a gene-scope assignment.
          */
@@ -5210,7 +5307,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "review" | "any_review" | "previous_submission" | "active_curation";
+            source: "review" | "any_review" | "previous_submission" | "active_curation" | "submitted" | "audit";
         };
         /** DiffItem */
         DiffItem: {
@@ -7464,7 +7561,7 @@ export interface components {
          * NotificationType
          * @enum {string}
          */
-        NotificationType: "review_assigned" | "review_completed" | "revision_requested" | "curation_approved" | "curation_rejected";
+        NotificationType: "review_assigned" | "review_completed" | "revision_requested" | "curation_approved" | "curation_rejected" | "scope_membership_added";
         /**
          * OMIMDiseaseResult
          * @description OMIM disease details from JAX Network API
@@ -8189,10 +8286,9 @@ export interface components {
             scope_id: string;
             /**
              * Precuration Schema Id
-             * Format: uuid
-             * @description Precuration schema UUID
+             * @description Precuration schema UUID; default: the scope's workflow pair schema
              */
-            precuration_schema_id: string;
+            precuration_schema_id?: string | null;
             /**
              * Evidence Data
              * @description Precuration evidence data
@@ -8925,10 +9021,9 @@ export interface components {
             };
             /**
              * Default Workflow Pair Id
-             * Format: uuid
-             * @description Workflow pair (methodology) for this scope
+             * @description Workflow pair (methodology) for this scope; omitted, the pair with is_default=true from get_workflow_pairs is used
              */
-            default_workflow_pair_id: string;
+            default_workflow_pair_id?: string | null;
         };
         /**
          * ScopeCurationSummary
@@ -9081,63 +9176,20 @@ export interface components {
         };
         /**
          * ScopeListItem
-         * @description Scope with basic counts for list views.
+         * @description Compact scope row with counts; detail=true adds the remaining scope fields.
          */
         ScopeListItem: {
-            /**
-             * Name
-             * @description Unique scope identifier (e.g., 'kidney-genetics')
-             */
-            name: string;
-            /**
-             * Display Name
-             * @description Human-readable scope name
-             */
-            display_name: string;
-            /**
-             * Description
-             * @description Scope description
-             */
-            description?: string | null;
-            /**
-             * Institution
-             * @description Owning institution
-             */
-            institution?: string | null;
-            /**
-             * Is Public
-             * @description Whether scope is publicly visible
-             * @default false
-             */
-            is_public: boolean;
-            /**
-             * Scope Config
-             * @description Scope-specific configuration
-             */
-            scope_config?: {
-                [key: string]: unknown;
-            };
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Is Active */
-            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Created By */
-            created_by: string | null;
             /** @description Basic scope statistics */
             stats?: components["schemas"]["ScopeListStats"] | null;
             /**
@@ -9145,6 +9197,24 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Scope Config */
+            scope_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
         };
         /**
          * ScopeListStats
@@ -9848,6 +9918,16 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Curation Schema Id
+             * @description Curation schema of the default workflow pair
+             */
+            curation_schema_id?: string | null;
+            /**
+             * Precuration Schema Id
+             * @description Precuration schema of the default workflow pair
+             */
+            precuration_schema_id?: string | null;
         };
         /** SearchResponse */
         SearchResponse: {
@@ -10585,6 +10665,12 @@ export interface components {
             updated_at?: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Is Default
+             * @description Used by create_scope when no workflow pair is given
+             * @default false
+             */
+            is_default: boolean;
         };
         /**
          * WorkflowPairCreate
@@ -10661,8 +10747,16 @@ export interface components {
             /** Item Type */
             item_type: string;
             current_stage: components["schemas"]["WorkflowStage"];
-            /** Available Transitions */
+            /**
+             * Available Transitions
+             * @description Stages the caller may move the item to now
+             */
             available_transitions: components["schemas"]["WorkflowStage"][];
+            /**
+             * Blocked
+             * @description Other next stages and why the caller cannot
+             */
+            blocked?: components["schemas"]["BlockedTransition"][];
             /** Workflow History */
             workflow_history: {
                 [key: string]: unknown;
@@ -11182,6 +11276,10 @@ export interface operations {
                 limit?: number;
                 /** @description Filter for active scopes only */
                 active_only?: boolean;
+                /** @description Case-insensitive part of the scope name or display name */
+                name?: string | null;
+                /** @description Full scope fields (config, description, timestamps) */
+                detail?: boolean;
             };
             header?: never;
             path?: never;
@@ -11442,38 +11540,6 @@ export interface operations {
             };
         };
     };
-    accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scope_id: string;
-                membership_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScopeMembershipResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_members_api_v1_scopes__scope_id__members_get: {
         parameters: {
             query?: {
@@ -11494,6 +11560,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeMemberListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_api_v1_scopes__scope_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeMembershipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeMembershipResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeMembershipResponse"];
                 };
             };
             /** @description Validation Error */
@@ -11843,6 +11976,8 @@ export interface operations {
                 institution?: string | null;
                 /** @description Filter for active schemas only */
                 active_only?: boolean;
+                /** @description Full schemas (fields, scoring, UI) instead of summary rows */
+                detail?: boolean;
             };
             header?: never;
             path?: never;
@@ -11856,7 +11991,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurationSchema"][];
+                    "application/json": components["schemas"]["CurationSchema"][] | components["schemas"]["CurationSchemaSummary"][];
                 };
             };
             /** @description Validation Error */
@@ -13831,7 +13966,10 @@ export interface operations {
     };
     get_curation_api_v1_curations__curation_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Keep the score trace's zero-point rows */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13862,7 +14000,10 @@ export interface operations {
     };
     update_curation_api_v1_curations__curation_id__put: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13881,7 +14022,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13935,7 +14076,10 @@ export interface operations {
     };
     save_draft_api_v1_curations__curation_id__draft_patch: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13954,7 +14098,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurationDraftResult"];
+                    "application/json": components["schemas"]["CurationDraftResult"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -13979,7 +14123,10 @@ export interface operations {
     };
     submit_curation_api_v1_curations__curation_id__submit_post: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Return the full curation, not the concise result */
+                detail?: boolean;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -13998,7 +14145,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -14156,7 +14303,10 @@ export interface operations {
     };
     curation_diff_api_v1_curations__curation_id__diff_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description submitted (last submission), active (the active curation) or an audit id; default: the version the caller last reviewed */
+                baseline?: string | null;
+            };
             header?: never;
             path: {
                 curation_id: string;
@@ -16094,6 +16244,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description HGNC ID, "HGNC:1100" or "1100" */
                 hgnc_id: string;
             };
             cookie?: never;

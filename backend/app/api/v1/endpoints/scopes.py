@@ -42,6 +42,17 @@ logger = get_logger(__name__)
 
 router = APIRouter()
 
+_DETAIL_FIELDS = (
+    "description",
+    "institution",
+    "is_public",
+    "scope_config",
+    "is_active",
+    "created_at",
+    "updated_at",
+    "created_by",
+)
+
 
 @router.post("/", response_model=ScopeResponse, status_code=status.HTTP_201_CREATED)
 def create_scope(
@@ -55,6 +66,8 @@ def create_scope(
 
     Any authenticated user can create a scope and automatically becomes an admin
     of that scope. This follows GitHub's model where anyone can create an organization.
+    Without default_workflow_pair_id the scope gets the pair marked is_default=true
+    in get_workflow_pairs.
 
     Args:
         db: Database session
@@ -85,14 +98,17 @@ def create_scope(
             detail=f"Scope with name '{scope_in.name}' already exists. Please choose a different name.",
         )
 
-    pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
+    if scope_in.default_workflow_pair_id is None:
+        pair = db.scalar(select(WorkflowPair).where(WorkflowPair.is_default))
+    else:
+        pair = db.get(WorkflowPair, scope_in.default_workflow_pair_id)
     if not pair or not pair.is_active:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Workflow pair not found or inactive",
         )
 
-    # Create scope
+    scope_in.default_workflow_pair_id = pair.id
     scope = scope_crud.create_with_owner(db, obj_in=scope_in, owner_id=current_user.id)
 
     logger.debug(
@@ -138,7 +154,7 @@ def create_scope(
     return scope
 
 
-@router.get("/", response_model=list[ScopeListItem])
+@router.get("/", response_model=list[ScopeListItem], response_model_exclude_unset=True)
 def list_scopes(
     *,
     db: Session = Depends(get_db),
@@ -148,6 +164,12 @@ def list_scopes(
         50, ge=1, le=1000, description="Maximum number of records to return"
     ),
     active_only: bool = Query(True, description="Filter for active scopes only"),
+    name: str | None = Query(
+        None, description="Case-insensitive part of the scope name or display name"
+    ),
+    detail: bool = Query(
+        False, description="Full scope fields (config, description, timestamps)"
+    ),
 ) -> list[ScopeListItem]:
     """
     List scopes the current user has access to with gene and member counts.
@@ -172,88 +194,60 @@ def list_scopes(
     # Caller's accepted membership role per scope (admins may have none)
     user_scopes = scope_membership_crud.get_user_scopes(db, user_id=current_user.id)
     roles = {scope.id: getattr(m.role, "value", m.role) for scope, m in user_scopes}
+    needle = name.lower() if name else None
 
-    # Application admins see ALL scopes with counts
-    if current_user.role.value == "admin":
-        scopes_with_counts = scope_crud.get_multi_with_counts(
-            db, skip=skip, limit=limit, active_only=active_only
+    def matches(scope: Scope) -> bool:
+        return (not active_only or scope.is_active) and (
+            needle is None
+            or needle in scope.name.lower()
+            or needle in scope.display_name.lower()
         )
 
-        logger.debug(
-            "Listed all scopes for admin user",
-            user_id=str(current_user.id),
-            user_role=current_user.role.value,
-            total_scopes=len(scopes_with_counts),
-            skip=skip,
-            limit=limit,
-        )
-
-        # Convert to ScopeListItem with nested stats
-        result = []
-        for scope_data in scopes_with_counts:
-            stats = ScopeListStats(
-                total_genes=scope_data.pop("gene_count", 0),
-                completed_genes=scope_data.pop("completed_genes", 0),
-                member_count=scope_data.pop("member_count", 0),
+    if current_user.role.value == "admin":  # application admins see ALL scopes
+        stmt = select(Scope).order_by(Scope.name, Scope.id)  # stable pages
+        if active_only:
+            stmt = stmt.where(Scope.is_active)
+        if needle:
+            pattern = f"%{needle}%"
+            stmt = stmt.where(
+                Scope.name.ilike(pattern) | Scope.display_name.ilike(pattern)
             )
-            scope_item = ScopeListItem(
-                **scope_data, stats=stats, user_role=roles.get(scope_data["id"])
-            )
-            result.append(scope_item)
-        return result
+        page = list(db.scalars(stmt.offset(skip).limit(limit)).all())
+    else:
+        scopes = [scope for scope, _ in user_scopes]
+        # A non-member may open an active public scope (#484): list it too, with no role
+        scopes += db.scalars(
+            select(Scope)
+            .where(Scope.is_public, Scope.is_active, Scope.id.notin_(list(roles)))
+            .order_by(Scope.name)
+        ).all()
+        page = [s for s in scopes if matches(s)][skip : skip + limit]
 
-    # Regular users see scopes they are members of
-
-    # Extract scope objects
-    scopes = [scope for scope, membership in user_scopes]
-    # A non-member may open an active public scope (#484): list it too, with no role
-    scopes += db.scalars(
-        select(Scope)
-        .where(Scope.is_public, Scope.is_active, Scope.id.notin_(list(roles)))
-        .order_by(Scope.name)
-    ).all()
-
-    # Filter by active status if requested
-    if active_only:
-        scopes = [s for s in scopes if s.is_active]
-
-    # Apply pagination
-    paginated_scopes = scopes[skip : skip + limit]
-
-    counts = get_counts_for_scopes(db, [sc.id for sc in paginated_scopes])
+    counts = get_counts_for_scopes(db, [sc.id for sc in page])
     result = []
-    for scope in paginated_scopes:
+    for scope in page:
         c = counts[scope.id]
-        # Create stats object for frontend compatibility
-        stats = ScopeListStats(
-            total_genes=c["total"],
-            completed_genes=c["completed"],
-            member_count=c["members"],
+        extra = {f: getattr(scope, f) for f in _DETAIL_FIELDS} if detail else {}
+        result.append(
+            ScopeListItem(
+                id=scope.id,
+                name=scope.name,
+                display_name=scope.display_name,
+                default_workflow_pair_id=scope.default_workflow_pair_id,
+                stats=ScopeListStats(
+                    total_genes=c["total"],
+                    completed_genes=c["completed"],
+                    member_count=c["members"],
+                ),
+                user_role=roles.get(scope.id),
+                **extra,
+            )
         )
-
-        scope_item = ScopeListItem(
-            id=scope.id,
-            name=scope.name,
-            display_name=scope.display_name,
-            description=scope.description,
-            institution=scope.institution,
-            is_public=scope.is_public,
-            scope_config=scope.scope_config,
-            is_active=scope.is_active,
-            default_workflow_pair_id=scope.default_workflow_pair_id,
-            created_at=scope.created_at,
-            updated_at=scope.updated_at,
-            created_by=scope.created_by,
-            stats=stats,
-            user_role=roles.get(scope.id),
-        )
-        result.append(scope_item)
 
     logger.debug(
         "Listed scopes for user",
         user_id=str(current_user.id),
         user_role=current_user.role.value,
-        total_scopes=len(scopes),
         returned_scopes=len(result),
         skip=skip,
         limit=limit,
@@ -308,7 +302,13 @@ def get_scope_details(
     role = scope_membership_crud.get_user_role_in_scope(
         db, user_id=current_user.id, scope_id=scope_id
     )
-    return ScopeWithStats(**scope_with_stats, user_role=role.value if role else None)
+    pair = scope.default_workflow_pair
+    return ScopeWithStats(
+        **scope_with_stats,
+        user_role=role.value if role else None,
+        curation_schema_id=pair.curation_schema_id if pair else None,
+        precuration_schema_id=pair.precuration_schema_id if pair else None,
+    )
 
 
 @router.patch("/{scope_id}", response_model=ScopeResponse)

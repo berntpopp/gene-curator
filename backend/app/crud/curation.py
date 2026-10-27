@@ -99,7 +99,11 @@ def _computed(
     )
     result = score_scorable(engine_for(config), config, evidence_data, unknown or set())
     return {
-        "computed_scores": {**result.scores, **result.evidence_breakdown},
+        "computed_scores": {
+            **result.scores,
+            **result.evidence_breakdown,
+            "warnings": result.warnings,
+        },
         "computed_verdict": result.verdict,
         "computed_summary": result.verdict_rationale,
     }

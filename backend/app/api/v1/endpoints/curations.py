@@ -4,6 +4,7 @@ Full CRUD with RLS integration and scope-based access control.
 Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 """
 
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -21,12 +22,10 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
-from app.crud.curation import OpenCurationExistsError, curation_crud
+from app.crud.curation import OpenCurationExistsError, curation_crud, merge_patch
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
-    holds_review_capability,
-    in_current_round,
     reviewers_required,
 )
 from app.crud.workflow_engine import WorkflowEngine
@@ -34,8 +33,6 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Gene,
-    Review,
-    ReviewStatus,
     Scope,
     ScopeMembership,
     UserNew,
@@ -51,12 +48,26 @@ from app.schemas.curation import (
     CurationScoreResponse,
     CurationSubmit,
     CurationUpdate,
+    CurationWriteResult,
+    lean_scores,
 )
 from app.scoring.point_limits import enforce_clingen_point_ranges
+from app.services.curation_access import (
+    _can_user_delete_curation,
+    _can_user_edit_curation,
+    _can_user_review_curation,
+    _check_scope_access,
+    _has_approved,
+)
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+_FULL_WRITE = Query(
+    False, description="Return the full curation, not the concise result"
+)
+_FULL_TRACE = Query(False, description="Keep the score trace's zero-point rows")
 
 
 # ========================================
@@ -64,9 +75,12 @@ logger = get_logger(__name__)
 # ========================================
 
 
-def _conflict(curation: CurationNew, sent: int) -> HTTPException:
+def _conflict(
+    curation: CurationNew, sent: int, mine: dict[str, Any] | None = None
+) -> HTTPException:
     """409 with the current version and state (the failed UPDATE rolled back, so this reads what
-    the other tab saved)."""
+    the other tab saved), who saved it, and the top-level evidence keys that differ from yours."""
+    theirs = curation.evidence_data or {}
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail={
@@ -74,129 +88,24 @@ def _conflict(curation: CurationNew, sent: int) -> HTTPException:
             "current_lock_version": curation.lock_version,
             "your_lock_version": sent,
             "current_state": curation.evidence_data,
+            "updated_by_name": getattr(curation.updater, "name", None),
+            "updated_at": curation.updated_at.isoformat(),
+            "changed_keys": None
+            if mine is None
+            else sorted(k for k in {*theirs, *mine} if theirs.get(k) != mine.get(k)),
         },
     )
 
 
-def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | None:
-    """Get user's role for a specific scope from scope_memberships."""
-    membership = (
-        db.query(ScopeMembership)
-        .filter(
-            ScopeMembership.user_id == user_id,
-            ScopeMembership.scope_id == scope_id,
-            ScopeMembership.is_active,
-            ScopeMembership.accepted_at.isnot(None),
+def _mine(
+    curation: CurationNew, sent: CurationUpdate | CurationDraftSave
+) -> dict[str, Any] | None:
+    """The evidence the caller meant: a merge patch applies to the current state."""
+    if sent.merge and sent.evidence_data is not None:
+        return cast(
+            dict[str, Any], merge_patch(curation.evidence_data, sent.evidence_data)
         )
-        .first()
-    )
-    return membership.role if membership else None
-
-
-def _can_user_edit_curation(
-    db: Session, user: UserNew, curation: "CurationNew"
-) -> bool:
-    """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
-    if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
-        return False
-    if not curation.scope.is_active:
-        return False
-    if user.role == "admin":
-        return True
-    if curation.created_by != user.id:
-        return False
-    # Check scope-specific role (valid scope roles: admin, curator, reviewer, viewer)
-    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
-    return scope_role in ["admin", "curator"]
-
-
-def _can_user_review_curation(
-    db: Session, user: UserNew, curation: "CurationNew"
-) -> bool:
-    """
-    Check if user can review (approve/reject) this curation.
-    Enforces 4-eyes principle: user cannot review their own work.
-    """
-    # Cannot review own work (4-eyes principle)
-    if curation.created_by == user.id:
-        return False
-
-    # Must be in review status/stage
-    if curation.status != CurationStatus.IN_REVIEW:
-        return False
-
-    # REVIEW capability by membership; platform admins get no bypass
-    return holds_review_capability(db, user.id, curation.scope_id)
-
-
-def _has_approved(db: Session, user: UserNew, curation: CurationNew) -> bool:
-    """The user approved in the open review round; same rule as approving_reviewers (D1)."""
-    return curation.created_by != user.id and (
-        db.scalar(
-            select(Review.id).where(
-                Review.curation_id == curation.id,
-                Review.reviewer_id == user.id,
-                Review.status == ReviewStatus.APPROVED,
-                Review.recommendation == "approve",
-                in_current_round,
-            )
-        )
-        is not None
-    )
-
-
-def _can_user_delete_curation(
-    db: Session, user: UserNew, curation: "CurationNew"
-) -> bool:
-    """Check if user can delete this curation."""
-    if not curation.scope.is_active:
-        return False
-    # Admin can delete anything
-    if user.role == "admin":
-        return True
-
-    # Only drafts can be deleted by non-admins
-    if curation.status != CurationStatus.DRAFT:
-        return False
-
-    # Creator can delete their own drafts
-    if curation.created_by == user.id:
-        return True
-
-    # Scope admin (admin role within scope) can delete drafts in their scope
-    scope_role = _get_user_scope_role(db, user.id, curation.scope_id)
-    return scope_role == "admin"
-
-
-def _check_scope_access(
-    db: Session,
-    current_user: UserNew,
-    scope_id: UUID,
-    action: str = "access",
-) -> None:
-    """
-    Check if user has access to the specified scope using ScopePermissionService.
-    Raises HTTPException if access denied.
-    Uses scope_memberships table for proper scope-specific role checking.
-    """
-    if current_user.role == "admin":
-        return  # Admin bypasses scope checks
-
-    # Use ScopePermissionService to check membership via scope_memberships table
-    from app.models import Scope
-
-    scope = db.query(Scope).filter(Scope.id == scope_id).first()
-    if not scope:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Scope not found",
-        )
-
-    if not ScopePermissionService.can_view_scope(db, current_user, scope):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"Not authorized to {action} curations in this scope",
-        )
+    return sent.evidence_data
 
 
 # ========================================
@@ -299,11 +208,11 @@ def list_curations(
 @api_endpoint()
 def get_curation(
     curation_id: UUID,
+    detail: bool = _FULL_TRACE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDetail:
     """Get a single curation by ID with expanded relations."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get_with_relations(db, curation_id)
@@ -335,6 +244,8 @@ def get_curation(
 
     # Build response with permission flags
     response = CurationDetail.from_orm_with_relations(curation)
+    if not detail:
+        response.computed_scores = lean_scores(response.computed_scores)
 
     # Compute user permissions for this curation based on scope-specific roles
     response.can_edit = _can_user_edit_curation(db, current_user, curation)
@@ -363,11 +274,9 @@ def create_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
-    """
-    Create a new curation.
-    Requires curator or admin role in the target scope.
-    """
-    # Set RLS context
+    """Create a curation (curator or admin of the scope). Needs an approved precuration
+    for the gene and scope unless one is active; the approval already opens a draft
+    curation (list_curations), and this fails while one is open."""
     set_rls_context(db, current_user)
 
     # Verify scope access using scope_memberships
@@ -412,16 +321,17 @@ def create_curation(
 
 @router.put(
     "/{curation_id}",
-    response_model=Curation,
+    response_model=Curation | CurationWriteResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
 def update_curation(
     curation_id: UUID,
     curation_in: CurationUpdate,
+    detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation:
+) -> Curation | CurationWriteResult:
     """Update a draft or rejected curation. evidence_data replaces the stored evidence
     entirely unless merge=true (RFC 7396 merge patch). 409 if lock_version is stale."""
     set_rls_context(db, current_user)
@@ -434,12 +344,10 @@ def update_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -460,9 +368,13 @@ def update_curation(
     )
 
     if updated is None:
-        raise _conflict(curation, curation_in.lock_version)
+        raise _conflict(
+            curation, curation_in.lock_version, _mine(curation, curation_in)
+        )
 
-    return Curation.model_validate(updated)
+    return (
+        Curation.model_validate(updated) if detail else CurationWriteResult.of(updated)
+    )
 
 
 # ========================================
@@ -472,16 +384,17 @@ def update_curation(
 
 @router.patch(
     "/{curation_id}/draft",
-    response_model=CurationDraftResult,
+    response_model=CurationDraftResult | CurationWriteResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
 def save_draft(
     curation_id: UUID,
     draft_in: CurationDraftSave,
+    detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> CurationDraftResult:
+) -> CurationDraftResult | CurationWriteResult:
     """Save a draft (autosave): never refused for its content. evidence_data replaces the
     stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
     deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
@@ -518,7 +431,9 @@ def save_draft(
         db, db_obj=curation, draft_data=draft_in, user_id=current_user.id
     )
     if saved is None:
-        raise _conflict(curation, draft_in.lock_version)
+        raise _conflict(curation, draft_in.lock_version, _mine(curation, draft_in))
+    if not detail:
+        return CurationWriteResult.of(saved[0], saved[1])
     result = CurationDraftResult.model_validate(saved[0])
     result.warnings = saved[1]
     return result
@@ -526,16 +441,17 @@ def save_draft(
 
 @router.post(
     "/{curation_id}/submit",
-    response_model=Curation,
+    response_model=Curation | CurationWriteResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
 def submit_curation(
     curation_id: UUID,
     submit_in: CurationSubmit,
+    detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation:
+) -> Curation | CurationWriteResult:
     """Submit for peer review. 422 names each field path that fails the schema or holds a
     malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know."""
     set_rls_context(db, current_user)
@@ -575,7 +491,11 @@ def submit_curation(
     if submitted is None:
         raise _conflict(curation, submit_in.lock_version)
 
-    return Curation.model_validate(submitted)
+    return (
+        Curation.model_validate(submitted)
+        if detail
+        else CurationWriteResult.of(submitted)
+    )
 
 
 # ========================================
@@ -618,7 +538,6 @@ def delete_curation(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> None:
     """Soft delete a curation (archive)."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)

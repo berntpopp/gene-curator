@@ -22,7 +22,7 @@ from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
 from app.crud.precuration_required import MissingRequiredFieldsError
-from app.models import CurationStatus, PrecurationNew, UserNew
+from app.models import CurationStatus, PrecurationNew, Scope, UserNew
 from app.schemas.precuration import (
     Precuration,
     PrecurationApprovalResult,
@@ -196,6 +196,18 @@ def create_precuration(
 
     # Verify scope access
     require(db, current_user, precuration_in.scope_id, EDIT)
+
+    if precuration_in.precuration_schema_id is None:
+        scope = db.get(Scope, precuration_in.scope_id)
+        pair = scope.default_workflow_pair if scope else None
+        if pair is None or pair.precuration_schema_id is None:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "precuration_schema_id is required: the scope's workflow pair has none",
+            )
+        precuration_in = precuration_in.model_copy(
+            update={"precuration_schema_id": pair.precuration_schema_id}
+        )
 
     existing = precuration_crud.get_open_draft(
         db,

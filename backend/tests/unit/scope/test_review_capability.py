@@ -6,9 +6,9 @@ Scope curators and platform admins without a membership get no review bypass; D1
 import pytest
 from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints.curations import _can_user_review_curation
 from app.crud.workflow_engine import WorkflowEngine
 from app.models.models import Review, ReviewStatus, Scope, UserNew, WorkflowStage
+from app.services.curation_access import _can_user_review_curation
 from tests.api.scopes.factories import make_curation, make_gene, make_member, make_user
 
 pytestmark = pytest.mark.unit

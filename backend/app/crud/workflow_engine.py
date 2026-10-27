@@ -23,7 +23,7 @@ from app.crud.review_round import (
     eligible_peer_reviewers,
     has_pending_review,
     holds_review_capability,
-    pending_reviews,
+    pending_reviews as pending_reviews_of,
     reassign_earlier_reviewers,
     record_review_decision,
     reviewers_required,
@@ -43,6 +43,7 @@ from app.models import (
 )
 from app.models.methodology import MethodologyVersion
 from app.schemas.workflow_engine import (
+    BlockedTransition,
     PeerReviewRequest,
     WorkflowStateInfo,
     WorkflowStatistics,
@@ -296,35 +297,47 @@ class WorkflowEngine:
             raise
 
     def get_workflow_state(
-        self, db: Session, item_id: UUID, item_type: str
+        self, db: Session, item_id: UUID, item_type: str, user_id: UUID
     ) -> WorkflowStateInfo:
-        """Get current workflow state information for an item."""
+        """Workflow state as the caller sees it: the moves they may make, the rest blocked
+        with the reason (a pending review names its reviewer)."""
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
 
         if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
-
-        # Get available transitions
-        available_transitions = self.transitions_for(db, item).get(current_stage, [])
-
-        # Get workflow history
-        history = self._get_workflow_history(db, item_id, item_type)
-
-        # Get pending reviews if in review stage
-        pending_reviews = []
+        history: list[dict[str, Any]] = []  # transitions: the audit-trail endpoint
+        pending = []
         if current_stage == WorkflowStage.REVIEW:
-            pending_reviews = self._get_pending_reviews(db, item_id, item_type)
-
-        # Calculate progress metrics
+            pending = pending_reviews_of(db, item_id)
+        for r in pending:
+            r["reviewer_name"] = getattr(
+                db.get(UserNew, r["reviewer_id"]), "name", None
+            )
+        waiting = ", ".join(str(r["reviewer_name"]) for r in pending)
+        available: list[WorkflowStage] = []
+        blocked: list[BlockedTransition] = []
+        for target in self.transitions_for(db, item).get(current_stage, []):
+            check = self.validate_transition(
+                db, current_stage, target, user_id, item_id, item_type
+            )
+            reason = "; ".join(check.errors)
+            if check.is_valid:
+                available.append(target)
+            else:
+                pending_note = f"; review pending with {waiting}" if waiting else ""
+                blocked.append(
+                    BlockedTransition(stage=target, reason=reason + pending_note)
+                )
         progress_metrics = self._calculate_progress_metrics(current_stage, history)
 
         return WorkflowStateInfo(
             item_id=item_id,
             item_type=item_type,
             current_stage=current_stage,
-            available_transitions=available_transitions,
+            available_transitions=available,
+            blocked=blocked,
             workflow_history=history,
-            pending_reviews=pending_reviews,
+            pending_reviews=pending,
             progress_metrics=progress_metrics,
             last_updated=(
                 item.updated_at if hasattr(item, "updated_at") else datetime.now(UTC)
@@ -911,19 +924,6 @@ class WorkflowEngine:
                     link=f"/scopes/{item.scope_id}/curations/{item.id}",
                 )
             )
-
-    def _get_workflow_history(
-        self, db: Session, item_id: UUID, item_type: str
-    ) -> list[dict[str, Any]]:
-        """Get workflow transition history."""
-        # This would query the audit log for workflow transitions
-        return []
-
-    def _get_pending_reviews(
-        self, db: Session, item_id: UUID, item_type: str
-    ) -> list[dict[str, Any]]:
-        """Get pending peer reviews (current round) for an item."""
-        return pending_reviews(db, item_id)
 
     def _calculate_progress_metrics(
         self, current_stage: WorkflowStage, history: list[dict[str, Any]]

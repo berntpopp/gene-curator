@@ -31,7 +31,8 @@ def _h(token: str) -> dict[str, str]:
 
 def _draft(client: TestClient, token: str, item: Any, kind: str, **body: Any) -> Any:
     body.setdefault("lock_version", item.lock_version)
-    return client.patch(f"/api/v1/{kind}/{item.id}/draft", json=body, headers=_h(token))
+    url = f"/api/v1/{kind}/{item.id}/draft?detail=true"  # full result, dict warnings
+    return client.patch(url, json=body, headers=_h(token))
 
 
 def _terms(monkeypatch: MonkeyPatch, outcome: dict[str, bool | None]) -> None:
@@ -102,7 +103,7 @@ def test_one_field_patch_leaves_the_rest_and_a_stale_patch_409s(
     assert test_curation.evidence_data["status"] == "in_progress"
 
     r = client.put(
-        f"/api/v1/curations/{test_curation.id}",
+        f"/api/v1/curations/{test_curation.id}?detail=true",
         headers=_h(admin_token),
         json={
             "evidence_data": {"notes": None},
@@ -297,3 +298,33 @@ def test_recompute_scores_bad_pmid_rows_as_zero(
         "99999999",
         "PMID12x",
     ]
+
+
+def test_concise_draft_result_carries_id_warnings_and_merge_conflicts_name_keys(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+) -> None:
+    test_curation.evidence_data = {"status": "in_progress", "notes": "n"}
+    db_session.commit()
+    version = test_curation.lock_version
+    url = f"/api/v1/curations/{test_curation.id}/draft"
+    body = {
+        "evidence_data": {"entity_definition": {"mondo_id": "MONDO:1"}},
+        "merge": True,
+    }
+    r = client.patch(
+        url, json={**body, "lock_version": version}, headers=_h(admin_token)
+    )
+    assert r.status_code == 200, r.text
+    assert (
+        "entity_definition.mondo_id: Expected MONDO:NNNNNNN, e.g. MONDO:0007739"
+        in (r.json()["warnings"])
+    )
+
+    # a stale patch differs from the current state only where it changes things
+    stale = {"evidence_data": {"notes": "mine"}, "merge": True, "lock_version": version}
+    r = client.patch(url, json=stale, headers=_h(admin_token))
+    assert r.status_code == 409, r.text
+    assert r.json()["detail"]["changed_keys"] == ["notes"]

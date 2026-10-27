@@ -107,7 +107,9 @@ def get_workflow_state(
     # RLS policies handle scope-based access
 
     try:
-        state_info = workflow_engine.get_workflow_state(db, item_id, item_type)
+        state_info = workflow_engine.get_workflow_state(
+            db, item_id, item_type, current_user.id
+        )
         return state_info
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
@@ -161,9 +163,8 @@ def execute_workflow_transition(
     transition_request: WorkflowTransitionRequest,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> WorkflowTransition:
-    """
-    Execute a workflow state transition.
-    """
+    """Execute a workflow state transition. Approve a curation: target_stage=active,
+    by a reviewer or admin of the scope who is not its author (4-eyes)."""
     # All authenticated users can execute transitions
     # RLS policies + workflow engine handle scope-based access
 
@@ -225,9 +226,8 @@ def submit_peer_review(
     review_submission: PeerReviewSubmission,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewResult:
-    """
-    Submit a peer review decision.
-    """
+    """Submit a peer review decision. decision=approve by an assigned reviewer, never
+    the author, moves the curation to active."""
     # All authenticated users can submit reviews they're assigned to
     # Workflow engine validates reviewer assignment
 

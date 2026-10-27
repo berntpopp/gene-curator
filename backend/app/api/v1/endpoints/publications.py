@@ -126,6 +126,7 @@ async def get_publication(
 
     Retrieves publication from cache or fetches from Europe PMC API.
     Valid publications are cached for future requests.
+    To check PMIDs before citing them, use validate_pmids (up to 50 at once).
 
     Args:
         pmid: PubMed ID (numeric string)
@@ -183,7 +184,7 @@ async def list_publications(
     """List cached publications
 
     Returns publications from the local cache. Use this to browse
-    previously validated publications.
+    previously validated publications. To check PMIDs, use validate_pmids.
 
     Args:
         skip: Pagination offset
