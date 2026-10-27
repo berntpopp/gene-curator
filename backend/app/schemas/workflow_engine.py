@@ -97,6 +97,8 @@ class PeerReviewRequest(BaseModel):
     review_type: str
     assigned_at: datetime
     status: ReviewStatus
+    gene_symbol: str | None = None  # set on the my-assignments list
+    scope_name: str | None = None
 
     model_config = ConfigDict(use_enum_values=True)
 

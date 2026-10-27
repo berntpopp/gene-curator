@@ -400,9 +400,12 @@ export interface paths {
          * Invite Member
          * @description Invite a member to a scope (scope admin only).
          *
-         *     Creates a new scope membership invitation. If user_id is provided (existing user),
-         *     the invitation is auto-accepted. If only email is provided (future feature),
-         *     the invitation remains pending.
+         *     Creates a pending invitation for an existing user (user_id; email invitations
+         *     are not supported yet). The response has is_pending=true and accepted_at=null:
+         *     the invitee gets no scope access until they accept it themselves with
+         *     accept_invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept),
+         *     using the returned id as membership_id. The invitee sees it in
+         *     get_my_pending_invitations (GET /me/invitations) and may decline it instead.
          *
          *     Args:
          *         db: Database session
@@ -744,7 +747,7 @@ export interface paths {
         };
         /**
          * Get Curation Schema
-         * @description Get curation schema by ID.
+         * @description Get curation schema by ID. Pass compact=true to read only the field contract.
          */
         get: operations["get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get"];
         /**
@@ -1535,11 +1538,10 @@ export interface paths {
         put?: never;
         /**
          * Assign Peer Reviewer
-         * @description Route a submitted precuration, or a curation in review, to a peer reviewer.
-         *
-         *     The reviewer must be an accepted reviewer or admin of the item's scope and never its
-         *     author. A precuration gets no review row (review_id is null): the reviewer is notified,
-         *     finds it in read_my_work and approves it with POST /precurations/{id}/approve.
+         * @description Route a submitted precuration, or a curation in review, to a peer reviewer: an accepted
+         *     reviewer or admin of the scope, never the author. A precuration gets no review row
+         *     (review_id null): the reviewer is notified, finds it in read_my_work and approves it with
+         *     POST /precurations/{id}/approve.
          */
         post: operations["assign_peer_reviewer_api_v1_workflow__item_type___item_id__assign_reviewer_post"];
         delete?: never;
@@ -1577,10 +1579,9 @@ export interface paths {
         };
         /**
          * Get My Review Assignments
-         * @description Get the current user's curation review assignments.
-         *
-         *     Precurations are not listed here (they have no review row); find routed precurations in
-         *     read_my_work or list_precurations with pending_review=true.
+         * @description Get the current user's curation review assignments, with gene symbol and scope name.
+         *     Precurations are not listed (no review row): find routed ones in read_my_work or
+         *     list_precurations with pending_review=true.
          */
         get: operations["get_my_review_assignments_api_v1_workflow_reviews_my_assignments_get"];
         put?: never;
@@ -1725,8 +1726,7 @@ export interface paths {
         };
         /**
          * List Curations
-         * @description List curations with optional filters.
-         *     RLS automatically filters to user's accessible scopes.
+         * @description List curations, filtered by ids or names; RLS limits them to the caller's scopes.
          */
         get: operations["list_curations_api_v1_curations__get"];
         put?: never;
@@ -4650,10 +4650,6 @@ export interface components {
             mondo_id?: string | null;
             /** Mode Of Inheritance */
             mode_of_inheritance?: string | null;
-            /** Calculated Score */
-            calculated_score?: {
-                [key: string]: unknown;
-            } | null;
             /**
              * Can Edit
              * @default false
@@ -7676,6 +7672,10 @@ export interface components {
              */
             assigned_at: string;
             status: components["schemas"]["ReviewStatus"];
+            /** Gene Symbol */
+            gene_symbol?: string | null;
+            /** Scope Name */
+            scope_name?: string | null;
         };
         /**
          * PeerReviewResult
@@ -11742,7 +11742,10 @@ export interface operations {
     };
     get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Fields flattened by id without display keys (label, help, order...); option values only; ui_configuration is {} and scoring_configuration is null */
+                compact?: boolean;
+            };
             header?: never;
             path: {
                 schema_id: string;
@@ -13320,6 +13323,10 @@ export interface operations {
                 limit?: number;
                 /** @description Filter by review status */
                 status?: string | null;
+                /** @description Filter by gene symbol (case-insensitive) */
+                gene_symbol?: string | null;
+                /** @description Filter by scope name (case-insensitive) */
+                scope_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -13593,6 +13600,10 @@ export interface operations {
                 curation_status?: components["schemas"]["CurationStatus"] | null;
                 /** @description Filter by curator */
                 curator_id?: string | null;
+                /** @description Filter by gene symbol */
+                gene_symbol?: string | null;
+                /** @description Filter by scope name */
+                scope_name?: string | null;
                 /** @description Only scopes where the caller can review, excluding their own */
                 pending_review?: boolean;
             };

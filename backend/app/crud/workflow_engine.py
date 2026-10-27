@@ -401,6 +401,10 @@ class WorkflowEngine:
                 )
             )
             db.commit()
+        except DBAPIError as e:  # RLS (005, 041, 061) decides who may insert the review
+            db.rollback()
+            raise_if_rls_denied(e, f"Not authorized to assign a reviewer to {item_id}")
+            raise
         except Exception:
             db.rollback()
             raise

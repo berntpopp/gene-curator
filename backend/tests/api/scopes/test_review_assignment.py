@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.crud.workflow_engine import workflow_engine
+from app.crud import workflow_engine as engine_module
 from app.models.models import (
     CurationStatus,
     NotificationNew,
@@ -160,22 +160,29 @@ def test_unknown_curation_is_400_naming_it(
 @pytest.mark.parametrize(("pgcode", "expected"), [("42501", 403), ("23505", None)])
 def test_rls_denied_insert_is_403_other_db_errors_propagate(
     client: TestClient,
+    db_session: Session,
     curator: UserNew,
     reviewer: UserNew,
+    scope_with_admin: Scope,
     monkeypatch: pytest.MonkeyPatch,
     pgcode: str,
     expected: int | None,
 ) -> None:
+    c = make_curation(
+        db_session,
+        scope=scope_with_admin,
+        gene=make_gene(db_session),
+        creator=curator,
+        stage=S.REVIEW,
+    )
     orig = type("Orig", (Exception,), {"pgcode": pgcode})()
 
-    def deny(*_: object) -> None:
-        raise DBAPIError("INSERT INTO reviews", None, orig)
+    def deny(**_: object) -> None:
+        raise DBAPIError("INSERT INTO notifications", None, orig)
 
-    monkeypatch.setattr(workflow_engine, "assign_peer_reviewer", deny)
+    monkeypatch.setattr(engine_module, "NotificationNew", deny)
     if expected is None:
         with pytest.raises(DBAPIError):
-            _assign(client, "curation", uuid4(), reviewer, curator)
+            _assign(client, "curation", c.id, reviewer, curator)
     else:
-        assert (
-            _assign(client, "curation", uuid4(), reviewer, curator).status_code == 403
-        )
+        assert _assign(client, "curation", c.id, reviewer, curator).status_code == 403
