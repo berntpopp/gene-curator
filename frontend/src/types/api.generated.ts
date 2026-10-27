@@ -2697,6 +2697,14 @@ export interface paths {
          *
          *     Requires curator or scope admin role in the curation's scope.
          *
+         *     evidence_type names a top-level evidence group of the curation's schema
+         *     (``genetic`` for genetic_evidence), evidence_category the dotted path of one of
+         *     its evidence tables (e.g. ``case_level.autosomal_dominant.predicted_or_proven_null``),
+         *     and evidence_data one row of that table. A mismatch returns 422 naming the field.
+         *
+         *     Evidence items are supporting records and are not scored: the curation's score
+         *     comes from its evidence_data, saved through save_draft_curations or update_curation.
+         *
          *     Args:
          *         db: Database session
          *         curation_id: UUID of the curation to add evidence to
@@ -2709,6 +2717,7 @@ export interface paths {
          *     Raises:
          *         HTTPException: 404 if curation not found
          *         HTTPException: 403 if user lacks permission
+         *         HTTPException: 422 if the item does not fit the curation's schema
          */
         post: operations["create_evidence_item_api_v1_curations__curation_id__evidence_post"];
         delete?: never;
@@ -2729,7 +2738,9 @@ export interface paths {
          * Update Evidence Item
          * @description Update evidence item
          *
-         *     Requires curator or scope admin role in the curation's scope.
+         *     Requires curator or scope admin role in the curation's scope. New evidence_data
+         *     is checked against the item's evidence table (422 naming the field); it is not
+         *     scored into the curation.
          *
          *     Args:
          *         db: Database session
@@ -5203,9 +5214,15 @@ export interface components {
             curation_id: string;
             /**
              * Computed Score
-             * @description Individual item score (from scoring engine)
+             * @description Always null: evidence items are not scored
              */
             computed_score?: number | null;
+            /**
+             * Score Note
+             * @description Why this item does not change the curation score
+             * @default Evidence items are supporting records and are not scored. The curation's score comes from its evidence_data: add the row to the matching table there and save it with save_draft_curations (PATCH /curations/{id}/draft) to score it.
+             */
+            score_note: string;
             /**
              * Score Metadata
              * @description Scoring calculation details

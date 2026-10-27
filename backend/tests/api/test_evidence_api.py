@@ -21,16 +21,14 @@ class TestEvidenceCreate:
         client: TestClient,
         curator_token: str,
         test_curation: CurationNew,
+        evidence_schema: object,
     ):
         """Test successful evidence item creation"""
         # Arrange
         evidence_data = {
-            "evidence_category": "case_level",
+            "evidence_category": "segregation",
             "evidence_type": "genetic",
-            "evidence_data": {
-                "proband_count": 5,
-                "phenotype_specificity": "high",
-            },
+            "evidence_data": {"pmid": "31558469", "lod_score": 3},
         }
 
         # Act
@@ -43,7 +41,7 @@ class TestEvidenceCreate:
         # Assert
         assert response.status_code == 201
         data = response.json()
-        assert data["evidence_category"] == "case_level"
+        assert data["evidence_category"] == "segregation"
         assert data["evidence_type"] == "genetic"
         assert "id" in data
         assert data["validation_status"] == "pending"
@@ -175,15 +173,11 @@ class TestEvidenceUpdate:
         curator_token: str,
         test_curation: CurationNew,
         test_evidence_item: EvidenceItem,
+        evidence_schema: object,
     ):
         """Test successful evidence update"""
         # Arrange
-        update_data = {
-            "evidence_data": {
-                "proband_count": 15,
-                "phenotype_specificity": "very_high",
-            },
-        }
+        update_data = {"evidence_data": {"pmid": "31558469", "lod_score": 1.5}}
 
         # Act
         response = client.put(
@@ -195,7 +189,7 @@ class TestEvidenceUpdate:
         # Assert
         assert response.status_code == 200
         data = response.json()
-        assert data["evidence_data"]["proband_count"] == 15
+        assert data["evidence_data"]["lod_score"] == 1.5
 
     def test_update_evidence_viewer_forbidden(
         self,

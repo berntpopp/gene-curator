@@ -333,6 +333,68 @@ def test_curation(
     return curation
 
 
+# One evidence table per group, shaped like the seeded ClinGen schema (046)
+_ROW = {
+    "pmid": {
+        "type": "string",
+        "pattern": "^((?:[Pp][Mm][Ii][Dd]:?\\s*)?\\d{1,9})?$",
+        "pattern_message": "PMID must be digits only",
+    },
+    "lod_score": {"type": "number", "min": 0},
+    "points": {"type": "number", "min": 0, "max": 3},
+}
+EVIDENCE_FIELDS = {
+    "genetic_evidence": {
+        "type": "object",
+        "properties": {
+            "segregation": {
+                "type": "array",
+                "items": {"type": "object", "properties": _ROW},
+            }
+        },
+    },
+    "experimental_evidence": {
+        "type": "object",
+        "properties": {
+            "function": {
+                "type": "object",
+                "properties": {
+                    "expression": {
+                        "type": "array",
+                        "items": {"type": "object", "properties": _ROW},
+                    }
+                },
+            }
+        },
+    },
+}
+
+
+@pytest.fixture
+def evidence_schema(
+    db_session: Session, test_workflow_pair: WorkflowPair
+) -> CurationSchema:
+    """Curation schema with evidence tables, linked to test_workflow_pair."""
+    schema = CurationSchema(
+        id=uuid4(),
+        name="Evidence Test Schema",
+        version="1.0",
+        schema_type="curation",
+        field_definitions=EVIDENCE_FIELDS,
+        validation_rules={},
+        workflow_states={},
+        ui_configuration={},
+        scoring_configuration={},
+        is_active=True,
+        schema_hash=uuid4().hex,
+    )
+    db_session.add(schema)
+    db_session.flush()
+    test_workflow_pair.curation_schema_id = schema.id
+    db_session.commit()
+    return schema
+
+
 @pytest.fixture
 def test_evidence_item(
     db_session: Session,
@@ -343,13 +405,9 @@ def test_evidence_item(
     evidence = EvidenceItem(
         id=uuid4(),
         curation_id=test_curation.id,
-        evidence_category="case_level",
+        evidence_category="segregation",
         evidence_type="genetic",
-        evidence_data={
-            "proband_count": 10,
-            "segregation_strength": "strong",
-            "phenotype_specificity": "high",
-        },
+        evidence_data={"pmid": "31558469", "lod_score": 3.2, "points": 2},
         computed_score=5.0,
         score_metadata={"method": "clingen_sop_v11"},
         validation_status="valid",

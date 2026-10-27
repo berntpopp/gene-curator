@@ -20,6 +20,7 @@ from app.schemas.evidence import (
     EvidenceItemCreate,
     EvidenceItemUpdate,
 )
+from app.services.evidence_validation import validate_evidence_item
 from app.services.scope_permissions import ScopePermissionService
 
 logger = get_logger(__name__)
@@ -43,6 +44,14 @@ async def create_evidence_item(
 
     Requires curator or scope admin role in the curation's scope.
 
+    evidence_type names a top-level evidence group of the curation's schema
+    (``genetic`` for genetic_evidence), evidence_category the dotted path of one of
+    its evidence tables (e.g. ``case_level.autosomal_dominant.predicted_or_proven_null``),
+    and evidence_data one row of that table. A mismatch returns 422 naming the field.
+
+    Evidence items are supporting records and are not scored: the curation's score
+    comes from its evidence_data, saved through save_draft_curations or update_curation.
+
     Args:
         db: Database session
         curation_id: UUID of the curation to add evidence to
@@ -55,6 +64,7 @@ async def create_evidence_item(
     Raises:
         HTTPException: 404 if curation not found
         HTTPException: 403 if user lacks permission
+        HTTPException: 422 if the item does not fit the curation's schema
     """
     # Get curation and check permissions
     curation = db.query(CurationNew).filter(CurationNew.id == curation_id).first()
@@ -84,7 +94,13 @@ async def create_evidence_item(
             detail="Cannot edit this curation",
         )
 
-    # Create evidence item
+    validate_evidence_item(
+        db,
+        curation,
+        evidence_in.evidence_category,
+        evidence_in.evidence_type,
+        evidence_in.evidence_data,
+    )
     evidence = evidence_crud.create_with_curation(
         db,
         obj_in=evidence_in,
@@ -118,7 +134,9 @@ async def update_evidence_item(
 ) -> EvidenceItem:
     """Update evidence item
 
-    Requires curator or scope admin role in the curation's scope.
+    Requires curator or scope admin role in the curation's scope. New evidence_data
+    is checked against the item's evidence table (422 naming the field); it is not
+    scored into the curation.
 
     Args:
         db: Database session
@@ -165,7 +183,14 @@ async def update_evidence_item(
             detail="Evidence item not found",
         )
 
-    # Update evidence item
+    if evidence_in.evidence_data is not None:
+        validate_evidence_item(
+            db,
+            curation,
+            evidence.evidence_category,
+            evidence.evidence_type,
+            evidence_in.evidence_data,
+        )
     evidence = evidence_crud.update_with_user(
         db,
         db_obj=evidence,

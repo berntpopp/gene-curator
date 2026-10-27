@@ -13,9 +13,9 @@ from tests.api.scopes.factories import make_member
 pytestmark = pytest.mark.unit
 
 PAYLOAD = {
-    "evidence_category": "case_level",
+    "evidence_category": "segregation",
     "evidence_type": "genetic",
-    "evidence_data": {"proband_count": 1},
+    "evidence_data": {"pmid": "1", "lod_score": 1},
 }
 
 
@@ -65,7 +65,10 @@ def test_evidence_writes_refused_after_draft(
 
 
 def test_app_admin_can_still_edit_draft(
-    client: TestClient, test_curation: CurationNew, admin_token: str
+    client: TestClient,
+    test_curation: CurationNew,
+    admin_token: str,
+    evidence_schema: object,
 ) -> None:
     r = client.post(
         f"/api/v1/curations/{test_curation.id}/evidence",
