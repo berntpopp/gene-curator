@@ -7,9 +7,9 @@ Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.orm.attributes import set_committed_value
 
 from app.core.capabilities import EDIT, require, require_active_scope
@@ -33,9 +33,11 @@ from app.crud.workflow_engine import WorkflowEngine
 from app.models import (
     CurationNew,
     CurationStatus,
+    Gene,
     Review,
     ReviewStatus,
     Scope,
+    ScopeMembership,
     UserNew,
 )
 from app.schemas.curation import (
@@ -77,8 +79,6 @@ def _conflict(curation: CurationNew, sent: int) -> HTTPException:
 
 def _get_user_scope_role(db: Session, user_id: UUID, scope_id: UUID) -> str | None:
     """Get user's role for a specific scope from scope_memberships."""
-    from app.models import ScopeMembership
-
     membership = (
         db.query(ScopeMembership)
         .filter(
@@ -203,6 +203,14 @@ def _check_scope_access(
 # ========================================
 
 
+def _id_for_name(
+    db: Session, col: InstrumentedAttribute[str], name: str, given: UUID | None
+) -> UUID | None:
+    """Id whose name matches case-insensitively; None if unknown or not the given id."""
+    found = db.scalar(select(col.class_.id).where(func.lower(col) == name.lower()))
+    return found if given in (None, found) else None
+
+
 @router.get("/", response_model=CurationListResponse)
 @api_endpoint()
 def list_curations(
@@ -220,21 +228,25 @@ def list_curations(
         None, description="Filter by status"
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
+    gene_symbol: str | None = Query(None, description="Filter by gene symbol"),
+    scope_name: str | None = Query(None, description="Filter by scope name"),
     pending_review: bool = Query(
         False,
         description="Only scopes where the caller can review, excluding their own",
     ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationListResponse:
-    """
-    List curations with optional filters.
-    RLS automatically filters to user's accessible scopes.
-    """
-    # Set RLS context for current user
+    """List curations, filtered by ids or names; RLS limits them to the caller's scopes."""
     set_rls_context(db, current_user)
-
-    # Determine scope filtering using scope_memberships
-    from app.models import ScopeMembership
+    empty = CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
+    if gene_symbol and not (
+        gene_id := _id_for_name(db, Gene.approved_symbol, gene_symbol, gene_id)
+    ):
+        return empty
+    if scope_name and not (
+        scope_id := _id_for_name(db, Scope.name, scope_name, scope_id)
+    ):
+        return empty
 
     scope_ids = None
     if pending_review:
@@ -245,7 +257,7 @@ def list_curations(
             scope_ids = [s for s in scope_ids if s == scope_id]
             scope_id = None
         if not scope_ids:
-            return CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
+            return empty
     elif current_user.role != "admin" and not scope_id:
         # Non-admin without specific scope: filter to their scopes from memberships
         memberships = (
@@ -258,9 +270,8 @@ def list_curations(
             .all()
         )
         scope_ids = [m.scope_id for m in memberships]
-        if not scope_ids:
-            # User has no scope memberships
-            return CurationListResponse(curations=[], total=0, skip=skip, limit=limit)
+        if not scope_ids:  # User has no scope memberships
+            return empty
 
     # If specific scope requested, verify access via membership
     if scope_id and current_user.role != "admin":
@@ -279,10 +290,7 @@ def list_curations(
     )
 
     return CurationListResponse(
-        curations=summaries,
-        total=total,
-        skip=skip,
-        limit=limit,
+        curations=summaries, total=total, skip=skip, limit=limit
     )
 
 

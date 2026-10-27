@@ -17,7 +17,15 @@ from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.crud.review_round import in_current_round
 from app.crud.workflow_engine import workflow_engine
-from app.models import CurationNew, Review, ReviewStatus, UserNew, WorkflowStage
+from app.models import (
+    CurationNew,
+    Gene,
+    Review,
+    ReviewStatus,
+    Scope,
+    UserNew,
+    WorkflowStage,
+)
 from app.schemas.workflow_engine import (
     BulkWorkflowTransitionRequest,
     BulkWorkflowTransitionResult,
@@ -242,14 +250,31 @@ def get_my_review_assignments(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=200),
     status: str | None = Query(None, description="Filter by review status"),
+    gene_symbol: str | None = Query(
+        None, description="Filter by gene symbol (case-insensitive)"
+    ),
+    scope_name: str | None = Query(
+        None, description="Filter by scope name (case-insensitive)"
+    ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Sequence[PeerReviewRequest]:
     """
-    Get peer review assignments for the current user.
+    Get peer review assignments for the current user, with gene symbol and scope name.
     """
     from app.models import Review, ReviewStatus
 
-    query = select(Review).where(Review.reviewer_id == current_user.id)
+    query = (
+        select(Review, Gene.approved_symbol, Scope.name)
+        # outer joins: a row RLS hides only blanks the name, never the assignment
+        .outerjoin(CurationNew, Review.curation_id == CurationNew.id)
+        .outerjoin(Gene, CurationNew.gene_id == Gene.id)
+        .outerjoin(Scope, CurationNew.scope_id == Scope.id)
+        .where(Review.reviewer_id == current_user.id)
+    )
+    if gene_symbol:
+        query = query.where(func.upper(Gene.approved_symbol) == gene_symbol.upper())
+    if scope_name:
+        query = query.where(func.lower(Scope.name) == scope_name.lower())
 
     if status:
         try:
@@ -262,15 +287,13 @@ def get_my_review_assignments(
                 status_code=400, detail=f"Invalid status: {status}"
             ) from e
 
-    reviews = (
-        db.execute(query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit))
-        .scalars()
-        .all()
-    )
+    rows = db.execute(
+        query.order_by(Review.assigned_at.desc()).offset(skip).limit(limit)
+    ).all()
 
     # Convert Review model to PeerReviewRequest schema
     result: list[PeerReviewRequest] = []
-    for review in reviews:
+    for review, symbol, name in rows:
         # Map curation_id to item_id, use "curation" as item_type
         result.append(
             PeerReviewRequest(
@@ -282,6 +305,8 @@ def get_my_review_assignments(
                 review_type="peer_review",  # Default value
                 assigned_at=review.assigned_at,
                 status=review.status,
+                gene_symbol=symbol,
+                scope_name=name,
             )
         )
     return result

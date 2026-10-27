@@ -1576,7 +1576,7 @@ export interface paths {
         };
         /**
          * Get My Review Assignments
-         * @description Get peer review assignments for the current user.
+         * @description Get peer review assignments for the current user, with gene symbol and scope name.
          */
         get: operations["get_my_review_assignments_api_v1_workflow_reviews_my_assignments_get"];
         put?: never;
@@ -1721,8 +1721,7 @@ export interface paths {
         };
         /**
          * List Curations
-         * @description List curations with optional filters.
-         *     RLS automatically filters to user's accessible scopes.
+         * @description List curations, filtered by ids or names; RLS limits them to the caller's scopes.
          */
         get: operations["list_curations_api_v1_curations__get"];
         put?: never;
@@ -7671,6 +7670,10 @@ export interface components {
              */
             assigned_at: string;
             status: components["schemas"]["ReviewStatus"];
+            /** Gene Symbol */
+            gene_symbol?: string | null;
+            /** Scope Name */
+            scope_name?: string | null;
         };
         /**
          * PeerReviewResult
@@ -13318,6 +13321,10 @@ export interface operations {
                 limit?: number;
                 /** @description Filter by review status */
                 status?: string | null;
+                /** @description Filter by gene symbol (case-insensitive) */
+                gene_symbol?: string | null;
+                /** @description Filter by scope name (case-insensitive) */
+                scope_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -13591,6 +13598,10 @@ export interface operations {
                 curation_status?: components["schemas"]["CurationStatus"] | null;
                 /** @description Filter by curator */
                 curator_id?: string | null;
+                /** @description Filter by gene symbol */
+                gene_symbol?: string | null;
+                /** @description Filter by scope name */
+                scope_name?: string | null;
                 /** @description Only scopes where the caller can review, excluding their own */
                 pending_review?: boolean;
             };
