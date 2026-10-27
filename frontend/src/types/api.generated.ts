@@ -237,6 +237,8 @@ export interface paths {
          *
          *     Any authenticated user can create a scope and automatically becomes an admin
          *     of that scope. This follows GitHub's model where anyone can create an organization.
+         *     Without default_workflow_pair_id the scope gets the pair marked is_default=true
+         *     in get_workflow_pairs.
          *
          *     Args:
          *         db: Database session
@@ -406,6 +408,8 @@ export interface paths {
          *     accept_invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept),
          *     using the returned id as membership_id. The invitee sees it in
          *     get_my_pending_invitations (GET /me/invitations) and may decline it instead.
+         *     To give a user access at once without their consent step, a platform or scope
+         *     admin uses add_member (POST /scopes/{scope_id}/members) instead.
          *
          *     Args:
          *         db: Database session
@@ -421,6 +425,48 @@ export interface paths {
          *         HTTPException 400: User not found or already a member
          */
         post: operations["invite_member_api_v1_scopes__scope_id__invitations_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Members
+         * @description List all members of a scope with statistics.
+         *
+         *     Any scope member can view the member list. Returns member details including
+         *     user information, roles, and membership statistics.
+         *
+         *     Args:
+         *         db: Database session
+         *         scope_id: Scope UUID
+         *         include_pending: Include pending invitations
+         *         scope: Scope object (dependency ensures member access)
+         *
+         *     Returns:
+         *         ScopeMemberListResponse with members and statistics
+         */
+        get: operations["list_members_api_v1_scopes__scope_id__members_get"];
+        put?: never;
+        /**
+         * Add Member
+         * @description Add an existing user to a scope as an accepted member in one step (platform or
+         *     scope admin only; scope admin is the highest role, so any role may be given).
+         *
+         *     Unlike invite_member, there is no invitation to accept: the response has
+         *     is_pending=false, the role takes effect immediately, the add is written to the
+         *     audit log and the user gets a notification. You cannot add yourself. Use
+         *     invite_member when the user should consent first.
+         */
+        post: operations["add_member_api_v1_scopes__scope_id__members_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -457,38 +503,6 @@ export interface paths {
          *         HTTPException 400: User mismatch, already accepted or expired
          */
         post: operations["accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/scopes/{scope_id}/members": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List Members
-         * @description List all members of a scope with statistics.
-         *
-         *     Any scope member can view the member list. Returns member details including
-         *     user information, roles, and membership statistics.
-         *
-         *     Args:
-         *         db: Database session
-         *         scope_id: Scope UUID
-         *         include_pending: Include pending invitations
-         *         scope: Scope object (dependency ensures member access)
-         *
-         *     Returns:
-         *         ScopeMemberListResponse with members and statistics
-         */
-        get: operations["list_members_api_v1_scopes__scope_id__members_get"];
-        put?: never;
-        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -905,7 +919,9 @@ export interface paths {
         };
         /**
          * Get Workflow Pairs
-         * @description Retrieve workflow pairs with optional filtering.
+         * @description List workflow pairs (methodologies). Each pairs a precuration schema with a
+         *     curation schema; they differ in those schemas and their scoring. The pair with
+         *     is_default=true is what create_scope uses when no default_workflow_pair_id is given.
          */
         get: operations["get_workflow_pairs_api_v1_schemas_workflow_pairs_get"];
         put?: never;
@@ -7350,7 +7366,7 @@ export interface components {
          * NotificationType
          * @enum {string}
          */
-        NotificationType: "review_assigned" | "review_completed" | "revision_requested" | "curation_approved" | "curation_rejected";
+        NotificationType: "review_assigned" | "review_completed" | "revision_requested" | "curation_approved" | "curation_rejected" | "scope_membership_added";
         /**
          * OMIMDiseaseResult
          * @description OMIM disease details from JAX Network API
@@ -8726,10 +8742,9 @@ export interface components {
             };
             /**
              * Default Workflow Pair Id
-             * Format: uuid
-             * @description Workflow pair (methodology) for this scope
+             * @description Workflow pair (methodology) for this scope; omitted, the pair with is_default=true from get_workflow_pairs is used
              */
-            default_workflow_pair_id: string;
+            default_workflow_pair_id?: string | null;
         };
         /**
          * ScopeCurationSummary
@@ -10386,6 +10401,12 @@ export interface components {
             updated_at?: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Is Default
+             * @description Used by create_scope when no workflow pair is given
+             * @default false
+             */
+            is_default: boolean;
         };
         /**
          * WorkflowPairCreate
@@ -11243,38 +11264,6 @@ export interface operations {
             };
         };
     };
-    accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                scope_id: string;
-                membership_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScopeMembershipResponse"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     list_members_api_v1_scopes__scope_id__members_get: {
         parameters: {
             query?: {
@@ -11295,6 +11284,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ScopeMemberListResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_member_api_v1_scopes__scope_id__members_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeMembershipCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeMembershipResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    accept_invitation_api_v1_scopes__scope_id__invitations__membership_id__accept_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+                membership_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeMembershipResponse"];
                 };
             };
             /** @description Validation Error */

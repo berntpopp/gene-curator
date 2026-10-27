@@ -45,8 +45,10 @@ class ScopeBase(BaseModel):
 class ScopeCreate(ScopeBase):
     """Schema for creating a new scope."""
 
-    default_workflow_pair_id: UUID = Field(
-        ..., description="Workflow pair (methodology) for this scope"
+    default_workflow_pair_id: UUID | None = Field(
+        None,
+        description="Workflow pair (methodology) for this scope; omitted, the pair "
+        "with is_default=true from get_workflow_pairs is used",
     )
 
 

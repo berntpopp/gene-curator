@@ -109,14 +109,15 @@ def test_create_scope_requires_authentication(
     assert response.status_code in (401, 403)
 
 
-def test_create_scope_requires_a_methodology(
+def test_create_scope_without_methodology_or_default_is_400(
     client: TestClient, owner: UserNew
 ) -> None:
     payload = {"name": "no-method", "display_name": "X", "description": "y"}
 
     response = client.post(f"{BASE}/", json=payload, headers=auth_headers(owner))
 
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert "Workflow pair" in response.json()["detail"]
 
 
 def test_create_scope_rejects_unknown_or_inactive_methodology(

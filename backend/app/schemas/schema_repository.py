@@ -175,6 +175,9 @@ class WorkflowPairInDBBase(WorkflowPairBase):
     created_at: datetime | None = None
     updated_at: datetime | None = None
     created_by: UUID | None = None
+    is_default: bool = Field(
+        False, description="Used by create_scope when no workflow pair is given"
+    )
 
     model_config = ConfigDict(
         from_attributes=True,
