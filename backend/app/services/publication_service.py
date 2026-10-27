@@ -17,6 +17,9 @@ from typing import Any, cast
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -346,23 +349,7 @@ class PublicationService:
             from uuid import UUID
 
             pub = Publication(
-                pmid=data.pmid,
-                title=data.title,
-                authors=data.authors,
-                author_string=data.author_string,
-                journal=data.journal,
-                journal_abbrev=data.journal_abbrev,
-                volume=data.volume,
-                issue=data.issue,
-                pages=data.pages,
-                pub_year=data.year,
-                pub_date=data.publication_date,
-                doi=data.doi,
-                pmcid=data.pmcid,
-                abstract=data.abstract,
-                pub_type=data.pub_type,
-                is_open_access=data.is_open_access,
-                cited_by_count=data.cited_by_count,
+                **publication_row(data),
                 added_by=UUID(user_id) if user_id else None,
             )
 
@@ -411,7 +398,68 @@ LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
 LOOKUP_TIMEOUT_S = 5.0  # whole HTTP batch; frontend requests time out after 10s
 
 # pmid_format as the forms accept it: optional "PMID:" prefix, 1-9 digits
-_PMID = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
+PMID_FORMAT = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
+
+
+def publication_row(data: PublicationData) -> dict[str, Any]:
+    """Publication columns for one Europe PMC record."""
+    return {
+        "pmid": data.pmid,
+        "title": data.title,
+        "authors": data.authors,
+        "author_string": data.author_string,
+        "journal": data.journal,
+        "journal_abbrev": data.journal_abbrev,
+        "volume": data.volume,
+        "issue": data.issue,
+        "pages": data.pages,
+        "pub_year": data.year,
+        "pub_date": data.publication_date,
+        "doi": data.doi,
+        "pmcid": data.pmcid,
+        "abstract": data.abstract,
+        "pub_type": data.pub_type,
+        "is_open_access": data.is_open_access,
+        "cited_by_count": data.cited_by_count,
+    }
+
+
+def _fit(row: dict[str, Any]) -> dict[str, Any]:
+    """Strings cut to their column's length (Europe PMC pages or dates can be longer)."""
+    columns = Publication.__table__.c
+    return {
+        key: value[:length]
+        if isinstance(value, str)
+        and (length := getattr(columns[key].type, "length", None))
+        else value
+        for key, value in row.items()
+    }
+
+
+def _cache_found(db: Session, results: list[PMIDValidationResult]) -> None:
+    """Store found PMIDs so later saves, previews and submits skip Europe PMC. Best effort:
+    a failed insert rolls back only its savepoint, never the caller's save."""
+    rows = [
+        _fit(publication_row(r.publication))
+        for r in results
+        if r.is_valid and r.publication
+    ]
+    if not rows:
+        return
+    insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+    try:
+        with db.begin_nested():
+            db.execute(
+                insert(Publication)
+                .values(rows)
+                .on_conflict_do_nothing(index_elements=["pmid"])
+            )
+    except SQLAlchemyError as e:
+        logger.warning(
+            "PMID cache insert failed",
+            pmids=[row["pmid"] for row in rows],
+            error=str(e),
+        )
 
 
 def evidence_pmids(evidence: Any) -> set[str]:
@@ -421,7 +469,7 @@ def evidence_pmids(evidence: Any) -> set[str]:
     if not isinstance(evidence, dict):
         return set()
     found = set().union(*(evidence_pmids(v) for v in evidence.values()))
-    match = _PMID.match(str(evidence.get("pmid") or "").strip())
+    match = PMID_FORMAT.match(str(evidence.get("pmid") or "").strip())
     return found | {match.group(1)} if match else found
 
 
@@ -443,6 +491,7 @@ def lookup_pmids(db: Session, pmids: set[str]) -> tuple[list[str], list[str]]:
     if not missing:
         return [], []
     results = asyncio.run(_fetch_all(missing))
+    _cache_found(db, results)
     unknown = [
         r.pmid for r in results if (r.error or "").startswith("Publication not found")
     ]

@@ -1,10 +1,13 @@
 """Behaviour tests for OntologyService (MONDO / OMIM / HPO clients mocked via MockTransport)."""
 
+import asyncio
 from collections.abc import Callable, Generator
+from typing import Any
 
 import httpx
 import pytest
 
+from app.services import ontology_service
 from app.services.ontology_service import (
     HPO_API_BASE,
     MONDO_API_BASE,
@@ -407,3 +410,68 @@ async def test_search_omim_unexpected_failure_returns_empty(
 
     assert response.total_results == 0
     assert response.results == []
+
+
+# --- term existence (draft warnings, submit checks) ---
+
+
+@pytest.mark.parametrize(
+    ("curie", "status", "payload", "expected"),
+    [
+        ("MONDO:0007739", 200, {"elements": [{"curie": "MONDO:0007739"}]}, True),
+        ("MONDO:9999999", 200, {"elements": []}, False),
+        ("OMIM:999999", 404, {}, False),
+        ("HP:0001250", 200, {"id": "HP:0001250"}, True),
+        ("HP:0001250", 503, {}, None),
+    ],
+)
+def test_term_found_reads_each_upstream(
+    monkeypatch: pytest.MonkeyPatch,
+    curie: str,
+    status: int,
+    payload: dict[str, Any],
+    expected: bool | None,
+) -> None:
+    async def get(self: httpx.AsyncClient, url: str, **kw: Any) -> httpx.Response:
+        return httpx.Response(status, json=payload)
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+
+    async def run() -> bool | None:
+        service = OntologyService()
+        try:
+            return await service.term_found(curie)
+        finally:
+            await service.close()
+
+    assert asyncio.run(run()) is expected
+
+
+def test_term_found_is_none_when_unreachable(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def get(self: httpx.AsyncClient, url: str, **kw: Any) -> httpx.Response:
+        raise httpx.ConnectError("offline")
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", get)
+    assert ontology_service.lookup_terms({"HP:0001250"}) == ([], ["HP:0001250"])
+
+
+def test_lookup_terms_caches_found_and_times_out_slow_ones(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    asked: list[str] = []
+
+    async def found(self: OntologyService, curie: str) -> bool | None:
+        asked.append(curie)
+        if curie == "HP:0000002":
+            await asyncio.sleep(1)
+        return True
+
+    monkeypatch.setattr(OntologyService, "term_found", found)
+    monkeypatch.setattr(ontology_service, "_known_terms", set())
+    monkeypatch.setattr(ontology_service, "TERM_LOOKUP_TIMEOUT_S", 0.05)
+    assert ontology_service.lookup_terms({"HP:0000001", "HP:0000002"}) == (
+        [],
+        ["HP:0000002"],
+    )
+    assert ontology_service.lookup_terms({"HP:0000001"}) == ([], [])
+    assert asked == ["HP:0000001", "HP:0000002"]

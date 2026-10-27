@@ -28,12 +28,14 @@ from app.schemas.precuration import (
     PrecurationApprovalResult,
     PrecurationConflictResponse,
     PrecurationCreate,
+    PrecurationDraftResult,
     PrecurationDraftSave,
     PrecurationListResponse,
     PrecurationReject,
     PrecurationSubmit,
     PrecurationUpdate,
 )
+from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -261,7 +263,7 @@ def _conflict(precuration: PrecurationNew, sent: int) -> HTTPException:
 
 @router.put(
     "/{precuration_id}",
-    response_model=Precuration,
+    response_model=PrecurationDraftResult,
     responses={409: {"model": PrecurationConflictResponse}},
 )
 @api_endpoint()
@@ -270,8 +272,11 @@ def update_precuration(
     precuration_in: PrecurationUpdate,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Precuration:
-    """Update a precuration's evidence data."""
+) -> PrecurationDraftResult:
+    """Update a draft or rejected precuration. evidence_data replaces the stored evidence
+    entirely unless merge=true (RFC 7396 merge patch; arrays are replaced whole).
+    `warnings` names bad or unknown IDs and arrays a merge shortened. 409 if
+    lock_version is stale."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -293,17 +298,19 @@ def update_precuration(
             detail="Only draft or rejected precurations can be edited",
         )
 
-    updated = precuration_crud.update_with_lock(
+    saved = precuration_crud.update_with_lock(
         db,
         db_obj=precuration,
         evidence_data=precuration_in.evidence_data,
         lock_version=precuration_in.lock_version,
         user_id=current_user.id,
+        merge=bool(precuration_in.merge),
     )
-    if updated is None:
+    if saved is None:
         raise _conflict(precuration, precuration_in.lock_version)
-
-    return Precuration.model_validate(updated)
+    result = PrecurationDraftResult.model_validate(saved[0])
+    result.warnings = saved[1]
+    return result
 
 
 # ========================================
@@ -313,7 +320,7 @@ def update_precuration(
 
 @router.patch(
     "/{precuration_id}/draft",
-    response_model=Precuration,
+    response_model=PrecurationDraftResult,
     responses={409: {"model": PrecurationConflictResponse}},
 )
 @api_endpoint()
@@ -322,8 +329,12 @@ def save_draft(
     draft_data: PrecurationDraftSave,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Precuration:
-    """Save precuration as draft (auto-save support)."""
+) -> PrecurationDraftResult:
+    """Save a draft (autosave): never refused for its content. evidence_data replaces the
+    stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
+    deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
+    MONDO, OMIM or HPO ID is malformed, unknown or unverified. 409 if lock_version is
+    stale, merge or not."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -344,17 +355,19 @@ def save_draft(
             detail="Only the creator can save drafts",
         )
 
-    updated = precuration_crud.save_draft(
+    saved = precuration_crud.save_draft(
         db,
         db_obj=precuration,
         evidence_data=draft_data.evidence_data,
         lock_version=draft_data.lock_version,
         user_id=current_user.id,
+        merge=bool(draft_data.merge),
     )
-    if updated is None:
+    if saved is None:
         raise _conflict(precuration, draft_data.lock_version)
-
-    return Precuration.model_validate(updated)
+    result = PrecurationDraftResult.model_validate(saved[0])
+    result.warnings = saved[1]
+    return result
 
 
 @router.post(
@@ -369,7 +382,8 @@ def submit_precuration(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Precuration:
-    """Submit precuration for peer review."""
+    """Submit for peer review. 422 names each field path that fails the schema or holds a
+    malformed PMID, MONDO, OMIM or HPO ID."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -402,6 +416,8 @@ def submit_precuration(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail={"message": str(e), "fields": e.fields},
         ) from e
+    except InvalidEvidenceError as e:
+        raise unprocessable(e) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
