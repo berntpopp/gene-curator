@@ -162,3 +162,27 @@ def test_invitations_require_authentication(client: TestClient) -> None:
     response = client.get("/api/v1/me/invitations")
 
     assert response.status_code in (401, 403)
+
+
+def test_invite_member_stays_pending_and_says_so(
+    client: TestClient,
+    db_session: Session,
+    owner: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """MCP study finding 3: the tool description must match the pending result."""
+    from app.main import app
+
+    invitee = make_user(db_session)
+    response = client.post(
+        f"/api/v1/scopes/{scope_with_admin.id}/invitations",
+        json={"user_id": str(invitee.id), "role": "curator"},
+        headers=auth_headers(owner),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["is_pending"] is True
+    assert response.json()["accepted_at"] is None
+    op = app.openapi()["paths"]["/api/v1/scopes/{scope_id}/invitations"]["post"]
+    assert "auto-accept" not in op["description"]
+    assert "accept_invitation" in op["description"]

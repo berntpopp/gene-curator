@@ -152,9 +152,12 @@ def invite_member(
     """
     Invite a member to a scope (scope admin only).
 
-    Creates a new scope membership invitation. If user_id is provided (existing user),
-    the invitation is auto-accepted. If only email is provided (future feature),
-    the invitation remains pending.
+    Creates a pending invitation for an existing user (user_id; email invitations
+    are not supported yet). The response has is_pending=true and accepted_at=null:
+    the invitee gets no scope access until they accept it themselves with
+    accept_invitation (POST /scopes/{scope_id}/invitations/{membership_id}/accept),
+    using the returned id as membership_id. The invitee sees it in
+    get_my_pending_invitations (GET /me/invitations) and may decline it instead.
 
     Args:
         db: Database session
