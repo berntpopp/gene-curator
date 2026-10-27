@@ -134,10 +134,10 @@ _TOOL_HINTS = {
     "make and why the others are blocked",
 }
 # 404s route to the tool that finds or creates the missing thing (round 3, T2/T6);
-# matched on the API detail first, then on the tool name and its argument names
+# matched on the API detail only: the tool's arguments do not say what is missing
 _NOT_FOUND_HINTS = (
     (
-        ("audit", "baseline", "snapshot", "diff"),
+        ("audit", "baseline", "snapshot", "no active curation"),
         'get_workflow_audit_trail(item_type="curation", item_id) lists the '
         "submissions and review rounds a diff can start from",
     ),
@@ -160,17 +160,15 @@ _STALE_HINT = (
 )
 
 
-def _not_found_hint(tool: str, args: dict[str, Any], detail: Any) -> str | None:
-    for said in (str(detail or ""), " ".join([tool, *args])):
-        for words, hint in _NOT_FOUND_HINTS:
-            if any(word in said.lower() for word in words):
-                return hint
+def _not_found_hint(detail: Any) -> str | None:
+    said = str(detail or "").lower()
+    for words, hint in _NOT_FOUND_HINTS:
+        if any(word in said for word in words):
+            return hint
     return None
 
 
-def _tool_error(
-    cause: httpx.HTTPStatusError, tool: str, args: dict[str, Any] | None = None
-) -> ToolError:
+def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     status = cause.response.status_code
     message = f"{error_code(status)}: HTTP {status}"
     detail: Any = None
@@ -183,7 +181,7 @@ def _tool_error(
             message += f": {detail}"
     hint = (
         _TOOL_HINTS.get((tool, status))
-        or (_not_found_hint(tool, args or {}, detail) if status == 404 else None)
+        or (_not_found_hint(detail) if status == 404 else None)
         or _HINTS.get(status)
     )
     if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
@@ -365,7 +363,7 @@ class ToolAuditMiddleware(Middleware):
             if cause is None:
                 outcome = "error"
                 raise  # mask_error_details hides unexpected details
-            error = _tool_error(cause, name, context.message.arguments or {})
+            error = _tool_error(cause, name)
             outcome = str(error).split(":", 1)[0]
             raise error from exc
         finally:

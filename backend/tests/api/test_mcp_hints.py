@@ -15,42 +15,36 @@ from tests.api.test_mcp import call, pat
 pytestmark = pytest.mark.unit
 
 
-def _error(
-    status: int, tool: str, detail: object = "nope", args: dict | None = None
-) -> str:
+def _error(status: int, tool: str, detail: object = "nope") -> str:
     request = httpx.Request("GET", "http://test/api")
     response = httpx.Response(status, json={"detail": detail}, request=request)
     error = httpx.HTTPStatusError("x", request=request, response=response)
-    return str(_tool_error(error, tool, args))
+    return str(_tool_error(error, tool))
 
 
 @pytest.mark.parametrize(
-    ("tool", "detail", "args", "next_tool"),
+    ("tool", "detail", "next_tool"),
     [
-        ("get_gene", "Gene not found", {"gene_id": "x"}, "create_gene"),
-        ("get_genes_by_symbol", "nope", {"symbol": "X"}, "add_genes_to_scope"),
+        ("get_gene", "Gene not found", "create_gene"),
         (
             "curation_diff",
-            "No baseline",
-            {"curation_id": "x"},
+            "No submitted snapshot of this curation",
             "get_workflow_audit_trail",
         ),
-        ("get_publication", "nope", {"pmid": "1"}, "search_pubmed"),
-        (
-            "get_scope_details",
-            "Scope not found",
-            {"scope_id": "x"},
-            "list_scopes(name=",
-        ),
-        # the detail wins over argument names: the scope exists, the gene does not
-        ("create_gene_assignment", "Gene not found", {"scope_id": "x"}, "create_gene"),
-        ("get_curation", "Curation not found", {"curation_id": "x"}, "list_curations"),
+        ("curation_diff", "No active curation for this gene and scope", "audit_trail"),
+        ("get_publication", "Publication not found: 1", "search_pubmed"),
+        ("get_scope_details", "Scope not found", "list_scopes(name="),
+        ("create_gene_assignment", "Gene not found", "create_gene"),
+        # the detail decides, never the tool's arguments: a missing precuration is
+        # not a missing gene
+        ("create_curation", "Approved precuration not found", "list_curations"),
+        ("get_curation", "Curation not found", "list_curations"),
     ],
 )
 def test_not_found_points_to_the_tool_for_that_resource(
-    tool: str, detail: str, args: dict, next_tool: str
+    tool: str, detail: str, next_tool: str
 ) -> None:
-    assert next_tool in _error(404, tool, detail, args).split("\nnext: ")[1]
+    assert next_tool in _error(404, tool, detail).split("\nnext: ")[1]
 
 
 def test_errors_carry_a_next_step() -> None:
