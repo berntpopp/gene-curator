@@ -5,6 +5,7 @@ validation and compatible-engine lookup. Fixtures insert schema rows directly so
 tests do not depend on the create endpoint unless they exercise it.
 """
 
+from typing import Any
 from uuid import uuid4
 
 import pytest
@@ -204,6 +205,43 @@ class TestCurationSchemaRead:
             },
             "moi": {"id": "moi", "type": "text", "required": True, "default": "AD"},
         }
+
+    def test_get_path_returns_only_that_field(
+        self,
+        client: TestClient,
+        db_session: Session,
+        owned_schema: CurationSchema,
+        viewer_token: str,
+    ):
+        """Round 3: agents asked 4 times to read one evidence table, not the schema."""
+        row = {"pmid": {"type": "string", "label": "PMID"}}
+        table = {"type": "array", "items": {"type": "object", "properties": row}}
+        owned_schema.field_definitions = {
+            "genetic_evidence": {
+                "type": "object",
+                "properties": {"segregation": table},
+            },
+            "other": {"type": "string"},
+        }
+        db_session.commit()
+
+        def get(**params: object) -> Any:
+            return client.get(
+                f"{BASE}/curation-schemas/{owned_schema.id}",
+                params=params,
+                headers=auth(viewer_token),
+            )
+
+        path = "genetic_evidence.segregation"
+        assert get(path=path).json()["field_definitions"] == {path: table}
+        compact = get(path=f"{path}.pmid", compact=True).json()
+        assert compact["field_definitions"] == {f"{path}.pmid": {"type": "string"}}
+        missing = get(path="genetic_evidence.case_level")
+        assert missing.status_code == 400
+        assert (
+            "no 'case_level' here; choose from segregation" in missing.json()["detail"]
+        )
+        assert "single field" in get(path="other.x").json()["detail"]
 
     def test_get_unknown_id_is_404(self, client: TestClient, viewer_token: str):
         response = client.get(
