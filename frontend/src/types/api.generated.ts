@@ -1682,8 +1682,9 @@ export interface paths {
         };
         /**
          * Get Workflow Audit Trail
-         * @description Review history of a curation: its latest submission and every review decision with the
-         *     reviewer's notes (other items, and unknown ones, have an empty trail).
+         * @description Review history of a curation: every submission and review decision with the reviewer's
+         *     notes; audit_id is the evidence snapshot, usable as curation_diff baseline (other items, and
+         *     unknown ones, have an empty trail).
          */
         get: operations["get_workflow_audit_trail_api_v1_workflow__item_type___item_id__audit_trail_get"];
         put?: never;
@@ -5409,6 +5410,11 @@ export interface components {
              * @enum {string}
              */
             source: "review" | "any_review" | "previous_submission" | "active_curation" | "submitted" | "audit";
+            /**
+             * Note
+             * @description Set when baseline=submitted is the current evidence of a resubmitted curation: names the earlier submission to compare with
+             */
+            note?: string | null;
         };
         /** DiffItem */
         DiffItem: {
@@ -10691,6 +10697,11 @@ export interface components {
             metadata: {
                 [key: string]: unknown;
             };
+            /**
+             * Audit Id
+             * @description Evidence snapshot (submitted, or the one reviewed); pass as curation_diff baseline
+             */
+            audit_id?: number | null;
         };
         /**
          * WorkflowAuditTrail
@@ -14612,7 +14623,7 @@ export interface operations {
     curation_diff_api_v1_curations__curation_id__diff_get: {
         parameters: {
             query?: {
-                /** @description submitted (last submission), active (the active curation) or an audit id; default: the version the caller last reviewed */
+                /** @description submitted (last submission), previous_submission (the one before it), active (the active curation) or an audit id (get_workflow_audit_trail entries carry them); default: the version the caller last reviewed */
                 baseline?: string | null;
             };
             header?: never;
