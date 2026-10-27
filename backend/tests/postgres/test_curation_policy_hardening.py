@@ -274,6 +274,12 @@ def test_api_admin_delete_in_inactive_scope_is_409_not_500(
     try:
         r = client.delete(f"/api/v1/curations/{w.draft}", headers=_h(admin))
         assert r.status_code == 409, r.text
+        r = client.post(
+            f"/api/v1/workflow/curation/{w.draft}/transition",
+            headers=_h(w.curator),
+            json={"target_stage": "review"},
+        )
+        assert r.status_code == 409, r.text
         detail = client.get(f"/api/v1/curations/{w.draft}", headers=_h(admin)).json()
         assert detail["status"] == "draft"
         assert detail["can_delete"] is False

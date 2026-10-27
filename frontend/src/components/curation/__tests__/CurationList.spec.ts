@@ -137,15 +137,17 @@ describe('CurationList', () => {
     expect(wrapper.text()).toContain('/ 18 points')
   })
 
-  it('offers Edit and Delete only while the scope is active (#483)', async () => {
+  it('offers Start, Edit and Delete only while the scope is active (#483)', async () => {
     const active = setup({ role: 'admin', id: 'u1' }, rows, 'admin')
     await flushPromises()
     expect(active.wrapper.text()).toContain('Edit')
     expect(active.wrapper.text()).toContain('Delete')
+    expect(active.wrapper.text()).toContain('Start curation')
 
     const inactive = setup({ role: 'admin', id: 'u1' }, rows, 'admin', false)
     await flushPromises()
     expect(inactive.wrapper.text()).not.toContain('Edit')
     expect(inactive.wrapper.text()).not.toContain('Delete')
+    expect(inactive.wrapper.text()).not.toContain('Start curation')
   })
 })

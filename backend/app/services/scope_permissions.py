@@ -213,6 +213,8 @@ class ScopePermissionService:
         """
         if curation.status not in (CurationStatus.DRAFT, CurationStatus.REJECTED):
             return False
+        if not curation.scope.is_active:  # read-only for everyone (RLS 054)
+            return False
 
         # Admin can edit all
         if user.role.value == "admin":

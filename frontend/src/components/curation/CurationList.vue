@@ -367,10 +367,9 @@
   const { canCurate, canManageScope } = useScopePermissions(
     computed(() => scopeStore.currentUserRole)
   )
-  const canCreateCuration = canCurate
-
   // An inactive scope's curations are read-only for everyone (#483)
   const scopeActive = computed(() => scopeStore.currentScope?.is_active !== false)
+  const canCreateCuration = computed(() => canCurate.value && scopeActive.value)
 
   function canEditCuration(curation: CurationRow) {
     return scopeActive.value && curation.status === 'draft'

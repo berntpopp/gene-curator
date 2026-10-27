@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.capabilities import require_active_scope
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint, get_logger
@@ -70,6 +71,7 @@ async def create_evidence_item(
         )
 
     # Check edit permission
+    require_active_scope(curation.scope)
     if not ScopePermissionService.can_edit_curation(db, current_user, curation):
         logger.warning(
             "User lacks permission to add evidence",
@@ -141,6 +143,7 @@ async def update_evidence_item(
             detail="Curation not found",
         )
 
+    require_active_scope(curation.scope)
     if not ScopePermissionService.can_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -215,6 +218,7 @@ async def delete_evidence_item(
             detail="Curation not found",
         )
 
+    require_active_scope(curation.scope)
     if not ScopePermissionService.can_edit_curation(db, current_user, curation):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

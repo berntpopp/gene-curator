@@ -13,6 +13,10 @@ pytestmark = pytest.mark.postgres
 MIGRATION = Path(__file__).parents[3] / "database/sql/055_seed_memberships_accepted.sql"
 SEEDED = "SELECT u.email FROM scope_memberships m JOIN users u ON u.id = m.user_id"
 ALICE = "(SELECT id FROM users WHERE email = 'alice.smith@genecurator.org')"
+DEMO = (
+    "u.email IN ('admin@genecurator.org', 'alice.smith@genecurator.org', "
+    "'bob.jones@genecurator.org', 'carol.williams@genecurator.org')"
+)
 
 
 def test_seeded_memberships_are_accepted_and_055_backfills_only_them() -> None:
@@ -21,12 +25,12 @@ def test_seeded_memberships_are_accepted_and_055_backfills_only_them() -> None:
         psycopg2.connect(os.environ["OWNER_DATABASE_URL"]) as conn,
         conn.cursor() as cur,
     ):
-        cur.execute(f"{SEEDED} WHERE u.email LIKE '%%@genecurator.org'")
+        cur.execute(f"{SEEDED} WHERE {DEMO}")
         assert {r[0] for r in cur.fetchall()} >= {
             "alice.smith@genecurator.org",
             "bob.jones@genecurator.org",
         }
-        cur.execute(f"{SEEDED} WHERE m.accepted_at IS NULL")
+        cur.execute(f"{SEEDED} WHERE {DEMO} AND m.accepted_at IS NULL")
         assert cur.fetchall() == []
 
         # An existing database: seeded rows still pending, plus a real pending invitation
@@ -45,6 +49,9 @@ def test_seeded_memberships_are_accepted_and_055_backfills_only_them() -> None:
         )
         for _ in range(2):  # idempotent
             cur.execute(MIGRATION.read_text())
-        cur.execute(f"{SEEDED} WHERE m.accepted_at IS NULL")
+        cur.execute(
+            f"{SEEDED} WHERE ({DEMO} OR u.id = %s) AND m.accepted_at IS NULL",
+            (str(other),),
+        )
         assert cur.fetchall() == [(f"{other}@m055.org",)]
         conn.rollback()
