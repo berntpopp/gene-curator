@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
@@ -61,15 +62,25 @@ def assign_precuration_reviewer(
             f"reviewer: {APPROVERS}"
         )
     check_reviewer(db, "precuration", p.id, p.created_by, reviewer_id, p.scope_id)
-    db.add(
-        NotificationNew(
-            user_id=reviewer_id,
-            type=NotificationType.REVIEW_ASSIGNED,
-            title="New review assigned",
-            message=f"Precuration to review: {p.gene.approved_symbol}",
-            link=f"/scopes/{p.scope_id}/precurations/{p.id}",
+    link = f"/scopes/{p.scope_id}/precurations/{p.id}"
+    already = db.scalar(
+        select(NotificationNew.id).where(
+            NotificationNew.user_id == reviewer_id,
+            NotificationNew.type == NotificationType.REVIEW_ASSIGNED,
+            NotificationNew.link == link,
+            ~NotificationNew.is_read,
         )
     )
+    if already is None:  # routing again must not spam an unread duplicate
+        db.add(
+            NotificationNew(
+                user_id=reviewer_id,
+                type=NotificationType.REVIEW_ASSIGNED,
+                title="New review assigned",
+                message=f"Precuration to review: {p.gene.approved_symbol}",
+                link=link,
+            )
+        )
     db.commit()
     return PeerReviewRequest(
         review_id=None,

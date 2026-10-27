@@ -193,8 +193,8 @@ def assign_peer_reviewer(
     Route a submitted precuration, or a curation in review, to a peer reviewer.
 
     The reviewer must be an accepted reviewer or admin of the item's scope and never its
-    author. A precuration gets no review row (review_id is null): the reviewer is notified
-    and approves it with POST /precurations/{id}/approve.
+    author. A precuration gets no review row (review_id is null): the reviewer is notified,
+    finds it in read_my_work and approves it with POST /precurations/{id}/approve.
     """
     # Workflow engine enforces 4-eyes; RLS (005, 041, 061) decides who may insert the review
     try:
@@ -257,7 +257,10 @@ def get_my_review_assignments(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Sequence[PeerReviewRequest]:
     """
-    Get peer review assignments for the current user.
+    Get the current user's curation review assignments.
+
+    Precurations are not listed here (they have no review row); find routed precurations in
+    read_my_work or list_precurations with pending_review=true.
     """
     from app.models import Review, ReviewStatus
 

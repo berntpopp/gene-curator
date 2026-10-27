@@ -71,6 +71,20 @@ def test_curator_routes_submitted_precuration_to_reviewer(
     ).one()
     assert str(submitted_precuration.id) in note.link
 
+    # routing again while unread does not duplicate; once read, it notifies again
+    _assign(client, "precuration", submitted_precuration.id, reviewer, curator)
+    db_session.expire_all()
+    note = db_session.scalars(
+        select(NotificationNew).where(NotificationNew.user_id == reviewer.id)
+    ).one()
+    note.is_read = True
+    db_session.commit()
+    _assign(client, "precuration", submitted_precuration.id, reviewer, curator)
+    notes = db_session.scalars(
+        select(NotificationNew).where(NotificationNew.user_id == reviewer.id)
+    ).all()
+    assert len(notes) == 2
+
 
 def test_precuration_routing_refusals_name_item_status_and_approvers(
     client: TestClient,

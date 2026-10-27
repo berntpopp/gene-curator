@@ -1538,8 +1538,8 @@ export interface paths {
          * @description Route a submitted precuration, or a curation in review, to a peer reviewer.
          *
          *     The reviewer must be an accepted reviewer or admin of the item's scope and never its
-         *     author. A precuration gets no review row (review_id is null): the reviewer is notified
-         *     and approves it with POST /precurations/{id}/approve.
+         *     author. A precuration gets no review row (review_id is null): the reviewer is notified,
+         *     finds it in read_my_work and approves it with POST /precurations/{id}/approve.
          */
         post: operations["assign_peer_reviewer_api_v1_workflow__item_type___item_id__assign_reviewer_post"];
         delete?: never;
@@ -1577,7 +1577,10 @@ export interface paths {
         };
         /**
          * Get My Review Assignments
-         * @description Get peer review assignments for the current user.
+         * @description Get the current user's curation review assignments.
+         *
+         *     Precurations are not listed here (they have no review row); find routed precurations in
+         *     read_my_work or list_precurations with pending_review=true.
          */
         get: operations["get_my_review_assignments_api_v1_workflow_reviews_my_assignments_get"];
         put?: never;
