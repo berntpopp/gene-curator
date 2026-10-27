@@ -5,10 +5,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.crud.curation import merge_patch
 from app.models import CurationNew, PrecurationNew
+from app.models.models import Publication
+from app.schemas.validation import PMIDValidationResult, PublicationData
 from app.services import (
     evidence_ids,
     ontology_service,
@@ -16,6 +19,7 @@ from app.services import (
     review_entry,
 )
 from app.services.ontology_service import OntologyService
+from app.services.publication_service import PublicationService
 from tests.api.test_submit_unknown_pmids import _fake_fetch
 
 ROWS = "genetic_evidence.case_control.single_variant_analysis"
@@ -391,3 +395,41 @@ def test_workflow_transition_refuses_unknown_ontology_ids(
     assert r.json()["detail"]["errors"] == [
         {"path": "phenotypes.hpo_id", "message": "HP:0009999 not found in HPO"}
     ]
+
+
+def test_found_pmids_are_cached_so_the_next_save_asks_no_one(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    fetched: list[str] = []
+
+    async def fetch(self: PublicationService, pmid: str) -> PMIDValidationResult:
+        fetched.append(pmid)
+        data = PublicationData(pmid=pmid, title="T", journal="J", year=2020)
+        return PMIDValidationResult(pmid=pmid, is_valid=True, publication=data)
+
+    online.setattr(PublicationService, "fetch_publication", fetch)
+    for _ in range(2):
+        r = _draft(
+            client,
+            admin_token,
+            test_curation,
+            "curations",
+            evidence_data=_evidence("31000003"),
+        )
+        assert r.status_code == 200, r.text
+        assert r.json()["warnings"] == []
+        db_session.refresh(test_curation)
+    assert fetched == ["31000003"]
+    assert (
+        db_session.get(
+            Publication,
+            db_session.scalars(
+                select(Publication.id).where(Publication.pmid == "31000003")
+            ).one(),
+        ).title
+        == "T"
+    )

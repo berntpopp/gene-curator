@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
 from app.core.security import create_access_token
-from app.schemas.validation import PMIDValidationResult
+from app.schemas.validation import PMIDValidationResult, PublicationData
 from app.services import evidence_ids, publication_service
 from app.services.publication_service import PublicationService
 from tests.postgres.test_submit_unknown_pmids import (
@@ -111,3 +111,47 @@ def test_migration_063_widens_the_category_idempotently() -> None:
             "SELECT count(*) FROM schema_migrations WHERE filename = '063_evidence_category_length.sql'"
         )
         assert cur.fetchone() == (1,)
+
+
+def test_app_user_caches_found_pmids(
+    client: TestClient, w: W, monkeypatch: MonkeyPatch
+) -> None:
+    fetched: list[str] = []
+
+    async def fetch(self: PublicationService, pmid: str) -> PMIDValidationResult:
+        fetched.append(pmid)
+        data = PublicationData(pmid=pmid, title="T", journal="J")
+        return PMIDValidationResult(pmid=pmid, is_valid=True, publication=data)
+
+    monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
+    monkeypatch.setattr(evidence_ids, "lookup_pmids", publication_service.lookup_pmids)
+    pmid = str(800000000 + w.scope.int % 10**8)
+    h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
+    r = client.post(
+        "/api/v1/curations/",
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "workflow_pair_id": w.pair,
+            "evidence_data": {},
+        },
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    cid, version = r.json()["id"], r.json()["lock_version"]
+    try:
+        for _ in range(2):
+            r = client.patch(
+                f"/api/v1/curations/{cid}/draft?detail=true",
+                json={
+                    "evidence_data": {"genetic_evidence": _rows(pmid)},
+                    "lock_version": version,
+                },
+                headers=h,
+            )
+            assert r.status_code == 200, r.text
+            version = r.json()["lock_version"]
+        assert fetched == [pmid]
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM publications WHERE pmid = %s", (pmid,))

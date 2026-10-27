@@ -17,6 +17,8 @@ from typing import Any, cast
 
 import httpx
 from sqlalchemy import select
+from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -346,23 +348,7 @@ class PublicationService:
             from uuid import UUID
 
             pub = Publication(
-                pmid=data.pmid,
-                title=data.title,
-                authors=data.authors,
-                author_string=data.author_string,
-                journal=data.journal,
-                journal_abbrev=data.journal_abbrev,
-                volume=data.volume,
-                issue=data.issue,
-                pages=data.pages,
-                pub_year=data.year,
-                pub_date=data.publication_date,
-                doi=data.doi,
-                pmcid=data.pmcid,
-                abstract=data.abstract,
-                pub_type=data.pub_type,
-                is_open_access=data.is_open_access,
-                cited_by_count=data.cited_by_count,
+                **publication_row(data),
                 added_by=UUID(user_id) if user_id else None,
             )
 
@@ -414,6 +400,45 @@ LOOKUP_TIMEOUT_S = 5.0  # whole HTTP batch; frontend requests time out after 10s
 PMID_FORMAT = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
 
 
+def publication_row(data: PublicationData) -> dict[str, Any]:
+    """Publication columns for one Europe PMC record."""
+    return {
+        "pmid": data.pmid,
+        "title": data.title,
+        "authors": data.authors,
+        "author_string": data.author_string,
+        "journal": data.journal,
+        "journal_abbrev": data.journal_abbrev,
+        "volume": data.volume,
+        "issue": data.issue,
+        "pages": data.pages,
+        "pub_year": data.year,
+        "pub_date": data.publication_date,
+        "doi": data.doi,
+        "pmcid": data.pmcid,
+        "abstract": data.abstract,
+        "pub_type": data.pub_type,
+        "is_open_access": data.is_open_access,
+        "cited_by_count": data.cited_by_count,
+    }
+
+
+def _cache_found(db: Session, results: list[PMIDValidationResult]) -> None:
+    """Store found PMIDs so later saves, previews and submits skip Europe PMC."""
+    rows = [
+        publication_row(r.publication) for r in results if r.is_valid and r.publication
+    ]
+    if rows:
+        insert = (
+            pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+        )
+        db.execute(
+            insert(Publication)
+            .values(rows)
+            .on_conflict_do_nothing(index_elements=["pmid"])
+        )
+
+
 def evidence_pmids(evidence: Any) -> set[str]:
     """Every well-formed PMID under a "pmid" key, at any depth (all evidence tables)."""
     if isinstance(evidence, list):
@@ -443,6 +468,7 @@ def lookup_pmids(db: Session, pmids: set[str]) -> tuple[list[str], list[str]]:
     if not missing:
         return [], []
     results = asyncio.run(_fetch_all(missing))
+    _cache_found(db, results)
     unknown = [
         r.pmid for r in results if (r.error or "").startswith("Publication not found")
     ]
