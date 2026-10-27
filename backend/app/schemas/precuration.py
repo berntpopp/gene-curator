@@ -157,6 +157,7 @@ class PrecurationSummary(BaseModel):
     updated_at: datetime
     curator_name: str | None
     created_by: UUID | None = None
+    lock_version: int = Field(..., description="Send with the next save or submit")
 
     model_config = ConfigDict(use_enum_values=True)
 

@@ -267,6 +267,7 @@ class CurationSummary(BaseModel):
     updated_at: datetime
     curator_name: str | None
     created_by: UUID | None = None  # For 4-eyes filtering in review queue
+    lock_version: int = Field(..., description="Send with the next save or submit")
 
     model_config = ConfigDict(use_enum_values=True)
 

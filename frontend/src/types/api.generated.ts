@@ -5174,6 +5174,11 @@ export interface components {
             curator_name: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @description Send with the next save or submit
+             */
+            lock_version: number;
         };
         /**
          * CurationUpdate
@@ -8493,6 +8498,11 @@ export interface components {
             curator_name: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @description Send with the next save or submit
+             */
+            lock_version: number;
         };
         /**
          * PrecurationUpdate

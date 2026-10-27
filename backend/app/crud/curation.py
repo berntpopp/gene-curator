@@ -314,6 +314,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
                     updated_at=row.CurationNew.updated_at,
                     curator_name=row.curator_name,
                     created_by=row.CurationNew.created_by,
+                    lock_version=row.CurationNew.lock_version,
                 )
             )
 
