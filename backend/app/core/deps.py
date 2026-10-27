@@ -2,16 +2,17 @@
 FastAPI dependencies for authentication and database access.
 """
 
-from collections.abc import Callable
+from collections.abc import AsyncGenerator, Callable
 from typing import Annotated, Any
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
-from app.core.database import RLS_USER_KEY, apply_rls_user, get_db
+from app.core.database import RLS_USER_KEY, AsyncSessionLocal, apply_rls_user, get_db
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.security import (
@@ -106,6 +107,26 @@ def get_current_admin_user(
             status_code=status.HTTP_403_FORBIDDEN, detail="Not enough permissions"
         )
     return current_user
+
+
+async def get_async_db(
+    current_user: UserNew = Depends(get_current_active_user),
+) -> AsyncGenerator[AsyncSession, None]:
+    """Async session bound to the caller's RLS user, like get_db + get_current_user.
+
+    The user id is applied at every transaction begin by core.database's after_begin
+    listener (the AsyncSession wraps a sync Session). Commits on success, rolls back on error.
+    """
+    async with AsyncSessionLocal() as session:
+        session.sync_session.info[RLS_USER_KEY] = str(current_user.id)
+        try:
+            yield session
+            await session.commit()
+        except Exception as e:
+            if not isinstance(e, HTTPException):
+                logger.error("Async database error", error=e)
+            await session.rollback()
+            raise
 
 
 # Optional authentication (for public endpoints that can benefit from user context)

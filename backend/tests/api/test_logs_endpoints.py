@@ -18,7 +18,8 @@ from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
 from app.api.v1.endpoints import logs as logs_endpoints
-from app.core.database import get_async_db, get_db
+from app.core.database import get_db
+from app.core.deps import get_async_db
 from app.crud import logs as crud_logs
 from app.main import app
 

@@ -460,15 +460,15 @@ def approve_precuration(
             detail="Precuration not found",
         )
 
-    # Verify scope access with reviewer role
-    require(db, current_user, precuration.scope_id, REVIEW)
-
-    # 4-eyes principle: creator cannot approve their own precuration
+    # 4-eyes first, so the creator learns why even without a reviewer role (#393)
     if precuration.created_by == current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Cannot approve your own precuration (4-eyes principle)",
         )
+
+    # Verify scope access with reviewer role
+    require(db, current_user, precuration.scope_id, REVIEW)
 
     try:
         result = precuration_crud.approve_and_create_curation(

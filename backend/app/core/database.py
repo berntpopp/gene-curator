@@ -149,34 +149,6 @@ def get_db() -> Generator[Session, None, None]:
             raise
 
 
-async def get_async_db() -> AsyncSession:  # type: ignore[misc]
-    """
-    Async dependency function to get database session.
-
-    Yields an async database session using context manager pattern.
-    Automatically commits on success and rolls back on exceptions.
-    Session is automatically closed after use.
-
-    This is the async equivalent of get_db() for use in async endpoints.
-
-    Yields:
-        AsyncSession: SQLAlchemy async database session
-    """
-    # Lazy import to avoid circular dependency
-    from app.core.logging import get_logger
-
-    logger = get_logger(__name__)
-
-    async with AsyncSessionLocal() as session:
-        try:
-            yield session
-            await session.commit()
-        except Exception as e:
-            logger.error("Async database error", error=e)
-            await session.rollback()
-            raise
-
-
 def raise_if_rls_denied(error: Exception, detail: str) -> None:
     """Turn an RLS denial into 403: an UPDATE filtered to zero rows (StaleDataError) or
     insufficient_privilege (42501, a WITH CHECK or guard trigger). Other errors fall through."""

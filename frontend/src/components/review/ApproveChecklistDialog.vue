@@ -47,8 +47,8 @@
       class="mt-3"
       data-testid="blockers"
     >
-      Accept or resolve the queries on these items first:
-      {{ blockers.map(b => b.label).join(', ') }}
+      <div v-if="unaccepted.length">Accept these items first: {{ unaccepted.join(', ') }}</div>
+      <div v-if="queried.length">Resolve the open queries on: {{ queried.join(', ') }}</div>
     </v-alert>
 
     <v-textarea
@@ -98,7 +98,7 @@
     classification?: string | null
     total: number | string
     curator?: string | null
-    blockers: { key: string; label: string }[]
+    blockers: { key: string; label: string; queried?: boolean }[]
     busy: boolean
     error: string | null
   }>()
@@ -107,6 +107,8 @@
   const ticked = ref<string[]>([])
   const note = ref('')
   const items = computed(() => checklistFor(props.classification))
+  const unaccepted = computed(() => props.blockers.filter(b => !b.queried).map(b => b.label))
+  const queried = computed(() => props.blockers.filter(b => b.queried).map(b => b.label))
   const left = computed(() => items.value.length - ticked.value.length)
 
   watch(

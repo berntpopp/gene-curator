@@ -14,6 +14,7 @@ storage in PostgreSQL using JSONB for rich context information.
 """
 
 import asyncio
+import contextlib
 import json
 import traceback
 from collections.abc import Callable
@@ -112,6 +113,14 @@ class DatabaseLogger:
 
             fallback_logger = logging.getLogger("database_logger")
             fallback_logger.error(f"Failed to schedule log write: {e}")
+
+    async def flush(self, timeout: float = 5.0) -> None:
+        """Wait (bounded) for scheduled log writes, so shutdown does not cut them off."""
+        # a hung write must not block shutdown; wait_for cancels it
+        with contextlib.suppress(TimeoutError):
+            await asyncio.wait_for(
+                asyncio.gather(*self._pending_tasks, return_exceptions=True), timeout
+            )
 
     async def _write_log_entry(
         self,

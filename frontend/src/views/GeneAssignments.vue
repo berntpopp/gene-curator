@@ -7,7 +7,7 @@
       </div>
       <v-spacer />
       <v-btn variant="outlined" to="/review-queue">Review queue</v-btn>
-      <v-btn color="primary" variant="flat" to="/scopes">
+      <v-btn v-if="canSeeAll" color="primary" variant="flat" to="/scopes">
         <v-icon start>mdi-plus</v-icon>
         New assignment
       </v-btn>

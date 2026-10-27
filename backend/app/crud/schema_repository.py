@@ -31,7 +31,7 @@ from app.schemas.schema_repository import (
     WorkflowPairUpdate,
 )
 from app.scoring.base import ScoringResult
-from app.scoring.clingen import ClinGenEngine
+from app.scoring.registry import engine_for
 
 logger = get_logger(__name__)
 
@@ -67,9 +67,9 @@ SNAPSHOT_KEYS = (
 
 def _score(evidence: Any, config: Any) -> ScoringResult:
     """Score like a curation save does (crud/curation.py `_computed`)."""
-    return ClinGenEngine().calculate_scores(
-        evidence if isinstance(evidence, dict) else {},
-        config if isinstance(config, dict) else {},
+    config = config if isinstance(config, dict) else {}
+    return engine_for(config).calculate_scores(
+        evidence if isinstance(evidence, dict) else {}, config
     )
 
 

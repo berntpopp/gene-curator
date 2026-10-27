@@ -175,6 +175,15 @@ describe('groupDiff, records with ids (same keys as the backend in later rounds)
     expect(approveBlockers(round2, [query], 'bob').map(g => g.key)).toEqual(['g.cases[u1]'])
   })
 
+  it('says whether a blocker is queried or just not accepted yet', () => {
+    const query = c({ item_path: 'g.cases[u1]', body: 'Which transcript?' })
+    expect(approveBlockers(round1, [query], 'bob').map(g => [g.key, g.queried])).toEqual([
+      ['g.cases[u1]', true],
+      ['g.cases[u2]', false],
+      ['g.plain[0]', false]
+    ])
+  })
+
   it('names an id-keyed record from the evidence, numeric ids included', () => {
     const evidence = {
       g: {

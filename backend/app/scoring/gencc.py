@@ -9,6 +9,25 @@ from typing import Any
 from .base import ScoringEngine, ScoringResult
 
 
+def _section(value: Any) -> dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
+def _rows(value: Any) -> list[Any]:
+    return value if isinstance(value, list) else []
+
+
+def _points(items: Any) -> float:
+    """Sum of row points; drafts may hold empty, null or non-numeric points."""
+    total = 0.0
+    for row in _rows(items):
+        try:
+            total += float(row.get("points") or 0)
+        except (AttributeError, TypeError, ValueError):
+            continue
+    return total
+
+
 class GenCCEngine(ScoringEngine):
     """GenCC-based gene-disease validity classification scoring engine."""
 
@@ -41,9 +60,9 @@ class GenCCEngine(ScoringEngine):
     ) -> ScoringResult:
         """Calculate GenCC-based classification."""
 
-        genetic_evidence = evidence_data.get("genetic_evidence", {})
-        experimental_evidence = evidence_data.get("experimental_evidence", {})
-        contradictory_evidence = evidence_data.get("contradictory_evidence", [])
+        genetic_evidence = _section(evidence_data.get("genetic_evidence"))
+        experimental_evidence = _section(evidence_data.get("experimental_evidence"))
+        contradictory_evidence = _rows(evidence_data.get("contradictory_evidence"))
 
         # Calculate evidence scores using GenCC-adapted methodology
         genetic_score = self._calculate_genetic_score(genetic_evidence)
@@ -90,20 +109,14 @@ class GenCCEngine(ScoringEngine):
         """Calculate genetic evidence score using GenCC-adapted methodology."""
 
         # Similar to ClinGen but adapted for GenCC framework
-        case_level_data = genetic_evidence.get("case_level_data", [])
-        segregation_data = genetic_evidence.get("segregation_data", [])
-        case_control_data = genetic_evidence.get("case_control_data", [])
+        case_level_data = genetic_evidence.get("case_level_data")
+        segregation_data = genetic_evidence.get("segregation_data")
+        case_control_data = genetic_evidence.get("case_control_data")
 
         # Calculate scores with GenCC-specific maximums
-        case_level_score = min(
-            sum(float(item.get("points", 0)) for item in case_level_data), 12.0
-        )
-        segregation_score = min(
-            sum(float(item.get("points", 0)) for item in segregation_data), 3.0
-        )
-        case_control_score = min(
-            sum(float(item.get("points", 0)) for item in case_control_data), 6.0
-        )
+        case_level_score = min(_points(case_level_data), 12.0)
+        segregation_score = min(_points(segregation_data), 3.0)
+        case_control_score = min(_points(case_control_data), 6.0)
 
         return min(case_level_score + segregation_score + case_control_score, 12.0)
 
@@ -112,19 +125,13 @@ class GenCCEngine(ScoringEngine):
     ) -> float:
         """Calculate experimental evidence score using GenCC-adapted methodology."""
 
-        function_evidence = experimental_evidence.get("function", [])
-        model_evidence = experimental_evidence.get("models", [])
-        rescue_evidence = experimental_evidence.get("rescue", [])
+        function_evidence = experimental_evidence.get("function")
+        model_evidence = experimental_evidence.get("models")
+        rescue_evidence = experimental_evidence.get("rescue")
 
-        function_score = min(
-            sum(float(item.get("points", 0)) for item in function_evidence), 2.0
-        )
-        model_score = min(
-            sum(float(item.get("points", 0)) for item in model_evidence), 4.0
-        )
-        rescue_score = min(
-            sum(float(item.get("points", 0)) for item in rescue_evidence), 2.0
-        )
+        function_score = min(_points(function_evidence), 2.0)
+        model_score = min(_points(model_evidence), 4.0)
+        rescue_score = min(_points(rescue_evidence), 2.0)
 
         return min(function_score + model_score + rescue_score, 6.0)
 
@@ -191,17 +198,19 @@ class GenCCEngine(ScoringEngine):
         return {
             "genetic_evidence": {
                 "total_score": genetic_score,
-                "case_level_items": len(genetic_evidence.get("case_level_data", [])),
-                "segregation_items": len(genetic_evidence.get("segregation_data", [])),
+                "case_level_items": len(_rows(genetic_evidence.get("case_level_data"))),
+                "segregation_items": len(
+                    _rows(genetic_evidence.get("segregation_data"))
+                ),
                 "case_control_items": len(
-                    genetic_evidence.get("case_control_data", [])
+                    _rows(genetic_evidence.get("case_control_data"))
                 ),
             },
             "experimental_evidence": {
                 "total_score": experimental_score,
-                "function_items": len(experimental_evidence.get("function", [])),
-                "model_items": len(experimental_evidence.get("models", [])),
-                "rescue_items": len(experimental_evidence.get("rescue", [])),
+                "function_items": len(_rows(experimental_evidence.get("function"))),
+                "model_items": len(_rows(experimental_evidence.get("models"))),
+                "rescue_items": len(_rows(experimental_evidence.get("rescue"))),
             },
             "classification_methodology": "GenCC-based gene-disease validity framework",
         }
@@ -211,15 +220,15 @@ class GenCCEngine(ScoringEngine):
 
         warnings = []
 
-        genetic_evidence = evidence_data.get("genetic_evidence", {})
-        experimental_evidence = evidence_data.get("experimental_evidence", {})
+        genetic_evidence = _section(evidence_data.get("genetic_evidence"))
+        experimental_evidence = _section(evidence_data.get("experimental_evidence"))
 
         # Check evidence categories
         if not genetic_evidence and not experimental_evidence:
             warnings.append("No evidence provided for classification")
 
         # Check case-level data sufficiency
-        case_level_count = len(genetic_evidence.get("case_level_data", []))
+        case_level_count = len(_rows(genetic_evidence.get("case_level_data")))
         if case_level_count == 0:
             warnings.append("No case-level data provided")
         elif case_level_count == 1:

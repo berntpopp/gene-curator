@@ -132,6 +132,25 @@ describe('WorkflowManagement', () => {
     expect((vm.curationSchemas as { id: string }[]).map(x => x.id)).toEqual(['a'])
   })
 
+  it('labels schema options with version and sorts them stably (#471)', async () => {
+    const { schemas, vm } = await mountView()
+    const sop = 'ClinGen SOP'
+    const make = (id: string, version: string, created_at: string) =>
+      ({ id, name: sop, version, created_at, schema_type: 'curation', is_active: true }) as never
+    schemas.schemas = [
+      make('z', '11.0', '2026-10-02T00:00:00Z'),
+      make('y', '11.0', '2026-10-01T00:00:00Z'),
+      make('x', '10.0', '2026-09-01T00:00:00Z')
+    ]
+    await nextTick()
+    const opts = vm.curationSchemas as { id: string; title: string }[]
+    expect(opts.map(o => o.id)).toEqual(['x', 'y', 'z'])
+    expect(opts[0]!.title).toBe('ClinGen SOP · v10.0')
+    // Same name and version: the creation date tells them apart
+    expect(opts[1]!.title).toContain('ClinGen SOP · v11.0 · created')
+    expect(opts[1]!.title).not.toBe(opts[2]!.title)
+  })
+
   it('shows an inactive pair as Inactive', async () => {
     const { wrapper, schemas } = await mountView()
     schemas.workflowPairs = [{ ...pair, is_active: false }] as never

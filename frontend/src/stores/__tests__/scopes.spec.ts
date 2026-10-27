@@ -92,6 +92,23 @@ describe('useScopesStore', () => {
       expect(store.loading).toBe(false)
     })
 
+    it('keeps my role on the list entry, so role-based nav stays put (#391)', async () => {
+      const store = useScopesStore()
+      store.scopes = [scope('a', { user_role: 'reviewer' })]
+      api.fetchScope.mockResolvedValueOnce(scope('a') as Schema<'ScopeWithStats'>)
+      await store.fetchScope('a')
+      expect(store.scopes[0]).toMatchObject({ user_role: 'reviewer' })
+    })
+
+    it('writes a fetched role onto the list entry, so a demoted user loses role-based nav', async () => {
+      const store = useScopesStore()
+      useAuthStore().user = { id: 'u1', role: 'user' } as never
+      store.scopes = [scope('a', { user_role: 'reviewer' })]
+      api.fetchMembers.mockResolvedValueOnce([{ user_id: 'u1', role: 'viewer' }] as never)
+      await store.fetchUserRole('a')
+      expect(store.scopes[0]).toMatchObject({ user_role: 'viewer' })
+    })
+
     it('records the error and rethrows', async () => {
       const store = useScopesStore()
       api.fetchScopes.mockRejectedValue(fail('down'))
