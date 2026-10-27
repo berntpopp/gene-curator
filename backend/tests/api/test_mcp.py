@@ -116,6 +116,8 @@ def test_server_instructions_and_lean_tool_descriptions(
     assert "approved precuration" in by_name["create_curation"]["description"]
     bulk = by_name["bulk_create_gene_assignments"]["description"]
     assert "create_gene_assignment" in bulk
+    hgnc_id = by_name["fetch_hgnc_gene"]["inputSchema"]["properties"]["hgnc_id"]
+    assert "HGNC:1100" in hgnc_id["description"]
     for name in ("get_publication", "list_publications", "validate_pubmed"):
         assert "validate_pmids" in by_name[name]["description"], name
 

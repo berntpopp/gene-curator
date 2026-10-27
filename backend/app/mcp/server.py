@@ -51,8 +51,9 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    assign_peer_reviewer(item_type="precuration"). The reviewer finds it in read_my_work
    and calls approve_precuration or reject_precuration.
 3. Curation: the approval opens a draft curation (list_curations); create_curation
-   only works with an approved precuration and no open curation. Record evidence with
-   save_draft_curations (evidence_data + lock_version); only that path is scored.
+   only works with an approved precuration and no open curation. Evidence that scores
+   lives in the curation's evidence_data (create_curation, update_curation,
+   save_draft_curations with lock_version); evidence-item tools are never scored.
 4. Review: submit_curation, then assign_peer_reviewer(item_type="curation"). The
    reviewer approves with submit_peer_review(decision="approve") or
    execute_workflow_transition(target_stage="active").
