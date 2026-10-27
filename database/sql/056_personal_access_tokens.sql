@@ -42,17 +42,36 @@ CREATE POLICY personal_access_tokens_update_policy ON personal_access_tokens
     FOR UPDATE USING (user_id = get_current_user_uuid())
     WITH CHECK (user_id = get_current_user_uuid());
 
--- Returns the owner and scopes of a live (unrevoked, unexpired) token and stamps
--- last_used_at; returns no row otherwise.
+-- Returns the owner and scopes of a live (unrevoked, unexpired) token, or no row.
+-- Validation is a plain SELECT; last_used_at is stamped at most once a minute and never
+-- waits on a row lock, so parallel requests with one token do not serialise.
 CREATE OR REPLACE FUNCTION authenticate_personal_access_token(p_token_hash TEXT)
 RETURNS TABLE (user_id UUID, scopes TEXT[]) AS $$
-    UPDATE personal_access_tokens t
-    SET last_used_at = NOW()
+#variable_conflict use_column
+DECLARE
+    v_id UUID;
+    v_last_used TIMESTAMPTZ;
+BEGIN
+    SELECT t.id, t.user_id, t.scopes, t.last_used_at
+    INTO v_id, user_id, scopes, v_last_used
+    FROM personal_access_tokens t
     WHERE t.token_hash = p_token_hash
       AND t.revoked_at IS NULL
-      AND t.expires_at > NOW()
-    RETURNING t.user_id, t.scopes;
-$$ LANGUAGE SQL VOLATILE SECURITY DEFINER SET search_path = public, pg_temp;
+      AND t.expires_at > NOW();
+    IF NOT FOUND THEN
+        RETURN;
+    END IF;
+    IF v_last_used IS NULL OR v_last_used < NOW() - INTERVAL '60 seconds' THEN
+        UPDATE personal_access_tokens t
+        SET last_used_at = NOW()
+        WHERE t.id IN (
+            SELECT l.id FROM personal_access_tokens l
+            WHERE l.id = v_id FOR UPDATE SKIP LOCKED
+        );
+    END IF;
+    RETURN NEXT;
+END;
+$$ LANGUAGE plpgsql VOLATILE SECURITY DEFINER SET search_path = public, pg_temp;
 
 REVOKE ALL ON FUNCTION authenticate_personal_access_token(TEXT) FROM PUBLIC;
 

@@ -1,7 +1,7 @@
 """Personal access token data access (#462)."""
 
 from collections.abc import Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -11,9 +11,11 @@ from app.core.security import generate_personal_access_token, hash_personal_acce
 from app.models import PersonalAccessToken
 from app.schemas.personal_access_token import PersonalAccessTokenCreate
 
+LAST_USED_RESOLUTION = timedelta(seconds=60)  # same as 056
+
 
 def authenticate(db: Session, token: str) -> tuple[str, list[str]] | None:
-    """Owner id and scopes of a live (unrevoked, unexpired) token; stamps last_used_at."""
+    """Owner id and scopes of a live token; stamps last_used_at at most once a minute."""
     token_hash = hash_personal_access_token(token)
     if db.get_bind().dialect.name == "postgresql":
         # No RLS user yet: the SECURITY DEFINER function (056) does the same lookup.
@@ -32,7 +34,10 @@ def authenticate(db: Session, token: str) -> tuple[str, list[str]] | None:
     )
     if pat is None:
         return None
-    pat.last_used_at = now
+    last = pat.last_used_at
+    # SQLite returns naive datetimes; values are stored in UTC
+    if last is None or last.replace(tzinfo=UTC) < now - LAST_USED_RESOLUTION:
+        pat.last_used_at = now
     return str(pat.user_id), list(pat.scopes)
 
 

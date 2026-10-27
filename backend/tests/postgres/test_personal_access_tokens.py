@@ -97,6 +97,26 @@ def test_pat_acts_as_owner_under_rls_and_only_the_owner_can_revoke(
         token_hash, last_used = cur.fetchone()
     assert last_used is not None and r.json()["token"] not in token_hash
 
+    # last_used_at is stamped at most once a minute
+    def _last_used() -> datetime:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT last_used_at FROM personal_access_tokens WHERE id = %s",
+                (token_id,),
+            )
+            return cur.fetchone()[0]
+
+    client.get("/api/v1/auth/me", headers=pat)
+    assert _last_used() == last_used
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE personal_access_tokens SET last_used_at = now() - interval '2 minutes' "
+            "WHERE id = %s",
+            (token_id,),
+        )
+    client.get("/api/v1/auth/me", headers=pat)
+    assert _last_used() >= last_used
+
     # Bob sees neither the scope nor the token and cannot revoke it.
     assert client.get(f"/api/v1/scopes/{w.scope}", headers=_jwt(w.bob)).status_code in (
         403,

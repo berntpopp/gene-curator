@@ -63,7 +63,13 @@ def test_pat_authenticates_as_owner_and_stamps_last_used(
 
     assert me.status_code == 200, me.text
     assert me.json()["id"] == str(test_user_admin.id)
-    assert client.get(URL, headers=_bearer(admin_token)).json()[0]["last_used_at"]
+    first = client.get(URL, headers=_bearer(admin_token)).json()[0]["last_used_at"]
+    assert first
+    # within a minute the row is not written again
+    client.get("/api/v1/auth/me", headers=_bearer(token))
+    assert (
+        client.get(URL, headers=_bearer(admin_token)).json()[0]["last_used_at"] == first
+    )
 
 
 def test_expiry_up_to_365_days_is_accepted(
