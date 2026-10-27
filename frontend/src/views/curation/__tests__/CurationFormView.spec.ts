@@ -403,8 +403,11 @@ describe('CurationFormView', () => {
       frame: WorkspaceFrame
     }
 
-    async function mountFramed(curation: Record<string, unknown> = { workflow_stage: 'curation' }) {
-      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+    async function mountFramed(
+      curation: Record<string, unknown> = { workflow_stage: 'curation' },
+      params: Record<string, string> = { scopeId: 'sc1', curationId: 'c1' }
+    ) {
+      routeState.params = params
       const wrapper = await mountView(
         ({ schemas, scopes, curations, genes }) => {
           schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
@@ -455,6 +458,15 @@ describe('CurationFormView', () => {
       expect(wrapper.find('.ws-panel .v-skeleton-loader').exists()).toBe(false)
       expect(wrapper.get('.ws-panel').text()).toContain('unavailable')
       wrapper.unmount()
+    })
+
+    // #470: a new curation (e.g. a re-curation prefill) has nothing on the server yet
+    it('shows a prefilled new curation as unsaved, an empty one as saved', async () => {
+      const { wrapper } = await mountFramed(undefined, { scopeId: 'sc1', geneId: 'g1' })
+      expect(wrapper.text()).toContain('Unsaved changes')
+      formApi.evidence.value = {}
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('Unsaved changes')
     })
 
     it('shows unsaved changes after an edit and saves from the header', async () => {

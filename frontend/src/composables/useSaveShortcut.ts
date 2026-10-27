@@ -12,6 +12,8 @@ export function useSaveShortcut(save: () => unknown, enabled: () => boolean = ()
     event.preventDefault()
     if (event.repeat || !enabled()) return
     if ((event.target as Element | null)?.closest?.('[role="dialog"], [aria-modal="true"]')) return
+    // A focused cell commits its typed text on blur: the save must include it (#469)
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
     save()
   }
   onMounted(() => document.addEventListener('keydown', onKeydown))

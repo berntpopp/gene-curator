@@ -169,4 +169,32 @@ describe('SchemaDrivenCurationForm loading', () => {
 
     expect(h.setBaseline).not.toHaveBeenCalled()
   })
+  // #470: declared defaults the form adds on mount are part of the loaded state, not edits
+  it('takes the baseline and reports ready after the form filled in declared defaults', async () => {
+    h.schema = { id: 'v1', snapshot: {} }
+    h.curation = { id: 'c1', evidence_data: { panel: 'server' }, lock_version: 1 }
+    store.currentCuration = null
+    const DefaultsForm = {
+      props: ['initialData'],
+      emits: ['update:model-value'],
+      mounted(this: { initialData: object; $emit: (e: string, v: object) => void }) {
+        this.$emit('update:model-value', { ...this.initialData, flag: false })
+      },
+      template: '<i />'
+    }
+    let atReady: unknown
+    const wrapper = mount(SchemaDrivenCurationForm, {
+      props: {
+        schemaId: 's1',
+        scopeId: 'sc1',
+        curationId: 'c1',
+        onReady: () =>
+          (atReady = { ...(wrapper.vm as unknown as { evidenceData: object }).evidenceData })
+      },
+      global: { stubs: { ...stubs, DynamicForm: DefaultsForm } }
+    })
+    await flushPromises()
+    expect(atReady).toEqual({ panel: 'server', flag: false })
+    expect(h.setBaseline).toHaveBeenCalledWith({ panel: 'server', flag: false }, expect.anything())
+  })
 })

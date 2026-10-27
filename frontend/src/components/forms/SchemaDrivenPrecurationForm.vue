@@ -265,6 +265,8 @@
 
     if (ctrl && event.key === 's') {
       event.preventDefault()
+      // A focused cell commits its typed text on blur: the save must include it (#469)
+      ;(document.activeElement as HTMLElement | null)?.blur?.()
       handleSaveDraft()
     } else if (ctrl && event.key === 'Enter') {
       event.preventDefault()

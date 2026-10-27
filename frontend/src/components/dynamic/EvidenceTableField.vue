@@ -53,7 +53,7 @@
               hide-details="auto"
               @update:model-value="(v: unknown) => onInput(row, index, col, v)"
               @change="(e: Event) => col.cell.lazy && onChange(row, index, col, e)"
-              @keydown.escape="delete drafts[draftKey(row, index, col.key)]"
+              @keydown.escape="onEscape(row, index, col)"
               @blur="(e: Event) => col.pmid && onPmidBlur(row, index, e)"
             />
             <template v-if="!readonly && col.pmid && row[col.key]">
@@ -103,7 +103,8 @@
 <script setup lang="ts">
   /**
    * `evidence_table` field: one row per evidence item, columns are fields rendered with the
-   * registry's compact cell editors. Text cells commit on change (blur/Enter), never per keystroke.
+   * registry's compact cell editors. Text cells commit on change (blur/Enter) or after a pause in
+   * typing (#469: the form must see it as unsaved), never per keystroke.
    */
   import {
     computed,
@@ -120,7 +121,7 @@
   import { WORKSPACE_FRAME } from '@/components/workspace/useWorkspaceFrame'
   import PubmedLinkButton from './PubmedLinkButton.vue'
   import ReadonlyValue from './ReadonlyValue.vue'
-  import { cellFor, emptyValue } from './componentRegistry'
+  import { CELL_COMMIT_MS, cellFor, emptyValue } from './componentRegistry'
   import { rulesFor } from './composables/useValidationRules'
   import { humanize } from './fieldLabels'
   import type { CellDef } from './componentRegistry'
@@ -224,7 +225,10 @@
     r?.status === 'found' ? r.citation : PMID_NOTES[r?.status ?? '']
 
   function inputValue(schema: FieldSchema, event: Event): unknown {
-    const raw = (event.target as HTMLInputElement).value
+    return parsed(schema, (event.target as HTMLInputElement).value)
+  }
+
+  function parsed(schema: FieldSchema, raw: unknown): unknown {
     if (schema.type !== 'number' && schema.type !== 'integer') return raw
     // Number inputs report unparsable text as '', so this is a number or empty
     return raw === '' ? null : Number(raw)
@@ -242,20 +246,53 @@
   const drafts = reactive<Record<string, unknown>>({})
   const draftKey = (row: Row, index: number, key: string) => `${rowKey(row, index)}:${key}`
 
+  // Pending pause-commits of typed text, and each edited cell's value from before the edit
+  const timers = new Map<string, { at: ReturnType<typeof setTimeout>; run: () => void }>()
+  const before = new Map<string, unknown>()
+
+  function settle(draft: string) {
+    clearTimeout(timers.get(draft)?.at)
+    timers.delete(draft)
+  }
+
   function onInput(row: Row, index: number, col: Column, value: unknown) {
     if (props.readonly) return
-    if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
-    if (col.cell.lazy) drafts[draftKey(row, index, col.key)] = value
-    else commit(rowKey(row, index), col.key, value)
+    const key = rowKey(row, index)
+    if (col.schema.default_by) automaticDefaults.delete(key)
+    if (!col.cell.lazy) return commit(key, col.key, value)
+    const draft = draftKey(row, index, col.key)
+    drafts[draft] = value
+    if (!before.has(draft)) before.set(draft, row[col.key])
+    settle(draft)
+    const run = () => {
+      timers.delete(draft)
+      commit(key, col.key, parsed(col.schema, value))
+    }
+    timers.set(draft, { at: setTimeout(run, CELL_COMMIT_MS), run })
   }
 
   function onChange(row: Row, index: number, col: Column, event: Event) {
     if (props.readonly) return
     // A deliberate same-value edit is still manual, even when commit emits nothing.
     if (col.schema.default_by) automaticDefaults.delete(rowKey(row, index))
-    delete drafts[draftKey(row, index, col.key)]
+    const draft = draftKey(row, index, col.key)
+    settle(draft)
+    before.delete(draft)
+    delete drafts[draft]
     commit(rowKey(row, index), col.key, inputValue(col.schema, event))
   }
+
+  // Escape drops the typed text; a pause-commit already made is reverted to the pre-edit value
+  function onEscape(row: Row, index: number, col: Column) {
+    const draft = draftKey(row, index, col.key)
+    settle(draft)
+    delete drafts[draft]
+    if (before.has(draft)) commit(rowKey(row, index), col.key, before.get(draft))
+    before.delete(draft)
+  }
+
+  // Leaving the tab or page view must not lose typed text
+  onBeforeUnmount(() => [...timers.values()].forEach(t => (clearTimeout(t.at), t.run())))
 
   // By row identity, not position: the rows may have been replaced since the edit began
   function commit(key: string | number, column: string, value: unknown) {
