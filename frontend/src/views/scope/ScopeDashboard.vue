@@ -41,12 +41,6 @@
       <v-row class="mb-4">
         <v-col>
           <div class="d-flex align-center flex-wrap ga-2">
-            <v-icon
-              :icon="getScopeVisibilityIcon(scope.is_public)"
-              size="large"
-              class="mr-3"
-            ></v-icon>
-
             <div class="scope-head-text">
               <h1 class="scope-title text-headline-large mb-1">{{ scope.display_name }}</h1>
               <div class="scope-description text-body-large text-medium-emphasis">
@@ -72,10 +66,9 @@
       <!-- Stats Cards -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-dna" color="primary" class="mr-2"></v-icon>
                 <div class="text-label-medium">Total Genes</div>
               </div>
               <div class="text-headline-large">{{ stat(scopeStats?.total_genes_assigned) }}</div>
@@ -84,10 +77,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
                 <div class="text-label-medium">Completed</div>
               </div>
               <div class="text-headline-large">{{ stat(completedGenes) }}</div>
@@ -96,10 +88,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-progress-clock" color="warning" class="mr-2"></v-icon>
                 <div class="text-label-medium">In Progress</div>
               </div>
               <div class="text-headline-large">{{ stat(inProgressCount) }}</div>
@@ -108,10 +99,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-account-group" color="info" class="mr-2"></v-icon>
                 <div class="text-label-medium">Members</div>
               </div>
               <div class="text-headline-large">{{ stat(scopeStats?.member_count) }}</div>
@@ -129,7 +119,7 @@
       <!-- Progress Bar -->
       <v-row class="mb-4">
         <v-col>
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="text-body-large mb-2">Curation Progress</div>
               <v-progress-linear
@@ -149,7 +139,7 @@
       </v-row>
 
       <!-- Tabs -->
-      <v-card>
+      <v-card variant="outlined">
         <v-tabs v-model="activeTab" bg-color="primary" show-arrows>
           <v-tab value="overview">
             <v-icon start>mdi-view-dashboard</v-icon>
@@ -305,7 +295,7 @@
   const router = useRouter()
   const scopeStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
+  const { calculateProgress } = useScopeUtils()
   const logger = useLogger()
 
   // ============================================

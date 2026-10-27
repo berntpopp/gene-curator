@@ -354,6 +354,18 @@ describe('ScopeDashboard', () => {
     return { wrapper, store, fetchScope, fetchUserRole, fetchStatistics, vm: vmOf(wrapper) }
   }
 
+  it('uses flat outlined cards and no decorative title icons (#392)', async () => {
+    const { wrapper } = await mountView()
+    const cards = wrapper.findAll('.v-card')
+    expect(cards.length).toBeGreaterThan(0)
+    for (const c of cards) expect(c.classes()).toContain('v-card--variant-outlined')
+    expect(wrapper.findAll('.v-card-text .v-icon')).toHaveLength(0)
+    const titleIcons = wrapper
+      .findAll('.v-icon')
+      .filter(i => i.element.parentElement?.querySelector('h1'))
+    expect(titleIcons).toHaveLength(0)
+  })
+
   it('loads the scope, the role and the statistics and shows the header', async () => {
     const { wrapper, fetchScope, fetchUserRole, fetchStatistics } = await mountView()
     expect(fetchScope).toHaveBeenCalledWith('s1')

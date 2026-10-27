@@ -41,7 +41,7 @@
         </div>
 
         <!-- Loading State -->
-        <v-card v-if="loading" class="text-center py-8">
+        <v-card v-if="loading" variant="outlined" class="text-center py-8">
           <v-progress-circular indeterminate color="primary" />
           <p class="mt-4">Loading curation details...</p>
         </v-card>
@@ -74,11 +74,8 @@
           <!-- Main Info Row -->
           <v-row class="mb-6">
             <v-col cols="12" md="8">
-              <v-card>
-                <v-card-title class="d-flex align-center">
-                  <v-icon start>mdi-clipboard-check-multiple</v-icon>
-                  Gene-Disease Association
-                </v-card-title>
+              <v-card variant="outlined">
+                <v-card-title class="d-flex align-center"> Gene-Disease Association </v-card-title>
                 <v-card-text>
                   <v-row>
                     <v-col cols="12" md="6">
@@ -154,11 +151,8 @@
 
             <v-col cols="12" md="4">
               <!-- Workflow Actions -->
-              <v-card class="workflow-actions">
-                <v-card-title>
-                  <v-icon start>mdi-cog</v-icon>
-                  Workflow actions
-                </v-card-title>
+              <v-card variant="outlined" class="workflow-actions">
+                <v-card-title> Workflow actions </v-card-title>
                 <v-card-text>
                   <div
                     v-if="curation.status === 'in_review'"
@@ -252,11 +246,8 @@
           <!-- Evidence Details (Schema-Agnostic) -->
           <v-row v-if="isClinGenSchema || curationSchemaId" class="mb-6">
             <v-col cols="12">
-              <v-card>
-                <v-card-title>
-                  <v-icon start>mdi-file-document-outline</v-icon>
-                  Evidence details
-                </v-card-title>
+              <v-card variant="outlined">
+                <v-card-title> Evidence details </v-card-title>
                 <v-card-text>
                   <CurationEvidenceReadonly
                     v-if="isClinGenSchema && curationSchemaId"
@@ -279,11 +270,8 @@
           <!-- Metadata -->
           <v-row>
             <v-col cols="12">
-              <v-card>
-                <v-card-title>
-                  <v-icon start>mdi-information</v-icon>
-                  Metadata
-                </v-card-title>
+              <v-card variant="outlined">
+                <v-card-title> Metadata </v-card-title>
                 <v-card-text>
                   <v-row>
                     <v-col cols="12" md="3">
@@ -313,7 +301,7 @@
 
     <!-- Submit Confirmation Dialog -->
     <BaseDialog v-model="showSubmitDialog" size="md">
-      <template #title><v-icon start color="primary">mdi-send</v-icon> Submit for review</template>
+      <template #title>Submit for review?</template>
       <p>
         Submit this curation for <strong>{{ curation?.gene_symbol }}</strong> for review?
       </p>
@@ -328,20 +316,40 @@
       </template></BaseDialog
     >
 
-    <!-- Delete Confirmation Dialog -->
+    <!-- Delete Confirmation Dialog: deleting archives the curation -->
     <BaseDialog v-model="showDeleteDialog" size="md">
-      <template #title
-        ><v-icon start color="error">mdi-delete-alert</v-icon> Delete curation</template
-      >
-      <v-alert type="warning" variant="tonal" class="mb-4"> This action cannot be undone. </v-alert>
-      <p>
-        Are you sure you want to delete the curation for
-        <strong>{{ curation?.gene_symbol }}</strong
-        >?
+      <template #title>
+        {{
+          isActive
+            ? `Delete the active curation for ${curation?.gene_symbol}?`
+            : `Delete the curation for ${curation?.gene_symbol}?`
+        }}
+      </template>
+      <template v-if="isActive">
+        <p>
+          This is the published assertion for {{ curation?.gene_symbol }} in this scope. Deleting it
+          archives it and leaves {{ curation?.gene_symbol }} without an active classification here
+          until another curation is approved. This cannot be undone.
+        </p>
+        <p v-if="canRecurate" class="text-body-medium text-medium-emphasis mt-2">
+          To revise it, start a re-curation instead: the active curation stays public until the new
+          one is approved.
+        </p>
+      </template>
+      <p v-else>
+        The curation is archived and removed from the scope's lists. This cannot be undone.
       </p>
       <template #actions>
         <v-btn variant="text" @click="showDeleteDialog = false">Cancel</v-btn>
-        <v-btn color="error" variant="elevated" :loading="deleting" @click="deleteCuration">
+        <v-btn
+          v-if="isActive && canRecurate"
+          variant="outlined"
+          data-testid="delete-recurate"
+          @click="startRecuration"
+        >
+          Start re-curation instead
+        </v-btn>
+        <v-btn color="error" variant="flat" :loading="deleting" @click="deleteCuration">
           Delete
         </v-btn>
       </template></BaseDialog
@@ -545,9 +553,8 @@
 
   // Re-curation: curators and scope admins start a new curation from the active one
   const curateGuard = useCurateGuard(() => scopeId.value)
-  const canRecurate = computed(
-    () => curation.value?.workflow_stage === 'active' && curateGuard.allowed.value
-  )
+  const isActive = computed(() => curation.value?.workflow_stage === 'active')
+  const canRecurate = computed(() => isActive.value && curateGuard.allowed.value)
   function startRecuration() {
     router.push({
       name: 'gene-curation-create',
