@@ -202,6 +202,59 @@ def test_each_role_gets_the_same_status_through_mcp_and_api(
     assert mismatches == []
 
 
+@pytest.mark.parametrize("role", ROLES)
+def test_real_writes_get_the_same_status_through_mcp_and_api(
+    role: str,
+    client: TestClient,
+    db_session: Session,
+    users: dict[str, UserNew],
+    test_curation: CurationNew,
+) -> None:
+    token = pat(db_session, users[role])
+    bearer = {"Authorization": f"Bearer {token}"}
+
+    # Every role may mark its notifications read
+    tool = call(client, token, "mark_all_notifications_read")
+    api = client.patch("/api/v1/notifications/read-all", headers=bearer)
+    assert (status_of(tool), api.status_code) == (200, 200)
+
+    # A draft save: allowed for the author and the platform admin only, same answer both ways
+    def version() -> int:
+        db_session.refresh(test_curation)
+        return test_curation.lock_version
+
+    path = f"/api/v1/curations/{test_curation.id}/draft"
+    tool = call(
+        client,
+        token,
+        "save_draft_curations",
+        curation_id=str(test_curation.id),
+        evidence_data={"via": "mcp"},
+        lock_version=version(),
+    )
+    api = client.patch(
+        path,
+        json={"evidence_data": {"via": "api"}, "lock_version": version()},
+        headers=bearer,
+    )
+    api_status = 200 if api.status_code < 300 else api.status_code
+    assert status_of(tool) == api_status
+    assert (api_status == 200) == (role in ("admin", "curator"))
+    if (
+        api_status == 200
+    ):  # a stale lock_version through MCP is a conflict, never a write
+        stale = call(
+            client,
+            token,
+            "save_draft_curations",
+            curation_id=str(test_curation.id),
+            evidence_data={"via": "stale"},
+            lock_version=0,
+        )
+        assert status_of(stale) == 409
+        assert stale["content"][0]["text"].startswith("conflict: HTTP 409")
+
+
 def test_mcp_requires_a_live_personal_access_token(
     client: TestClient, db_session: Session, test_user_admin: UserNew, admin_token: str
 ) -> None:
