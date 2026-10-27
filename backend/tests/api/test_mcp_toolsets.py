@@ -104,7 +104,7 @@ def test_lean_keeps_what_a_reviewer_needs() -> None:
     assert out["computed_scores"] == result["computed_scores"]
     assert out["evidence_data"] == result["evidence_data"]  # rows keep their index
     assert out["lock_version"] == 0 and out["is_draft"] is False and out["notes"] == ""
-    assert not {"record_hash", "approved_at", "meta"} & set(out)
+    assert not {"record_hash", "approved_at"} & set(out) and out["meta"] == {}
     assert out["created_by"] == "u1" and out["tags"] == []  # [] is an answer
     assert lean(result)["record_hash"] == "h"  # /mcp/full keeps audit fields
 
@@ -155,7 +155,7 @@ def test_curation_schema_is_compact_by_default_on_mcp(
         )  # fmt: skip
         return json.loads(result["content"][0]["text"])
 
-    assert "ui_configuration" not in read()
+    assert read()["ui_configuration"] == {}
     assert read(compact=False)["ui_configuration"] == {"layout": "tabs"}
 
 

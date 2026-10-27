@@ -83,7 +83,7 @@ revoked immediately.
   and marking notifications read) are marked `destructiveHint`; the server instructions ask the
   client to confirm these with you first.
 - Each result is sent once, as compact JSON text (no `structuredContent` or `outputSchema`), so
-  clients do not pay for it twice. Null fields and empty objects are left out (empty lists stay).
+  clients do not pay for it twice. Null fields are left out (empty objects and lists stay).
   On `/mcp` results are leaner still: no internal hashes or autosave stamps, MONDO and HPO
   searches return ids and labels, `validate_pmids` returns title, journal and year
   (`get_publication` has the abstract), `list_members` drops invitation details, and

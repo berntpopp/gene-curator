@@ -153,7 +153,7 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
 
 
-# Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null and {}.
+# Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null.
 # Who created or submitted stays: reviewers need it for 4-eyes and feedback.
 AUDIT_KEYS = frozenset({"auto_saved_at", "record_hash", "previous_hash"})
 SLIM_KEYS = {
@@ -190,9 +190,9 @@ _TOO_LARGE = (
 
 
 def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
-    """Drop null and {} values and the keys in drop, at any depth.
+    """Drop null values and the keys in drop, at any depth.
 
-    [], False, 0 and "" stay (an empty warnings list is an answer); list items are
+    {}, [], False, 0 and "" stay (empty is an answer); list items are
     never removed, so row indexes hold.
     """
     if isinstance(value, dict):
@@ -201,7 +201,7 @@ def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
             if key in drop:
                 continue
             item = lean(item, drop)
-            if item is not None and item != {}:
+            if item is not None:
                 out[key] = item
         return out
     if isinstance(value, list):

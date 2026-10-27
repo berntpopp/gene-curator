@@ -82,7 +82,7 @@ Your queue: read_my_work and get_my_review_assignments.
 Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
 conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
 API detail. On conflict, re-read the item and retry with its lock_version. Results
-omit null fields and empty objects. Confirm destructive tools with the user.
+omit null fields. Confirm destructive tools with the user.
 """
 
 # /mcp: the two primary flows (curate a gene end to end, check and review a
