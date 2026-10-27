@@ -481,3 +481,55 @@ def test_model_with_unknown_provider_is_404(
     )
     assert r.status_code == 404
     assert db_session.scalars(select(LLMModel)).all() == []
+
+
+def test_repointing_base_url_deletes_the_key_before_any_call(
+    client: TestClient,
+    h: dict[str, str],
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.llm.providers import provider_registry
+
+    provider = _provider(
+        client, h, kind="anthropic", base_url="https://llm.example.org"
+    )
+    _model(client, h, provider["id"])
+    url = f"{BASE}/providers/{provider['id']}"
+    client.put(f"{url}/key", json={"api_key": SECRET}, headers=h)
+
+    # same URL or other fields: the key stays
+    same = client.patch(
+        url,
+        json={
+            "lock_version": 1,
+            "base_url": "https://llm.example.org",
+            "enabled": True,
+        },
+        headers=h,
+    )
+    assert same.json()["has_key"] is True
+
+    moved = client.patch(
+        url, json={"lock_version": 2, "base_url": "https://attacker.example"}, headers=h
+    )
+    assert moved.status_code == 200, moved.text
+    assert (moved.json()["has_key"], moved.json()["key_fingerprint"]) == (False, None)
+    assert db_session.scalars(select(LLMCredential)).all() == []
+    ops = db_session.scalars(
+        select(AuditLogNew.operation).where(
+            AuditLogNew.entity_type == "llm_credentials"
+        )
+    ).all()
+    assert sorted(ops) == ["CREATE", "DELETE"]
+
+    calls: list[dict[str, Any]] = []
+
+    async def spy(kind: str, **config: Any) -> Any:
+        calls.append(config)
+        raise AssertionError("no adapter may be built")
+
+    monkeypatch.setattr(provider_registry, "acreate", spy)
+    ping = client.post(f"{url}/ping", json={}, headers=h)
+    assert ping.status_code == 422 and "no API key" in ping.text
+    assert calls == []

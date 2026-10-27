@@ -13,7 +13,7 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import func, inspect, select, text, update
+from sqlalchemy import delete, func, inspect, select, text, update
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -154,6 +154,26 @@ def set_provider_key(
             )
         )
     db.commit()
+
+
+def drop_provider_key(db: Session, provider: LLMProvider, user: UserNew) -> None:
+    """Delete the provider's key (audited) in the caller's transaction; the caller commits."""
+    existing = credentials_by_provider(db, [provider.id]).get(provider.id)
+    if existing is None:
+        return
+    audit(
+        db,
+        user,
+        "llm_credentials",
+        existing.id,
+        "DELETE",
+        {"provider_id": provider.id, "fingerprint": existing.fingerprint},
+    )
+    db.execute(
+        delete(LLMCredential)
+        .where(LLMCredential.id == existing.id)
+        .execution_options(synchronize_session=False)
+    )
 
 
 def read_api_key(db: Session, provider_id: UUID) -> str | None:

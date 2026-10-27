@@ -182,6 +182,10 @@ CREATE POLICY llm_credentials_insert_policy ON llm_credentials
 DROP POLICY IF EXISTS llm_credentials_update_policy ON llm_credentials;
 CREATE POLICY llm_credentials_update_policy ON llm_credentials
     FOR UPDATE USING (is_application_admin()) WITH CHECK (is_application_admin());
+-- Changing a provider's base URL deletes its key (it must not follow to a new host).
+DROP POLICY IF EXISTS llm_credentials_delete_policy ON llm_credentials;
+CREATE POLICY llm_credentials_delete_policy ON llm_credentials
+    FOR DELETE USING (is_application_admin());
 
 ALTER TABLE scope_llm_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE scope_llm_settings FORCE ROW LEVEL SECURITY;

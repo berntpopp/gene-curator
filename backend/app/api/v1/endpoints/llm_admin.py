@@ -41,6 +41,7 @@ from app.services.llm_config import (
     call_config,
     check_base_url,
     credentials_by_provider,
+    drop_provider_key,
     month_start,
     save_revision,
     set_provider_key,
@@ -108,9 +109,12 @@ def update_provider(
 ) -> ProviderOut:
     provider: LLMProvider = _get(db, LLMProvider, provider_id)
     values = body.model_dump(exclude_unset=True, exclude={"lock_version"})
-    if "base_url" in values:
+    repointed = values.get("base_url", provider.base_url) != provider.base_url
+    if repointed:
         check_base_url(values["base_url"], provider.kind)
     audit(db, user, "llm_providers", provider.id, "UPDATE", values)
+    if repointed:  # a key must never follow its provider to a new host
+        drop_provider_key(db, provider, user)
     save_revision(
         db,
         LLMProvider,

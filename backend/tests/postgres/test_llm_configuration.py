@@ -199,6 +199,15 @@ def test_admin_flow_keys_stay_write_only_and_scope_admin_opts_in(
         assert client.get(f"{BASE}/providers", headers=_h(uid)).status_code == 403
     assert client.get(url, headers=_h(w.curator)).status_code == 403
 
+    # repointing the provider deletes its key as app_user (DELETE policy)
+    moved = client.patch(
+        f"{BASE}/providers/{pid}",
+        json={"lock_version": 1, "base_url": "mock://elsewhere"},
+        headers=h,
+    )
+    assert moved.status_code == 200, moved.text
+    assert moved.json()["has_key"] is False
+
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
             "SELECT operation FROM audit_log WHERE user_id IN (%s, %s) "
