@@ -25,6 +25,8 @@ from app.schemas.validation import (
 )
 from app.services.publication_service import (
     PublicationService,
+    gene_names,
+    mentions,
     search_publications,
     search_term,
 )
@@ -101,6 +103,10 @@ async def validate_pmids(
             request.pmids,
             user_id=str(current_user.id),
         )
+        if request.gene_symbol:
+            names = await gene_names(db, request.gene_symbol)
+            for r in result.results:
+                r.mentions_gene = mentions(names, r.publication)
 
         logger.info(
             "PMID validation completed",

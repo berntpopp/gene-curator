@@ -1,8 +1,8 @@
 """Validation Pydantic schemas for external validators (HGNC, PubMed, HPO)"""
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, computed_field
 
 
 class ValidationResult(BaseModel):
@@ -312,6 +312,11 @@ class PMIDValidationRequest(BaseModel):
         max_length=50,
         description="List of PubMed IDs to validate (max 50)",
     )
+    gene_symbol: str | None = Field(
+        None,
+        max_length=50,
+        description="Flag PMIDs whose title and abstract never name this gene (mentions_gene)",
+    )
 
 
 class PMIDValidationResult(BaseModel):
@@ -323,6 +328,23 @@ class PMIDValidationResult(BaseModel):
         None, description="Publication data if valid"
     )
     error: str | None = Field(None, description="Error message if invalid")
+    mentions_gene: bool | None = Field(
+        None,
+        description="With gene_symbol: whether the title or abstract names the gene (or an "
+        "HGNC alias); false flags an off-topic PMID, null when there is no abstract to check",
+    )
+
+    @computed_field  # type: ignore[prop-decorator]  # pydantic's documented idiom
+    @property
+    def status(self) -> Literal["found", "not_found", "upstream_unavailable"]:
+        """not_found: PubMed has no such PMID; upstream_unavailable: retry later."""
+        if self.is_valid:
+            return "found"
+        return (
+            "not_found"
+            if (self.error or "").startswith("Publication not found")
+            else "upstream_unavailable"
+        )
 
 
 class PMIDValidationResponse(BaseModel):

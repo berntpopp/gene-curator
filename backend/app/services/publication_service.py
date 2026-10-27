@@ -16,7 +16,7 @@ from datetime import UTC, datetime as dt
 from typing import Any, cast
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
-from app.models.models import Publication
+from app.models.models import Gene, Publication
 from app.schemas.validation import (
     PMIDValidationResponse,
     PMIDValidationResult,
@@ -582,3 +582,31 @@ def search_publications(
     )
     db.commit()
     return total, found
+
+
+def mentions(names: set[str], publication: PublicationData | None) -> bool | None:
+    """Whether the title or abstract names any of the gene names (whole words, any case);
+    None when the title does not and there is no abstract to read."""
+    if publication is None:
+        return None
+    found = re.compile(
+        r"(?<![A-Z0-9])(" + "|".join(map(re.escape, names)) + r")(?![A-Z0-9])"
+    )
+    text = f"{publication.title} {publication.abstract or ''}".upper()
+    if found.search(text):
+        return True
+    return False if publication.abstract else None
+
+
+async def gene_names(db: AsyncSession, symbol: str) -> set[str]:
+    """The symbol plus the local gene's previous and alias symbols, upper case."""
+    key = symbol.strip().upper()
+    row = (
+        await db.execute(
+            select(Gene.previous_symbols, Gene.alias_symbols).where(
+                func.upper(Gene.approved_symbol) == key
+            )
+        )
+    ).first()
+    extra = [*(row.previous_symbols or []), *(row.alias_symbols or [])] if row else []
+    return {key, *(n.upper() for n in extra if n)}

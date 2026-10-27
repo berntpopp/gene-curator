@@ -7827,6 +7827,11 @@ export interface components {
              * @description List of PubMed IDs to validate (max 50)
              */
             pmids: string[];
+            /**
+             * Gene Symbol
+             * @description Flag PMIDs whose title and abstract never name this gene (mentions_gene)
+             */
+            gene_symbol?: string | null;
         };
         /**
          * PMIDValidationResponse
@@ -7877,6 +7882,17 @@ export interface components {
              * @description Error message if invalid
              */
             error?: string | null;
+            /**
+             * Mentions Gene
+             * @description With gene_symbol: whether the title or abstract names the gene (or an HGNC alias); false flags an off-topic PMID, null when there is no abstract to check
+             */
+            mentions_gene?: boolean | null;
+            /**
+             * Status
+             * @description not_found: PubMed has no such PMID; upstream_unavailable: retry later.
+             * @enum {string}
+             */
+            readonly status: "found" | "not_found" | "upstream_unavailable";
         };
         /**
          * PasswordChange
