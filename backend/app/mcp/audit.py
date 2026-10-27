@@ -7,6 +7,7 @@ The values reach PostgreSQL as app.channel/app.client (transaction-local), and t
 audit_log trigger from 059 copies them into change_metadata.
 """
 
+import json
 import time
 from contextvars import ContextVar
 from typing import Any
@@ -152,6 +153,73 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
 
 
+# Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null.
+# Who created or submitted stays: reviewers need it for 4-eyes and feedback.
+AUDIT_KEYS = frozenset({"auto_saved_at", "record_hash", "previous_hash"})
+SLIM_KEYS = {
+    "search_mondo_diseases": frozenset({"definition", "synonyms", "xrefs", "iri"}),
+    "search_hpo_terms": frozenset({"definition", "synonyms", "descendant_count"}),
+    "validate_pmids": frozenset(
+        {
+            "authors",
+            "author_string",
+            "journal_abbrev",
+            "volume",
+            "issue",
+            "pages",
+            "doi",
+            "pmcid",
+            "abstract",
+            "pub_type",
+            "is_open_access",
+            "cited_by_count",
+            "publication_date",
+        }
+    ),
+    "list_members": frozenset(
+        {"invited_by", "invited_at", "team_id", "user_username", "user_orcid"}
+    ),
+}
+# About 8k tokens of JSON (~3 characters per token); Claude Code warns at 10k
+MAX_RESULT_CHARS = 25_000
+_TOO_LARGE = (
+    "response_too_large: about {tokens} tokens, over the 8000-token limit\n"
+    "next: narrow the request: page with skip and limit, add filters, or pass "
+    "compact=true"
+)
+
+
+def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
+    """Drop null values and the keys in drop, at any depth.
+
+    {}, [], False, 0 and "" stay (empty is an answer); list items are
+    never removed, so row indexes hold.
+    """
+    if isinstance(value, dict):
+        out = {}
+        for key, item in value.items():
+            if key in drop:
+                continue
+            item = lean(item, drop)
+            if item is not None:
+                out[key] = item
+        return out
+    if isinstance(value, list):
+        return [lean(item, drop) for item in value]
+    return value
+
+
+def _lean_block(block: mt.ContentBlock, drop: frozenset[str]) -> mt.ContentBlock:
+    if not isinstance(block, mt.TextContent):
+        return block
+    try:
+        data = json.loads(block.text)
+    except ValueError:
+        return block
+    text = json.dumps(lean(data, drop), ensure_ascii=False, separators=(",", ":"))
+    return mt.TextContent(type="text", text=text)
+
+
 def correlation_id() -> str | None:
     try:
         return getattr(get_http_request().state, "request_id", None)
@@ -160,7 +228,19 @@ def correlation_id() -> str | None:
 
 
 class ToolAuditMiddleware(Middleware):
-    """Logs tool, outcome, duration and correlation id (never arguments); maps errors."""
+    """Logs tool, outcome, duration and correlation id (never arguments); maps errors,
+    applies MCP-only argument defaults and keeps results lean and bounded."""
+
+    def __init__(
+        self,
+        *,
+        lean: bool = False,
+        defaults: dict[str, dict[str, Any]] | None = None,
+        capped: frozenset[str] = frozenset(),
+    ) -> None:
+        self.lean = lean
+        self.defaults = defaults or {}
+        self.capped = capped  # tools that can be narrowed; /mcp only
 
     async def on_call_tool(
         self,
@@ -169,24 +249,40 @@ class ToolAuditMiddleware(Middleware):
     ) -> ToolResult:
         start = time.perf_counter()
         outcome = "ok"
+        name = context.message.name
+        if name in self.defaults:
+            context.message.arguments = {
+                **self.defaults[name],
+                **(context.message.arguments or {}),
+            }
+        drop = (
+            AUDIT_KEYS | SLIM_KEYS.get(name, frozenset()) if self.lean else frozenset()
+        )
         try:
             result = await call_next(context)
             # Text only: clients bill structuredContent again on top of its text copy
-            return ToolResult(content=result.content, meta=result.meta)
+            content = [_lean_block(block, drop) for block in result.content]
+            size = sum(len(b.text) for b in content if isinstance(b, mt.TextContent))
+            if self.lean and name in self.capped and size > MAX_RESULT_CHARS:
+                outcome = "response_too_large"
+                raise ToolError(_TOO_LARGE.format(tokens=size // 3))
+            return ToolResult(content=content, meta=result.meta)
         except Exception as exc:
+            if outcome == "response_too_large":
+                raise
             cause: BaseException | None = exc
             while cause is not None and not isinstance(cause, httpx.HTTPStatusError):
                 cause = cause.__cause__
             if cause is None:
                 outcome = "error"
                 raise  # mask_error_details hides unexpected details
-            error = _tool_error(cause, context.message.name)
+            error = _tool_error(cause, name)
             outcome = str(error).split(":", 1)[0]
             raise error from exc
         finally:
             logger.info(
                 "MCP tool call",
-                tool=context.message.name,
+                tool=name,
                 outcome=outcome,
                 duration_ms=round((time.perf_counter() - start) * 1000, 2),
                 request_id=correlation_id(),

@@ -167,8 +167,9 @@ claude mcp add --transport http gene-curator http://localhost:8051/mcp \
   --header "Authorization: Bearer gc_pat_..."
 ```
 
-Writes are audited with channel `mcp` and the token name. Claude Desktop, revocation and the tool
-list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). OAuth 2.1 sign-in
+`/mcp` serves the curation core (curate a gene, review a curation, lookups); `/mcp/full` serves
+every API operation with the same token. Writes are audited with channel `mcp` and the token
+name. Claude Desktop, revocation and the tool list are covered in [docs/MCP_CONNECTION_GUIDE.md](docs/MCP_CONNECTION_GUIDE.md). OAuth 2.1 sign-in
 and dynamic client registration come in phase 2. Existing databases need `make db-migrate` (059).
 
 ## Documentation

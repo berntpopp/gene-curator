@@ -102,6 +102,10 @@
         append-inner-icon="mdi-content-copy"
         @click:append-inner="copy(mcpCommand)"
       />
+      <p class="text-body-medium" data-test="mcp-full-hint">
+        This connects the curation tools. For administration tools use the same token with
+        <code>{{ mcpUrl }}/full</code>.
+      </p>
       <template #actions>
         <v-btn color="primary" variant="flat" @click="closeToken">Done</v-btn>
       </template>

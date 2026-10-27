@@ -48,14 +48,22 @@ def pat(db: Session, user: UserNew, scopes: list[str] | None = None) -> str:
     return pat_crud.create(db, user_id=user.id, obj_in=obj)[1]
 
 
-def rpc(client: TestClient, token: str | None, method: str, params: dict) -> Any:
+def rpc(
+    client: TestClient,
+    token: str | None,
+    method: str,
+    params: dict,
+    path: str = "/mcp/full",  # every operation; test_mcp_toolsets covers /mcp
+) -> Any:
     headers = {**ACCEPT, **({"Authorization": f"Bearer {token}"} if token else {})}
     body = {"jsonrpc": "2.0", "id": 1, "method": method, "params": params}
-    return client.post("/mcp", json=body, headers=headers)
+    return client.post(path, json=body, headers=headers)
 
 
-def call(client: TestClient, token: str, name: str, **args: Any) -> dict:
-    r = rpc(client, token, "tools/call", {"name": name, "arguments": args})
+def call(
+    client: TestClient, token: str, name: str, path: str = "/mcp/full", **args: Any
+) -> dict:
+    r = rpc(client, token, "tools/call", {"name": name, "arguments": args}, path)
     assert r.status_code == 200, r.text
     return r.json()["result"]
 
@@ -288,12 +296,13 @@ def test_real_writes_get_the_same_status_through_mcp_and_api(
         assert stale["content"][0]["text"].startswith("conflict: HTTP 409")
 
 
+@pytest.mark.parametrize("path", ["/mcp", "/mcp/full"])
 def test_mcp_requires_a_live_personal_access_token(
-    client: TestClient, db_session: Session, test_user_admin: UserNew, admin_token: str
+    path: str, client: TestClient, admin_token: str
 ) -> None:
-    assert rpc(client, None, "tools/list", {}).status_code == 401
-    assert rpc(client, admin_token, "tools/list", {}).status_code == 401  # no JWTs
-    assert rpc(client, "gc_pat_unknown", "tools/list", {}).status_code == 401
+    assert rpc(client, None, "tools/list", {}, path).status_code == 401
+    assert rpc(client, admin_token, "tools/list", {}, path).status_code == 401
+    assert rpc(client, "gc_pat_unknown", "tools/list", {}, path).status_code == 401
 
 
 def test_tool_acts_as_the_token_owner_and_read_only_tokens_cannot_write(
@@ -358,7 +367,7 @@ def test_destructive_tools_are_flagged(
         "execute_workflow_transition",
     ):
         assert by_name[name]["annotations"]["destructiveHint"] is True, name
-        assert by_name[name]["description"].startswith("Destructive")
+        assert not by_name[name]["description"].startswith("Destructive")  # the hint
     for name in ("update_scope", "update_member_role", "update_curation"):
         assert by_name[name]["annotations"]["destructiveHint"] is True, name
     assert "resolve_genes" in by_name
