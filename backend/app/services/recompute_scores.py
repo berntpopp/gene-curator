@@ -5,8 +5,8 @@ Run once after deploying 046 (Models & Rescue as one category capped at 4):
 total or class changes is logged with its gene and old -> new total and class. Rows are
 scored with their pinned point model, custom categories included (reported); rows holding
 evidence keys that model does not score are skipped and reported with those keys. Active
-curations whose rows now lack a PMID or a real variant keep their result (counted unchanged)
-until edited and resubmitted.
+and archived curations whose rows now lack a PMID or a real variant keep their result until
+edited and resubmitted; they are logged as kept_uncited.
 """
 
 from typing import Any, cast
@@ -97,9 +97,16 @@ def _save(
 
 
 def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
-    """An active curation keeps its result until resubmitted when rows now lack a citation."""
+    """Active and archived curations keep their result (history is not rescored) until
+    resubmitted when rows now lack a citation."""
     excluded = breakdown.get("excluded", [])
-    return status == "active" and any(e.get("reason") in UNCITED for e in excluded)
+    kept = status in ("active", "archived")
+    return kept and any(e.get("reason") in UNCITED for e in excluded)
+
+
+def _raise_if_failed(failed: int, total: int) -> None:
+    if failed:
+        raise RuntimeError(f"{failed} of {total} curations failed to recompute")
 
 
 def recompute_all_scores(db: Session) -> int:
@@ -128,6 +135,7 @@ def recompute_all_scores(db: Session) -> int:
     unknown = set(lookup_pmids(db, pmids)[0]) if pmids else set()
     updated = unchanged = 0
     skipped: list[str] = []
+    kept_uncited: list[str] = []
     unscored: dict[str, list[str]] = {}
     custom: set[str] = set()
     flagged: dict[str, list[str]] = {}
@@ -173,10 +181,11 @@ def recompute_all_scores(db: Session) -> int:
             **result.evidence_breakdown,
             "warnings": result.warnings,
         }
-        if (old_scores, old_verdict) == (scores, result.verdict) or _keeps_result(
-            status, scores
-        ):
+        if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
+            continue
+        if _keeps_result(status, scores):  # its new score differs: reported, not saved
+            kept_uncited.append(str(curation_id))
             continue
         if not _save(db, curation_id, scores, result, old_scores, old_verdict, gene):
             # RLS refused it, e.g. a curation of an inactive scope (054)
@@ -188,6 +197,8 @@ def recompute_all_scores(db: Session) -> int:
         "Recomputed curation scores",
         updated=updated,
         unchanged=unchanged,
+        kept_uncited=len(kept_uncited),
+        kept_uncited_ids=kept_uncited,
         skipped=len(skipped),
         skipped_ids=skipped,
         unscored=unscored,
@@ -195,11 +206,8 @@ def recompute_all_scores(db: Session) -> int:
         out_of_range={key: paths for key, paths in flagged.items() if paths},
         failed=failed,
     )
-    if failed:
-        raise RuntimeError(
-            f"{failed} of {len(curations)} curations failed to recompute"
-        )
-    return updated + unchanged
+    _raise_if_failed(failed, len(curations))
+    return updated + unchanged + len(kept_uncited)
 
 
 if __name__ == "__main__":  # pragma: no cover

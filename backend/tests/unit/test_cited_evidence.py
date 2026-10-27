@@ -263,19 +263,30 @@ def test_submit_refuses_uncited_scored_rows_by_field_path(
 
 
 def test_recompute_keeps_active_results_until_resubmitted(
-    db_session: Session, test_curation: CurationNew, test_user_admin: object
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    from app.services import recompute_scores
     from app.services.recompute_scores import recompute_all_scores
 
     test_curation.evidence_data = _case(
         [{"variant": "c.1A>T", "proband_counted_points": 2}]
     )
     test_curation.computed_scores = {"total_score": 2.0}
-    test_curation.status = "active"
-    db_session.commit()
-    recompute_all_scores(db_session)
-    db_session.refresh(test_curation)
-    assert test_curation.computed_scores == {"total_score": 2.0}
+    logged: list[dict] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: logged.append(kw)
+    )
+    for status in ("active", "archived"):
+        test_curation.status = status
+        db_session.commit()
+        recompute_all_scores(db_session)
+        db_session.refresh(test_curation)
+        assert test_curation.computed_scores == {"total_score": 2.0}
+        assert logged[-1]["kept_uncited_ids"] == [str(test_curation.id)]
+        assert (logged[-1]["kept_uncited"], logged[-1]["unchanged"]) == (1, 0)
     test_curation.status = "draft"
     db_session.commit()
     recompute_all_scores(db_session)
