@@ -44,6 +44,33 @@ def test_core_tool_list_matches_snapshot(
     assert set(tools) == CORE_TOOLS and len(tools) <= 80
 
 
+# Every tool the study tasks need on /mcp (round 3 T1 failed without scope setup)
+FLOW_TOOLS = {
+    "pipeline setup": {
+        "get_workflow_pairs", "create_scope", "update_scope", "list_scopes",
+        "search_users_for_invitation", "add_member", "invite_member",
+        "update_member_role", "list_members", "resolve_genes", "create_gene",
+        "bulk_create_gene_assignments", "create_gene_assignment",
+    },
+    "curate a gene": {
+        "create_precuration", "save_draft_precurations", "submit_precuration",
+        "assign_peer_reviewer", "list_curations", "get_curation_schema",
+        "save_draft_curations", "update_curation", "submit_curation",
+        "search_mondo_diseases", "validate_pmids", "get_publication",
+    },
+    "review a curation": {
+        "read_my_work", "get_my_review_assignments", "get_curation", "curation_diff",
+        "calculate_score", "create_review_comment", "submit_peer_review",
+        "approve_precuration", "reject_precuration", "execute_workflow_transition",
+    },
+}  # fmt: skip
+
+
+@pytest.mark.parametrize("flow", FLOW_TOOLS)
+def test_core_has_every_tool_a_flow_needs(flow: str) -> None:
+    assert FLOW_TOOLS[flow] - CORE_TOOLS == set()
+
+
 def test_platform_admin_tools_are_listed_for_admins_only(
     client: TestClient,
     db_session: Session,

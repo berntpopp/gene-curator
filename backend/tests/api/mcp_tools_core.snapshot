@@ -1,5 +1,6 @@
 accept_invitation read_only=False destructive=False
 add_genes_to_scope read_only=False destructive=False
+add_member read_only=False destructive=False
 approve_precuration read_only=False destructive=True
 assign_curator_to_gene read_only=False destructive=False
 assign_peer_reviewer read_only=False destructive=False
@@ -10,6 +11,7 @@ create_gene read_only=False destructive=False
 create_gene_assignment read_only=False destructive=False
 create_precuration read_only=False destructive=False
 create_review_comment read_only=False destructive=False
+create_scope read_only=False destructive=False
 curation_diff read_only=True destructive=False
 delete_curation read_only=False destructive=True
 delete_precuration read_only=False destructive=True
@@ -39,6 +41,7 @@ get_workflow_audit_trail read_only=True destructive=False
 get_workflow_pair read_only=True destructive=False
 get_workflow_pairs read_only=True destructive=False
 get_workflow_state read_only=True destructive=False
+invite_member read_only=False destructive=False
 list_curations read_only=True destructive=False
 list_members read_only=True destructive=False
 list_notifications read_only=True destructive=False
@@ -59,13 +62,16 @@ search_hpo_terms read_only=False destructive=False
 search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
 search_pubmed read_only=True destructive=False
+search_users_for_invitation read_only=True destructive=False
 submit_curation read_only=False destructive=True
 submit_peer_review read_only=False destructive=True
 submit_precuration read_only=False destructive=True
 update_curation read_only=False destructive=True
 update_gene_assignment read_only=False destructive=True
+update_member_role read_only=False destructive=True
 update_precuration read_only=False destructive=True
 update_review_comment read_only=False destructive=True
+update_scope read_only=False destructive=True
 validate_evidence_data read_only=False destructive=False
 validate_hpo_term read_only=True destructive=False
 validate_pmids read_only=False destructive=False
