@@ -1,7 +1,6 @@
 """#386: publications.added_by is immutable for app_user; the shared cache stays refreshable.
 
-The async publication endpoints run without an RLS user context, so the policies cannot test the
-caller; a trigger keeps the adder fixed instead. Deleting the adder still nulls it (FK SET NULL).
+The update policy stays permissive (shared metadata cache); a trigger keeps the adder fixed. Deleting the adder still nulls it (FK SET NULL).
 """
 
 import os

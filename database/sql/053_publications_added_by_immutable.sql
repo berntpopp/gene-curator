@@ -1,9 +1,9 @@
 -- =============================================================================
 -- 053: publications.added_by cannot be reassigned (#386)
 -- =============================================================================
--- publications_update_policy (039) is permissive because the async publication endpoints run
--- without an RLS user context, so any caller could rewrite added_by. A policy cannot compare
--- OLD with NEW; a trigger keeps the adder fixed for everyone. The cache stays refreshable, and
+-- publications_update_policy (039) is permissive (a shared metadata cache any caller may
+-- refresh), so any caller could rewrite added_by. A policy cannot compare OLD with NEW; a
+-- trigger keeps the adder fixed for everyone. The cache stays refreshable, and
 -- deleting the adder still nulls it through the FK (ON DELETE SET NULL).
 -- Idempotent; records itself in schema_migrations.
 -- =============================================================================
