@@ -107,6 +107,7 @@
       :items-per-page="itemsPerPage"
       :items-per-page-options="PAGE_SIZES"
       :sort-by="sortBy"
+      :row-props="rowProps"
       fixed-header
       hover
       class="data-table__grid"
@@ -127,7 +128,7 @@
 </template>
 
 <script setup lang="ts" generic="T extends Record<string, unknown>">
-  import { computed, ref, useSlots } from 'vue'
+  import { computed, ref, useSlots, watch } from 'vue'
   import { PAGE_SIZES } from '@/composables/useTableUrlState'
   import type { Density, FilterValue, SortItem } from '@/composables/useTableUrlState'
 
@@ -160,6 +161,9 @@
       sortBy?: SortItem[]
       density?: Density
       emptyText?: string
+      /** Key for the hidden columns remembered in this browser; defaults to the column keys. */
+      storageKey?: string
+      rowProps?: (data: { item: T }) => Record<string, unknown>
     }>(),
     {
       loading: false,
@@ -171,7 +175,9 @@
       itemsPerPage: 25,
       sortBy: () => [],
       density: 'comfortable',
-      emptyText: 'No results. Adjust the search or filters.'
+      emptyText: 'No results. Adjust the search or filters.',
+      storageKey: undefined,
+      rowProps: undefined
     }
   )
 
@@ -185,13 +191,31 @@
     retry: []
   }>()
 
-  const hidden = ref(new Set<string>())
+  // Hidden columns are a per-browser preference, kept per table (its column keys by default)
+  const storeKey = computed(
+    () => `table-columns:${props.storageKey ?? props.headers.map(h => h.key).join(',')}`
+  )
+  function loadHidden(key: string): Set<string> {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
+      return new Set(Array.isArray(saved) ? saved.map(String) : [])
+    } catch {
+      return new Set()
+    }
+  }
+  const hidden = ref(loadHidden(storeKey.value))
+  watch(storeKey, k => (hidden.value = loadHidden(k)))
   const visibleHeaders = computed(() => props.headers.filter(h => !hidden.value.has(h.key)))
 
   function toggleColumn(key: string) {
     const next = new Set(hidden.value)
     if (!next.delete(key)) next.add(key)
     hidden.value = next
+    try {
+      localStorage.setItem(storeKey.value, JSON.stringify([...next]))
+    } catch {
+      // storage blocked: the choice lasts until reload
+    }
   }
 
   const selected = (f: FilterDef): string[] => [props.filters[f.key] ?? []].flat()

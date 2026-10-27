@@ -9,61 +9,41 @@
 
     <PendingInvitations v-if="invitations.hasPendingInvitations" class="mb-4" />
 
-    <div class="d-flex flex-wrap align-center ga-2 mb-3">
-      <v-tabs v-model="tab" density="compact" color="primary" class="work-tabs">
-        <v-tab v-for="t in TABS" :key="t.value" :value="t.value" role="tab">
-          {{ t.label }}
-          <span class="ml-2 text-medium-emphasis font-mono">{{ store.counts[t.value] ?? 0 }}</span>
-        </v-tab>
-      </v-tabs>
-      <v-text-field
-        v-model="filter"
-        placeholder="Filter by gene or scope"
-        density="compact"
-        variant="outlined"
-        hide-details
-        clearable
-        class="work-filter"
-        aria-label="Filter by gene or scope"
-      />
-    </div>
+    <v-tabs v-model="tab" density="compact" color="primary" class="work-tabs mb-3">
+      <v-tab v-for="t in TABS" :key="t.value" :value="t.value" role="tab">
+        {{ t.label }}
+        <span class="ml-2 text-medium-emphasis font-mono">{{ store.counts[t.value] ?? 0 }}</span>
+      </v-tab>
+    </v-tabs>
 
-    <v-alert v-if="store.error" type="error" variant="tonal">
-      {{ store.error }}
-      <template #append>
-        <v-btn class="retry" variant="text" @click="store.fetchMyWork()">Retry</v-btn>
+    <DataTable
+      v-model:search="search"
+      v-model:page="page"
+      v-model:items-per-page="itemsPerPage"
+      v-model:sort-by="sortBy"
+      v-model:density="density"
+      :headers="HEADERS"
+      :items="shown"
+      :items-length="visible.length"
+      :loading="store.loading"
+      :error="store.error"
+      :empty-text="EMPTY_TEXT[tab]"
+      :row-props="rowProps"
+      storage-key="my-work"
+      @retry="store.fetchMyWork()"
+    >
+      <template #item.gene_symbol="{ item }">
+        <span class="font-mono work-gene">{{ item.gene_symbol }}</span>
       </template>
-    </v-alert>
-    <div v-else-if="store.loading && !store.items.length" class="text-center py-8">
-      <v-progress-circular indeterminate color="primary" />
-    </div>
-    <div v-else-if="!visible.length" class="work-empty text-medium-emphasis">
-      {{ EMPTY_TEXT[tab] }}
-    </div>
-    <v-card v-else variant="flat" border>
-      <template v-for="g in groups" :key="g.verb">
-        <div data-test="work-group" class="work-group text-label-large px-4 py-2">
-          {{ g.verb }} <span class="font-mono text-medium-emphasis">{{ g.rows.length }}</span>
-        </div>
-        <div
-          v-for="row in g.rows"
-          :key="row.item_id + row.kind"
-          data-test="work-row"
-          class="work-row px-4"
-          :class="{ 'work-row--active': row === active }"
-          :aria-current="row === active ? 'true' : undefined"
-        >
-          <span class="font-mono work-gene">{{ row.gene_symbol }}</span>
-          <span class="work-scope text-medium-emphasis">{{ row.scope_name }}</span>
-          <span class="work-date font-mono text-medium-emphasis text-body-small">
-            {{ relativeTime(row.updated_at) }}
-          </span>
-          <v-btn :to="row.link" size="small" variant="outlined" color="primary">{{
-            row.verb
-          }}</v-btn>
-        </div>
+      <template #item.updated_at="{ item }">
+        <span class="font-mono text-medium-emphasis">{{ relativeTime(item.updated_at) }}</span>
       </template>
-    </v-card>
+      <template #item.verb="{ item }">
+        <v-btn :to="item.link" size="small" variant="outlined" color="primary">
+          {{ item.verb }}
+        </v-btn>
+      </template>
+    </DataTable>
     <p class="d-none d-md-block text-body-small text-medium-emphasis mt-3">
       Press <kbd>J</kbd> <kbd>K</kbd> to move, <kbd>Enter</kbd> to open.
     </p>
@@ -73,15 +53,23 @@
 <script setup lang="ts">
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import { useRouter } from 'vue-router'
-  import { useMyWorkStore, type WorkTab } from '@/stores/myWork'
+  import DataTable from '@/components/common/DataTable.vue'
+  import { clientPage, relativeTime } from '@/components/common/tableRows'
+  import { useTableUrlState } from '@/composables/useTableUrlState'
+  import { useMyWorkStore, type WorkItem, type WorkTab } from '@/stores/myWork'
   import { useInvitationsStore } from '@/stores/invitations'
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
-  import { relativeTime } from '@/components/common/tableRows'
 
   const TABS: { value: WorkTab; label: string }[] = [
     { value: 'needs_you', label: 'Needs you' },
     { value: 'waiting', label: 'Waiting' },
     { value: 'done', label: 'Done' }
+  ]
+  const HEADERS = [
+    { title: 'Gene', key: 'gene_symbol' },
+    { title: 'Scope', key: 'scope_name' },
+    { title: 'Age', key: 'updated_at' },
+    { title: 'Next action', key: 'verb' }
   ]
   const EMPTY_TEXT: Record<WorkTab, string> = {
     needs_you: 'Nothing needs you right now.',
@@ -92,23 +80,40 @@
   const router = useRouter()
   const store = useMyWorkStore()
   const invitations = useInvitationsStore()
-  const tab = ref<WorkTab>('needs_you')
-  const filter = ref('')
+  const { search, page, itemsPerPage, sortBy, density, filters } = useTableUrlState({
+    filterKeys: ['tab']
+  })
+  const tab = computed<WorkTab>({
+    get: () => TABS.find(t => t.value === filters.value.tab)?.value ?? 'needs_you',
+    set: v => (filters.value = { tab: v === 'needs_you' ? '' : v })
+  })
   const cursor = ref(0)
 
-  const groups = computed(() => {
-    const q = (filter.value ?? '').trim().toLowerCase()
-    const byVerb = new Map<string, typeof store.items>()
+  // Rows of one next action stay together, in the API's "blocks others first" order
+  const visible = computed(() => {
+    const q = (search.value ?? '').trim().toLowerCase()
+    const byVerb = new Map<string, WorkItem[]>()
     for (const i of store.byTab(tab.value)) {
       if (q && !`${i.gene_symbol} ${i.scope_name}`.toLowerCase().includes(q)) continue
       byVerb.set(i.verb, [...(byVerb.get(i.verb) ?? []), i])
     }
-    return [...byVerb].map(([verb, rows]) => ({ verb, rows }))
+    return [...byVerb.values()].flat()
   })
-  // Flat in display order so J/K follow what the eye sees
-  const visible = computed(() => groups.value.flatMap(g => g.rows))
-  const active = computed(() => visible.value[cursor.value])
-  watch([tab, filter], () => (cursor.value = 0))
+  const shown = computed(() =>
+    clientPage(visible.value, {
+      sortBy: sortBy.value,
+      page: page.value,
+      itemsPerPage: itemsPerPage.value
+    })
+  )
+  // J/K follow the rows on screen
+  const active = computed(() => shown.value[cursor.value])
+  watch([tab, search, page, itemsPerPage, sortBy], () => (cursor.value = 0))
+  const rowProps = ({ item }: { item: WorkItem }) => ({
+    'data-test': 'work-row',
+    class: item === active.value ? 'work-row--active' : undefined,
+    'aria-current': item === active.value ? 'true' : undefined
+  })
 
   function onKey(e: KeyboardEvent) {
     // Typing or activating a focused control keeps its own behaviour
@@ -116,7 +121,7 @@
       e.target instanceof Element &&
       e.target.closest('input, textarea, select, a, button, [contenteditable]')
     if (typing || e.metaKey || e.ctrlKey || e.altKey || e.defaultPrevented) return
-    const last = visible.value.length - 1
+    const last = shown.value.length - 1
     if (e.key === 'j') cursor.value = Math.min(cursor.value + 1, last)
     else if (e.key === 'k') cursor.value = Math.max(cursor.value - 1, 0)
     else if (e.key === 'Enter' && active.value) void router.push(active.value.link)
@@ -131,51 +136,11 @@
 </script>
 
 <style scoped>
-  .work-filter {
-    max-width: 280px;
-    min-width: 200px;
-  }
-  .work-group {
-    background: rgb(var(--v-theme-background));
-    border-bottom: 1px solid rgb(var(--v-theme-outline-variant, var(--v-theme-on-surface)));
-  }
-  /* Two-line card on phones (gene + date, scope + action), one line from sm up */
-  .work-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-areas: 'gene date' 'scope verb';
-    align-items: center;
-    gap: 4px 12px;
-    padding-block: 8px;
-    min-height: 44px;
-    border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-  }
-  .work-row--active {
-    box-shadow: inset 3px 0 0 rgb(var(--v-theme-secondary));
-  }
-  @media (min-width: 600px) {
-    .work-row {
-      grid-template-columns: 96px 1fr auto auto;
-      grid-template-areas: 'gene scope date verb';
-    }
-  }
   .work-gene {
-    grid-area: gene;
-    min-width: 72px;
     font-weight: 600;
   }
-  .work-scope {
-    grid-area: scope;
-  }
-  .work-date {
-    grid-area: date;
-    text-align: right;
-  }
-  .work-verb {
-    grid-area: verb;
-  }
-  .work-empty {
-    padding: 32px 0;
+  :deep(.work-row--active) > td:first-child {
+    box-shadow: inset 3px 0 0 rgb(var(--v-theme-secondary));
   }
   kbd {
     font-family: monospace;

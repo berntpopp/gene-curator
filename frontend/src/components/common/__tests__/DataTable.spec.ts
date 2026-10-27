@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DataTable from '../DataTable.vue'
@@ -20,6 +20,8 @@ function mountTable(props: Record<string, unknown> = {}) {
 }
 
 describe('DataTable', () => {
+  beforeEach(() => localStorage.clear())
+
   it('shows server totals in the footer, not the page size', () => {
     const w = mountTable()
     expect(w.text()).toContain('1-25 of 120')
@@ -83,6 +85,40 @@ describe('DataTable', () => {
     await new Promise(r => setTimeout(r))
     expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
     w.unmount()
+  })
+
+  it('remembers hidden columns per storage key across mounts', async () => {
+    const w = mountTable({ storageKey: 't1' })
+    await w.find('[data-testid="column-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r))
+    ;(document.body.querySelector('[data-testid="column-status"] input') as HTMLElement).click()
+    await new Promise(r => setTimeout(r))
+    w.unmount()
+    expect(localStorage.getItem('table-columns:t1')).toBe('["status"]')
+    const again = mountTable({ storageKey: 't1' })
+    expect(again.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
+    expect(mountTable({ storageKey: 't2' }).findAll('thead th')).toHaveLength(2) // other table
+    again.unmount()
+  })
+
+  it('keys remembered columns by the column keys when no storage key is given', async () => {
+    localStorage.setItem('table-columns:symbol,status', '["status"]')
+    const w = mountTable()
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
+    await w.setProps({ headers: [...headers, { title: 'Age', key: 'age' }] })
+    expect(w.findAll('thead th')).toHaveLength(3)
+  })
+
+  it('ignores unreadable saved columns', () => {
+    localStorage.setItem('table-columns:bad', '{oops')
+    expect(mountTable({ storageKey: 'bad' }).findAll('thead th')).toHaveLength(2)
+  })
+
+  it('passes row props to the rows', () => {
+    const w = mountTable({
+      rowProps: ({ item }: { item: { symbol: string } }) => ({ 'data-symbol': item.symbol })
+    })
+    expect(w.findAll('tbody tr').map(r => r.attributes('data-symbol'))).toEqual(['PKD1', 'HNF1B'])
   })
 
   it('picks a filter option from the chip menu', async () => {
