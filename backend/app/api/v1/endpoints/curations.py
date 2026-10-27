@@ -12,7 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.attributes import set_committed_value
 
-from app.core.capabilities import EDIT, require
+from app.core.capabilities import EDIT, require, require_active_scope
 from app.core.constants import (
     CURATIONS_DEFAULT_LIMIT,
     CURATIONS_MAX_LIMIT,
@@ -30,7 +30,14 @@ from app.crud.review_round import (
     reviewers_required,
 )
 from app.crud.workflow_engine import WorkflowEngine
-from app.models import CurationNew, CurationStatus, Review, ReviewStatus, UserNew
+from app.models import (
+    CurationNew,
+    CurationStatus,
+    Review,
+    ReviewStatus,
+    Scope,
+    UserNew,
+)
 from app.schemas.curation import (
     Curation,
     CurationConflictResponse,
@@ -91,6 +98,8 @@ def _can_user_edit_curation(
     """Same rule as save-draft and submit: the creator (curator or scope admin) or a platform admin."""
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         return False
+    if not curation.scope.is_active:
+        return False
     if user.role == "admin":
         return True
     if curation.created_by != user.id:
@@ -139,6 +148,8 @@ def _can_user_delete_curation(
     db: Session, user: UserNew, curation: "CurationNew"
 ) -> bool:
     """Check if user can delete this curation."""
+    if not curation.scope.is_active:
+        return False
     # Admin can delete anything
     if user.role == "admin":
         return True
@@ -353,6 +364,7 @@ def create_curation(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation_in.scope_id, "create")
     require(db, current_user, curation_in.scope_id, EDIT)
+    require_active_scope(db.get(Scope, curation_in.scope_id))
 
     enforce_clingen_point_ranges(
         db, curation_in.workflow_pair_id, curation_in.evidence_data
@@ -419,6 +431,7 @@ def update_curation(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
     require(db, current_user, curation.scope_id, EDIT)
+    require_active_scope(curation.scope)
 
     # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -476,6 +489,7 @@ def save_draft(
         )
 
     require(db, current_user, curation.scope_id, EDIT)
+    require_active_scope(curation.scope)
 
     # Same rule as PUT: evidence is frozen once submitted (4-eyes), for every role
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
@@ -528,6 +542,7 @@ def submit_curation(
         )
 
     require(db, current_user, curation.scope_id, EDIT)
+    require_active_scope(curation.scope)
 
     # Only creator or admin can submit
     if current_user.role != "admin" and curation.created_by != current_user.id:
@@ -610,6 +625,7 @@ def delete_curation(
     # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "delete")
     require(db, current_user, curation.scope_id, EDIT)
+    require_active_scope(curation.scope)
 
     # Only allow deletion of drafts (or by admin)
     if curation.status != CurationStatus.DRAFT and current_user.role != "admin":

@@ -121,7 +121,7 @@
                   </template>
                   <v-list-item-title>View</v-list-item-title>
                 </v-list-item>
-                <v-list-item v-if="item.status === 'draft'" @click="editCuration(item)">
+                <v-list-item v-if="canEditCuration(item)" @click="editCuration(item)">
                   <template #prepend>
                     <v-icon>mdi-pencil</v-icon>
                   </template>
@@ -219,7 +219,7 @@
               </v-btn>
               <v-spacer />
               <v-btn
-                v-if="curation.status === 'draft'"
+                v-if="canEditCuration(curation)"
                 size="small"
                 color="primary"
                 variant="tonal"
@@ -367,12 +367,19 @@
   const { canCurate, canManageScope } = useScopePermissions(
     computed(() => scopeStore.currentUserRole)
   )
-  const canCreateCuration = canCurate
+  // An inactive scope's curations are read-only for everyone (#483)
+  const scopeActive = computed(() => scopeStore.currentScope?.is_active !== false)
+  const canCreateCuration = computed(() => canCurate.value && scopeActive.value)
+
+  function canEditCuration(curation: CurationRow) {
+    return scopeActive.value && curation.status === 'draft'
+  }
 
   function canDeleteCuration(curation: CurationRow) {
     return (
-      canManageScope.value ||
-      (curation.curator_id === authStore.user?.id && curation.status === 'draft')
+      scopeActive.value &&
+      (canManageScope.value ||
+        (curation.curator_id === authStore.user?.id && curation.status === 'draft'))
     )
   }
 
