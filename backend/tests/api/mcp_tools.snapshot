@@ -70,6 +70,7 @@ get_genes_by_symbol read_only=True destructive=False
 get_inheritance_patterns read_only=True destructive=False
 get_json_schema_for_schema read_only=True destructive=False
 get_llm_options read_only=True destructive=False
+get_llm_run read_only=True destructive=False
 get_llm_settings read_only=True destructive=False
 get_llm_usage read_only=True destructive=False
 get_log read_only=True destructive=False
@@ -127,6 +128,7 @@ mark_notification_read read_only=False destructive=False
 merge_genes read_only=False destructive=True
 methodology_version_impact read_only=True destructive=False
 ping_llm_provider read_only=False destructive=False
+preview_llm_request read_only=True destructive=False
 publish_methodology_version read_only=False destructive=True
 publish_prompt_version read_only=False destructive=True
 reactivate_gene_assignment read_only=False destructive=False
@@ -151,6 +153,7 @@ set_llm_provider_key read_only=False destructive=True
 submit_curation read_only=False destructive=True
 submit_peer_review read_only=False destructive=True
 submit_precuration read_only=False destructive=True
+test_run_prompt_version read_only=False destructive=False
 test_validation_with_examples read_only=False destructive=False
 unassign_curator_from_gene read_only=False destructive=False
 update_curation read_only=False destructive=True
