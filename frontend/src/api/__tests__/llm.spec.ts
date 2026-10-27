@@ -45,6 +45,7 @@ const rows: [string, () => Promise<unknown>, 'get' | 'post' | 'put' | 'patch', u
     'get',
     [`${A}/prompt-versions/v/diff`, { params: { against: 'w' } }]
   ],
+  ['testRun', () => llmAPI.testRun('v', B), 'post', [`${A}/prompt-versions/v/test-run`, B]],
   ['scopeOptions', () => llmAPI.scopeOptions('s'), 'get', ['/scopes/s/llm-options']],
   ['scopeSettings', () => llmAPI.scopeSettings('s'), 'get', ['/scopes/s/llm-settings']],
   [

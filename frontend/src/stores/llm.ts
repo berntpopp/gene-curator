@@ -157,6 +157,7 @@ export const useLlmStore = defineStore('llm', () => {
     saveVersion,
     publishVersion,
     diffVersions,
+    testRun: llmAPI.testRun,
     scopeOptions: llmAPI.scopeOptions,
     scopeSettings: llmAPI.scopeSettings,
     saveScopeSettings: llmAPI.saveScopeSettings
