@@ -103,6 +103,8 @@ class Settings(BaseSettings):
     # JSON object {kid: fernet_key}; empty means LLM credentials are unavailable.
     LLM_CREDENTIAL_KEYS: str = ""
     LLM_CREDENTIAL_ACTIVE_KID: str = ""
+    # Background LLM run worker in the API lifespan; tests turn it off.
+    LLM_WORKER_ENABLED: bool = True
 
     @field_validator("PORT", mode="before")
     @classmethod

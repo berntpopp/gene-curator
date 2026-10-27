@@ -186,8 +186,8 @@ async def test_lifespan_starts_and_stops_the_worker(
 
     monkeypatch.setattr(llm_worker, "run_worker", fake)
     async with llm_worker.worker_running():
-        assert not started.is_set()  # off under pytest
-    monkeypatch.delenv("PYTEST_CURRENT_TEST")
+        assert not started.is_set()  # off in tests (conftest)
+    monkeypatch.setattr(llm_worker.settings, "LLM_WORKER_ENABLED", True)
     async with llm_worker.worker_running():
         await asyncio.wait_for(started.wait(), 5)
 

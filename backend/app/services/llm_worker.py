@@ -7,7 +7,6 @@ wait on it. Prompt and output text are never logged.
 """
 
 import asyncio
-import os
 import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager, suppress
@@ -20,6 +19,7 @@ from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session
 
 from app.core import database
+from app.core.config import settings
 from app.core.database import RLS_USER_KEY
 from app.core.logging import get_logger
 from app.llm.output import InvalidLLMOutputError
@@ -171,7 +171,9 @@ async def process_next(factory: SessionFactory = _session) -> bool:
         )
     except asyncio.CancelledError:
         outcome.error_code = "interrupted"
-        _finish(factory, run_id, user_id, outcome, _ms(started))
+        await asyncio.to_thread(
+            _finish, factory, run_id, user_id, outcome, _ms(started)
+        )
         raise
     except Exception as exc:  # never let one run stop the worker
         outcome.error_code = "internal_error"
@@ -208,10 +210,9 @@ async def run_worker(stop: asyncio.Event, factory: SessionFactory = _session) ->
 async def worker_running() -> AsyncIterator[None]:
     """Run the worker for the app's lifetime; shutdown waits at most SHUTDOWN_S.
 
-    ponytail: off under pytest (PYTEST_CURRENT_TEST) so test clients never claim runs;
-    replace with a settings flag in core/config.py.
+    Off when LLM_WORKER_ENABLED is false (tests), so test clients never claim runs.
     """
-    if "PYTEST_CURRENT_TEST" in os.environ:
+    if not settings.LLM_WORKER_ENABLED:
         yield
         return
     stop = asyncio.Event()

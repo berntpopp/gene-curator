@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core import security
+from app.core.config import settings
 from app.core.database import Base, get_db
 from app.core.logging.database_logger import get_database_logger
 from app.core.security import create_access_token, get_password_hash
@@ -38,6 +39,9 @@ from app.models.models import (
     UserNew,
     WorkflowPair,
 )
+
+# No background LLM worker in test clients: it would claim the tests' runs
+settings.LLM_WORKER_ENABLED = False
 
 # bcrypt at production cost (~0.2 s/hash) dominated test time; hashes embed their rounds
 security.BCRYPT_ROUNDS = 4
