@@ -58,7 +58,10 @@ export function getComponent(name: string | null | undefined): Component | null 
   return componentRegistry[name] || null
 }
 
-/** Compact editor for an evidence-table cell; `lazy` cells commit on change (blur/Enter), not per keystroke */
+/** Typed text in a `lazy` cell is committed after this pause in typing (#469). */
+export const CELL_COMMIT_MS = 400
+
+/** Compact editor for an evidence-table cell; `lazy` cells commit on change (blur/Enter) or after a pause in typing, not per keystroke */
 export interface CellDef {
   is: Component
   props?: Record<string, unknown>
