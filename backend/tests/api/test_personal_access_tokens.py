@@ -72,10 +72,11 @@ def test_pat_authenticates_as_owner_and_stamps_last_used(
     )
 
 
-def test_expiry_up_to_365_days_is_accepted(
+def test_expiry_up_to_365_days_is_accepted_with_a_day_of_clock_skew(
     client: TestClient, admin_token: str
 ) -> None:
-    _create(client, admin_token, expires_at=_future(364))
+    ahead = datetime.now(UTC) + timedelta(days=365, hours=12)  # client clock ahead
+    _create(client, admin_token, expires_at=ahead.isoformat())
 
 
 def test_pat_cannot_create_tokens(client: TestClient, admin_token: str) -> None:
@@ -150,7 +151,7 @@ def test_users_cannot_see_or_revoke_each_others_tokens(
             "name": "x",
             "expires_at": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
         },
-        {"name": "x", "expires_at": _future(366)},
+        {"name": "x", "expires_at": _future(367)},  # 365 days + 1 day skew
         {"name": "x", "expires_at": "2026-12-01T00:00:00"},
         {"name": "x", "expires_at": _future(), "scopes": ["admin"]},
         {"name": "x", "expires_at": _future(), "scopes": []},

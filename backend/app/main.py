@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.engine import make_url
+from starlette.routing import Route
 
 from app.api.v1.api import api_router
 from app.core.api_config import get_cors_config, get_feature_flags
@@ -20,6 +21,8 @@ from app.core.constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
 from app.core.database import async_engine
 from app.core.logging import configure_logging, get_logger
 from app.core.logging.database_logger import get_database_logger
+from app.mcp import create_mcp
+from app.mcp.audit import ChannelHeaderMiddleware
 from app.middleware import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
 
@@ -45,7 +48,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         ),
         clingen_sop_version=settings.CLINGEN_SOP_VERSION,
     )
-    yield
+    async with mcp_app.lifespan(mcp_app):
+        yield
     logger.info("Shutting down Gene Curator API...")
     await get_database_logger().flush()
     await async_engine.dispose()
@@ -92,6 +96,8 @@ app.add_middleware(
     allow_headers=cors_config.allow_headers,
     expose_headers=cors_config.expose_headers,
 )
+# Outermost: only in-process MCP calls may carry the channel headers (#462)
+app.add_middleware(ChannelHeaderMiddleware)
 
 
 # Include API routes
@@ -141,6 +147,17 @@ async def health_check() -> dict[str, str | float]:
         "environment": settings.ENVIRONMENT,
         "version": APP_VERSION,
     }
+
+
+# MCP endpoint (#462); built last so every route above becomes a tool
+mcp_app = create_mcp(app).http_app(
+    path="/mcp",
+    stateless_http=True,
+    json_response=True,
+    host_origin_protection="auto",
+    allowed_origins=cors_config.allow_origins,
+)
+app.router.routes.append(Route("/mcp", mcp_app, include_in_schema=False))
 
 
 # Global exception handler
