@@ -4,7 +4,6 @@ Active curations are produced by the real review flow (assign reviewer, approve)
 """
 
 from datetime import UTC, datetime
-from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -14,7 +13,6 @@ from app.models.models import (
     ActiveCuration,
     CurationNew,
     Gene,
-    GeneSummary,
     Scope,
     UserNew,
 )
@@ -181,22 +179,6 @@ def test_archived_only_curation_leaves_empty_summary(
     body = _full(client, user, gene)
     assert body["scope_summaries"] == []
     assert body["total_scopes_curated"] == 0
-
-
-def test_pre_existing_cached_row_without_new_fields_does_not_500(
-    client: TestClient, db_session: Session
-):
-    gene = make_gene(db_session)
-    db_session.add(
-        GeneSummary(
-            gene_id=gene.id,
-            scope_summaries=[
-                {"scope_id": str(uuid4()), "scope_name": "x", "is_public": True}
-            ],
-        )
-    )
-    db_session.commit()
-    assert _full(client, make_user(db_session), gene)["scope_summaries"] == []
 
 
 def test_rejected_curation_is_not_in_progress(client: TestClient, db_session: Session):

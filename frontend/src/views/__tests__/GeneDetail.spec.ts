@@ -8,7 +8,7 @@ vi.mock('@/api', () => ({
 }))
 
 vi.mock('@/api/geneSummary', () => ({
-  geneSummaryAPI: { getPublicSummary: vi.fn(), getFullSummary: vi.fn(), recomputeSummary: vi.fn() }
+  geneSummaryAPI: { getPublicSummary: vi.fn(), getFullSummary: vi.fn() }
 }))
 
 const { push, back } = vi.hoisted(() => ({ push: vi.fn(), back: vi.fn() }))
