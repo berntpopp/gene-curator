@@ -59,15 +59,16 @@ An existing database gets the role with `make db-migrate` before the backend res
 
 ### Upgrading to v0.8.0
 
-Run `make db-migrate` (050–054) before restarting the backend. Users outside a scope now see only
+Run `make db-migrate` (050–055) before restarting the backend. Users outside a scope now see only
 active curations of active public scopes, and get 404 for drafts and other non-active work; scope
 members are unaffected. Saving a GenCC or qualitative curation now scores it with its schema's
 engine, so its stored verdict can change on the next save; `make recompute-scores` stays
-ClinGen-only. Production builds no longer contain the seeded dev logins. Details and known limits:
+ClinGen-only. Writes in an inactive scope return 409. Production builds no longer contain the seeded dev logins. Details and known limits:
 [docs/releases/v0.8.0.md](docs/releases/v0.8.0.md).
 ([#474](https://github.com/berntpopp/gene-curator/pull/474),
 [#472](https://github.com/berntpopp/gene-curator/pull/472),
-[#467](https://github.com/berntpopp/gene-curator/pull/467))
+[#467](https://github.com/berntpopp/gene-curator/pull/467),
+[#488](https://github.com/berntpopp/gene-curator/pull/488))
 
 ### Upgrading to v0.7.0
 
