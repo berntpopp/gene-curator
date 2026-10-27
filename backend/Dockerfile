@@ -1,4 +1,3 @@
-# syntax=docker/dockerfile:1
 # Base images are pinned by digest; Dependabot (docker ecosystem) bumps tag and digest together.
 # All dependencies ship wheels, so no compiler or libpq is installed.
 FROM ghcr.io/astral-sh/uv:0.11.28@sha256:0f36cb9361a3346885ca3677e3767016687b5a170c1a6b88465ec14aefec90aa AS uv
