@@ -34,6 +34,7 @@ from app.models.models import (
     EvidenceItem,
     Gene,
     PrecurationNew,
+    Publication,
     Scope,
     ScopeMembership,
     UserNew,
@@ -389,6 +390,10 @@ def evidence_schema(
         schema_hash=uuid4().hex,
     )
     db_session.add(schema)
+    # PMIDs the evidence tests use are cached, so their lookup never hits the network
+    db_session.add_all(
+        Publication(pmid=p, title="Cached", journal="J") for p in ("1", "31558469")
+    )
     db_session.flush()
     test_workflow_pair.curation_schema_id = schema.id
     db_session.commit()

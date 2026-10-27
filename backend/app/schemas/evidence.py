@@ -59,6 +59,10 @@ class EvidenceItem(EvidenceItemBase):
     score_metadata: dict[str, Any] | None = Field(
         None, description="Scoring calculation details"
     )
+    unverified_pmids: list[str] = Field(
+        default_factory=list,
+        description="PMIDs saved while PubMed was unreachable; checked again at review",
+    )
     validation_status: str = Field(..., description="Validation status")
     validation_errors: dict[str, Any] | None = Field(
         None, description="Validation errors if any"

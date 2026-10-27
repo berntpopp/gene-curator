@@ -33,7 +33,7 @@ router = APIRouter()
     status_code=status.HTTP_201_CREATED,
 )
 @api_endpoint()
-async def create_evidence_item(
+def create_evidence_item(
     *,
     db: Session = Depends(get_db),
     curation_id: UUID,
@@ -47,7 +47,9 @@ async def create_evidence_item(
     evidence_type names a top-level evidence group of the curation's schema
     (``genetic`` for genetic_evidence), evidence_category the dotted path of one of
     its evidence tables (e.g. ``case_level.autosomal_dominant.predicted_or_proven_null``),
-    and evidence_data one row of that table. A mismatch returns 422 naming the field.
+    and evidence_data one row of that table. A mismatch, or a PMID PubMed does not
+    know, returns 422 naming the field; PMIDs that could not be looked up (PubMed
+    unreachable) are saved and listed in unverified_pmids.
 
     Evidence items are supporting records and are not scored: the curation's score
     comes from its evidence_data, saved through save_draft_curations or update_curation.
@@ -94,7 +96,7 @@ async def create_evidence_item(
             detail="Cannot edit this curation",
         )
 
-    validate_evidence_item(
+    unverified = validate_evidence_item(
         db,
         curation,
         evidence_in.evidence_category,
@@ -116,7 +118,9 @@ async def create_evidence_item(
         user_id=str(current_user.id),
     )
 
-    return evidence  # type: ignore[return-value]
+    return EvidenceItem.model_validate(evidence).model_copy(
+        update={"unverified_pmids": unverified}
+    )
 
 
 @router.put(
@@ -124,7 +128,7 @@ async def create_evidence_item(
     response_model=EvidenceItem,
 )
 @api_endpoint()
-async def update_evidence_item(
+def update_evidence_item(
     *,
     db: Session = Depends(get_db),
     curation_id: UUID,
@@ -183,8 +187,9 @@ async def update_evidence_item(
             detail="Evidence item not found",
         )
 
+    unverified: list[str] = []
     if evidence_in.evidence_data is not None:
-        validate_evidence_item(
+        unverified = validate_evidence_item(
             db,
             curation,
             evidence.evidence_category,
@@ -205,7 +210,9 @@ async def update_evidence_item(
         user_id=str(current_user.id),
     )
 
-    return evidence  # type: ignore[return-value]
+    return EvidenceItem.model_validate(evidence).model_copy(
+        update={"unverified_pmids": unverified}
+    )
 
 
 @router.delete(

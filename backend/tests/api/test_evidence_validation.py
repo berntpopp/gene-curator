@@ -4,7 +4,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.models.models import CurationNew, EvidenceItem
+from app.schemas.validation import PMIDValidationResult
 from app.services.evidence_validation import evidence_item_errors
+from app.services.publication_service import PublicationService
 
 pytestmark = pytest.mark.unit
 
@@ -114,3 +116,35 @@ def test_legacy_array_group_is_not_an_evidence_table() -> None:
     }
     (error,) = evidence_item_errors(legacy, "case_level", "genetic", {"pmid": "1"})
     assert error["loc"] == ["body", "evidence_category"]
+
+
+def test_pmid_lookup_unknown_is_refused_unreachable_is_flagged(
+    client: TestClient,
+    curator_token: str,
+    test_curation: CurationNew,
+    evidence_schema: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Existence via the publication service: not found is 422, offline saves as unverified."""
+    outcome = {"123": "Publication not found: 123", "456": "API timeout; retry lookup"}
+
+    async def fetch(self: PublicationService, pmid: str) -> PMIDValidationResult:
+        error = outcome.get(pmid)
+        return PMIDValidationResult(pmid=pmid, is_valid=error is None, error=error)
+
+    monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
+    errors = _errors(
+        _post(
+            client, curator_token, test_curation, _row("segregation", {"pmid": "123"})
+        )
+    )
+    assert "123 not found" in errors["evidence_data.pmid"]
+    r = _post(
+        client, curator_token, test_curation, _row("segregation", {"pmid": "PMID: 456"})
+    )
+    assert r.status_code == 201, r.text
+    assert r.json()["unverified_pmids"] == ["456"]
+    ok = _post(
+        client, curator_token, test_curation, _row("segregation", {"pmid": "789"})
+    )
+    assert ok.status_code == 201 and ok.json()["unverified_pmids"] == []

@@ -2700,7 +2700,9 @@ export interface paths {
          *     evidence_type names a top-level evidence group of the curation's schema
          *     (``genetic`` for genetic_evidence), evidence_category the dotted path of one of
          *     its evidence tables (e.g. ``case_level.autosomal_dominant.predicted_or_proven_null``),
-         *     and evidence_data one row of that table. A mismatch returns 422 naming the field.
+         *     and evidence_data one row of that table. A mismatch, or a PMID PubMed does not
+         *     know, returns 422 naming the field; PMIDs that could not be looked up (PubMed
+         *     unreachable) are saved and listed in unverified_pmids.
          *
          *     Evidence items are supporting records and are not scored: the curation's score
          *     comes from its evidence_data, saved through save_draft_curations or update_curation.
@@ -5230,6 +5232,11 @@ export interface components {
             score_metadata?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Unverified Pmids
+             * @description PMIDs saved while PubMed was unreachable; checked again at review
+             */
+            unverified_pmids?: string[];
             /**
              * Validation Status
              * @description Validation status
