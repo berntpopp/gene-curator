@@ -100,6 +100,21 @@ CREATE TRIGGER trigger_prompt_version_immutable
     FOR EACH ROW
     EXECUTE FUNCTION prompt_version_immutable();
 
+-- Row triggers never fire on TRUNCATE (and CASCADE would reach it from prompt_templates); see 043.
+CREATE OR REPLACE FUNCTION prompt_versions_no_truncate()
+RETURNS TRIGGER AS $$
+BEGIN
+    RAISE EXCEPTION 'prompt versions may be published and immutable; TRUNCATE is not allowed'
+        USING ERRCODE = 'integrity_constraint_violation';
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_prompt_versions_no_truncate ON prompt_template_versions;
+CREATE TRIGGER trigger_prompt_versions_no_truncate
+    BEFORE TRUNCATE ON prompt_template_versions
+    FOR EACH STATEMENT
+    EXECUTE FUNCTION prompt_versions_no_truncate();
+
 CREATE TABLE IF NOT EXISTS scope_llm_settings (
     scope_id UUID PRIMARY KEY REFERENCES scopes(id) ON DELETE CASCADE,
     enabled BOOLEAN NOT NULL DEFAULT false,

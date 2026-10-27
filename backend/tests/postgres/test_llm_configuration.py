@@ -289,6 +289,20 @@ def test_published_prompt_version_immutable_as_owner_and_app_user(
                 session.execute(text(sql), {"v": vid})
 
 
+def test_truncate_is_refused_as_owner(w: W, owner_session: Session) -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        _published_version(cur, f"{str(w.scope)[:8]}-trunc")
+    count = "SELECT count(*) FROM prompt_template_versions"
+    before = owner_session.scalar(text(count))
+    for sql in (
+        "TRUNCATE prompt_template_versions CASCADE",
+        "TRUNCATE prompt_templates CASCADE",
+    ):
+        with pytest.raises(DBAPIError, match="immutable"), owner_session.begin_nested():
+            owner_session.execute(text(sql))
+    assert before and owner_session.scalar(text(count)) == before
+
+
 def test_drafts_are_editable_and_publishable(w: W, db: Session) -> None:
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
