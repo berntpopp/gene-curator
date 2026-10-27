@@ -1,6 +1,7 @@
 """MCP server (#462): tool list, parity with the API per role, auth, channel, errors."""
 
 import asyncio
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -87,6 +88,26 @@ def test_tool_list_matches_snapshot(
         for t in tools["result"]["tools"]
     )
     assert lines == SNAPSHOT.read_text().splitlines()
+
+
+def test_server_instructions_and_lean_tool_descriptions(
+    client: TestClient, db_session: Session, test_user_admin: UserNew
+) -> None:
+    token = pat(db_session, test_user_admin)
+    init = rpc(
+        client,
+        token,
+        "initialize",
+        {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    )
+    body = init.text[init.text.index("{") :]  # an SSE frame or plain JSON
+    instructions = json.loads(body.splitlines()[0])["result"]["instructions"]
+    assert "Entry -> Precuration -> Curation -> Review -> Active" in instructions
+    assert "4-eyes" in instructions
 
 
 def test_every_api_operation_has_a_tool_except_documented_exclusions(

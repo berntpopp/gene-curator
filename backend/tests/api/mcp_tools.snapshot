@@ -2,7 +2,6 @@ accept_invitation read_only=False destructive=False
 approve_precuration read_only=False destructive=True
 assign_curator_to_gene read_only=False destructive=False
 assign_peer_reviewer read_only=False destructive=False
-auth_info read_only=True destructive=False
 bulk_create_gene_assignments read_only=False destructive=False
 bulk_create_genes read_only=False destructive=False
 bulk_workflow_transition read_only=False destructive=True

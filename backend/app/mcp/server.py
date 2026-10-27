@@ -36,8 +36,47 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
     ("POST", "/api/v1/auth/refresh"): "session refresh; tokens are not refreshed",
     ("POST", "/api/v1/auth/logout"): "session logout; revoke the token instead",
     ("POST", "/api/v1/auth/register"): "anonymous account creation",
+    ("GET", "/api/v1/auth/"): "REST login URLs; the instructions cover MCP",
     **dict.fromkeys(PAT_BLOCKED_OPERATIONS, "blocked for personal access tokens"),
 }
+
+INSTRUCTIONS = """\
+Gene Curator: gene-disease validity curation in scopes (teams). Every tool calls the
+REST API as you, so your scope role, row-level security and the 4-eyes rule apply.
+
+Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
+1. Entry: resolve_genes (create_gene if missing), then create_gene_assignment adds the
+   gene to the scope.
+2. Precuration: create_precuration, save_draft_precurations, submit_precuration, then
+   assign_peer_reviewer(item_type="precuration"). The reviewer finds it in read_my_work
+   and calls approve_precuration or reject_precuration.
+3. Curation: the approval opens a draft curation (list_curations); create_curation
+   only works with an approved precuration and no open curation. Record evidence with
+   save_draft_curations (evidence_data + lock_version); only that path is scored.
+4. Review: submit_curation, then assign_peer_reviewer(item_type="curation"). The
+   reviewer approves with submit_peer_review(decision="approve") or
+   execute_workflow_transition(target_stage="active").
+5. Active: one active curation per gene and scope.
+
+4-eyes: nobody approves or reviews their own work, platform admins included; route it
+to another reviewer of the scope.
+
+Scope roles (yours: read_users_me, the scope's: list_members):
+| role     | may                                                                  |
+| viewer   | read the scope                                                       |
+| curator  | read; add genes one at a time (create_gene_assignment); create, edit  |
+|          | and submit precurations and curations                                |
+| reviewer | read; approve or reject precurations; review others' curations       |
+| admin    | all of the above; members, bulk_create_gene_assignments, scope edits |
+
+Look up before acting: a scope by name in list_scopes, a gene by symbol with
+resolve_genes or get_genes_by_symbol; pass their ids on. Check PMIDs with validate_pmids.
+Your queue: read_my_work and get_my_review_assignments.
+Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
+conflict, rate_limited, upstream_unavailable, internal), then the API detail. On
+conflict, re-read the item and retry with its lock_version. Confirm destructive tools
+with the user.
+"""
 
 # State-changing actions a client should confirm (besides every DELETE)
 _DESTRUCTIVE = re.compile(
@@ -162,6 +201,7 @@ def create_mcp(app: FastAPI) -> FastMCP:
         spec,
         client=client,
         name="gene-curator",
+        instructions=INSTRUCTIONS,
         route_maps=route_maps,
         mcp_component_fn=_annotate,
         mcp_names=tool_names(spec),

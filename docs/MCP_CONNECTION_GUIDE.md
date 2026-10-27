@@ -62,13 +62,16 @@ revoked immediately.
 
 ## What the server exposes
 
+- Server instructions that clients load on connect: the workflow (Entry -> Precuration ->
+  Curation -> Review -> Active) with the tool for each step, what each scope role may do, and the
+  4-eyes rule.
 - One tool per API operation, named `verb_noun` after the endpoint (`list_scopes`,
   `get_curation`, `approve_precuration`, ...).
 - Tools that only read are marked `readOnlyHint`; deletes, approvals, rejections, submissions,
   workflow transitions, merges, methodology publishing and updates (PUT/PATCH, except draft saves
   and marking notifications read) are marked `destructiveHint` and their
   description asks the client to confirm with you first.
-- Not exposed: login, refresh, logout and registration, and account control that a token may
+- Not exposed: login, refresh, logout, registration and the REST auth index, and account control that a token may
   never perform (user management, password changes, creating tokens).
 - Errors carry a closed code (`invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`,
   `rate_limited`, `upstream_unavailable`, `internal`) plus the HTTP status and the API's message.
