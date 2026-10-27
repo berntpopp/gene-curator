@@ -183,6 +183,24 @@ def score_scorable(
     return result
 
 
+def shrunk_arrays(old: Any, new: Any, path: str = "") -> list[EvidenceWarning]:
+    """Arrays a merge patch made shorter: RFC 7396 replaces arrays whole, so sending one
+    new row drops the others."""
+    if isinstance(old, dict) and isinstance(new, dict):
+        return [
+            w
+            for key in old.keys() & new.keys()
+            for w in shrunk_arrays(old[key], new[key], f"{path}.{key}" if path else key)
+        ]
+    if isinstance(old, list) and isinstance(new, list) and len(new) < len(old):
+        message = (
+            f"Merge replaced {len(old)} items with {len(new)}; arrays are replaced "
+            "whole, so send every row to keep it"
+        )
+        return [EvidenceWarning(path=path, message=message)]
+    return []
+
+
 class InvalidEvidenceError(ValueError):
     """Review entry refused: values that fail the schema or the ID formats, by path."""
 

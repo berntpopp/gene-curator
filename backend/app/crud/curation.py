@@ -37,7 +37,12 @@ from app.schemas.curation import (
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
-from app.services.evidence_ids import check_ids, format_errors, score_scorable
+from app.services.evidence_ids import (
+    check_ids,
+    format_errors,
+    score_scorable,
+    shrunk_arrays,
+)
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
@@ -85,6 +90,16 @@ def merge_patch(target: Any, patch: Any) -> Any:
         else:
             out[key] = merge_patch(out.get(key), value)
     return out
+
+
+def _patched(
+    item: Any, sent: dict[str, Any], merge: bool | None
+) -> tuple[dict[str, Any], list[EvidenceWarning]]:
+    """The evidence a save stores, and warnings for arrays a merge patch shortened."""
+    if not merge:
+        return sent, []
+    merged = merge_patch(item.evidence_data, sent)
+    return merged, shrunk_arrays(item.evidence_data, merged)
 
 
 def _computed(
@@ -404,11 +419,10 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         """
         values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
         if obj_in.evidence_data is not None:
-            evidence = obj_in.evidence_data
-            if obj_in.merge:
-                evidence = merge_patch(db_obj.evidence_data, evidence)
+            evidence, shrunk = _patched(db_obj, obj_in.evidence_data, obj_in.merge)
+            warnings, unknown = check_ids(db, evidence)
             values["evidence_data"] = evidence
-            values.update(_computed(db, db_obj, evidence))
+            values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
         if not update_if_version(
             db, CurationNew, db_obj.id, obj_in.lock_version, values
         ):
@@ -431,10 +445,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
     ) -> tuple[CurationNew, list[EvidenceWarning]] | None:
         """Save as draft with auto-save timestamp, whatever the content, plus warnings on
         its IDs (lookups precede the write). None if lock_version is stale."""
-        evidence = draft_data.evidence_data
-        if draft_data.merge:
-            evidence = merge_patch(db_obj.evidence_data, evidence)
+        evidence, shrunk = _patched(db_obj, draft_data.evidence_data, draft_data.merge)
         warnings, unknown = check_ids(db, evidence)
+        warnings = shrunk + warnings
         values = {
             "evidence_data": evidence,
             **_computed(db, db_obj, evidence, (warnings, unknown)),

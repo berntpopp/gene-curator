@@ -468,3 +468,43 @@ def test_put_and_create_exclude_unknown_pmids_and_warn(
     assert r.status_code == 201, r.text
     assert r.json()["computed_scores"]["total_score"] == 0
     assert warning in r.json()["computed_scores"]["warnings"]
+
+
+def test_a_merge_that_shortens_an_array_warns(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+) -> None:
+    test_curation.evidence_data = {"rows": [{"points": 1}, {"points": 2}], "x": [1]}
+    db_session.commit()
+    r = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data={"rows": [{"points": 3}], "x": [1, 2]},
+        merge=True,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["evidence_data"]["rows"] == [{"points": 3}]
+    assert r.json()["warnings"] == [
+        {
+            "path": "rows",
+            "message": "Merge replaced 2 items with 1; arrays are replaced whole, "
+            "so send every row to keep it",
+        }
+    ]
+    r = client.put(
+        f"/api/v1/curations/{test_curation.id}",
+        json={
+            "evidence_data": {"x": []},
+            "merge": True,
+            "lock_version": r.json()["lock_version"],
+        },
+        headers=_h(admin_token),
+    )
+    assert r.status_code == 200, r.text
+    assert any(
+        w.startswith("x: Merge replaced 2 items with 0") for w in r.json()["warnings"]
+    )

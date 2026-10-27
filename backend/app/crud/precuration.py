@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.curation import merge_patch, open_curation_id
+from app.crud.curation import _patched, open_curation_id
 from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
@@ -318,9 +318,9 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
     ) -> tuple[PrecurationNew, list[EvidenceWarning]] | None:
         """Save as draft with auto-save timestamp, whatever the content, plus warnings on
         its IDs (lookups precede the write). None if lock_version is stale."""
-        if merge:
-            evidence_data = merge_patch(db_obj.evidence_data, evidence_data)
+        evidence_data, shrunk = _patched(db_obj, evidence_data, merge)
         warnings, _ = check_ids(db, evidence_data)
+        warnings = shrunk + warnings
         values = {
             "evidence_data": evidence_data,
             "is_draft": True,

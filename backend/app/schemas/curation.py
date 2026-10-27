@@ -42,7 +42,9 @@ class CurationCreate(CurationBase):
 MERGE_DESCRIPTION = (
     "false or omitted: evidence_data replaces the stored evidence_data entirely. true: "
     "evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects "
-    "merge, null deletes a key, arrays replace whole); a stale lock_version still 409s."
+    "merge, null deletes a key). Arrays are replaced whole: send every row of an "
+    "array you touch, or the rows you leave out are dropped (the save warns). A stale "
+    "lock_version still 409s."
 )
 
 
