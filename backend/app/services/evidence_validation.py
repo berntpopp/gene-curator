@@ -77,13 +77,33 @@ def evidence_item_errors(
     ]
 
 
+def _pmid_format_errors(data: Any) -> list[dict[str, Any]]:
+    pmid = str(data.get("pmid") or "").strip() if isinstance(data, dict) else ""
+    if pmid and not evidence_pmids({"pmid": pmid}):
+        return [_error(["evidence_data", "pmid"], "Expected 1-9 digits, e.g. 31558469")]
+    return []
+
+
 def validate_evidence_item(
-    db: Session, curation: CurationNew, category: str, evidence_type: str, data: Any
+    db: Session,
+    curation: CurationNew,
+    category: str,
+    evidence_type: str,
+    data: Any,
+    stored: bool = False,
 ) -> list[str]:
     """422 naming each bad field and the expected format, or a PMID PubMed does not
-    know. Returns the PMIDs whose lookup failed (offline): saved, but unverified."""
+    know. Returns the PMIDs whose lookup failed (offline): saved, but unverified.
+    A stored item whose category is no table path (legacy flat categories) keeps
+    only the PMID checks, so it stays editable."""
     definition = item_definition(db, curation)
     errors = evidence_item_errors(definition, category, evidence_type, data)
+    if (
+        stored
+        and errors
+        and all(e["loc"][1] in ("evidence_category", "evidence_type") for e in errors)
+    ):
+        errors = _pmid_format_errors(data)
     unverified: list[str] = []
     if not errors:
         unknown, unverified = lookup_pmids(db, evidence_pmids(data))

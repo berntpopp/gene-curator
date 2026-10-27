@@ -195,6 +195,7 @@ def update_evidence_item(
             evidence.evidence_category,
             evidence.evidence_type,
             evidence_in.evidence_data,
+            stored=True,
         )
     evidence = evidence_crud.update_with_user(
         db,

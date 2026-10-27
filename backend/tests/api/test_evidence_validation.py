@@ -148,3 +148,23 @@ def test_pmid_lookup_unknown_is_refused_unreachable_is_flagged(
         client, curator_token, test_curation, _row("segregation", {"pmid": "789"})
     )
     assert ok.status_code == 201 and ok.json()["unverified_pmids"] == []
+
+
+def test_legacy_category_item_stays_editable_with_pmid_checks(
+    client: TestClient,
+    curator_token: str,
+    db_session,
+    test_curation: CurationNew,
+    test_evidence_item: EvidenceItem,
+    evidence_schema: object,
+) -> None:
+    test_evidence_item.evidence_category = "case_level"  # flat, pre-table category
+    db_session.commit()
+    url = f"/api/v1/curations/{test_curation.id}/evidence/{test_evidence_item.id}"
+    h = {"Authorization": f"Bearer {curator_token}"}
+    ok = client.put(
+        url, json={"evidence_data": {"pmid": "1", "proband_count": 2}}, headers=h
+    )
+    assert ok.status_code == 200, ok.text
+    bad = client.put(url, json={"evidence_data": {"pmid": "12x"}}, headers=h)
+    assert "digits" in _errors(bad)["evidence_data.pmid"]
