@@ -35,9 +35,34 @@ afterEach(() => {
   mounted.splice(0).forEach(a => a.unmount())
   dirty.value = false
   confirm.mockReset()
+  document.body.innerHTML = ''
 })
 
 describe('useUnsavedGuard', () => {
+  // #469: a focused cell's typed text commits on blur, which is what makes the page dirty
+  const typing = () => {
+    const input = document.body.appendChild(document.createElement('input'))
+    input.addEventListener('blur', () => (dirty.value = true))
+    input.focus()
+  }
+
+  it('commits the focused field before deciding to ask on route leave', async () => {
+    confirm.mockResolvedValue(false)
+    const { router } = await setup()
+    typing()
+    await router.push('/other')
+    expect(confirm).toHaveBeenCalled()
+    expect(router.currentRoute.value.path).toBe('/edit')
+  })
+
+  it('commits the focused field before deciding to warn on reload', async () => {
+    await setup()
+    typing()
+    const e = new Event('beforeunload', { cancelable: true })
+    window.dispatchEvent(e)
+    expect(e.defaultPrevented).toBe(true)
+  })
+
   it('lets a clean page go without asking', async () => {
     const { router } = await setup()
     await router.push('/other')

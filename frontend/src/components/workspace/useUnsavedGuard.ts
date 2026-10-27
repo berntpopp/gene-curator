@@ -11,6 +11,9 @@ export function reloadDiscardingChanges() {
   window.location.reload()
 }
 
+// A focused cell commits its typed text on blur, which is what makes the page dirty (#469)
+const commitFocused = () => (document.activeElement as HTMLElement | null)?.blur?.()
+
 // Set while the URL moves to another address of the same document
 let keeping = false
 
@@ -29,6 +32,7 @@ export function useUnsavedGuard(dirty: Readonly<Ref<boolean>>) {
   const { confirm } = useConfirm()
 
   onBeforeRouteLeave(async () => {
+    commitFocused()
     if (!dirty.value || keeping) return true
     return confirm({
       title: 'Leave without saving?',
@@ -39,6 +43,7 @@ export function useUnsavedGuard(dirty: Readonly<Ref<boolean>>) {
   })
 
   function onBeforeUnload(event: BeforeUnloadEvent) {
+    commitFocused()
     if (!dirty.value || discarding) return
     event.preventDefault()
     event.returnValue = ''
