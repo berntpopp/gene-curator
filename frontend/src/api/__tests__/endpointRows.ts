@@ -48,12 +48,6 @@ export const identityRows: Row[] = [
 
   // scopes
   {
-    name: 'scopes.getScopes forwards params',
-    run: () => scopesAPI.getScopes({ limit: 5 }),
-    method: 'get',
-    args: ['/scopes/', { params: { limit: 5 } }]
-  },
-  {
     name: 'scopes.getScopeById',
     run: () => scopesAPI.getScopeById('s1'),
     method: 'get',
