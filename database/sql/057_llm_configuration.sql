@@ -147,7 +147,7 @@ GRANT SELECT (id, provider_id, key_id, fingerprint, created_by, created_at, rota
 CREATE OR REPLACE FUNCTION llm_credential_ciphertext(p_provider_id UUID)
 RETURNS BYTEA AS $$
     SELECT ciphertext FROM llm_credentials WHERE provider_id = p_provider_id
-$$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 REVOKE ALL ON FUNCTION llm_credential_ciphertext(UUID) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION llm_credential_ciphertext(UUID) TO app_user;
 
