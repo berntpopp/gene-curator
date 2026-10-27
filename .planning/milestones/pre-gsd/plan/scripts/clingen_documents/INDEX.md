@@ -2,6 +2,9 @@
 
 Total documents processed: 5
 
+The converted Markdown remains tracked. Original PDF/HTML filenames below identify local,
+gitignored source copies; the downloader and raw cache are not part of the release.
+
 ## Gene-Disease Validity Standard Operating Procedures Version 11
 - **Markdown:** [gene_disease_validity_sop_v11.md](markdown/gene_disease_validity_sop_v11.md)
 - **Original:** gene_disease_validity_sop_v11.pdf

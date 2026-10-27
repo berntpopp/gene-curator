@@ -1,0 +1,15 @@
+# Integrated J candidate browser evidence
+
+Fresh isolated stack at `e35ae58`, ports 5455/8052/5190. These are draft-candidate checks, not postmerge gates.
+
+The original core stopped on an untouched required checkbox whose configured false default was not serialized: first run 8/9 with a fatal submission blocker; explicit-answer continuation 14/16 exposed the same curation checkbox behavior. A separate continuation explicitly toggled true then false in the UI and passed 39/39 through two review rounds, independent approvals, all roles and re-curation. These continuations do not turn the original failures green. D subsequently fixes missing declared scalar initialization; the final candidate must replay the original flow untouched.
+
+G PMID flow passed 16/16: a held real publication-response allowed a draft save while lookup was pending, unknown PMID blocked submission before opening its lazy tab, known PMID displayed its citation, and readonly then editable reload correctly reapplied lookup behavior. The backend transaction-race check remains covered separately by the app_user PostgreSQL tests. Initial malformed fixture item schema and response-handler race were harness errors, retained separately.
+
+H Derive passed 6/6 through the actual schema editor: one request, success navigation, copied current configuration, original version list unchanged. A prior expectation that version 11.0 increments to 11.0.1 was a harness mistake; actual 11.1 follows the supported version increment rule.
+
+Clinical row checks passed 18/21 initially. AR mixed/null defaults, two-other and homozygous-other suggestions, manual same-value edits, manual zero, loaded-row preservation and evidence-entry counting passed. One genuine successor gap was retained: a new segregation row silently initialized Points to zero, hiding the missing-manual-score warning. J correction `6fbddc40` changes only the successor default to null and needs a fresh database replay. Two old-pin LOD expectations were invalid because Add row supplies the historical explicit zero. The corrected historical fixture omitted points through the authenticated API, then actual UI load/edit/save passed 6/6: blank points stayed absent and both live and saved score remained 2/18.
+
+Local ignored JSON files and screenshots preserve original failures and corrections. No auth state or tokens are copied here. Historical paging fixtures, if run, use authenticated create/submit/reject APIs with distinct curator/reviewer roles; the re-curation under test remains an actual UI flow.
+
+Pagination case: 101 rejected historical fixtures were created/submitted by Alice and rejected by Bob through legitimate APIs. The unfiltered first page contained 100 of 102 records and omitted the approved source. Actual UI Start re-curation/save linked that older approved precuration. The browser request used the scoped approved-status filter and limit=1. Endpoint-name and existing-draft redirect assumptions were corrected in the harness; the final replay passed 5/5.

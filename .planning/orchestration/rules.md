@@ -3,8 +3,10 @@
 - One PR per workstream. One commit per issue: `fix(<area>): <what> (#N)` + blank line + `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. PR body says `Closes #a, closes #b`, lists the gates run, and ends with `🤖 Generated with [Claude Code](https://claude.com/claude-code)`. Open PRs as DRAFTS (`gh pr create --draft --base master`).
 - TDD for bugs: write a failing test first. Changed lines need 90% coverage (`make diff-cover`). Never use skip, xit, `|| true` or weakened asserts.
 - Gates before reporting: targeted tests, then `make check` in the worktree. Run `make test-postgres` if you touched `database/sql` or RLS.
-- Migrations use reserved numbers only: 028 = #234, 029 = #198, 030 = #158 (schema_migrations), 031 = #156 (RLS app role). Idempotent, mirrored in `backend/app/models/models.py`.
-- #199 is decided: delete the `/scope-selection` wizard.
+- Migrations: use only the number named in your Notes (Wave 4 starts at 042, assigned in merge order). Idempotent, self-recording in `schema_migrations`, mirrored in `backend/app/models/`.
+- Any change to RLS, triggers, workflow transitions, saves or lock_version adds a `backend/tests/postgres/` test that runs the real API flow as app_user.
+- D1: nobody approves their own work, admins included; no platform-admin RLS bypass.
+- Re-run gates after your final rebase. Never Prettier `api.generated.ts`. Prefix scratch files with your workstream name.
 - Partial fixes: if an issue cannot be fully fixed inside your owned files, fix what you can, write `Refs #N` instead of `Closes`, and state what remains.
 - Never start dev servers in the worktree. Tests only (SQLite pytest, Vitest).
 - Ponytail full: smallest complete change; no unrelated modernizing.
