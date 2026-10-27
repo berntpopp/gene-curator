@@ -4479,6 +4479,18 @@ export interface components {
             };
             /** Your Lock Version */
             your_lock_version: number;
+            /**
+             * Updated By Name
+             * @description Who saved the current version
+             */
+            updated_by_name?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /**
+             * Changed Keys
+             * @description Top-level evidence keys where your save and theirs differ
+             */
+            changed_keys?: string[] | null;
         };
         /**
          * CurationCreate

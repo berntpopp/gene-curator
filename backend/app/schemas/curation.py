@@ -269,3 +269,10 @@ class CurationConflictResponse(BaseModel):
     current_lock_version: int
     current_state: dict[str, Any]
     your_lock_version: int
+    updated_by_name: str | None = Field(
+        None, description="Who saved the current version"
+    )
+    updated_at: datetime | None = None
+    changed_keys: list[str] | None = Field(
+        None, description="Top-level evidence keys where your save and theirs differ"
+    )

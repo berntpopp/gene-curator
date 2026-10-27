@@ -310,7 +310,8 @@ def test_tool_acts_as_the_token_owner_and_read_only_tokens_cannot_write(
     )
     assert result["isError"] is True
     assert result["content"][0]["text"] == (
-        "forbidden: HTTP 403: This token is read-only"
+        "forbidden: HTTP 403: This token is read-only\nnext: check your role with "
+        "list_scopes (user_role); nobody approves their own work"
     )
 
 

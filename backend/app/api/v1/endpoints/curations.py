@@ -4,6 +4,7 @@ Full CRUD with RLS integration and scope-based access control.
 Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -63,9 +64,12 @@ logger = get_logger(__name__)
 # ========================================
 
 
-def _conflict(curation: CurationNew, sent: int) -> HTTPException:
+def _conflict(
+    curation: CurationNew, sent: int, mine: dict[str, Any] | None = None
+) -> HTTPException:
     """409 with the current version and state (the failed UPDATE rolled back, so this reads what
-    the other tab saved)."""
+    the other tab saved), who saved it, and the top-level evidence keys that differ from yours."""
+    theirs = curation.evidence_data or {}
     return HTTPException(
         status_code=status.HTTP_409_CONFLICT,
         detail={
@@ -73,6 +77,11 @@ def _conflict(curation: CurationNew, sent: int) -> HTTPException:
             "current_lock_version": curation.lock_version,
             "your_lock_version": sent,
             "current_state": curation.evidence_data,
+            "updated_by_name": getattr(curation.updater, "name", None),
+            "updated_at": curation.updated_at.isoformat(),
+            "changed_keys": None
+            if mine is None
+            else sorted(k for k in {*theirs, *mine} if theirs.get(k) != mine.get(k)),
         },
     )
 
@@ -302,7 +311,6 @@ def get_curation(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDetail:
     """Get a single curation by ID with expanded relations."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get_with_relations(db, curation_id)
@@ -365,7 +373,6 @@ def create_curation(
     """Create a curation (curator or admin of the scope). Needs an approved precuration
     for the gene and scope unless one is active; the approval already opens a draft
     curation (list_curations), and this fails while one is open."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     # Verify scope access using scope_memberships
@@ -424,7 +431,6 @@ def update_curation(
     Update a curation with optimistic locking.
     Returns 409 Conflict if lock_version doesn't match.
     """
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -435,12 +441,10 @@ def update_curation(
             detail="Curation not found",
         )
 
-    # Verify scope access using scope_memberships
     _check_scope_access(db, current_user, curation.scope_id, "update")
     require(db, current_user, curation.scope_id, EDIT)
     require_active_scope(curation.scope)
 
-    # Check curation is editable
     if curation.status not in [CurationStatus.DRAFT, CurationStatus.REJECTED]:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -461,7 +465,7 @@ def update_curation(
     )
 
     if updated is None:
-        raise _conflict(curation, curation_in.lock_version)
+        raise _conflict(curation, curation_in.lock_version, curation_in.evidence_data)
 
     return Curation.model_validate(updated)
 
@@ -484,7 +488,6 @@ def save_draft(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
     """Save curation as draft (auto-save support)."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -519,7 +522,7 @@ def save_draft(
         user_id=current_user.id,
     )
     if updated is None:
-        raise _conflict(curation, draft_in.lock_version)
+        raise _conflict(curation, draft_in.lock_version, draft_in.evidence_data)
 
     return Curation.model_validate(updated)
 
@@ -537,7 +540,6 @@ def submit_curation(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
     """Submit curation for peer review."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -591,7 +593,6 @@ def calculate_score(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationScoreResponse:
     """Calculate ClinGen SOP v11 score for curation."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -618,7 +619,6 @@ def delete_curation(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> None:
     """Soft delete a curation (archive)."""
-    # Set RLS context
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
