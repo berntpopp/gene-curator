@@ -121,6 +121,60 @@ class TestCurationSchemaRead:
         assert response.status_code == 200
         assert response.json()["name"] == "Owned"
 
+    def test_get_compact_keeps_field_contract_and_drops_layout(
+        self,
+        client: TestClient,
+        db_session: Session,
+        owned_schema: CurationSchema,
+        viewer_token: str,
+    ):
+        """MCP study finding 6: compact read for agents (types, required, values)."""
+        option = {"value": "score", "label": "Score"}
+        owned_schema.field_definitions = {
+            "summary": {"type": "string", "label": "S", "ui_component": "RichText"},
+            "cases": {
+                "type": "array",
+                "label": "Cases",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "select", "options": [option, "review"]},
+                        "points": {"type": "number", "min": 0, "max": 3, "step": 0.1},
+                    },
+                },
+            },
+            "sections": [
+                {"id": "s", "fields": [{"id": "moi", "type": "text", "required": True}]}
+            ],
+        }
+        owned_schema.scoring_configuration = {"engine": "x"}
+        db_session.commit()
+
+        response = client.get(
+            f"{BASE}/curation-schemas/{owned_schema.id}",
+            params={"compact": True},
+            headers=auth(viewer_token),
+        )
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ui_configuration"] == {}
+        assert body["scoring_configuration"] is None
+        assert body["field_definitions"] == {
+            "summary": {"type": "string"},
+            "cases": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "status": {"type": "select", "options": ["score", "review"]},
+                        "points": {"type": "number", "min": 0, "max": 3},
+                    },
+                },
+            },
+            "moi": {"type": "text", "required": True},
+        }
+
     def test_get_unknown_id_is_404(self, client: TestClient, viewer_token: str):
         response = client.get(
             f"{BASE}/curation-schemas/{uuid4()}", headers=auth(viewer_token)

@@ -747,7 +747,7 @@ export interface paths {
         };
         /**
          * Get Curation Schema
-         * @description Get curation schema by ID.
+         * @description Get curation schema by ID. Pass compact=true to read only the field contract.
          */
         get: operations["get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get"];
         /**
@@ -4646,10 +4646,6 @@ export interface components {
             mondo_id?: string | null;
             /** Mode Of Inheritance */
             mode_of_inheritance?: string | null;
-            /** Calculated Score */
-            calculated_score?: {
-                [key: string]: unknown;
-            } | null;
             /**
              * Can Edit
              * @default false
@@ -11741,7 +11737,10 @@ export interface operations {
     };
     get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Fields only (type, required, allowed values, limits), flattened by id; ui_configuration is {} and scoring_configuration is null */
+                compact?: boolean;
+            };
             header?: never;
             path: {
                 schema_id: string;

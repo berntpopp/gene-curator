@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core import deps
 from app.core.database import get_db
+from app.core.enum_options import flatten_sections
 from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
@@ -129,21 +130,68 @@ def create_curation_schema(
     return schema  # type: ignore[return-value]
 
 
+# Field keys a client needs to fill a form correctly; labels, help and layout are dropped
+_COMPACT_KEYS = (
+    "type",
+    "required",
+    "readonly",
+    "item_type",
+    "min",
+    "max",
+    "min_length",
+    "max_length",
+    "pattern",
+    "validation",
+    "show_when",
+    "visible_when",
+)
+
+
+def _compact_field(cfg: Any) -> Any:
+    if not isinstance(cfg, dict):
+        return cfg
+    out = {k: cfg[k] for k in _COMPACT_KEYS if k in cfg}
+    if isinstance(cfg.get("options"), list):
+        out["options"] = [
+            o.get("value") if isinstance(o, dict) else o for o in cfg["options"]
+        ]
+    for key in ("properties", "item_schema"):
+        if isinstance(cfg.get(key), dict):
+            out[key] = {k: _compact_field(v) for k, v in cfg[key].items()}
+    if isinstance(cfg.get("items"), dict):
+        out["items"] = _compact_field(cfg["items"])
+    return out
+
+
 @router.get("/curation-schemas/{schema_id}", response_model=CurationSchema)
 def get_curation_schema(
     *,
     db: Session = Depends(get_db),
     schema_id: UUID,
+    compact: bool = Query(
+        False,
+        description="Fields only (type, required, allowed values, limits), flattened "
+        "by id; ui_configuration is {} and scoring_configuration is null",
+    ),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Get curation schema by ID.
+    Get curation schema by ID. Pass compact=true to read only the field contract.
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    if not compact:
+        return schema  # type: ignore[return-value]
 
-    return schema  # type: ignore[return-value]
+    fields = flatten_sections(schema.field_definitions or {})
+    return CurationSchema.model_validate(schema).model_copy(
+        update={
+            "field_definitions": {k: _compact_field(v) for k, v in fields.items()},
+            "ui_configuration": {},
+            "scoring_configuration": None,
+        }
+    )
 
 
 @router.get(
