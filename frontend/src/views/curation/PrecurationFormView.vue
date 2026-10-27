@@ -71,7 +71,7 @@
         class="mb-4"
         data-testid="sent-back-reason"
       >
-        <v-alert-title>Changes requested</v-alert-title>
+        <v-alert-title>Changes requested{{ sentBackBy }}</v-alert-title>
         <span class="sent-back">{{ sentBackReason }}</span>
       </v-alert>
 
@@ -129,6 +129,7 @@
   import { useLogger } from '@/composables/useLogger'
   import { usePrecurationsStore } from '@/stores/precurations'
   import { useAuthStore } from '@/stores/auth'
+  import { formatDateTime } from '@/utils/format'
   import SchemaDrivenPrecurationForm from '@/components/forms/SchemaDrivenPrecurationForm.vue'
   import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
   import NoCurateAccess from '@/components/workspace/NoCurateAccess.vue'
@@ -183,6 +184,8 @@
   const formGene = computed(() => ({ symbol: gene.value?.approved_symbol }))
   const precurationSchemaId = ref<string | undefined>(undefined)
   const sentBackReason = ref<string | null>(null)
+  /** Who sent it back and when, as on the curation feedback panel: " by Bob on 21 Oct 2026, 10:00". */
+  const sentBackBy = ref('')
   const loading = ref(true)
   const loadError = ref<string | null>(null)
   // Why the form is read-only; empty when the user may edit it
@@ -300,7 +303,10 @@
                 ? 'Read-only: this precuration is in review. It can be edited again if changes are requested.'
                 : `Read-only: this precuration is ${precuration.status}.`
         // The reviewer's reason stays visible while the precuration is sent back
-        const reason = precuration.computed_fields?.rejection_reason
+        const { rejection_reason: reason, rejected_at: at } = precuration.computed_fields ?? {}
+        const by = precuration.rejected_by_name
+        sentBackBy.value =
+          (by ? ` by ${by}` : '') + (typeof at === 'string' ? ` on ${formatDateTime(at)}` : '')
         sentBackReason.value =
           precuration.status === 'rejected' && typeof reason === 'string' ? reason : null
       }

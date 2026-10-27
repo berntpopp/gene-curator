@@ -128,7 +128,8 @@ describe('PrecurationFormView', () => {
       status,
       created_by: 'me',
       scope_id: 'sc1',
-      computed_fields: { rejection_reason: reason }
+      rejected_by_name: 'Bob Jones',
+      computed_fields: { rejection_reason: reason, rejected_at: '2026-10-21T10:00:00Z' }
     } as never)
     vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'PKD1' } as never)
     const wrapper = mount(PrecurationFormView, {
@@ -138,6 +139,8 @@ describe('PrecurationFormView', () => {
     const alert = wrapper.find('[data-testid=sent-back-reason]')
     expect(alert.exists()).toBe(shown)
     if (shown) expect(alert.text()).toContain(reason)
+    // #399: attributed like the curation feedback panel
+    if (shown) expect(alert.text()).toMatch(/Changes requested by Bob Jones on .*2026/)
   })
 
   it('shows an error when the precuration cannot be loaded', async () => {

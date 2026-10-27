@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token, get_password_hash
 from app.models.models import (
+    ActiveCuration,
     AuditLogNew,
     CurationNew,
     Review,
@@ -410,6 +411,42 @@ def test_a_first_submission_shows_every_item_as_added(
         ("a", "added"),
         ("b", "added"),
     }
+
+
+def test_a_recurations_first_review_compares_against_the_active_curation(
+    client: TestClient,
+    db_session: Session,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """#399: a re-curation is not all new; its baseline is the active curation it replaces."""
+    active = CurationNew(
+        id=uuid4(),
+        scope_id=test_curation.scope_id,
+        gene_id=test_curation.gene_id,
+        workflow_pair_id=test_curation.workflow_pair_id,
+        workflow_stage="active",
+        status="active",
+        evidence_data={"a": 1, "b": 2},
+        created_by=test_curation.created_by,
+    )
+    db_session.add(active)
+    db_session.flush()
+    db_session.add(
+        ActiveCuration(
+            gene_id=active.gene_id, scope_id=active.scope_id, curation_id=active.id
+        )
+    )
+    test_curation.evidence_data = {"a": 1, "b": 3}
+    db_session.commit()
+
+    body = _diff(client, reviewer, test_curation)
+
+    assert body["baseline"]["source"] == "active_curation"
+    assert body["baseline"]["audit_id"] is None
+    assert [(i["path"], i["before"], i["after"]) for i in body["items"]] == [
+        ("b", 2, 3)
+    ]
 
 
 def test_diff_ignores_edits_made_while_already_submitted_when_finding_submissions(

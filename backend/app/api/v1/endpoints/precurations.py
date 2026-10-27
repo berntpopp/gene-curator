@@ -164,6 +164,10 @@ def get_precuration(
     curation_count = precuration_crud.has_associated_curations(db, precuration.id)
     result = Precuration.model_validate(precuration)
     result.curation_count = curation_count
+    rejected_by = (precuration.computed_fields or {}).get("rejected_by")
+    reviewer = db.get(UserNew, UUID(rejected_by)) if rejected_by else None
+    if reviewer:
+        result.rejected_by_name = reviewer.name or reviewer.email
     return result
 
 

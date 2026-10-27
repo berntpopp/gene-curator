@@ -122,6 +122,8 @@
     const b = review.diff?.baseline
     if (!loaded.value) return ''
     if (!b) return 'First review: all items new.'
+    if (b.source === 'active_curation')
+      return `Showing changes against the active curation, active since ${formatDate(b.as_of)}.`
     const what =
       b.source === 'review'
         ? props.reviewer

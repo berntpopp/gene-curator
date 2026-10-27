@@ -121,6 +121,10 @@ class Precuration(PrecurationInDBBase):
     """Full precuration response schema."""
 
     curation_count: int = Field(default=0, description="Number of linked curations")
+    rejected_by_name: str | None = Field(
+        default=None,
+        description="Who last requested changes (computed_fields.rejected_by)",
+    )
 
 
 class PrecurationSummary(BaseModel):

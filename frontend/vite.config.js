@@ -1,7 +1,8 @@
-import { defineConfig } from 'vite'
+import { defineConfig, searchForWorkspaceRoot } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vuetify from 'vite-plugin-vuetify'
 import { fileURLToPath, URL } from 'node:url'
+import { existsSync, realpathSync } from 'node:fs'
 
 export default defineConfig({
   plugins: [vue(), vuetify({ autoImport: true })],
@@ -19,6 +20,13 @@ export default defineConfig({
         changeOrigin: true,
         secure: false
       }
+    },
+    fs: {
+      // A git worktree symlinks node_modules to the main checkout; serve fonts from there too
+      allow: [
+        searchForWorkspaceRoot(process.cwd()),
+        ...(existsSync('node_modules') ? [realpathSync('node_modules')] : [])
+      ]
     },
     watch: {
       usePolling: !!process.env.DOCKER_POLLING

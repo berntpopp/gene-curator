@@ -63,9 +63,12 @@ def test_viewer_cannot_review_or_complete_precuration(
 
 
 def test_reviewer_returns_precuration_via_reject_not_transition(
-    client: TestClient, db_session: Session, test_precuration: PrecurationNew
+    client: TestClient,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+    test_user_curator: UserNew,
 ):
-    reviewer = make_user(db_session)
+    reviewer = make_user(db_session, name="Bob Jones")
     from app.models import Scope
 
     scope = db_session.get(Scope, test_precuration.scope_id)
@@ -88,6 +91,12 @@ def test_reviewer_returns_precuration_via_reject_not_transition(
     db_session.refresh(test_precuration)
     assert test_precuration.workflow_stage == WorkflowStage.PRECURATION
     assert test_precuration.computed_fields["rejection_reason"] == "Narrow the disease"
+    # #399: the curator sees who sent it back, as on the curation feedback panel
+    detail = client.get(
+        f"/api/v1/precurations/{test_precuration.id}",
+        headers=auth_headers(test_user_curator),
+    )
+    assert detail.json()["rejected_by_name"] == "Bob Jones"
 
 
 def test_submit_endpoint_direct(
