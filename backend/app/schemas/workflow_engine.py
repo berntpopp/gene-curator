@@ -52,6 +52,10 @@ class WorkflowValidationResult(BaseModel):
     requirements: list[str] = Field(
         default_factory=list, description="Content requirements"
     )
+    missing_fields: list[str] = Field(
+        default_factory=list,
+        description="Required fields still empty for review (dotted paths, pinned check)",
+    )
 
 
 # Workflow State Information

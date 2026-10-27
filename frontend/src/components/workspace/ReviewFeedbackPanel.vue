@@ -14,7 +14,9 @@
     </p>
     <ul v-if="feedback.queries.length" class="feedback__queries">
       <li v-for="q in feedback.queries" :key="q.id" data-testid="feedback-query">
-        <span class="text-body-small text-medium-emphasis">{{ itemLabel(q.item_path) }}</span>
+        <span class="text-body-small text-medium-emphasis">{{
+          itemLabel(q.item_path, { evidence })
+        }}</span>
         <div>{{ q.body }}</div>
       </li>
     </ul>
@@ -31,7 +33,13 @@
   import { formatDateTime } from '@/utils/format'
   import { useReviewFeedbackStore, type ReviewFeedback } from '@/stores/reviewFeedback'
 
-  const props = defineProps<{ curationId: string; scopeId: string; me: string }>()
+  const props = defineProps<{
+    curationId: string
+    scopeId: string
+    me: string
+    /** The curation's evidence: queried records are named by their label, as in the diff. */
+    evidence?: unknown
+  }>()
 
   const feedback = ref<ReviewFeedback | null>(null)
   onMounted(async () => {
