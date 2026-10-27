@@ -22,6 +22,7 @@ from app.api.v1.endpoints import (
     my_work,
     notifications,
     ontology,
+    personal_access_tokens,
     precurations,
     publications,
     review_comments,
@@ -50,6 +51,9 @@ api_router.include_router(
     invitations.router, tags=["invitations"]
 )  # User-facing invitation endpoints (/me/invitations, /invitations/{id}/...)
 api_router.include_router(my_work.router, tags=["my-work"])  # /me/work
+api_router.include_router(
+    personal_access_tokens.router, prefix="/me/tokens", tags=["tokens"]
+)
 api_router.include_router(schemas.router, prefix="/schemas", tags=["schemas"])
 api_router.include_router(
     schema_validation.router, prefix="/validation", tags=["validation"]

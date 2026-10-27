@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator, Callable
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,10 +16,12 @@ from app.core.database import RLS_USER_KEY, AsyncSessionLocal, apply_rls_user, g
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.security import (
+    PAT_PREFIX,
     credentials_exception,
     inactive_user_exception,
     verify_token,
 )
+from app.crud import personal_access_token as pat_crud
 from app.crud.user import user_crud
 from app.models import UserNew
 
@@ -30,12 +32,39 @@ security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 
 
+def _request_method(request: Request) -> str:
+    return request.method
+
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+def _token_user_id(db: Session, token: str, method: str) -> str | None:
+    """User id behind a JWT access token or a live personal access token, else None."""
+    if token.startswith(PAT_PREFIX):
+        found = pat_crud.authenticate(db, token)
+        if found is None:
+            return None
+        user_id, scopes = found
+        if "write" not in scopes and method not in _SAFE_METHODS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="This token is read-only"
+            )
+        return user_id
+    payload = verify_token(token)
+    if payload is None or payload.get("type") == "refresh":
+        return None
+    user_id_value: Any = payload.get("sub")
+    return user_id_value if isinstance(user_id_value, str) else None
+
+
 def get_current_user(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    method: str = Depends(_request_method),
 ) -> UserNew:
     """
-    Get current authenticated user from JWT token.
+    Get current authenticated user from a JWT or personal access token (gc_pat_...).
 
     Args:
         db: Database session
@@ -45,18 +74,11 @@ def get_current_user(
         Current user object
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: If token is invalid, expired, revoked or user not found
     """
-    # Verify token
-    payload = verify_token(credentials.credentials)
-    if payload is None or payload.get("type") == "refresh":
+    user_id = _token_user_id(db, credentials.credentials, method)
+    if user_id is None:
         raise credentials_exception
-
-    # Extract user ID from token
-    user_id_value: Any = payload.get("sub")
-    if user_id_value is None or not isinstance(user_id_value, str):
-        raise credentials_exception
-    user_id: str = user_id_value
 
     # Get user from database
     user = user_crud.get(db, id=user_id)
@@ -133,6 +155,7 @@ async def get_async_db(
 def get_current_user_optional(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+    method: str = Depends(_request_method),
 ) -> UserNew | None:
     """
     Get current user optionally (doesn't raise exception if no token).
@@ -148,16 +171,9 @@ def get_current_user_optional(
         return None
 
     try:
-        # Verify token
-        payload = verify_token(credentials.credentials)
-        if payload is None or payload.get("type") == "refresh":
+        user_id = _token_user_id(db, credentials.credentials, method)
+        if user_id is None:
             return None
-
-        # Extract user ID from token
-        user_id_value: Any = payload.get("sub")
-        if user_id_value is None or not isinstance(user_id_value, str):
-            return None
-        user_id: str = user_id_value
 
         # Get user from database
         user = user_crud.get(db, id=user_id)
