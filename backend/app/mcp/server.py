@@ -12,15 +12,19 @@ from urllib.parse import quote
 
 import httpx
 from fastapi import FastAPI
+from fastapi.routing import APIRoute, iter_route_contexts
 from fastmcp import FastMCP
 from fastmcp.server.dependencies import get_access_token
+from fastmcp.server.middleware import CallNext, Middleware, MiddlewareContext
 from fastmcp.server.providers.openapi import MCPType, RouteMap
 from fastmcp.tools import Tool
 from fastmcp.utilities.openapi import HTTPRoute
 from fastmcp.utilities.openapi.models import HttpMethod
+from mcp import types as mt
 from mcp.types import ToolAnnotations
 
-from app.core.deps import PAT_BLOCKED_OPERATIONS
+from app.api.v1.endpoints.logs import require_admin, require_admin_or_reviewer
+from app.core.deps import PAT_BLOCKED_OPERATIONS, get_current_admin_user
 from app.mcp.audit import (
     CHANNEL_HEADER,
     CLIENT_HEADER,
@@ -43,6 +47,8 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
 INSTRUCTIONS = """\
 Gene Curator: gene-disease validity curation in scopes (teams). Every tool calls the
 REST API as you, so your scope role, row-level security and the 4-eyes rule apply.
+This endpoint (/mcp) serves the curation and review tools; /mcp/full serves every
+API operation (schema authoring, statistics, platform admin).
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
 1. Entry: resolve_genes (create_gene if missing), then create_gene_assignment adds the
@@ -74,10 +80,93 @@ Look up before acting: a scope by name in list_scopes, a gene by symbol with
 resolve_genes or get_genes_by_symbol; pass their ids on. Check PMIDs with validate_pmids.
 Your queue: read_my_work and get_my_review_assignments.
 Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
-conflict, rate_limited, upstream_unavailable, internal), then the API detail. On
-conflict, re-read the item and retry with its lock_version. Confirm destructive tools
-with the user.
+conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
+API detail. On conflict, re-read the item and retry with its lock_version. Results
+omit empty and null fields. Confirm destructive tools with the user.
 """
+
+# /mcp: the two primary flows (curate a gene end to end, check and review a
+# curation) plus lookups; /mcp/full keeps every operation (owner decision 2026-10-27)
+CORE_TOOLS = frozenset(
+    {
+        # you, your queue, invitations
+        "read_users_me", "read_my_work", "get_my_review_assignments",
+        "list_notifications", "mark_notification_read",
+        "get_my_pending_invitations", "accept_invitation",
+        # scopes and people
+        "list_scopes", "get_scope_details", "list_members", "get_peer_reviewers",
+        # genes
+        "resolve_genes", "get_genes_by_symbol", "search_genes", "get_gene",
+        "get_gene_by_hgnc_id", "create_gene", "search_hgnc_genes", "fetch_hgnc_gene",
+        "get_scope_genes", "get_gene_full_summary",
+        # gene assignments
+        "create_gene_assignment", "bulk_create_gene_assignments",
+        "get_scope_assignments", "get_gene_assignment", "update_gene_assignment",
+        "assign_curator_to_gene", "get_available_genes_for_scope",
+        # precurations
+        "create_precuration", "get_precuration", "list_precurations",
+        "update_precuration", "save_draft_precurations", "submit_precuration",
+        "approve_precuration", "reject_precuration", "delete_precuration",
+        # curations
+        "create_curation", "get_curation", "list_curations", "update_curation",
+        "save_draft_curations", "submit_curation", "delete_curation",
+        "curation_diff", "calculate_score",
+        # review and workflow
+        "assign_peer_reviewer", "submit_peer_review", "list_review_comments",
+        "create_review_comment", "update_review_comment", "get_workflow_state",
+        "execute_workflow_transition", "validate_workflow_transition",
+        "get_workflow_audit_trail",
+        # methodology
+        "get_curation_schema", "get_workflow_pairs", "get_workflow_pair",
+        "get_methodology_version", "validate_evidence_data", "get_scoring_engine_info",
+        # ontology and literature
+        "search_mondo_diseases", "search_hpo_terms", "validate_hpo_term",
+        "get_inheritance_patterns", "search_omim_diseases", "get_omim_disease",
+        "validate_pmids", "get_publication",
+    }
+)  # fmt: skip
+
+# Dependencies that admit platform admins only: their tools are hidden from others
+_ADMIN_DEPENDENCIES = {get_current_admin_user, require_admin, require_admin_or_reviewer}
+
+# MCP-only argument defaults; the REST defaults stay as they are
+MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
+
+# Where scored evidence lives, so agents need no example curation (token plan 6)
+_EVIDENCE_PATHS = """
+
+Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
+- genetic_evidence.case_level.{autosomal_dominant_or_x_linked|autosomal_recessive}.
+  {predicted_or_proven_null|other_variant_type}[]: proband_label, variant, pmid,
+  proband_counted_points
+- genetic_evidence.segregation[]: family_label, lod_score or segregations_counted, pmid
+- genetic_evidence.case_control.{single_variant_analysis|aggregate_variant_analysis}[]
+- experimental_evidence.function.{biochemical_function|protein_interaction|expression}[],
+  .functional_alteration.{patient_cells|non_patient_cells}[],
+  .models.{non_human_model_organism|cell_culture_model}[],
+  .rescue.{human|non_human_model_organism|cell_culture|patient_cells}[]: label, pmid,
+  points, explanation
+- contradictory_evidence[]: pmid, impact
+Field rules and point ranges: get_curation_schema (compact by default)."""
+# Routes without a docstring: lead with the words an agent searches for
+_DESCRIPTIONS = {
+    "read_users_me": "Me: the current user's profile (id, name, application role).",
+    "read_my_work": "My work queue across scopes: my drafts, my submissions and the "
+    "precurations and curations waiting for my review, with counts per tab.",
+    "list_review_comments": "Review comments on a curation: the reviewer's queries "
+    "and feedback per evidence item, with their status.",
+    "create_review_comment": "Review comment: add a query or feedback on a curation "
+    "evidence item (item_path), e.g. when requesting changes.",
+    "update_review_comment": "Review comment: edit the body or change the status of a "
+    "comment on a curation.",
+}
+_DESCRIPTION_EXTRAS = {
+    "save_draft_curations": _EVIDENCE_PATHS,
+    "update_curation": _EVIDENCE_PATHS,
+    "create_curation": _EVIDENCE_PATHS,
+    "validate_pmids": "\n\nResults list title, journal and year; get_publication "
+    "returns the abstract.",
+}
 
 # Docstring sections that describe the Python function, not the tool
 _DOC_NOISE = re.compile(r"\n\s*(Args|Returns|Raises|Example[^\n:]*):\s*\n.*", re.S)
@@ -144,7 +233,15 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     if not isinstance(tool, Tool):
         return
     tool.output_schema = None  # results go out once, as text (no structuredContent)
-    tool.description = _DOC_NOISE.sub("", tool.description or "").strip()
+    tool.description = (
+        _DESCRIPTIONS.get(tool.name)
+        or _DOC_NOISE.sub("", tool.description or "").strip()
+        or route.summary
+        or ""
+    ) + _DESCRIPTION_EXTRAS.get(tool.name, "")
+    _lean_schema(tool.parameters)
+    for arg, value in MCP_DEFAULTS.get(tool.name, {}).items():
+        tool.parameters["properties"][arg]["default"] = value
     read_only = route.method == "GET"
     destructive = (
         route.method == "DELETE"
@@ -157,11 +254,62 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
         idempotentHint=read_only,
         openWorldHint=False,
     )
-    if destructive:
-        tool.description = (
-            "Destructive or irreversible: confirm with the user first.\n\n"
-            + (tool.description or "")
-        )
+
+
+def _lean_schema(schema: Any) -> None:
+    """Shrink a JSON Schema in place: no titles (the property name says it), no
+    empty required list, integral bounds as ints. A property named title stays."""
+    if isinstance(schema, list):
+        for item in schema:
+            _lean_schema(item)
+    elif isinstance(schema, dict):
+        if isinstance(schema.get("title"), str):
+            del schema["title"]
+        if schema.get("required") == []:
+            del schema["required"]
+        for key, value in schema.items():
+            if isinstance(value, float) and value.is_integer():
+                schema[key] = int(value)
+            for child in value.values() if key == "properties" else [value]:
+                _lean_schema(child)
+
+
+def admin_only_tools(app: FastAPI, names: dict[str, str]) -> frozenset[str]:
+    """Tools whose route depends on a platform-admin check (never usable by others)."""
+
+    def calls(dependant: Any) -> Any:
+        yield dependant.call
+        for sub in dependant.dependencies:
+            yield from calls(sub)
+
+    spec = app.openapi()["paths"]
+    return frozenset(
+        names[spec[context.path_format][method.lower()]["operationId"]]
+        for context in iter_route_contexts(app.routes)
+        if isinstance(context.original_route, APIRoute)
+        and _ADMIN_DEPENDENCIES & set(calls(context.original_route.dependant))
+        for method in context.methods or ()
+        if spec.get(context.path_format, {}).get(method.lower())
+    )
+
+
+class CallerToolFilter(Middleware):
+    """tools/list hides platform-admin tools from non-admins (the spec lets the list
+    vary by authorization); calling one still reaches the API, which answers 403."""
+
+    def __init__(self, admin_only: frozenset[str]) -> None:
+        self.admin_only = admin_only
+
+    async def on_list_tools(
+        self,
+        context: MiddlewareContext[mt.ListToolsRequest],
+        call_next: CallNext[mt.ListToolsRequest, Any],
+    ) -> Any:
+        tools = await call_next(context)
+        token = get_access_token()
+        if token is not None and token.claims.get("role") == "admin":
+            return tools
+        return [tool for tool in tools if tool.name not in self.admin_only]
 
 
 async def _as_caller(request: httpx.Request) -> None:
@@ -181,7 +329,8 @@ async def _as_caller(request: httpx.Request) -> None:
         request.headers["X-Request-ID"] = rid
 
 
-def create_mcp(app: FastAPI) -> FastMCP:
+def create_mcp(app: FastAPI, *, core: bool = False) -> FastMCP:
+    """core=True: the /mcp curation set with lean results; else every operation."""
     route_maps = [
         RouteMap(
             methods=[cast(HttpMethod, method)],
@@ -203,6 +352,7 @@ def create_mcp(app: FastAPI) -> FastMCP:
         event_hooks={"request": [_as_caller]},
     )
     spec = app.openapi()
+    names = tool_names(spec)
     mcp = FastMCP.from_openapi(
         spec,
         client=client,
@@ -210,10 +360,13 @@ def create_mcp(app: FastAPI) -> FastMCP:
         instructions=INSTRUCTIONS,
         route_maps=route_maps,
         mcp_component_fn=_annotate,
-        mcp_names=tool_names(spec),
+        mcp_names=names,
         validate_output=False,  # response_model already validates; keep 3.1 nullables
         auth=PersonalAccessTokenVerifier(app),
         mask_error_details=True,
     )
-    mcp.add_middleware(ToolAuditMiddleware())
+    mcp.add_middleware(CallerToolFilter(admin_only_tools(app, names)))
+    mcp.add_middleware(ToolAuditMiddleware(lean=core, defaults=MCP_DEFAULTS))
+    if core:
+        mcp.enable(names=set(CORE_TOOLS), only=True)
     return mcp

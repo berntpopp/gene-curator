@@ -45,8 +45,8 @@ def pat_user(app: FastAPI, token: str) -> tuple[str, str] | None:
         return found[0], str(getattr(role, "value", role))
 
 
-def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:
-    """(user id, scopes, token name) of a live personal access token, else None."""
+def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str, str] | None:
+    """(user id, scopes, token name, application role) of a live token, else None."""
     if not token.startswith(PAT_PREFIX):
         return None
     with _session(app) as db:
@@ -60,7 +60,8 @@ def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:
                 PersonalAccessToken.token_hash == hash_personal_access_token(token)
             )
         )
-        return user_id, scopes, name or ""
+        role = db.scalar(select(UserNew.role).where(UserNew.id == UUID(user_id)))
+        return user_id, scopes, name or "", str(getattr(role, "value", role))
 
 
 class PersonalAccessTokenVerifier(TokenVerifier):
@@ -74,7 +75,11 @@ class PersonalAccessTokenVerifier(TokenVerifier):
         found: Any = await run_in_threadpool(pat_owner, self._app, token)
         if found is None:
             return None
-        user_id, scopes, name = found
+        user_id, scopes, name, role = found
+        # role only shapes tools/list (server.CallerToolFilter); the API re-checks it
         return AccessToken(
-            token=token, client_id=name, scopes=scopes, claims={"sub": user_id}
+            token=token,
+            client_id=name,
+            scopes=scopes,
+            claims={"sub": user_id, "role": role},
         )

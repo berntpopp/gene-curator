@@ -49,7 +49,11 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         ),
         clingen_sop_version=settings.CLINGEN_SOP_VERSION,
     )
-    async with mcp_app.lifespan(mcp_app), worker_running():
+    async with (
+        mcp_app.lifespan(mcp_app),
+        mcp_full_app.lifespan(mcp_full_app),
+        worker_running(),
+    ):
         yield
     logger.info("Shutting down Gene Curator API...")
     await get_database_logger().flush()
@@ -150,15 +154,20 @@ async def health_check() -> dict[str, str | float]:
     }
 
 
-# MCP endpoint (#462); built last so every route above becomes a tool
-mcp_app = create_mcp(app).http_app(
-    path="/mcp",
-    stateless_http=True,
-    json_response=True,
-    host_origin_protection="auto",
-    allowed_origins=cors_config.allow_origins,
+# MCP endpoints (#462); built last so every route above becomes a tool.
+# /mcp serves the curation core, /mcp/full every operation (same auth and limits)
+mcp_app, mcp_full_app = (
+    create_mcp(app, core=core).http_app(
+        path=path,
+        stateless_http=True,
+        json_response=True,
+        host_origin_protection="auto",
+        allowed_origins=cors_config.allow_origins,
+    )
+    for core, path in ((True, "/mcp"), (False, "/mcp/full"))
 )
 app.router.routes.append(Route("/mcp", mcp_app, include_in_schema=False))
+app.router.routes.append(Route("/mcp/full", mcp_full_app, include_in_schema=False))
 
 
 # Global exception handler
