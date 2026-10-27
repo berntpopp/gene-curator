@@ -72,6 +72,8 @@ def status_of(result: dict) -> int:
     """HTTP status behind a tool result (200 for any success)."""
     if not result.get("isError"):
         return 200
+    if result["content"][0]["text"].startswith("invalid_input: "):  # refused locally
+        return 422
     match = re.search(r"HTTP (\d{3})", result["content"][0]["text"])
     assert match, result
     return int(match.group(1))
@@ -236,9 +238,13 @@ def test_each_role_gets_the_same_status_through_mcp_and_api(
         url = path.format(**args)
         # Same request both ways: path parameters only, no body or query
         api = raw.request(method, url, headers={"Authorization": f"Bearer {token}"})
-        tool = status_of(call(client, token, names[op["operationId"]], **args))
+        result = call(client, token, names[op["operationId"]], **args)
+        tool = status_of(result)
         api_status = 200 if api.status_code < 300 else api.status_code
-        if api_status != tool:
+        # Missing arguments are refused before the API runs, so before its auth
+        # check; the API refuses that request too (4xx), only the reason differs
+        local = result["content"][0]["text"].startswith("invalid_input: ")
+        if api_status != tool and not (local and 400 <= api_status < 500):
             mismatches.append((method, path, api.status_code, tool))
     assert mismatches == []
 

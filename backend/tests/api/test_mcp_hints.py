@@ -1,9 +1,16 @@
-"""MCP study F8: tool errors end with a one-line next step (tool-specific first)."""
+"""MCP tool errors: a one-line next step (study F8) and arguments checked before
+the call (round 3, T3-1)."""
+
+from uuid import uuid4
 
 import httpx
 import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from app.mcp.audit import _tool_error
+from app.mcp.audit import _tool_error, argument_errors
+from app.models import UserNew
+from tests.api.test_mcp import call, pat
 
 pytestmark = pytest.mark.unit
 
@@ -27,3 +34,49 @@ def test_errors_carry_a_next_step() -> None:
     assert "create_gene_assignment" in _error(403, "bulk_create_gene_assignments")
     assert "get_workflow_state" in _error(400, "execute_workflow_transition")
     assert "\nnext:" not in _error(500, "update_curation")
+
+
+SCHEMA = {
+    "type": "object",
+    "properties": {
+        "item_type": {"type": "string", "enum": ["curation", "precuration"]},
+        "item_id": {"type": "string"},
+        "limit": {"type": "integer", "minimum": 1, "maximum": 50},
+    },
+    "required": ["item_type", "item_id"],
+}
+
+
+def test_argument_errors_name_the_field_and_the_bound() -> None:
+    assert argument_errors(SCHEMA, {"item_type": "curation", "item_id": "x"}) == []
+    problems = argument_errors(
+        SCHEMA, {"item_type": "gene", "curation_id": "x", "limit": 51}
+    )
+    assert "unknown curation_id" in problems[0]
+    assert "missing item_id" in problems
+    assert any(
+        p.startswith("limit: 51 is greater than the maximum of 50") for p in problems
+    )
+    assert any(p.startswith("item_type: 'gene' is not one of") for p in problems)
+    assert "did you mean item_id?" in argument_errors(SCHEMA, {"itemid": "x"})[0]
+
+
+def test_a_call_with_a_wrong_argument_never_reaches_the_api(
+    client: TestClient, db_session: Session, test_user_curator: UserNew
+) -> None:
+    for path in ("/mcp", "/mcp/full"):
+        result = call(
+            client,
+            pat(db_session, test_user_curator),
+            "get_workflow_audit_trail",
+            path=path,
+            item_type="curation",
+            curation_id=str(uuid4()),
+        )
+        text = result["content"][0]["text"]
+        assert result["isError"] is True and "{item_id}" not in text
+        assert text.startswith(
+            "invalid_input: get_workflow_audit_trail: unknown curation_id (did you "
+            "mean item_id?); missing item_id"
+        ), text
+        assert "accepts item_type (required), item_id (required)" in text
