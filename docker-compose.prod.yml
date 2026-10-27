@@ -38,8 +38,9 @@ services:
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
       # Rate limiting is off in config/api.yaml (dev, tests) and on in production
       GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
-      # Proxies whose X-Forwarded-For uvicorn trusts (CIDR list); default: Docker bridge networks
-      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.16.0.0/12}
+      # Passed through only when set. Set it to your reverse proxy's address only, and bind
+      # BACKEND_PORT to 127.0.0.1 when a proxy is in front; unset, X-Forwarded-For is ignored
+      FORWARDED_ALLOW_IPS:
     ports:
       - "${BACKEND_PORT:-8051}:8000"
     depends_on:
