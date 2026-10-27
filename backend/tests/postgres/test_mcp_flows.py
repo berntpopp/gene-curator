@@ -1,5 +1,6 @@
 """MCP tools run the real API as app_user under RLS, with the caller's own token (#462)."""
 
+import json
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
@@ -70,7 +71,7 @@ def test_outsider_cannot_read_a_draft(client: TestClient, w: W) -> None:  # noqa
     assert str(w.cur) not in str(listed)
     # The author still reads it through MCP: the token carries her own identity
     alice = _tool(client, _pat(client, w.alice), "get_curation", curation_id=str(w.cur))
-    assert alice["structuredContent"]["id"] == str(w.cur)
+    assert json.loads(alice["content"][0]["text"])["id"] == str(w.cur)
 
 
 def test_nobody_approves_their_own_work(client: TestClient, w: W) -> None:  # noqa: F811
@@ -102,7 +103,7 @@ def test_reviewer_approves_someone_elses_work_audited_as_mcp(
         client, _pat(client, w.bob), "approve_precuration", precuration_id=str(w.pre)
     )
     assert not result.get("isError"), result
-    assert result["structuredContent"]["curation_created"] is True
+    assert json.loads(result["content"][0]["text"])["curation_created"] is True
 
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(

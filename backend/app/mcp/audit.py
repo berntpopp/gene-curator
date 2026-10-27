@@ -142,7 +142,9 @@ class ToolAuditMiddleware(Middleware):
         start = time.perf_counter()
         outcome = "ok"
         try:
-            return await call_next(context)
+            result = await call_next(context)
+            # Text only: clients bill structuredContent again on top of its text copy
+            return ToolResult(content=result.content, meta=result.meta)
         except Exception as exc:
             cause: BaseException | None = exc
             while cause is not None and not isinstance(cause, httpx.HTTPStatusError):

@@ -111,6 +111,7 @@ def test_server_instructions_and_lean_tool_descriptions(
 
     tools = rpc(client, token, "tools/list", {}).json()["result"]["tools"]
     by_name = {t["name"]: t for t in tools}
+    assert not [t["name"] for t in tools if "outputSchema" in t]
     assert not [t["name"] for t in tools if re.search(r"\n\s*Args:", t["description"])]
     assert "approved precuration" in by_name["create_curation"]["description"]
     bulk = by_name["bulk_create_gene_assignments"]["description"]
@@ -297,7 +298,8 @@ def test_tool_acts_as_the_token_owner_and_read_only_tokens_cannot_write(
     client: TestClient, db_session: Session, test_user_curator: UserNew
 ) -> None:
     me = call(client, pat(db_session, test_user_curator), "read_users_me")
-    assert me["structuredContent"]["id"] == str(test_user_curator.id)
+    assert "structuredContent" not in me  # each result is sent once, as text
+    assert json.loads(me["content"][0]["text"])["id"] == str(test_user_curator.id)
 
     result = call(
         client,

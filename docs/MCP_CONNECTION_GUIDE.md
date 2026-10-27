@@ -71,6 +71,8 @@ revoked immediately.
   workflow transitions, merges, methodology publishing and updates (PUT/PATCH, except draft saves
   and marking notifications read) are marked `destructiveHint` and their
   description asks the client to confirm with you first.
+- Each result is sent once, as JSON text (no `structuredContent` or `outputSchema`), so clients
+  do not pay for it twice.
 - Not exposed: login, refresh, logout, registration and the REST auth index, and account control that a token may
   never perform (user management, password changes, creating tokens).
 - Errors carry a closed code (`invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`,

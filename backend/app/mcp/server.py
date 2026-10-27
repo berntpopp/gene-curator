@@ -142,6 +142,7 @@ def tool_names(spec: dict[str, Any]) -> dict[str, str]:
 def _annotate(route: HTTPRoute, tool: Any) -> None:
     if not isinstance(tool, Tool):
         return
+    tool.output_schema = None  # results go out once, as text (no structuredContent)
     tool.description = _DOC_NOISE.sub("", tool.description or "").strip()
     read_only = route.method == "GET"
     destructive = (
