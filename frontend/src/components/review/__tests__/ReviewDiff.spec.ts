@@ -93,6 +93,19 @@ describe('ReviewDiff', () => {
     })
     await flushPromises()
     expect(w.find('[data-testid=baseline]').text()).toBe('First review: all items new.')
+
+    // #399: a re-curation is compared with the active curation it replaces
+    api.getDiff.mockResolvedValue({
+      baseline: { audit_id: null, as_of: '2026-10-15T10:00:00Z', source: 'active_curation' },
+      items: diff.items
+    } as never)
+    w = mount(ReviewDiff, {
+      props: { curationId: 'cur', me: 'bob', creatorId: 'alice', reviewer: true, canReply: true }
+    })
+    await flushPromises()
+    expect(w.find('[data-testid=baseline]').text()).toBe(
+      'Showing changes against the active curation, active since 2026-10-15.'
+    )
   })
 
   it('shows an error when the review cannot be loaded', async () => {

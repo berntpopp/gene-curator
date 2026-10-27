@@ -18,7 +18,14 @@ from app.core.capabilities import EDIT, REVIEW, VIEW, require
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.core.logging import api_endpoint
-from app.models import AuditLogNew, CurationNew, Review, ReviewItemComment, UserNew
+from app.models import (
+    ActiveCuration,
+    AuditLogNew,
+    CurationNew,
+    Review,
+    ReviewItemComment,
+    UserNew,
+)
 from app.schemas.review_comment import (
     CurationDiff,
     ReviewComment,
@@ -214,14 +221,35 @@ def curation_diff(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationDiff:
-    """Current evidence versus the version the reviewer last saw (none yet: all items added)."""
+    """Current evidence versus the version the reviewer last saw, else the active curation it
+    replaces (none of either: all items added)."""
     curation = _curation(db, curation_id)
     require(db, current_user, curation.scope_id, VIEW)
     current = curation.evidence_data or {}
     found = _baseline(db, curation_id, current_user.id)
     if found is None:
+        # A re-curation's first review compares against the active curation it replaces
+        active = db.scalars(
+            select(ActiveCuration).where(
+                ActiveCuration.gene_id == curation.gene_id,
+                ActiveCuration.scope_id == curation.scope_id,
+                ActiveCuration.archived_at.is_(None),
+                ActiveCuration.curation_id != curation.id,
+            )
+        ).first()
+        if active is None:
+            return CurationDiff.model_validate(
+                {"baseline": None, "items": diff_evidence({}, current)}
+            )
         return CurationDiff.model_validate(
-            {"baseline": None, "items": diff_evidence({}, current)}
+            {
+                "baseline": {
+                    "audit_id": None,
+                    "as_of": active.activated_at,
+                    "source": "active_curation",
+                },
+                "items": diff_evidence(active.curation.evidence_data or {}, current),
+            }
         )
     row, source, as_of = found
     snapshot = (row.changes or {}).get("evidence_data") or {}

@@ -62,6 +62,7 @@ export function shouldReplaceCuration(
     active: 5,
     approved: 4,
     submitted: 3,
+    in_review: 3,
     draft: 2,
     rejected: 1,
     archived: 0

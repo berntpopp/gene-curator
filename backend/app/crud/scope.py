@@ -270,7 +270,7 @@ class CRUDScope(CRUDBase[Scope, ScopeCreate, ScopeUpdate]):
         ).all()
 
         status_dict: dict[str, int] = {
-            str(status): int(count) for status, count in status_counts
+            status.value: int(count) for status, count in status_counts
         }
 
         # Review metrics

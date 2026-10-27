@@ -74,11 +74,11 @@ class DiffItem(BaseModel):
 
 class DiffBaseline(BaseModel):
     """The version the reviewer last saw: their own last review decision, else anyone's latest decision,
-    else the earlier submission."""
+    else the earlier submission, else the active curation a re-curation replaces (no audit row)."""
 
-    audit_id: int
+    audit_id: int | None
     as_of: datetime
-    source: Literal["review", "any_review", "previous_submission"]
+    source: Literal["review", "any_review", "previous_submission", "active_curation"]
 
 
 class CurationDiff(BaseModel):

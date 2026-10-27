@@ -1786,7 +1786,8 @@ export interface paths {
         };
         /**
          * Curation Diff
-         * @description Current evidence versus the version the reviewer last saw (none yet: all items added).
+         * @description Current evidence versus the version the reviewer last saw, else the active curation it
+         *     replaces (none of either: all items added).
          */
         get: operations["curation_diff_api_v1_curations__curation_id__diff_get"];
         put?: never;
@@ -4790,11 +4791,11 @@ export interface components {
         /**
          * DiffBaseline
          * @description The version the reviewer last saw: their own last review decision, else anyone's latest decision,
-         *     else the earlier submission.
+         *     else the earlier submission, else the active curation a re-curation replaces (no audit row).
          */
         DiffBaseline: {
             /** Audit Id */
-            audit_id: number;
+            audit_id: number | null;
             /**
              * As Of
              * Format: date-time
@@ -4804,7 +4805,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "review" | "any_review" | "previous_submission";
+            source: "review" | "any_review" | "previous_submission" | "active_curation";
         };
         /** DiffItem */
         DiffItem: {
@@ -7509,6 +7510,11 @@ export interface components {
              * @default 0
              */
             curation_count: number;
+            /**
+             * Rejected By Name
+             * @description Who last requested changes (computed_fields.rejected_by)
+             */
+            rejected_by_name?: string | null;
         };
         /**
          * PrecurationApprovalResult

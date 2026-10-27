@@ -35,7 +35,9 @@ function refreshTokens(refreshToken: string): Promise<string> {
 /** True for a JWT whose exp is in the past; opaque or malformed tokens count as unknown (false). */
 function isExpired(token: string): boolean {
   try {
-    const exp = (JSON.parse(atob(token.split('.')[1] ?? '')) as { exp?: number }).exp
+    // JWT segments are base64url; atob only reads standard base64
+    const payload = (token.split('.')[1] ?? '').replace(/-/g, '+').replace(/_/g, '/')
+    const exp = (JSON.parse(atob(payload)) as { exp?: number }).exp
     return typeof exp === 'number' && exp * 1000 <= Date.now()
   } catch {
     return false

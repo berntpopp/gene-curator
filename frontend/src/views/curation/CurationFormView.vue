@@ -1,6 +1,7 @@
 <template>
   <v-container fluid class="workspace">
     <WorkspaceHeader
+      v-if="!notFound"
       :crumbs="crumbs"
       :title="gene?.approved_symbol || (isEdit ? 'Curation' : 'New curation')"
       :subtitle="frame.meta.value.disease"
