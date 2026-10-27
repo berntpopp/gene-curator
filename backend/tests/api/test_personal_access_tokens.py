@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.core.deps import PAT_BLOCKED_OPERATIONS
 from app.core.security import hash_personal_access_token
 from app.models import PersonalAccessToken, UserNew
 
@@ -147,3 +148,64 @@ def test_create_validates_input(
     client: TestClient, admin_token: str, body: dict
 ) -> None:
     assert client.post(URL, json=body, headers=_bearer(admin_token)).status_code == 422
+
+
+def _guarded_routes() -> set[tuple[str, str]]:
+    # app.routes includes routers lazily, so read the routers that hold the guard
+    from fastapi.routing import APIRoute
+
+    from app.api.v1.endpoints import auth, personal_access_tokens, users
+    from app.core.deps import reject_personal_access_token
+
+    routers = {
+        "/api/v1/auth": auth.router,
+        "/api/v1/users": users.router,
+        "/api/v1/me/tokens": personal_access_tokens.router,
+    }
+    return {
+        (method, prefix + route.path)
+        for prefix, router in routers.items()
+        for route in router.routes
+        if isinstance(route, APIRoute)
+        and any(
+            d.call is reject_personal_access_token for d in route.dependant.dependencies
+        )
+        for method in route.methods
+    }
+
+
+def test_blocked_operations_list_matches_the_guarded_routes() -> None:
+    assert _guarded_routes() == set(PAT_BLOCKED_OPERATIONS)
+
+
+@pytest.mark.parametrize(("method", "path"), PAT_BLOCKED_OPERATIONS)
+def test_admin_pat_cannot_take_over_accounts(
+    client: TestClient,
+    admin_token: str,
+    test_user_curator: UserNew,
+    method: str,
+    path: str,
+) -> None:
+    pat = _create(client, admin_token)["token"]
+    url = path.replace("{user_id}", str(test_user_curator.id))
+
+    r = client.request(method, url, json={}, headers=_bearer(pat))
+
+    assert r.status_code == 403, r.text
+
+
+def test_admin_pat_keeps_ordinary_admin_rights(
+    client: TestClient, admin_token: str, test_user_curator: UserNew
+) -> None:
+    pat = _create(client, admin_token)["token"]
+    url = f"/api/v1/users/{test_user_curator.id}"
+
+    assert client.get("/api/v1/users/", headers=_bearer(pat)).status_code == 200
+    r = client.put(
+        f"{url}/password", json={"new_password": "x" * 12}, headers=_bearer(pat)
+    )
+    assert r.status_code == 403
+    assert (
+        client.put(url, json={"role": "admin"}, headers=_bearer(pat)).status_code == 403
+    )
+    assert client.get(url, headers=_bearer(pat)).json()["role"] == "user"

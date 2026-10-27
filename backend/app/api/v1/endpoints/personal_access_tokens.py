@@ -4,13 +4,11 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Response, status
-from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, security
+from app.core.deps import get_current_active_user, reject_personal_access_token
 from app.core.logging import get_logger
-from app.core.security import PAT_PREFIX
 from app.crud import personal_access_token as pat_crud
 from app.models import UserNew
 from app.schemas.personal_access_token import (
@@ -36,19 +34,14 @@ def list_tokens(
     "/",
     response_model=PersonalAccessTokenCreated,
     status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(reject_personal_access_token)],
 )
 def create_token(
     token_in: PersonalAccessTokenCreate,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-    credentials: HTTPAuthorizationCredentials = Depends(security),
 ) -> Any:
     """Create a token; the response is the only time its plaintext is shown."""
-    if credentials.credentials.startswith(PAT_PREFIX):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="A personal access token cannot create tokens; sign in instead",
-        )
     pat, plaintext = pat_crud.create(db, user_id=current_user.id, obj_in=token_in)
     logger.info("Personal access token created", token_id=str(pat.id))
     created = PersonalAccessTokenResponse.model_validate(pat).model_dump()

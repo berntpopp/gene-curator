@@ -32,24 +32,41 @@ security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 
 
-def _request_method(request: Request) -> str:
-    return request.method
+def _request(request: Request) -> Request:
+    return request
 
 
 _SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
+# Account and identity control a personal access token may never perform, so a leaked
+# token cannot take over accounts; every other call keeps the owner's full rights.
+PAT_BLOCKED_OPERATIONS: tuple[tuple[str, str], ...] = (
+    ("POST", "/api/v1/users/"),
+    ("PUT", "/api/v1/users/{user_id}"),
+    ("PUT", "/api/v1/users/{user_id}/password"),
+    ("PUT", "/api/v1/users/{user_id}/activate"),
+    ("PUT", "/api/v1/users/{user_id}/deactivate"),
+    ("PUT", "/api/v1/auth/me/password"),
+    ("POST", "/api/v1/auth/change-password"),
+    ("POST", "/api/v1/me/tokens/"),
+)
 
-def _token_user_id(db: Session, token: str, method: str) -> str | None:
-    """User id behind a JWT access token or a live personal access token, else None."""
+
+def _token_user_id(db: Session, token: str, request: Request) -> str | None:
+    """User id behind a JWT access token or a live personal access token, else None.
+
+    A personal access token marks the request (request.state.personal_access_token).
+    """
     if token.startswith(PAT_PREFIX):
         found = pat_crud.authenticate(db, token)
         if found is None:
             return None
         user_id, scopes = found
-        if "write" not in scopes and method not in _SAFE_METHODS:
+        if "write" not in scopes and request.method not in _SAFE_METHODS:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN, detail="This token is read-only"
             )
+        request.state.personal_access_token = True
         return user_id
     payload = verify_token(token)
     if payload is None or payload.get("type") == "refresh":
@@ -61,7 +78,7 @@ def _token_user_id(db: Session, token: str, method: str) -> str | None:
 def get_current_user(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(security),
-    method: str = Depends(_request_method),
+    request: Request = Depends(_request),
 ) -> UserNew:
     """
     Get current authenticated user from a JWT or personal access token (gc_pat_...).
@@ -76,7 +93,7 @@ def get_current_user(
     Raises:
         HTTPException: If token is invalid, expired, revoked or user not found
     """
-    user_id = _token_user_id(db, credentials.credentials, method)
+    user_id = _token_user_id(db, credentials.credentials, request)
     if user_id is None:
         raise credentials_exception
 
@@ -87,6 +104,17 @@ def get_current_user(
 
     set_rls_context(db, user)
     return user
+
+
+def reject_personal_access_token(
+    request: Request, _user: UserNew = Depends(get_current_user)
+) -> None:
+    """Guard for PAT_BLOCKED_OPERATIONS: only a signed-in session may call these."""
+    if getattr(request.state, "personal_access_token", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not allowed with a personal access token; sign in instead",
+        )
 
 
 def get_current_active_user(
@@ -155,7 +183,7 @@ async def get_async_db(
 def get_current_user_optional(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
-    method: str = Depends(_request_method),
+    request: Request = Depends(_request),
 ) -> UserNew | None:
     """
     Get current user optionally (doesn't raise exception if no token).
@@ -171,7 +199,7 @@ def get_current_user_optional(
         return None
 
     try:
-        user_id = _token_user_id(db, credentials.credentials, method)
+        user_id = _token_user_id(db, credentials.credentials, request)
         if user_id is None:
             return None
 

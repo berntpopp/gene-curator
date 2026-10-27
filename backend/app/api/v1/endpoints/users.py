@@ -11,7 +11,11 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, get_current_admin_user
+from app.core.deps import (
+    get_current_active_user,
+    get_current_admin_user,
+    reject_personal_access_token,
+)
 from app.core.search_text import MAX_SEARCH, NO_NUL
 from app.crud.user import user_crud
 from app.models import User
@@ -101,7 +105,12 @@ async def get_user(
     return user
 
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(reject_personal_access_token)],
+)
 async def create_user(
     user_data: UserCreate,
     db: Session = Depends(get_db),
@@ -122,7 +131,11 @@ async def create_user(
     return user
 
 
-@router.put("/{user_id}", response_model=UserResponse)
+@router.put(
+    "/{user_id}",
+    response_model=UserResponse,
+    dependencies=[Depends(reject_personal_access_token)],
+)
 async def update_user(
     user_id: UUID,
     user_data: UserUpdate,
@@ -166,7 +179,7 @@ async def update_user(
     return updated_user
 
 
-@router.put("/{user_id}/password")
+@router.put("/{user_id}/password", dependencies=[Depends(reject_personal_access_token)])
 async def update_user_password(
     user_id: UUID,
     body: PasswordUpdate,
@@ -186,7 +199,7 @@ async def update_user_password(
     return {"message": "Password updated successfully"}
 
 
-@router.put("/{user_id}/activate")
+@router.put("/{user_id}/activate", dependencies=[Depends(reject_personal_access_token)])
 async def activate_user(
     user_id: UUID,
     db: Session = Depends(get_db),
@@ -207,7 +220,9 @@ async def activate_user(
     return {"message": "User activated successfully"}
 
 
-@router.put("/{user_id}/deactivate")
+@router.put(
+    "/{user_id}/deactivate", dependencies=[Depends(reject_personal_access_token)]
+)
 async def deactivate_user(
     user_id: UUID,
     db: Session = Depends(get_db),
