@@ -7492,14 +7492,18 @@ export interface components {
             /**
              * Expires At
              * Format: date-time
-             * @description Required; must be in the future
+             * @description Required; in the future, at most 365 days ahead
              */
             expires_at: string;
             /**
              * Scopes
              * @description 'read' alone makes the token read-only; scopes never add rights
+             * @default [
+             *       "read",
+             *       "write"
+             *     ]
              */
-            scopes?: ("read" | "write")[];
+            scopes: ("read" | "write")[];
         };
         /**
          * PersonalAccessTokenCreated

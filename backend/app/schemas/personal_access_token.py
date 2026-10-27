@@ -1,18 +1,19 @@
 """Pydantic schemas for personal access tokens (#462)."""
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Literal
 from uuid import UUID
 
 from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validator
 
 TokenScope = Literal["read", "write"]
+MAX_TOKEN_LIFETIME = timedelta(days=365)
 
 
 class PersonalAccessTokenCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     expires_at: AwareDatetime = Field(
-        ..., description="Required; must be in the future"
+        ..., description="Required; in the future, at most 365 days ahead"
     )
     scopes: list[TokenScope] = Field(
         default=["read", "write"],
@@ -23,8 +24,11 @@ class PersonalAccessTokenCreate(BaseModel):
     @field_validator("expires_at")
     @classmethod
     def _in_future(cls, value: datetime) -> datetime:
-        if value <= datetime.now(UTC):
+        now = datetime.now(UTC)
+        if value <= now:
             raise ValueError("expires_at must be in the future")
+        if value > now + MAX_TOKEN_LIFETIME:
+            raise ValueError("expires_at must be at most 365 days from now")
         return value
 
 

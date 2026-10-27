@@ -66,6 +66,12 @@ def test_pat_authenticates_as_owner_and_stamps_last_used(
     assert client.get(URL, headers=_bearer(admin_token)).json()[0]["last_used_at"]
 
 
+def test_expiry_up_to_365_days_is_accepted(
+    client: TestClient, admin_token: str
+) -> None:
+    _create(client, admin_token, expires_at=_future(364))
+
+
 def test_pat_cannot_create_tokens(client: TestClient, admin_token: str) -> None:
     token = _create(client, admin_token)["token"]
 
@@ -138,10 +144,11 @@ def test_users_cannot_see_or_revoke_each_others_tokens(
             "name": "x",
             "expires_at": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
         },
-        {"name": "x", "expires_at": "2099-01-01T00:00:00"},
-        {"name": "x", "expires_at": "2099-01-01T00:00:00Z", "scopes": ["admin"]},
-        {"name": "x", "expires_at": "2099-01-01T00:00:00Z", "scopes": []},
-        {"name": "", "expires_at": "2099-01-01T00:00:00Z"},
+        {"name": "x", "expires_at": _future(366)},
+        {"name": "x", "expires_at": "2026-12-01T00:00:00"},
+        {"name": "x", "expires_at": _future(), "scopes": ["admin"]},
+        {"name": "x", "expires_at": _future(), "scopes": []},
+        {"name": "", "expires_at": _future()},
     ],
 )
 def test_create_validates_input(

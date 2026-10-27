@@ -114,7 +114,7 @@
 
   const expiryOptions = [7, 30, 90, 365].map(d => ({ title: `${d} days`, value: d }))
   const name = ref('')
-  const days = ref(30)
+  const days = ref(90)
   const readOnly = ref(false)
   const creating = ref(false)
   const plaintext = ref('')

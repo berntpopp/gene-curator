@@ -74,7 +74,8 @@ describe('AccessTokens view', () => {
     const sent = api.create.mock.calls[0]![0]
     expect(sent.name).toBe('cli')
     expect(sent.scopes).toEqual(['read'])
-    expect(new Date(sent.expires_at).getTime()).toBeGreaterThan(Date.now())
+    const days = (new Date(sent.expires_at).getTime() - Date.now()) / 86_400_000
+    expect(Math.round(days)).toBe(90) // default expiry
     expect(vm.showToken).toBe(true)
     expect(vm.plaintext).toBe(SECRET)
     expect(useTokensStore().tokens[0]).not.toHaveProperty('token')
