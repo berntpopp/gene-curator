@@ -256,8 +256,8 @@ def test_viewer_and_curator_cannot_send_work_back_from_review(
 
 
 def test_non_member_is_denied_not_a_500(client: TestClient, w: W) -> None:
-    """Private scope: RLS hides the work (404, like every hidden row). Public scope: the
-    outsider can read it but not review it (403)."""
+    """RLS hides work in progress from outsiders (404, like every hidden row), in a public
+    scope too (054); either way nothing changes."""
     approve = f"/api/v1/precurations/{w.pre}/approve"
     move = f"/api/v1/workflow/curation/{w.cur}/transition"
     body = {"target_stage": "curation"}
@@ -265,7 +265,7 @@ def test_non_member_is_denied_not_a_500(client: TestClient, w: W) -> None:
     with _owner() as conn, conn.cursor() as cur:
         cur.execute("UPDATE scopes SET is_public = true WHERE id = %s", (str(w.scope),))
     r = client.post(approve, headers=_h(w.frank))
-    assert r.status_code == 403, r.text
+    assert r.status_code == 404, r.text
     r = client.post(move, json=body, headers=_h(w.frank))
     assert r.status_code in (400, 403), r.text
     assert (

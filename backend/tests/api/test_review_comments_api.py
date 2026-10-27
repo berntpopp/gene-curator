@@ -589,3 +589,26 @@ def test_baseline_is_the_requesters_own_latest_review_then_anyones_then_the_prev
     assert theirs["items"][0]["before"] == 2  # the second reviewer saw a later version
     assert newcomer["baseline"]["source"] == "any_review"
     assert newcomer["items"][0]["before"] == 2  # latest decision by anyone
+
+
+def test_only_the_reviewer_who_accepted_may_withdraw_it(
+    client: TestClient,
+    db_session: Session,
+    test_scope: Scope,
+    reviewer: UserNew,
+    test_curation: CurationNew,
+) -> None:
+    """#375: withdrawing is the accepting reviewer's own decision, never another reviewer's or a
+    scope admin's (there is no withdrawn_by to record who did it)."""
+    made = _accept(client, reviewer, test_curation)
+    url = _url(test_curation, f"/{made['id']}")
+    for role in ("reviewer", "admin"):
+        other = _member(db_session, test_scope, role)
+        response = client.patch(url, json={"status": "resolved"}, headers=_auth(other))
+        assert response.status_code == 403, role
+    assert (
+        client.patch(url, json={"status": "resolved"}, headers=_auth(reviewer)).json()[
+            "status"
+        ]
+        == "resolved"
+    )
