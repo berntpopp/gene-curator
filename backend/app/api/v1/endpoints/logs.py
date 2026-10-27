@@ -24,8 +24,7 @@ from app.core.constants import (
     EXPORT_FORMAT_JSON,
     VALID_EXPORT_FORMATS,
 )
-from app.core.database import get_async_db
-from app.core.deps import get_current_active_user
+from app.core.deps import get_async_db, get_current_active_user
 from app.core.search_text import SearchText
 from app.crud import logs as crud_logs
 from app.models.models import UserNew, UserRoleNew
