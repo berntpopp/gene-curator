@@ -19,6 +19,8 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -174,6 +176,10 @@ class WorkflowPair(Base):
 
     # Status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, index=True)
+    # create_scope uses it when no pair is given; at most one (062)
+    is_default: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
 
     # Relationships
     creator: Mapped["UserNew | None"] = relationship(
@@ -203,6 +209,13 @@ class WorkflowPair(Base):
 
     __table_args__ = (
         UniqueConstraint("name", "version", name="uq_workflow_pair_name_version"),
+        Index(
+            "uq_workflow_pairs_single_default",
+            text("(true)"),
+            unique=True,
+            postgresql_where=text("is_default"),
+            sqlite_where=text("is_default"),
+        ),
     )
 
 

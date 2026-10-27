@@ -17,7 +17,14 @@ from sqlalchemy.orm import Session
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.models import Scope, ScopeMembership, UserNew
+from app.models import (
+    AuditLogNew,
+    NotificationNew,
+    NotificationType,
+    Scope,
+    ScopeMembership,
+    UserNew,
+)
 from app.schemas.scope_membership import (
     ScopeMemberListResponse,
     ScopeMembershipCreate,
@@ -60,9 +67,12 @@ class ScopeMembershipCRUD(
         scope_id: UUID,
         invited_by_id: UUID,
         obj_in: ScopeMembershipCreate,
+        direct: bool = False,
     ) -> ScopeMembership:
         """
         Create a new scope membership invitation.
+
+        direct=True adds the member already accepted, audited, and notifies them.
 
         Args:
             db: Database session
@@ -127,14 +137,37 @@ class ScopeMembershipCRUD(
             role=obj_in.role.value,
             invited_by=invited_by_id,
             invited_at=now,
-            accepted_at=None,  # Always pending - user must accept
-            expires_at=expires_at,  # Invitation expires after INVITATION_VALIDITY_DAYS
+            accepted_at=now if direct else None,  # invitations: the user must accept
+            expires_at=None if direct else expires_at,
             is_active=True,
             team_id=obj_in.team_id,
             notes=obj_in.notes,
         )
 
         db.add(membership)
+        if direct:
+            db.flush()
+            scope = db.get(Scope, scope_id)
+            db.add(
+                AuditLogNew(
+                    entity_type="scope_memberships",
+                    entity_id=membership.id,
+                    scope_id=scope_id,
+                    operation="DIRECT_ADD",
+                    changes={"user_id": str(obj_in.user_id), "role": obj_in.role.value},
+                    user_id=invited_by_id,
+                )
+            )
+            db.add(
+                NotificationNew(
+                    user_id=obj_in.user_id,
+                    type=NotificationType.SCOPE_MEMBERSHIP_ADDED,
+                    title="Added to a scope",
+                    message=f"You were added to {scope.display_name if scope else scope_id}"
+                    f" as {obj_in.role.value}",
+                    link=f"/scopes/{scope_id}",
+                )
+            )
         db.commit()
         db.refresh(membership)
 
@@ -146,6 +179,7 @@ class ScopeMembershipCRUD(
             email=obj_in.email,
             role=obj_in.role.value,
             invited_by=str(invited_by_id),
+            direct=direct,
         )
 
         return membership

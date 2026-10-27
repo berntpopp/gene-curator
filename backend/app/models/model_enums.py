@@ -30,6 +30,7 @@ class NotificationType(str, enum.Enum):
     REVISION_REQUESTED = "revision_requested"
     CURATION_APPROVED = "curation_approved"
     CURATION_REJECTED = "curation_rejected"
+    SCOPE_MEMBERSHIP_ADDED = "scope_membership_added"
 
 
 class ReviewStatus(str, enum.Enum):
