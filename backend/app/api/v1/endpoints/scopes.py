@@ -199,7 +199,7 @@ def list_scopes(
         )
 
     if current_user.role.value == "admin":  # application admins see ALL scopes
-        stmt = select(Scope)
+        stmt = select(Scope).order_by(Scope.name, Scope.id)  # stable pages
         if active_only:
             stmt = stmt.where(Scope.is_active)
         if needle:

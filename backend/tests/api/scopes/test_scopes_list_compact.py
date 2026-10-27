@@ -49,3 +49,23 @@ def test_name_filter_for_members_and_admins(
             f"/api/v1/scopes/?name={heart.name.upper()}", headers=auth_headers(caller)
         ).json()
         assert [r["id"] for r in by_name] == [str(heart.id)]
+
+
+def test_admin_pages_are_ordered_by_name_without_repeats(
+    client: TestClient, db_session: Session
+) -> None:
+    admin = make_user(db_session, role="admin")
+    for name in ("c-scope", "a-scope", "b-scope"):
+        make_scope(db_session, name=name)
+
+    pages = [
+        client.get(
+            f"/api/v1/scopes/?skip={skip}&limit=2", headers=auth_headers(admin)
+        ).json()
+        for skip in (0, 2)
+    ]
+    assert [r["name"] for page in pages for r in page] == [
+        "a-scope",
+        "b-scope",
+        "c-scope",
+    ]
