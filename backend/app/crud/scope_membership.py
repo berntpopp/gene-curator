@@ -117,7 +117,10 @@ class ScopeMembershipCRUD(
                 .scalars()
                 .first()
             )
-            if existing:
+            reusable = existing is not None and (
+                not existing.is_active or existing.accepted_at is None
+            )
+            if existing and not (direct and reusable):
                 logger.warning(
                     "Invitation creation failed: user already a member",
                     user_id=str(obj_in.user_id),
@@ -131,18 +134,20 @@ class ScopeMembershipCRUD(
         now = datetime.now(UTC)
         expires_at = now + timedelta(days=INVITATION_VALIDITY_DAYS)
 
-        membership = ScopeMembership(
-            scope_id=scope_id,
-            user_id=obj_in.user_id,  # May be None for email invitations
-            role=obj_in.role.value,
-            invited_by=invited_by_id,
-            invited_at=now,
-            accepted_at=now if direct else None,  # invitations: the user must accept
-            expires_at=None if direct else expires_at,
-            is_active=True,
-            team_id=obj_in.team_id,
-            notes=obj_in.notes,
+        # A direct add takes over a pending, expired or removed row (unique scope+user)
+        membership = existing or ScopeMembership(
+            scope_id=scope_id, user_id=obj_in.user_id
         )
+        membership.role = obj_in.role.value
+        membership.invited_by = invited_by_id
+        membership.invited_at = now
+        membership.accepted_at = (
+            now if direct else None
+        )  # invitations: user must accept
+        membership.expires_at = None if direct else expires_at
+        membership.is_active = True
+        membership.team_id = obj_in.team_id
+        membership.notes = obj_in.notes
 
         db.add(membership)
         if direct:

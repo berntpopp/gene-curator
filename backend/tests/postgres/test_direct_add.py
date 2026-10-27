@@ -145,7 +145,32 @@ def test_pending_invitation_still_grants_nothing(client: TestClient, w: W) -> No
         client.get(f"/api/v1/scopes/{w.scope}/members", headers=_h(w.c)).status_code
         == 403
     )
-    assert _add(client, w, w.sadmin, w.c).status_code == 400  # already invited
+    added = _add(client, w, w.sadmin, w.c, "reviewer")  # takes over the invitation
+    assert added.status_code == 201, added.text
+    assert added.json()["id"] == r.json()["id"]
+    assert (
+        client.get(f"/api/v1/scopes/{w.scope}/members", headers=_h(w.c)).status_code
+        == 200
+    )
+
+
+def test_re_add_after_removal(client: TestClient, w: W) -> None:
+    assert _add(client, w, w.sadmin, w.a).status_code == 201
+    gone = client.delete(
+        f"/api/v1/scopes/{w.scope}/members/{w.a}", headers=_h(w.sadmin)
+    )
+    assert gone.status_code == 204, gone.text
+    assert (
+        client.get(f"/api/v1/scopes/{w.scope}/members", headers=_h(w.a)).status_code
+        == 403
+    )
+    again = _add(client, w, w.padmin, w.a, "viewer")
+    assert again.status_code == 201, again.text
+    assert again.json()["role"] == "viewer"
+    assert (
+        client.get(f"/api/v1/scopes/{w.scope}/members", headers=_h(w.a)).status_code
+        == 200
+    )
 
 
 def test_exactly_one_default_pair_used_by_create_scope(

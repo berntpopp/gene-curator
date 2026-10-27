@@ -1,6 +1,7 @@
 """Direct member add and default workflow pair (MCP study round 1, F6), SQLite."""
 
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -108,11 +109,46 @@ def test_nobody_adds_themselves(
     )
 
 
-def test_existing_or_pending_member_is_400(
+@pytest.mark.parametrize(
+    "accepted,is_active", [(False, True), (True, False), (False, False)]
+)
+def test_pending_expired_or_removed_row_is_taken_over(
+    client: TestClient,
+    db_session: Session,
+    scope_with_admin: Scope,
+    owner: UserNew,
+    accepted: bool,
+    is_active: bool,
+) -> None:
+    user = make_user(db_session)
+    old = make_member(
+        db_session,
+        scope_with_admin,
+        user,
+        "viewer",
+        accepted=accepted,
+        is_active=is_active,
+        expires_at=datetime.now(UTC) - timedelta(days=1),
+    )
+
+    response = _add(client, scope_with_admin, owner, user, "reviewer")
+
+    assert response.status_code == 201, response.text
+    body = response.json()
+    assert body["id"] == str(old.id)
+    assert (body["role"], body["is_pending"], body["is_active"]) == (
+        "reviewer",
+        False,
+        True,
+    )
+    assert db_session.scalar(select(AuditLogNew).where(AuditLogNew.entity_id == old.id))
+
+
+def test_active_member_is_400(
     client: TestClient, db_session: Session, scope_with_admin: Scope, owner: UserNew
 ) -> None:
     user = make_user(db_session)
-    make_member(db_session, scope_with_admin, user, "viewer", accepted=False)
+    make_member(db_session, scope_with_admin, user, "viewer")
 
     response = _add(client, scope_with_admin, owner, user)
 
