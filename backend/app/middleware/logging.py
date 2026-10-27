@@ -10,11 +10,14 @@ import uuid
 from collections.abc import Awaitable, Callable
 
 from fastapi import Request, Response
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.core.logging import bind_context, clear_context, get_logger
 
 logger = get_logger(__name__)
+
+MAX_PATH_LENGTH = 2048
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -40,6 +43,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         # Generate request ID
         request_id = str(uuid.uuid4())
         request.state.request_id = request_id
+
+        # Path params reach PostgreSQL, which rejects NUL bytes with a 500 (#378)
+        path = request.scope["path"]
+        if "\x00" in path or len(path) > MAX_PATH_LENGTH:
+            too_long = len(path) > MAX_PATH_LENGTH
+            return JSONResponse(
+                status_code=414 if too_long else 400,
+                content={"detail": "Path too long" if too_long else "Invalid path"},
+                headers={"X-Request-ID": request_id},
+            )
 
         # Extract request context
         context = {
