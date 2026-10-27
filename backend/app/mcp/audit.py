@@ -117,7 +117,7 @@ _HINTS = {
     401: "the access token is invalid or expired; create a new one in the web app",
     403: "check your role with list_scopes (user_role); nobody approves their own work",
     404: "check the id; list_scopes and list_curations return valid ids",
-    409: "re-read the item (get_curation), merge your change, retry with its lock_version",
+    409: "the detail says why; a retry will not help",
     422: "fix the arguments the detail names and retry",
     429: "wait a minute and retry",
 }
@@ -130,19 +130,25 @@ _TOOL_HINTS = {
     ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
     "make and why the others are blocked",
 }
+_STALE_HINT = (
+    "re-read the item (get_curation or get_precuration), merge your change and retry"
+)
 
 
 def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     status = cause.response.status_code
     message = f"{error_code(status)}: HTTP {status}"
+    detail: Any = None
     if status < 500:  # the API's own detail, as the same user would see it
         try:
-            detail: Any = cause.response.json().get("detail")
+            detail = cause.response.json().get("detail")
         except ValueError:
             detail = None
         if detail:
             message += f": {detail}"
     hint = _TOOL_HINTS.get((tool, status)) or _HINTS.get(status)
+    if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
+        hint = _STALE_HINT
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
 
 
