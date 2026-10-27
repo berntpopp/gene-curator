@@ -9,7 +9,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import CurationNew, CurationStatus, Review, WorkflowStage
+from app.models import CurationNew, CurationStatus, Review, UserNew, WorkflowStage
 from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
@@ -147,3 +147,16 @@ def test_workflow_writes_in_inactive_scope_are_409(
         json={"decision": "approve"},
     )
     assert r.status_code == 409, r.text
+
+
+def test_scope_permissions_refuse_editing_in_inactive_scope(
+    db_session: Session, setup: tuple[CurationNew, dict[str, str]]
+) -> None:
+    from app.services.scope_permissions import ScopePermissionService
+
+    curation, _ = setup
+    admin = db_session.get(UserNew, curation.created_by)
+    assert admin is not None
+    assert (
+        ScopePermissionService.can_edit_curation(db_session, admin, curation) is False
+    )

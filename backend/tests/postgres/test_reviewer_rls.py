@@ -432,7 +432,7 @@ def test_reviewer_rejects_a_precuration_but_not_a_draft(
     assert r.status_code == 403, r.text
 
 
-def test_peer_review_in_an_inactive_scope_is_403_not_500(
+def test_peer_review_in_an_inactive_scope_is_409_not_500(
     client: TestClient, w: W
 ) -> None:
     review = uuid4()
@@ -455,7 +455,7 @@ def test_peer_review_in_an_inactive_scope_is_403_not_500(
         json={"decision": "request_changes"},
         headers=_h(w.bob),
     )
-    assert r.status_code == 403, r.text
+    assert r.status_code == 409, r.text
     assert (
         _owner_scalar("SELECT status::text FROM reviews WHERE id = %s", str(review))
         == "pending"
