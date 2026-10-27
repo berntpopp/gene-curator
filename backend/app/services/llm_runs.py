@@ -44,17 +44,124 @@ GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 # --- data sharing ---------------------------------------------------------------
 
 
-def _is_private_key(key: str) -> bool:
-    k = key.lower()
-    return k.endswith("_by") or "email" in k or "user" in k
+# The only evidence_data keys (at any depth) sent to a provider: the curation content fields
+# of the seeded schemas (014-049). Anything else, e.g. a curator_name a custom schema adds,
+# is dropped. ponytail: new schema fields need adding here; upgrade to a per-field
+# share flag in the schema when custom schemas should share more.
+SHARED_EVIDENCE_KEYS = frozenset(
+    {
+        "age",
+        "aggregate_variant_analysis",
+        "analysis_type",
+        "assay_method",
+        "autosomal_dominant_or_x_linked",
+        "autosomal_recessive",
+        "biochemical_function",
+        "case_control",
+        "case_control_data",
+        "case_level",
+        "case_level_data",
+        "cases_total",
+        "cases_with_variant",
+        "cases_with_variants",
+        "cell_culture",
+        "cell_culture_model",
+        "cell_line",
+        "cell_type",
+        "clinical_assessment",
+        "confidence_interval",
+        "consanguinity",
+        "contradictory_evidence",
+        "controls_total",
+        "controls_with_variant",
+        "controls_with_variants",
+        "de_novo",
+        "description",
+        "disease_mechanism_relevance",
+        "disease_name",
+        "disease_relevance",
+        "disease_tissue_relevance",
+        "entity_definition",
+        "ethnicity",
+        "evidence_summary",
+        "evidence_type",
+        "experimental_category",
+        "experimental_evidence",
+        "explanation",
+        "expression",
+        "expression_method",
+        "family_label",
+        "function",
+        "functional_alteration",
+        "functional_data",
+        "functional_effect",
+        "gene_function_description",
+        "genetic_evidence",
+        "human",
+        "human_phenotype_match",
+        "impact",
+        "inheritance_pattern_match",
+        "interacting_protein",
+        "interaction_method",
+        "literature_review",
+        "lod_score",
+        "lod_score_method",
+        "methods",
+        "mode_of_inheritance",
+        "model_type",
+        "models",
+        "modification",
+        "mondo_id",
+        "non_human_model_organism",
+        "non_patient_cells",
+        "odds_ratio",
+        "organism",
+        "other_variant_type",
+        "p_value",
+        "paternity_maternity_confirmed",
+        "patient_cells",
+        "pedigree_description",
+        "phase_confirmed",
+        "phenotype_observed",
+        "phenotype_rescued",
+        "phenotypes",
+        "pmid",
+        "points",
+        "predicted_or_proven_null",
+        "previous_testing",
+        "proband_counted_points",
+        "proband_label",
+        "proband_not_counted_points",
+        "proband_with_variant",
+        "protein_interaction",
+        "rescue",
+        "rescue_extent",
+        "rescue_method",
+        "score_status",
+        "segregation",
+        "segregation_data",
+        "segregations",
+        "segregations_counted",
+        "segregations_not_counted",
+        "sex",
+        "single_variant_analysis",
+        "statistical_test",
+        "study_label",
+        "tissue_organ",
+        "variant",
+        "variant_engineered",
+        "variant_tested",
+        "variant_type",
+        "zygosity",
+    }
+)
 
 
-def _public(value: Any) -> Any:
-    """Curation content without user references (keys like created_by, user_id, email)."""
+def _shared(value: Any) -> Any:
     if isinstance(value, dict):
-        return {k: _public(v) for k, v in value.items() if not _is_private_key(str(k))}
+        return {k: _shared(v) for k, v in value.items() if k in SHARED_EVIDENCE_KEYS}
     if isinstance(value, list):
-        return [_public(v) for v in value]
+        return [_shared(v) for v in value]
     return value
 
 
@@ -90,7 +197,8 @@ def _typed(name: str, value: str, trusted: bool) -> str:
 def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     """Allowlist serializer: the only curation data that ever reaches a provider.
 
-    Curation content and public IDs (HGNC, MONDO); never user names, emails or user ids.
+    Allowlisted curation content and public IDs (HGNC, MONDO); never user names,
+    emails or user ids.
     """
     gene = db.get(Gene, curation.gene_id)
     methodology = db.execute(
@@ -100,8 +208,8 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     ).first()
     evidence = curation.evidence_data or {}
     content = {
-        "evidence_data": _public(evidence),
-        "computed_scores": _public(curation.computed_scores or {}),
+        "evidence_data": _shared(evidence),
+        "computed_scores": curation.computed_scores or {},  # engine output only
         "computed_verdict": curation.computed_verdict,
     }
     disease = str(evidence.get("disease_name") or "")

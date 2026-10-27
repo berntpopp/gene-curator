@@ -116,7 +116,10 @@ def world_fixture(
         "mondo_id": "MONDO:0007254",
         "mode_of_inheritance": "autosomal dominant",
         "curator_email": "leak@private.example",
-        "notes": [{"text": "segregates", "added_by": str(admin.id)}],
+        "curator_name": "Secret Person",
+        "genetic_evidence": {
+            "case_level": [{"description": "segregates", "added_by": str(admin.id)}]
+        },
     }
     test_curation.computed_summary = "Strong evidence"
     db_session.add(settings)

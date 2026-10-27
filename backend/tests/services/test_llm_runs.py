@@ -99,7 +99,8 @@ def test_serializer_sends_content_and_public_ids_only(
     for private in ("leak@private.example", "scope.admin@private.example"):
         assert private not in sent
     assert "Secret Person" not in sent and str(world.scope_admin.id) not in sent
-    assert "added_by" not in sent and "curator_email" not in sent
+    for unknown in ("added_by", "curator_email", "curator_name"):
+        assert unknown not in sent  # not on the allowlist, at any depth
 
 
 def test_preview_needs_no_key_or_opt_in(db_session: Session, world: World) -> None:
