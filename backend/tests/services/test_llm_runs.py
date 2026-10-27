@@ -192,3 +192,34 @@ def test_curator_typed_fields_are_untrusted_unless_strict_ids(
     world.curation.evidence_data = {"mondo_id": "MONDO:0007254"}
     db_session.commit()
     assert curation_values(db_session, world.curation)["mondo_id"] == "MONDO:0007254"
+
+
+def test_pending_runs_are_priced_at_their_pinned_model(
+    db_session: Session, world: World
+) -> None:
+    from app.models.llm import LLMModel
+
+    big = LLMModel(
+        provider_id=world.provider.id,
+        model_id="big-model",
+        input_price_per_mtok_cents=Decimal(1),
+        output_price_per_mtok_cents=Decimal(1_000_000),  # 1 cent per output token
+        max_tokens=500,
+    )
+    db_session.add(big)
+    db_session.flush()
+    world.settings.model_id = big.id
+    db_session.commit()
+    enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")
+    # back to the small model: the pending run still reserves 500 tokens, 500 cents
+    world.settings.model_id = world.model.id
+    world.settings.monthly_token_cap = 550
+    db_session.commit()
+    assert _refused(db_session, world) == "monthly_token_cap"
+    world.settings.monthly_token_cap = 10_000
+    world.settings.monthly_cost_cap_cents = 500
+    db_session.commit()
+    assert _refused(db_session, world) == "monthly_cost_cap"
+    world.settings.monthly_cost_cap_cents = 501
+    db_session.commit()
+    enqueue_run(db_session, world.scope_admin, world.curation.id, "skeptic")

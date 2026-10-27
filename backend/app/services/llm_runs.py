@@ -330,17 +330,36 @@ def _reserve(db: Session, settings: ScopeLLMSettings, model: LLMModel) -> None:
     cap by its prompt size; estimate input from the rendered prompt if that matters.
     """
     start = month_start(datetime.now(UTC))
-    tokens, cost, pending = db.execute(
+    in_scope = (LLMRun.scope_id == settings.scope_id, LLMRun.created_at >= start)
+    tokens, cost = db.execute(
         select(
             func.coalesce(func.sum(LLMRun.input_tokens + LLMRun.output_tokens), 0),
             func.coalesce(func.sum(LLMRun.cost_cents), 0),
-            func.count(LLMRun.id).filter(LLMRun.status.in_(PENDING)),
-        ).where(LLMRun.scope_id == settings.scope_id, LLMRun.created_at >= start)
+        ).where(*in_scope)
     ).one()
-    worst = (int(pending) + 1) * model.max_tokens
-    if int(tokens) + worst > settings.monthly_token_cap:
+    # each pending run at its own pinned model's worst case; the current one if deleted
+    limit = func.coalesce(LLMModel.max_tokens, model.max_tokens)
+    price = func.coalesce(
+        LLMModel.output_price_per_mtok_cents, model.output_price_per_mtok_cents
+    )
+    pending_tokens, pending_cost = db.execute(
+        select(
+            func.coalesce(func.sum(limit), 0),
+            func.coalesce(func.sum(limit * price), 0),
+        )
+        .select_from(LLMRun)
+        .outerjoin(LLMModel, LLMModel.id == LLMRun.llm_model_id)
+        .where(*in_scope, LLMRun.status.in_(PENDING))
+    ).one()
+    worst_tokens = int(tokens) + int(pending_tokens) + model.max_tokens
+    if worst_tokens > settings.monthly_token_cap:
         raise LLMCapError("monthly_token_cap")
-    if Decimal(cost) + cost_cents(model, 0, worst) > settings.monthly_cost_cap_cents:
+    worst_cost = (
+        Decimal(cost)
+        + Decimal(pending_cost) / MTOK
+        + cost_cents(model, 0, model.max_tokens)
+    )
+    if worst_cost > settings.monthly_cost_cap_cents:
         raise LLMCapError("monthly_cost_cap")
 
 
