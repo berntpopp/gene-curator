@@ -106,6 +106,15 @@ describe('MemberManagement', () => {
     expect(orcid.attributes('rel')).toContain('noopener')
   })
 
+  it('uses the local calendar date for invitations across UTC midnight', async () => {
+    const localMidnight = new Date(2026, 9, 22, 0, 30)
+    vi.mocked(scopeService.fetchMembers).mockResolvedValue([
+      { ...members[1], invited_at: localMidnight.toISOString() }
+    ] as never)
+    const { wrapper } = await mountMembers()
+    expect(wrapper.text()).toContain('Invited 2026-10-22')
+  })
+
   it('explains to non-admins who manages members', async () => {
     const viewer = await mountMembers('curator')
     expect(viewer.wrapper.text()).toContain('Only scope admins can manage members.')

@@ -1,7 +1,7 @@
 <template>
   <v-container fluid class="pa-6">
     <!-- Header -->
-    <div class="d-flex align-center mb-6">
+    <div class="d-flex align-center flex-wrap ga-3 mb-6">
       <div>
         <h1 class="page-title text-headline-large font-weight-bold">Review Queue</h1>
         <p class="text-body-large text-medium-emphasis mt-1">Curations awaiting peer review</p>
@@ -103,7 +103,7 @@
             <v-row align="center">
               <!-- Gene & Disease Info -->
               <v-col cols="12" md="4">
-                <div class="d-flex align-center mb-2">
+                <div class="d-flex align-center flex-wrap ga-1 mb-2">
                   <v-icon icon="mdi-dna" color="primary" class="mr-2" />
                   <span class="text-title-large font-weight-bold">{{ curation.gene_symbol }}</span>
                   <v-chip
@@ -554,6 +554,11 @@
 </script>
 
 <style scoped>
+  .page-title,
+  [data-testid='review-row'] {
+    overflow-wrap: anywhere;
+  }
+
   .v-card:hover {
     border-color: rgb(var(--v-theme-primary));
   }
