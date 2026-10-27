@@ -7,6 +7,7 @@ the API with the caller's own token (see server._as_caller).
 from collections.abc import Callable, Generator, Iterator
 from contextlib import contextmanager
 from typing import Any, cast
+from uuid import UUID
 
 from fastapi import FastAPI
 from fastmcp.server.auth import AccessToken, TokenVerifier
@@ -17,7 +18,7 @@ from starlette.concurrency import run_in_threadpool
 from app.core.database import apply_rls_user, get_db
 from app.core.security import PAT_PREFIX, hash_personal_access_token
 from app.crud import personal_access_token as pat_crud
-from app.models import PersonalAccessToken
+from app.models import PersonalAccessToken, UserNew
 
 
 @contextmanager
@@ -34,11 +35,14 @@ def _session(app: FastAPI) -> Iterator[Session]:
         gen.close()
 
 
-def pat_user(app: FastAPI, token: str) -> str | None:
-    """Owner id of a live token for the rate limiter: one lookup, nothing committed."""
+def pat_user(app: FastAPI, token: str) -> tuple[str, str] | None:
+    """(owner id, application role) of a live token for the rate limiter; no commit."""
     with _session(app) as db:
         found = pat_crud.authenticate(db, token)
-        return found[0] if found else None
+        if found is None:
+            return None
+        role = db.scalar(select(UserNew.role).where(UserNew.id == UUID(found[0])))
+        return found[0], str(getattr(role, "value", role))
 
 
 def pat_owner(app: FastAPI, token: str) -> tuple[str, list[str], str] | None:

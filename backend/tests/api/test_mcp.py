@@ -293,3 +293,29 @@ def test_personal_access_tokens_share_their_owners_rate_limit_bucket(
     codes = [client.get("/api/v1/auth/me", headers=me).status_code for _ in range(3)]
     assert codes == [200, 200, 429]
     assert client.get("/").status_code == 200  # the IP bucket is separate
+
+
+def test_an_admins_token_gets_the_admin_tier(
+    client: TestClient,
+    db_session: Session,
+    test_user_admin: UserNew,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.core.api_config import FeatureFlagsConfig, RateLimitConfig
+
+    monkeypatch.setattr(
+        "app.middleware.rate_limit.get_feature_flags",
+        lambda: FeatureFlagsConfig(enable_rate_limiting=True),
+    )
+    tiers = {
+        "default": RateLimitConfig(requests_per_minute=1, burst_size=100),
+        "authenticated": RateLimitConfig(requests_per_minute=1, burst_size=1),
+        "admin": RateLimitConfig(requests_per_minute=1, burst_size=2),
+    }
+    monkeypatch.setattr(
+        "app.middleware.rate_limit.get_rate_limit", lambda tier: tiers[tier]
+    )
+    monkeypatch.setattr(app, "middleware_stack", None)
+    me = {"Authorization": f"Bearer {pat(db_session, test_user_admin)}"}
+    codes = [client.get("/api/v1/auth/me", headers=me).status_code for _ in range(3)]
+    assert codes == [200, 200, 429]

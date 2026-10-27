@@ -44,8 +44,9 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             else None
         )
         payload = verify_token(bearer) if bearer and pat is None else None
-        if pat:  # personal access tokens share their owner's bucket
-            key, tier = f"user:{pat}", "authenticated"
+        if pat:  # personal access tokens share their owner's bucket and tier
+            key = f"user:{pat[0]}"
+            tier = "admin" if pat[1] == "admin" else "authenticated"
         # Refresh tokens are not bearer credentials: they stay in the IP bucket
         elif payload and payload.get("sub") and payload.get("type") != "refresh":
             key = f"user:{payload['sub']}"
