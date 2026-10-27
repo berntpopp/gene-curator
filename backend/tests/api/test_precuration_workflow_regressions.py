@@ -241,3 +241,23 @@ def test_reject_reason_is_bounded_like_review_text(
         headers=auth_headers(test_user_admin),
     )
     assert response.status_code == expected, response.text
+
+
+def test_self_approval_by_curator_names_the_4_eyes_rule(
+    client: TestClient,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+    test_user_curator: UserNew,
+):
+    """#393: the creator learns why (4-eyes), not a generic scope denial."""
+    assert test_precuration.created_by == test_user_curator.id
+    test_precuration.status = CurationStatus.SUBMITTED
+    db_session.commit()
+    response = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/approve",
+        headers=auth_headers(test_user_curator),
+    )
+    assert response.status_code == 403
+    assert "4-eyes" in response.json()["detail"]
+    db_session.refresh(test_precuration)
+    assert test_precuration.status == CurationStatus.SUBMITTED

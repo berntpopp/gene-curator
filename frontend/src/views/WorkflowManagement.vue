@@ -234,7 +234,7 @@
         <v-select
           v-model="newWorkflow.precuration_schema_id"
           :items="precurationSchemas"
-          item-title="name"
+          item-title="title"
           item-value="id"
           label="Precuration Schema"
           variant="outlined"
@@ -245,7 +245,7 @@
         <v-select
           v-model="newWorkflow.curation_schema_id"
           :items="curationSchemas"
-          item-title="name"
+          item-title="title"
           item-value="id"
           label="Curation Schema"
           variant="outlined"
@@ -285,6 +285,11 @@
   interface SchemaOption {
     id: string
     name: string
+    version?: string
+    created_at?: string | null
+    is_active?: boolean
+    /** Picker label: name and version, plus the creation date when those repeat (#471). */
+    title?: string
   }
 
   const schemasStore = useSchemasStore()
@@ -329,12 +334,27 @@
   const workflowPairs = computed((): WorkflowRow[] => schemasStore.workflowPairs || [])
   const workflowStages = computed(() => workflowStore.workflowStages || [])
   // Admin pages load inactive schemas too, but a pair may only reference active ones
-  const precurationSchemas = computed((): SchemaOption[] =>
-    (schemasStore.getPrecurationSchemas || []).filter(s => s.is_active)
-  )
-  const curationSchemas = computed((): SchemaOption[] =>
-    (schemasStore.getCurationSchemas || []).filter(s => s.is_active)
-  )
+  // Linked schemas cannot change later, so every option must be unambiguous and keep its place
+  function schemaOptions(all: SchemaOption[]): SchemaOption[] {
+    const key = (s: SchemaOption) => `${s.name} · v${s.version ?? '?'}`
+    const repeats = (s: SchemaOption) =>
+      all.filter(o => o.is_active && key(o) === key(s)).length > 1
+    return all
+      .filter(s => s.is_active)
+      .sort(
+        (a, b) =>
+          a.name.localeCompare(b.name) ||
+          (a.version ?? '').localeCompare(b.version ?? '', undefined, { numeric: true }) ||
+          (a.created_at ?? '').localeCompare(b.created_at ?? '') ||
+          a.id.localeCompare(b.id)
+      )
+      .map(s => ({
+        ...s,
+        title: repeats(s) ? `${key(s)} · created ${formatDateTime(s.created_at)}` : key(s)
+      }))
+  }
+  const precurationSchemas = computed(() => schemaOptions(schemasStore.getPrecurationSchemas || []))
+  const curationSchemas = computed(() => schemaOptions(schemasStore.getCurationSchemas || []))
 
   // Error boundary for component-level errors
   onErrorCaptured((err, instance, info) => {
