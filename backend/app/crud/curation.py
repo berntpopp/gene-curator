@@ -34,10 +34,8 @@ from app.schemas.curation import (
     CurationUpdate,
     disease_fields,
 )
-from app.scoring.base import ScoringEngine
-from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
 from app.scoring.point_limits import scoring_configuration
-from app.scoring.registry import scoring_registry
+from app.scoring.registry import engine_for
 
 logger = get_logger(__name__)
 
@@ -73,13 +71,6 @@ def get_disease_fields(
     return disease_fields(evidence, precuration_evidence)
 
 
-def _engine(config: dict[str, Any]) -> ScoringEngine:
-    """The engine the schema's scoring_configuration names; ClinGen when it names none."""
-    name = str(config.get("engine") or ENGINE_NAME)
-    # schema_rules rejects unknown engine names at publish time
-    return scoring_registry.get_engine(name) or ClinGenEngine()
-
-
 def _computed(
     db: Session, curation: CurationNew, evidence_data: dict[str, Any]
 ) -> dict[str, Any]:
@@ -87,7 +78,7 @@ def _computed(
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )
-    result = _engine(config).calculate_scores(evidence_data, config)
+    result = engine_for(config).calculate_scores(evidence_data, config)
     return {
         "computed_scores": {**result.scores, **result.evidence_breakdown},
         "computed_verdict": result.verdict,
@@ -466,7 +457,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         config = scoring_configuration(
             db, db_obj.workflow_pair_id, db_obj.methodology_version_id
         )
-        result = (scoring_engine or _engine(config)).calculate_scores(
+        result = (scoring_engine or engine_for(config)).calculate_scores(
             evidence_data=db_obj.evidence_data,
             schema_config=config,
             scope_context=None,

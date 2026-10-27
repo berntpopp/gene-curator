@@ -44,3 +44,22 @@ def test_missing_engine_falls_back_to_clingen(
     monkeypatch.setattr(curation_module, "scoring_configuration", lambda *_args: {})
     _update_computed_scores(db_session, test_curation)
     assert "genetic_evidence_total" in test_curation.computed_scores
+
+
+def test_engine_for_resolves_the_configured_engine(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    from app.scoring.registry import engine_for
+
+    assert engine_for({"engine": "gencc_based"}).name == "gencc_based"
+    assert engine_for({}).name == "clingen_sop_v11"
+    assert "Unknown scoring engine" not in caplog.text
+    assert engine_for({"engine": "nope"}).name == "clingen_sop_v11"
+    assert "Unknown scoring engine" in caplog.text and "nope" in caplog.text
+
+
+def test_publish_gate_scores_with_the_schema_engine() -> None:
+    from app.crud.schema_repository import _score
+
+    result = _score({}, {"engine": "qualitative_assessment"})
+    assert result.verdict == "Insufficient Evidence"

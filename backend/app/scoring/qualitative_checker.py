@@ -82,8 +82,8 @@ class QualitativeWarningChecker:
             List of warnings for missing assessments
         """
         warnings = []
-        clinical = evidence_data.get("clinical_assessment", {})
-        literature = evidence_data.get("literature_review", {})
+        clinical = evidence_data.get("clinical_assessment") or {}
+        literature = evidence_data.get("literature_review") or {}
 
         if not clinical:
             warnings.append(
@@ -212,8 +212,8 @@ class QualitativeWarningChecker:
             List of warnings for low confidence indicators
         """
         warnings: list[AssessmentWarning] = []
-        clinical = evidence_data.get("clinical_assessment", {})
-        literature = evidence_data.get("literature_review", {})
+        clinical: Any = evidence_data.get("clinical_assessment") or {}
+        literature: Any = evidence_data.get("literature_review") or {}
 
         if not (clinical or literature):
             return warnings
@@ -245,7 +245,7 @@ class QualitativeWarningChecker:
         ]
 
         for pattern in low_confidence_patterns:
-            field_value = pattern["data"].get(pattern["field"], "").lower()
+            field_value = str(pattern["data"].get(pattern["field"]) or "").lower()
             if any(bad_val in field_value for bad_val in pattern["bad_values"]):
                 warnings.append(
                     AssessmentWarning(
