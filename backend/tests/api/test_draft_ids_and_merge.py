@@ -534,3 +534,31 @@ def test_precuration_put_merges_and_warns(
         "refs": [3],
     }
     assert [w["path"] for w in r.json()["warnings"]] == ["refs"]
+
+
+def test_a_failed_cache_insert_keeps_the_save(
+    client: TestClient,
+    admin_token: str,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    async def fetch(self: PublicationService, pmid: str) -> PMIDValidationResult:
+        data = PublicationData(pmid=pmid, title="T", journal="J")
+        return PMIDValidationResult(pmid=pmid, is_valid=True, publication=data)
+
+    real_row = publication_service.publication_row
+    online.setattr(PublicationService, "fetch_publication", fetch)
+    online.setattr(
+        publication_service,
+        "publication_row",
+        lambda data: {**real_row(data), "title": None},
+    )
+    r = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data=_evidence("31000004"),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["computed_scores"]["total_score"] == 2

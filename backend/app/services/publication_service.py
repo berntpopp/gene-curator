@@ -19,6 +19,7 @@ import httpx
 from sqlalchemy import select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
@@ -423,19 +424,41 @@ def publication_row(data: PublicationData) -> dict[str, Any]:
     }
 
 
+def _fit(row: dict[str, Any]) -> dict[str, Any]:
+    """Strings cut to their column's length (Europe PMC pages or dates can be longer)."""
+    columns = Publication.__table__.c
+    return {
+        key: value[:length]
+        if isinstance(value, str)
+        and (length := getattr(columns[key].type, "length", None))
+        else value
+        for key, value in row.items()
+    }
+
+
 def _cache_found(db: Session, results: list[PMIDValidationResult]) -> None:
-    """Store found PMIDs so later saves, previews and submits skip Europe PMC."""
+    """Store found PMIDs so later saves, previews and submits skip Europe PMC. Best effort:
+    a failed insert rolls back only its savepoint, never the caller's save."""
     rows = [
-        publication_row(r.publication) for r in results if r.is_valid and r.publication
+        _fit(publication_row(r.publication))
+        for r in results
+        if r.is_valid and r.publication
     ]
-    if rows:
-        insert = (
-            pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
-        )
-        db.execute(
-            insert(Publication)
-            .values(rows)
-            .on_conflict_do_nothing(index_elements=["pmid"])
+    if not rows:
+        return
+    insert = pg_insert if db.get_bind().dialect.name == "postgresql" else sqlite_insert
+    try:
+        with db.begin_nested():
+            db.execute(
+                insert(Publication)
+                .values(rows)
+                .on_conflict_do_nothing(index_elements=["pmid"])
+            )
+    except SQLAlchemyError as e:
+        logger.warning(
+            "PMID cache insert failed",
+            pmids=[row["pmid"] for row in rows],
+            error=str(e),
         )
 
 

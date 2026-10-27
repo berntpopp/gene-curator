@@ -155,3 +155,66 @@ def test_app_user_caches_found_pmids(
     finally:
         with _owner() as conn, conn.cursor() as cur:
             cur.execute("DELETE FROM publications WHERE pmid = %s", (pmid,))
+
+
+def test_a_failed_cache_insert_never_fails_the_save(
+    client: TestClient, w: W, monkeypatch: MonkeyPatch
+) -> None:
+    async def fetch(self: PublicationService, pmid: str) -> PMIDValidationResult:
+        data = PublicationData(pmid=pmid, title="T", journal="J", pages="1-" + "9" * 80)
+        return PMIDValidationResult(pmid=pmid, is_valid=True, publication=data)
+
+    monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
+    monkeypatch.setattr(evidence_ids, "lookup_pmids", publication_service.lookup_pmids)
+    long_pmid, broken_pmid = (str(700000000 + w.scope.int % 10**8 + i) for i in (0, 1))
+    h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
+    r = client.post(
+        "/api/v1/curations/",
+        json={
+            "gene_id": str(w.gene),
+            "scope_id": str(w.scope),
+            "workflow_pair_id": w.pair,
+            "evidence_data": {},
+        },
+        headers=h,
+    )
+    assert r.status_code == 201, r.text
+    cid, version = r.json()["id"], r.json()["lock_version"]
+
+    def save(pmid: str) -> Any:
+        body = {
+            "evidence_data": {"genetic_evidence": _rows(pmid)},
+            "lock_version": version,
+        }
+        return client.patch(
+            f"/api/v1/curations/{cid}/draft?detail=true", json=body, headers=h
+        )
+
+    try:
+        r = save(long_pmid)  # pages longer than VARCHAR(50): cached cut to fit
+        assert r.status_code == 200, r.text
+        version = r.json()["lock_version"]
+        real_row = publication_service.publication_row
+        monkeypatch.setattr(
+            publication_service,
+            "publication_row",
+            lambda data: {
+                **real_row(data),
+                "title": None,
+            },  # NOT NULL: the insert fails
+        )
+        r = save(broken_pmid)
+        assert r.status_code == 200, r.text
+        assert r.json()["evidence_data"]["genetic_evidence"] == _rows(broken_pmid)
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT pmid, length(pages) FROM publications WHERE pmid IN (%s, %s)",
+                (long_pmid, broken_pmid),
+            )
+            assert cur.fetchall() == [(long_pmid, 50)]
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "DELETE FROM publications WHERE pmid IN (%s, %s)",
+                (long_pmid, broken_pmid),
+            )
