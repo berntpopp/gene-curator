@@ -342,6 +342,9 @@ class PublicationSearchHit(BaseModel):
     journal: str
     year: int | None = None
     abstract_snippet: str | None = Field(None, description="First 300 characters")
+    pub_type: str | None = Field(
+        None, description="Publication type, e.g. case reports, review, journal article"
+    )
 
 
 class PublicationSearchResponse(BaseModel):

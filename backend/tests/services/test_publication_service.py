@@ -98,7 +98,7 @@ def test_parse_full_publication_record() -> None:
     assert data.pmid == "123"
     assert data.authors == ["Smith J"]  # blank and name-less entries dropped
     assert data.year == 2021
-    assert data.pub_type == "Journal Article"
+    assert data.pub_type == "Review"  # the most telling type, not "Journal Article"
     assert data.is_open_access is True
     assert data.cited_by_count == 7
     assert data.publication_date == "2021-02-01"
@@ -318,3 +318,21 @@ async def test_get_publication_cache_then_api_then_none() -> None:
     missing = await svc.get_publication("123")
     await svc.close()
     assert missing is None
+
+
+@pytest.mark.asyncio
+async def test_get_publication_adds_the_abstract_to_a_row_cached_without_it() -> None:
+    db = _db()
+    _row(db, _publication("123"))  # cached by an older lookup, no abstract
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=ARTICLE)
+
+    svc = _service(handler, db)
+    pub = await svc.get_publication("123")
+    await svc.close()
+    assert pub is not None and pub.abstract == "Abstract."
+    assert seen[0].url.params["resultType"] == "core"
+    db.commit.assert_awaited()  # the cached row now holds the abstract

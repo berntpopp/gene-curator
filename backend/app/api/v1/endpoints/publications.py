@@ -127,8 +127,9 @@ def search_pubmed(
     db: Session = Depends(get_db),
 ) -> PublicationSearchResponse:
     """Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
-    terms, all of which must match. Returns pmid, title, journal, year and an abstract
-    snippet, best match first; the records are cached, so validate_pmids knows them."""
+    terms, all of which must match. Returns pmid, title, journal, year, publication type
+    (case report or cohort) and an abstract snippet, best match first; get_publication
+    returns the full abstract. Records are cached, so validate_pmids knows them."""
     if not any(p and p.strip() for p in (query, gene_symbol, disease)):
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT,
@@ -153,6 +154,7 @@ def search_pubmed(
                 journal=p.journal,
                 year=p.year,
                 abstract_snippet=p.abstract[:300] if p.abstract else None,
+                pub_type=p.pub_type,
             )
             for p in found
         ],

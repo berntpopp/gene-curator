@@ -21,6 +21,7 @@ ROW = {
     "journalInfo": {"journal": {"title": "Kidney International"}},
     "pubYear": "2019",
     "abstractText": "A" * 400,
+    "pubTypeList": {"pubType": ["Journal Article", "Case Reports"]},
 }
 
 
@@ -56,6 +57,7 @@ def test_search_by_gene_and_disease_returns_short_rows_and_caches_them(
         "journal": "Kidney International",
         "year": 2019,
         "abstract_snippet": "A" * 300,
+        "pub_type": "Case Reports",
     }
     assert calls[0]["pageSize"] == 5
     cached = db_session.scalars(select(Publication.pmid)).all()
