@@ -235,6 +235,7 @@ def test_score_returns_trace_that_sums_to_the_total(
     assert r.status_code == 200, r.text
     body = r.json()
     trace = body["trace"]
+    assert "trace" not in body["breakdown"]  # the trace is sent once
     assert trace["total"] == body["total_score"] == 2
     assert sum(s["score"] for s in trace["sections"]) == trace["raw_total"]
     for section in trace["sections"]:

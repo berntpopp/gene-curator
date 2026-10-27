@@ -554,7 +554,7 @@ def calculate_score(
     _check_scope_access(db, current_user, curation.scope_id, "calculate score for")
 
     result = curation_crud.calculate_score(db, curation)
-    result.trace = result.breakdown.get("trace")
+    result.trace = result.breakdown.pop("trace", None)  # sent once, at the top
     return result
 
 
