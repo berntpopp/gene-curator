@@ -44,8 +44,12 @@
         :saving="false"
         :saved-at="null"
       />
-      <p v-if="gene?.hgnc_id" class="text-body-small mb-4">
+      <p class="text-body-small mb-4">
+        <span v-if="status" data-testid="precuration-status" class="mr-3">
+          Status: {{ curationStatusLabel(status) }}
+        </span>
         <a
+          v-if="gene?.hgnc_id"
           :href="`https://www.genenames.org/data/gene-symbol-report/#!/hgnc_id/${gene.hgnc_id}`"
           target="_blank"
           rel="noopener"
@@ -63,6 +67,47 @@
       >
         {{ readonlyReason }}
       </v-alert>
+
+      <div v-if="canReview" class="d-flex flex-wrap align-center ga-2 mb-4">
+        <span class="text-body-medium">This precuration is waiting for your review.</span>
+        <v-spacer />
+        <v-btn variant="outlined" data-testid="reject-precuration" @click="openReject">
+          Request changes
+        </v-btn>
+        <v-btn
+          color="primary"
+          variant="flat"
+          :loading="reviewBusy"
+          data-testid="approve-precuration"
+          @click="approve"
+        >
+          Approve
+        </v-btn>
+      </div>
+
+      <BaseDialog v-model="showReject" title="Request changes?" size="md">
+        <v-textarea
+          v-model="rejectReason"
+          label="Feedback for the curator"
+          rows="3"
+          :maxlength="REVIEW_TEXT_MAX"
+          :counter="REVIEW_TEXT_MAX"
+        />
+        <v-alert v-if="reviewError" type="error" variant="tonal">{{ reviewError }}</v-alert>
+        <template #actions>
+          <v-btn variant="text" @click="showReject = false">Cancel</v-btn>
+          <v-btn
+            color="primary"
+            variant="flat"
+            :loading="reviewBusy"
+            :disabled="!rejectReason.trim()"
+            data-testid="reject-confirm"
+            @click="confirmReject"
+          >
+            Request changes
+          </v-btn>
+        </template>
+      </BaseDialog>
 
       <v-alert
         v-if="sentBackReason"
@@ -134,6 +179,13 @@
   import WorkspaceHeader from '@/components/workspace/WorkspaceHeader.vue'
   import NoCurateAccess from '@/components/workspace/NoCurateAccess.vue'
   import { useCurateGuard } from '@/components/workspace/useCurateGuard'
+  import BaseDialog from '@/components/BaseDialog.vue'
+  import { REVIEW_TEXT_MAX } from '@/components/review/reviewModel'
+  import { curationStatusLabel } from '@/config/status'
+  import { useConfirm } from '@/composables/useConfirm'
+  import { useScopesStore } from '@/stores/scopes'
+  import { useWorkCountsStore } from '@/stores/workCounts'
+  import { readableApiError } from '@/utils/apiErrorText'
 
   interface ScopeRecord {
     default_workflow_pair_id?: string | null
@@ -191,6 +243,53 @@
   // Why the form is read-only; empty when the user may edit it
   const readonlyReason = ref('')
   const readonly = computed(() => !!readonlyReason.value)
+  const status = ref<string | null>(null)
+  // A scope reviewer or admin may review someone else's submitted precuration here (4-eyes)
+  const canReview = ref(false)
+  const reviewBusy = ref(false)
+  const reviewError = ref<string | null>(null)
+  const showReject = ref(false)
+  const rejectReason = ref('')
+  const { confirm } = useConfirm()
+
+  async function approve() {
+    const ok = await confirm({
+      title: 'Approve precuration?',
+      text: `Approve the precuration for ${formGene.value.symbol}? This lets curation start.`,
+      confirmText: 'Approve'
+    })
+    if (ok)
+      await review(() => precurationsStore.approvePrecuration(precurationId.value!), 'approved')
+  }
+
+  function openReject() {
+    rejectReason.value = ''
+    reviewError.value = null
+    showReject.value = true
+  }
+
+  const confirmReject = () =>
+    review(
+      () => precurationsStore.rejectPrecuration(precurationId.value!, rejectReason.value.trim()),
+      'returned to the curator'
+    )
+
+  async function review(action: () => Promise<unknown>, done: string) {
+    reviewBusy.value = true
+    reviewError.value = null
+    try {
+      await action()
+      showReject.value = false
+      notificationsStore.addToast(`Precuration ${done}`, 'success')
+      useWorkCountsStore().fetch()
+      router.push({ name: 'review-queue' })
+    } catch (err) {
+      reviewError.value = readableApiError(err, 'Request failed')
+      if (!showReject.value) notificationsStore.addToast(reviewError.value, 'error')
+    } finally {
+      reviewBusy.value = false
+    }
+  }
 
   /**
    * Load scope and get precuration schema from workflow pair
@@ -302,6 +401,13 @@
               : ['submitted', 'in_review'].includes(precuration.status)
                 ? 'Read-only: this precuration is in review. It can be edited again if changes are requested.'
                 : `Read-only: this precuration is ${precuration.status}.`
+        status.value = precuration.status
+        if (!mine && precuration.status === 'submitted') {
+          const role = await useScopesStore()
+            .fetchUserRole(precuration.scope_id)
+            .catch(() => null)
+          canReview.value = role === 'reviewer' || role === 'admin'
+        }
         // The reviewer's reason stays visible while the precuration is sent back
         const { rejection_reason: reason, rejected_at: at } = precuration.computed_fields ?? {}
         const by = precuration.rejected_by_name

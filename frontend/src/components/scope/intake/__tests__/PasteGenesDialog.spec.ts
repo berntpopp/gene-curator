@@ -94,8 +94,9 @@ describe('PasteGenesDialog', () => {
     const w = await resolved()
     expect(resolve).toHaveBeenCalledWith(['G1', 'old', 'g1', 'AMB', 'NOPE'])
     expect(w.find('[data-testid=summary]').attributes('role')).toBe('status')
+    // Repeats count once, so the summary matches the Add button (#393)
     expect(w.find('[data-testid=summary]').text()).toContain(
-      '3 resolved, 1 ambiguous, 1 not found, 1 repeated'
+      '2 resolved, 1 ambiguous, 1 not found, 1 repeated. 2 selected.'
     )
     expect(w.text()).toContain('previous symbol')
     expect(w.text()).toContain('Repeats G1')
@@ -108,6 +109,8 @@ describe('PasteGenesDialog', () => {
     expect(w.find('[data-testid=add]').text()).toContain('Add 2 genes to scope')
 
     w.findAllComponents({ name: 'VSelect' })[0]!.vm.$emit('update:modelValue', 'HGNC:3')
+    await flushPromises()
+    expect(w.find('[data-testid=summary]').text()).toContain('3 selected.')
     await flushPromises()
     expect(w.find('[data-testid=add]').text()).toContain('Add 3 genes to scope')
 

@@ -9,11 +9,21 @@ vi.mock('@/api', () => ({
 }))
 
 const route = vi.hoisted(() => ({ params: {} as Record<string, string>, query: {} }))
+const push = vi.hoisted(() => vi.fn())
 
-vi.mock('@/api/precurations', () => ({ precurationsAPI: { getPrecuration: vi.fn() } }))
+vi.mock('@/api/precurations', () => ({
+  precurationsAPI: {
+    getPrecuration: vi.fn(),
+    approvePrecuration: vi.fn(),
+    rejectPrecuration: vi.fn()
+  }
+}))
+
+const confirmMock = vi.hoisted(() => vi.fn())
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
 
 vi.mock('vue-router', () => ({
-  useRouter: () => ({ push: vi.fn() }),
+  useRouter: () => ({ push }),
   useRoute: () => route
 }))
 
@@ -255,8 +265,81 @@ describe('PrecurationFormView', () => {
         global: { stubs: { SchemaDrivenPrecurationForm: true } }
       })
       await flushPromises()
-      expect(fetchRole).not.toHaveBeenCalled()
+      // The role is read only to offer review actions, never to block opening it
+      expect(fetchRole).toHaveBeenCalledTimes(1)
       expect(wrapper.find('[data-testid=no-curate-access]').exists()).toBe(false)
+      expect(wrapper.findComponent({ name: 'SchemaDrivenPrecurationForm' }).exists()).toBe(true)
+    })
+  })
+
+  describe('reviewing a submitted precuration (#390)', () => {
+    const mountReview = async (role: string, createdBy = 'alice', status = 'submitted') => {
+      useAuthStore().user = { id: 'bob' } as never
+      route.params = { scopeId: 'sc1', precurationId: 'p1' }
+      vi.mocked(precurationsAPI.getPrecuration).mockResolvedValue({
+        id: 'p1',
+        gene_id: 'g1',
+        created_by: createdBy,
+        scope_id: 'sc1',
+        status
+      } as never)
+      vi.mocked(genesAPI.getGeneById).mockResolvedValue({ approved_symbol: 'BRCA1' } as never)
+      vi.spyOn(useScopesStore(), 'fetchUserRole').mockResolvedValue(role as never)
+      const wrapper = mount(PrecurationFormView, {
+        global: {
+          stubs: {
+            SchemaDrivenPrecurationForm: true,
+            VDialog: { props: ['modelValue'], template: '<div v-if="modelValue"><slot /></div>' }
+          }
+        }
+      })
+      await flushPromises()
+      return wrapper
+    }
+
+    it('shows the status to everyone', async () => {
+      const wrapper = await mountReview('viewer')
+      expect(wrapper.find('[data-testid=precuration-status]').text()).toContain('Submitted')
+    })
+
+    it.each([
+      ['reviewer', 'alice', 'submitted', true],
+      ['admin', 'alice', 'submitted', true],
+      ['curator', 'alice', 'submitted', false],
+      ['viewer', 'alice', 'submitted', false],
+      ['reviewer', 'bob', 'submitted', false],
+      ['reviewer', 'alice', 'approved', false]
+    ])('%s on a precuration by %s (%s): review actions %s', async (role, by, status, shown) => {
+      const wrapper = await mountReview(role, by, status)
+      expect(wrapper.find('[data-testid=approve-precuration]').exists()).toBe(shown)
+      expect(wrapper.find('[data-testid=reject-precuration]').exists()).toBe(shown)
+    })
+
+    it('approves after confirmation and returns to the review queue', async () => {
+      confirmMock.mockResolvedValue(true)
+      vi.mocked(precurationsAPI.approvePrecuration).mockResolvedValue({} as never)
+      const wrapper = await mountReview('reviewer')
+      await wrapper.find('[data-testid=approve-precuration]').trigger('click')
+      await flushPromises()
+      expect(precurationsAPI.approvePrecuration).toHaveBeenCalledWith('p1')
+      expect(push).toHaveBeenCalledWith({ name: 'review-queue' })
+    })
+
+    it('requests changes with feedback and shows an API error in the dialog', async () => {
+      vi.mocked(precurationsAPI.rejectPrecuration).mockRejectedValueOnce(new Error('Nope'))
+      const wrapper = await mountReview('reviewer')
+      await wrapper.find('[data-testid=reject-precuration]').trigger('click')
+      await wrapper.find('textarea').setValue('Narrow the disease')
+      await wrapper.find('[data-testid=reject-confirm]').trigger('click')
+      await flushPromises()
+      expect(precurationsAPI.rejectPrecuration).toHaveBeenCalledWith('p1', {
+        reason: 'Narrow the disease'
+      })
+      expect(wrapper.text()).toContain('Nope')
+      vi.mocked(precurationsAPI.rejectPrecuration).mockResolvedValue({} as never)
+      await wrapper.find('[data-testid=reject-confirm]').trigger('click')
+      await flushPromises()
+      expect(push).toHaveBeenCalledWith({ name: 'review-queue' })
     })
   })
 })

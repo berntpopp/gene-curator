@@ -8,7 +8,7 @@
       :moi="frame.meta.value.moi"
       :stage="curation?.workflow_stage ?? 'curation'"
       :archived="curation?.status === 'archived'"
-      :state="frame.state.value"
+      :state="guard.denied.value || guard.failed.value ? undefined : frame.state.value"
       :saved-at="frame.savedAt.value"
       :readonly="readonly"
       :show-submit="frame.hasSubmit.value"

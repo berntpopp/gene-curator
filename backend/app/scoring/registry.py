@@ -5,8 +5,10 @@ Provides centralized registration and selection of scoring engines.
 
 from typing import Any
 
+from app.core.logging import get_logger
+
 from .base import ScoringEngine, ScoringResult
-from .clingen import ClinGenEngine
+from .clingen import ENGINE_NAME, ClinGenEngine
 from .gencc import GenCCEngine
 from .qualitative import QualitativeEngine
 
@@ -123,3 +125,15 @@ class ScoringEngineRegistry:
 
 # Global registry instance
 scoring_registry = ScoringEngineRegistry()
+
+
+def engine_for(config: dict[str, Any]) -> ScoringEngine:
+    """The engine a scoring_configuration names; ClinGen when it names none."""
+    name = str(config.get("engine") or ENGINE_NAME)
+    engine = scoring_registry.get_engine(name)
+    if engine is None:  # schema_rules rejects unknown names at publish time
+        get_logger(__name__).warning(
+            "Unknown scoring engine, scoring with ClinGen", engine=name
+        )
+        return ClinGenEngine()
+    return engine

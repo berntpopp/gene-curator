@@ -303,3 +303,38 @@ def test_rejected_precuration_needs_the_curator(
     assert item["kind"] == "changes_requested"
     assert item["item_type"] == "precuration"
     assert item["link"] == f"/scopes/{test_scope.id}/precurations/{test_precuration.id}"
+
+
+def test_reviewer_done_counts_own_approvals(client, db_session: Session):
+    """#391: a reviewer's approvals land in Done; rejections and others' do not."""
+    from app.crud.precuration import precuration_crud
+    from tests.api.scopes.factories import make_precuration
+
+    scope = make_scope(db_session)
+    curator, bob, other = (make_user(db_session) for _ in range(3))
+    make_member(db_session, scope, curator, "curator")
+    make_member(db_session, scope, bob, "reviewer")
+    make_member(db_session, scope, other, "reviewer")
+    engine = WorkflowEngine()
+    approved = _in_review(db_session, scope, curator)
+    sent_back = _in_review(db_session, scope, curator)
+    for c, decision in ((approved, "approve"), (sent_back, "request_changes")):
+        r = engine.assign_peer_reviewer(
+            db_session, c.id, "curation", bob.id, curator.id
+        )
+        engine.submit_peer_review(db_session, r.review_id, bob.id, decision)
+    p = make_precuration(
+        db_session, scope=scope, gene=make_gene(db_session), creator=curator
+    )
+    p.status = "submitted"
+    db_session.commit()
+    precuration_crud.approve_and_create_curation(
+        db_session, db_obj=p, approver_id=bob.id, create_curation=False
+    )
+
+    body = _get(client, bob)
+    done = {i["item_id"]: i for i in body["items"] if i["kind"] == "done"}
+    assert set(done) == {str(approved.id), str(p.id)}
+    assert done[str(p.id)]["verb"] == "Approved precuration"
+    assert body["counts"]["done"] == 2
+    assert _get(client, other)["counts"]["done"] == 0
