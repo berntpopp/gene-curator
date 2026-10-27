@@ -26,11 +26,16 @@ from app.services.scope_permissions import ScopePermissionService
 logger = get_logger(__name__)
 router = APIRouter()
 
+# Owner decision: kept for now, removal is a Wave 8 follow-up
+DEPRECATED = "Deprecated, not scored: use save_draft_curations to record evidence."
+
 
 @router.post(
     "/curations/{curation_id}/evidence",
     response_model=EvidenceItem,
     status_code=status.HTTP_201_CREATED,
+    deprecated=True,
+    description=DEPRECATED,
 )
 @api_endpoint()
 def create_evidence_item(
@@ -126,6 +131,8 @@ def create_evidence_item(
 @router.put(
     "/curations/{curation_id}/evidence/{item_id}",
     response_model=EvidenceItem,
+    deprecated=True,
+    description=DEPRECATED,
 )
 @api_endpoint()
 def update_evidence_item(
@@ -219,6 +226,8 @@ def update_evidence_item(
 @router.delete(
     "/curations/{curation_id}/evidence/{item_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    deprecated=True,
+    description=DEPRECATED,
 )
 @api_endpoint()
 async def delete_evidence_item(
@@ -281,6 +290,8 @@ async def delete_evidence_item(
 @router.get(
     "/curations/{curation_id}/evidence",
     response_model=list[EvidenceItem],
+    deprecated=True,
+    description=DEPRECATED,
 )
 @api_endpoint()
 async def list_evidence_items(
