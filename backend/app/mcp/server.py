@@ -41,12 +41,35 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
 
 # State-changing actions a client should confirm (besides every DELETE)
 _DESTRUCTIVE = re.compile(
-    r"/(approve|reject|transition|bulk-transition|submit|merge|deactivate|versions)$"
+    r"/(approve|reject|transition|bulk-transition|submit|merge|deactivate|publish)$"
+    r"|/curation-schemas/[^/]+/versions$"  # publishes a methodology version
 )
 # Updates overwrite (PUT/PATCH) and are flagged too, except saving a draft or reading
 _SAFE_UPDATE = re.compile(r"/(draft|read|read-all)$")
-# Endpoint names that are not verb_noun on their own
-_RENAMES = {"resolve": "resolve_genes"}
+# Endpoint names that are not verb_noun or too generic on their own
+_RENAMES = {
+    "resolve": "resolve_genes",
+    "usage": "get_llm_usage",
+    "get_options": "get_llm_options",
+    "get_settings": "get_llm_settings",
+    "put_settings": "update_llm_settings",
+    "list_providers": "list_llm_providers",
+    "create_provider": "create_llm_provider",
+    "update_provider": "update_llm_provider",
+    "set_key": "set_llm_provider_key",
+    "ping_provider": "ping_llm_provider",
+    "list_models": "list_llm_models",
+    "create_model": "create_llm_model",
+    "update_model": "update_llm_model",
+    "list_runs": "list_llm_runs",
+    "list_templates": "list_prompt_templates",
+    "create_template": "create_prompt_template",
+    "list_versions": "list_prompt_versions",
+    "create_version": "create_prompt_version",
+    "update_version": "update_prompt_version",
+    "publish_version": "publish_prompt_version",
+    "diff_versions": "diff_prompt_versions",
+}
 
 
 def tool_names(spec: dict[str, Any]) -> dict[str, str]:
