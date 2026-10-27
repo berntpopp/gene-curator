@@ -52,3 +52,14 @@ docs/design/**/renders/
 docs/design/**/source/
 
 __pycache__/
+
+# Wave browser evidence: publish Markdown reports only; keep screenshots/JSON/helpers local
+/.planning/waves/*/evidence/**
+!/.planning/waves/*/evidence/**/
+!/.planning/waves/*/evidence/**/*.md
+
+# Archived pre-GSD download tooling/cache and generated UI iteration state
+/.planning/milestones/pre-gsd/plan/scripts/download_clingen_docs.py
+/.planning/milestones/pre-gsd/plan/scripts/requirements.txt
+/.planning/milestones/pre-gsd/plan/scripts/downloads/
+/.planning/milestones/pre-gsd/plan/enhancements/tracking/.ui-ux-review-iterations
