@@ -65,10 +65,18 @@ export const useLlmStore = defineStore('llm', () => {
       ])
     }, 'Failed to load LLM usage')
 
-  const fetchVersions = (templateId: string) =>
-    load(async () => {
-      versions.value = await llmAPI.listVersions(templateId)
-    }, 'Failed to load prompt versions')
+  // The template whose versions are shown; a late response for another one is dropped
+  let versionsOf: string | null = null
+  async function loadVersions(templateId: string): Promise<void> {
+    const rows = await llmAPI.listVersions(templateId)
+    if (versionsOf === templateId) versions.value = rows
+  }
+
+  const fetchVersions = (templateId: string) => {
+    versionsOf = templateId
+    versions.value = []
+    return load(() => loadVersions(templateId), 'Failed to load prompt versions')
+  }
 
   const replace = <T extends { id: string }>(list: T[], row: T): T[] => {
     const i = list.findIndex(r => r.id === row.id)
@@ -118,7 +126,7 @@ export const useLlmStore = defineStore('llm', () => {
     const row = id
       ? await llmAPI.updateVersion(id, { ...data, lock_version: data.lock_version ?? 0 })
       : await llmAPI.createVersion(templateId, data)
-    versions.value = await llmAPI.listVersions(templateId)
+    await loadVersions(templateId)
     return row
   }
 

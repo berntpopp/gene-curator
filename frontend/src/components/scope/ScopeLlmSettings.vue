@@ -14,7 +14,7 @@
           :items="modelItems"
           label="Model"
           clearable
-          :error-messages="form.enabled && !form.model_id ? 'Enabling requires a model' : []"
+          :error-messages="modelError ?? []"
           no-data-text="No model is enabled yet"
         />
         <v-row>
@@ -40,6 +40,7 @@
               label="Monthly token cap"
               type="number"
               min="0"
+              :rules="[capRule('monthly_token_cap')]"
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -48,6 +49,7 @@
               label="Monthly cost cap (cents)"
               type="number"
               min="0"
+              :rules="[capRule('monthly_cost_cap_cents')]"
             />
           </v-col>
           <v-col cols="12" md="4">
@@ -56,6 +58,7 @@
               label="Daily run cap"
               type="number"
               min="0"
+              :rules="[capRule('daily_run_cap')]"
             />
           </v-col>
         </v-row>
@@ -63,13 +66,7 @@
     </v-card-text>
     <v-card-actions v-if="form">
       <v-spacer />
-      <v-btn
-        color="primary"
-        variant="flat"
-        :loading="saving"
-        :disabled="form.enabled && !form.model_id"
-        @click="save"
-      >
+      <v-btn color="primary" variant="flat" :loading="saving" :disabled="!canSave" @click="save">
         Save LLM settings
       </v-btn>
     </v-card-actions>
@@ -98,6 +95,32 @@
     options.value.prompt_versions
       .filter(v => v.strategy === strategy)
       .map(v => ({ title: `${v.template_key} v${v.version}`, value: v.id }))
+
+  // Upper bounds mirror ScopeSettingsUpdate in backend/app/schemas/llm.py
+  const CAP_MAX = {
+    monthly_token_cap: 10 ** 12,
+    monthly_cost_cap_cents: 10 ** 9,
+    daily_run_cap: 10 ** 6
+  }
+  type Cap = keyof typeof CAP_MAX
+  const capRule = (key: Cap) => (v: unknown) =>
+    (Number.isInteger(v) && (v as number) >= 0 && (v as number) <= CAP_MAX[key]) ||
+    `Whole number from 0 to ${CAP_MAX[key]}`
+
+  // A saved model a platform admin disabled since is not offered and the API rejects it
+  const modelError = computed(() => {
+    const id = form.value?.model_id
+    if (id && !options.value.models.some(m => m.id === id))
+      return 'The saved model is no longer available. Choose another or clear it.'
+    if (form.value?.enabled && !id) return 'Enabling requires a model'
+    return null
+  })
+  const canSave = computed(
+    () =>
+      !!form.value &&
+      !modelError.value &&
+      (Object.keys(CAP_MAX) as Cap[]).every(k => capRule(k)(form.value![k]) === true)
+  )
 
   const toForm = (s: Schema<'ScopeSettingsOut'>): Schema<'ScopeSettingsUpdate'> => ({
     lock_version: s.lock_version,
@@ -128,7 +151,7 @@
   }
 
   async function save(): Promise<void> {
-    if (!form.value) return
+    if (!form.value || !canSave.value) return
     saving.value = true
     try {
       form.value = toForm(await store.saveScopeSettings(props.scopeId, form.value))

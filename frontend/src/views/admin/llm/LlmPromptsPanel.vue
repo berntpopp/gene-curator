@@ -40,10 +40,21 @@
       <code v-if="item.sha256">{{ item.sha256.slice(0, 12) }}</code>
     </template>
     <template #item.actions="{ item }">
-      <v-btn size="small" variant="text" @click="openEditor(item)">
+      <v-btn
+        size="small"
+        variant="text"
+        :aria-label="`${item.published_at ? 'View' : 'Edit'} version ${item.version}`"
+        @click="openEditor(item)"
+      >
         {{ item.published_at ? 'View' : 'Edit' }}
       </v-btn>
-      <v-btn v-if="store.versions.length > 1" size="small" variant="text" @click="openDiff(item)">
+      <v-btn
+        v-if="store.versions.length > 1"
+        size="small"
+        variant="text"
+        :aria-label="`Diff version ${item.version}`"
+        @click="openDiff(item)"
+      >
         Diff
       </v-btn>
       <v-btn
@@ -51,6 +62,7 @@
         size="small"
         variant="text"
         color="primary"
+        :aria-label="`Publish version ${item.version}`"
         @click="publish(item)"
       >
         Publish
@@ -65,6 +77,7 @@
     <v-text-field
       v-model="newTemplate.key"
       label="Key"
+      :rules="[keyRule]"
       hint="Lowercase letters, digits, . _ -"
       persistent-hint
       class="mb-2"
@@ -73,7 +86,12 @@
     <v-textarea v-model="newTemplate.description" label="Description" rows="2" />
     <template #actions>
       <v-btn variant="text" @click="showTemplate = false">Cancel</v-btn>
-      <v-btn color="primary" variant="flat" :disabled="!newTemplate.key" @click="createTemplate">
+      <v-btn
+        color="primary"
+        variant="flat"
+        :disabled="keyRule(newTemplate.key) !== true"
+        @click="createTemplate"
+      >
         Create
       </v-btn>
     </template>
@@ -155,6 +173,7 @@
   import { computed, reactive, ref, toRef, watch } from 'vue'
   import DataTable from '@/components/common/DataTable.vue'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import { useConfirm } from '@/composables/useConfirm'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import { llmErrorMessage, useLlmStore, type PromptVersion } from '@/stores/llm'
   import { formatDate } from '@/utils/format'
@@ -168,7 +187,13 @@
     { title: '', key: 'actions', sortable: false, hideable: false, align: 'end' }
   ]
 
+  // Mirrors TemplateCreate.key in backend/app/schemas/llm.py
+  const KEY = /^[a-z0-9][a-z0-9_.-]{0,99}$/
+  const keyRule = (v: string) =>
+    KEY.test(v.trim()) || 'Start with a lowercase letter or digit; then a-z, 0-9, . _ -'
+
   const store = useLlmStore()
+  const { confirm } = useConfirm()
   const { search, page, itemsPerPage, sortBy, density, shown, total } = useLlmTable(
     'prompts',
     toRef(store, 'versions')
@@ -189,6 +214,7 @@
     description: ''
   })
   async function createTemplate(): Promise<void> {
+    if (keyRule(newTemplate.key) !== true) return
     try {
       const row = await store.createTemplate({ ...newTemplate, key: newTemplate.key.trim() })
       showTemplate.value = false
@@ -274,6 +300,12 @@
   }
 
   async function publish(row: PromptVersion): Promise<void> {
+    const ok = await confirm({
+      title: `Publish version ${row.version}?`,
+      text: 'Published versions cannot be changed or unpublished. Later edits create a new draft.',
+      confirmText: 'Publish'
+    })
+    if (!ok) return
     try {
       await store.publishVersion(row)
       showSuccess(`Version ${row.version} published`)

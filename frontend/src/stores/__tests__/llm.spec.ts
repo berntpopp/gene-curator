@@ -191,4 +191,17 @@ describe('llm store', () => {
     await store.diffVersions('v2', 'v1')
     expect(api.diffVersions).toHaveBeenCalledWith('v2', 'v1')
   })
+
+  it('drops a late versions response for a template no longer selected', async () => {
+    let resolveOld: (v: Schema<'VersionOut'>[]) => void = () => undefined
+    api.listVersions
+      .mockReturnValueOnce(new Promise(r => (resolveOld = r)))
+      .mockResolvedValueOnce([version({ id: 'new', template_id: 't2' })])
+    const store = useLlmStore()
+    const first = store.fetchVersions('t1')
+    await store.fetchVersions('t2')
+    resolveOld([version()])
+    await first
+    expect(store.versions.map(v => v.id)).toEqual(['new'])
+  })
 })

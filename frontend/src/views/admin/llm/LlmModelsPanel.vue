@@ -67,7 +67,7 @@
             label="Input price (cents per 1M tokens)"
             type="number"
             min="0"
-            :rules="[nonNegative]"
+            :rules="[required, nonNegative]"
           />
         </v-col>
         <v-col cols="6">
@@ -76,7 +76,7 @@
             label="Output price (cents per 1M tokens)"
             type="number"
             min="0"
-            :rules="[nonNegative]"
+            :rules="[required, nonNegative]"
           />
         </v-col>
         <v-col cols="6">
@@ -86,6 +86,7 @@
             type="number"
             min="1"
             max="200000"
+            :rules="[intIn(1, 200_000)]"
           />
         </v-col>
         <v-col cols="6">
@@ -95,6 +96,7 @@
             type="number"
             min="30"
             max="60"
+            :rules="[intIn(30, 60)]"
             hint="30 to 60 seconds"
             persistent-hint
           />
@@ -138,6 +140,10 @@
   const required = (v: string) => !!String(v ?? '').trim() || 'Required'
   const dated = (v: string) => DATED.test(v ?? '') || 'Must end in a release date'
   const nonNegative = (v: string | number) => Number(v) >= 0 || 'Must be 0 or more'
+  // v-model.number leaves an empty field as '', which must never reach the API
+  const intIn = (min: number, max: number) => (v: unknown) =>
+    (Number.isInteger(v) && (v as number) >= min && (v as number) <= max) ||
+    `Whole number from ${min} to ${max}`
 
   const store = useLlmStore()
   const { search, page, itemsPerPage, sortBy, density, shown, total } = useLlmTable(

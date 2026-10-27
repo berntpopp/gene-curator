@@ -100,4 +100,28 @@ describe('ScopeLlmSettings', () => {
     const w = await mountPanel()
     expect(w.text()).toContain('Scope admin role required')
   })
+
+  it('flags a saved model that was disabled since and blocks save until it is replaced', async () => {
+    api.scopeSettings.mockResolvedValue({ ...saved, model_id: 'gone' })
+    const vm = vmOf(await mountPanel())
+    expect(document.body.textContent).toContain('The saved model is no longer available')
+    expect(vm.canSave).toBe(false)
+    await call(vm, 'save')
+    expect(api.saveScopeSettings).not.toHaveBeenCalled()
+    ;(vm.form as { model_id: string | null }).model_id = null
+    expect(vm.canSave).toBe(true)
+  })
+
+  it('never sends an empty or out-of-range cap', async () => {
+    const vm = vmOf(await mountPanel())
+    const form = vm.form as Record<string, unknown>
+    form.daily_run_cap = ''
+    expect(vm.canSave).toBe(false)
+    form.daily_run_cap = 10 ** 7
+    expect(vm.canSave).toBe(false)
+    await call(vm, 'save')
+    expect(api.saveScopeSettings).not.toHaveBeenCalled()
+    form.daily_run_cap = 3
+    expect(vm.canSave).toBe(true)
+  })
 })

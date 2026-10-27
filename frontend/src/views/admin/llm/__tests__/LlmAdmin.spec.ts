@@ -13,8 +13,13 @@ import LlmUsagePanel from '../LlmUsagePanel.vue'
 import { call, vmOf } from '@/views/__tests__/vm'
 import type { Schema } from '@/types/api'
 
-const { showError, showSuccess } = vi.hoisted(() => ({ showError: vi.fn(), showSuccess: vi.fn() }))
+const { showError, showSuccess, confirmMock } = vi.hoisted(() => ({
+  showError: vi.fn(),
+  showSuccess: vi.fn(),
+  confirmMock: vi.fn()
+}))
 vi.mock('@/composables/useNotifications', () => ({ showError, showSuccess }))
+vi.mock('@/composables/useConfirm', () => ({ useConfirm: () => ({ confirm: confirmMock }) }))
 vi.mock('@/stores/scopes', () => ({
   useScopesStore: () => ({
     scopes: [{ id: 's1', name: 'kidney' }],
@@ -106,6 +111,7 @@ describe('LLM admin console', () => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
     localStorage.clear()
+    confirmMock.mockResolvedValue(true)
     api.listProviders.mockResolvedValue([provider()])
     api.listModels.mockResolvedValue([model])
     api.listTemplates.mockResolvedValue([
@@ -173,6 +179,9 @@ describe('LLM admin console', () => {
     api.listProviders.mockResolvedValue([provider()])
     await call(vm, 'saveKey')
     expect(api.setKey).toHaveBeenCalledWith('p1', { api_key: SECRET })
+    expect(
+      document.querySelector('[data-test="api-key-input"] input')?.getAttribute('autocomplete')
+    ).toBe('new-password')
     expect(vm.apiKey).toBe('')
     expect(vm.showKey).toBe(false)
     expect(JSON.stringify(store.$state)).not.toContain(SECRET)
@@ -236,6 +245,10 @@ describe('LLM admin console', () => {
 
     call(vm, 'openEdit', model)
     await flushPromises()
+    ;(vm.form as { max_tokens: unknown }).max_tokens = ''
+    await call(vm, 'save')
+    expect(api.updateModel).not.toHaveBeenCalled()
+    ;(vm.form as { max_tokens: unknown }).max_tokens = 4096
     api.updateModel.mockResolvedValue({ ...model, lock_version: 3 })
     await call(vm, 'save')
     const sent = api.updateModel.mock.calls[0]![1]
@@ -288,6 +301,13 @@ describe('LLM admin console', () => {
     await call(vm, 'saveDraft')
     expect(showError).toHaveBeenLastCalledWith('Unknown placeholder {x}')
 
+    expect(w.find('[aria-label="Publish version 2"]').exists()).toBe(true)
+    expect(w.find('[aria-label="View version 1"]').exists()).toBe(true)
+    expect(w.find('[aria-label="Diff version 1"]').exists()).toBe(true)
+    confirmMock.mockResolvedValueOnce(false)
+    await call(vm, 'publish', draft)
+    expect(api.publishVersion).not.toHaveBeenCalled()
+    expect(confirmMock.mock.calls[0]![0].text).toContain('cannot be changed')
     api.publishVersion.mockResolvedValue({ ...draft, published_at: '2026-10-03T00:00:00Z' })
     await call(vm, 'publish', draft)
     expect(api.publishVersion).toHaveBeenCalledWith('v2', { lock_version: 1 })
@@ -315,6 +335,9 @@ describe('LLM admin console', () => {
 
   it('creates a prompt template and selects it', async () => {
     const vm = vmOf(await mountPanel(LlmPromptsPanel))
+    Object.assign(vm.newTemplate as object, { key: 'Bad Key!', strategy: 'advocate' })
+    await call(vm, 'createTemplate')
+    expect(api.createTemplate).not.toHaveBeenCalled()
     Object.assign(vm.newTemplate as object, { key: ' advocate ', strategy: 'advocate' })
     api.createTemplate.mockResolvedValue({
       id: 't2',
@@ -328,6 +351,7 @@ describe('LLM admin console', () => {
     expect(api.createTemplate).toHaveBeenCalledWith(expect.objectContaining({ key: 'advocate' }))
     expect(vm.templateId).toBe('t2')
     api.createTemplate.mockRejectedValue(httpError(409, 'Template key exists'))
+    ;(vm.newTemplate as { key: string }).key = 'advocate'
     await call(vm, 'createTemplate')
     expect(showError).toHaveBeenLastCalledWith('Not saved, conflict: Template key exists')
   })

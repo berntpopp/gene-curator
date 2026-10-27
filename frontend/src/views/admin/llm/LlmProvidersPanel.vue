@@ -86,7 +86,7 @@
       v-model="apiKey"
       label="API key"
       type="password"
-      autocomplete="off"
+      autocomplete="new-password"
       data-test="api-key-input"
       maxlength="4096"
     />
