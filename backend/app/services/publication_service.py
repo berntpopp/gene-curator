@@ -428,20 +428,26 @@ def evidence_pmids(evidence: Any) -> set[str]:
 def unknown_pmids(db: Session, pmids: set[str]) -> list[str]:
     """PMIDs Europe PMC reports as not found. Cached ones are known; a failed lookup
     (offline, timeout) does not count as unknown, same rule as the forms."""
+    unknown, failed = lookup_pmids(db, pmids)
+    if failed:
+        logger.warning("PMID lookup failed, not blocking submit", pmids=failed)
+    return unknown
+
+
+def lookup_pmids(db: Session, pmids: set[str]) -> tuple[list[str], list[str]]:
+    """(not found, lookup failed) among the PMIDs that are not cached."""
     cached = set(
         db.scalars(select(Publication.pmid).where(Publication.pmid.in_(pmids)))
     )
     missing = sorted(pmids - cached)
     if not missing:
-        return []
+        return [], []
     results = asyncio.run(_fetch_all(missing))
     unknown = [
         r.pmid for r in results if (r.error or "").startswith("Publication not found")
     ]
     failed = [r.pmid for r in results if not r.is_valid and r.pmid not in unknown]
-    if failed:
-        logger.warning("PMID lookup failed, not blocking submit", pmids=failed)
-    return unknown
+    return unknown, failed
 
 
 def _timed_out(pmid: str) -> PMIDValidationResult:

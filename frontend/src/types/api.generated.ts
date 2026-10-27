@@ -2675,42 +2675,15 @@ export interface paths {
         };
         /**
          * List Evidence Items
-         * @description Get all evidence items for curation
-         *
-         *     Returns all non-deleted evidence items for the curation if user has view permission.
-         *
-         *     Args:
-         *         db: Database session
-         *         curation_id: UUID of the curation
-         *         current_user: Current authenticated user
-         *
-         *     Returns:
-         *         List of evidence items
-         *
-         *     Raises:
-         *         HTTPException: 404 if curation not found
-         *         HTTPException: 403 if user lacks permission
+         * @deprecated
+         * @description Deprecated, not scored: use save_draft_curations to record evidence.
          */
         get: operations["list_evidence_items_api_v1_curations__curation_id__evidence_get"];
         put?: never;
         /**
          * Create Evidence Item
-         * @description Create new evidence item for curation
-         *
-         *     Requires curator or scope admin role in the curation's scope.
-         *
-         *     Args:
-         *         db: Database session
-         *         curation_id: UUID of the curation to add evidence to
-         *         evidence_in: Evidence item data
-         *         current_user: Current authenticated user
-         *
-         *     Returns:
-         *         Created evidence item
-         *
-         *     Raises:
-         *         HTTPException: 404 if curation not found
-         *         HTTPException: 403 if user lacks permission
+         * @deprecated
+         * @description Deprecated, not scored: use save_draft_curations to record evidence.
          */
         post: operations["create_evidence_item_api_v1_curations__curation_id__evidence_post"];
         delete?: never;
@@ -2729,41 +2702,15 @@ export interface paths {
         get?: never;
         /**
          * Update Evidence Item
-         * @description Update evidence item
-         *
-         *     Requires curator or scope admin role in the curation's scope.
-         *
-         *     Args:
-         *         db: Database session
-         *         curation_id: UUID of the curation
-         *         item_id: UUID of the evidence item to update
-         *         evidence_in: Evidence item update data
-         *         current_user: Current authenticated user
-         *
-         *     Returns:
-         *         Updated evidence item
-         *
-         *     Raises:
-         *         HTTPException: 404 if curation or evidence item not found
-         *         HTTPException: 403 if user lacks permission
+         * @deprecated
+         * @description Deprecated, not scored: use save_draft_curations to record evidence.
          */
         put: operations["update_evidence_item_api_v1_curations__curation_id__evidence__item_id__put"];
         post?: never;
         /**
          * Delete Evidence Item
-         * @description Delete evidence item (soft delete)
-         *
-         *     Requires curator or scope admin role in the curation's scope.
-         *
-         *     Args:
-         *         db: Database session
-         *         curation_id: UUID of the curation
-         *         item_id: UUID of the evidence item to delete
-         *         current_user: Current authenticated user
-         *
-         *     Raises:
-         *         HTTPException: 404 if curation or evidence item not found
-         *         HTTPException: 403 if user lacks permission
+         * @deprecated
+         * @description Deprecated, not scored: use save_draft_curations to record evidence.
          */
         delete: operations["delete_evidence_item_api_v1_curations__curation_id__evidence__item_id__delete"];
         options?: never;
@@ -5201,9 +5148,15 @@ export interface components {
             curation_id: string;
             /**
              * Computed Score
-             * @description Individual item score (from scoring engine)
+             * @description Always null: evidence items are not scored
              */
             computed_score?: number | null;
+            /**
+             * Score Note
+             * @description Why this item does not change the curation score
+             * @default Evidence items are supporting records and are not scored. The curation's score comes from its evidence_data: add the row to the matching table there and save it with save_draft_curations (PATCH /curations/{id}/draft) to score it.
+             */
+            score_note: string;
             /**
              * Score Metadata
              * @description Scoring calculation details
@@ -5211,6 +5164,11 @@ export interface components {
             score_metadata?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Unverified Pmids
+             * @description PMIDs not verified: PubMed was unreachable when the item was saved
+             */
+            unverified_pmids?: string[];
             /**
              * Validation Status
              * @description Validation status
