@@ -138,6 +138,10 @@ def update_review_comment(
     if payload.status is not None:
         if comment.kind == "accepted":
             _require_accepter(db, current_user, curation)
+            if (
+                comment.author_id != current_user.id
+            ):  # only the accepting reviewer withdraws
+                raise _DENIED
         else:
             _require_writer(db, current_user, curation)
         comment.status = payload.status
