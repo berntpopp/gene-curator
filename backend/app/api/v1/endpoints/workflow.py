@@ -45,6 +45,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransitionRequest,
     WorkflowValidationResult,
 )
+from app.services.review_assignment import assign_precuration_reviewer
 from app.services.review_entry import ReviewEntry, lookup_reviews, preflight_review
 from app.services.scope_permissions import ScopePermissionService
 
@@ -195,14 +196,16 @@ def assign_peer_reviewer(
     assignment_request: PeerReviewAssignmentRequest,
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewRequest:
-    """
-    Assign a peer reviewer to an item in review stage.
-    """
-    # All authenticated users can assign reviewers in their scopes
-    # Workflow engine enforces 4-eyes principle and scope access
-
+    """Route a submitted precuration, or a curation in review, to a peer reviewer: an accepted
+    reviewer or admin of the scope, never the author. A precuration gets no review row
+    (review_id null): the reviewer is notified, finds it in read_my_work and approves it with
+    POST /precurations/{id}/approve."""
     try:
-        review_request = workflow_engine.assign_peer_reviewer(
+        if item_type == "precuration":
+            return assign_precuration_reviewer(
+                db, item_id, assignment_request.reviewer_id, current_user
+            )
+        return workflow_engine.assign_peer_reviewer(
             db,
             item_id,
             item_type,
@@ -210,7 +213,6 @@ def assign_peer_reviewer(
             current_user.id,
             assignment_request.review_type,
         )
-        return review_request
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
@@ -258,9 +260,9 @@ def get_my_review_assignments(
     ),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Sequence[PeerReviewRequest]:
-    """
-    Get peer review assignments for the current user, with gene symbol and scope name.
-    """
+    """Get the current user's curation review assignments, with gene symbol and scope name.
+    Precurations are not listed (no review row): find routed ones in read_my_work or
+    list_precurations with pending_review=true."""
     from app.models import Review, ReviewStatus
 
     query = (

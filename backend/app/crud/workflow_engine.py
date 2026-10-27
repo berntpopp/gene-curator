@@ -49,6 +49,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransition,
     WorkflowValidationResult,
 )
+from app.services.review_assignment import APPROVERS, check_reviewer
 from app.services.review_entry import (
     ReviewEntry,
     prepare_review_entry,
@@ -340,31 +341,28 @@ class WorkflowEngine:
         assigned_by: UUID,
         review_type: str = "peer_review",
     ) -> PeerReviewRequest:
-        """Assign a peer reviewer to an item in review stage."""
-        # Review.curation_id references curations only; precurations cannot be reviewed
-        if item_type != "curation":
-            raise ValueError("Peer review is only supported for curations")
+        """Assign a peer reviewer to a curation in review stage."""
+        if item_type != "curation":  # precurations: services/review_assignment.py
+            raise ValueError(f"Cannot assign a reviewer to {item_type!r} items")
 
-        current_stage, _item = self._get_current_stage_and_item(db, item_id, item_type)
-
-        if current_stage != WorkflowStage.REVIEW:
-            raise ValueError("Item must be in review stage to assign peer reviewer")
-
-        # Validate reviewer is different from creator
-        curation_result = (
-            db.execute(select(CurationNew).where(CurationNew.id == item_id))
-            .scalars()
-            .first()
+        current_stage, curation_result = self._get_current_stage_and_item(
+            db, item_id, item_type
         )
         if not curation_result:
-            raise ValueError("Curation not found")
-        if reviewer_id == curation_result.created_by:
+            raise ValueError(f"Curation {item_id} not found")
+        if current_stage != WorkflowStage.REVIEW:
             raise ValueError(
-                "4-eyes principle violation: Cannot assign original creator as reviewer"
+                f"Curation {item_id} is {curation_result.status.value}; submit it for "
+                f"review before assigning a reviewer: {APPROVERS}"
             )
-
-        if not holds_review_capability(db, reviewer_id, curation_result.scope_id):
-            raise ValueError("User is not allowed to review in this scope")
+        check_reviewer(
+            db,
+            "curation",
+            item_id,
+            curation_result.created_by,
+            reviewer_id,
+            curation_result.scope_id,
+        )
         if has_pending_review(db, item_id, reviewer_id):
             raise ValueError("Reviewer already has a pending review")
         # Create review assignment
@@ -403,8 +401,10 @@ class WorkflowEngine:
                 )
             )
             db.commit()
-        except Exception:
+        except Exception as e:  # RLS (005, 041, 061) decides who may insert the review
             db.rollback()
+            if isinstance(e, DBAPIError):
+                raise_if_rls_denied(e, "Not authorized to assign this reviewer")
             raise
 
         return PeerReviewRequest(

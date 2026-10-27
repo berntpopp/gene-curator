@@ -321,7 +321,7 @@ def test_assign_reviewer_to_creator_is_400(
     )
 
     assert response.status_code == 400
-    assert "Cannot assign original creator" in response.json()["detail"]
+    assert "4-eyes principle violation" in response.json()["detail"]
 
 
 def test_assign_reviewer_to_precuration_is_400(

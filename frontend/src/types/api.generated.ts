@@ -1538,7 +1538,10 @@ export interface paths {
         put?: never;
         /**
          * Assign Peer Reviewer
-         * @description Assign a peer reviewer to an item in review stage.
+         * @description Route a submitted precuration, or a curation in review, to a peer reviewer: an accepted
+         *     reviewer or admin of the scope, never the author. A precuration gets no review row
+         *     (review_id null): the reviewer is notified, finds it in read_my_work and approves it with
+         *     POST /precurations/{id}/approve.
          */
         post: operations["assign_peer_reviewer_api_v1_workflow__item_type___item_id__assign_reviewer_post"];
         delete?: never;
@@ -1576,7 +1579,9 @@ export interface paths {
         };
         /**
          * Get My Review Assignments
-         * @description Get peer review assignments for the current user, with gene symbol and scope name.
+         * @description Get the current user's curation review assignments, with gene symbol and scope name.
+         *     Precurations are not listed (no review row): find routed ones in read_my_work or
+         *     list_precurations with pending_review=true.
          */
         get: operations["get_my_review_assignments_api_v1_workflow_reviews_my_assignments_get"];
         put?: never;
@@ -7598,11 +7603,8 @@ export interface components {
          * @description Peer review assignment details.
          */
         PeerReviewRequest: {
-            /**
-             * Review Id
-             * Format: uuid
-             */
-            review_id: string;
+            /** Review Id */
+            review_id?: string | null;
             /**
              * Item Id
              * Format: uuid

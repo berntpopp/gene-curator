@@ -87,7 +87,9 @@ class PeerReviewAssignmentRequest(BaseModel):
 class PeerReviewRequest(BaseModel):
     """Peer review assignment details."""
 
-    review_id: UUID
+    review_id: UUID | None = (
+        None  # None for a precuration: no review row, reviewer notified
+    )
     item_id: UUID
     item_type: str
     reviewer_id: UUID
