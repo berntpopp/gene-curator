@@ -61,7 +61,7 @@ class EvidenceItem(EvidenceItemBase):
     )
     unverified_pmids: list[str] = Field(
         default_factory=list,
-        description="PMIDs saved while PubMed was unreachable; checked again at review",
+        description="PMIDs not verified: PubMed was unreachable when the item was saved",
     )
     validation_status: str = Field(..., description="Validation status")
     validation_errors: dict[str, Any] | None = Field(
