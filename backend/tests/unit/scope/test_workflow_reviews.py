@@ -63,7 +63,7 @@ def test_assign_reviewer_requires_review_stage(
 ) -> None:
     curation = _review_setup(db_session, creator, scope, stage=S.CURATION)
 
-    with pytest.raises(ValueError, match="review stage"):
+    with pytest.raises(ValueError, match="submit it for review"):
         engine.assign_peer_reviewer(
             db_session, curation.id, "curation", reviewer.id, creator.id
         )
@@ -74,7 +74,7 @@ def test_assign_reviewer_rejects_original_creator(
 ) -> None:
     curation = _review_setup(db_session, creator, scope)
 
-    with pytest.raises(ValueError, match="Cannot assign original creator"):
+    with pytest.raises(ValueError, match="4-eyes principle violation"):
         engine.assign_peer_reviewer(
             db_session, curation.id, "curation", creator.id, creator.id
         )
@@ -106,13 +106,13 @@ def test_assign_reviewer_rejects_precurations(
     reviewer: UserNew,
     scope: Scope,
 ) -> None:
-    """Reviews reference curations only; a precuration must be refused, not 500."""
+    """The engine assigns curations only; precurations route via services/review_assignment."""
     gene = make_gene(db_session)
     precuration = make_precuration(
         db_session, scope=scope, gene=gene, creator=creator, stage=S.REVIEW
     )
 
-    with pytest.raises(ValueError, match="only supported for curations"):
+    with pytest.raises(ValueError, match="Cannot assign a reviewer to"):
         engine.assign_peer_reviewer(
             db_session, precuration.id, "precuration", reviewer.id, creator.id
         )

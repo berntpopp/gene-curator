@@ -10,10 +10,11 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import VIEW, require
-from app.core.database import get_db
+from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user
 from app.crud.review_round import in_current_round
 from app.crud.workflow_engine import workflow_engine
@@ -37,6 +38,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransitionRequest,
     WorkflowValidationResult,
 )
+from app.services.review_assignment import assign_precuration_reviewer
 from app.services.review_entry import ReviewEntry, lookup_reviews, preflight_review
 from app.services.scope_permissions import ScopePermissionService
 
@@ -188,13 +190,19 @@ def assign_peer_reviewer(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> PeerReviewRequest:
     """
-    Assign a peer reviewer to an item in review stage.
-    """
-    # All authenticated users can assign reviewers in their scopes
-    # Workflow engine enforces 4-eyes principle and scope access
+    Route a submitted precuration, or a curation in review, to a peer reviewer.
 
+    The reviewer must be an accepted reviewer or admin of the item's scope and never its
+    author. A precuration gets no review row (review_id is null): the reviewer is notified
+    and approves it with POST /precurations/{id}/approve.
+    """
+    # Workflow engine enforces 4-eyes; RLS (005, 041, 061) decides who may insert the review
     try:
-        review_request = workflow_engine.assign_peer_reviewer(
+        if item_type == "precuration":
+            return assign_precuration_reviewer(
+                db, item_id, assignment_request.reviewer_id, current_user
+            )
+        return workflow_engine.assign_peer_reviewer(
             db,
             item_id,
             item_type,
@@ -202,9 +210,13 @@ def assign_peer_reviewer(
             current_user.id,
             assignment_request.review_type,
         )
-        return review_request
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
+    except DBAPIError as e:
+        raise_if_rls_denied(
+            e, f"Not authorized to assign a reviewer to {item_type} {item_id}"
+        )
+        raise
 
 
 @router.post("/reviews/{review_id}/submit", response_model=PeerReviewResult)

@@ -82,7 +82,7 @@ def test_assign_reviewer_on_curation(api: TestClient, owner_session: Session) ->
     assert r.status_code == 200, r.text
 
 
-def test_assign_reviewer_on_precuration_is_rejected_not_500(
+def test_assign_reviewer_on_unknown_precuration_is_404_not_500(
     api: TestClient, owner_session: Session
 ) -> None:
     c, users = _curation(owner_session, "review")
@@ -90,7 +90,8 @@ def test_assign_reviewer_on_precuration_is_rejected_not_500(
         f"/api/v1/workflow/precuration/{c.id}/assign-reviewer",
         json={"reviewer_id": str(users[1].id), "review_type": "peer_review"},
     )
-    assert r.status_code == 400
+    # a curation id is no precuration id; routable precurations: test_review_assignment
+    assert r.status_code == 404
 
 
 def test_migration_idempotent(owner_session: Session) -> None:
