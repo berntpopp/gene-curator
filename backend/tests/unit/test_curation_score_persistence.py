@@ -294,3 +294,35 @@ def test_recompute_scores_custom_categories_of_the_pinned_model(
         assert test_curation.computed_verdict == "keep"
         assert summaries[-1]["unscored"] == {str(test_curation.id): keys}
         assert summaries[-1]["custom_categories"] == []
+
+
+def test_recompute_counts_a_refused_update_as_skipped(
+    db_session: Session,
+    test_curation: CurationNew,
+    test_user_admin: object,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 0-row update (on Postgres: a curation of an inactive scope, 054) is skipped, not updated.
+    SQLite has no RLS, so the row disappears between the read and the update instead."""
+    from sqlalchemy import delete
+
+    from app.services import recompute_scores
+
+    summaries: list[dict] = []
+    monkeypatch.setattr(
+        recompute_scores.logger, "info", lambda msg, **kw: summaries.append(kw)
+    )
+    real = recompute_scores.scoring_configuration
+
+    def vanish(db: Session, *args: object) -> object:
+        db.execute(delete(CurationNew).where(CurationNew.id == test_curation.id))
+        return real(db, *args)
+
+    monkeypatch.setattr(recompute_scores, "scoring_configuration", vanish)
+    test_curation.evidence_data = {"genetic_evidence": [], "experimental_evidence": {}}
+    test_curation.computed_scores = {"raw_scores": {}}
+    test_curation.computed_verdict = None
+    db_session.commit()
+    assert recompute_scores.recompute_all_scores(db_session) == 0
+    assert summaries[-1]["updated"] == 0
+    assert str(test_curation.id) in summaries[-1]["skipped_ids"]

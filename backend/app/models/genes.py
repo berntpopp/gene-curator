@@ -107,6 +107,17 @@ class Gene(Base):
     )
 
 
+# Gene resolver lookup (052, #379). The GIN pair uses upper_text_array, a Postgres function.
+Index("idx_genes_upper_symbol", func.upper(Gene.approved_symbol))
+Index("idx_genes_upper_hgnc_id", func.upper(Gene.hgnc_id))
+for _col in (Gene.previous_symbols, Gene.alias_symbols):
+    Index(
+        f"idx_genes_upper_{_col.key}",
+        func.upper_text_array(_col),
+        postgresql_using="gin",
+    ).ddl_if(dialect="postgresql")
+
+
 class GeneScopeAssignment(Base):
     """Many-to-many relationship between genes and clinical scopes."""
 

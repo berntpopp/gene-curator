@@ -7,9 +7,9 @@ scored with their pinned point model, custom categories included (reported); row
 evidence keys that model does not score are skipped and reported with those keys.
 """
 
-from typing import Any
+from typing import Any, cast
 
-from sqlalchemy import select, update
+from sqlalchemy import CursorResult, select, update
 from sqlalchemy.orm import Session
 
 from app.core.deps import set_rls_context
@@ -51,6 +51,45 @@ def _unscored_keys(evidence: Any, model: dict[str, Any]) -> list[str]:
         return [path]  # non-empty data where the model requires a parent object
 
     return sorted(p for key, value in evidence.items() for p in unknown(value, key))
+
+
+def _save(
+    db: Session,
+    curation_id: Any,
+    scores: dict[str, Any],
+    result: Any,
+    old_scores: dict[str, Any] | None,
+    old_verdict: str | None,
+    gene: str | None,
+) -> bool:
+    """Write the new scores; False when no row was updated (RLS refused it)."""
+    written = cast(
+        CursorResult[Any],
+        db.execute(
+            update(CurationNew)
+            .where(CurationNew.id == curation_id)
+            .values(
+                computed_scores=scores,
+                computed_verdict=result.verdict,
+                computed_summary=result.verdict_rationale,
+                updated_at=CurationNew.updated_at,  # keep: a backfill is not an edit
+            )
+        ),
+    )
+    if written.rowcount == 0:
+        return False
+    old_total = (old_scores or {}).get("total_score")
+    if (old_total, old_verdict) != (result.total_score, result.verdict):
+        logger.warning(  # clinical audit: every changed total or class
+            "Curation class changed"
+            if old_verdict != result.verdict
+            else "Curation total changed",
+            curation_id=str(curation_id),
+            gene=gene,
+            total=f"{old_total} -> {result.total_score}",
+            verdict=f"{old_verdict} -> {result.verdict}",
+        )
+    return True
 
 
 def recompute_all_scores(db: Session) -> int:
@@ -115,28 +154,11 @@ def recompute_all_scores(db: Session) -> int:
         if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
             continue
+        if not _save(db, curation_id, scores, result, old_scores, old_verdict, gene):
+            # RLS refused it, e.g. a curation of an inactive scope (054)
+            skipped.append(str(curation_id))
+            continue
         updated += 1
-        old_total = (old_scores or {}).get("total_score")
-        if (old_total, old_verdict) != (result.total_score, result.verdict):
-            logger.warning(  # clinical audit: every changed total or class
-                "Curation class changed"
-                if old_verdict != result.verdict
-                else "Curation total changed",
-                curation_id=str(curation_id),
-                gene=gene,
-                total=f"{old_total} -> {result.total_score}",
-                verdict=f"{old_verdict} -> {result.verdict}",
-            )
-        db.execute(
-            update(CurationNew)
-            .where(CurationNew.id == curation_id)
-            .values(
-                computed_scores=scores,
-                computed_verdict=result.verdict,
-                computed_summary=result.verdict_rationale,
-                updated_at=CurationNew.updated_at,  # keep: a backfill is not an edit
-            )
-        )
     db.commit()
     logger.info(
         "Recomputed curation scores",

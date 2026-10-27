@@ -201,10 +201,14 @@ export function itemState(comments: Comment[], path: string, me: string) {
 }
 
 /** Items that still block approval: neither accepted by me nor with all queries resolved. */
-export function approveBlockers(groups: DiffGroup[], comments: Comment[], me: string): DiffGroup[] {
-  return groups.filter(g => {
+export function approveBlockers(
+  groups: DiffGroup[],
+  comments: Comment[],
+  me: string
+): (DiffGroup & { queried: boolean })[] {
+  return groups.flatMap(g => {
     const s = itemState(comments, g.key, me).status
-    return s !== 'accepted' && s !== 'answered'
+    return s === 'accepted' || s === 'answered' ? [] : [{ ...g, queried: s === 'queried' }]
   })
 }
 

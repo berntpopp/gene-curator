@@ -382,7 +382,35 @@ describe('CurationDetailView', () => {
     vm.showSubmitDialog = false
     vm.showDeleteDialog = true
     await flushPromises()
-    expect(wrapper.text()).toContain('This action cannot be undone.')
+    expect(wrapper.text()).toContain('This cannot be undone.')
+    expect(wrapper.find('[data-testid=delete-recurate]').exists()).toBe(false)
+  })
+
+  it('names the impact of deleting an active curation and offers re-curation (#392)', async () => {
+    vi.spyOn(useScopesStore(), 'fetchUserRole').mockResolvedValue('admin' as never)
+    const wrapper = await load({
+      workflow_stage: 'active',
+      status: 'active',
+      gene_id: 'g1',
+      can_delete: true
+    })
+    const vm = wrapper.vm as unknown as { showDeleteDialog: boolean }
+    vm.showDeleteDialog = true
+    await flushPromises()
+    expect(wrapper.text()).toContain('Delete the active curation for PKD1?')
+    expect(wrapper.text()).toContain('without an active classification')
+    await wrapper.find('[data-testid=delete-recurate]').trigger('click')
+    expect(router.push).toHaveBeenCalledWith(
+      expect.objectContaining({ name: 'gene-curation-create', query: { from: 'c1' } })
+    )
+  })
+
+  it('uses flat outlined cards without decorative title icons (#392)', async () => {
+    const wrapper = await load({ can_review: true, can_delete: true })
+    const cards = wrapper.findAll('.v-card').filter(c => !c.element.closest('.v-overlay'))
+    expect(cards.length).toBeGreaterThan(0)
+    for (const c of cards) expect(c.classes()).toContain('v-card--variant-outlined')
+    expect(wrapper.findAll('.v-card-title .v-icon')).toHaveLength(0)
   })
 
   it('toasts a refused submit as a readable sentence, not raw validation JSON', async () => {

@@ -41,12 +41,6 @@
       <v-row class="mb-4">
         <v-col>
           <div class="d-flex align-center flex-wrap ga-2">
-            <v-icon
-              :icon="getScopeVisibilityIcon(scope.is_public)"
-              size="large"
-              class="mr-3"
-            ></v-icon>
-
             <div class="scope-head-text">
               <h1 class="scope-title text-headline-large mb-1">{{ scope.display_name }}</h1>
               <div class="scope-description text-body-large text-medium-emphasis">
@@ -72,10 +66,9 @@
       <!-- Stats Cards -->
       <v-row class="mb-4">
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-dna" color="primary" class="mr-2"></v-icon>
                 <div class="text-label-medium">Total Genes</div>
               </div>
               <div class="text-headline-large">{{ stat(scopeStats?.total_genes_assigned) }}</div>
@@ -84,10 +77,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-check-circle" color="success" class="mr-2"></v-icon>
                 <div class="text-label-medium">Completed</div>
               </div>
               <div class="text-headline-large">{{ stat(completedGenes) }}</div>
@@ -96,10 +88,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-progress-clock" color="warning" class="mr-2"></v-icon>
                 <div class="text-label-medium">In Progress</div>
               </div>
               <div class="text-headline-large">{{ stat(inProgressCount) }}</div>
@@ -108,10 +99,9 @@
         </v-col>
 
         <v-col cols="12" sm="6" md="3">
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="d-flex align-center mb-2">
-                <v-icon icon="mdi-account-group" color="info" class="mr-2"></v-icon>
                 <div class="text-label-medium">Members</div>
               </div>
               <div class="text-headline-large">{{ stat(scopeStats?.member_count) }}</div>
@@ -129,7 +119,7 @@
       <!-- Progress Bar -->
       <v-row class="mb-4">
         <v-col>
-          <v-card>
+          <v-card variant="outlined">
             <v-card-text>
               <div class="text-body-large mb-2">Curation Progress</div>
               <v-progress-linear
@@ -149,7 +139,7 @@
       </v-row>
 
       <!-- Tabs -->
-      <v-card>
+      <v-card variant="outlined">
         <v-tabs v-model="activeTab" bg-color="primary" show-arrows>
           <v-tab value="overview">
             <v-icon start>mdi-view-dashboard</v-icon>
@@ -235,7 +225,7 @@
           <!-- Members Tab -->
           <v-window-item v-if="canViewMembers" value="members">
             <v-card-text>
-              <MemberManagement v-if="scope" :scope-id="scope.id" />
+              <MemberManagement v-if="scope" :scope-id="scope.id" @changed="refreshStatistics" />
             </v-card-text>
           </v-window-item>
 
@@ -266,6 +256,7 @@
 
 <script setup lang="ts">
   import { EMPTY } from '@/utils/format'
+  import { readableApiError } from '@/utils/apiErrorText'
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
   import { pluralize } from '@/utils/pluralize'
   import { useRoute, useRouter } from 'vue-router'
@@ -305,7 +296,7 @@
   const router = useRouter()
   const scopeStore = useScopesStore()
   const { getRoleColor, getRoleIcon } = useRoleColors()
-  const { getScopeVisibilityIcon, calculateProgress } = useScopeUtils()
+  const { calculateProgress } = useScopeUtils()
   const logger = useLogger()
 
   // ============================================
@@ -415,11 +406,12 @@
       logger.debug('Fetching scope dashboard data', { scope_id: scopeId.value })
 
       // Role first: the Members/Settings tabs must exist when v-tabs first renders (#175)
-      await scopeStore.fetchUserRole(scopeId.value)
+      // A non-member may open a public scope: no role and no statistics, but no error (#393)
+      await scopeStore.fetchUserRole(scopeId.value).catch((e: unknown) => {
+        if ((e as { response?: { status?: number } }).response?.status !== 403) throw e
+      })
       await scopeStore.fetchScope(scopeId.value)
-
-      // Fetch scope statistics
-      await refreshStatistics()
+      await refreshStatistics().catch(() => undefined)
 
       // Overview facts are best effort: the page works without them
       await Promise.allSettled([loadWorkflowPairs(), scopeStore.fetchMembers(scopeId.value)])
@@ -430,6 +422,7 @@
         user_role: userRole.value
       })
     } catch (err) {
+      scopeStore.error ||= readableApiError(err, 'Could not load the scope')
       logger.error('Failed to fetch scope dashboard data', {
         scope_id: scopeId.value,
         error: (err as Error).message,
