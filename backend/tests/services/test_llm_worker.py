@@ -98,6 +98,7 @@ class _Broken(MockProvider):
         ("opted_out", "llm_disabled"),
         ("unpublished", "prompt_not_published"),
         ("no_key", "config_error"),
+        ("creator_deactivated", "user_inactive"),
     ],
 )
 async def test_failures_are_recorded_with_a_code(
@@ -118,6 +119,8 @@ async def test_failures_are_recorded_with_a_code(
         world.settings.enabled = False
     elif setup == "unpublished":
         world.version.published_at = None
+    elif setup == "creator_deactivated":
+        world.scope_admin.is_active = False
     else:
         world.provider.kind = "anthropic"  # needs a key; none stored
     db_session.commit()

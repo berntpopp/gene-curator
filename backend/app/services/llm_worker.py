@@ -26,7 +26,7 @@ from app.llm.output import InvalidLLMOutputError
 from app.llm.prompts import PromptTemplateError
 from app.llm.providers import LLMProviderError, provider_registry
 from app.llm.ssrf import UnsafeURLError
-from app.models import CurationNew
+from app.models import CurationNew, UserNew
 from app.models.llm import LLMRun
 from app.services.llm_config import LLMCapError
 from app.services.llm_runs import (
@@ -92,6 +92,9 @@ def _as_user(db: Session, user_id: UUID) -> Session:
 def _prepare(factory: SessionFactory, run_id: UUID, user_id: UUID) -> PreparedCall:
     with factory() as db:
         _as_user(db, user_id)
+        creator = db.get(UserNew, user_id)
+        if creator is None or not creator.is_active:  # RLS helpers ignore is_active
+            raise LLMCapError("user_inactive")
         run = db.get(LLMRun, run_id)
         curation = (
             db.get(CurationNew, run.curation_id) if run and run.curation_id else None
