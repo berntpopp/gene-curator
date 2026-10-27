@@ -1307,7 +1307,8 @@ export interface paths {
         put?: never;
         /**
          * Bulk Create Gene Assignments
-         * @description Bulk create gene-scope assignments. Scope admins and application admins only.
+         * @description Bulk create gene-scope assignments. Scope admins and application admins only;
+         *     curators add genes one at a time with create_gene_assignment.
          */
         post: operations["bulk_create_gene_assignments_api_v1_gene_assignments_bulk_post"];
         delete?: never;
@@ -1534,7 +1535,8 @@ export interface paths {
         put?: never;
         /**
          * Execute Workflow Transition
-         * @description Execute a workflow state transition.
+         * @description Execute a workflow state transition. Approve a curation: target_stage=active,
+         *     by a reviewer or admin of the scope who is not its author (4-eyes).
          */
         post: operations["execute_workflow_transition_api_v1_workflow__item_type___item_id__transition_post"];
         delete?: never;
@@ -1577,7 +1579,8 @@ export interface paths {
         put?: never;
         /**
          * Submit Peer Review
-         * @description Submit a peer review decision.
+         * @description Submit a peer review decision. decision=approve by an assigned reviewer, never
+         *     the author, moves the curation to active.
          */
         post: operations["submit_peer_review_api_v1_workflow_reviews__review_id__submit_post"];
         delete?: never;
@@ -1748,8 +1751,9 @@ export interface paths {
         put?: never;
         /**
          * Create Curation
-         * @description Create a new curation.
-         *     Requires curator or admin role in the target scope.
+         * @description Create a curation (curator or admin of the scope). Needs an approved precuration
+         *     for the gene and scope unless one is active; the approval already opens a draft
+         *     curation (list_curations), and this fails while one is open.
          */
         post: operations["create_curation_api_v1_curations__post"];
         delete?: never;
@@ -2945,6 +2949,7 @@ export interface paths {
          *
          *     Validates PubMed ID using NCBI E-utilities API. Returns publication
          *     metadata including title, authors, and journal if valid.
+         *     For evidence PMIDs prefer validate_pmids (batch, and caches the publications).
          *
          *     Caching: Results are cached for 90 days (publications are immutable).
          *
@@ -3553,6 +3558,7 @@ export interface paths {
          *
          *     Retrieves publication from cache or fetches from Europe PMC API.
          *     Valid publications are cached for future requests.
+         *     To check PMIDs before citing them, use validate_pmids (up to 50 at once).
          *
          *     Args:
          *         pmid: PubMed ID (numeric string)
@@ -3586,7 +3592,7 @@ export interface paths {
          * @description List cached publications
          *
          *     Returns publications from the local cache. Use this to browse
-         *     previously validated publications.
+         *     previously validated publications. To check PMIDs, use validate_pmids.
          *
          *     Args:
          *         skip: Pagination offset
@@ -15945,6 +15951,7 @@ export interface operations {
             query?: never;
             header?: never;
             path: {
+                /** @description HGNC ID, "HGNC:1100" or "1100" */
                 hgnc_id: string;
             };
             cookie?: never;

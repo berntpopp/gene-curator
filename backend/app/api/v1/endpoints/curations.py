@@ -362,10 +362,9 @@ def create_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
-    """
-    Create a new curation.
-    Requires curator or admin role in the target scope.
-    """
+    """Create a curation (curator or admin of the scope). Needs an approved precuration
+    for the gene and scope unless one is active; the approval already opens a draft
+    curation (list_curations), and this fails while one is open."""
     # Set RLS context
     set_rls_context(db, current_user)
 

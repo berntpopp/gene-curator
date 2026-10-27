@@ -1,6 +1,7 @@
 """MCP server (#462): tool list, parity with the API per role, auth, channel, errors."""
 
 import asyncio
+import json
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -87,6 +88,38 @@ def test_tool_list_matches_snapshot(
         for t in tools["result"]["tools"]
     )
     assert lines == SNAPSHOT.read_text().splitlines()
+
+
+def test_server_instructions_and_lean_tool_descriptions(
+    client: TestClient, db_session: Session, test_user_admin: UserNew
+) -> None:
+    token = pat(db_session, test_user_admin)
+    init = rpc(
+        client,
+        token,
+        "initialize",
+        {
+            "protocolVersion": "2025-06-18",
+            "capabilities": {},
+            "clientInfo": {"name": "test", "version": "1"},
+        },
+    )
+    body = init.text[init.text.index("{") :]  # an SSE frame or plain JSON
+    instructions = json.loads(body.splitlines()[0])["result"]["instructions"]
+    assert "Entry -> Precuration -> Curation -> Review -> Active" in instructions
+    assert "4-eyes" in instructions
+
+    tools = rpc(client, token, "tools/list", {}).json()["result"]["tools"]
+    by_name = {t["name"]: t for t in tools}
+    assert not [t["name"] for t in tools if "outputSchema" in t]
+    assert not [t["name"] for t in tools if re.search(r"\n\s*Args:", t["description"])]
+    assert "approved precuration" in by_name["create_curation"]["description"]
+    bulk = by_name["bulk_create_gene_assignments"]["description"]
+    assert "create_gene_assignment" in bulk
+    hgnc_id = by_name["fetch_hgnc_gene"]["inputSchema"]["properties"]["hgnc_id"]
+    assert "HGNC:1100" in hgnc_id["description"]
+    for name in ("get_publication", "list_publications", "validate_pubmed"):
+        assert "validate_pmids" in by_name[name]["description"], name
 
 
 def test_every_api_operation_has_a_tool_except_documented_exclusions(
@@ -267,7 +300,8 @@ def test_tool_acts_as_the_token_owner_and_read_only_tokens_cannot_write(
     client: TestClient, db_session: Session, test_user_curator: UserNew
 ) -> None:
     me = call(client, pat(db_session, test_user_curator), "read_users_me")
-    assert me["structuredContent"]["id"] == str(test_user_curator.id)
+    assert "structuredContent" not in me  # each result is sent once, as text
+    assert json.loads(me["content"][0]["text"])["id"] == str(test_user_curator.id)
 
     result = call(
         client,
