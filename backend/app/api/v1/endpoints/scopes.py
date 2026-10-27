@@ -35,6 +35,7 @@ from app.crud.scope_visibility import scope_id_for
 from app.models import Gene, Scope, User, WorkflowPair
 from app.schemas.gene import GeneCreate
 from app.schemas.gene_assignment import (
+    GeneAddStatus,
     GeneScopeAssignmentCreate,
     ScopeGeneAdded,
     ScopeGenesAdd,
@@ -189,12 +190,14 @@ def add_genes_to_scope(
     resolved = asyncio.run(resolve_genes(db, body.symbols)).items
     hits = {i.index: i.candidates[0] for i in resolved if i.status == "resolved"}
     missing = {c.hgnc_id: c.symbol for c in hits.values() if c.gene_id is None}
+    problems: dict[str, str] = {}  # hgnc_id -> why no gene row was created
     if missing:
         require(db, current_user, scope_id, CREATE_GENE)
-        rows, _ = verify_rows(
+        rows, unverified = verify_rows(
             db, [GeneCreate(hgnc_id=h, approved_symbol=s) for h, s in missing.items()]
         )
-        gene_crud.bulk_create(db, genes_data=rows, owner_id=current_user.id)
+        created = gene_crud.bulk_create(db, genes_data=rows, owner_id=current_user.id)
+        problems = {e["hgnc_id"]: e["error"] for e in unverified + created["errors"]}
     ids = dict(
         db.execute(
             select(Gene.hgnc_id, Gene.id).where(
@@ -205,31 +208,41 @@ def add_genes_to_scope(
     items = []
     for item in resolved:
         hit = hits.get(item.index)
-        gene_id = ids.get(hit.hgnc_id) if hit else None
         if hit is None:
+            timed_out = item.reason == "lookup_timeout"
             items.append(
                 ScopeGeneAdded(
                     input=item.input,
-                    status="ambiguous" if item.status == "ambiguous" else "not_found",
+                    status="upstream_unavailable"
+                    if timed_out
+                    else "ambiguous"
+                    if item.status == "ambiguous"
+                    else "not_found",
                     candidates=item.candidates,
-                    reason=item.reason,
+                    reason="HGNC lookup timed out; retry" if timed_out else item.reason,
                 )
             )
             continue
-        added = gene_id is not None and _assign(db, gene_id, scope_id, current_user.id)
+        gene_id = ids.get(hit.hgnc_id)
+        problem = None if gene_id else problems.get(hit.hgnc_id, "Gene not created")
+        state: GeneAddStatus
+        if gene_id is None:
+            state = (
+                "upstream_unavailable" if "timed out" in str(problem) else "not_found"
+            )
+        elif _assign(db, gene_id, scope_id, current_user.id):
+            state = "added"
+        else:
+            state = "already_in_scope"
         items.append(
             ScopeGeneAdded(
                 input=item.input,
-                status="added"
-                if added
-                else "already_in_scope"
-                if gene_id
-                else "not_found",
+                status=state,
                 gene_id=gene_id,
                 symbol=hit.symbol,
                 hgnc_id=hit.hgnc_id,
-                created=added and hit.hgnc_id in missing,
-                reason=None if gene_id else "HGNC could not verify this gene",
+                created=state == "added" and hit.hgnc_id in missing,
+                reason=problem,
             )
         )
     db.commit()

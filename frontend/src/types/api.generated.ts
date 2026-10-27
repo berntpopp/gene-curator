@@ -9283,9 +9283,10 @@ export interface components {
             input: string;
             /**
              * Status
+             * @description upstream_unavailable: HGNC timed out; retry the input
              * @enum {string}
              */
-            status: "added" | "already_in_scope" | "ambiguous" | "not_found";
+            status: "added" | "already_in_scope" | "ambiguous" | "not_found" | "upstream_unavailable";
             /** Gene Id */
             gene_id?: string | null;
             /** Symbol */

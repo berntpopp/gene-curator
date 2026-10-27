@@ -309,9 +309,16 @@ class ScopeGenesAdd(BaseModel):
     symbols: list[str] = Field(..., min_length=1, max_length=50)
 
 
+GeneAddStatus = Literal[
+    "added", "already_in_scope", "ambiguous", "not_found", "upstream_unavailable"
+]
+
+
 class ScopeGeneAdded(BaseModel):
     input: str
-    status: Literal["added", "already_in_scope", "ambiguous", "not_found"]
+    status: GeneAddStatus = Field(
+        ..., description="upstream_unavailable: HGNC timed out; retry the input"
+    )
     gene_id: UUID | None = None
     symbol: str | None = None
     hgnc_id: str | None = None

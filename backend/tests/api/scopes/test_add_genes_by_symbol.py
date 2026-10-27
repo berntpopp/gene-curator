@@ -1,5 +1,6 @@
 """Add genes to a scope by HGNC symbol in one call (MCP study, plan item 2c). HGNC is mocked."""
 
+import asyncio
 from unittest.mock import AsyncMock
 
 import pytest
@@ -9,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.models import Gene, GeneScopeAssignment, Scope, UserNew
 from app.schemas.validation import HGNCGeneSearchResult, HGNCSearchResponse
+from app.services import gene_resolver, gene_verification
 from app.services.validators import HGNCValidator
 from tests.api.scopes.factories import auth_headers, make_gene
 
@@ -17,6 +19,7 @@ pytestmark = pytest.mark.unit
 URL = "/api/v1/scopes/genes"
 PKD1 = HGNCGeneSearchResult(hgnc_id="HGNC:9008", symbol="PKD1", name="polycystin 1")
 GHOST = HGNCGeneSearchResult(hgnc_id="HGNC:3", symbol="GHOST")  # fetch finds nothing
+SLOW = HGNCGeneSearchResult(hgnc_id="HGNC:4", symbol="SLOW")  # fetch times out
 AMB = [
     HGNCGeneSearchResult(hgnc_id="HGNC:1", symbol="AAA1", alias_symbols=["DUP"]),
     HGNCGeneSearchResult(hgnc_id="HGNC:2", symbol="BBB2", alias_symbols=["DUP"]),
@@ -28,10 +31,16 @@ def hgnc(monkeypatch: pytest.MonkeyPatch) -> None:
     async def search(
         _: HGNCValidator, query: str, limit: int = 10
     ) -> HGNCSearchResponse:
-        hits = {"PKD1": [PKD1], "DUP": AMB, "GHOST": [GHOST]}.get(query.upper(), [])
+        if query.upper() == "LAG":
+            await asyncio.sleep(1)
+        hits = {"PKD1": [PKD1], "DUP": AMB, "GHOST": [GHOST], "SLOW": [SLOW]}.get(
+            query.upper(), []
+        )
         return HGNCSearchResponse(query=query, total_results=len(hits), results=hits)
 
     async def fetch(_: HGNCValidator, hgnc_id: str) -> HGNCGeneSearchResult | None:
+        if hgnc_id == SLOW.hgnc_id:
+            await asyncio.sleep(1)
         return PKD1 if hgnc_id == PKD1.hgnc_id else None
 
     monkeypatch.setattr(HGNCValidator, "search", search)
@@ -107,3 +116,31 @@ def test_symbol_hgnc_cannot_verify_is_not_found(
         "HGNC:3",
     )
     assert r.json()["added"] == 0
+
+
+def test_hgnc_timeouts_are_upstream_unavailable_not_not_found(
+    client: TestClient,
+    curator: UserNew,
+    scope_with_admin: Scope,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A real gene HGNC was too slow for is reported as retryable, never as unknown."""
+    monkeypatch.setattr(gene_verification, "_BUDGET_S", 0.2)
+    r = client.post(
+        URL,
+        json={"scope_id": str(scope_with_admin.id), "symbols": ["SLOW"]},
+        headers=auth_headers(curator),
+    )
+    (slow,) = r.json()["items"]
+    assert (slow["status"], slow["reason"]) == (
+        "upstream_unavailable",
+        "HGNC lookup timed out",
+    )
+    monkeypatch.setattr(gene_resolver, "_HGNC_BUDGET_S", 0.2)
+    r = client.post(
+        URL,
+        json={"scope_id": str(scope_with_admin.id), "symbols": ["LAG"]},
+        headers=auth_headers(curator),
+    )
+    (lag,) = r.json()["items"]
+    assert lag["status"] == "upstream_unavailable"
