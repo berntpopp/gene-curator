@@ -56,7 +56,7 @@
           <span class="font-mono work-gene">{{ row.gene_symbol }}</span>
           <span class="work-scope text-medium-emphasis">{{ row.scope_name }}</span>
           <span class="work-date font-mono text-medium-emphasis text-body-small">
-            {{ formatDate(row.updated_at) }}
+            {{ relativeTime(row.updated_at) }}
           </span>
           <v-btn :to="row.link" size="small" variant="outlined" color="primary">{{
             row.verb
@@ -76,7 +76,7 @@
   import { useMyWorkStore, type WorkTab } from '@/stores/myWork'
   import { useInvitationsStore } from '@/stores/invitations'
   import PendingInvitations from '@/components/dashboard/PendingInvitations.vue'
-  import { formatDate } from '@/utils/format'
+  import { relativeTime } from '@/components/common/tableRows'
 
   const TABS: { value: WorkTab; label: string }[] = [
     { value: 'needs_you', label: 'Needs you' },

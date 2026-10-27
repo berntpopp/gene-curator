@@ -62,6 +62,13 @@ describe('MyWork view', () => {
     expect(links).toContain('/x/2')
   })
 
+  it('shows how long each row has waited', async () => {
+    const twoDays = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    const w = mountView([item({ updated_at: twoDays })])
+    await flushPromises()
+    expect(rows(w)[0]!.text()).toContain('2d ago')
+  })
+
   it('groups rows by next action', async () => {
     const w = mountView([item({}), item({ item_id: 'i2', verb: 'Review curation' })])
     await flushPromises()
