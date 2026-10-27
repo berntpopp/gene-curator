@@ -10,6 +10,8 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import CurationStatus, WorkflowStage
+from app.schemas.review_comment import CurationDiff
+from app.schemas.workflow_engine import WorkflowStateInfo
 
 # ========================================
 # BASE SCHEMAS (DRY - shared fields)
@@ -370,4 +372,40 @@ class CurationConflictResponse(BaseModel):
     updated_at: datetime | None = None
     changed_keys: list[str] | None = Field(
         None, description="Top-level evidence keys where your save and theirs differ"
+    )
+
+
+def capped(trace: Any) -> list[str]:
+    """One line per section or category whose claimed points exceed its cap."""
+    lines = []
+    for section in (trace or {}).get("sections", []):
+        for path, row in [(section["key"], section)] + [
+            (f"{section['key']}.{c['key']}", c) for c in section.get("categories", [])
+        ]:
+            if row.get("cap") is not None and (row.get("raw") or 0) > row["cap"]:
+                lines.append(
+                    f"{path}: {row['raw']} points claimed, capped at {row['cap']}"
+                )
+    return lines
+
+
+class CurationReviewRead(BaseModel):
+    """Everything a reviewer checks, in one read."""
+
+    curation: CurationDetail = Field(
+        ...,
+        description="Evidence and the full score trace; computed_scores.excluded lists rows "
+        "that score nothing, with the reason; trace.out_of_range flags rows outside their range",
+    )
+    warnings: list[str] = Field(
+        ...,
+        description="Saved scoring and ID warnings, then points capped per category",
+    )
+    workflow: WorkflowStateInfo = Field(
+        ..., description="Moves the caller may make; blocked ones with the reason"
+    )
+    diff: CurationDiff = Field(
+        ...,
+        description="Evidence versus what the caller last reviewed, else the previous "
+        "submission or the active curation it replaces",
     )
