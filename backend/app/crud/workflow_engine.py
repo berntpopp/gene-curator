@@ -200,13 +200,13 @@ class WorkflowEngine:
         )
         errors.extend(stage_validation.get("errors", []))
         warnings.extend(stage_validation.get("warnings", []))
-        requirements.extend(stage_validation.get("requirements", []))
 
         return WorkflowValidationResult(
             is_valid=len(errors) == 0,
             errors=errors,
             warnings=warnings,
             requirements=requirements,
+            missing_fields=stage_validation.get("missing_fields", []),
         )
 
     def execute_transition(
@@ -723,8 +723,7 @@ class WorkflowEngine:
         """Validate stage-specific requirements."""
         errors: list[str] = []
         warnings: list[str] = []
-        requirements: list[str] = []
-
+        missing: list[str] = []  # required paths still empty, for the form (#453)
         errors.extend(
             self._review_exit_errors(
                 db, item_type, current_stage, target_stage, item_id
@@ -736,8 +735,9 @@ class WorkflowEngine:
             if isinstance(item, CurationNew | PrecurationNew):
                 try:
                     check_review_content(db, item)
-                except ValueError as exc:
+                except ValueError as exc:  # MissingRequiredFieldsError carries .fields
                     errors.append(str(exc))
+                    missing = list(getattr(exc, "fields", []))
                 if isinstance(item, CurationNew):
                     if item.evidence_data and not item.evidence_data.get("summary"):
                         warnings.append(
@@ -746,7 +746,7 @@ class WorkflowEngine:
                     if not item.computed_scores:
                         warnings.append("Final score not calculated")
 
-        return {"errors": errors, "warnings": warnings, "requirements": requirements}
+        return {"errors": errors, "warnings": warnings, "missing_fields": missing}
 
     @staticmethod
     def _review_exit_errors(

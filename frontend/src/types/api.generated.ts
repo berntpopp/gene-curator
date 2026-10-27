@@ -9731,6 +9731,11 @@ export interface components {
              * @description Content requirements
              */
             requirements?: string[];
+            /**
+             * Missing Fields
+             * @description Required fields still empty for review (dotted paths, pinned check)
+             */
+            missing_fields?: string[];
         };
         /**
          * ValidationRequest

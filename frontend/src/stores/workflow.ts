@@ -187,6 +187,15 @@ export const useWorkflowStore = defineStore('workflow', {
       }
     },
 
+    /** Dry-run a transition (no state change): errors and missing required fields. */
+    validateTransition(
+      itemType: string,
+      itemId: string,
+      targetStage: Schema<'WorkflowTransitionRequest'>['target_stage']
+    ) {
+      return workflowAPI.validateTransition(itemType, itemId, targetStage)
+    },
+
     async fetchAvailableTransitions(curationId: string) {
       try {
         const transitions = await workflowAPI.getAvailableTransitions(curationId)

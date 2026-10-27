@@ -53,6 +53,9 @@ vi.mock('@/stores/schemas', () => ({
     fetchPinnedVersion: schemasStore.fetchPinnedVersion
   })
 }))
+vi.mock('@/stores/workflow', () => ({
+  useWorkflowStore: () => ({ validateTransition: async () => ({ missing_fields: [] }) })
+}))
 vi.mock('@/stores/curations', () => ({ useCurationsStore: () => curationsStore }))
 vi.mock('@/stores/precurations', () => ({ usePrecurationsStore: () => precurationsStore }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))

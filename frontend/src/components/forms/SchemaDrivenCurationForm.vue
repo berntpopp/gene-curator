@@ -129,6 +129,7 @@
   import type { Schema } from '@/types/api'
   import type { ApiErrorLike, PrecurationData } from './types'
   import { useCurationSubmission, type EvidenceData } from './useCurationSubmission'
+  import { useDiseaseGap } from './useDiseaseGap'
   import ErrorBoundary from '@/components/ErrorBoundary.vue'
   import { hasContent, hasDisputingRow } from './hasContent'
   import { scoreSnapshot } from './scorePreview'
@@ -340,6 +341,13 @@
           : null
       )
   )
+  // #453: a disease gap the read-only form cannot fix blocks Submit with the reason
+  useDiseaseGap({
+    curationId: () => (props.readonly ? undefined : (props.curationId ?? undefined)),
+    linked: () => !!curationsStore.currentCuration?.precuration_id,
+    checkAt: savedAt,
+    report: message => frame?.setBlocker('curation-disease', message)
+  })
   watch(score, s => frame?.setScore(s))
   watch(
     precurationData,
