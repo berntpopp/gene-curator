@@ -13,7 +13,7 @@ import pytest
 from fastapi.testclient import TestClient
 from pytest import MonkeyPatch
 
-from app.core.database import get_async_db
+from app.core.deps import get_async_db
 from app.main import app
 from app.models.models import Publication
 from app.schemas.validation import (
