@@ -23,6 +23,7 @@
       v-model:items-per-page="itemsPerPage"
       v-model:sort-by="sortBy"
       v-model:density="density"
+      storage-key="scopes"
       :headers="headers"
       :items="pageRows"
       :items-length="rows.length"

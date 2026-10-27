@@ -1,15 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, type MockInstance } from 'vitest'
 import { mount, flushPromises, RouterLinkStub } from '@vue/test-utils'
 import { setActivePinia, createPinia } from 'pinia'
+import { createRouter, createMemoryHistory, type Router } from 'vue-router'
 import { useMyWorkStore } from '@/stores/myWork'
 import MyWork from '@/views/MyWork.vue'
 import type { Schema } from '@/types/api'
 
-const push = vi.hoisted(() => vi.fn())
-vi.mock('vue-router', async importOriginal => ({
-  ...(await importOriginal<typeof import('vue-router')>()),
-  useRouter: () => ({ push })
-}))
 vi.mock('@/services/logService', () => ({
   logService: { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() }
 }))
@@ -29,22 +25,42 @@ const item = (over: Partial<Schema<'WorkItem'>>): Schema<'WorkItem'> => ({
   ...over
 })
 
+let router: Router
+let push: MockInstance<Router['push']>
+
+async function newRouter(url = '/my-work') {
+  router = createRouter({
+    history: createMemoryHistory(),
+    routes: [{ path: '/:p(.*)*', component: { template: '<div />' } }]
+  })
+  await router.push(url)
+  push = vi.spyOn(router, 'push')
+}
+
 function mountView(items: Schema<'WorkItem'>[]) {
   const store = useMyWorkStore()
   vi.spyOn(store, 'fetchMyWork').mockResolvedValue(undefined)
   store.items = items
   store.counts = { needs_you: 2, waiting: 1, done: 0 }
   return mount(MyWork, {
-    global: { stubs: { RouterLink: RouterLinkStub, PendingInvitations: true } }
+    global: { plugins: [router], stubs: { RouterLink: RouterLinkStub, PendingInvitations: true } }
   })
+}
+
+// Router install starts a navigation of its own; let it finish before the table writes the URL
+const settle = async () => {
+  await flushPromises()
+  await new Promise(r => setTimeout(r))
+  await flushPromises()
 }
 
 const rows = (w: ReturnType<typeof mountView>) => w.findAll('[data-test="work-row"]')
 
 describe('MyWork view', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     setActivePinia(createPinia())
-    push.mockClear()
+    localStorage.clear()
+    await newRouter()
   })
 
   it('loads on mount, shows tab counts and the needs-you rows with deep links from the API', async () => {
@@ -53,7 +69,7 @@ describe('MyWork view', () => {
       item({ item_id: 'i2', gene_symbol: 'PKD2', verb: 'Answer 2 review comments', link: '/x/2' }),
       item({ item_id: 'i3', tab: 'waiting', gene_symbol: 'HNF1B' })
     ])
-    await flushPromises()
+    await settle()
     expect(useMyWorkStore().fetchMyWork).toHaveBeenCalled()
     expect(w.text()).toContain('Needs you')
     expect(rows(w)).toHaveLength(2)
@@ -62,27 +78,66 @@ describe('MyWork view', () => {
     expect(links).toContain('/x/2')
   })
 
-  it('groups rows by next action', async () => {
-    const w = mountView([item({}), item({ item_id: 'i2', verb: 'Review curation' })])
-    await flushPromises()
-    expect(w.findAll('[data-test="work-group"]').map(g => g.text())).toEqual([
+  it('shows how long each row has waited', async () => {
+    const twoDays = new Date(Date.now() - 2 * 86_400_000).toISOString()
+    const w = mountView([item({ updated_at: twoDays })])
+    await settle()
+    expect(rows(w)[0]!.text()).toContain('2d ago')
+  })
+
+  it('keeps rows of one next action together, in API order', async () => {
+    const w = mountView([
+      item({}),
+      item({ item_id: 'i2', verb: 'Review curation', gene_symbol: 'PKD1' }),
+      item({ item_id: 'i3', gene_symbol: 'HNF1B' })
+    ])
+    await settle()
+    expect(rows(w).map(r => r.text())).toEqual([
+      expect.stringContaining('Start precuration'),
       expect.stringContaining('Start precuration'),
       expect.stringContaining('Review curation')
     ])
+    expect(rows(w)[1]!.text()).toContain('HNF1B')
+  })
+
+  it('shows the total in the table footer and keeps the tab in the URL', async () => {
+    const w = mountView([item({}), item({ item_id: 'i2' })])
+    await settle()
+    expect(w.text()).toContain('1-2 of 2')
+    await w.findAll('[role="tab"]')[1]!.trigger('click')
+    await settle()
+    expect(router.currentRoute.value.query.tab).toBe('waiting')
+  })
+
+  it('opens on the tab named in the URL', async () => {
+    await newRouter('/my-work?tab=waiting')
+    const w = mountView([item({}), item({ item_id: 'i3', tab: 'waiting', gene_symbol: 'HNF1B' })])
+    await settle()
+    expect(rows(w).map(r => r.text())).toEqual([expect.stringContaining('HNF1B')])
+  })
+
+  it('marks the J/K row as current', async () => {
+    const w = mountView([item({}), item({ item_id: 'i2' })])
+    await settle()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }))
+    await settle()
+    expect(rows(w).map(r => r.attributes('aria-current'))).toEqual([undefined, 'true'])
+    w.unmount()
   })
 
   it('switches tabs and shows a per-tab empty state', async () => {
     const w = mountView([item({})])
-    await flushPromises()
+    await settle()
     await w.findAll('[role="tab"]')[2]!.trigger('click')
+    await settle()
     expect(w.text()).toContain('Nothing finished this week')
   })
 
   it('moves with J and K and opens the row with Enter', async () => {
     const w = mountView([item({}), item({ item_id: 'i2', link: '/second' })])
-    await flushPromises()
+    await settle()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }))
-    await flushPromises()
+    await settle()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j' }))
@@ -97,7 +152,7 @@ describe('MyWork view', () => {
       item({ item_id: 'i2', link: '/second' }),
       item({ item_id: 'i3', link: '/third' })
     ])
-    await flushPromises()
+    await settle()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', altKey: true }))
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', cancelable: true }))
     const handled = new KeyboardEvent('keydown', { key: 'j', cancelable: true })
@@ -110,7 +165,7 @@ describe('MyWork view', () => {
 
   it('uses short pill labels on the tabs and hides the keyboard hint below md', async () => {
     const w = mountView([item({})])
-    await flushPromises()
+    await settle()
     expect(w.findAll('[role="tab"]').map(t => t.text())).toEqual([
       'Needs you 2',
       'Waiting 1',
@@ -121,7 +176,7 @@ describe('MyWork view', () => {
 
   it('ignores shortcuts typed into the filter field', async () => {
     const w = mountView([item({})])
-    await flushPromises()
+    await settle()
     const input = document.createElement('input')
     document.body.appendChild(input)
     input.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', bubbles: true }))
@@ -133,17 +188,29 @@ describe('MyWork view', () => {
 
   it('filters by gene symbol', async () => {
     const w = mountView([item({}), item({ item_id: 'i2', gene_symbol: 'PKD2' })])
-    await flushPromises()
+    await settle()
     await w.find('input').setValue('pkd')
+    await new Promise(r => setTimeout(r, 350)) // the search reaches the URL debounced
+    await settle()
+    expect(router.currentRoute.value.query.q).toBe('pkd')
     expect(rows(w)).toHaveLength(1)
+  })
+
+  it('says no matches, not "nothing needs you", when a search finds nothing', async () => {
+    const w = mountView([item({})])
+    await settle()
+    await w.find('input').setValue('zzz')
+    await settle()
+    expect(w.text()).toContain('No work matches the search.')
+    expect(w.text()).not.toContain('Nothing needs you')
   })
 
   it('shows the store error with a retry', async () => {
     const w = mountView([])
     useMyWorkStore().error = 'Request failed'
-    await flushPromises()
+    await settle()
     expect(w.text()).toContain('Request failed')
-    await w.find('.retry').trigger('click')
+    await w.find('[data-testid="table-retry"]').trigger('click')
     expect(useMyWorkStore().fetchMyWork).toHaveBeenCalledTimes(2)
   })
 })

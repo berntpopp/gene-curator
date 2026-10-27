@@ -12,6 +12,7 @@
       v-model:sort-by="sortBy"
       v-model:density="density"
       v-model:filters="filters"
+      storage-key="catalogue"
       :headers="headers"
       :items="store.rows"
       :items-length="store.total"

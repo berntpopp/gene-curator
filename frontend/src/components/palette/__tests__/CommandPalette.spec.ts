@@ -158,6 +158,33 @@ describe('CommandPalette', () => {
     expect(useSearchStore().isOpen).toBe(false)
   })
 
+  it('Enter pressed before the results arrive opens the first result once they do', async () => {
+    input().value = 'PKD1'
+    input().dispatchEvent(new Event('input', { bubbles: true }))
+    await key('Enter') // still debouncing: nothing to open yet
+    expect(push).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(250)
+    await flushPromises()
+    expect(push).toHaveBeenCalledWith({ name: 'GeneDetail', params: { id: 'g1' } })
+    expect(useSearchStore().isOpen).toBe(false)
+  })
+
+  it('drops a waiting Enter when the query changes or nothing is found', async () => {
+    input().value = 'PKD1'
+    input().dispatchEvent(new Event('input', { bubbles: true }))
+    await key('Enter')
+    await type('PKD2') // typing on cancels the pending open
+    expect(push).not.toHaveBeenCalled()
+    vi.mocked(searchAPI.search).mockResolvedValue({ genes: [], curations: [], scopes: [] } as never)
+    input().value = 'zzzz'
+    input().dispatchEvent(new Event('input', { bubbles: true }))
+    await key('Enter')
+    await vi.advanceTimersByTimeAsync(250)
+    await flushPromises()
+    expect(push).not.toHaveBeenCalled()
+    expect(useSearchStore().isOpen).toBe(true)
+  })
+
   it('opens curations and scopes by their routes', async () => {
     await type('pkd')
     const click = async (text: string) => {

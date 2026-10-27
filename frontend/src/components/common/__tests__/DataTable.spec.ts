@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { defineComponent, h, ref } from 'vue'
 import { mount } from '@vue/test-utils'
 import DataTable from '../DataTable.vue'
@@ -14,12 +14,14 @@ const items = [
 
 function mountTable(props: Record<string, unknown> = {}) {
   return mount(DataTable, {
-    props: { headers, items, itemsLength: 120, ...props },
+    props: { headers, items, itemsLength: 120, storageKey: 'test', ...props },
     attachTo: document.body
   })
 }
 
 describe('DataTable', () => {
+  beforeEach(() => localStorage.clear())
+
   it('shows server totals in the footer, not the page size', () => {
     const w = mountTable()
     expect(w.text()).toContain('1-25 of 120')
@@ -85,6 +87,60 @@ describe('DataTable', () => {
     w.unmount()
   })
 
+  it('remembers hidden columns per storage key across mounts', async () => {
+    const w = mountTable({ storageKey: 't1' })
+    await w.find('[data-testid="column-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r))
+    ;(document.body.querySelector('[data-testid="column-status"] input') as HTMLElement).click()
+    await new Promise(r => setTimeout(r))
+    w.unmount()
+    expect(localStorage.getItem('table-columns:t1')).toBe('["status"]')
+    const again = mountTable({ storageKey: 't1' })
+    expect(again.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
+    expect(mountTable({ storageKey: 't2' }).findAll('thead th')).toHaveLength(2) // other table
+    again.unmount()
+  })
+
+  it('keeps hidden columns when the column set changes', async () => {
+    localStorage.setItem('table-columns:t3', '["status"]')
+    const w = mountTable({ storageKey: 't3' })
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
+    await w.setProps({ headers: [...headers, { title: 'Age', key: 'age' }] })
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol', 'Age'])
+  })
+
+  it('leaves columns marked hideable: false out of the column picker', async () => {
+    const w = mountTable({
+      headers: [...headers, { title: 'Actions', key: 'act', hideable: false }]
+    })
+    await w.find('[data-testid="column-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r))
+    expect(document.body.querySelector('[data-testid="column-status"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="column-act"]')).toBeNull()
+    w.unmount()
+  })
+
+  it('shows a hideable: false column even when storage says it is hidden', () => {
+    localStorage.setItem('table-columns:review-queue', '["act"]')
+    const w = mountTable({
+      storageKey: 'review-queue',
+      headers: [...headers, { title: 'Actions', key: 'act', hideable: false }]
+    })
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol', 'Status', 'Actions'])
+  })
+
+  it('ignores unreadable saved columns', () => {
+    localStorage.setItem('table-columns:bad', '{oops')
+    expect(mountTable({ storageKey: 'bad' }).findAll('thead th')).toHaveLength(2)
+  })
+
+  it('passes row props to the rows', () => {
+    const w = mountTable({
+      rowProps: ({ item }: { item: { symbol: string } }) => ({ 'data-symbol': item.symbol })
+    })
+    expect(w.findAll('tbody tr').map(r => r.attributes('data-symbol'))).toEqual(['PKD1', 'HNF1B'])
+  })
+
   it('picks a filter option from the chip menu', async () => {
     const w = mountTable({
       filterDefs: [
@@ -135,7 +191,7 @@ describe('DataTable', () => {
 
   it('renders the toolbar actions slot and typed item slots', () => {
     const w = mount(DataTable, {
-      props: { headers, items, itemsLength: 2 },
+      props: { headers, items, itemsLength: 2, storageKey: 'slots' },
       slots: {
         'toolbar-actions': '<button data-testid="export">Export</button>',
         'item.symbol': (p: { item: Record<string, unknown> }) =>
@@ -152,7 +208,12 @@ describe('DataTable', () => {
       setup: () => () =>
         h(
           DataTable,
-          { headers: [...headers, { title: 'Late', key: 'late' }], items, itemsLength: 2 },
+          {
+            headers: [...headers, { title: 'Late', key: 'late' }],
+            items,
+            itemsLength: 2,
+            storageKey: 'late'
+          },
           Object.fromEntries(
             extra.value.map(k => [`item.${k}`, () => h('i', { class: 'late' }, 'cell')])
           )

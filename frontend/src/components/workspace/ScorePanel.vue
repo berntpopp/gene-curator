@@ -5,6 +5,17 @@
       <v-skeleton-loader v-if="loading" type="article" />
       <ScoreTrace v-else-if="score" :scores="score" :classification="score.classification" />
       <p v-else>Score preview unavailable.</p>
+      <ul
+        v-if="flags.length"
+        data-testid="score-flags"
+        class="checklist"
+        aria-label="Rows to check"
+      >
+        <li v-for="f in flags" :key="f" class="checklist--warn">
+          <v-icon size="16" aria-hidden="true">mdi-alert-circle-outline</v-icon>
+          {{ f }}
+        </li>
+      </ul>
     </section>
 
     <section v-if="!readonly" class="panel">
@@ -24,6 +35,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import ScoreTrace from '@/components/curation/ScoreTrace.vue'
+  import { useValidationStore } from '@/stores/validation'
   import type { ScoreSnapshot } from './useWorkspaceFrame'
 
   const props = withDefaults(
@@ -36,6 +48,16 @@
     }>(),
     { blockers: () => [] }
   )
+
+  // Rows the scoring engine flags in the live preview (e.g. invalid or missing PMIDs)
+  const validation = useValidationStore()
+  const flags = computed(() => [
+    ...new Set(
+      (validation.getValidationResult('form')?.warnings ?? [])
+        .filter(w => w.type === 'scoring')
+        .map(w => String(w.message))
+    )
+  ])
 
   const checks = computed(() => [
     ...props.blockers.map(text => ({ text, warn: true })),
