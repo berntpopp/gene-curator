@@ -6,12 +6,12 @@ import re
 from collections import defaultdict
 from typing import Any
 
-# HGVS (optionally on a reference sequence), rsID, chr1:12345 / 1-12345 / chrX:g., and
+# HGVS (optionally on a reference sequence), rsID, chr1:123 / 1-12345 (bare: 5+ digits), and
 # structural: exon-level or whole-gene del/dup, ISCN (arr[GRCh37] 6p12.3(...)x1) or a cytoband
 _VARIANT = re.compile(
-    r"(?:^|[\s:(\[,;])[cgmnrp]\.\(?[\d*?A-Z_-]"
+    r"(?:^|[\s:(\[,;])(?:[cgmnr]\.[\d*(?-]|p\.\(?(?:[A-Z][a-z]{2}|[A-Z*])\d)"
     r"|\brs\d+\b"
-    r"|\b(?:chr)?(?:\d{1,2}|X|Y|MT?)[:-]\d{3,}"
+    r"|\bchr(?:\d{1,2}|X|Y|MT?)[:-]\d{3,}|\b(?:\d{1,2}|X|Y|MT?)[:-]\d{5,}"
     r"|\bexons?\s*\d+(?:\s*[-\u2013]\s*\d+)?\s*(?:del|dup)"
     r"|\bwhole[- ]gene\s*(?:del|dup)"
     r"|\b(?:arr|seq)\s*\[|\b(?:\d{1,2}|X|Y)[pq]\d{1,2}(?:\.\d+)?\b"
