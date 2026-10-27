@@ -57,7 +57,7 @@ def test_default_false_payload_saves_reloads_and_enters_review(client, w: W, ite
     evidence["answered"] = False
     url = f"/api/v1/{item_type}s/{item['id']}"
     saved = client.patch(
-        f"{url}/draft",
+        f"{url}/draft?detail=true",
         headers=headers,
         json={"evidence_data": evidence, "lock_version": item["lock_version"]},
     )

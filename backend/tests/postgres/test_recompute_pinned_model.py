@@ -156,7 +156,7 @@ def test_api_draft_invalid_scores_are_flagged_and_storable(
     assert scores["total_score"] == total
     assert [f["path"] for f in scores["trace"]["out_of_range"]] == [path]
     json.dumps(scores, allow_nan=False)
-    loaded = client.get(url, headers=_h(w.alice))
+    loaded = client.get(f"{url}?detail=true", headers=_h(w.alice))
     assert loaded.status_code == 200, loaded.text
     assert loaded.json()["computed_scores"] == scores
     assert loaded.json()["evidence_data"] == evidence

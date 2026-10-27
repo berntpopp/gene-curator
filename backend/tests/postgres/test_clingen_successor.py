@@ -259,7 +259,9 @@ def test_app_user_old_pin_stays_old_and_successor_save_preview_reload_agree(
             headers=_h(w.alice),
         )
         assert preview.status_code == 200, preview.text
-        detail = client.get(f"/api/v1/curations/{current['id']}", headers=_h(w.alice))
+        detail = client.get(
+            f"/api/v1/curations/{current['id']}?detail=true", headers=_h(w.alice)
+        )
         assert detail.status_code == 200, detail.text
         trace = current["computed_scores"]["trace"]
         assert saved.json()["computed_scores"]["trace"] == trace
@@ -311,7 +313,9 @@ def test_app_user_successor_ar_blank_entered_and_manual_zero_agree(
             preview.json()["score_calculations"]["trace"]
             == current["computed_scores"]["trace"]
         )
-        detail = client.get(f"/api/v1/curations/{current['id']}", headers=_h(w.alice))
+        detail = client.get(
+            f"/api/v1/curations/{current['id']}?detail=true", headers=_h(w.alice)
+        )
         assert detail.status_code == 200, detail.text
         assert detail.json()["evidence_data"] == evidence
         assert (
@@ -381,7 +385,9 @@ def test_app_user_untouched_segregation_default_differs_from_assigned_zero(
             preview.json()["score_calculations"]["trace"]
             == current["computed_scores"]["trace"]
         )
-        loaded = client.get(f"/api/v1/curations/{current['id']}", headers=_h(w.alice))
+        loaded = client.get(
+            f"/api/v1/curations/{current['id']}?detail=true", headers=_h(w.alice)
+        )
         assert loaded.status_code == 200, loaded.text
         assert loaded.json()["evidence_data"] == evidence
         assert loaded.json()["computed_scores"] == current["computed_scores"]

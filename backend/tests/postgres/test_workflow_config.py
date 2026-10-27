@@ -186,7 +186,7 @@ def _submit(client: TestClient, w: W, cid: UUID) -> Any:
     lock = client.get(f"/api/v1/curations/{cid}", headers=_h(w.alice))
     assert lock.status_code == 200, lock.text
     return client.post(
-        f"/api/v1/curations/{cid}/submit",
+        f"/api/v1/curations/{cid}/submit?detail=true",
         json={"lock_version": lock.json()["lock_version"]},
         headers=_h(w.alice),
     )

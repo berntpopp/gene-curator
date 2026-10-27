@@ -73,7 +73,9 @@ def test_saves_score_with_the_pinned_point_model(client: TestClient, w: W) -> No
             headers=_h(w.alice),
         )
         assert preview.status_code == 200, preview.text
-        detail = client.get(f"/api/v1/curations/{row['id']}", headers=_h(w.alice))
+        detail = client.get(
+            f"/api/v1/curations/{row['id']}?detail=true", headers=_h(w.alice)
+        )
         assert detail.status_code == 200, detail.text
         trace = row["computed_scores"]["trace"]
         assert trace["classification_rule"]["class"] == trace["class"]
