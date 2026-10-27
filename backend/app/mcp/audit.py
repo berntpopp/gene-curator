@@ -133,12 +133,44 @@ _TOOL_HINTS = {
     ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
     "make and why the others are blocked",
 }
+# 404s route to the tool that finds or creates the missing thing (round 3, T2/T6);
+# matched on the API detail first, then on the tool name and its argument names
+_NOT_FOUND_HINTS = (
+    (
+        ("audit", "baseline", "snapshot", "diff"),
+        'get_workflow_audit_trail(item_type="curation", item_id) lists the '
+        "submissions and review rounds a diff can start from",
+    ),
+    (
+        ("pmid", "publication"),
+        "search_pubmed finds PMIDs; validate_pmids(pmids, gene_symbol) checks them",
+    ),
+    (
+        ("gene", "hgnc", "symbol"),
+        "the gene is not in Gene Curator yet: add_genes_to_scope(symbols, "
+        "scope_name) adds and assigns it, or create_gene(hgnc_id)",
+    ),
+    (
+        ("scope",),
+        "list_scopes(name=...) finds the scope id; tools with scope_name take the name",
+    ),
+)
 _STALE_HINT = (
     "re-read the item (get_curation or get_precuration), merge your change and retry"
 )
 
 
-def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
+def _not_found_hint(tool: str, args: dict[str, Any], detail: Any) -> str | None:
+    for said in (str(detail or ""), " ".join([tool, *args])):
+        for words, hint in _NOT_FOUND_HINTS:
+            if any(word in said.lower() for word in words):
+                return hint
+    return None
+
+
+def _tool_error(
+    cause: httpx.HTTPStatusError, tool: str, args: dict[str, Any] | None = None
+) -> ToolError:
     status = cause.response.status_code
     message = f"{error_code(status)}: HTTP {status}"
     detail: Any = None
@@ -149,7 +181,11 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
             detail = None
         if detail:
             message += f": {detail}"
-    hint = _TOOL_HINTS.get((tool, status)) or _HINTS.get(status)
+    hint = (
+        _TOOL_HINTS.get((tool, status))
+        or (_not_found_hint(tool, args or {}, detail) if status == 404 else None)
+        or _HINTS.get(status)
+    )
     if isinstance(detail, dict) and "current_lock_version" in detail:  # stale save
         hint = _STALE_HINT
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
@@ -329,7 +365,7 @@ class ToolAuditMiddleware(Middleware):
             if cause is None:
                 outcome = "error"
                 raise  # mask_error_details hides unexpected details
-            error = _tool_error(cause, name)
+            error = _tool_error(cause, name, context.message.arguments or {})
             outcome = str(error).split(":", 1)[0]
             raise error from exc
         finally:

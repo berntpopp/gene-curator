@@ -15,11 +15,42 @@ from tests.api.test_mcp import call, pat
 pytestmark = pytest.mark.unit
 
 
-def _error(status: int, tool: str, detail: object = "nope") -> str:
+def _error(
+    status: int, tool: str, detail: object = "nope", args: dict | None = None
+) -> str:
     request = httpx.Request("GET", "http://test/api")
     response = httpx.Response(status, json={"detail": detail}, request=request)
     error = httpx.HTTPStatusError("x", request=request, response=response)
-    return str(_tool_error(error, tool))
+    return str(_tool_error(error, tool, args))
+
+
+@pytest.mark.parametrize(
+    ("tool", "detail", "args", "next_tool"),
+    [
+        ("get_gene", "Gene not found", {"gene_id": "x"}, "create_gene"),
+        ("get_genes_by_symbol", "nope", {"symbol": "X"}, "add_genes_to_scope"),
+        (
+            "curation_diff",
+            "No baseline",
+            {"curation_id": "x"},
+            "get_workflow_audit_trail",
+        ),
+        ("get_publication", "nope", {"pmid": "1"}, "search_pubmed"),
+        (
+            "get_scope_details",
+            "Scope not found",
+            {"scope_id": "x"},
+            "list_scopes(name=",
+        ),
+        # the detail wins over argument names: the scope exists, the gene does not
+        ("create_gene_assignment", "Gene not found", {"scope_id": "x"}, "create_gene"),
+        ("get_curation", "Curation not found", {"curation_id": "x"}, "list_curations"),
+    ],
+)
+def test_not_found_points_to_the_tool_for_that_resource(
+    tool: str, detail: str, args: dict, next_tool: str
+) -> None:
+    assert next_tool in _error(404, tool, detail, args).split("\nnext: ")[1]
 
 
 def test_errors_carry_a_next_step() -> None:
