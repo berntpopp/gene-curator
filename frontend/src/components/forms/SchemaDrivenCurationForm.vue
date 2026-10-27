@@ -611,6 +611,8 @@
     }
     if (!props.readonly) void pmids.checkAll(pmidsIn(evidenceData.value))
     ready.value = true
+    // The form mounts now and fills in declared defaults: they belong to the loaded state (#470)
+    await nextTick()
     // Local drafts are compared with what the form now shows; none until the saved one loaded
     if (!props.curationId || serverVersion) setBaseline(evidenceData.value, serverVersion)
     emit('ready')

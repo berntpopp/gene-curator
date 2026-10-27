@@ -30,6 +30,19 @@ function press(target: Element | Document, init: KeyboardEventInit = {}) {
 afterEach(() => (document.body.innerHTML = ''))
 
 describe('useSaveShortcut', () => {
+  // #469: a focused cell commits its typed text on blur; the save must include it
+  it('blurs the focused field before saving', () => {
+    const input = document.body.appendChild(document.createElement('input'))
+    let committed = false
+    input.addEventListener('blur', () => (committed = true))
+    input.focus()
+    let committedAtSave = false
+    const app = mountShortcut(() => (committedAtSave = committed))
+    press(input)
+    app.unmount()
+    expect(committedAtSave).toBe(true)
+  })
+
   it('saves on Ctrl+S and Cmd+S and stops the browser save-page dialog', () => {
     const save = vi.fn()
     mountShortcut(save)

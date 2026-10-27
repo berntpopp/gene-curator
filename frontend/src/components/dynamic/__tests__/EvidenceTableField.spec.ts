@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { flushPromises, mount, type DOMWrapper } from '@vue/test-utils'
 import EvidenceTableField from '../EvidenceTableField.vue'
+import { CELL_COMMIT_MS } from '../componentRegistry'
 import { normalizeField } from '../normalizeDefinition'
 import { publicationsAPI } from '@/api/publications'
 
@@ -97,16 +98,46 @@ describe('EvidenceTableField', () => {
     expect(wrapper.find('[aria-label="Remove row 1"]').exists()).toBe(true)
   })
 
-  it('does not emit while typing and commits on change (blur/Enter)', async () => {
-    const wrapper = mountTable()
-    const input = wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]')
-    await type(input, 'F12')
-    await type(input, 'F123')
-    expect(emitted(wrapper)).toHaveLength(0)
+  // #469: typed text reaches the form while typing (dirty state, local draft, leave warning)
+  it('commits typed text after a pause in typing, and on change (blur/Enter) at once', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountTable()
+      const input = wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]')
+      await type(input, 'F12')
+      await type(input, 'F123')
+      expect(emitted(wrapper)).toHaveLength(0)
+      vi.advanceTimersByTime(CELL_COMMIT_MS)
+      expect(emitted(wrapper)).toHaveLength(1)
+      expect(emitted(wrapper)[0]![0][0]).toMatchObject({ id: 'r1', family_label: 'F123' })
 
-    await input.trigger('change')
-    expect(emitted(wrapper)).toHaveLength(1)
-    expect(emitted(wrapper)[0]![0][0]).toMatchObject({ id: 'r1', family_label: 'F123' })
+      await type(input, 'F1234')
+      await input.trigger('change')
+      expect(emitted(wrapper)).toHaveLength(2)
+      vi.advanceTimersByTime(CELL_COMMIT_MS)
+      expect(emitted(wrapper)).toHaveLength(2)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('commits a typed number as a number after the pause', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountTable()
+      await type(wrapper.find<HTMLInputElement>('input[aria-label="Lod score, row 1"]'), '2.5')
+      vi.advanceTimersByTime(CELL_COMMIT_MS)
+      expect(emitted(wrapper).at(-1)![0][0]!.lod_score).toBe(2.5)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('commits pending typed text when the table unmounts', async () => {
+    const wrapper = mountTable()
+    await type(wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]'), 'F9')
+    wrapper.unmount()
+    expect(emitted(wrapper).at(-1)![0][0]).toMatchObject({ family_label: 'F9' })
   })
 
   it('commits numbers as numbers and a cleared number as null', async () => {
@@ -178,6 +209,21 @@ describe('EvidenceTableField', () => {
     await input.trigger('keydown', { key: 'Escape' })
     expect(input.element.value).toBe('F1')
     expect(emitted(wrapper)).toHaveLength(0)
+  })
+
+  it('Escape after a pause-commit restores the value from before the edit', async () => {
+    vi.useFakeTimers()
+    try {
+      const wrapper = mountTable()
+      const input = wrapper.find<HTMLInputElement>('input[aria-label="Family label, row 1"]')
+      await type(input, 'oops')
+      vi.advanceTimersByTime(CELL_COMMIT_MS)
+      await wrapper.setProps({ modelValue: emitted(wrapper).at(-1)![0] })
+      await input.trigger('keydown', { key: 'Escape' })
+      expect(emitted(wrapper).at(-1)![0][0]).toMatchObject({ family_label: 'F1' })
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   describe('focus after row changes', () => {
