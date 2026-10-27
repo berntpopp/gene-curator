@@ -120,6 +120,15 @@ describe('DataTable', () => {
     w.unmount()
   })
 
+  it('shows a hideable: false column even when storage says it is hidden', () => {
+    localStorage.setItem('table-columns:review-queue', '["act"]')
+    const w = mountTable({
+      storageKey: 'review-queue',
+      headers: [...headers, { title: 'Actions', key: 'act', hideable: false }]
+    })
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol', 'Status', 'Actions'])
+  })
+
   it('ignores unreadable saved columns', () => {
     localStorage.setItem('table-columns:bad', '{oops')
     expect(mountTable({ storageKey: 'bad' }).findAll('thead th')).toHaveLength(2)

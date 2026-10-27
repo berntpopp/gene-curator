@@ -208,7 +208,9 @@
   }
   const hidden = ref(loadHidden(storeKey.value))
   watch(storeKey, k => (hidden.value = loadHidden(k)))
-  const visibleHeaders = computed(() => props.headers.filter(h => !hidden.value.has(h.key)))
+  const visibleHeaders = computed(() =>
+    props.headers.filter(h => h.hideable === false || !hidden.value.has(h.key))
+  )
 
   function toggleColumn(key: string) {
     const next = new Set(hidden.value)
