@@ -5,6 +5,7 @@ This middleware automatically extracts request context and binds it to the loggi
 ensuring all logs within a request include request_id, user_id, endpoint, etc.
 """
 
+import re
 import time
 import uuid
 from collections.abc import Awaitable, Callable
@@ -17,6 +18,8 @@ from app.core.logging import bind_context, clear_context, get_logger
 
 logger = get_logger(__name__)
 
+# Client-supplied X-Request-ID is reused only if it is safe to log and echo back
+SAFE_REQUEST_ID = re.compile(r"[A-Za-z0-9._-]{1,128}")
 MAX_PATH_LENGTH = 2048
 
 
@@ -40,8 +43,10 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         Returns:
             Response from the endpoint
         """
-        # Generate request ID
-        request_id = str(uuid.uuid4())
+        client_id = request.headers.get("X-Request-ID", "")
+        request_id = (
+            client_id if SAFE_REQUEST_ID.fullmatch(client_id) else str(uuid.uuid4())
+        )
         request.state.request_id = request_id
 
         # Path params reach PostgreSQL, which rejects NUL bytes with a 500 (#378)
