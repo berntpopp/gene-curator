@@ -211,12 +211,6 @@ export const clinicalRows: Row[] = [
     method: 'get',
     args: ['/genes/g/summary/full']
   },
-  {
-    name: 'geneSummary.recomputeSummary',
-    run: () => geneSummaryAPI.recomputeSummary('g'),
-    method: 'post',
-    args: ['/genes/g/summary/recompute']
-  },
 
   // invitations
   {

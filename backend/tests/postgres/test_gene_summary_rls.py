@@ -135,7 +135,6 @@ def world() -> Generator[World, None, None]:
         users = [str(u) for u in (w.bob, w.alice, w.carol, w.dave)]
         scopes = [str(s) for s in (w.scope_a, w.scope_b, w.scope_pub)]
         cur.execute("DELETE FROM scopes WHERE id = ANY(%s::uuid[])", (scopes,))
-        cur.execute("DELETE FROM gene_summaries WHERE gene_id = %s", (str(w.gene),))
         cur.execute("DELETE FROM genes WHERE id = %s", (str(w.gene),))
         cur.execute("DELETE FROM audit_log WHERE user_id = ANY(%s::uuid[])", (users,))
         cur.execute("DELETE FROM audit_log WHERE workflow_pair_id = %s", (str(w.pair),))
