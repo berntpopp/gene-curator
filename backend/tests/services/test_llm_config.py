@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.llm.crypto import CredentialCipher
 from app.llm.rotate import rotate_all
-from app.models import Scope
+from app.models import AuditLogNew, Scope
 from app.models.llm import (
     LLMCredential,
     LLMModel,
@@ -19,6 +19,7 @@ from app.models.llm import (
     ScopeLLMSettings,
 )
 from app.services.llm_config import LLMCapError, check_run_allowed
+from tests.api.llm_api_support import llm_env  # noqa: F401
 
 pytestmark = pytest.mark.unit
 NOW = datetime(2026, 10, 15, 12, tzinfo=UTC)
@@ -117,6 +118,7 @@ def test_each_cap_fails_closed(db_session: Session, test_scope: Scope) -> None:
     assert check_run_allowed(db_session, test_scope.id, NOW) is settings
 
 
+@pytest.mark.usefixtures("llm_env")
 def test_rotate_reencrypts_to_active_kid(db_session: Session) -> None:
     old, new = Fernet.generate_key().decode(), Fernet.generate_key().decode()
     before = CredentialCipher({"old": old}, "old").encrypt("sk-secret")
@@ -136,8 +138,48 @@ def test_rotate_reencrypts_to_active_kid(db_session: Session) -> None:
     ring = CredentialCipher({"old": old, "new": new}, "new")
     assert rotate_all(db_session, ring, "new") == 1
     assert rotate_all(db_session, ring, "new") == 0
+    audit = db_session.scalars(select(AuditLogNew)).one()
+    assert audit.operation == "ROTATE"
+    assert audit.changes == {
+        "provider_id": str(provider.id),
+        "from_key_id": "old",
+        "to_key_id": "new",
+    }
     kid, ciphertext, rotated = db_session.execute(
         select(LLMCredential.key_id, LLMCredential.ciphertext, LLMCredential.rotated_at)
     ).one()
     assert kid == "new" and rotated is not None
     assert CredentialCipher({"new": new}, "new").decrypt(ciphertext) == "sk-secret"
+
+
+@pytest.mark.usefixtures("llm_env")
+def test_rotate_fails_closed_when_audit_fails(
+    db_session: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from sqlalchemy.exc import OperationalError
+
+    old, new = Fernet.generate_key().decode(), Fernet.generate_key().decode()
+    before = CredentialCipher({"old": old}, "old").encrypt("sk-secret")
+    provider = LLMProvider(name="p", kind="mock", base_url="mock://")
+    db_session.add(provider)
+    db_session.flush()
+    db_session.add(
+        LLMCredential(
+            provider_id=provider.id,
+            ciphertext=before.ciphertext,
+            key_id="old",
+            fingerprint=before.fingerprint,
+        )
+    )
+    db_session.commit()
+
+    def broken(*a: object, **k: object) -> None:
+        raise OperationalError("INSERT INTO audit_log", {}, Exception("down"))
+
+    monkeypatch.setattr(db_session, "flush", broken)
+    with pytest.raises(OperationalError):
+        rotate_all(db_session, CredentialCipher({"old": old, "new": new}, "new"), "new")
+    monkeypatch.undo()
+    db_session.rollback()
+    assert db_session.scalar(select(LLMCredential.key_id)) == "old"
+    assert db_session.scalars(select(AuditLogNew)).all() == []

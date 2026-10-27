@@ -11,20 +11,43 @@ from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
 from app.llm.crypto import CredentialCipher
+from app.models import AuditLogNew
 from app.models.llm import LLMCredential
 
 logger = get_logger(__name__)
 
 
 def rotate_all(db: Session, cipher: CredentialCipher, active_kid: str) -> int:
-    """Re-encrypt credentials not yet on `active_kid`; returns how many changed."""
+    """Re-encrypt credentials not yet on `active_kid`; returns how many changed.
+
+    Rows are locked so a concurrent key replacement is not overwritten, and each rotation
+    writes its audit row first: if that fails, nothing is committed.
+    """
     rows = db.execute(
-        select(LLMCredential.id, LLMCredential.ciphertext).where(
-            LLMCredential.key_id != active_kid
+        select(
+            LLMCredential.id,
+            LLMCredential.provider_id,
+            LLMCredential.ciphertext,
+            LLMCredential.key_id,
         )
+        .where(LLMCredential.key_id != active_kid)
+        .with_for_update()
     ).all()
-    for credential_id, ciphertext in rows:
+    for credential_id, provider_id, ciphertext, old_kid in rows:
         rotated = cipher.rotate(bytes(ciphertext))
+        db.add(
+            AuditLogNew(
+                entity_type="llm_credentials",
+                entity_id=credential_id,
+                operation="ROTATE",
+                changes={
+                    "provider_id": str(provider_id),
+                    "from_key_id": old_kid,
+                    "to_key_id": rotated.key_id,
+                },
+            )
+        )
+        db.flush()
         db.execute(
             update(LLMCredential)
             .where(LLMCredential.id == credential_id)
