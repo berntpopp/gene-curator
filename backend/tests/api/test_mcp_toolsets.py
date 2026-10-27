@@ -23,6 +23,7 @@ from tests.api.test_mcp import call, pat, rpc
 pytestmark = pytest.mark.unit
 
 CORE_SNAPSHOT = Path(__file__).with_name("mcp_tools_core.snapshot")
+ADMIN_SNAPSHOT = Path(__file__).with_name("mcp_tools_admin_only.snapshot")
 
 
 def _tools(client: TestClient, token: str, path: str) -> dict[str, dict]:
@@ -50,11 +51,12 @@ def test_platform_admin_tools_are_listed_for_admins_only(
     test_user_curator: UserNew,
 ) -> None:
     admin_only = admin_only_tools(app, tool_names(app.openapi()))
-    assert {"create_curation_schema", "list_llm_providers", "search_logs"} <= admin_only
+    # A normal tool can never be hidden by mistake: the hidden set is pinned
+    assert sorted(admin_only) == ADMIN_SNAPSHOT.read_text().splitlines()
     curator = pat(db_session, test_user_curator)
-    for path in ("/mcp", "/mcp/full"):
-        assert not admin_only & set(_tools(client, curator, path)), path
     full = set(_tools(client, pat(db_session, test_user_admin), "/mcp/full"))
+    assert set(_tools(client, curator, "/mcp/full")) == full - admin_only
+    assert not admin_only & set(_tools(client, curator, "/mcp"))
     spec, names = app.openapi()["paths"], tool_names(app.openapi())
     excluded = {
         names[spec[p][m.lower()]["operationId"]] for m, p in EXCLUDED_OPERATIONS
@@ -102,8 +104,9 @@ def test_lean_keeps_what_a_reviewer_needs() -> None:
     assert out["computed_scores"] == result["computed_scores"]
     assert out["evidence_data"] == result["evidence_data"]  # rows keep their index
     assert out["lock_version"] == 0 and out["is_draft"] is False and out["notes"] == ""
-    assert not {"created_by", "record_hash", "approved_at", "tags", "meta"} & set(out)
-    assert lean(result)["created_by"] == "u1"  # /mcp/full keeps audit fields
+    assert not {"record_hash", "approved_at", "meta"} & set(out)
+    assert out["created_by"] == "u1" and out["tags"] == []  # [] is an answer
+    assert lean(result)["record_hash"] == "h"  # /mcp/full keeps audit fields
 
 
 def test_core_results_are_lean_and_full_results_complete(
@@ -122,7 +125,7 @@ def test_core_results_are_lean_and_full_results_complete(
 
     core = read("/mcp", "get_curation", curation_id=str(test_curation.id))
     full = read("/mcp/full", "get_curation", curation_id=str(test_curation.id))
-    assert "created_by" not in core and full["created_by"] == str(test_user_curator.id)
+    assert core["created_by"] == full["created_by"] == str(test_user_curator.id)
     assert core["id"] == full["id"] and "lock_version" in core
     assert None not in full.values()
 
@@ -168,14 +171,26 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     assert "get_publication" in tools["validate_pmids"]["description"]
 
 
-def test_a_result_over_the_limit_is_a_typed_error(
+def test_only_narrowable_mcp_reads_are_capped(
     client: TestClient,
     db_session: Session,
     test_user_curator: UserNew,
+    test_curation: CurationNew,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    test_curation.evidence_data = {"notes": "x" * 30_000}
+    db_session.commit()
+    token = pat(db_session, test_user_curator)
+    curation_id = str(test_curation.id)
+
+    def text(path: str, name: str, **args: str) -> str:
+        return str(call(client, token, name, path=path, **args)["content"][0]["text"])
+
+    # A whole curation is always readable; /mcp/full is never capped (parity)
+    for path in ("/mcp", "/mcp/full"):
+        assert len(text(path, "get_curation", curation_id=curation_id)) > 25_000
+
     monkeypatch.setattr(audit, "MAX_RESULT_CHARS", 10)
-    result = call(client, pat(db_session, test_user_curator), "read_users_me")
-    assert result["isError"] is True
-    text = result["content"][0]["text"]
-    assert text.startswith("response_too_large:") and "\nnext: narrow" in text
+    assert text("/mcp/full", "list_curations").startswith('{"curations"')
+    capped = text("/mcp", "list_curations")
+    assert capped.startswith("response_too_large:") and "skip and limit" in capped

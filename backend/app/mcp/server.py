@@ -82,7 +82,7 @@ Your queue: read_my_work and get_my_review_assignments.
 Errors start with a closed code (invalid_input, unauthorized, forbidden, not_found,
 conflict, rate_limited, upstream_unavailable, internal, response_too_large), then the
 API detail. On conflict, re-read the item and retry with its lock_version. Results
-omit empty and null fields. Confirm destructive tools with the user.
+omit null fields and empty objects. Confirm destructive tools with the user.
 """
 
 # /mcp: the two primary flows (curate a gene end to end, check and review a
@@ -128,6 +128,9 @@ CORE_TOOLS = frozenset(
 
 # Dependencies that admit platform admins only: their tools are hidden from others
 _ADMIN_DEPENDENCIES = {get_current_admin_user, require_admin, require_admin_or_reviewer}
+
+# Query parameters that narrow a result, named in the response_too_large advice
+_NARROWING = {"skip", "limit", "compact"}
 
 # MCP-only argument defaults; the REST defaults stay as they are
 MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
@@ -366,7 +369,17 @@ def create_mcp(app: FastAPI, *, core: bool = False) -> FastMCP:
         mask_error_details=True,
     )
     mcp.add_middleware(CallerToolFilter(admin_only_tools(app, names)))
-    mcp.add_middleware(ToolAuditMiddleware(lean=core, defaults=MCP_DEFAULTS))
+    # Only tools with a way to narrow are capped; a whole curation is always readable
+    capped = frozenset(
+        names[op["operationId"]]
+        for operations in spec["paths"].values()
+        for op in operations.values()
+        if op.get("operationId") in names
+        and _NARROWING & {p["name"] for p in op.get("parameters", [])}
+    )
+    mcp.add_middleware(
+        ToolAuditMiddleware(lean=core, defaults=MCP_DEFAULTS, capped=capped)
+    )
     if core:
         mcp.enable(names=set(CORE_TOOLS), only=True)
     return mcp

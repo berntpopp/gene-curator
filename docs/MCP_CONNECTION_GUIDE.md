@@ -83,13 +83,14 @@ revoked immediately.
   and marking notifications read) are marked `destructiveHint`; the server instructions ask the
   client to confirm these with you first.
 - Each result is sent once, as compact JSON text (no `structuredContent` or `outputSchema`), so
-  clients do not pay for it twice. Null and empty fields are left out. On `/mcp` results are
-  leaner still: no audit-only fields (`created_by`, `updated_by`, `submitted_by`, `approved_by`,
-  hashes), MONDO and HPO searches return ids and labels, `validate_pmids` returns title, journal
-  and year (`get_publication` has the abstract), `list_members` drops invitation details, and
+  clients do not pay for it twice. Null fields and empty objects are left out (empty lists stay).
+  On `/mcp` results are leaner still: no internal hashes or autosave stamps, MONDO and HPO
+  searches return ids and labels, `validate_pmids` returns title, journal and year
+  (`get_publication` has the abstract), `list_members` drops invitation details, and
   `get_curation_schema` is compact unless you pass `compact=false`. REST responses are unchanged.
-- A result over about 8,000 tokens is not sent; the error `response_too_large` says how to narrow
-  the call (paging, filters, `compact=true`).
+- On `/mcp`, a list or search result over about 8,000 tokens is not sent; the error
+  `response_too_large` says how to narrow it (paging, filters, `compact=true`). Single items such
+  as a curation are always returned whole, and `/mcp/full` never caps.
 - Not exposed: login, refresh, logout, registration and the REST auth index, and account control that a token may
   never perform (user management, password changes, creating tokens).
 - Errors carry a closed code (`invalid_input`, `unauthorized`, `forbidden`, `not_found`, `conflict`,

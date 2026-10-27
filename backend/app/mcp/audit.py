@@ -153,19 +153,9 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
     return ToolError(f"{message}\nnext: {hint}" if hint else message)
 
 
-# Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null and empty
-AUDIT_KEYS = frozenset(
-    {
-        "created_by",
-        "updated_by",
-        "submitted_by",
-        "approved_by",
-        "auto_saved_at",
-        "record_hash",
-        "previous_hash",
-        "methodology_version_id",
-    }
-)
+# Lean results on /mcp only (token plan 3, 4); /mcp/full drops only null and {}.
+# Who created or submitted stays: reviewers need it for 4-eyes and feedback.
+AUDIT_KEYS = frozenset({"auto_saved_at", "record_hash", "previous_hash"})
 SLIM_KEYS = {
     "search_mondo_diseases": frozenset({"definition", "synonyms", "xrefs", "iri"}),
     "search_hpo_terms": frozenset({"definition", "synonyms", "descendant_count"}),
@@ -195,14 +185,15 @@ MAX_RESULT_CHARS = 25_000
 _TOO_LARGE = (
     "response_too_large: about {tokens} tokens, over the 8000-token limit\n"
     "next: narrow the request: page with skip and limit, add filters, or pass "
-    "compact=true; for a schema use get_curation_schema(compact=true)"
+    "compact=true"
 )
 
 
 def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
-    """Drop null, {} and [] values and the keys in drop, at any depth.
+    """Drop null and {} values and the keys in drop, at any depth.
 
-    False, 0 and "" stay; list items are never removed, so row indexes hold.
+    [], False, 0 and "" stay (an empty warnings list is an answer); list items are
+    never removed, so row indexes hold.
     """
     if isinstance(value, dict):
         out = {}
@@ -210,7 +201,7 @@ def lean(value: Any, drop: frozenset[str] = frozenset()) -> Any:
             if key in drop:
                 continue
             item = lean(item, drop)
-            if item is not None and item != {} and item != []:
+            if item is not None and item != {}:
                 out[key] = item
         return out
     if isinstance(value, list):
@@ -241,10 +232,15 @@ class ToolAuditMiddleware(Middleware):
     applies MCP-only argument defaults and keeps results lean and bounded."""
 
     def __init__(
-        self, *, lean: bool = False, defaults: dict[str, dict[str, Any]] | None = None
+        self,
+        *,
+        lean: bool = False,
+        defaults: dict[str, dict[str, Any]] | None = None,
+        capped: frozenset[str] = frozenset(),
     ) -> None:
         self.lean = lean
         self.defaults = defaults or {}
+        self.capped = capped  # tools that can be narrowed; /mcp only
 
     async def on_call_tool(
         self,
@@ -267,7 +263,7 @@ class ToolAuditMiddleware(Middleware):
             # Text only: clients bill structuredContent again on top of its text copy
             content = [_lean_block(block, drop) for block in result.content]
             size = sum(len(b.text) for b in content if isinstance(b, mt.TextContent))
-            if size > MAX_RESULT_CHARS:
+            if self.lean and name in self.capped and size > MAX_RESULT_CHARS:
                 outcome = "response_too_large"
                 raise ToolError(_TOO_LARGE.format(tokens=size // 3))
             return ToolResult(content=content, meta=result.meta)
