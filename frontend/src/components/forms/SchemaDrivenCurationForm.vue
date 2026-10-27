@@ -352,9 +352,10 @@
   )
 
   async function requestSubmit() {
+    // A focused cell's edit may be what allows submitting (#406): commit it before checking.
     // The frame adds its blockers (unknown PMIDs); never submit over a save in flight
-    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
     await commitFocusedCell()
+    if (savingDraft.value || !(frame ? frame.canSubmit.value : canSubmit.value)) return
     const ok = await confirm({
       title: 'Submit for review',
       text: `Submit this curation for ${props.gene?.symbol ?? 'this gene'} for review? It is locked for editing until the review is complete.`,

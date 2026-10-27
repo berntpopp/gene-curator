@@ -130,7 +130,8 @@ function rows(it: DiffItem): [string, unknown, unknown][] {
   if (it.change === 'changed') return [[it.path, it.before, it.after]]
   const added = it.change === 'added'
   const filled = leaves(added ? it.after : it.before, it.path)
-  // An empty value still shows that something was added or removed
+  // An empty record removed still shows; an empty value added has nothing to review (#406)
+  if (!filled.length && added) return []
   return (filled.length ? filled : [[it.path, 'none']]).map(([p, v]) =>
     added ? [p, undefined, v] : [p, v, undefined]
   )

@@ -24,6 +24,7 @@
       :curation-id="curationId"
       :scope-id="scopeId"
       :me="myId"
+      :evidence="curation?.evidence_data"
     />
 
     <v-alert
@@ -167,6 +168,7 @@
     workflow_stage?: string | null
     status?: string | null
     curator_name?: string | null
+    evidence_data?: Record<string, unknown> | null
   }
 
   interface ScopeRecord {

@@ -34,7 +34,9 @@
             data-testid="ws-submit"
             color="primary"
             variant="flat"
-            :disabled="readonly || !canSubmit"
+            :disabled="readonly"
+            :aria-disabled="!canSubmit"
+            :class="{ 'ws-submit--blocked': !canSubmit }"
             @click="emit('submit')"
           >
             Submit for review
@@ -142,6 +144,13 @@
   .ws-actions > .save-state {
     min-width: 9.5em;
     justify-content: flex-end;
+  }
+
+  /* Not `disabled`: the click whose mousedown commits a cell edit must land (#406); the frame
+     refuses a submit that is still not allowed */
+  .ws-submit--blocked {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .ws-blockers {

@@ -63,10 +63,12 @@ describe('WorkspaceHeader', () => {
     expect(w.find('[data-testid="ws-blockers"]').text()).toBe(reason)
   })
 
-  it('disables submit when not allowed and both actions when read-only', () => {
-    expect(
-      mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]').attributes('disabled')
-    ).toBeDefined()
+  // #406: the click whose mousedown commits a cell's edit (making Submit allowed) must land;
+  // browsers dispatch no click on a button that was disabled at mousedown
+  it('marks submit unavailable without disabling it, and disables both actions when read-only', () => {
+    const blocked = mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]')
+    expect(blocked.attributes('aria-disabled')).toBe('true')
+    expect(blocked.attributes('disabled')).toBeUndefined()
     const ro = mountHeader({ readonly: true })
     expect(ro.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
     expect(ro.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
