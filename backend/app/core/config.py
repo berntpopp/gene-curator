@@ -97,6 +97,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str | None = None
     EMAIL_FROM: str = DEFAULT_EMAIL_FROM
 
+    # ========================================
+    # LLM CREDENTIAL KEY RING (never derived from SECRET_KEY)
+    # ========================================
+    # JSON object {kid: fernet_key}; empty means LLM credentials are unavailable.
+    LLM_CREDENTIAL_KEYS: str = ""
+    LLM_CREDENTIAL_ACTIVE_KID: str = ""
+
     @field_validator("PORT", mode="before")
     @classmethod
     def get_port(cls, v: int | str | None) -> int:
