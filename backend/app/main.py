@@ -17,7 +17,9 @@ from app.api.v1.api import api_router
 from app.core.api_config import get_cors_config, get_feature_flags
 from app.core.config import settings
 from app.core.constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
+from app.core.database import async_engine
 from app.core.logging import configure_logging, get_logger
+from app.core.logging.database_logger import get_database_logger
 from app.middleware import LoggingMiddleware
 
 # Configure unified logging system
@@ -44,6 +46,8 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     )
     yield
     logger.info("Shutting down Gene Curator API...")
+    await get_database_logger().flush()
+    await async_engine.dispose()
 
 
 # Create FastAPI application with configurable documentation URLs

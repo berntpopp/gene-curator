@@ -113,6 +113,10 @@ class DatabaseLogger:
             fallback_logger = logging.getLogger("database_logger")
             fallback_logger.error(f"Failed to schedule log write: {e}")
 
+    async def flush(self) -> None:
+        """Wait for scheduled log writes, so shutdown does not cut their connections."""
+        await asyncio.gather(*self._pending_tasks, return_exceptions=True)
+
     async def _write_log_entry(
         self,
         level: str,
