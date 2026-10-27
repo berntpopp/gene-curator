@@ -515,12 +515,15 @@ describe('CurationFormView', () => {
       expect(fire()).toBe(true)
     })
 
-    it('marks an active curation read-only: save and submit disabled, no Ctrl+S', async () => {
+    it('marks an active-stage curation read-only, sends /edit of an active one to detail (#485)', async () => {
       const { wrapper } = await mountFramed({ workflow_stage: 'active' })
       expect(wrapper.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
       expect(wrapper.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
       document.dispatchEvent(new KeyboardEvent('keydown', { key: 's', ctrlKey: true }))
       expect(formApi.save).not.toHaveBeenCalled()
+      await mountFramed({ workflow_stage: 'active', status: 'active' })
+      const detail = { name: 'curation-detail', params: { scopeId: 'sc1', curationId: 'c1' } }
+      expect(routerReplace).toHaveBeenCalledWith(detail)
     })
 
     it('opens an in-review curation read-only with the reason (its /edit URL)', async () => {

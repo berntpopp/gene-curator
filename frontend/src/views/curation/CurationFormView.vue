@@ -416,6 +416,14 @@
         curation.value = (await curationsStore.fetchCurationById(
           curationId.value
         )) as CurationFormRecord
+        // Nobody edits an active curation: /edit (e.g. a viewer's link) opens the detail (#485)
+        if (curation.value.status === 'active') {
+          router.replace({
+            name: 'curation-detail',
+            params: { scopeId: scopeId.value, curationId: curationId.value }
+          })
+          return
+        }
       }
 
       // Load gene info if available
