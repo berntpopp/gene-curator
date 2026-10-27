@@ -20,6 +20,7 @@ from app.api.v1.endpoints import (
     invitations,
     llm_admin,
     llm_prompts,
+    llm_runs,
     llm_scope,
     logs,
     my_work,
@@ -118,6 +119,7 @@ api_router.include_router(
 # LLM admin console (platform admins)
 api_router.include_router(llm_admin.router, prefix="/admin/llm", tags=["llm-admin"])
 api_router.include_router(llm_prompts.router, prefix="/admin/llm", tags=["llm-admin"])
+api_router.include_router(llm_runs.router, tags=["llm"])  # full paths, no prefix
 
 # System monitoring endpoints
 api_router.include_router(logs.router, prefix="/logs", tags=["logs"])

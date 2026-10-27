@@ -25,6 +25,7 @@ from app.mcp import create_mcp
 from app.mcp.audit import ChannelHeaderMiddleware
 from app.middleware import LoggingMiddleware
 from app.middleware.rate_limit import RateLimitMiddleware
+from app.services.llm_worker import worker_running
 
 # Configure unified logging system
 configure_logging(
@@ -48,7 +49,7 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         ),
         clingen_sop_version=settings.CLINGEN_SOP_VERSION,
     )
-    async with mcp_app.lifespan(mcp_app):
+    async with mcp_app.lifespan(mcp_app), worker_running():
         yield
     logger.info("Shutting down Gene Curator API...")
     await get_database_logger().flush()

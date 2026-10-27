@@ -57,6 +57,7 @@
       >
         Diff
       </v-btn>
+      <PromptTestRunButton :version="item" />
       <v-btn
         v-if="!item.published_at"
         size="small"
@@ -173,6 +174,7 @@
   import { computed, reactive, ref, toRef, watch } from 'vue'
   import DataTable from '@/components/common/DataTable.vue'
   import BaseDialog from '@/components/BaseDialog.vue'
+  import PromptTestRunButton from './PromptTestRunButton.vue'
   import { useConfirm } from '@/composables/useConfirm'
   import { showError, showSuccess } from '@/composables/useNotifications'
   import { llmErrorMessage, useLlmStore, type PromptVersion } from '@/stores/llm'

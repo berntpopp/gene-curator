@@ -71,6 +71,12 @@ export const llmAPI = {
     return (await apiClient.get<Schema<'VersionDiff'>>(url, { params: { against } })).data
   },
 
+  /** Runs the version over the server's golden set with one model; nothing is stored. */
+  async testRun(id: string, data: Schema<'TestRunRequest'>): Promise<Schema<'TestRunOut'>> {
+    const url = `${ADMIN}/prompt-versions/${id}/test-run`
+    return (await apiClient.post<Schema<'TestRunOut'>>(url, data)).data
+  },
+
   async scopeOptions(scopeId: string): Promise<Schema<'ScopeLLMOptions'>> {
     return (await apiClient.get<Schema<'ScopeLLMOptions'>>(`/scopes/${scopeId}/llm-options`)).data
   },

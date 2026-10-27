@@ -220,4 +220,5 @@ class LLMRun(Base):
     request_sha256: Mapped[str | None] = mapped_column(Text)
     created_by: Mapped[PyUUID | None] = _user_fk()
     created_at: Mapped[dt] = _now()
+    started_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))
     finished_at: Mapped[dt | None] = mapped_column(DateTime(timezone=True))

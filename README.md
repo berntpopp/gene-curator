@@ -144,6 +144,17 @@ Details are in [AGENTS.md](AGENTS.md).
 Stack: Python 3.12, FastAPI, SQLAlchemy 2.0, Pydantic 2 · Vue 3.5, TypeScript 6, Vite 7, Pinia,
 Vuetify 4 · PostgreSQL 15.
 
+### LLM
+
+- Data sharing: a run sends only allowlisted curation fields and public IDs (HGNC, MONDO),
+  never user names or emails; scope admins see the exact request in the preview
+  (`GET /api/v1/scopes/{id}/curations/{id}/llm-preview`).
+- The database owner that runs the migrations must be a superuser (or have BYPASSRLS):
+  the SECURITY DEFINER functions (`llm_claim_run`, `llm_credential_ciphertext`, like the
+  005 RLS helpers) read past FORCE ROW LEVEL SECURITY as that owner. On managed Postgres
+  such as RDS, where the master user is not a superuser, grant it BYPASSRLS or the worker
+  claims nothing.
+
 ## MCP server
 
 Gene Curator is also an MCP server at `<API base URL>/mcp`, so Claude Code, Claude Desktop or an

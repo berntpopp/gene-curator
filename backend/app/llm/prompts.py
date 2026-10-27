@@ -43,7 +43,7 @@ def template_placeholders(template: str) -> set[str]:
     return names
 
 
-def _wrap(name: str, value: str) -> str:
+def wrap_untrusted(name: str, value: str) -> str:
     # Escape angle brackets so free text cannot close the block or open a fake one.
     escaped = value.replace("<", "&lt;").replace(">", "&gt;")
     return f'<untrusted_data name="{name}">\n{escaped}\n</untrusted_data>'
@@ -57,7 +57,7 @@ def render_template(template: str, values: Mapping[str, str]) -> str:
     def substitute(match: re.Match[str]) -> str:
         name = match.group(1)
         value = values[name]
-        return _wrap(name, value) if name in FREE_TEXT_PLACEHOLDERS else value
+        return wrap_untrusted(name, value) if name in FREE_TEXT_PLACEHOLDERS else value
 
     # Single pass: braces inside substituted values are never expanded again.
     return _PLACEHOLDER.sub(substitute, template)
