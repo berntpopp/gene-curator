@@ -34,7 +34,8 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         auth = request.headers.get("Authorization", "")
         payload = verify_token(auth[7:]) if auth.lower().startswith("bearer ") else None
-        if payload and payload.get("sub"):
+        # Refresh tokens are not bearer credentials: they stay in the IP bucket
+        if payload and payload.get("sub") and payload.get("type") != "refresh":
             key = f"user:{payload['sub']}"
             tier = "admin" if payload.get("role") == "admin" else "authenticated"
         else:

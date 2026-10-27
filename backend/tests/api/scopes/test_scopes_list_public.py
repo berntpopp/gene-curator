@@ -34,9 +34,10 @@ def test_single_scope_get_carries_user_role(
     client: TestClient, db_session: Session
 ) -> None:
     """GET /scopes/{id} reports the caller's role like the list does; null for outsiders."""
-    member, outsider = make_user(db_session), make_user(db_session)
+    member, outsider, invited = (make_user(db_session) for _ in range(3))
     scope = make_scope(db_session)
     make_member(db_session, scope, member, "reviewer")
+    make_member(db_session, scope, invited, "curator", accepted=False)
     scope.is_public = True
     db_session.commit()
 
@@ -44,7 +45,8 @@ def test_single_scope_get_carries_user_role(
     zeros = {
         name: 0 for name, f in ScopeStatistics.model_fields.items() if f.is_required()
     }
-    for user, role in ((member, "reviewer"), (outsider, None)):
+    # A pending invitation grants nothing, so no role either
+    for user, role in ((member, "reviewer"), (outsider, None), (invited, None)):
         with patch(
             "app.crud.scope.scope_crud.get_detailed_statistics", return_value=zeros
         ):

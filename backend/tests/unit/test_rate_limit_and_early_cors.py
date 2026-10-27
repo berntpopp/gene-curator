@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.core.api_config import FeatureFlagsConfig, RateLimitConfig
-from app.core.security import create_access_token
+from app.core.security import create_access_token, create_refresh_token
 from app.main import app, cors_config
 
 pytestmark = pytest.mark.unit
@@ -61,6 +61,16 @@ def test_authenticated_user_has_own_bucket_and_tier(limited: TestClient) -> None
 
 def test_invalid_token_falls_back_to_ip_bucket(limited: TestClient) -> None:
     headers = {"Authorization": "Bearer junk"}
+    assert [limited.get("/", headers=headers).status_code for _ in range(3)] == [
+        200,
+        200,
+        429,
+    ]
+
+
+def test_refresh_token_falls_back_to_ip_bucket(limited: TestClient) -> None:
+    token = create_refresh_token({"sub": "u1", "role": "admin"})
+    headers = {"Authorization": f"Bearer {token}"}
     assert [limited.get("/", headers=headers).status_code for _ in range(3)] == [
         200,
         200,
