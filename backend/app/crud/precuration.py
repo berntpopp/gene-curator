@@ -402,42 +402,43 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 f"Invalid transition from {db_obj.workflow_stage.value} to curation"
             )
 
-        # Update precuration status
+        curation = None
+        # One open curation per gene and scope: an open one (e.g. a re-curation) stays the only one
+        workflow_pair = (
+            self._get_workflow_pair_for_precuration(db, db_obj)
+            if create_curation
+            and not open_curation_id(db, db_obj.gene_id, db_obj.scope_id)
+            else None
+        )
+
+        # Update precuration status (after pair selection, which may refuse)
         db_obj.status = CurationStatus.APPROVED
         db_obj.workflow_stage = WorkflowStage.CURATION
         db_obj.updated_by = approver_id
         db_obj.updated_at = _utc_now()
 
-        curation = None
-        # One open curation per gene and scope: an open one (e.g. a re-curation) stays the only one
-        if create_curation and not open_curation_id(
-            db, db_obj.gene_id, db_obj.scope_id
-        ):
-            # Get workflow pair for data mapping
-            workflow_pair = self._get_workflow_pair_for_precuration(db, db_obj)
-
-            if workflow_pair:
-                # Create curation with prefilled data
-                curation = CurationNew(
-                    gene_id=db_obj.gene_id,
-                    scope_id=db_obj.scope_id,
-                    workflow_pair_id=workflow_pair.id,
-                    precuration_id=db_obj.id,  # Link to precuration
-                    status=CurationStatus.DRAFT,
-                    workflow_stage=WorkflowStage.CURATION,
-                    is_draft=True,
-                    evidence_data=self._prefill_curation_data(
-                        db_obj.evidence_data, workflow_pair.data_mapping or {}
-                    ),
-                    lock_version=0,
-                    # The precuration author authors the curation, so 4-eyes review
-                    # excludes them and not the approver.
-                    created_by=db_obj.created_by,
-                    updated_by=approver_id,
-                    created_at=_utc_now(),
-                    updated_at=_utc_now(),
-                )
-                db.add(curation)
+        if workflow_pair:
+            # Create curation with prefilled data
+            curation = CurationNew(
+                gene_id=db_obj.gene_id,
+                scope_id=db_obj.scope_id,
+                workflow_pair_id=workflow_pair.id,
+                precuration_id=db_obj.id,  # Link to precuration
+                status=CurationStatus.DRAFT,
+                workflow_stage=WorkflowStage.CURATION,
+                is_draft=True,
+                evidence_data=self._prefill_curation_data(
+                    db_obj.evidence_data, workflow_pair.data_mapping or {}
+                ),
+                lock_version=0,
+                # The precuration author authors the curation, so 4-eyes review
+                # excludes them and not the approver.
+                created_by=db_obj.created_by,
+                updated_by=approver_id,
+                created_at=_utc_now(),
+                updated_at=_utc_now(),
+            )
+            db.add(curation)
 
         db.add(db_obj)
         db.commit()
@@ -544,12 +545,25 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
     def _get_workflow_pair_for_precuration(
         self, db: Session, precuration: PrecurationNew
     ) -> WorkflowPair | None:
-        """Get workflow pair that uses this precuration's schema."""
+        """Active pair for this precuration's schema: the scope default if it applies,
+        else the only match; several matches without an applicable default refuse."""
         stmt = select(WorkflowPair).where(
             WorkflowPair.precuration_schema_id == precuration.precuration_schema_id,
             WorkflowPair.is_active == True,  # noqa: E712
         )
-        return db.execute(stmt).scalars().first()
+        pairs = list(db.execute(stmt).scalars())
+        scope = db.get(Scope, precuration.scope_id)
+        default_id = scope.default_workflow_pair_id if scope else None
+        for pair in pairs:
+            if pair.id == default_id:
+                return pair
+        if len(pairs) > 1:
+            raise ValueError(
+                "Several active workflow pairs use this precuration schema and the "
+                "scope's default workflow pair is not one of them; a scope admin must "
+                "set the scope's default workflow pair before approval"
+            )
+        return pairs[0] if pairs else None
 
     def _prefill_curation_data(
         self,

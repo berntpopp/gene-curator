@@ -107,6 +107,11 @@ def w() -> Generator[W, None, None]:
             "SELECT id, precuration_schema_id FROM workflow_pairs WHERE is_active LIMIT 1"
         )
         pair, schema = cur.fetchone()
+        # seeded pairs share precuration schemas; approval needs the scope default (#448)
+        cur.execute(
+            "UPDATE scopes SET default_workflow_pair_id = %s WHERE id = %s",
+            (str(pair), str(x.scope)),
+        )
         for gid, sym in ((x.gene, "RVA"), (x.gene2, "RVB")):
             cur.execute(
                 "INSERT INTO genes (id, hgnc_id, approved_symbol, record_hash) "

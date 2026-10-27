@@ -28,6 +28,19 @@ export const workflowAPI = {
     return response.data
   },
 
+  /** Dry-run a transition: roles, 4-eyes and the pinned required-content check (#453). */
+  async validateTransition(
+    itemType: string,
+    itemId: string,
+    targetStage: Schema<'WorkflowTransitionRequest'>['target_stage']
+  ): Promise<Schema<'WorkflowValidationResult'>> {
+    const response = await apiClient.post<Schema<'WorkflowValidationResult'>>(
+      `/workflow/${itemType}/${itemId}/validate-transition`,
+      { target_stage: targetStage }
+    )
+    return response.data
+  },
+
   /**
    * Get workflow state for an item
    * @param itemType - Item type (curation, precuration)

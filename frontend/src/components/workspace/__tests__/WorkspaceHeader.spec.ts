@@ -63,10 +63,12 @@ describe('WorkspaceHeader', () => {
     expect(w.find('[data-testid="ws-blockers"]').text()).toBe(reason)
   })
 
-  it('disables submit when not allowed and both actions when read-only', () => {
-    expect(
-      mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]').attributes('disabled')
-    ).toBeDefined()
+  // #406: the click whose mousedown commits a cell's edit (making Submit allowed) must land;
+  // browsers dispatch no click on a button that was disabled at mousedown
+  it('marks submit unavailable without disabling it, and disables both actions when read-only', () => {
+    const blocked = mountHeader({ canSubmit: false }).find('[data-testid="ws-submit"]')
+    expect(blocked.attributes('aria-disabled')).toBe('true')
+    expect(blocked.attributes('disabled')).toBeUndefined()
     const ro = mountHeader({ readonly: true })
     expect(ro.find('[data-testid="ws-save"]').attributes('disabled')).toBeDefined()
     expect(ro.find('[data-testid="ws-submit"]').attributes('disabled')).toBeDefined()
@@ -84,7 +86,9 @@ describe('WorkspaceHeader', () => {
   // #267: the blocker text appearing or disappearing must never move the buttons
   // (a click whose mousedown commits a PMID cell would otherwise land beside Save draft)
   it('keeps the blocker message out of the button row', () => {
-    const actions = (w: ReturnType<typeof mountHeader>) => w.find('.ws-actions').element.outerHTML
+    // aria-describedby links Submit to the message; it does not change the layout
+    const actions = (w: ReturnType<typeof mountHeader>) =>
+      w.find('.ws-actions').element.outerHTML.replace(/ aria-describedby="[^"]*"/, '')
     const reason = 'Fix 1 unknown PMID before submitting: PMID 999 not found in Europe PMC'
     const blocked = mountHeader({ canSubmit: true, blockers: [reason] })
     expect(blocked.find('[data-testid="ws-blockers"]').text()).toBe(reason)
@@ -102,5 +106,26 @@ describe('WorkspaceHeader', () => {
     await save.trigger('click')
     expect(w.emitted('save')).toHaveLength(1)
     expect(w.emitted('submit')).toBeUndefined()
+  })
+  it('describes Submit with the blocker text', () => {
+    const w = mountHeader({ canSubmit: false, blockers: ['PMID 9 not found'] })
+    const id = w.find('[data-testid="ws-blockers"]').attributes('id')
+    expect(id).toBe('ws-blockers')
+    expect(w.find('[data-testid="ws-submit"]').attributes('aria-describedby')).toBe(id)
+    expect(mountHeader().find('[data-testid="ws-submit"]').attributes('aria-describedby')).toBe(
+      undefined
+    )
+  })
+
+  // A blocked Submit without blocker text (form invalid or empty) says why when clicked
+  it('shows a reason when a blocked Submit without blockers is clicked', async () => {
+    const w = mountHeader({ canSubmit: false })
+    expect(w.find('[data-testid="ws-blockers"]').exists()).toBe(false)
+    await w.find('[data-testid="ws-submit"]').trigger('click')
+    const reason = w.find('[data-testid="ws-blockers"]')
+    expect(reason.text()).toBe('Complete the required evidence before submitting')
+    expect(w.find('[data-testid="ws-submit"]').attributes('aria-describedby')).toBe('ws-blockers')
+    await w.setProps({ canSubmit: true })
+    expect(w.find('[data-testid="ws-blockers"]').exists()).toBe(false)
   })
 })

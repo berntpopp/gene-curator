@@ -34,8 +34,11 @@
             data-testid="ws-submit"
             color="primary"
             variant="flat"
-            :disabled="readonly || !canSubmit"
-            @click="emit('submit')"
+            :disabled="readonly"
+            :aria-disabled="!canSubmit"
+            :class="{ 'ws-submit--blocked': !canSubmit }"
+            :aria-describedby="reasons.length ? 'ws-blockers' : undefined"
+            @click="onSubmit"
           >
             Submit for review
           </v-btn>
@@ -44,22 +47,25 @@
     </div>
     <!-- Own line below the buttons: text appearing between mousedown and mouseup must not move them (#267) -->
     <p
-      v-if="showSubmit && blockers?.length"
+      v-if="showSubmit && reasons.length"
+      id="ws-blockers"
       data-testid="ws-blockers"
       class="ws-blockers text-error"
+      aria-live="polite"
     >
-      {{ blockers.join('; ') }}
+      {{ reasons.join('; ') }}
     </p>
   </header>
 </template>
 
 <script setup lang="ts">
+  import { computed, ref } from 'vue'
   import { formatInheritance } from '@/utils/inheritance'
   import StageLine from './StageLine.vue'
   import SaveState from './SaveState.vue'
   import type { SaveState as SaveStateName } from './useWorkspaceFrame'
 
-  defineProps<{
+  const props = defineProps<{
     crumbs: { text: string; to?: string }[]
     title: string
     subtitle?: string
@@ -77,6 +83,20 @@
     saving: boolean
   }>()
   const emit = defineEmits<{ save: []; submit: []; retry: [] }>()
+
+  // A blocked Submit without blocker text (form invalid or empty) says why once clicked
+  const tried = ref(false)
+  const reasons = computed(() =>
+    props.blockers?.length
+      ? props.blockers
+      : tried.value && !props.canSubmit
+        ? ['Complete the required evidence before submitting']
+        : []
+  )
+  function onSubmit() {
+    tried.value = !props.canSubmit
+    emit('submit')
+  }
 </script>
 
 <style scoped>
@@ -142,6 +162,13 @@
   .ws-actions > .save-state {
     min-width: 9.5em;
     justify-content: flex-end;
+  }
+
+  /* Not `disabled`: the click whose mousedown commits a cell edit must land (#406); the frame
+     refuses a submit that is still not allowed */
+  .ws-submit--blocked {
+    opacity: 0.6;
+    cursor: not-allowed;
   }
 
   .ws-blockers {

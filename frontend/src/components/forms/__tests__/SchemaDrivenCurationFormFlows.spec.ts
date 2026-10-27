@@ -53,6 +53,9 @@ vi.mock('@/stores/schemas', () => ({
     fetchPinnedVersion: schemasStore.fetchPinnedVersion
   })
 }))
+vi.mock('@/stores/workflow', () => ({
+  useWorkflowStore: () => ({ validateTransition: async () => ({ missing_fields: [] }) })
+}))
 vi.mock('@/stores/curations', () => ({ useCurationsStore: () => curationsStore }))
 vi.mock('@/stores/precurations', () => ({ usePrecurationsStore: () => precurationsStore }))
 vi.mock('@/stores/notifications', () => ({ useNotificationsStore: () => ({ addToast }) }))
@@ -446,6 +449,20 @@ describe('SchemaDrivenCurationForm loading and ClinGen flows', () => {
     vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
     await flushPromises()
     expect(curationsStore.createCuration).toHaveBeenCalledTimes(1)
+  })
+
+  // #406: the focused cell's edit commits on blur; it can be what makes submitting allowed
+  it('commits the focused cell before checking whether Ctrl+Enter may submit', async () => {
+    const wrapper = await mountForm({ geneId: 'g-1', workflowPairId: 'wp-1' })
+    const vm = internals(wrapper)
+    const cell = document.body.appendChild(document.createElement('input'))
+    cell.addEventListener('blur', () => (vm.evidenceData = { a: 1 }))
+    cell.focus()
+    confirmMock.mockResolvedValueOnce(false)
+    vm.handleKeydown(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true }))
+    await flushPromises()
+    expect(confirmMock).toHaveBeenCalledTimes(1)
+    cell.remove()
   })
 
   it('Escape cancels only when it does not come from a field, cell or menu', async () => {

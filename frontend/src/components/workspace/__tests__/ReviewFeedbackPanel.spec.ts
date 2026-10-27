@@ -13,14 +13,15 @@ const mountPanel = async (
         queries: unknown[]
         any: boolean
       }
-    | Error
+    | Error,
+  evidence?: unknown
 ) => {
   setActivePinia(createPinia())
   const fetch = vi.spyOn(useReviewFeedbackStore(), 'fetch')
   if (fb instanceof Error) fetch.mockRejectedValue(fb)
   else fetch.mockResolvedValue(fb as never)
   const w = mount(ReviewFeedbackPanel, {
-    props: { curationId: 'c1', scopeId: 's1', me: 'alice' },
+    props: { curationId: 'c1', scopeId: 's1', me: 'alice', evidence },
     global: { stubs: { RouterLink: RouterLinkStub } }
   })
   await flushPromises()
@@ -53,6 +54,15 @@ describe('ReviewFeedbackPanel', () => {
     expect(w.find('[data-testid=feedback-query]').text()).not.toContain('case_level')
     expect(w.find('[data-testid=feedback-query]').text()).toContain('Explain 2.0 points')
     expect(w.findComponent(RouterLinkStub).props('to')).toBe('/scopes/s1/curations/c1')
+  })
+
+  // #406: the curator's to-do names the record like the reviewer's diff does
+  it('names the queried record by its label when the evidence is given', async () => {
+    const { w } = await mountPanel(
+      { note: null, queries: [{ id: 'q', item_path: 'g.nulls[0]', body: 'Why?' }], any: true },
+      { g: { nulls: [{ proband_label: 'Patient 1' }] } }
+    )
+    expect(w.find('[data-testid=feedback-query]').text()).toContain('Nulls · Patient 1 (G)')
   })
 
   it('says who requested the changes and when', async () => {
