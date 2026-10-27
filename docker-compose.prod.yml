@@ -36,6 +36,11 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
+      # Rate limiting is off in config/api.yaml (dev, tests) and on in production
+      GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
+      # Passed through only when set. Set it to your reverse proxy's address only, and bind
+      # BACKEND_PORT to 127.0.0.1 when a proxy is in front; unset, X-Forwarded-For is ignored
+      FORWARDED_ALLOW_IPS:
     ports:
       - "${BACKEND_PORT:-8051}:8000"
     depends_on:

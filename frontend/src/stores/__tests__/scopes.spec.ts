@@ -134,6 +134,23 @@ describe('useScopesStore', () => {
       expect(store.scopes.map(s => s.id)).toEqual(['a', 'b'])
     })
 
+    it('takes my role from the detail, null for a non-member (#484)', async () => {
+      const store = useScopesStore()
+      useAuthStore().user = { id: 'u1', role: 'user' } as never
+      api.fetchScope.mockResolvedValueOnce(scope('a', { user_role: 'curator' }) as never)
+      await store.fetchScope('a')
+      expect([store.currentUserRole, store.membershipRole]).toEqual(['curator', 'curator'])
+
+      api.fetchScope.mockResolvedValueOnce(scope('b', { user_role: null }) as never)
+      await store.fetchScope('b')
+      expect(store.currentUserRole).toBeNull()
+
+      useAuthStore().user = { id: 'u1', role: 'admin' } as never
+      api.fetchScope.mockResolvedValueOnce(scope('b', { user_role: null }) as never)
+      await store.fetchScope('b')
+      expect([store.currentUserRole, store.membershipRole]).toEqual(['admin', null])
+    })
+
     it('records the error and rethrows', async () => {
       const store = useScopesStore()
       api.fetchScope.mockRejectedValue(fail('404'))

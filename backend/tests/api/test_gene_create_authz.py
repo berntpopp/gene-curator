@@ -185,7 +185,7 @@ def test_update_replaces_fabricated_reference_fields(client, db_session, test_sc
 
 
 def test_update_to_unknown_hgnc_id_is_rejected(client, db_session, test_scope):
-    user = _user(db_session, test_scope, "curator")
+    user = _user(db_session, test_scope, "platform_admin")
     gid = client.post("/api/v1/genes/", json=_row(), headers=auth_headers(user)).json()[
         "id"
     ]
@@ -195,6 +195,35 @@ def test_update_to_unknown_hgnc_id_is_rejected(client, db_session, test_scope):
         headers=auth_headers(user),
     )
     assert response.status_code == 422
+
+
+@pytest.mark.parametrize("who", ["curator", "admin", "platform_admin"])
+def test_hgnc_repoint_is_platform_admin_only(client, db_session, test_scope, who):
+    """#478: repointing a gene to another HGNC record rewrites it for every scope."""
+    user = _user(db_session, test_scope, who)
+    gid = client.post("/api/v1/genes/", json=_row(), headers=auth_headers(user)).json()[
+        "id"
+    ]
+    response = client.put(
+        f"/api/v1/genes/{gid}",
+        json={"hgnc_id": "HGNC:9009"},
+        headers=auth_headers(user),
+    )
+    if who == "platform_admin":
+        assert response.status_code == 200, response.text
+        assert response.json()["approved_symbol"] == "PKD2"
+    else:
+        assert response.status_code == 403, response.text
+    same = client.put(
+        f"/api/v1/genes/{gid}",
+        json={
+            "hgnc_id": client.get(
+                f"/api/v1/genes/{gid}", headers=auth_headers(user)
+            ).json()["hgnc_id"]
+        },
+        headers=auth_headers(user),
+    )
+    assert same.status_code == 200, same.text
 
 
 # --- total HGNC budget -----------------------------------------------------------

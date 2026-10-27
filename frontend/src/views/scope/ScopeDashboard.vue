@@ -407,13 +407,10 @@
     try {
       logger.debug('Fetching scope dashboard data', { scope_id: scopeId.value })
 
-      // Role first: the Members/Settings tabs must exist when v-tabs first renders (#175)
-      // A non-member may open a public scope: no role and no statistics, but no error (#393)
-      await scopeStore.fetchUserRole(scopeId.value).catch((e: unknown) => {
-        if ((e as { response?: { status?: number } }).response?.status !== 403) throw e
-        outsider.value = true
-      })
+      // The scope detail sets the role before v-tabs first renders (#175). A non-member may
+      // open a public scope: no role, so no member-only calls (#393, #484)
       await scopeStore.fetchScope(scopeId.value)
+      outsider.value = !scopeStore.currentUserRole
       if (!outsider.value) await refreshStatistics().catch(() => undefined)
 
       // Overview facts are best effort: the page works without them
