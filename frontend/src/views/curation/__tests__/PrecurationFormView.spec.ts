@@ -153,6 +153,23 @@ describe('PrecurationFormView', () => {
     expect(wrapper.text()).toContain('Could not load precuration')
   })
 
+  it.each([403, 404])(
+    'says not found, not the raw HTTP error, when a load is %i (#403)',
+    async status => {
+      route.params = { scopeId: 'sc1', precurationId: 'p1' }
+      vi.mocked(precurationsAPI.getPrecuration).mockRejectedValue({
+        message: `Request failed with status code ${status}`,
+        response: { status }
+      })
+      const wrapper = mount(PrecurationFormView, {
+        global: { stubs: { SchemaDrivenPrecurationForm: true } }
+      })
+      await flushPromises()
+      expect(wrapper.text()).toContain('Precuration not found')
+      expect(wrapper.text()).not.toContain('Request failed')
+    }
+  )
+
   it('shows the workspace header: breadcrumb to the scope and gene, precuration stage', async () => {
     vi.mocked(scopesAPI.getScopeById).mockResolvedValue({
       display_name: 'Kidney genetics',

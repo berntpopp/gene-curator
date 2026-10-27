@@ -62,6 +62,18 @@ describe('CurationDetailView', () => {
     expect(wrapper.text()).toContain('Failed to load curation details')
   })
 
+  it.each([403, 404])(
+    'says not found, with no Export, when the load is %i (#403)',
+    async status => {
+      vi.mocked(curationsAPI.getCuration).mockRejectedValue({ response: { status } })
+      const wrapper = mount(CurationDetailView, { global: { stubs: { DynamicForm: true } } })
+      await flushPromises()
+      expect(wrapper.text()).toContain('Curation not found')
+      expect(wrapper.text()).not.toContain('Failed to load')
+      expect(wrapper.text()).not.toContain('Export')
+    }
+  )
+
   const load = async (curation: Record<string, unknown>, engine = 'clingen_sop_v11') => {
     vi.mocked(schemasAPI.getWorkflowPairById).mockResolvedValue({
       curation_schema_id: 's1'

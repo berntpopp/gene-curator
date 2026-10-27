@@ -30,6 +30,7 @@
               Start re-curation
             </v-btn>
             <v-btn
+              v-if="curation"
               color="info"
               variant="outlined"
               prepend-icon="mdi-download"
@@ -533,7 +534,10 @@
       if (curation.value.workflow_stage === 'active') void curateGuard.check()
       await loadCurationSchema()
     } catch (err) {
-      error.value = 'Failed to load curation details'
+      const status = (err as { response?: { status?: number } }).response?.status
+      error.value = [403, 404].includes(status ?? 0)
+        ? 'Curation not found. It does not exist, or you are not a member of its scope.'
+        : 'Failed to load curation details'
       logger.error('Failed to load curation', {
         error: (err as ErrorLike).message,
         curation_id: curationId.value

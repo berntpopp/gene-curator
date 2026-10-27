@@ -467,10 +467,10 @@ class CRUDGeneScopeAssignment(
         ).all()
 
         precuration_dict: dict[str, int] = {
-            str(status): count for status, count in precuration_stats
+            status.value: count for status, count in precuration_stats
         }
         curation_dict: dict[str, int] = {
-            str(status): count for status, count in curation_stats
+            status.value: count for status, count in curation_stats
         }
 
         return {

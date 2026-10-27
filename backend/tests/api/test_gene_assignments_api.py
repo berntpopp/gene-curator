@@ -340,6 +340,21 @@ def test_assignment_statistics_access_rules(
     )
 
 
+def test_assignment_statistics_count_curations_by_status(
+    client: TestClient,
+    db_session: Session,
+    curator_token: str,
+    test_curation: CurationNew,
+    test_gene: Gene,
+    test_scope: Scope,
+) -> None:
+    """#403: status counts were keyed by the enum's repr and always read 0."""
+    row = _assignment(db_session, test_gene, test_scope)
+    response = client.get(f"{BASE}/{row.id}/statistics", headers=_auth(curator_token))
+    assert response.status_code == 200, response.text
+    assert response.json()["draft_curations"] == 1
+
+
 def test_bulk_create_assignments(
     client: TestClient,
     db_session: Session,

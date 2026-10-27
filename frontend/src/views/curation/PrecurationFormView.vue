@@ -22,7 +22,7 @@
       <v-row>
         <v-col cols="12">
           <v-alert type="error" variant="tonal" prominent>
-            <v-alert-title>Failed to Load Gene</v-alert-title>
+            <v-alert-title>Could not open precuration</v-alert-title>
             {{ loadError }}
             <template #append>
               <v-btn variant="outlined" @click="handleCancel">Go back</v-btn>
@@ -317,7 +317,11 @@
         loadError.value = 'No gene specified. Please select a gene from the scope dashboard.'
       }
     } catch (err) {
-      loadError.value ||= `Could not load precuration: ${(err as ErrorLike).message}`
+      const status = (err as { response?: { status?: number } }).response?.status
+      if ([403, 404].includes(status ?? 0))
+        loadError.value =
+          'Precuration not found. It does not exist, or you are not a member of its scope.'
+      else loadError.value ||= `Could not load precuration: ${(err as ErrorLike).message}`
       logger.error('Failed to initialize precuration form', { error: (err as ErrorLike).message })
     } finally {
       loading.value = false
