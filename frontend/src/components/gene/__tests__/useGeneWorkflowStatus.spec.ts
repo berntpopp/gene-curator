@@ -77,6 +77,15 @@ describe('shouldReplacePrecuration', () => {
 })
 
 describe('shouldReplaceCuration', () => {
+  it('ranks a curation in review like a submitted one (#403)', () => {
+    expect(
+      shouldReplaceCuration(curation('rejected', '2026-01-01'), curation('in_review', '2025-01-01'))
+    ).toBe(true)
+    expect(
+      shouldReplaceCuration(curation('in_review', '2025-01-01'), curation('draft', '2026-01-01'))
+    ).toBe(false)
+  })
+
   it('ranks active above approved and archived lowest', () => {
     expect(
       shouldReplaceCuration(curation('approved', '2025-01-01'), curation('active', '2024-01-01'))

@@ -140,6 +140,29 @@ describe('api client', () => {
       expect(refreshSpy).toHaveBeenCalledTimes(1)
     })
 
+    it('reads a base64url payload (- and _), as real JWTs are encoded (#403)', async () => {
+      const exp = Math.floor(Date.now() / 1000) - 60
+      const payload = btoa(JSON.stringify({ sub: 'a???>>>~~~', exp }))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/, '')
+      expect(payload).toMatch(/[-_]/)
+      localStorage.setItem('access_token', `h.${payload}.s`)
+      localStorage.setItem('refresh_token', 'refresh-1')
+      vi.spyOn(axios, 'post').mockResolvedValue({
+        data: { access_token: 'fresh', refresh_token: 'refresh-2' }
+      } as AxiosResponse)
+      const seen: string[] = []
+      handler = config => {
+        seen.push(String(config.headers.Authorization))
+        return ok(config, {})
+      }
+
+      await apiClient.get('/auth/me')
+
+      expect(seen).toEqual(['Bearer fresh'])
+    })
+
     it('does not pre-refresh login/refresh calls, valid tokens or opaque tokens', async () => {
       const refreshSpy = vi.spyOn(axios, 'post')
       handler = config => ok(config, {})

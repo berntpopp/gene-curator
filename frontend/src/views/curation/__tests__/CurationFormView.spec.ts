@@ -305,6 +305,8 @@ describe('CurationFormView', () => {
       expect(wrapper.findComponent({ name: 'SchemaDrivenCurationForm' }).exists()).toBe(false)
       expect(wrapper.findComponent({ name: 'CurationSchemaSelect' }).exists()).toBe(false)
       expect(wrapper.text()).not.toContain('No Curation Schema Available')
+      // #403: no save state or Save draft for a curation that is not there
+      expect(wrapper.findComponent({ name: 'WorkspaceHeader' }).exists()).toBe(false)
     }
   )
 
