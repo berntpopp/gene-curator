@@ -401,8 +401,11 @@ describe('CurationFormView', () => {
       frame: WorkspaceFrame
     }
 
-    async function mountFramed(curation: Record<string, unknown> = { workflow_stage: 'curation' }) {
-      routeState.params = { scopeId: 'sc1', curationId: 'c1' }
+    async function mountFramed(
+      curation: Record<string, unknown> = { workflow_stage: 'curation' },
+      params: Record<string, string> = { scopeId: 'sc1', curationId: 'c1' }
+    ) {
+      routeState.params = params
       const wrapper = await mountView(
         ({ schemas, scopes, curations, genes }) => {
           schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
@@ -456,19 +459,8 @@ describe('CurationFormView', () => {
     })
 
     // #470: a new curation (e.g. a re-curation prefill) has nothing on the server yet
-    it('shows a prefilled new curation as unsaved until its first save', async () => {
-      routeState.params = { scopeId: 'sc1', geneId: 'g1' }
-      const { wrapper } = await mountView(
-        ({ schemas, scopes, genes }) => {
-          schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
-          vi.spyOn(scopes, 'fetchScope').mockResolvedValue({
-            default_workflow_pair_id: 'wp1'
-          } as never)
-          vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'PKD1' } as never)
-        },
-        { SchemaDrivenCurationForm: FrameForm }
-      )
-      await flushPromises()
+    it('shows a prefilled new curation as unsaved, an empty one as saved', async () => {
+      const { wrapper } = await mountFramed(undefined, { scopeId: 'sc1', geneId: 'g1' })
       expect(wrapper.text()).toContain('Unsaved changes')
       formApi.evidence.value = {}
       await flushPromises()
