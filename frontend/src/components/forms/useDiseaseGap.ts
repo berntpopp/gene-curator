@@ -15,9 +15,9 @@ const DISEASE: Record<string, string> = {
 /** Why Submit is blocked by missing disease fields, or null when none are missing. */
 export function diseaseGapMessage(missing: string[], linked: boolean): string | null {
   const names = missing
-    .filter(p => p.startsWith('entity_definition.') || p in DISEASE)
-    .map(p => p.split('.').pop()!)
-    .map(k => DISEASE[k] ?? k)
+    .map(p => p.replace(/^entity_definition\./, ''))
+    .filter(k => k in DISEASE)
+    .map(k => DISEASE[k])
   if (!names.length) return null
   const source = linked
     ? 'the linked precuration does not supply it (incomplete, or not for this gene and scope)'

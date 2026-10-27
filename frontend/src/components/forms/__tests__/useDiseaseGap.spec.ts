@@ -8,6 +8,8 @@ import { useWorkflowStore } from '@/stores/workflow'
 describe('diseaseGapMessage (#453)', () => {
   it('ignores gaps the form can fix itself', () => {
     expect(diseaseGapMessage(['summary', 'genetic_evidence.case_level'], true)).toBeNull()
+    // Only the three disease keys: other entity fields are the form's own to fix
+    expect(diseaseGapMessage(['entity_definition.phenotypes', 'x.disease_name'], false)).toBeNull()
   })
 
   it('names the missing disease fields and says why the form cannot fix them', () => {
