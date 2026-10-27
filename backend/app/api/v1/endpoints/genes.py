@@ -219,6 +219,12 @@ def update_gene(
             status_code=status.HTTP_404_NOT_FOUND, detail="Gene not found"
         )
 
+    # Repointing to another HGNC record rewrites the gene for every scope (#478)
+    if gene_in.hgnc_id not in (None, gene.hgnc_id) and current_user.role != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only platform admins can change a gene's HGNC ID",
+        )
     gene_in = verified_update(db, gene_in, gene.hgnc_id)
 
     try:

@@ -117,12 +117,12 @@ export const useScopesStore = defineStore('scopes', () => {
 
       // Update in list if exists
       const index = scopes.value.findIndex(s => s.id === scopeId)
-      if (index !== -1) {
-        // The detail response has no user_role; keep the one from the list (nav depends on it)
-        scopes.value[index] = { ...scopes.value[index], ...scope }
-      } else {
-        scopes.value.push(scope)
-      }
+      const merged = index !== -1 ? { ...scopes.value[index], ...scope } : scope
+      if (index !== -1) scopes.value[index] = merged
+      else scopes.value.push(scope)
+      // The detail carries the caller's role (null for a non-member, #484): no members call needed
+      membershipRole.value = (merged.user_role as ScopeRole | null | undefined) ?? null
+      currentUserRole.value = useAuthStore().isAdmin ? 'admin' : membershipRole.value
 
       logService.info('Scope fetched', { scope_id: scopeId, name: scope.name })
       return scope
