@@ -2,6 +2,7 @@
 
 #376: in a public scope, non-members see only ACTIVE curations at the database level, so an
 endpoint relying on RLS alone cannot leak work in progress.
+#394: a reviewer archives an active curation only while the scope is active.
 """
 
 import os
@@ -148,3 +149,24 @@ def test_api_outsider_cannot_read_a_draft_of_a_public_scope(
     )
     member = client.get(f"/api/v1/curations/{w.draft}", headers=_h(w.viewer))
     assert member.status_code == 200, member.text
+
+
+@pytest.mark.parametrize(("scope_active", "archived"), [(True, 1), (False, 0)])
+def test_reviewer_archives_only_in_an_active_scope(
+    w: W, db: Session, scope_active: bool, archived: int
+) -> None:
+    """#394: the archive policy needs an active scope, like the other reviewer policies."""
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scopes SET is_active = %s WHERE id = %s",
+            (scope_active, str(w.scope)),
+        )
+    db.execute(
+        text("SELECT set_config('app.current_user_id', :u, true)"),
+        {"u": str(w.reviewer)},
+    )
+    n = db.execute(
+        text("UPDATE curations SET status = 'archived' WHERE id = :i"),
+        {"i": str(w.active)},
+    ).rowcount
+    assert n == archived
