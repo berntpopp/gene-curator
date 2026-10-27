@@ -88,6 +88,14 @@ class _HTTPProvider:
         raise NotImplementedError
 
     async def complete(self, request: LLMRequest) -> LLMResponse:
+        # One deadline for the whole call, retries and backoff included.
+        try:
+            async with asyncio.timeout(self._timeout):
+                return await self._complete(request)
+        except TimeoutError:
+            raise LLMProviderError("timeout") from None
+
+    async def _complete(self, request: LLMRequest) -> LLMResponse:
         payload = self._payload(
             request
         )  # built once: retries resend identical parameters
