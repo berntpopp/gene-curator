@@ -285,7 +285,8 @@
 
   function handleReady() {
     formReady.value = true
-    frame.markClean()
+    // A new curation (a re-curation prefill too) has nothing on the server yet (#470)
+    frame.markClean(curationId.value ? undefined : {})
   }
 
   function openDetail() {

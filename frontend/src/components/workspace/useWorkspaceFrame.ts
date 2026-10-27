@@ -54,9 +54,9 @@ export function createWorkspaceFrame() {
     return dirty.value ? 'unsaved' : 'saved'
   })
 
-  /** Call once the form has loaded: what is on screen now counts as saved. */
-  function markClean() {
-    baseline.value = snapshot()
+  /** Call once the form has loaded: what is on screen (or `saved`, the server state) counts as saved. */
+  function markClean(saved?: unknown) {
+    baseline.value = saved === undefined ? snapshot() : JSON.stringify(saved)
   }
 
   function markSaved() {

@@ -455,6 +455,26 @@ describe('CurationFormView', () => {
       wrapper.unmount()
     })
 
+    // #470: a new curation (e.g. a re-curation prefill) has nothing on the server yet
+    it('shows a prefilled new curation as unsaved until its first save', async () => {
+      routeState.params = { scopeId: 'sc1', geneId: 'g1' }
+      const { wrapper } = await mountView(
+        ({ schemas, scopes, genes }) => {
+          schemas.workflowPairs = [{ id: 'wp1', curation_schema_id: 'sch' }] as never
+          vi.spyOn(scopes, 'fetchScope').mockResolvedValue({
+            default_workflow_pair_id: 'wp1'
+          } as never)
+          vi.spyOn(genes, 'fetchGeneById').mockResolvedValue({ approved_symbol: 'PKD1' } as never)
+        },
+        { SchemaDrivenCurationForm: FrameForm }
+      )
+      await flushPromises()
+      expect(wrapper.text()).toContain('Unsaved changes')
+      formApi.evidence.value = {}
+      await flushPromises()
+      expect(wrapper.text()).not.toContain('Unsaved changes')
+    })
+
     it('shows unsaved changes after an edit and saves from the header', async () => {
       const { wrapper } = await mountFramed()
       formApi.evidence.value = { a: 2 }
