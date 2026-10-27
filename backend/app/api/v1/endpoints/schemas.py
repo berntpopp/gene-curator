@@ -130,37 +130,44 @@ def create_curation_schema(
     return schema  # type: ignore[return-value]
 
 
-# Field keys a client needs to fill a form correctly; labels, help and layout are dropped
-_COMPACT_KEYS = (
-    "type",
-    "required",
-    "readonly",
-    "item_type",
-    "min",
-    "max",
-    "min_length",
-    "max_length",
-    "pattern",
-    "validation",
-    "show_when",
-    "visible_when",
-)
+# Display-only keys; everything else (required_when, default_by, limits...) decides validity
+_DISPLAY_KEYS = {
+    "label",
+    "description",
+    "help_text",
+    "order",
+    "ui_component",
+    "collapsible",
+    "collapsed",
+    "icon",
+    "placeholder",
+}
+_NESTED_KEYS = ("properties", "columns", "item_schema", "items")
 
 
 def _compact_field(cfg: Any) -> Any:
+    if isinstance(cfg, list):  # columns may be a list of column dicts
+        return [_compact_field(c) for c in cfg]
     if not isinstance(cfg, dict):
         return cfg
-    out = {k: cfg[k] for k in _COMPACT_KEYS if k in cfg}
+    out = {k: v for k, v in cfg.items() if k not in _DISPLAY_KEYS}
     if isinstance(cfg.get("options"), list):
-        out["options"] = [
-            o.get("value") if isinstance(o, dict) else o for o in cfg["options"]
-        ]
-    for key in ("properties", "item_schema"):
-        if isinstance(cfg.get(key), dict):
-            out[key] = {k: _compact_field(v) for k, v in cfg[key].items()}
-    if isinstance(cfg.get("items"), dict):
-        out["items"] = _compact_field(cfg["items"])
+        out["options"] = [_compact_option(o) for o in cfg["options"]]
+    for key in _NESTED_KEYS:
+        nested = cfg.get(key)
+        if isinstance(nested, dict) and key != "items":  # map of child fields
+            out[key] = {k: _compact_field(v) for k, v in nested.items()}
+        elif isinstance(nested, dict | list):  # one item field, or a column list
+            out[key] = _compact_field(nested)
     return out
+
+
+def _compact_option(option: Any) -> Any:
+    """{value, label} becomes the bare value; extra option keys are kept."""
+    if not isinstance(option, dict):
+        return option
+    kept = {k: v for k, v in option.items() if k not in _DISPLAY_KEYS}
+    return kept["value"] if kept.keys() == {"value"} else kept
 
 
 @router.get("/curation-schemas/{schema_id}", response_model=CurationSchema)
@@ -170,8 +177,9 @@ def get_curation_schema(
     schema_id: UUID,
     compact: bool = Query(
         False,
-        description="Fields only (type, required, allowed values, limits), flattened "
-        "by id; ui_configuration is {} and scoring_configuration is null",
+        description="Fields flattened by id without display keys (label, help, "
+        "order...); option values only; ui_configuration is {} and "
+        "scoring_configuration is null",
     ),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:

@@ -11741,7 +11741,7 @@ export interface operations {
     get_curation_schema_api_v1_schemas_curation_schemas__schema_id__get: {
         parameters: {
             query?: {
-                /** @description Fields only (type, required, allowed values, limits), flattened by id; ui_configuration is {} and scoring_configuration is null */
+                /** @description Fields flattened by id without display keys (label, help, order...); option values only; ui_configuration is {} and scoring_configuration is null */
                 compact?: boolean;
             };
             header?: never;

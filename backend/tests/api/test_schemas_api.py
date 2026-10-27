@@ -130,6 +130,8 @@ class TestCurationSchemaRead:
     ):
         """MCP study finding 6: compact read for agents (types, required, values)."""
         option = {"value": "score", "label": "Score"}
+        option = {"value": "score", "label": "Score"}
+        default_by = {"field": "status", "values": {"score": 1.5}}
         owned_schema.field_definitions = {
             "summary": {"type": "string", "label": "S", "ui_component": "RichText"},
             "cases": {
@@ -139,12 +141,26 @@ class TestCurationSchemaRead:
                     "type": "object",
                     "properties": {
                         "status": {"type": "select", "options": [option, "review"]},
-                        "points": {"type": "number", "min": 0, "max": 3, "step": 0.1},
+                        "points": {
+                            "type": "number",
+                            "min": 0,
+                            "default_by": default_by,
+                        },
                     },
                 },
             },
+            "table": {
+                "type": "evidence_table",
+                "required_when": {"field": "moi", "equals": "AD"},
+                "columns": [{"key": "pmid", "type": "string", "order": 1}],
+            },
             "sections": [
-                {"id": "s", "fields": [{"id": "moi", "type": "text", "required": True}]}
+                {
+                    "id": "s",
+                    "fields": [
+                        {"id": "moi", "type": "text", "required": True, "default": "AD"}
+                    ],
+                }
             ],
         }
         owned_schema.scoring_configuration = {"engine": "x"}
@@ -168,11 +184,20 @@ class TestCurationSchemaRead:
                     "type": "object",
                     "properties": {
                         "status": {"type": "select", "options": ["score", "review"]},
-                        "points": {"type": "number", "min": 0, "max": 3},
+                        "points": {
+                            "type": "number",
+                            "min": 0,
+                            "default_by": default_by,
+                        },
                     },
                 },
             },
-            "moi": {"type": "text", "required": True},
+            "table": {
+                "type": "evidence_table",
+                "required_when": {"field": "moi", "equals": "AD"},
+                "columns": [{"key": "pmid", "type": "string"}],
+            },
+            "moi": {"id": "moi", "type": "text", "required": True, "default": "AD"},
         }
 
     def test_get_unknown_id_is_404(self, client: TestClient, viewer_token: str):
