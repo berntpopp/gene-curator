@@ -12,6 +12,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from sqlalchemy.orm.exc import StaleDataError
 
+from app.core.capabilities import require_active_scope
 from app.core.database import raise_if_rls_denied
 from app.core.enums import ScopeRole
 from app.crud.activation import activate_item
@@ -227,6 +228,7 @@ class WorkflowEngine:
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
         if not item or current_stage is None:
             raise ValueError(f"{item_type} not found")
+        require_active_scope(item.scope)
 
         validation = self.validate_transition(
             db, current_stage, target_stage, user_id, item_id, item_type
@@ -450,6 +452,7 @@ class WorkflowEngine:
 
         if review.reviewer_id != reviewer_id:
             raise ValueError("Only assigned reviewer can submit this review")
+        require_active_scope(review.curation.scope)
 
         if review.status != ReviewStatus.PENDING:
             raise ValueError("Review has already been completed")

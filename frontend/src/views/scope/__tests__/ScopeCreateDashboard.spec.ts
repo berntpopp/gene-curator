@@ -367,7 +367,8 @@ describe('ScopeDashboard', () => {
     const store = useScopesStore()
     const denied = Object.assign(new Error('403'), { response: { status: 403 } })
     vi.spyOn(store, 'fetchUserRole').mockRejectedValue(denied)
-    vi.spyOn(store, 'fetchStatistics').mockRejectedValue(denied)
+    const stats = vi.spyOn(store, 'fetchStatistics').mockRejectedValue(denied)
+    const members = vi.spyOn(store, 'fetchMembers').mockRejectedValue(denied)
     vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
       store.currentScope = scope as never
       return scope as never
@@ -376,6 +377,10 @@ describe('ScopeDashboard', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Kidney Genetics')
     expect(wrapper.text()).not.toContain("don't have access")
+    // #484: no member-only calls after the denial, and no Genes tab claiming no genes
+    expect(stats).not.toHaveBeenCalled()
+    expect(members).not.toHaveBeenCalled()
+    expect(wrapper.findAll('.v-tab').map(t => t.text().trim())).toEqual(['Overview', 'Curations'])
   })
 
   it('shows a failed role lookup that is not a denial instead of hiding tabs', async () => {

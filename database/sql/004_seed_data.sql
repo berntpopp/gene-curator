@@ -806,44 +806,48 @@ INSERT INTO users (
 -- Scope roles: 'admin', 'curator', 'reviewer', 'viewer'
 
 -- Admin user as scope admin in all scopes
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status)
+INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at)
 SELECT
     s.id as scope_id,
     (SELECT id FROM users WHERE email = 'admin@genecurator.org') as user_id,
     'admin' as role,
     true as is_active,
-    'accepted' as invitation_status
+    'accepted' as invitation_status,
+    NOW() as accepted_at
 FROM scopes s
 WHERE s.is_active = true;
 
 -- Alice Smith as curator in kidney-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
+INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'kidney-genetics'),
     (SELECT id FROM users WHERE email = 'alice.smith@genecurator.org'),
     'curator',  -- Scope-level curator role
     true,
-    'accepted'
+    'accepted',
+    NOW()
 );
 
 -- Bob Jones as reviewer in cardio-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
+INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'cardio-genetics'),
     (SELECT id FROM users WHERE email = 'bob.jones@genecurator.org'),
     'reviewer',  -- Scope-level reviewer role
     true,
-    'accepted'
+    'accepted',
+    NOW()
 );
 
 -- Carol Williams as viewer in neuro-genetics scope
-INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status) VALUES
+INSERT INTO scope_memberships (scope_id, user_id, role, is_active, invitation_status, accepted_at) VALUES
 (
     (SELECT id FROM scopes WHERE name = 'neuro-genetics'),
     (SELECT id FROM users WHERE email = 'carol.williams@genecurator.org'),
     'viewer',  -- Scope-level viewer role
     true,
-    'accepted'
+    'accepted',
+    NOW()
 );
 
 -- ========================================

@@ -146,7 +146,7 @@
             Overview
           </v-tab>
 
-          <v-tab value="genes">
+          <v-tab v-if="!outsider" value="genes">
             <v-icon start>mdi-dna</v-icon>
             Genes
             <v-chip
@@ -209,7 +209,7 @@
           </v-window-item>
 
           <!-- Genes Tab -->
-          <v-window-item value="genes">
+          <v-window-item v-if="!outsider" value="genes">
             <v-card-text>
               <GeneList v-if="scope" :scope-id="scopeId" @changed="refreshStatistics" />
             </v-card-text>
@@ -304,6 +304,8 @@
   // ============================================
 
   const scopeStats = ref<ScopeStats | undefined>(undefined)
+  // A logged-in non-member of a public scope: skip member-only calls and the Genes tab (#484)
+  const outsider = ref(false)
   // Em dash until statistics arrive, never a fake 0
   const stat = (n: number | null | undefined) => (scopeStats.value ? (n ?? 0) : EMPTY)
   const genesLabel = computed(() =>
@@ -338,7 +340,7 @@
   const activeTab = computed({
     get: () => {
       const tab = route.params.tab as string
-      return validTabs.includes(tab) ? tab : 'overview'
+      return validTabs.includes(tab) && !(outsider.value && tab === 'genes') ? tab : 'overview'
     },
     set: (tabValue: string) => {
       if (tabValue === route.params.tab) return
@@ -409,12 +411,16 @@
       // A non-member may open a public scope: no role and no statistics, but no error (#393)
       await scopeStore.fetchUserRole(scopeId.value).catch((e: unknown) => {
         if ((e as { response?: { status?: number } }).response?.status !== 403) throw e
+        outsider.value = true
       })
       await scopeStore.fetchScope(scopeId.value)
-      await refreshStatistics().catch(() => undefined)
+      if (!outsider.value) await refreshStatistics().catch(() => undefined)
 
       // Overview facts are best effort: the page works without them
-      await Promise.allSettled([loadWorkflowPairs(), scopeStore.fetchMembers(scopeId.value)])
+      await Promise.allSettled([
+        loadWorkflowPairs(),
+        outsider.value ? undefined : scopeStore.fetchMembers(scopeId.value)
+      ])
 
       logger.info('Scope dashboard loaded', {
         scope_id: scopeId.value,
