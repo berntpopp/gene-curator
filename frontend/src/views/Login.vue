@@ -147,7 +147,7 @@
   import { useLogger } from '@/composables/useLogger'
 
   const logger = useLogger()
-  import { ref, reactive, computed, nextTick } from 'vue'
+  import { ref, reactive, nextTick } from 'vue'
   import { useRouter, useRoute } from 'vue-router'
   import { useAuthStore } from '@/stores/auth'
   import { safeRedirect } from '@/utils/safeRedirect'
@@ -165,14 +165,11 @@
     password: ''
   })
 
-  // Development mode check
-  const isDevelopment = computed(() => {
-    return (
-      import.meta.env.DEV ||
-      import.meta.env.MODE === 'development' ||
-      import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true'
-    )
-  })
+  // Plain build-time constant (not computed) so production builds drop devCredentials (#461)
+  const isDevelopment =
+    import.meta.env.DEV ||
+    import.meta.env.MODE === 'development' ||
+    import.meta.env.VITE_ENABLE_DEV_LOGIN === 'true'
 
   // Validation rules
   const emailRules = [
@@ -185,12 +182,14 @@
   // Development quick login credentials
   // Note: admin is application-level, others are standard users with scope-specific roles
   type DevRole = 'admin' | 'curator' | 'reviewer' | 'viewer'
-  const devCredentials: Record<DevRole, { email: string; password: string }> = {
-    admin: { email: 'admin@genecurator.org', password: 'admin123' }, // Application admin
-    curator: { email: 'alice.smith@genecurator.org', password: 'admin123' }, // User (curator role in kidney-genetics scope)
-    reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' }, // User (reviewer role in cardio-genetics scope)
-    viewer: { email: 'carol.williams@genecurator.org', password: 'admin123' } // User (viewer role in neuro-genetics scope)
-  }
+  const devCredentials: Record<DevRole, { email: string; password: string }> | null = isDevelopment
+    ? {
+        admin: { email: 'admin@genecurator.org', password: 'admin123' }, // Application admin
+        curator: { email: 'alice.smith@genecurator.org', password: 'admin123' }, // User (curator role in kidney-genetics scope)
+        reviewer: { email: 'bob.jones@genecurator.org', password: 'admin123' }, // User (reviewer role in cardio-genetics scope)
+        viewer: { email: 'carol.williams@genecurator.org', password: 'admin123' } // User (viewer role in neuro-genetics scope)
+      }
+    : null
 
   const handleLogin = async () => {
     const result = await loginForm.value?.validate()
@@ -214,7 +213,7 @@
   }
 
   const quickLogin = async (role: DevRole) => {
-    const creds = devCredentials[role]
+    const creds = devCredentials?.[role]
     if (!creds) return
 
     // Fill credentials
