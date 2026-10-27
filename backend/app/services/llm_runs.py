@@ -37,7 +37,7 @@ from app.services.llm_config import (
 
 MTOK = Decimal(1_000_000)
 PENDING = ("queued", "running")
-GOLDEN_DIR = Path(__file__).parents[2] / "tests" / "llm_golden"
+GOLDEN_DIR = Path(__file__).parents[1] / "llm" / "golden"
 
 
 # --- data sharing ---------------------------------------------------------------

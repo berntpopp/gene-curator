@@ -2,20 +2,19 @@
 
 Env: LLM_EVAL_KIND (anthropic | openai_compatible), LLM_EVAL_BASE_URL, LLM_EVAL_API_KEY,
 LLM_EVAL_MODEL (pinned id), optional LLM_EVAL_MAX_TOKENS. Prompt and schema come from
-the files next to this one. Prints one JSON line per case; exits 1 if any case fails.
+app/llm/golden (shipped in the image). Prints one JSON line per case; exits 1 if any case fails.
 """
 
 import asyncio
 import json
 import os
 import sys
-from pathlib import Path
 
 from app.llm.providers import provider_registry
 from app.models.llm import PromptTemplateVersion
-from app.services.llm_runs import load_golden, run_golden_case
+from app.services.llm_runs import GOLDEN_DIR, load_golden, run_golden_case
 
-HERE = Path(__file__).parent
+HERE = GOLDEN_DIR
 
 
 def golden_version() -> PromptTemplateVersion:
