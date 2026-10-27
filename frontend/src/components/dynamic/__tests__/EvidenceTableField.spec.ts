@@ -47,6 +47,26 @@ const emitted = (w: ReturnType<typeof mountTable>) =>
   (w.emitted('update:model-value') ?? []) as Array<[Array<Record<string, unknown>>]>
 
 describe('EvidenceTableField', () => {
+  it('renders true readonly cells as labelled values with links, then restores editable PMID checks', async () => {
+    vi.mocked(publicationsAPI.validatePMIDs).mockClear()
+    const wrapper = mountTable({
+      readonly: true,
+      modelValue: [{ ...row, lod_score: 0, de_novo: false, lod_score_method: 'published' }]
+    })
+    await flushPromises()
+    expect(wrapper.findAll('input, textarea, select')).toHaveLength(0)
+    expect(wrapper.text()).toContain('Published LOD score')
+    expect(wrapper.text()).toContain('No')
+    expect(wrapper.find('a[href="https://pubmed.ncbi.nlm.nih.gov/123"]').exists()).toBe(true)
+    expect(wrapper.find('.add-row').exists()).toBe(false)
+    expect(wrapper.emitted('update:model-value')).toBeUndefined()
+    expect(publicationsAPI.validatePMIDs).not.toHaveBeenCalled()
+    await wrapper.setProps({ readonly: false })
+    await flushPromises()
+    expect(wrapper.find('input[aria-label="Pmid, row 1"]').exists()).toBe(true)
+    expect(publicationsAPI.validatePMIDs).toHaveBeenCalledOnce()
+    wrapper.unmount()
+  })
   it('checks saved PMIDs when a read-only table becomes editable', async () => {
     vi.mocked(publicationsAPI.validatePMIDs).mockClear()
     const wrapper = mountTable({ disabled: true })

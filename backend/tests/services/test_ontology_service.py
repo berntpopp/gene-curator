@@ -54,6 +54,59 @@ MONDO_ELEMENT = {
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "filter_human"),
+    [
+        ("canine", True),
+        ("MONDO:0007258", False),
+        ("Marfan", True),
+        ("MONDO:0009100", False),
+        ("MONDO:0009100 susceptibility", True),
+        ("MONDO:000910", True),
+    ],
+)
+async def test_mondo_filters_suggestions_but_resolves_saved_ids(
+    query: str, filter_human: bool
+) -> None:
+    calls = []
+    term_id = "MONDO:0007258" if filter_human else query
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(request)
+        if filter_human:
+            assert request.url.params["directAncestor"] == (
+                "http://purl.obolibrary.org/obo/MONDO_0700096"
+            )
+        else:
+            assert "directAncestor" not in request.url.params
+        assert request.url.params["includeObsoleteEntities"] == "false"
+        assert request.url.params["search"] == query
+        assert request.url.params["size"] == "5"
+        # A human canine-tooth disorder must not be removed by name heuristics.
+        return httpx.Response(
+            200,
+            json={
+                "elements": [
+                    {
+                        "curie": term_id,
+                        "label": ["stored term"],
+                    }
+                ],
+                "totalElements": 1,
+            },
+        )
+
+    svc = _service(handler)
+    try:
+        response = await svc.search_mondo(query, limit=5)
+    finally:
+        await svc.close()
+    assert len(calls) == 1
+    assert response.total_results == 1
+    assert [r.mondo_id for r in response.results] == [term_id]
+
+
+@pytest.mark.asyncio
 async def test_search_mondo_parses_elements_and_filters_foreign_curies() -> None:
     payload = {
         "elements": [MONDO_ELEMENT, {"curie": "DOID:1612", "label": ["x"]}],

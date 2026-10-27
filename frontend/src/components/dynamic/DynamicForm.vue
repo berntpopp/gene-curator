@@ -4,7 +4,7 @@
       <!-- Main form content -->
       <v-col cols="12" :lg="showScoring ? 8 : 12">
         <v-card>
-          <v-card-title v-if="title" class="d-flex align-center">
+          <v-card-title v-if="title" class="d-flex align-center text-wrap">
             <v-icon start>mdi-form-select</v-icon>
             {{ title }}
           </v-card-title>
@@ -85,6 +85,7 @@
                     :validation-result="getFieldValidation(fieldName)"
                     :backend-errors="backendErrors[fieldName] || []"
                     :disabled="readonly"
+                    :readonly="readonly"
                     @update:model-value="updateField(fieldName, $event)"
                     @validate="validateField(fieldName, $event)"
                     @clear-backend-error="clearFieldBackendError(fieldName)"

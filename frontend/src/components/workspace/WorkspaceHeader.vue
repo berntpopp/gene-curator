@@ -1,5 +1,5 @@
 <template>
-  <header class="ws-header">
+  <header class="ws-header" :class="{ 'ws-header--sticky': state && !readonly }">
     <nav aria-label="Breadcrumb" class="ws-crumbs">
       <template v-for="(c, i) in crumbs" :key="i">
         <router-link v-if="c.to" :to="c.to">{{ c.text }}</router-link>
@@ -84,8 +84,17 @@
     margin-bottom: 16px;
   }
 
+  .ws-header--sticky {
+    position: sticky;
+    top: var(--v-layout-top, 0px);
+    z-index: 5;
+    padding-block: 8px;
+    background: rgb(var(--v-theme-surface));
+  }
+
   .ws-crumbs {
     display: flex;
+    flex-wrap: wrap;
     gap: 6px;
     font-size: 13px;
     color: rgb(var(--v-theme-on-surface-variant, var(--v-theme-on-surface)));
@@ -106,6 +115,8 @@
 
   .ws-title__text {
     display: flex;
+    min-width: 0;
+    overflow-wrap: anywhere;
     flex-wrap: wrap;
     align-items: baseline;
     gap: 6px 16px;
