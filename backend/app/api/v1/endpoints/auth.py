@@ -10,7 +10,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.deps import get_current_active_user, get_current_user
+from app.core.deps import (
+    get_current_active_user,
+    get_current_user,
+    reject_personal_access_token,
+)
 from app.core.logging import get_logger
 from app.core.security import (
     create_access_token,
@@ -146,7 +150,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)) -
     return current_user
 
 
-@router.put("/me/password")
+@router.put("/me/password", dependencies=[Depends(reject_personal_access_token)])
 async def change_password(
     password_data: PasswordChange,
     db: Session = Depends(get_db),
@@ -171,7 +175,7 @@ async def change_password(
     return {"message": "Password updated successfully"}
 
 
-@router.post("/change-password")
+@router.post("/change-password", dependencies=[Depends(reject_personal_access_token)])
 async def change_password_alt(
     password_data: PasswordChange,
     db: Session = Depends(get_db),

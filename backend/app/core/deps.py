@@ -6,7 +6,7 @@ from collections.abc import AsyncGenerator, Callable
 from typing import Annotated, Any
 from uuid import UUID
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,10 +16,12 @@ from app.core.database import RLS_USER_KEY, AsyncSessionLocal, apply_rls_user, g
 from app.core.enums import ScopeRole
 from app.core.logging import get_logger
 from app.core.security import (
+    PAT_PREFIX,
     credentials_exception,
     inactive_user_exception,
     verify_token,
 )
+from app.crud import personal_access_token as pat_crud
 from app.crud.user import user_crud
 from app.models import UserNew
 
@@ -30,12 +32,57 @@ security = HTTPBearer()
 security_optional = HTTPBearer(auto_error=False)
 
 
+def _request(request: Request) -> Request:
+    return request
+
+
+_SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+# Account and identity control a personal access token may never perform, so a leaked
+# token cannot take over accounts; every other call keeps the owner's full rights.
+PAT_BLOCKED_OPERATIONS: tuple[tuple[str, str], ...] = (
+    ("POST", "/api/v1/users/"),
+    ("PUT", "/api/v1/users/{user_id}"),
+    ("PUT", "/api/v1/users/{user_id}/password"),
+    ("PUT", "/api/v1/users/{user_id}/activate"),
+    ("PUT", "/api/v1/users/{user_id}/deactivate"),
+    ("DELETE", "/api/v1/users/{user_id}"),
+    ("PUT", "/api/v1/auth/me/password"),
+    ("POST", "/api/v1/auth/change-password"),
+    ("POST", "/api/v1/me/tokens/"),
+)
+
+
+def _token_user_id(db: Session, token: str, request: Request) -> str | None:
+    """User id behind a JWT access token or a live personal access token, else None.
+
+    A personal access token marks the request (request.state.personal_access_token).
+    """
+    if token.startswith(PAT_PREFIX):
+        found = pat_crud.authenticate(db, token)
+        if found is None:
+            return None
+        user_id, scopes = found
+        if "write" not in scopes and request.method not in _SAFE_METHODS:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="This token is read-only"
+            )
+        request.state.personal_access_token = True
+        return user_id
+    payload = verify_token(token)
+    if payload is None or payload.get("type") == "refresh":
+        return None
+    user_id_value: Any = payload.get("sub")
+    return user_id_value if isinstance(user_id_value, str) else None
+
+
 def get_current_user(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request = Depends(_request),
 ) -> UserNew:
     """
-    Get current authenticated user from JWT token.
+    Get current authenticated user from a JWT or personal access token (gc_pat_...).
 
     Args:
         db: Database session
@@ -45,18 +92,11 @@ def get_current_user(
         Current user object
 
     Raises:
-        HTTPException: If token is invalid or user not found
+        HTTPException: If token is invalid, expired, revoked or user not found
     """
-    # Verify token
-    payload = verify_token(credentials.credentials)
-    if payload is None or payload.get("type") == "refresh":
+    user_id = _token_user_id(db, credentials.credentials, request)
+    if user_id is None:
         raise credentials_exception
-
-    # Extract user ID from token
-    user_id_value: Any = payload.get("sub")
-    if user_id_value is None or not isinstance(user_id_value, str):
-        raise credentials_exception
-    user_id: str = user_id_value
 
     # Get user from database
     user = user_crud.get(db, id=user_id)
@@ -65,6 +105,17 @@ def get_current_user(
 
     set_rls_context(db, user)
     return user
+
+
+def reject_personal_access_token(
+    request: Request, _user: UserNew = Depends(get_current_user)
+) -> None:
+    """Guard for PAT_BLOCKED_OPERATIONS: only a signed-in session may call these."""
+    if getattr(request.state, "personal_access_token", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not allowed with a personal access token; sign in instead",
+        )
 
 
 def get_current_active_user(
@@ -133,6 +184,7 @@ async def get_async_db(
 def get_current_user_optional(
     db: Session = Depends(get_db),
     credentials: HTTPAuthorizationCredentials | None = Depends(security_optional),
+    request: Request = Depends(_request),
 ) -> UserNew | None:
     """
     Get current user optionally (doesn't raise exception if no token).
@@ -148,16 +200,9 @@ def get_current_user_optional(
         return None
 
     try:
-        # Verify token
-        payload = verify_token(credentials.credentials)
-        if payload is None or payload.get("type") == "refresh":
+        user_id = _token_user_id(db, credentials.credentials, request)
+        if user_id is None:
             return None
-
-        # Extract user ID from token
-        user_id_value: Any = payload.get("sub")
-        if user_id_value is None or not isinstance(user_id_value, str):
-            return None
-        user_id: str = user_id_value
 
         # Get user from database
         user = user_crud.get(db, id=user_id)

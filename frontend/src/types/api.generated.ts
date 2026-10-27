@@ -612,6 +612,44 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scopes/{scope_id}/llm-options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Options */
+        get: operations["get_options_api_v1_scopes__scope_id__llm_options_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/scopes/{scope_id}/llm-settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Settings */
+        get: operations["get_settings_api_v1_scopes__scope_id__llm_settings_get"];
+        /**
+         * Put Settings
+         * @description Save with a revision check: lock_version 0 creates, otherwise it must match.
+         */
+        put: operations["put_settings_api_v1_scopes__scope_id__llm_settings_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/me/work": {
         parameters: {
             query?: never;
@@ -624,6 +662,50 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tokens/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tokens
+         * @description List your own tokens (never their plaintext).
+         */
+        get: operations["list_tokens_api_v1_me_tokens__get"];
+        put?: never;
+        /**
+         * Create Token
+         * @description Create a token; the response is the only time its plaintext is shown.
+         */
+        post: operations["create_token_api_v1_me_tokens__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Token
+         * @description Revoke one of your own tokens; it stops working immediately.
+         */
+        delete: operations["revoke_token_api_v1_me_tokens__token_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -3642,6 +3724,246 @@ export interface paths {
          * @description Mark all notifications as read for the current user.
          */
         patch: operations["mark_all_notifications_read_api_v1_notifications_read_all_patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/llm/providers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Providers */
+        get: operations["list_providers_api_v1_admin_llm_providers_get"];
+        put?: never;
+        /** Create Provider */
+        post: operations["create_provider_api_v1_admin_llm_providers_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/providers/{provider_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Provider */
+        patch: operations["update_provider_api_v1_admin_llm_providers__provider_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/llm/providers/{provider_id}/key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set Key
+         * @description Store or replace the provider's API key. Write-only: nothing ever reads it back.
+         */
+        put: operations["set_key_api_v1_admin_llm_providers__provider_id__key_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/providers/{provider_id}/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ping Provider
+         * @description One short call through the adapter; the base URL is re-validated for this call.
+         */
+        post: operations["ping_provider_api_v1_admin_llm_providers__provider_id__ping_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Models */
+        get: operations["list_models_api_v1_admin_llm_models_get"];
+        put?: never;
+        /** Create Model */
+        post: operations["create_model_api_v1_admin_llm_models_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/models/{model_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Model */
+        patch: operations["update_model_api_v1_admin_llm_models__model_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/llm/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Usage
+         * @description Tokens and cost per scope for the current calendar month (UTC).
+         */
+        get: operations["usage_api_v1_admin_llm_usage_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Runs */
+        get: operations["list_runs_api_v1_admin_llm_runs_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Templates */
+        get: operations["list_templates_api_v1_admin_llm_prompt_templates_get"];
+        put?: never;
+        /** Create Template */
+        post: operations["create_template_api_v1_admin_llm_prompt_templates_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-templates/{template_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List Versions */
+        get: operations["list_versions_api_v1_admin_llm_prompt_templates__template_id__versions_get"];
+        put?: never;
+        /** Create Version */
+        post: operations["create_version_api_v1_admin_llm_prompt_templates__template_id__versions_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-versions/{version_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update Version
+         * @description Edit a draft in place; editing a published version creates a new draft from it.
+         */
+        patch: operations["update_version_api_v1_admin_llm_prompt_versions__version_id__patch"];
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-versions/{version_id}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish Version */
+        post: operations["publish_version_api_v1_admin_llm_prompt_versions__version_id__publish_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/llm/prompt-versions/{version_id}/diff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Diff Versions
+         * @description Unified diff from `against` (old) to `version_id` (new).
+         */
+        get: operations["diff_versions_api_v1_admin_llm_prompt_versions__version_id__diff_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/logs/": {
@@ -6824,6 +7146,83 @@ export interface components {
             /** New Class */
             new_class: string;
         };
+        /** ModelCreate */
+        ModelCreate: {
+            /**
+             * Provider Id
+             * Format: uuid
+             */
+            provider_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Input Price Per Mtok Cents */
+            input_price_per_mtok_cents: number | string;
+            /** Output Price Per Mtok Cents */
+            output_price_per_mtok_cents: number | string;
+            /** Max Tokens */
+            max_tokens: number;
+            /**
+             * Timeout S
+             * @default 60
+             */
+            timeout_s: number;
+            /**
+             * Uses Max Completion Tokens
+             * @default false
+             */
+            uses_max_completion_tokens: boolean;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+        };
+        /** ModelOut */
+        ModelOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Provider Id
+             * Format: uuid
+             */
+            provider_id: string;
+            /** Model Id */
+            model_id: string;
+            /** Input Price Per Mtok Cents */
+            input_price_per_mtok_cents: string;
+            /** Output Price Per Mtok Cents */
+            output_price_per_mtok_cents: string;
+            /** Max Tokens */
+            max_tokens: number;
+            /** Timeout S */
+            timeout_s: number;
+            /** Uses Max Completion Tokens */
+            uses_max_completion_tokens: boolean;
+            /** Enabled */
+            enabled: boolean;
+            /** Lock Version */
+            lock_version: number;
+        };
+        /** ModelUpdate */
+        ModelUpdate: {
+            /** Lock Version */
+            lock_version: number;
+            /** Input Price Per Mtok Cents */
+            input_price_per_mtok_cents?: number | string | null;
+            /** Output Price Per Mtok Cents */
+            output_price_per_mtok_cents?: number | string | null;
+            /** Max Tokens */
+            max_tokens?: number | null;
+            /** Timeout S */
+            timeout_s?: number | null;
+            /** Uses Max Completion Tokens */
+            uses_max_completion_tokens?: boolean | null;
+            /** Enabled */
+            enabled?: boolean | null;
+        };
         /** MyWorkResponse */
         MyWorkResponse: {
             /** Items */
@@ -7410,6 +7809,106 @@ export interface components {
              */
             total: number;
         };
+        /** PersonalAccessTokenCreate */
+        PersonalAccessTokenCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description Required; in the future, at most 365 days ahead
+             */
+            expires_at: string;
+            /**
+             * Scopes
+             * @description 'read' alone makes the token read-only; scopes never add rights
+             * @default [
+             *       "read",
+             *       "write"
+             *     ]
+             */
+            scopes: ("read" | "write")[];
+        };
+        /**
+         * PersonalAccessTokenCreated
+         * @description Creation response: the only time the plaintext token is returned.
+         */
+        PersonalAccessTokenCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Prefix */
+            token_prefix: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Token */
+            token: string;
+        };
+        /**
+         * PersonalAccessTokenResponse
+         * @description A token as listed: never contains the plaintext or its hash.
+         */
+        PersonalAccessTokenResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Prefix */
+            token_prefix: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** PingOut */
+        PingOut: {
+            /** Ok */
+            ok: boolean;
+            /** Model */
+            model: string;
+            /** Latency Ms */
+            latency_ms: number;
+            /** Error Code */
+            error_code?: string | null;
+        };
+        /** PingRequest */
+        PingRequest: {
+            /** Model Id */
+            model_id?: string | null;
+        };
         /**
          * Precuration
          * @description Full precuration response schema.
@@ -7681,6 +8180,78 @@ export interface components {
              */
             lock_version: number;
         };
+        /** ProviderCreate */
+        ProviderCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "openai_compatible" | "anthropic" | "mock";
+            /** Base Url */
+            base_url: string;
+            /**
+             * Enabled
+             * @default true
+             */
+            enabled: boolean;
+        };
+        /**
+         * ProviderKey
+         * @description Validation errors carry the field input; masking it first keeps keys out of 422s.
+         */
+        ProviderKey: {
+            /**
+             * Api Key
+             * Format: password
+             */
+            api_key: string;
+        };
+        /** ProviderOut */
+        ProviderOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "openai_compatible" | "anthropic" | "mock";
+            /** Base Url */
+            base_url: string;
+            /** Enabled */
+            enabled: boolean;
+            /** Lock Version */
+            lock_version: number;
+            /**
+             * Has Key
+             * @default false
+             */
+            has_key: boolean;
+            /** Key Fingerprint */
+            key_fingerprint?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ProviderUpdate */
+        ProviderUpdate: {
+            /** Lock Version */
+            lock_version: number;
+            /** Name */
+            name?: string | null;
+            /** Base Url */
+            base_url?: string | null;
+            /** Enabled */
+            enabled?: boolean | null;
+        };
         /**
          * PublicationData
          * @description Validated publication data from PubMed/Europe PMC
@@ -7845,6 +8416,62 @@ export interface components {
          * @enum {string}
          */
         ReviewStatus: "pending" | "approved" | "rejected" | "needs_revision";
+        /** Revision */
+        Revision: {
+            /** Lock Version */
+            lock_version: number;
+        };
+        /** RunOut */
+        RunOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Curation Id */
+            curation_id: string | null;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Llm Model Id */
+            llm_model_id: string | null;
+            /** Model Id */
+            model_id: string;
+            /** Prompt Version Id */
+            prompt_version_id: string | null;
+            /** Prompt Sha256 */
+            prompt_sha256: string | null;
+            /** Methodology Version Id */
+            methodology_version_id: string | null;
+            /** Status */
+            status: string;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Cents */
+            cost_cents: string;
+            /** Duration Ms */
+            duration_ms: number | null;
+            /** Error Code */
+            error_code: string | null;
+            /** Request Sha256 */
+            request_sha256: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /**
          * SchemaValidationRequest
          * @description Request for schema definition validation.
@@ -8212,6 +8839,13 @@ export interface components {
             /** Display Name */
             display_name: string;
         };
+        /** ScopeLLMOptions */
+        ScopeLLMOptions: {
+            /** Models */
+            models: components["schemas"]["ScopeModelOption"][];
+            /** Prompt Versions */
+            prompt_versions: components["schemas"]["ScopePromptOption"][];
+        };
         /**
          * ScopeListItem
          * @description Scope with basic counts for list views.
@@ -8544,6 +9178,35 @@ export interface components {
              */
             notes?: string | null;
         };
+        /** ScopeModelOption */
+        ScopeModelOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Model Id */
+            model_id: string;
+            /** Provider Name */
+            provider_name: string;
+        };
+        /** ScopePromptOption */
+        ScopePromptOption: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Template Key */
+            template_key: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Version */
+            version: number;
+        };
         /**
          * ScopeRole
          * @description Scope-level roles (detailed permissions within scopes).
@@ -8556,6 +9219,73 @@ export interface components {
          * @enum {string}
          */
         ScopeRole: "admin" | "curator" | "reviewer" | "viewer";
+        /** ScopeSettingsOut */
+        ScopeSettingsOut: {
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /** Model Id */
+            model_id?: string | null;
+            /** Skeptic Prompt Version Id */
+            skeptic_prompt_version_id?: string | null;
+            /** Advocate Prompt Version Id */
+            advocate_prompt_version_id?: string | null;
+            /**
+             * Monthly Token Cap
+             * @default 0
+             */
+            monthly_token_cap: number;
+            /**
+             * Monthly Cost Cap Cents
+             * @default 0
+             */
+            monthly_cost_cap_cents: number;
+            /**
+             * Daily Run Cap
+             * @default 0
+             */
+            daily_run_cap: number;
+            /**
+             * Lock Version
+             * @default 0
+             */
+            lock_version: number;
+        };
+        /** ScopeSettingsUpdate */
+        ScopeSettingsUpdate: {
+            /** Lock Version */
+            lock_version: number;
+            /** Enabled */
+            enabled: boolean;
+            /** Model Id */
+            model_id?: string | null;
+            /** Skeptic Prompt Version Id */
+            skeptic_prompt_version_id?: string | null;
+            /** Advocate Prompt Version Id */
+            advocate_prompt_version_id?: string | null;
+            /**
+             * Monthly Token Cap
+             * @default 0
+             */
+            monthly_token_cap: number;
+            /**
+             * Monthly Cost Cap Cents
+             * @default 0
+             */
+            monthly_cost_cap_cents: number;
+            /**
+             * Daily Run Cap
+             * @default 0
+             */
+            daily_run_cap: number;
+        };
         /**
          * ScopeStatistics
          * @description Detailed scope statistics.
@@ -8895,6 +9625,40 @@ export interface components {
             /** Scopes */
             scopes: components["schemas"]["ScopeHit"][];
         };
+        /** TemplateCreate */
+        TemplateCreate: {
+            /** Key */
+            key: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Description */
+            description?: string | null;
+        };
+        /** TemplateOut */
+        TemplateOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Key */
+            key: string;
+            /**
+             * Strategy
+             * @enum {string}
+             */
+            strategy: "skeptic" | "advocate";
+            /** Description */
+            description: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * Token
          * @description Schema for JWT token response.
@@ -8919,6 +9683,22 @@ export interface components {
         TokenRefresh: {
             /** Refresh Token */
             refresh_token: string;
+        };
+        /** UsageRow */
+        UsageRow: {
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Runs */
+            runs: number;
+            /** Input Tokens */
+            input_tokens: number;
+            /** Output Tokens */
+            output_tokens: number;
+            /** Cost Cents */
+            cost_cents: string;
         };
         /**
          * UserCreate
@@ -9105,6 +9885,93 @@ export interface components {
              * @description Error code if applicable
              */
             error_code?: string | null;
+        };
+        /** VersionCreate */
+        VersionCreate: {
+            /** System Text */
+            system_text: string;
+            /** User Text */
+            user_text: string;
+            /** Output Schema */
+            output_schema?: {
+                [key: string]: unknown;
+            };
+            /** Few Shot Examples */
+            few_shot_examples?: unknown[];
+        };
+        /** VersionDiff */
+        VersionDiff: {
+            /**
+             * From Id
+             * Format: uuid
+             */
+            from_id: string;
+            /**
+             * To Id
+             * Format: uuid
+             */
+            to_id: string;
+            /** System Diff */
+            system_diff: string;
+            /** User Diff */
+            user_diff: string;
+            /** Output Schema Changed */
+            output_schema_changed: boolean;
+            /** Few Shot Examples Changed */
+            few_shot_examples_changed: boolean;
+        };
+        /** VersionOut */
+        VersionOut: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Template Id
+             * Format: uuid
+             */
+            template_id: string;
+            /** Version */
+            version: number;
+            /** System Text */
+            system_text: string;
+            /** User Text */
+            user_text: string;
+            /** Output Schema */
+            output_schema: {
+                [key: string]: unknown;
+            };
+            /** Few Shot Examples */
+            few_shot_examples: unknown[];
+            /** Sha256 */
+            sha256: string | null;
+            /** Published At */
+            published_at: string | null;
+            /** Derived From */
+            derived_from: string | null;
+            /** Lock Version */
+            lock_version: number;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** VersionUpdate */
+        VersionUpdate: {
+            /** Lock Version */
+            lock_version: number;
+            /** System Text */
+            system_text?: string | null;
+            /** User Text */
+            user_text?: string | null;
+            /** Output Schema */
+            output_schema?: {
+                [key: string]: unknown;
+            } | null;
+            /** Few Shot Examples */
+            few_shot_examples?: unknown[] | null;
         };
         /** WorkItem */
         WorkItem: {
@@ -10501,6 +11368,103 @@ export interface operations {
             };
         };
     };
+    get_options_api_v1_scopes__scope_id__llm_options_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeLLMOptions"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_settings_api_v1_scopes__scope_id__llm_settings_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    put_settings_api_v1_scopes__scope_id__llm_settings_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                scope_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeSettingsUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeSettingsOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     read_my_work_api_v1_me_work_get: {
         parameters: {
             query?: never;
@@ -10517,6 +11481,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyWorkResponse"];
+                };
+            };
+        };
+    };
+    list_tokens_api_v1_me_tokens__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenResponse"][];
+                };
+            };
+        };
+    };
+    create_token_api_v1_me_tokens__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalAccessTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_token_api_v1_me_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };
@@ -15208,6 +16254,524 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["NotificationMarkAllReadResponse"];
+                };
+            };
+        };
+    };
+    list_providers_api_v1_admin_llm_providers_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOut"][];
+                };
+            };
+        };
+    };
+    create_provider_api_v1_admin_llm_providers_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_provider_api_v1_admin_llm_providers__provider_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProviderOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_key_api_v1_admin_llm_providers__provider_id__key_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProviderKey"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    ping_provider_api_v1_admin_llm_providers__provider_id__ping_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                provider_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PingRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PingOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_models_api_v1_admin_llm_models_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOut"][];
+                };
+            };
+        };
+    };
+    create_model_api_v1_admin_llm_models_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_model_api_v1_admin_llm_models__model_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                model_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    usage_api_v1_admin_llm_usage_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageRow"][];
+                };
+            };
+        };
+    };
+    list_runs_api_v1_admin_llm_runs_get: {
+        parameters: {
+            query?: {
+                scope_id?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_templates_api_v1_admin_llm_prompt_templates_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"][];
+                };
+            };
+        };
+    };
+    create_template_api_v1_admin_llm_prompt_templates_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TemplateCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TemplateOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    list_versions_api_v1_admin_llm_prompt_templates__template_id__versions_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"][];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_version_api_v1_admin_llm_prompt_templates__template_id__versions_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                template_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_version_api_v1_admin_llm_prompt_versions__version_id__patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    publish_version_api_v1_admin_llm_prompt_versions__version_id__publish_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Revision"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    diff_versions_api_v1_admin_llm_prompt_versions__version_id__diff_get: {
+        parameters: {
+            query: {
+                against: string;
+            };
+            header?: never;
+            path: {
+                version_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionDiff"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

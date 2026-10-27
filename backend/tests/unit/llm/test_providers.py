@@ -129,6 +129,44 @@ async def test_openai_compatible_sends_native_schema() -> None:
 
 
 @pytest.mark.asyncio
+async def test_o_series_flag_sends_max_completion_tokens() -> None:
+    bodies: list[dict[str, Any]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        bodies.append(json.loads(request.content))
+        return httpx.Response(200, json=openai_body())
+
+    await make(
+        OpenAICompatibleProvider,
+        handler,
+        model="gpt-x-2026-01-01",
+        uses_max_completion_tokens=True,
+    ).complete(REQ)
+    assert bodies[0]["max_completion_tokens"] == 256
+    assert "max_tokens" not in bodies[0]
+
+
+@pytest.mark.asyncio
+async def test_acreate_revalidates_url_off_the_event_loop(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import threading
+
+    threads: list[threading.Thread] = []
+
+    def resolve(host: str, port: int, *a: Any, **k: Any) -> list[Any]:
+        threads.append(threading.current_thread())
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.5", port))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", resolve)
+    with pytest.raises(UnsafeURLError):
+        await provider_registry.acreate(
+            "anthropic", base_url="https://llm.example.org", api_key="k", model=MODEL
+        )
+    assert threads and threads[0] is not threading.main_thread()
+
+
+@pytest.mark.asyncio
 async def test_model_must_match_pin() -> None:
     provider = make(
         AnthropicProvider,

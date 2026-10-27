@@ -68,12 +68,14 @@ class _HTTPProvider:
         model: str,
         timeout_s: float = MIN_TIMEOUT_S,
         transport: httpx.AsyncBaseTransport | None = None,
+        uses_max_completion_tokens: bool = False,
     ) -> None:
         self._url = validate_base_url(base_url, kind=self.kind).rstrip("/") + self.path
         self._api_key = api_key
         self.model = model
         self._timeout = clamp_timeout(timeout_s)
         self._transport = transport
+        self._uses_max_completion_tokens = uses_max_completion_tokens
 
     def __repr__(self) -> str:  # keep the key out of tracebacks and debug output
         return f"{type(self).__name__}(model={self.model!r})"
@@ -172,9 +174,15 @@ class OpenAICompatibleProvider(_HTTPProvider):
         return {"Authorization": f"Bearer {self._api_key}"}
 
     def _payload(self, request: LLMRequest) -> dict[str, Any]:
+        # OpenAI o-series reject max_tokens and require max_completion_tokens.
+        limit = (
+            "max_completion_tokens"
+            if self._uses_max_completion_tokens
+            else "max_tokens"
+        )
         payload: dict[str, Any] = {
             "model": self.model,
-            "max_tokens": request.max_tokens,
+            limit: request.max_tokens,
             "messages": [
                 {"role": "system", "content": request.system},
                 {"role": "user", "content": request.user},
@@ -217,6 +225,7 @@ class MockProvider:
         model: str = "mock-model",
         timeout_s: float = MIN_TIMEOUT_S,
         transport: httpx.AsyncBaseTransport | None = None,
+        uses_max_completion_tokens: bool = False,
         response_text: str = "{}",
     ) -> None:
         self.model = model
@@ -253,6 +262,10 @@ class ProviderRegistry:
             raise LLMProviderError("unknown_provider_kind")
         provider: LLMProvider = cls(**config)
         return provider
+
+    async def acreate(self, kind: str, **config: Any) -> LLMProvider:
+        """create() off the event loop: construction re-runs the SSRF check, which resolves DNS."""
+        return await asyncio.to_thread(self.create, kind, **config)
 
 
 provider_registry = ProviderRegistry()

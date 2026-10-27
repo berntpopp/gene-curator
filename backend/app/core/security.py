@@ -2,6 +2,8 @@
 Security utilities for authentication and authorization.
 """
 
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -99,6 +101,20 @@ def create_refresh_token(data: dict[str, Any]) -> str:
         to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM
     )
     return str(encoded_jwt)
+
+
+# Personal access tokens: high-entropy random strings, so an unsalted sha256 is enough
+PAT_PREFIX = "gc_pat_"
+
+
+def generate_personal_access_token() -> str:
+    """New plaintext personal access token (show once, store only its hash)."""
+    return PAT_PREFIX + secrets.token_urlsafe(32)
+
+
+def hash_personal_access_token(token: str) -> str:
+    """sha256 hex digest stored in personal_access_tokens.token_hash."""
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # Authentication exceptions
