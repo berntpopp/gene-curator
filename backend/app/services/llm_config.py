@@ -14,7 +14,7 @@ from uuid import UUID
 
 from fastapi import HTTPException, status
 from sqlalchemy import delete, func, inspect, select, text, update
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger
@@ -153,7 +153,14 @@ def set_provider_key(
                 created_by=user.id,
             )
         )
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:  # a concurrent first save won the unique provider_id
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Key changed concurrently; retry",
+        ) from None
 
 
 def drop_provider_key(db: Session, provider: LLMProvider, user: UserNew) -> None:

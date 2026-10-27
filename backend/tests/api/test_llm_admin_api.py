@@ -570,3 +570,22 @@ def test_invalid_key_is_not_echoed_in_422(
     )
     assert r.status_code == 422
     assert SECRET not in r.text and "4242424242" not in r.text
+
+
+def test_concurrent_first_key_save_is_409(
+    client: TestClient,
+    h: dict[str, str],
+    db_session: Session,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.services import llm_config
+
+    provider = _provider(client, h)
+    url = f"{BASE}/providers/{provider['id']}/key"
+    assert client.put(url, json={"api_key": SECRET}, headers=h).status_code == 204
+    # the second writer read "no key yet" before the first one committed
+    monkeypatch.setattr(llm_config, "credentials_by_provider", lambda db, ids: {})
+    r = client.put(url, json={"api_key": "other"}, headers=h)
+    assert r.status_code == 409
+    monkeypatch.undo()
+    assert len(db_session.scalars(select(LLMCredential)).all()) == 1
