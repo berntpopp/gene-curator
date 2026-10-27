@@ -5,6 +5,7 @@ Prompt and output text are never logged or stored; llm_runs keeps hashes and cou
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -17,7 +18,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.llm.output import InvalidLLMOutputError, parse_structured_output
-from app.llm.prompts import render_messages
+from app.llm.prompts import _wrap, render_messages
 from app.llm.providers import LLMProvider as Adapter, LLMProviderError, LLMRequest
 from app.models import CurationNew, CurationSchema, Gene, UserNew
 from app.models.llm import (
@@ -57,6 +58,35 @@ def _public(value: Any) -> Any:
     return value
 
 
+MONDO_ID = re.compile(r"MONDO:\d{7}")
+MOI_CODES = frozenset(
+    {
+        "AD",
+        "AR",
+        "XL",
+        "XLD",
+        "XLR",
+        "MT",
+        "SD",
+        "Other",
+        "autosomal_dominant",
+        "autosomal_recessive",
+        "x_linked",
+        "x_linked_dominant",
+        "x_linked_recessive",
+        "mitochondrial",
+        "semidominant",
+        "unknown",
+    }
+)
+
+
+def _typed(name: str, value: str, trusted: bool) -> str:
+    """Curator-typed values go to trusted placeholders only when they are a strict
+    ID or code; anything else is wrapped as untrusted data like free text."""
+    return value if trusted or not value else _wrap(name, value)
+
+
 def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
     """Allowlist serializer: the only curation data that ever reaches a provider.
 
@@ -74,12 +104,15 @@ def curation_values(db: Session, curation: CurationNew) -> dict[str, str]:
         "computed_scores": _public(curation.computed_scores or {}),
         "computed_verdict": curation.computed_verdict,
     }
+    disease = str(evidence.get("disease_name") or "")
+    mondo = str(evidence.get("mondo_id") or "")
+    moi = str(evidence.get("mode_of_inheritance") or "")
     return {
         "gene_symbol": gene.approved_symbol if gene else "",
         "hgnc_id": gene.hgnc_id if gene else "",
-        "disease_name": str(evidence.get("disease_name") or ""),
-        "mondo_id": str(evidence.get("mondo_id") or ""),
-        "mode_of_inheritance": str(evidence.get("mode_of_inheritance") or ""),
+        "disease_name": _typed("disease_name", disease, False),
+        "mondo_id": _typed("mondo_id", mondo, MONDO_ID.fullmatch(mondo) is not None),
+        "mode_of_inheritance": _typed("mode_of_inheritance", moi, moi in MOI_CODES),
         "methodology": f"{methodology[0]} {methodology[1]}" if methodology else "",
         "curation_data": json.dumps(content, sort_keys=True, default=str),
         "evidence_text": curation.computed_summary or "",
