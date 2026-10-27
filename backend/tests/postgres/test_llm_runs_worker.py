@@ -203,6 +203,36 @@ def test_two_workers_claim_each_run_once(w: W) -> None:
         assert set(statuses) == {"running"}
 
 
+def test_claim_fails_runs_stuck_running_for_ten_minutes(w: W) -> None:
+    stuck, busy = uuid4(), uuid4()
+    for rid, minutes in ((stuck, 11), (busy, 1)):
+        _exec(
+            "INSERT INTO llm_runs (id, curation_id, scope_id, strategy, model_id, "
+            "created_by, status, started_at) VALUES (%s, %s, %s, 'skeptic', "
+            "'mock-model', %s, 'running', now() - make_interval(mins => %s))",
+            str(rid),
+            str(w.curation),
+            str(w.scope),
+            str(w.scope_admin),
+            minutes,
+        )
+    with Session(database.engine) as db:
+        llm_worker.claim(db)
+    with _as(w.scope_admin) as db:
+        rows = dict(
+            db.execute(
+                select(LLMRun.id, LLMRun.error_code).where(LLMRun.id.in_([stuck, busy]))
+            ).all()
+        )
+        statuses = dict(
+            db.execute(
+                select(LLMRun.id, LLMRun.status).where(LLMRun.id.in_([stuck, busy]))
+            ).all()
+        )
+    assert (statuses[stuck], rows[stuck]) == ("failed", "interrupted")
+    assert (statuses[busy], rows[busy]) == ("running", None)
+
+
 def test_concurrent_enqueues_cannot_both_pass_the_daily_cap(
     w: W, monkeypatch: pytest.MonkeyPatch
 ) -> None:

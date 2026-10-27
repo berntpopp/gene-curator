@@ -190,3 +190,27 @@ async def test_lifespan_starts_and_stops_the_worker(
     monkeypatch.delenv("PYTEST_CURRENT_TEST")
     async with llm_worker.worker_running():
         await asyncio.wait_for(started.wait(), 5)
+
+
+@pytest.mark.asyncio
+async def test_cancel_during_claim_fails_the_claimed_run(
+    db_session: Session, world: World, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    import time
+
+    real = llm_worker._claim
+
+    def slow_claim(factory: Any) -> Any:
+        time.sleep(0.2)
+        return real(factory)
+
+    monkeypatch.setattr(llm_worker, "_claim", slow_claim)
+    run = _queued(db_session, world)
+    task = asyncio.create_task(_process(db_session))
+    await asyncio.sleep(0.05)
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+    done = _reloaded(db_session, run)
+    assert (done.status, done.error_code) == ("failed", "interrupted")
+    assert done.started_at is not None

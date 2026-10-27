@@ -63,6 +63,7 @@ def claim(db: Session) -> tuple[UUID, UUID] | None:
     if run is None or run.created_by is None:
         return None
     run.status = "running"
+    run.started_at = func.now()
     db.commit()
     return run.id, run.created_by
 
@@ -143,7 +144,14 @@ async def _call(prepared: PreparedCall, outcome: Outcome) -> None:
 
 async def process_next(factory: SessionFactory = _session) -> bool:
     """Claim and run one queued run; False when nothing was queued."""
-    claimed = await asyncio.to_thread(_claim, factory)
+    claiming = asyncio.ensure_future(asyncio.to_thread(_claim, factory))
+    try:
+        claimed = await asyncio.shield(claiming)
+    except asyncio.CancelledError:  # the claim thread still commits: finish its run
+        if (late := await claiming) is not None:
+            interrupted = Outcome(error_code="interrupted")
+            await asyncio.to_thread(_finish, factory, *late, interrupted, 0)
+        raise
     if claimed is None:
         return False
     run_id, user_id = claimed
