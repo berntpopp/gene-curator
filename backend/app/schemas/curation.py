@@ -79,6 +79,11 @@ class CurationSubmit(BaseModel):
         None,
         description="Also route it to this reviewer, in the same transaction (assign-reviewer rules)",
     )
+    reviewer_email: str | None = Field(
+        None,
+        max_length=255,
+        description="Or the reviewer's email (a reviewer of the scope)",
+    )
 
 
 # ========================================

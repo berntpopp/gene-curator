@@ -8,11 +8,15 @@ from datetime import UTC, datetime
 from uuid import UUID
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
-from app.crud.review_round import has_pending_review, holds_review_capability
+from app.crud.review_round import (
+    REVIEW_ROLES,
+    has_pending_review,
+    holds_review_capability,
+)
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -21,9 +25,12 @@ from app.models import (
     PrecurationNew,
     Review,
     ReviewStatus,
+    ScopeMembership,
     UserNew,
     WorkflowStage,
 )
+from app.schemas.curation import CurationSubmit
+from app.schemas.precuration import PrecurationSubmit
 from app.schemas.workflow_engine import PeerReviewRequest
 
 APPROVERS = "an accepted reviewer or admin of its scope, never its author, approves it"
@@ -47,6 +54,31 @@ def check_reviewer(
         raise ValueError(
             f"User {reviewer} is not allowed to review {kind} {item_id}: {APPROVERS}"
         )
+
+
+def submit_reviewer(
+    db: Session, scope_id: UUID, data: CurationSubmit | PrecurationSubmit
+) -> UUID | None:
+    """The reviewer a submit names: reviewer_id, or reviewer_email matched only against the
+    scope's accepted reviewers and admins (so it never reveals other accounts)."""
+    if data.reviewer_id or not data.reviewer_email:
+        return data.reviewer_id
+    found = db.scalar(
+        select(UserNew.id)
+        .join(ScopeMembership, ScopeMembership.user_id == UserNew.id)
+        .where(
+            func.lower(UserNew.email) == data.reviewer_email.strip().lower(),
+            ScopeMembership.scope_id == scope_id,
+            ScopeMembership.is_active,
+            ScopeMembership.accepted_at.isnot(None),
+            ScopeMembership.role.in_(REVIEW_ROLES),
+        )
+    )
+    if found is None:
+        raise ValueError(
+            f"No reviewer of this scope has the email {data.reviewer_email}: {APPROVERS}"
+        )
+    return found
 
 
 def stage_reviewer(

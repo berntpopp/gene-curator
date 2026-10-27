@@ -5211,6 +5211,11 @@ export interface components {
              * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
              */
             reviewer_id?: string | null;
+            /**
+             * Reviewer Email
+             * @description Or the reviewer's email (a reviewer of the scope)
+             */
+            reviewer_email?: string | null;
         };
         /**
          * CurationSummary
@@ -8546,6 +8551,11 @@ export interface components {
              * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
              */
             reviewer_id?: string | null;
+            /**
+             * Reviewer Email
+             * @description Or the reviewer's email (a reviewer of the scope)
+             */
+            reviewer_email?: string | null;
         };
         /**
          * PrecurationSummary

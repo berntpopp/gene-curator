@@ -23,6 +23,7 @@ from tests.api.scopes.factories import (
     make_gene,
     make_precuration,
     make_scope,
+    make_user,
 )
 
 
@@ -232,3 +233,38 @@ def test_resubmit_with_the_earlier_reviewer_succeeds(
         select(Review.status).where(Review.curation_id == c.id)
     ).all()
     assert len(statuses) == 2  # one review per round, none duplicated
+
+
+def test_submit_names_the_reviewer_by_email(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    viewer: UserNew,
+    scope_with_admin: Scope,
+) -> None:
+    """Only the scope's reviewers match an email; others are refused and nothing changes."""
+    outsider = make_user(db_session)
+    c = _draft_curation(db_session, scope_with_admin, curator)
+    p = make_precuration(
+        db_session, scope=scope_with_admin, gene=make_gene(db_session), creator=curator
+    )
+    for kind, item in (("curations", c), ("precurations", p)):
+        url = f"/api/v1/{kind}/{item.id}/submit"
+        for bad in (viewer.email, outsider.email, curator.email):
+            r = client.post(
+                url,
+                json={"lock_version": item.lock_version, "reviewer_email": bad},
+                headers=auth_headers(curator),
+            )
+            assert r.status_code == 400, r.text
+        r = client.post(
+            url,
+            json={
+                "lock_version": item.lock_version,
+                "reviewer_email": reviewer.email.upper(),
+            },
+            headers=auth_headers(curator),
+        )
+        assert r.status_code == 200, r.text
+    assert _reviews(db_session, c.id) == [reviewer.id]
