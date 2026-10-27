@@ -25,6 +25,7 @@ from .models import (
     WorkflowPair,
     WorkflowStage,
 )
+from .personal_access_token import PersonalAccessToken
 from .review_comments import ReviewItemComment
 
 # Create aliases for backward compatibility
@@ -41,6 +42,7 @@ __all__ = [
     "GeneScopeAssignment",
     "NotificationNew",
     "NotificationType",
+    "PersonalAccessToken",
     "PrecurationNew",
     "Review",
     "ReviewItemComment",

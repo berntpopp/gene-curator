@@ -629,6 +629,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/me/tokens/": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Tokens
+         * @description List your own tokens (never their plaintext).
+         */
+        get: operations["list_tokens_api_v1_me_tokens__get"];
+        put?: never;
+        /**
+         * Create Token
+         * @description Create a token; the response is the only time its plaintext is shown.
+         */
+        post: operations["create_token_api_v1_me_tokens__post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/tokens/{token_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke Token
+         * @description Revoke one of your own tokens; it stops working immediately.
+         */
+        delete: operations["revoke_token_api_v1_me_tokens__token_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/schemas/curation-schemas": {
         parameters: {
             query?: never;
@@ -7441,6 +7485,90 @@ export interface components {
              */
             total: number;
         };
+        /** PersonalAccessTokenCreate */
+        PersonalAccessTokenCreate: {
+            /** Name */
+            name: string;
+            /**
+             * Expires At
+             * Format: date-time
+             * @description Required; in the future, at most 365 days ahead
+             */
+            expires_at: string;
+            /**
+             * Scopes
+             * @description 'read' alone makes the token read-only; scopes never add rights
+             * @default [
+             *       "read",
+             *       "write"
+             *     ]
+             */
+            scopes: ("read" | "write")[];
+        };
+        /**
+         * PersonalAccessTokenCreated
+         * @description Creation response: the only time the plaintext token is returned.
+         */
+        PersonalAccessTokenCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Prefix */
+            token_prefix: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Token */
+            token: string;
+        };
+        /**
+         * PersonalAccessTokenResponse
+         * @description A token as listed: never contains the plaintext or its hash.
+         */
+        PersonalAccessTokenResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            /** Token Prefix */
+            token_prefix: string;
+            /** Scopes */
+            scopes: string[];
+            /**
+             * Expires At
+             * Format: date-time
+             */
+            expires_at: string;
+            /** Revoked At */
+            revoked_at: string | null;
+            /** Last Used At */
+            last_used_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
         /**
          * Precuration
          * @description Full precuration response schema.
@@ -10548,6 +10676,88 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MyWorkResponse"];
+                };
+            };
+        };
+    };
+    list_tokens_api_v1_me_tokens__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenResponse"][];
+                };
+            };
+        };
+    };
+    create_token_api_v1_me_tokens__post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PersonalAccessTokenCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PersonalAccessTokenCreated"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    revoke_token_api_v1_me_tokens__token_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                token_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

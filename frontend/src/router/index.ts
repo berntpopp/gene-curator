@@ -42,6 +42,7 @@ const SchemaEditor = () => import('@/views/SchemaEditor.vue')
 const WorkflowManagement = () => import('@/views/WorkflowManagement.vue')
 const UserProfile = () => import('@/views/UserProfile.vue')
 const UserManagement = () => import('@/views/UserManagement.vue')
+const AccessTokens = () => import('@/views/AccessTokens.vue')
 const About = () => import('@/views/About.vue')
 const FAQ = () => import('@/views/FAQ.vue')
 const NotAuthorized = () => import('@/views/NotAuthorized.vue')
@@ -327,6 +328,19 @@ const routes: RouteRecordRaw[] = [
       icon: 'mdi-account',
       label: 'Profile',
       order: 2
+    }
+  },
+  {
+    path: '/profile/tokens',
+    name: 'AccessTokens',
+    component: AccessTokens,
+    meta: {
+      title: 'Access tokens',
+      requiresAuth: true,
+      showInUserMenu: true,
+      icon: 'mdi-lock-check',
+      label: 'Access tokens',
+      order: 3
     }
   },
   {
