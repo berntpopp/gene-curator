@@ -49,3 +49,15 @@ Thumbs.db
 
 # Legacy config from migration
 legacy_config/
+
+# Secrets and local state never enter the image
+.env
+.env.*
+*.db
+*.sqlite*
+coverage.xml
+uploads/
+
+# Build files are not runtime inputs
+Dockerfile*
+.dockerignore

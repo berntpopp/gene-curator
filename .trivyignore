@@ -1,0 +1,2 @@
+# Accepted image CVEs for `make docker-scan` (Trivy). One ID per line, each with a comment
+# giving the reason and a review date. Unfixed CVEs are already skipped (--ignore-unfixed).

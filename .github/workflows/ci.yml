@@ -3,10 +3,13 @@ name: CI
 # Every job calls the same `make` target developers run locally (`make ci` = all of them).
 # Cost model: verify locally, CI confirms once. Draft PRs run nothing (mark ready to test), there
 # is no second run on master after merge, and work is packed into two heavy jobs because each
-# job bills a rounded-up minute plus setup.
+# job bills a rounded-up minute plus setup. The weekly run only rebuilds and rescans the Docker
+# images: it catches CVEs published after merge and seeds master's layer cache, which PRs can read.
 on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
+  schedule:
+    - cron: '0 5 * * 1' # Mondays 05:00 UTC
   workflow_dispatch:
 
 permissions:
@@ -14,7 +17,7 @@ permissions:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }} # never cancel master runs
 
 env:
   BASE: origin/${{ github.base_ref || 'master' }} # diff-cover: changed lines vs the PR base
@@ -30,19 +33,24 @@ jobs:
       contents: read
       pull-requests: read # paths-filter lists PR files via the API
     outputs:
-      # A manual run checks everything
+      # A manual run checks everything; the scheduled run only the images
       backend: ${{ steps.filter.outputs.backend == 'true' || github.event_name == 'workflow_dispatch' }}
       frontend: ${{ steps.filter.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch' }}
+      docker: ${{ steps.filter.outputs.docker == 'true' || github.event_name != 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: filter
+        if: github.event_name == 'pull_request'
         with:
           filters: |
             backend: ['backend/**', 'database/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml', 'frontend/src/types/api.generated.ts']
             frontend: ['frontend/**', 'scripts/**', 'Makefile', '.github/workflows/ci.yml', '.nvmrc']
+            docker: ['backend/Dockerfile', 'backend/.dockerignore', 'backend/pyproject.toml', 'backend/uv.lock',
+                     'frontend/Dockerfile', 'frontend/.dockerignore', 'frontend/package*.json', 'frontend/nginx.conf',
+                     '.trivyignore', 'Makefile', '.github/workflows/ci.yml']
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - run: make ci-repo
 
@@ -87,16 +95,54 @@ jobs:
       - run: make ci-frontend
       - run: make diff-cover
 
+  docker:
+    name: Docker images (build, Trivy scan)
+    needs: changes
+    if: needs.changes.outputs.docker == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DOCKER_BUILD_RECORD_UPLOAD: 'false' # no build-record artifact per run
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # Same images as `make docker-images`; the gha cache scope is per image
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: backend
+          target: production
+          tags: gene-curator-backend:ci
+          load: true
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,scope=backend,mode=max
+      - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: frontend
+          tags: gene-curator-frontend:ci
+          load: true
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,scope=frontend,mode=max
+      - run: make docker-scan
+
   gate:
-    # The single required status check: passes only if every job passed or was skipped.
+    # The single required status check. A job may be skipped only when its path filter said so;
+    # a job that should have run must have succeeded (cancelled, failed or wrongly skipped fail).
     name: CI gate
-    needs: [changes, backend, frontend]
+    needs: [changes, backend, frontend, docker]
     if: ${{ always() && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 2
+    permissions: {}
     steps:
       - env:
-          RESULTS: ${{ join(needs.*.result, ' ') }}
+          CHANGES: ${{ needs.changes.result }}
+          JOBS: >-
+            backend=${{ needs.backend.result }}:${{ needs.changes.outputs.backend }}
+            frontend=${{ needs.frontend.result }}:${{ needs.changes.outputs.frontend }}
+            docker=${{ needs.docker.result }}:${{ needs.changes.outputs.docker }}
         run: |
-          echo "results: $RESULTS"
-          for r in $RESULTS; do [[ $r == success || $r == skipped ]] || exit 1; done
+          echo "changes=$CHANGES $JOBS"
+          [[ $CHANGES == success ]] || exit 1
+          for j in $JOBS; do [[ ${j#*=} == success:true || ${j#*=} == skipped:false ]] || exit 1; done

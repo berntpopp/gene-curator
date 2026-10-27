@@ -42,6 +42,7 @@ The Makefile is the command surface; `make help` lists every target.
 | Regenerate frontend API types after backend schema changes | `make api-types` |
 | Dependency vulnerability scan | `make audit` |
 | Apply pending SQL migrations to the dev DB | `make db-migrate` (optional `FILE=database/sql/0NN_x.sql`) |
+| Build images + Trivy scan (fixable HIGH/CRITICAL fails) | `make docker-images docker-scan` |
 
 ## Verification and CI
 
@@ -54,6 +55,7 @@ Verify locally; CI only confirms. `.github/workflows/ci.yml` calls the same make
   commented-out tests to get green; fix the cause.
 - Cost: open PRs as drafts while iterating (drafts run no CI), mark ready once `make ci` passes,
   batch pushes. Do not add workflow triggers, cron jobs or matrix legs without an owner decision.
+- Image scan is not in `make ci`; CI runs it only on Docker/lockfile/CI changes and weekly.
 - Workflow changes: run `make workflows`. Actions stay pinned to a commit SHA with the version in a comment.
 
 ## Rules enforced by tools
