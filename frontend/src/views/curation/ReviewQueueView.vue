@@ -233,7 +233,7 @@
     { title: 'Status', key: 'status', sortable: false },
     { title: 'Score', key: 'total_score' },
     { title: 'Updated', key: 'updated_at' },
-    { title: '', key: 'actions', sortable: false, align: 'end' }
+    { title: 'Actions', key: 'actions', sortable: false, align: 'end', hideable: false }
   ]
   const filterDefs = computed(() => [
     {

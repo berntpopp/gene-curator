@@ -27,7 +27,7 @@
       :items-length="visible.length"
       :loading="store.loading"
       :error="store.error"
-      :empty-text="EMPTY_TEXT[tab]"
+      :empty-text="search ? 'No work matches the search.' : EMPTY_TEXT[tab]"
       :row-props="rowProps"
       storage-key="my-work"
       @retry="store.fetchMyWork()"

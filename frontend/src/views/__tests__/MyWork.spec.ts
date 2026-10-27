@@ -196,6 +196,15 @@ describe('MyWork view', () => {
     expect(rows(w)).toHaveLength(1)
   })
 
+  it('says no matches, not "nothing needs you", when a search finds nothing', async () => {
+    const w = mountView([item({})])
+    await settle()
+    await w.find('input').setValue('zzz')
+    await settle()
+    expect(w.text()).toContain('No work matches the search.')
+    expect(w.text()).not.toContain('Nothing needs you')
+  })
+
   it('shows the store error with a retry', async () => {
     const w = mountView([])
     useMyWorkStore().error = 'Request failed'

@@ -14,7 +14,7 @@ const items = [
 
 function mountTable(props: Record<string, unknown> = {}) {
   return mount(DataTable, {
-    props: { headers, items, itemsLength: 120, ...props },
+    props: { headers, items, itemsLength: 120, storageKey: 'test', ...props },
     attachTo: document.body
   })
 }
@@ -101,12 +101,23 @@ describe('DataTable', () => {
     again.unmount()
   })
 
-  it('keys remembered columns by the column keys when no storage key is given', async () => {
-    localStorage.setItem('table-columns:symbol,status', '["status"]')
-    const w = mountTable()
+  it('keeps hidden columns when the column set changes', async () => {
+    localStorage.setItem('table-columns:t3', '["status"]')
+    const w = mountTable({ storageKey: 't3' })
     expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol'])
     await w.setProps({ headers: [...headers, { title: 'Age', key: 'age' }] })
-    expect(w.findAll('thead th')).toHaveLength(3)
+    expect(w.findAll('thead th').map(h => h.text())).toEqual(['Symbol', 'Age'])
+  })
+
+  it('leaves columns marked hideable: false out of the column picker', async () => {
+    const w = mountTable({
+      headers: [...headers, { title: 'Actions', key: 'act', hideable: false }]
+    })
+    await w.find('[data-testid="column-picker"]').trigger('click')
+    await new Promise(r => setTimeout(r))
+    expect(document.body.querySelector('[data-testid="column-status"]')).not.toBeNull()
+    expect(document.body.querySelector('[data-testid="column-act"]')).toBeNull()
+    w.unmount()
   })
 
   it('ignores unreadable saved columns', () => {
@@ -171,7 +182,7 @@ describe('DataTable', () => {
 
   it('renders the toolbar actions slot and typed item slots', () => {
     const w = mount(DataTable, {
-      props: { headers, items, itemsLength: 2 },
+      props: { headers, items, itemsLength: 2, storageKey: 'slots' },
       slots: {
         'toolbar-actions': '<button data-testid="export">Export</button>',
         'item.symbol': (p: { item: Record<string, unknown> }) =>
@@ -188,7 +199,12 @@ describe('DataTable', () => {
       setup: () => () =>
         h(
           DataTable,
-          { headers: [...headers, { title: 'Late', key: 'late' }], items, itemsLength: 2 },
+          {
+            headers: [...headers, { title: 'Late', key: 'late' }],
+            items,
+            itemsLength: 2,
+            storageKey: 'late'
+          },
           Object.fromEntries(
             extra.value.map(k => [`item.${k}`, () => h('i', { class: 'late' }, 'cell')])
           )

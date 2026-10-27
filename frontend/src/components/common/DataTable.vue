@@ -68,7 +68,11 @@
           </v-btn>
         </template>
         <v-list density="compact">
-          <v-list-item v-for="h in headers" :key="h.key" :data-testid="`column-${h.key}`">
+          <v-list-item
+            v-for="h in headers.filter(c => c.hideable !== false)"
+            :key="h.key"
+            :data-testid="`column-${h.key}`"
+          >
             <v-checkbox
               :model-value="!hidden.has(h.key)"
               :label="h.title"
@@ -135,6 +139,8 @@
   interface Header {
     title: string
     key: string
+    /** false keeps the column out of the column picker */
+    hideable?: boolean
     [k: string]: unknown
   }
   interface FilterDef {
@@ -161,8 +167,8 @@
       sortBy?: SortItem[]
       density?: Density
       emptyText?: string
-      /** Key for the hidden columns remembered in this browser; defaults to the column keys. */
-      storageKey?: string
+      /** Names this table's hidden columns in browser storage; stable across column changes. */
+      storageKey: string
       rowProps?: (data: { item: T }) => Record<string, unknown>
     }>(),
     {
@@ -176,7 +182,6 @@
       sortBy: () => [],
       density: 'comfortable',
       emptyText: 'No results. Adjust the search or filters.',
-      storageKey: undefined,
       rowProps: undefined
     }
   )
@@ -191,10 +196,8 @@
     retry: []
   }>()
 
-  // Hidden columns are a per-browser preference, kept per table (its column keys by default)
-  const storeKey = computed(
-    () => `table-columns:${props.storageKey ?? props.headers.map(h => h.key).join(',')}`
-  )
+  // Hidden columns are a per-browser preference, kept per table
+  const storeKey = computed(() => `table-columns:${props.storageKey}`)
   function loadHidden(key: string): Set<string> {
     try {
       const saved: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
