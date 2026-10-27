@@ -63,7 +63,7 @@ class EvidenceItem(Base):
 
     # Evidence classification
     evidence_category: Mapped[str] = mapped_column(
-        String(50), nullable=False, index=True
+        String(255), nullable=False, index=True
     )  # 'case_level', 'segregation', 'case_control', etc.
     evidence_type: Mapped[str] = mapped_column(
         String(50), nullable=False, index=True

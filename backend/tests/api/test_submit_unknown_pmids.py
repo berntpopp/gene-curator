@@ -20,7 +20,7 @@ EVIDENCE = {
         "case_level": {"autosomal_dominant": {"other": [{"pmid": "PMID: 99999999"}]}}
     },
     "experimental_evidence": {"function": {"expression": [{"pmid": "31000001"}]}},
-    "contradictory_evidence": [{"pmid": "31000002"}, {"pmid": "not-a-pmid"}],
+    "contradictory_evidence": [{"pmid": "31000002"}],
 }
 
 
@@ -64,6 +64,7 @@ def stored(db_session: Session, test_curation: CurationNew) -> CurationNew:
 def test_evidence_pmids_reads_every_table_and_the_prefix() -> None:
     assert evidence_pmids(EVIDENCE) == {"99999999", "31000001", "31000002"}
     assert evidence_pmids(None) == set()
+    assert evidence_pmids({"pmid": "not-a-pmid"}) == set()  # submit refuses its format
 
 
 @pytest.mark.parametrize("route", [_submit, _transition])

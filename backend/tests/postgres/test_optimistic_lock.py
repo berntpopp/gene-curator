@@ -76,7 +76,7 @@ def test_each_save_bumps_the_version_once_and_a_stale_one_changes_nothing(
         user_id=user,
     )
     assert (
-        first is not None and first.lock_version == 1
+        first is not None and first[0].lock_version == 1
     )  # trigger + explicit bump agree
     second = precuration_crud.save_draft(
         owner_session,
@@ -85,11 +85,11 @@ def test_each_save_bumps_the_version_once_and_a_stale_one_changes_nothing(
         lock_version=p.lock_version,
         user_id=user,
     )
-    assert second is not None and second.lock_version == 1
+    assert second is not None and second[0].lock_version == 1
     third = precuration_crud.update_with_lock(
         owner_session, db_obj=p, evidence_data={"a": 2}, lock_version=1, user_id=user
     )
-    assert third is not None and third.lock_version == 2
+    assert third is not None and third[0].lock_version == 2
 
     stale = precuration_crud.save_draft(
         owner_session,

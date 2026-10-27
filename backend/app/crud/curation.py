@@ -32,10 +32,18 @@ from app.schemas.curation import (
     CurationSubmit,
     CurationSummary,
     CurationUpdate,
+    EvidenceWarning,
     disease_fields,
 )
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.registry import engine_for
+from app.services.evidence_ids import (
+    check_ids,
+    format_errors,
+    score_scorable,
+    shrunk_arrays,
+)
+from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
 
@@ -71,28 +79,67 @@ def get_disease_fields(
     return disease_fields(evidence, precuration_evidence)
 
 
+def merge_patch(target: Any, patch: Any) -> Any:
+    """RFC 7396 JSON merge patch: objects merge, null deletes, anything else replaces."""
+    if not isinstance(patch, dict):
+        return patch
+    out = dict(target) if isinstance(target, dict) else {}
+    for key, value in patch.items():
+        if value is None:
+            out.pop(key, None)
+        else:
+            out[key] = merge_patch(out.get(key), value)
+    return out
+
+
+def _patched(
+    item: Any, sent: dict[str, Any], merge: bool | None
+) -> tuple[dict[str, Any], list[EvidenceWarning]]:
+    """The evidence a save stores, and warnings for arrays a merge patch shortened."""
+    if not merge:
+        return sent, []
+    merged = merge_patch(item.evidence_data, sent)
+    return merged, shrunk_arrays(item.evidence_data, merged)
+
+
 def _computed(
-    db: Session, curation: CurationNew, evidence_data: dict[str, Any]
+    db: Session,
+    curation: CurationNew,
+    evidence_data: dict[str, Any],
+    ids: tuple[list[EvidenceWarning], set[str]] | None = None,
+    lookup: bool = True,
 ) -> dict[str, Any]:
-    """Score with the row's pinned version (latest on create), persisted with the evidence."""
+    """Score with the row's pinned version (latest on create), persisted with the evidence.
+    Rows with a malformed or unknown PMID score nothing; ID warnings join the scoring
+    ones as "path: message". ``lookup=False`` checks formats only (no network)."""
+    if ids is None:
+        ids = (
+            check_ids(db, evidence_data)
+            if lookup
+            else (format_errors(evidence_data), set())
+        )
     config = scoring_configuration(
         db, curation.workflow_pair_id, curation.methodology_version_id
     )
-    result = engine_for(config).calculate_scores(evidence_data, config)
+    result = score_scorable(engine_for(config), config, evidence_data, ids[1])
     return {
         "computed_scores": {
             **result.scores,
             **result.evidence_breakdown,
-            "warnings": result.warnings,
+            "warnings": [*result.warnings, *(f"{w.path}: {w.message}" for w in ids[0])],
         },
         "computed_verdict": result.verdict,
         "computed_summary": result.verdict_rationale,
     }
 
 
-def _update_computed_scores(db: Session, curation: CurationNew) -> None:
+def _update_computed_scores(
+    db: Session, curation: CurationNew, lookup: bool = True
+) -> None:
     """Persist engine output in the same transaction as the evidence write."""
-    for key, value in _computed(db, curation, curation.evidence_data).items():
+    for key, value in _computed(
+        db, curation, curation.evidence_data, lookup=lookup
+    ).items():
         setattr(curation, key, value)
 
 
@@ -372,8 +419,10 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         """
         values: dict[str, Any] = {"updated_by": user_id, "updated_at": _utc_now()}
         if obj_in.evidence_data is not None:
-            values["evidence_data"] = obj_in.evidence_data
-            values.update(_computed(db, db_obj, obj_in.evidence_data))
+            evidence, shrunk = _patched(db_obj, obj_in.evidence_data, obj_in.merge)
+            warnings, unknown = check_ids(db, evidence)
+            values["evidence_data"] = evidence
+            values.update(_computed(db, db_obj, evidence, (shrunk + warnings, unknown)))
         if not update_if_version(
             db, CurationNew, db_obj.id, obj_in.lock_version, values
         ):
@@ -393,11 +442,15 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         db_obj: CurationNew,
         draft_data: CurationDraftSave,
         user_id: UUID,
-    ) -> CurationNew | None:
-        """Save curation as draft with auto-save timestamp. None if lock_version is stale."""
+    ) -> tuple[CurationNew, list[EvidenceWarning]] | None:
+        """Save as draft with auto-save timestamp, whatever the content, plus warnings on
+        its IDs (lookups precede the write). None if lock_version is stale."""
+        evidence, shrunk = _patched(db_obj, draft_data.evidence_data, draft_data.merge)
+        warnings, unknown = check_ids(db, evidence)
+        warnings = shrunk + warnings
         values = {
-            "evidence_data": draft_data.evidence_data,
-            **_computed(db, db_obj, draft_data.evidence_data),
+            "evidence_data": evidence,
+            **_computed(db, db_obj, evidence, (warnings, unknown)),
             "is_draft": True,
             "auto_saved_at": _utc_now(),
             "updated_by": user_id,
@@ -407,7 +460,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         ):
             return None
         db.refresh(db_obj)
-        return db_obj
+        return db_obj, warnings
 
     def submit_for_review(
         self,
@@ -418,6 +471,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         user_id: UUID,
     ) -> CurationNew | None:
         """Submit curation for review via workflow engine."""
+        check_review_content(db, db_obj)  # typed errors by path; the engine repeats it
         # Validate transition
         validation = workflow_engine.validate_transition(
             db,
@@ -461,10 +515,9 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
         config = scoring_configuration(
             db, db_obj.workflow_pair_id, db_obj.methodology_version_id
         )
-        result = (scoring_engine or engine_for(config)).calculate_scores(
-            evidence_data=db_obj.evidence_data,
-            schema_config=config,
-            scope_context=None,
+        _, unknown = check_ids(db, db_obj.evidence_data)
+        result = score_scorable(
+            scoring_engine or engine_for(config), config, db_obj.evidence_data, unknown
         )
 
         # Extract genetic and experimental scores from the scores dict

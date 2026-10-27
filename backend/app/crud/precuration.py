@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session, joinedload
 
 from app.core.logging import get_logger
 from app.crud.base import CRUDBase
-from app.crud.curation import open_curation_id
+from app.crud.curation import _patched, open_curation_id
 from app.crud.optimistic_lock import claim_version, update_if_version
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
@@ -28,7 +28,7 @@ from app.models import (
     WorkflowPair,
     WorkflowStage,
 )
-from app.schemas.curation import disease_fields
+from app.schemas.curation import EvidenceWarning, disease_fields
 from app.schemas.precuration import (
     PrecurationApprovalResult,
     PrecurationCreate,
@@ -36,6 +36,7 @@ from app.schemas.precuration import (
     PrecurationSummary,
     PrecurationUpdate,
 )
+from app.services.evidence_ids import check_ids
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
@@ -295,15 +296,20 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         evidence_data: dict[str, Any] | None,
         lock_version: int,
         user_id: UUID,
-    ) -> PrecurationNew | None:
-        """Update evidence with optimistic locking. None if lock_version is stale."""
+        merge: bool = False,
+    ) -> tuple[PrecurationNew, list[EvidenceWarning]] | None:
+        """Update evidence with optimistic locking, plus warnings on its IDs and on arrays a
+        merge shortened. None if lock_version is stale."""
         values: dict[str, Any] = {"updated_by": user_id}
+        warnings: list[EvidenceWarning] = []
         if evidence_data is not None:
+            evidence_data, warnings = _patched(db_obj, evidence_data, merge)
+            warnings += check_ids(db, evidence_data)[0]
             values["evidence_data"] = evidence_data
         if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
             return None
         db.refresh(db_obj)
-        return db_obj
+        return db_obj, warnings
 
     def save_draft(
         self,
@@ -313,8 +319,13 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         evidence_data: dict[str, Any],
         lock_version: int,
         user_id: UUID,
-    ) -> PrecurationNew | None:
-        """Save precuration as draft with auto-save timestamp. None if lock_version is stale."""
+        merge: bool = False,
+    ) -> tuple[PrecurationNew, list[EvidenceWarning]] | None:
+        """Save as draft with auto-save timestamp, whatever the content, plus warnings on
+        its IDs (lookups precede the write). None if lock_version is stale."""
+        evidence_data, shrunk = _patched(db_obj, evidence_data, merge)
+        warnings, _ = check_ids(db, evidence_data)
+        warnings = shrunk + warnings
         values = {
             "evidence_data": evidence_data,
             "is_draft": True,
@@ -324,7 +335,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
             return None
         db.refresh(db_obj)
-        return db_obj
+        return db_obj, warnings
 
     def _check_submittable(
         self, db: Session, db_obj: PrecurationNew, user_id: UUID

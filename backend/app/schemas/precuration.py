@@ -10,6 +10,7 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import CurationStatus, WorkflowStage
+from app.schemas.curation import MERGE_DESCRIPTION, EvidenceWarning
 from app.schemas.review_comment import REVIEW_TEXT_MAX
 
 # ========================================
@@ -43,6 +44,7 @@ class PrecurationUpdate(BaseModel):
         None, description="Updated evidence data"
     )
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -52,6 +54,7 @@ class PrecurationDraftSave(BaseModel):
 
     evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -128,6 +131,12 @@ class Precuration(PrecurationInDBBase):
         default=None,
         description="Who last requested changes (computed_fields.rejected_by)",
     )
+
+
+class PrecurationDraftResult(Precuration):
+    """Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs."""
+
+    warnings: list[EvidenceWarning] = []
 
 
 class PrecurationSummary(BaseModel):

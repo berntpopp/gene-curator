@@ -103,7 +103,7 @@ def test_evidence_writes_persist_engine_result(
             user_id=user_id,
         )
     elif operation == "draft":
-        result = curation_crud.save_draft(
+        saved = curation_crud.save_draft(
             db_session,
             db_obj=test_curation,
             draft_data=CurationDraftSave(
@@ -111,6 +111,7 @@ def test_evidence_writes_persist_engine_result(
             ),
             user_id=user_id,
         )
+        result = saved[0] if saved else None
     else:
         test_curation.evidence_data = evidence
         db_session.commit()
@@ -150,7 +151,7 @@ def test_draft_can_save_unscored_rows(
         },
         "experimental_evidence": {"function": {"expression": [{"points": None}]}},
     }
-    result = curation_crud.save_draft(
+    saved = curation_crud.save_draft(
         db_session,
         db_obj=test_curation,
         draft_data=CurationDraftSave(
@@ -158,6 +159,8 @@ def test_draft_can_save_unscored_rows(
         ),
         user_id=test_curation.created_by,
     )
+    assert saved is not None
+    result = saved[0]
     assert result.evidence_data == evidence
     assert result.computed_scores["total_score"] == 0
 

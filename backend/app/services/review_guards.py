@@ -12,6 +12,7 @@ from app.crud.precuration_required import (
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
 from app.models.methodology import MethodologyVersion
 from app.schemas.curation import disease_fields
+from app.services.evidence_ids import InvalidEvidenceError, evidence_errors
 
 LS_DECISIONS = ("LUMP", "NOT_APPLICABLE", "SPLIT")
 
@@ -68,7 +69,8 @@ def _curation_review_evidence(db: Session, item: CurationNew) -> dict[str, Any]:
 def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> None:
     """Network-free content checks before an item enters review, on every route there.
 
-    Raises MissingRequiredFieldsError (dotted paths) or ValueError.
+    Raises MissingRequiredFieldsError (dotted paths), InvalidEvidenceError (schema and
+    ID-format errors by path) or ValueError.
     """
     evidence = item.evidence_data or {}
     if isinstance(item, CurationNew) and not evidence:
@@ -82,6 +84,8 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
         definition.get("validation_rules"),
     ):
         raise MissingRequiredFieldsError(missing)
+    if errors := evidence_errors(evidence, definition):
+        raise InvalidEvidenceError(errors)
     if isinstance(item, PrecurationNew) and evidence.get(
         "lumping_splitting_applicable"
     ):

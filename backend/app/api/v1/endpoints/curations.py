@@ -4,7 +4,7 @@ Full CRUD with RLS integration and scope-based access control.
 Follows patterns from gene_assignments.py, workflow.py, and genes.py.
 """
 
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -22,7 +22,7 @@ from app.core.constants import (
 from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
-from app.crud.curation import OpenCurationExistsError, curation_crud
+from app.crud.curation import OpenCurationExistsError, curation_crud, merge_patch
 from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
@@ -42,6 +42,7 @@ from app.schemas.curation import (
     CurationConflictResponse,
     CurationCreate,
     CurationDetail,
+    CurationDraftResult,
     CurationDraftSave,
     CurationListResponse,
     CurationScoreResponse,
@@ -58,6 +59,7 @@ from app.services.curation_access import (
     _check_scope_access,
     _has_approved,
 )
+from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -94,6 +96,17 @@ def _conflict(
             else sorted(k for k in {*theirs, *mine} if theirs.get(k) != mine.get(k)),
         },
     )
+
+
+def _mine(
+    curation: CurationNew, sent: CurationUpdate | CurationDraftSave
+) -> dict[str, Any] | None:
+    """The evidence the caller meant: a merge patch applies to the current state."""
+    if sent.merge and sent.evidence_data is not None:
+        return cast(
+            dict[str, Any], merge_patch(curation.evidence_data, sent.evidence_data)
+        )
+    return sent.evidence_data
 
 
 # ========================================
@@ -320,10 +333,8 @@ def update_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation | CurationWriteResult:
-    """
-    Update a curation with optimistic locking.
-    Returns 409 Conflict if lock_version doesn't match.
-    """
+    """Update a draft or rejected curation. evidence_data replaces the stored evidence
+    entirely unless merge=true (RFC 7396 merge patch). 409 if lock_version is stale."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -358,7 +369,9 @@ def update_curation(
     )
 
     if updated is None:
-        raise _conflict(curation, curation_in.lock_version, curation_in.evidence_data)
+        raise _conflict(
+            curation, curation_in.lock_version, _mine(curation, curation_in)
+        )
 
     return (
         Curation.model_validate(updated) if detail else CurationWriteResult.of(updated)
@@ -372,7 +385,7 @@ def update_curation(
 
 @router.patch(
     "/{curation_id}/draft",
-    response_model=Curation | CurationWriteResult,
+    response_model=CurationDraftResult | CurationWriteResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
@@ -382,8 +395,12 @@ def save_draft(
     detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation | CurationWriteResult:
-    """Save curation as draft (auto-save support)."""
+) -> CurationDraftResult | CurationWriteResult:
+    """Save a draft (autosave): never refused for its content. evidence_data replaces the
+    stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
+    deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
+    MONDO, OMIM or HPO ID is malformed, unknown or unverified; rows with a malformed or
+    unknown PMID score 0 points. 409 if lock_version is stale, merge or not."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -411,18 +428,16 @@ def save_draft(
             detail="Only the creator can save drafts",
         )
 
-    updated = curation_crud.save_draft(
-        db,
-        db_obj=curation,
-        draft_data=draft_in,
-        user_id=current_user.id,
+    saved = curation_crud.save_draft(
+        db, db_obj=curation, draft_data=draft_in, user_id=current_user.id
     )
-    if updated is None:
-        raise _conflict(curation, draft_in.lock_version, draft_in.evidence_data)
-
-    return (
-        Curation.model_validate(updated) if detail else CurationWriteResult.of(updated)
-    )
+    if saved is None:
+        raise _conflict(curation, draft_in.lock_version, _mine(curation, draft_in))
+    if not detail:
+        return CurationWriteResult.of(saved[0])
+    result = CurationDraftResult.model_validate(saved[0])
+    result.warnings = saved[1]
+    return result
 
 
 @router.post(
@@ -438,7 +453,8 @@ def submit_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation | CurationWriteResult:
-    """Submit curation for peer review."""
+    """Submit for peer review. 422 names each field path that fails the schema or holds a
+    malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -467,6 +483,8 @@ def submit_curation(
             submit_data=submit_in,
             user_id=current_user.id,
         )
+    except InvalidEvidenceError as e:
+        raise unprocessable(e) from e
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -495,7 +513,8 @@ def calculate_score(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationScoreResponse:
-    """Calculate ClinGen SOP v11 score for curation."""
+    """Preview the score. Rows with a malformed or unknown PMID score 0 points and are
+    listed in breakdown.excluded with the reason."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)

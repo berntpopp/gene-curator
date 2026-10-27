@@ -19,6 +19,8 @@ from app.models import (
     WorkflowStage,
 )
 from app.scoring.point_limits import enforce_clingen_point_ranges
+from app.services.evidence_ids import not_found, ontology_ids
+from app.services.ontology_service import lookup_terms
 from app.services.publication_service import evidence_pmids, unknown_pmids
 from app.services.review_guards import check_review_content
 
@@ -33,6 +35,8 @@ class ReviewEntry:
     state: tuple[Any, ...]
     pmids: frozenset[str]
     unknown: frozenset[str] = frozenset()
+    terms: frozenset[str] = frozenset()  # MONDO, OMIM and HPO IDs
+    unknown_terms: frozenset[str] = frozenset()
 
 
 def _state(item: CurationNew) -> tuple[Any, ...]:
@@ -60,6 +64,7 @@ def capture_review(db: Session, item: CurationNew) -> ReviewEntry:
         item.lock_version,
         _state(item),
         frozenset(evidence_pmids(item.evidence_data)),
+        terms=frozenset(ontology_ids(item.evidence_data)),
     )
 
 
@@ -67,7 +72,16 @@ def lookup_reviews(db: Session, entries: list[ReviewEntry]) -> list[ReviewEntry]
     """One deduplicated bounded batch for authorized snapshots, never parallel DB work."""
     pmids = set().union(*(entry.pmids for entry in entries))
     unknown = frozenset(unknown_pmids(db, pmids)) if pmids else frozenset()
-    return [replace(entry, unknown=entry.pmids & unknown) for entry in entries]
+    terms = set().union(*(entry.terms for entry in entries))
+    unknown_terms = frozenset(lookup_terms(terms)[0]) if terms else frozenset()
+    return [
+        replace(
+            entry,
+            unknown=entry.pmids & unknown,
+            unknown_terms=entry.terms & unknown_terms,
+        )
+        for entry in entries
+    ]
 
 
 def _conflict(item: CurationNew, expected: int) -> HTTPException:
@@ -157,6 +171,15 @@ def prepare_review_entry(
                 detail=f"PMID {', '.join(sorted(entry.unknown))} not found in Europe PMC; "
                 "fix or remove before submitting",
             )
+        if entry.unknown_terms:
+            errors = not_found(current.evidence_data, set(entry.unknown_terms))
+            raise HTTPException(
+                422,
+                detail={
+                    "message": "Unknown ontology IDs; fix or remove before submitting",
+                    "errors": [e.model_dump() for e in errors],
+                },
+            )
         return current
 
 
@@ -169,7 +192,7 @@ def transition_to_review(
 
         # Queries used by scoring must not autoflush half of the submission metadata.
         with db.no_autoflush:
-            _update_computed_scores(db, item)
+            _update_computed_scores(db, item, lookup=False)  # IDs were looked up
         item.submitted_at = datetime.now(UTC)
         item.submitted_by = user_id
     else:

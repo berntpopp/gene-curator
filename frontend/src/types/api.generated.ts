@@ -1776,8 +1776,8 @@ export interface paths {
         get: operations["get_curation_api_v1_curations__curation_id__get"];
         /**
          * Update Curation
-         * @description Update a curation with optimistic locking.
-         *     Returns 409 Conflict if lock_version doesn't match.
+         * @description Update a draft or rejected curation. evidence_data replaces the stored evidence
+         *     entirely unless merge=true (RFC 7396 merge patch). 409 if lock_version is stale.
          */
         put: operations["update_curation_api_v1_curations__curation_id__put"];
         post?: never;
@@ -1806,7 +1806,11 @@ export interface paths {
         head?: never;
         /**
          * Save Draft
-         * @description Save curation as draft (auto-save support).
+         * @description Save a draft (autosave): never refused for its content. evidence_data replaces the
+         *     stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
+         *     deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
+         *     MONDO, OMIM or HPO ID is malformed, unknown or unverified; rows with a malformed or
+         *     unknown PMID score 0 points. 409 if lock_version is stale, merge or not.
          */
         patch: operations["save_draft_api_v1_curations__curation_id__draft_patch"];
         trace?: never;
@@ -1822,7 +1826,8 @@ export interface paths {
         put?: never;
         /**
          * Submit Curation
-         * @description Submit curation for peer review.
+         * @description Submit for peer review. 422 names each field path that fails the schema or holds a
+         *     malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know.
          */
         post: operations["submit_curation_api_v1_curations__curation_id__submit_post"];
         delete?: never;
@@ -1840,7 +1845,8 @@ export interface paths {
         };
         /**
          * Calculate Score
-         * @description Calculate ClinGen SOP v11 score for curation.
+         * @description Preview the score. Rows with a malformed or unknown PMID score 0 points and are
+         *     listed in breakdown.excluded with the reason.
          */
         get: operations["calculate_score_api_v1_curations__curation_id__score_get"];
         put?: never;
@@ -1949,7 +1955,10 @@ export interface paths {
         get: operations["get_precuration_api_v1_precurations__precuration_id__get"];
         /**
          * Update Precuration
-         * @description Update a precuration's evidence data.
+         * @description Update a draft or rejected precuration. evidence_data replaces the stored evidence
+         *     entirely unless merge=true (RFC 7396 merge patch; arrays are replaced whole).
+         *     `warnings` names bad or unknown IDs and arrays a merge shortened. 409 if
+         *     lock_version is stale.
          */
         put: operations["update_precuration_api_v1_precurations__precuration_id__put"];
         post?: never;
@@ -1978,7 +1987,11 @@ export interface paths {
         head?: never;
         /**
          * Save Draft
-         * @description Save precuration as draft (auto-save support).
+         * @description Save a draft (autosave): never refused for its content. evidence_data replaces the
+         *     stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
+         *     deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
+         *     MONDO, OMIM or HPO ID is malformed, unknown or unverified. 409 if lock_version is
+         *     stale, merge or not.
          */
         patch: operations["save_draft_api_v1_precurations__precuration_id__draft_patch"];
         trace?: never;
@@ -1994,7 +2007,8 @@ export interface paths {
         put?: never;
         /**
          * Submit Precuration
-         * @description Submit precuration for peer review.
+         * @description Submit for peer review. 422 names each field path that fails the schema or holds a
+         *     malformed PMID, MONDO, OMIM or HPO ID.
          */
         post: operations["submit_precuration_api_v1_precurations__precuration_id__submit_post"];
         delete?: never;
@@ -4682,6 +4696,92 @@ export interface components {
             readonly changed: boolean;
         };
         /**
+         * CurationDraftResult
+         * @description Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs.
+         */
+        CurationDraftResult: {
+            /**
+             * Gene Id
+             * Format: uuid
+             * @description Gene UUID
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             * @description Scope UUID
+             */
+            scope_id: string;
+            /**
+             * Workflow Pair Id
+             * Format: uuid
+             * @description Workflow pair UUID
+             */
+            workflow_pair_id: string;
+            /**
+             * Precuration Id
+             * @description Parent precuration UUID
+             */
+            precuration_id?: string | null;
+            /**
+             * Evidence Data
+             * @description Schema-agnostic evidence
+             */
+            evidence_data?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Computed Scores */
+            computed_scores: {
+                [key: string]: unknown;
+            };
+            /** Computed Verdict */
+            computed_verdict: string | null;
+            /** Computed Summary */
+            computed_summary: string | null;
+            /** Lock Version */
+            lock_version: number;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Submitted At */
+            submitted_at: string | null;
+            /** Approved At */
+            approved_at: string | null;
+            /** Auto Saved At */
+            auto_saved_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Submitted By */
+            submitted_by: string | null;
+            /** Approved By */
+            approved_by: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["EvidenceWarning"][];
+        };
+        /**
          * CurationDraftSave
          * @description Schema for saving a curation as draft.
          */
@@ -4698,6 +4798,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Merge
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
+             */
+            merge?: boolean | null;
         };
         /** CurationHit */
         CurationHit: {
@@ -5087,6 +5192,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Merge
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
+             */
+            merge?: boolean | null;
         };
         /**
          * CurationWriteResult
@@ -5108,7 +5218,7 @@ export interface components {
             verdict: string | null;
             /**
              * Warnings
-             * @description Scoring warnings
+             * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
              */
             warnings?: string[];
         };
@@ -5351,6 +5461,19 @@ export interface components {
              * @description Validation status: pending, valid, invalid
              */
             validation_status?: string | null;
+        };
+        /**
+         * EvidenceWarning
+         * @description A value a draft keeps but that needs fixing before submit.
+         */
+        EvidenceWarning: {
+            /**
+             * Path
+             * @description Dotted field path in evidence_data
+             */
+            path: string;
+            /** Message */
+            message: string;
         };
         /**
          * FieldValidationRequest
@@ -8178,6 +8301,86 @@ export interface components {
             };
         };
         /**
+         * PrecurationDraftResult
+         * @description Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs.
+         */
+        PrecurationDraftResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Precuration Schema Id
+             * Format: uuid
+             */
+            precuration_schema_id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Evidence Data */
+            evidence_data: {
+                [key: string]: unknown;
+            };
+            /** Computed Scores */
+            computed_scores: {
+                [key: string]: unknown;
+            };
+            /** Computed Fields */
+            computed_fields: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Auto Saved At */
+            auto_saved_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Version Number */
+            version_number: number;
+            /** Lock Version */
+            lock_version: number;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
+            /**
+             * Curation Count
+             * @description Number of linked curations
+             * @default 0
+             */
+            curation_count: number;
+            /**
+             * Rejected By Name
+             * @description Who last requested changes (computed_fields.rejected_by)
+             */
+            rejected_by_name?: string | null;
+            /**
+             * Warnings
+             * @default []
+             */
+            warnings: components["schemas"]["EvidenceWarning"][];
+        };
+        /**
          * PrecurationDraftSave
          * @description Schema for saving a precuration as draft.
          */
@@ -8194,6 +8397,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Merge
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
+             */
+            merge?: boolean | null;
         };
         /**
          * PrecurationListResponse
@@ -8303,6 +8511,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Merge
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
+             */
+            merge?: boolean | null;
         };
         /** ProviderCreate */
         ProviderCreate: {
@@ -13893,7 +14106,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
+                    "application/json": components["schemas"]["CurationDraftResult"] | components["schemas"]["CurationWriteResult"];
                 };
             };
             /** @description Conflict */
@@ -14257,7 +14470,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationDraftResult"];
                 };
             };
             /** @description Conflict */
@@ -14330,7 +14543,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationDraftResult"];
                 };
             };
             /** @description Conflict */

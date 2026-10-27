@@ -19,6 +19,8 @@ from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
 from app.scoring.evidence_items import has_content
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.point_model import point_model
+from app.services.evidence_ids import score_scorable
+from app.services.publication_service import evidence_pmids, lookup_pmids
 
 logger = get_logger(__name__)
 
@@ -109,6 +111,9 @@ def recompute_all_scores(db: Session) -> int:
             *cols, CurationNew.computed_verdict, *pin, Gene.approved_symbol
         ).outerjoin(Gene, Gene.id == CurationNew.gene_id)
     ).all()
+    # One bounded lookup for all PMIDs, as saves do: unknown ones score nothing
+    pmids = set().union(*(evidence_pmids(row[1]) for row in curations))
+    unknown = set(lookup_pmids(db, pmids)[0]) if pmids else set()
     updated = unchanged = 0
     skipped: list[str] = []
     unscored: dict[str, list[str]] = {}
@@ -139,7 +144,7 @@ def recompute_all_scores(db: Session) -> int:
                 continue
             # keys the template would not score but the pinned model does
             custom.update(_unscored_keys(evidence, engine._template()))
-            result = engine.calculate_scores(evidence or {}, config)
+            result = score_scorable(engine, config, evidence or {}, unknown)
         except Exception:  # one bad legacy row must not abort the backfill
             failed += 1
             logger.error(
