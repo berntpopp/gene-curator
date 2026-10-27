@@ -508,3 +508,29 @@ def test_a_merge_that_shortens_an_array_warns(
     assert any(
         w.startswith("x: Merge replaced 2 items with 0") for w in r.json()["warnings"]
     )
+
+
+def test_precuration_put_merges_and_warns(
+    client: TestClient,
+    curator_token: str,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+) -> None:
+    test_precuration.evidence_data = {**test_precuration.evidence_data, "refs": [1, 2]}
+    db_session.commit()
+    r = client.put(
+        f"/api/v1/precurations/{test_precuration.id}",
+        json={
+            "evidence_data": {"disease_name": "Renamed", "refs": [3], "mondo_id": None},
+            "merge": True,
+            "lock_version": test_precuration.lock_version,
+        },
+        headers=_h(curator_token),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["evidence_data"] == {
+        "disease_name": "Renamed",
+        "mode_of_inheritance": "AD",
+        "refs": [3],
+    }
+    assert [w["path"] for w in r.json()["warnings"]] == ["refs"]

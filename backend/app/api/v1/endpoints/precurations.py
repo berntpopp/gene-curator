@@ -263,7 +263,7 @@ def _conflict(precuration: PrecurationNew, sent: int) -> HTTPException:
 
 @router.put(
     "/{precuration_id}",
-    response_model=Precuration,
+    response_model=PrecurationDraftResult,
     responses={409: {"model": PrecurationConflictResponse}},
 )
 @api_endpoint()
@@ -272,8 +272,11 @@ def update_precuration(
     precuration_in: PrecurationUpdate,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Precuration:
-    """Update a precuration's evidence data."""
+) -> PrecurationDraftResult:
+    """Update a draft or rejected precuration. evidence_data replaces the stored evidence
+    entirely unless merge=true (RFC 7396 merge patch; arrays are replaced whole).
+    `warnings` names bad or unknown IDs and arrays a merge shortened. 409 if
+    lock_version is stale."""
     # CRITICAL: Set RLS context
     set_rls_context(db, current_user)
 
@@ -295,17 +298,19 @@ def update_precuration(
             detail="Only draft or rejected precurations can be edited",
         )
 
-    updated = precuration_crud.update_with_lock(
+    saved = precuration_crud.update_with_lock(
         db,
         db_obj=precuration,
         evidence_data=precuration_in.evidence_data,
         lock_version=precuration_in.lock_version,
         user_id=current_user.id,
+        merge=bool(precuration_in.merge),
     )
-    if updated is None:
+    if saved is None:
         raise _conflict(precuration, precuration_in.lock_version)
-
-    return Precuration.model_validate(updated)
+    result = PrecurationDraftResult.model_validate(saved[0])
+    result.warnings = saved[1]
+    return result
 
 
 # ========================================

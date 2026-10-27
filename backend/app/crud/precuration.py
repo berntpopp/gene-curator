@@ -296,15 +296,20 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         evidence_data: dict[str, Any] | None,
         lock_version: int,
         user_id: UUID,
-    ) -> PrecurationNew | None:
-        """Update evidence with optimistic locking. None if lock_version is stale."""
+        merge: bool = False,
+    ) -> tuple[PrecurationNew, list[EvidenceWarning]] | None:
+        """Update evidence with optimistic locking, plus warnings on its IDs and on arrays a
+        merge shortened. None if lock_version is stale."""
         values: dict[str, Any] = {"updated_by": user_id}
+        warnings: list[EvidenceWarning] = []
         if evidence_data is not None:
+            evidence_data, warnings = _patched(db_obj, evidence_data, merge)
+            warnings += check_ids(db, evidence_data)[0]
             values["evidence_data"] = evidence_data
         if not update_if_version(db, PrecurationNew, db_obj.id, lock_version, values):
             return None
         db.refresh(db_obj)
-        return db_obj
+        return db_obj, warnings
 
     def save_draft(
         self,

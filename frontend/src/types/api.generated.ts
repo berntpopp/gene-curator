@@ -1955,7 +1955,10 @@ export interface paths {
         get: operations["get_precuration_api_v1_precurations__precuration_id__get"];
         /**
          * Update Precuration
-         * @description Update a precuration's evidence data.
+         * @description Update a draft or rejected precuration. evidence_data replaces the stored evidence
+         *     entirely unless merge=true (RFC 7396 merge patch; arrays are replaced whole).
+         *     `warnings` names bad or unknown IDs and arrays a merge shortened. 409 if
+         *     lock_version is stale.
          */
         put: operations["update_precuration_api_v1_precurations__precuration_id__put"];
         post?: never;
@@ -4797,7 +4800,7 @@ export interface components {
             lock_version: number;
             /**
              * Merge
-             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key, arrays replace whole); a stale lock_version still 409s.
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
              */
             merge?: boolean | null;
         };
@@ -5191,7 +5194,7 @@ export interface components {
             lock_version: number;
             /**
              * Merge
-             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key, arrays replace whole); a stale lock_version still 409s.
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
              */
             merge?: boolean | null;
         };
@@ -5215,7 +5218,7 @@ export interface components {
             verdict: string | null;
             /**
              * Warnings
-             * @description Scoring warnings, then a draft save's bad or unknown ID warnings
+             * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
              */
             warnings?: string[];
         };
@@ -8396,7 +8399,7 @@ export interface components {
             lock_version: number;
             /**
              * Merge
-             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key, arrays replace whole); a stale lock_version still 409s.
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
              */
             merge?: boolean | null;
         };
@@ -8508,6 +8511,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Merge
+             * @description false or omitted: evidence_data replaces the stored evidence_data entirely. true: evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects merge, null deletes a key). Arrays are replaced whole: send every row of an array you touch, or the rows you leave out are dropped (the save warns). A stale lock_version still 409s.
+             */
+            merge?: boolean | null;
         };
         /** ProviderCreate */
         ProviderCreate: {
@@ -14462,7 +14470,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationDraftResult"];
                 };
             };
             /** @description Conflict */

@@ -89,7 +89,7 @@ def test_each_save_bumps_the_version_once_and_a_stale_one_changes_nothing(
     third = precuration_crud.update_with_lock(
         owner_session, db_obj=p, evidence_data={"a": 2}, lock_version=1, user_id=user
     )
-    assert third is not None and third.lock_version == 2
+    assert third is not None and third[0].lock_version == 2
 
     stale = precuration_crud.save_draft(
         owner_session,

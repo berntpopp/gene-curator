@@ -44,6 +44,7 @@ class PrecurationUpdate(BaseModel):
         None, description="Updated evidence data"
     )
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
     model_config = ConfigDict(extra="forbid")
 
