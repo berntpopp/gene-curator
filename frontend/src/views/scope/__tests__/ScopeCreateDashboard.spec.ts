@@ -334,12 +334,10 @@ describe('ScopeDashboard', () => {
     const store = useScopesStore()
     const fetchScope = vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
       store.currentScope = scope as never
+      store.currentUserRole = role
       return scope as never
     })
-    const fetchUserRole = vi.spyOn(store, 'fetchUserRole').mockImplementation(async () => {
-      store.currentUserRole = role
-      return role
-    })
+    const fetchUserRole = vi.spyOn(store, 'fetchUserRole')
     const fetchStatistics = vi.spyOn(store, 'fetchStatistics').mockResolvedValue({
       total_genes_assigned: 10,
       active_curations: 5,
@@ -366,7 +364,7 @@ describe('ScopeDashboard', () => {
     routeState.params = { scopeId: 's1', tab: 'overview' }
     const store = useScopesStore()
     const denied = Object.assign(new Error('403'), { response: { status: 403 } })
-    vi.spyOn(store, 'fetchUserRole').mockRejectedValue(denied)
+    const role = vi.spyOn(store, 'fetchUserRole')
     const stats = vi.spyOn(store, 'fetchStatistics').mockRejectedValue(denied)
     const members = vi.spyOn(store, 'fetchMembers').mockRejectedValue(denied)
     vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
@@ -377,22 +375,21 @@ describe('ScopeDashboard', () => {
     await flushPromises()
     expect(wrapper.text()).toContain('Kidney Genetics')
     expect(wrapper.text()).not.toContain("don't have access")
-    // #484: no member-only calls after the denial, and no Genes tab claiming no genes
+    // #484: the detail says "no role", so no member-only calls and no Genes tab
+    expect(role).not.toHaveBeenCalled()
     expect(stats).not.toHaveBeenCalled()
     expect(members).not.toHaveBeenCalled()
     expect(wrapper.findAll('.v-tab').map(t => t.text().trim())).toEqual(['Overview', 'Curations'])
   })
 
-  it('shows a failed role lookup that is not a denial instead of hiding tabs', async () => {
+  it('shows a failed scope load instead of hiding tabs', async () => {
     routeState.params = { scopeId: 's1', tab: 'overview' }
     const store = useScopesStore()
-    vi.spyOn(store, 'fetchUserRole').mockRejectedValue(
+    vi.spyOn(store, 'fetchScope').mockRejectedValue(
       Object.assign(new Error('500'), { response: { status: 500, data: { detail: 'DB down' } } })
     )
-    const fetchScope = vi.spyOn(store, 'fetchScope')
     const wrapper = mount(ScopeDashboard, opts())
     await flushPromises()
-    expect(fetchScope).not.toHaveBeenCalled()
     expect(wrapper.text()).toContain('DB down')
   })
 
@@ -411,7 +408,7 @@ describe('ScopeDashboard', () => {
   it('loads the scope, the role and the statistics and shows the header', async () => {
     const { wrapper, fetchScope, fetchUserRole, fetchStatistics } = await mountView()
     expect(fetchScope).toHaveBeenCalledWith('s1')
-    expect(fetchUserRole).toHaveBeenCalledWith('s1')
+    expect(fetchUserRole).not.toHaveBeenCalled() // the detail carries the role (#484)
     expect(fetchStatistics).toHaveBeenCalledWith('s1')
     expect(wrapper.text()).toContain('Kidney Genetics')
     expect(wrapper.text()).toContain('Renal genes')
@@ -431,9 +428,9 @@ describe('ScopeDashboard', () => {
     const store = useScopesStore()
     vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
       store.currentScope = scope as never
+      store.currentUserRole = 'admin'
       return scope as never
     })
-    vi.spyOn(store, 'fetchUserRole').mockResolvedValue('admin' as never)
     let release!: (v: never) => void
     vi.spyOn(store, 'fetchStatistics').mockReturnValue(new Promise(r => (release = r as never)))
     const wrapper = mount(ScopeDashboard, opts())
@@ -516,13 +513,10 @@ describe('ScopeDashboard', () => {
     routeState.params = { scopeId: 's1', tab: 'members' }
     const store = useScopesStore()
     vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
-      store.currentScope = scope as never
-      return scope as never
-    })
-    vi.spyOn(store, 'fetchUserRole').mockImplementation(async () => {
       await new Promise(resolve => setTimeout(resolve, 20))
+      store.currentScope = scope as never
       store.currentUserRole = 'admin'
-      return 'admin'
+      return scope as never
     })
     vi.spyOn(store, 'fetchStatistics').mockResolvedValue(null as never)
     const wrapper = mount(ScopeDashboard, opts())
