@@ -47,8 +47,14 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
 INSTRUCTIONS = """\
 Gene Curator: gene-disease validity curation in scopes (teams). Every tool calls the
 REST API as you, so your scope role, row-level security and the 4-eyes rule apply.
-This endpoint (/mcp) serves the curation and review tools; /mcp/full serves every
-API operation (schema authoring, statistics, platform admin).
+This endpoint (/mcp) serves pipeline setup, curation and review tools; /mcp/full
+serves every other API operation (schema authoring, statistics, platform admin).
+
+Set up a pipeline: get_workflow_pairs, create_scope (default_workflow_pair_id;
+update_scope changes it later), then members: search_users_for_invitation finds a
+user, add_member adds them at once, invite_member sends an invitation,
+update_member_role changes a role; genes: resolve_genes, create_gene if missing,
+bulk_create_gene_assignments.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
 1. Entry: resolve_genes (create_gene if missing), then create_gene_assignment adds the
@@ -95,6 +101,9 @@ CORE_TOOLS = frozenset(
         "get_my_pending_invitations", "accept_invitation",
         # scopes and people
         "list_scopes", "get_scope_details", "list_members", "get_peer_reviewers",
+        # pipeline setup: the scope and its members
+        "create_scope", "update_scope", "add_member", "invite_member",
+        "update_member_role", "search_users_for_invitation",
         # genes
         "resolve_genes", "get_genes_by_symbol", "search_genes", "get_gene",
         "get_gene_by_hgnc_id", "create_gene", "search_hgnc_genes", "fetch_hgnc_gene",

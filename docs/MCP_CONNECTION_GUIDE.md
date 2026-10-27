@@ -3,8 +3,9 @@
 Gene Curator runs two MCP endpoints with the same token, checks, audit and rate limits:
 
 - `<API base URL>/mcp` (local development: `http://localhost:8051/mcp`): the curation core, about
-  70 tools for curating a gene end to end and checking or reviewing a curation, plus lookups
-  (genes, scopes, members, ontology, publications, your work). Start here.
+  75 tools for setting up a pipeline (create a scope, add or invite members, assign genes),
+  curating a gene end to end and checking or reviewing a curation, plus lookups (genes, scopes,
+  members, ontology, publications, your work). Start here.
 - `<API base URL>/mcp/full`: every API operation (schema and workflow-pair authoring,
   statistics, logs, LLM and platform administration).
 
