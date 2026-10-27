@@ -270,7 +270,7 @@ api:
     # Enable experimental features
     enable_experimental: false
 
-    # Enable rate limiting
+    # Enable rate limiting (RateLimitMiddleware: rate_limits tiers per user, or per IP when anonymous)
     enable_rate_limiting: false
 
     # Enable request correlation tracking

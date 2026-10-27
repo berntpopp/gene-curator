@@ -21,6 +21,7 @@ from app.core.database import async_engine
 from app.core.logging import configure_logging, get_logger
 from app.core.logging.database_logger import get_database_logger
 from app.middleware import LoggingMiddleware
+from app.middleware.rate_limit import RateLimitMiddleware
 
 # Configure unified logging system
 configure_logging(
@@ -79,8 +80,10 @@ app = FastAPI(
 # Load CORS configuration from YAML
 cors_config = get_cors_config()
 
-# Add CORS middleware (first, so it wraps all responses including errors)
-# Configuration is now loaded from config/api.yaml
+# Starlette runs the last-added middleware outermost: CORS wraps the logging guard's
+# early 400/414 and the 429s, so browsers can read them (#478)
+app.add_middleware(RateLimitMiddleware)
+app.add_middleware(LoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=cors_config.allow_origins,
@@ -89,9 +92,6 @@ app.add_middleware(
     allow_headers=cors_config.allow_headers,
     expose_headers=cors_config.expose_headers,
 )
-
-# Add logging middleware (second, to capture all requests after CORS)
-app.add_middleware(LoggingMiddleware)
 
 
 # Include API routes

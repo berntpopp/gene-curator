@@ -305,7 +305,10 @@ def get_scope_details(
         user_id=str(current_user.id),
     )
 
-    return ScopeWithStats(**scope_with_stats)
+    role = scope_membership_crud.get_user_role_in_scope(
+        db, user_id=current_user.id, scope_id=scope_id
+    )
+    return ScopeWithStats(**scope_with_stats, user_role=role.value if role else None)
 
 
 @router.patch("/{scope_id}", response_model=ScopeResponse)

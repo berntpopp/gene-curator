@@ -9039,6 +9039,11 @@ export interface components {
             /** Created By */
             created_by: string | null;
             statistics: components["schemas"]["ScopeStatistics"];
+            /**
+             * User Role
+             * @description Caller's role from an accepted membership in this scope, if any
+             */
+            user_role?: string | null;
         };
         /** SearchResponse */
         SearchResponse: {

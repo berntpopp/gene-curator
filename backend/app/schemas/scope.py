@@ -181,6 +181,10 @@ class ScopeWithStats(Scope):
     """Scope with basic statistics included."""
 
     statistics: ScopeStatistics
+    user_role: str | None = Field(
+        default=None,
+        description="Caller's role from an accepted membership in this scope, if any",
+    )
 
 
 # Scope User Assignment Schema
