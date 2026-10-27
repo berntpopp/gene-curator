@@ -4247,6 +4247,15 @@ export interface components {
             /** Location */
             location: string | null;
         };
+        /**
+         * BlockedTransition
+         * @description A next stage the caller cannot move the item to, and why.
+         */
+        BlockedTransition: {
+            stage: components["schemas"]["WorkflowStage"];
+            /** Reason */
+            reason: string;
+        };
         /** Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post */
         Body_calculate_scores_with_engine_api_v1_schemas_scoring_engines__engine_name__calculate_post: {
             /** Evidence Data */
@@ -10437,8 +10446,16 @@ export interface components {
             /** Item Type */
             item_type: string;
             current_stage: components["schemas"]["WorkflowStage"];
-            /** Available Transitions */
+            /**
+             * Available Transitions
+             * @description Stages the caller may move the item to now
+             */
             available_transitions: components["schemas"]["WorkflowStage"][];
+            /**
+             * Blocked
+             * @description Other next stages and why the caller cannot
+             */
+            blocked?: components["schemas"]["BlockedTransition"][];
             /** Workflow History */
             workflow_history: {
                 [key: string]: unknown;

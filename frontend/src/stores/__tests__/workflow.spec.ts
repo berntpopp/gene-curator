@@ -301,6 +301,20 @@ describe('useWorkflowStore', () => {
       expect(store.error).toContain('No forward transition')
       expect(store.loading).toBe(false)
     })
+
+    it('reports why the caller cannot move forward', async () => {
+      const store = useWorkflowStore()
+      api.getWorkflowState.mockResolvedValue({
+        ...stateAt('review', ['curation']),
+        blocked: [
+          { stage: 'active', reason: 'Cannot review your own work' },
+          { stage: 'precuration', reason: 'not this one' }
+        ]
+      })
+
+      await expect(store.advanceStage(payload)).rejects.toThrow('Cannot review your own work')
+      expect(store.error).not.toContain('not this one')
+    })
   })
 
   describe('local state actions', () => {

@@ -59,13 +59,27 @@ class WorkflowValidationResult(BaseModel):
 
 
 # Workflow State Information
+class BlockedTransition(BaseModel):
+    """A next stage the caller cannot move the item to, and why."""
+
+    stage: WorkflowStage
+    reason: str
+
+    model_config = ConfigDict(use_enum_values=True)
+
+
 class WorkflowStateInfo(BaseModel):
     """Current workflow state information."""
 
     item_id: UUID
     item_type: str
     current_stage: WorkflowStage
-    available_transitions: list[WorkflowStage]
+    available_transitions: list[WorkflowStage] = Field(
+        ..., description="Stages the caller may move the item to now"
+    )
+    blocked: list[BlockedTransition] = Field(
+        default_factory=list, description="Other next stages and why the caller cannot"
+    )
     workflow_history: list[dict[str, Any]]
     pending_reviews: list[dict[str, Any]]
     progress_metrics: dict[str, Any]

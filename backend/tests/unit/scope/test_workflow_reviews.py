@@ -95,7 +95,7 @@ def test_assign_reviewer_creates_pending_review_and_notifies(
 
     assert request.reviewer_id == reviewer.id
     assert request.status == ReviewStatus.PENDING
-    state = engine.get_workflow_state(db_session, curation.id, "curation")
+    state = engine.get_workflow_state(db_session, curation.id, "curation", creator.id)
     assert [r["reviewer_id"] for r in state.pending_reviews] == [reviewer.id]
 
 
@@ -459,7 +459,7 @@ def test_resubmit_reassigns_earlier_reviewers_and_notifies(
     engine.submit_peer_review(db_session, ra.review_id, a.id, "request_changes")
     engine.execute_transition(db_session, curation.id, "curation", S.REVIEW, creator.id)
     db_session.expire_all()
-    state = engine.get_workflow_state(db_session, curation.id, "curation")
+    state = engine.get_workflow_state(db_session, curation.id, "curation", creator.id)
     assert {r["reviewer_id"] for r in state.pending_reviews} == {a.id, b.id}
     for u in (a, b):
         notes = db_session.scalars(
@@ -505,7 +505,7 @@ def test_demoted_reviewer_is_not_reassigned_and_approval_still_works(
     pending = {
         r["reviewer_id"]
         for r in engine.get_workflow_state(
-            db_session, curation.id, "curation"
+            db_session, curation.id, "curation", creator.id
         ).pending_reviews
     }
     assert pending == {a.id}  # B lost the REVIEW capability
