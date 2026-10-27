@@ -12,14 +12,17 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.capabilities import EDIT, require
-from app.crud.review_round import holds_review_capability
+from app.crud.review_round import has_pending_review, holds_review_capability
 from app.models import (
+    CurationNew,
     CurationStatus,
     NotificationNew,
     NotificationType,
     PrecurationNew,
+    Review,
     ReviewStatus,
     UserNew,
+    WorkflowStage,
 )
 from app.schemas.workflow_engine import PeerReviewRequest
 
@@ -46,6 +49,61 @@ def check_reviewer(
         )
 
 
+def stage_reviewer(
+    db: Session,
+    item: CurationNew | PrecurationNew,
+    reviewer_id: UUID,
+    assigned_by: UUID,
+) -> Review | None:
+    """Check the reviewer and add the review row (curations) and notification, uncommitted,
+    so a submit can route its item in the same transaction. None for a precuration."""
+    kind = "curation" if isinstance(item, CurationNew) else "precuration"
+    if not (
+        item.workflow_stage == WorkflowStage.REVIEW
+        if isinstance(item, CurationNew)
+        else item.status == CurationStatus.SUBMITTED
+    ):
+        raise ValueError(
+            f"{kind.capitalize()} {item.id} is {item.status.value}; only an item in review "
+            f"is routed to a reviewer: {APPROVERS}"
+        )
+    check_reviewer(db, kind, item.id, item.created_by, reviewer_id, item.scope_id)
+    review = None
+    if isinstance(item, CurationNew):
+        if has_pending_review(db, item.id, reviewer_id):
+            raise ValueError("Reviewer already has a pending review")
+        review = Review(
+            curation_id=item.id,
+            reviewer_id=reviewer_id,
+            assigned_by=assigned_by,
+            status=ReviewStatus.PENDING,
+            assigned_at=datetime.now(UTC),
+        )
+        db.add(review)
+        db.flush()
+    link = f"/scopes/{item.scope_id}/{kind}s/{item.id}"
+    already = db.scalar(
+        select(NotificationNew.id).where(
+            NotificationNew.user_id == reviewer_id,
+            NotificationNew.type == NotificationType.REVIEW_ASSIGNED,
+            NotificationNew.link == link,
+            ~NotificationNew.is_read,
+        )
+    )
+    if already is None:  # routing again must not spam an unread duplicate
+        symbol = getattr(item.gene, "approved_symbol", "Unknown")
+        db.add(
+            NotificationNew(
+                user_id=reviewer_id,
+                type=NotificationType.REVIEW_ASSIGNED,
+                title="New review assigned",
+                message=f"{kind.capitalize()} to review: {symbol}",
+                link=link,
+            )
+        )
+    return review
+
+
 def assign_precuration_reviewer(
     db: Session, precuration_id: UUID, reviewer_id: UUID, user: UserNew
 ) -> PeerReviewRequest:
@@ -61,26 +119,7 @@ def assign_precuration_reviewer(
             f"Precuration {p.id} is {p.status.value}; submit it before routing it to a "
             f"reviewer: {APPROVERS}"
         )
-    check_reviewer(db, "precuration", p.id, p.created_by, reviewer_id, p.scope_id)
-    link = f"/scopes/{p.scope_id}/precurations/{p.id}"
-    already = db.scalar(
-        select(NotificationNew.id).where(
-            NotificationNew.user_id == reviewer_id,
-            NotificationNew.type == NotificationType.REVIEW_ASSIGNED,
-            NotificationNew.link == link,
-            ~NotificationNew.is_read,
-        )
-    )
-    if already is None:  # routing again must not spam an unread duplicate
-        db.add(
-            NotificationNew(
-                user_id=reviewer_id,
-                type=NotificationType.REVIEW_ASSIGNED,
-                title="New review assigned",
-                message=f"Precuration to review: {p.gene.approved_symbol}",
-                link=link,
-            )
-        )
+    stage_reviewer(db, p, reviewer_id, user.id)
     db.commit()
     return PeerReviewRequest(
         review_id=None,

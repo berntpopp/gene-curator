@@ -494,6 +494,7 @@ class CRUDCuration(CRUDBase[CurationNew, CurationCreate, CurationUpdate]):
             user_id,
             submit_data.notes,
             expected_version=submit_data.lock_version,
+            reviewer_id=submit_data.reviewer_id,
         )
         db.refresh(db_obj)
 

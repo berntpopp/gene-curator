@@ -383,6 +383,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             WorkflowStage.REVIEW,
             user_id,
             submit_data.notes,
+            reviewer_id=submit_data.reviewer_id,
         )
 
         db.refresh(db_obj)

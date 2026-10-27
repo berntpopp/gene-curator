@@ -5123,6 +5123,11 @@ export interface components {
              * @description Lock version for optimistic locking
              */
             lock_version: number;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
         };
         /**
          * CurationSummary
@@ -8453,6 +8458,11 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
         };
         /**
          * PrecurationSummary
@@ -10933,6 +10943,11 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
         };
         /**
          * WorkflowValidationResult

@@ -159,3 +159,73 @@ def test_curator_routes_submitted_precuration_and_reviewer_approves(
 
     r = client.post(f"/api/v1/precurations/{w.pre}/approve", headers=_h(w.bob))
     assert r.status_code == 200, r.text
+
+
+def _reviewers(cur: UUID) -> list[str]:
+    with _owner() as conn, conn.cursor() as c:
+        c.execute(
+            "SELECT reviewer_id::text FROM reviews WHERE curation_id = %s", (str(cur),)
+        )
+        return [r[0] for r in c.fetchall()]
+
+
+def test_submit_with_reviewer_routes_it_in_the_same_transaction(
+    client: TestClient, w: W
+) -> None:
+    """Submit-and-assign as app_user: D1 refuses the author and rolls the submit back."""
+    lock = client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.alice)).json()
+    url = f"/api/v1/curations/{w.cur}/submit"
+    for bad in (w.alice, w.vic):  # the author (D1), a viewer
+        r = client.post(
+            url,
+            json={"lock_version": lock["lock_version"], "reviewer_id": str(bad)},
+            headers=_h(w.alice),
+        )
+        assert r.status_code == 400, r.text
+    after = client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.alice)).json()
+    assert (after["status"], after["lock_version"]) == ("draft", lock["lock_version"])
+    assert _reviewers(w.cur) == []
+
+    r = client.post(
+        url,
+        json={"lock_version": lock["lock_version"], "reviewer_id": str(w.bob)},
+        headers=_h(w.alice),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["status"] == "in_review"
+    assert _reviewers(w.cur) == [str(w.bob)]
+    mine = client.get(
+        "/api/v1/workflow/reviews/my-assignments", headers=_h(w.bob)
+    ).json()
+    assert [a["item_id"] for a in mine] == [str(w.cur)]
+
+
+PRECURATION = {
+    "entity_definition": {
+        "mondo_id": "MONDO:0000001",
+        "disease_name": "Test disease",
+        "mode_of_inheritance": "autosomal_dominant",
+    },
+    "lumping_splitting": {"decision": "lump", "rationale": "r" * 60},
+    "initial_assessment": {"literature_search_strategy": "PubMed"},
+}
+
+
+def test_submit_precuration_with_reviewer_notifies_them(
+    client: TestClient, w: W
+) -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE precurations SET status = 'draft', is_draft = true, "
+            "evidence_data = %s WHERE id = %s",
+            (json.dumps(PRECURATION), str(w.pre)),
+        )
+    lock = client.get(f"/api/v1/precurations/{w.pre}", headers=_h(w.alice)).json()
+    r = client.post(
+        f"/api/v1/precurations/{w.pre}/submit",
+        json={"lock_version": lock["lock_version"], "reviewer_id": str(w.bob)},
+        headers=_h(w.alice),
+    )
+    assert r.status_code == 200, r.text
+    notes = client.get("/api/v1/notifications/", headers=_h(w.bob))
+    assert str(w.pre) in notes.text

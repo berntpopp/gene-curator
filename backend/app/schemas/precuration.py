@@ -75,6 +75,10 @@ class PrecurationSubmit(BaseModel):
 
     notes: str | None = Field(None, max_length=1000, description="Submission notes")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    reviewer_id: UUID | None = Field(
+        None,
+        description="Also route it to this reviewer, in the same transaction (assign-reviewer rules)",
+    )
 
 
 class PrecurationReject(BaseModel):

@@ -23,6 +23,10 @@ class WorkflowTransitionRequest(BaseModel):
     metadata: dict[str, Any] | None = Field(
         default_factory=dict, description="Additional metadata"
     )
+    reviewer_id: UUID | None = Field(
+        None,
+        description="Also route it to this reviewer, in the same transaction (assign-reviewer rules)",
+    )
 
 
 class WorkflowTransition(BaseModel):

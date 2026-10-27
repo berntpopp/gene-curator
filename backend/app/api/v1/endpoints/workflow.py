@@ -167,9 +167,7 @@ def execute_workflow_transition(
 ) -> WorkflowTransition:
     """Execute a workflow state transition. Approve a curation: target_stage=active,
     by a reviewer or admin of the scope who is not its author (4-eyes)."""
-    # All authenticated users can execute transitions
     # RLS policies + workflow engine handle scope-based access
-
     try:
         transition = workflow_engine.execute_transition(
             db,
@@ -179,6 +177,7 @@ def execute_workflow_transition(
             current_user.id,
             transition_request.notes,
             transition_request.metadata,
+            reviewer_id=transition_request.reviewer_id,
         )
         return transition
     except ValueError as e:

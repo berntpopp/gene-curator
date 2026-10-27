@@ -9,7 +9,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
-from app.crud import workflow_engine as engine_module
 from app.models.models import (
     CurationStatus,
     NotificationNew,
@@ -18,6 +17,7 @@ from app.models.models import (
     UserNew,
     WorkflowStage as S,
 )
+from app.services import review_assignment as assignment_module
 from tests.api.scopes.factories import (
     auth_headers,
     make_curation,
@@ -178,9 +178,9 @@ def test_rls_denied_insert_is_403_other_db_errors_propagate(
     orig = type("Orig", (Exception,), {"pgcode": pgcode})()
 
     def deny(**_: object) -> None:
-        raise DBAPIError("INSERT INTO notifications", None, orig)
+        raise DBAPIError("INSERT INTO reviews", None, orig)
 
-    monkeypatch.setattr(engine_module, "NotificationNew", deny)
+    monkeypatch.setattr(assignment_module, "Review", deny)
     if expected is None:
         with pytest.raises(DBAPIError):
             _assign(client, "curation", c.id, reviewer, curator)
