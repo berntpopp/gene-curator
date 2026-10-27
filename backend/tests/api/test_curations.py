@@ -185,8 +185,8 @@ class TestCurationGet:
         assert response.status_code == 200
         data = response.json()
         assert data["id"] == str(test_curation.id)
-        assert "evidence_data" in data
-        assert "lock_version" in data
+        assert {"evidence_data", "lock_version"} <= data.keys()
+        assert "calculated_score" not in data  # one score trace (MCP finding 6)
 
     def test_get_curation_not_found(
         self,

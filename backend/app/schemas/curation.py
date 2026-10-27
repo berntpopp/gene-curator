@@ -152,9 +152,6 @@ class CurationDetail(CurationInDBBase):
     mondo_id: str | None = None
     mode_of_inheritance: str | None = None
 
-    # Computed score breakdown
-    calculated_score: dict[str, Any] | None = None
-
     # User permissions for this curation (set by endpoint based on current user)
     can_edit: bool = False
     can_review: bool = False
@@ -215,10 +212,6 @@ class CurationDetail(CurationInDBBase):
 
         # Priority: evidence_data > precuration_data
         data.update(disease_fields(evidence, precuration_data))
-
-        # Include computed scores as calculated_score for frontend
-        if curation.computed_scores:
-            data["calculated_score"] = curation.computed_scores
 
         return cls(**data)
 
