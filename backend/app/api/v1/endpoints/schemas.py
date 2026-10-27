@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.core import deps
 from app.core.database import get_db
+from app.core.enum_options import flatten_sections
 from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
@@ -129,21 +130,76 @@ def create_curation_schema(
     return schema  # type: ignore[return-value]
 
 
+# Display-only keys; everything else (required_when, default_by, limits...) decides validity
+_DISPLAY_KEYS = {
+    "label",
+    "description",
+    "help_text",
+    "order",
+    "ui_component",
+    "collapsible",
+    "collapsed",
+    "icon",
+    "placeholder",
+}
+_NESTED_KEYS = ("properties", "columns", "item_schema", "items")
+
+
+def _compact_field(cfg: Any) -> Any:
+    if isinstance(cfg, list):  # columns may be a list of column dicts
+        return [_compact_field(c) for c in cfg]
+    if not isinstance(cfg, dict):
+        return cfg
+    out = {k: v for k, v in cfg.items() if k not in _DISPLAY_KEYS}
+    if isinstance(cfg.get("options"), list):
+        out["options"] = [_compact_option(o) for o in cfg["options"]]
+    for key in _NESTED_KEYS:
+        nested = cfg.get(key)
+        if isinstance(nested, dict) and key != "items":  # map of child fields
+            out[key] = {k: _compact_field(v) for k, v in nested.items()}
+        elif isinstance(nested, dict | list):  # one item field, or a column list
+            out[key] = _compact_field(nested)
+    return out
+
+
+def _compact_option(option: Any) -> Any:
+    """{value, label} becomes the bare value; extra option keys are kept."""
+    if not isinstance(option, dict):
+        return option
+    kept = {k: v for k, v in option.items() if k not in _DISPLAY_KEYS}
+    return kept["value"] if kept.keys() == {"value"} else kept
+
+
 @router.get("/curation-schemas/{schema_id}", response_model=CurationSchema)
 def get_curation_schema(
     *,
     db: Session = Depends(get_db),
     schema_id: UUID,
+    compact: bool = Query(
+        False,
+        description="Fields flattened by id without display keys (label, help, "
+        "order...); option values only; ui_configuration is {} and "
+        "scoring_configuration is null",
+    ),
     current_user: UserNew = Depends(deps.get_current_active_user),
 ) -> CurationSchema:
     """
-    Get curation schema by ID.
+    Get curation schema by ID. Pass compact=true to read only the field contract.
     """
     schema = schema_crud.get(db, id=schema_id)
     if not schema:
         raise HTTPException(status_code=404, detail="Schema not found")
+    if not compact:
+        return schema  # type: ignore[return-value]
 
-    return schema  # type: ignore[return-value]
+    fields = flatten_sections(schema.field_definitions or {})
+    return CurationSchema.model_validate(schema).model_copy(
+        update={
+            "field_definitions": {k: _compact_field(v) for k, v in fields.items()},
+            "ui_configuration": {},
+            "scoring_configuration": None,
+        }
+    )
 
 
 @router.get(
