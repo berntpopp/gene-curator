@@ -36,4 +36,8 @@ COPY --from=build /app /app
 USER app
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=5)"]
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+# uvicorn reads FORWARDED_ALLOW_IPS: trust X-Forwarded-For only from the Docker proxy network,
+# so rate limiting keys anonymous clients by their real IP, not the proxy's
+ENV FORWARDED_ALLOW_IPS=172.16.0.0/12
+# ponytail: rate-limit buckets are per worker, so 4 workers allow up to 4x the configured rate
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--proxy-headers"]

@@ -36,6 +36,10 @@ services:
       ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-30}
       REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-[]}
+      # Rate limiting is off in config/api.yaml (dev, tests) and on in production
+      GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING: "true"
+      # Proxies whose X-Forwarded-For uvicorn trusts (CIDR list); default: Docker bridge networks
+      FORWARDED_ALLOW_IPS: ${FORWARDED_ALLOW_IPS:-172.16.0.0/12}
     ports:
       - "${BACKEND_PORT:-8051}:8000"
     depends_on:

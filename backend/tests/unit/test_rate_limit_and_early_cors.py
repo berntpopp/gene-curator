@@ -81,3 +81,19 @@ def test_refresh_token_falls_back_to_ip_bucket(limited: TestClient) -> None:
 def test_rate_limiting_is_off_by_default() -> None:
     client = TestClient(app)
     assert all(client.get("/").status_code == 200 for _ in range(15))
+
+
+def test_prod_env_override_turns_rate_limiting_on(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """docker-compose.prod.yml sets this key; it must reach features.enable_rate_limiting."""
+    from app.core.api_config import get_feature_flags, load_api_config
+
+    monkeypatch.setenv("GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING", "true")
+    load_api_config.cache_clear()
+    try:
+        assert get_feature_flags().enable_rate_limiting is True
+    finally:
+        monkeypatch.delenv("GENE_CURATOR_API__FEATURES__ENABLE_RATE_LIMITING")
+        load_api_config.cache_clear()
+    assert get_feature_flags().enable_rate_limiting is False
