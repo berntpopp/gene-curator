@@ -225,7 +225,7 @@
           <!-- Members Tab -->
           <v-window-item v-if="canViewMembers" value="members">
             <v-card-text>
-              <MemberManagement v-if="scope" :scope-id="scope.id" />
+              <MemberManagement v-if="scope" :scope-id="scope.id" @changed="refreshStatistics" />
             </v-card-text>
           </v-window-item>
 
@@ -405,11 +405,10 @@
       logger.debug('Fetching scope dashboard data', { scope_id: scopeId.value })
 
       // Role first: the Members/Settings tabs must exist when v-tabs first renders (#175)
-      await scopeStore.fetchUserRole(scopeId.value)
+      // A non-member may open a public scope: no role and no statistics, but no error (#393)
+      await scopeStore.fetchUserRole(scopeId.value).catch(() => null)
       await scopeStore.fetchScope(scopeId.value)
-
-      // Fetch scope statistics
-      await refreshStatistics()
+      await refreshStatistics().catch(() => undefined)
 
       // Overview facts are best effort: the page works without them
       await Promise.allSettled([loadWorkflowPairs(), scopeStore.fetchMembers(scopeId.value)])

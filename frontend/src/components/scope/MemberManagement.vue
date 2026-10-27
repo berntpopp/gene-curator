@@ -183,6 +183,8 @@
   const props = defineProps<{
     scopeId: string
   }>()
+  // Membership counts changed (invite, removal): the scope header re-reads its statistics
+  const emit = defineEmits<{ changed: [] }>()
 
   // ============================================
   // COMPOSABLES & STORE
@@ -294,6 +296,7 @@
       'success'
     )
 
+    emit('changed')
     // Refresh member list to show new pending invitation
     await fetchMembers()
   }
@@ -364,6 +367,7 @@
       showNotification('Member removed successfully', 'success')
       showRemoveDialog.value = false
       memberToRemove.value = null
+      emit('changed')
       await fetchMembers()
     } catch (error) {
       const err = error instanceof Error ? error : undefined

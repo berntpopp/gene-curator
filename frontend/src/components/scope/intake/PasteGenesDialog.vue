@@ -24,7 +24,7 @@
     <template v-else>
       <p ref="summaryEl" class="mb-3" role="status" tabindex="-1" data-testid="summary">
         {{ counts.resolved }} resolved, {{ counts.ambiguous }} ambiguous, {{ counts.not_found }} not
-        found{{ dupCount ? `, ${dupCount} repeated` : '' }}.
+        found{{ dupCount ? `, ${dupCount} repeated` : '' }}. {{ picks.length }} selected.
       </p>
       <v-table density="compact" class="intake-table">
         <thead>
@@ -128,13 +128,18 @@
   const open = computed({ get: () => props.modelValue, set: v => emit('update:modelValue', v) })
   const text = ref('')
   const rows = ref<IntakeRow[] | null>(null)
-  const counts = ref<Schema<'GeneResolveCounts'>>({ resolved: 0, ambiguous: 0, not_found: 0 })
   const busy = ref(false)
   const summaryEl = ref<HTMLElement | null>(null)
 
   const symbols = computed(() => parseSymbols(text.value))
   const tooMany = computed(() => symbols.value.length > MAX_SYMBOLS)
   const dupCount = computed(() => rows.value?.filter(r => r.duplicateOf !== null).length ?? 0)
+  // From the rows, not the API counts: a repeated entry is counted once, like the Add button (#393)
+  const counts = computed(() => {
+    const c: Schema<'GeneResolveCounts'> = { resolved: 0, ambiguous: 0, not_found: 0 }
+    for (const r of rows.value ?? []) if (r.duplicateOf === null) c[r.item.status]++
+    return c
+  })
   const picks = computed(() =>
     (rows.value ?? []).flatMap(r => (r.include && r.pick ? [r.pick] : []))
   )
@@ -161,7 +166,6 @@
     try {
       const r = await store.resolve(symbols.value)
       rows.value = toRows(r.items)
-      counts.value = r.counts
       // Screen readers hear the summary (role=status); keyboard focus moves to it
       await nextTick()
       summaryEl.value?.focus()

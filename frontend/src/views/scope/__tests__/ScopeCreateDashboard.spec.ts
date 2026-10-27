@@ -354,6 +354,30 @@ describe('ScopeDashboard', () => {
     return { wrapper, store, fetchScope, fetchUserRole, fetchStatistics, vm: vmOf(wrapper) }
   }
 
+  it('refreshes the header counts after a member change (#393)', async () => {
+    const { wrapper, fetchStatistics } = await mountView('admin', 'members')
+    expect(fetchStatistics).toHaveBeenCalledTimes(1)
+    wrapper.findComponent({ name: 'MemberManagement' }).vm.$emit('changed')
+    await flushPromises()
+    expect(fetchStatistics).toHaveBeenCalledTimes(2)
+  })
+
+  it('opens a public scope for a non-member: no role, no statistics, no error (#393)', async () => {
+    routeState.params = { scopeId: 's1', tab: 'overview' }
+    const store = useScopesStore()
+    const denied = Object.assign(new Error('403'), { response: { status: 403 } })
+    vi.spyOn(store, 'fetchUserRole').mockRejectedValue(denied)
+    vi.spyOn(store, 'fetchStatistics').mockRejectedValue(denied)
+    vi.spyOn(store, 'fetchScope').mockImplementation(async () => {
+      store.currentScope = scope as never
+      return scope as never
+    })
+    const wrapper = mount(ScopeDashboard, opts())
+    await flushPromises()
+    expect(wrapper.text()).toContain('Kidney Genetics')
+    expect(wrapper.text()).not.toContain("don't have access")
+  })
+
   it('uses flat outlined cards and no decorative title icons (#392)', async () => {
     const { wrapper } = await mountView()
     const cards = wrapper.findAll('.v-card')
