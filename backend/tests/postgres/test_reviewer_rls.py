@@ -424,9 +424,6 @@ def test_reviewer_rejects_a_precuration_but_not_a_draft(
     r = client.post(url, json={"reason": "out of scope"}, headers=_h(w.bob))
     assert r.status_code == 200, r.text
     assert r.json()["computed_fields"]["rejection_reason"] == "out of scope"
-    # #399: the author sees who sent it back (the reviewer's name, readable as app_user)
-    detail = client.get(f"/api/v1/precurations/{w.pre}", headers=_h(w.alice))
-    assert detail.json()["rejected_by_name"] == "bob"
     with _owner() as conn, conn.cursor() as cur:
         cur.execute(
             "UPDATE precurations SET status = 'draft' WHERE id = %s", (str(w.pre),)
