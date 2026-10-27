@@ -219,6 +219,7 @@ describe('Login', () => {
     expect(targets).toContainEqual({ name: 'GeneCatalogue' })
     expect(wrapper.text()).toContain('Ask your scope admin for an invitation')
     expect(wrapper.text()).toContain('Research use only')
+    expect(wrapper.text()).not.toMatch(/forgot/i) // #374: no password-reset route, so no dead link
   })
 
   it('quick login fills the admin development credentials and submits', async () => {

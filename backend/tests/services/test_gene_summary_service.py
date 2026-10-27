@@ -3,6 +3,8 @@
 from datetime import UTC, datetime
 from uuid import uuid4
 
+import pytest
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.models import (
@@ -339,3 +341,52 @@ def test_curator_count_counts_distinct_creators(
     service = GeneSummaryService(db_session)
     assert service._get_curator_count(test_gene.id, test_scope.id) == 2
     assert service._get_curator_count(uuid4(), test_scope.id) == 0
+
+
+def test_read_summaries_do_not_write_cache(
+    db_session: Session,
+    test_gene: Gene,
+    test_public_scope: Scope,
+    test_user_curator: UserNew,
+    test_workflow_pair: WorkflowPair,
+) -> None:
+    """#377: anonymous and member GETs compute in memory; only recompute writes."""
+    _activate(
+        db_session,
+        test_gene,
+        test_public_scope,
+        test_user_curator,
+        test_workflow_pair,
+        "strong",
+    )
+    service = GeneSummaryService(db_session)
+
+    assert service.get_public_summary(test_gene.id) is not None
+    assert service.get_full_summary(
+        test_gene.id, test_user_curator
+    ).total_scopes_curated
+    assert db_session.query(GeneSummary).count() == 0
+
+
+def test_compute_summary_retries_after_concurrent_insert(
+    db_session: Session, test_gene: Gene, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """#377: a concurrent first insert (unique gene_id) must not surface as a 500."""
+    real_commit = db_session.commit
+    calls = {"n": 0}
+
+    def racing_commit() -> None:
+        calls["n"] += 1
+        if calls["n"] == 1:
+            db_session.rollback()  # pretend another request inserted the row first
+            db_session.add(GeneSummary(gene_id=test_gene.id))
+            real_commit()
+            raise IntegrityError("INSERT", {}, Exception("duplicate gene_id"))
+        real_commit()
+
+    monkeypatch.setattr(db_session, "commit", racing_commit)
+
+    summary = GeneSummaryService(db_session).compute_summary(test_gene.id)
+
+    assert summary.gene_id == test_gene.id
+    assert db_session.query(GeneSummary).count() == 1
