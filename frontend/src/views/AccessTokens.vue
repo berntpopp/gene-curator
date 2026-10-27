@@ -91,7 +91,16 @@
         readonly
         data-test="new-token"
         append-inner-icon="mdi-content-copy"
-        @click:append-inner="copy"
+        @click:append-inner="copy(plaintext)"
+      />
+      <p class="mb-2">Connect Claude Code with this command:</p>
+      <v-text-field
+        :model-value="mcpCommand"
+        label="Claude Code command"
+        readonly
+        data-test="mcp-command"
+        append-inner-icon="mdi-content-copy"
+        @click:append-inner="copy(mcpCommand)"
       />
       <template #actions>
         <v-btn color="primary" variant="flat" @click="closeToken">Done</v-btn>
@@ -101,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, ref } from 'vue'
+  import { computed, onMounted, ref } from 'vue'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { useConfirm } from '@/composables/useConfirm'
   import { showError, showSuccess } from '@/composables/useNotifications'
@@ -119,6 +128,12 @@
   const creating = ref(false)
   const plaintext = ref('')
   const showToken = ref(false)
+
+  const mcpUrl = `${import.meta.env.VITE_API_BASE_URL || window.location.origin}/mcp`
+  const mcpCommand = computed(
+    () =>
+      `claude mcp add --transport http gene-curator ${mcpUrl} --header "Authorization: Bearer ${plaintext.value}"`
+  )
 
   const isExpired = (t: PersonalAccessToken): boolean => new Date(t.expires_at) <= new Date()
 
@@ -140,10 +155,10 @@
     }
   }
 
-  async function copy(): Promise<void> {
+  async function copy(text: string): Promise<void> {
     try {
-      await navigator.clipboard.writeText(plaintext.value)
-      showSuccess('Token copied')
+      await navigator.clipboard.writeText(text)
+      showSuccess('Copied')
     } catch {
       showError('Copy failed; select the token and copy it manually')
     }

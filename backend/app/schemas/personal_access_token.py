@@ -8,6 +8,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 
 TokenScope = Literal["read", "write"]
 MAX_TOKEN_LIFETIME = timedelta(days=365)
+# A client clock ahead of ours may still ask for 365 days
+CLOCK_SKEW = timedelta(days=1)
 
 
 class PersonalAccessTokenCreate(BaseModel):
@@ -27,7 +29,7 @@ class PersonalAccessTokenCreate(BaseModel):
         now = datetime.now(UTC)
         if value <= now:
             raise ValueError("expires_at must be in the future")
-        if value > now + MAX_TOKEN_LIFETIME:
+        if value > now + MAX_TOKEN_LIFETIME + CLOCK_SKEW:
             raise ValueError("expires_at must be at most 365 days from now")
         return value
 

@@ -34,6 +34,7 @@ dependencies = [
     "defusedxml>=0.7.1",
     # "jsonschema>=4.0.0",  # temporarily disabled
     "cryptography>=44.0.0",
+    "fastmcp>=3.4.7,<4.0.0",  # MCP server over the existing routes (#462)
 ]
 
 [project.optional-dependencies]
