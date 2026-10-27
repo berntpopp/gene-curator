@@ -6,6 +6,12 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+UNSCORED_NOTE = (
+    "Evidence items are supporting records and are not scored. The curation's score "
+    "comes from its evidence_data: add the row to the matching table there and save "
+    "it with save_draft_curations (PATCH /curations/{id}/draft) to score it."
+)
+
 
 class EvidenceItemBase(BaseModel):
     """Base schema for evidence items"""
@@ -45,10 +51,17 @@ class EvidenceItem(EvidenceItemBase):
     id: UUID
     curation_id: UUID
     computed_score: float | None = Field(
-        None, description="Individual item score (from scoring engine)"
+        None, description="Always null: evidence items are not scored"
+    )
+    score_note: str = Field(
+        UNSCORED_NOTE, description="Why this item does not change the curation score"
     )
     score_metadata: dict[str, Any] | None = Field(
         None, description="Scoring calculation details"
+    )
+    unverified_pmids: list[str] = Field(
+        default_factory=list,
+        description="PMIDs not verified: PubMed was unreachable when the item was saved",
     )
     validation_status: str = Field(..., description="Validation status")
     validation_errors: dict[str, Any] | None = Field(
