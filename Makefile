@@ -183,6 +183,21 @@ audit-frontend: ## npm audit (high and critical) of shipped dependencies; dev to
 workflows: ## Lint GitHub workflows (zizmor)
 	uvx zizmor@1.31.1 --min-severity medium .github/
 
+TRIVY := docker run --rm -v /var/run/docker.sock:/var/run/docker.sock -v gene-curator-trivy-cache:/root/.cache \
+	-v $(CURDIR)/.trivyignore:/.trivyignore:ro \
+	aquasec/trivy:0.74.0@sha256:62b1e65e8869bc4b4c6aa4fa2b21595256c7c2f6018a9d9ad61caf87187c1969
+IMAGES := gene-curator-backend:ci gene-curator-frontend:ci
+
+docker-images: ## Build the production images (CI builds the same targets with a GitHub layer cache)
+	docker buildx build --load --target production -t gene-curator-backend:ci backend
+	docker buildx build --load -t gene-curator-frontend:ci frontend
+
+docker-scan: ## Trivy: fail on fixable HIGH/CRITICAL CVEs in the built images (accepted ones: .trivyignore)
+	for i in $(IMAGES); do \
+		$(TRIVY) image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+			--ignorefile /.trivyignore --exit-code 1 $$i || exit 1; \
+	done
+
 ##@ Cleanup
 clean: ## Remove caches and build output
 	find backend -type d \( -name __pycache__ -o -name .pytest_cache -o -name .mypy_cache -o -name .ruff_cache \) -prune -exec rm -rf {} +
@@ -195,4 +210,4 @@ clean-all: ## DESTRUCTIVE: stop everything and delete Docker volumes
 .PHONY: help install hybrid-up hybrid-down services-up services-down backend frontend dev dev-build dev-down dev-logs \
 	prod prod-build prod-down prod-logs db-reset db-migrate db-shell db-backup db-restore status health \
 	check format test test-postgres test-frontend test-e2e ci ci-backend ci-frontend ci-repo diff-cover \
-	api-types api-types-check workflows clean clean-all
+	api-types api-types-check workflows docker-images docker-scan clean clean-all
