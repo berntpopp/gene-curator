@@ -8882,63 +8882,20 @@ export interface components {
         };
         /**
          * ScopeListItem
-         * @description Scope with basic counts for list views.
+         * @description Compact scope row with counts; detail=true adds the remaining scope fields.
          */
         ScopeListItem: {
-            /**
-             * Name
-             * @description Unique scope identifier (e.g., 'kidney-genetics')
-             */
-            name: string;
-            /**
-             * Display Name
-             * @description Human-readable scope name
-             */
-            display_name: string;
-            /**
-             * Description
-             * @description Scope description
-             */
-            description?: string | null;
-            /**
-             * Institution
-             * @description Owning institution
-             */
-            institution?: string | null;
-            /**
-             * Is Public
-             * @description Whether scope is publicly visible
-             * @default false
-             */
-            is_public: boolean;
-            /**
-             * Scope Config
-             * @description Scope-specific configuration
-             */
-            scope_config?: {
-                [key: string]: unknown;
-            };
             /**
              * Id
              * Format: uuid
              */
             id: string;
-            /** Is Active */
-            is_active: boolean;
+            /** Name */
+            name: string;
+            /** Display Name */
+            display_name: string;
             /** Default Workflow Pair Id */
             default_workflow_pair_id: string | null;
-            /**
-             * Created At
-             * Format: date-time
-             */
-            created_at: string;
-            /**
-             * Updated At
-             * Format: date-time
-             */
-            updated_at: string;
-            /** Created By */
-            created_by: string | null;
             /** @description Basic scope statistics */
             stats?: components["schemas"]["ScopeListStats"] | null;
             /**
@@ -8946,6 +8903,24 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /** Description */
+            description?: string | null;
+            /** Institution */
+            institution?: string | null;
+            /** Is Public */
+            is_public?: boolean | null;
+            /** Scope Config */
+            scope_config?: {
+                [key: string]: unknown;
+            } | null;
+            /** Is Active */
+            is_active?: boolean | null;
+            /** Created At */
+            created_at?: string | null;
+            /** Updated At */
+            updated_at?: string | null;
+            /** Created By */
+            created_by?: string | null;
         };
         /**
          * ScopeListStats
@@ -10983,6 +10958,10 @@ export interface operations {
                 limit?: number;
                 /** @description Filter for active scopes only */
                 active_only?: boolean;
+                /** @description Case-insensitive part of the scope name or display name */
+                name?: string | null;
+                /** @description Full scope fields (config, description, timestamps) */
+                detail?: boolean;
             };
             header?: never;
             path?: never;

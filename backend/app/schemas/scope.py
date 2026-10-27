@@ -108,9 +108,13 @@ class ScopeListStats(BaseModel):
 
 
 # Scope List Item with basic counts
-class ScopeListItem(ScopeInDBBase):
-    """Scope with basic counts for list views."""
+class ScopeListItem(BaseModel):
+    """Compact scope row with counts; detail=true adds the remaining scope fields."""
 
+    id: UUID
+    name: str
+    display_name: str
+    default_workflow_pair_id: UUID | None
     stats: ScopeListStats | None = Field(
         default=None, description="Basic scope statistics"
     )
@@ -118,6 +122,15 @@ class ScopeListItem(ScopeInDBBase):
         default=None,
         description="Caller's role from an accepted membership in this scope, if any",
     )
+    # Only with detail=true (unset fields are left out of the response)
+    description: str | None = None
+    institution: str | None = None
+    is_public: bool | None = None
+    scope_config: dict[str, Any] | None = None
+    is_active: bool | None = None
+    created_at: datetime | None = None
+    updated_at: datetime | None = None
+    created_by: UUID | None = None
 
 
 # Scope with Statistics
