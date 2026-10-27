@@ -9,9 +9,18 @@ class UnsafeURLError(ValueError):
     """The base URL is not allowed as an outbound LLM endpoint."""
 
 
+_EMBEDDED_V4 = (
+    ipaddress.IPv6Network("64:ff9b::/96"),  # NAT64
+    ipaddress.IPv6Network("::/96"),  # IPv4-compatible
+)
+
+
 def _is_public(ip: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
-    if isinstance(ip, ipaddress.IPv6Address) and ip.ipv4_mapped:
-        ip = ip.ipv4_mapped
+    if isinstance(ip, ipaddress.IPv6Address):
+        if ip.ipv4_mapped:
+            ip = ip.ipv4_mapped
+        elif any(ip in net for net in _EMBEDDED_V4):
+            ip = ipaddress.IPv4Address(int(ip) & 0xFFFFFFFF)
     # is_global excludes loopback, private, link-local (169.254.169.254 metadata),
     # CGNAT (100.100.100.200 metadata), ULA (fd00:ec2::254 metadata) and reserved.
     return ip.is_global and not ip.is_multicast

@@ -37,6 +37,9 @@ def test_public_https_url_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
         "fd00:ec2::254",  # AWS IPv6 metadata
         "fe80::1",
         "::ffff:127.0.0.1",
+        "64:ff9b::7f00:1",  # NAT64 loopback
+        "64:ff9b::a9fe:a9fe",  # NAT64 metadata
+        "::7f00:1",  # IPv4-compatible loopback
         "224.0.0.1",
     ],
 )
@@ -46,6 +49,11 @@ def test_private_loopback_and_metadata_rejected(
     fake_dns(monkeypatch, ip)
     with pytest.raises(UnsafeURLError):
         validate_base_url("https://llm.example.org", kind="openai_compatible")
+
+
+def test_nat64_of_public_ipv4_accepted(monkeypatch: pytest.MonkeyPatch) -> None:
+    fake_dns(monkeypatch, "64:ff9b::808:808")
+    assert validate_base_url("https://llm.example.org", kind="anthropic")
 
 
 def test_any_private_answer_rejects(monkeypatch: pytest.MonkeyPatch) -> None:
