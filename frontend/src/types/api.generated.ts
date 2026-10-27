@@ -4643,6 +4643,11 @@ export interface components {
             baseline: components["schemas"]["DiffBaseline"] | null;
             /** Items */
             items: components["schemas"]["DiffItem"][];
+            /**
+             * Changed
+             * @description True when the evidence differs from the baseline.
+             */
+            readonly changed: boolean;
         };
         /**
          * CurationDraftSave
@@ -5118,7 +5123,7 @@ export interface components {
              * Source
              * @enum {string}
              */
-            source: "review" | "any_review" | "previous_submission" | "active_curation";
+            source: "review" | "any_review" | "previous_submission" | "active_curation" | "submitted" | "audit";
         };
         /** DiffItem */
         DiffItem: {
@@ -13953,7 +13958,10 @@ export interface operations {
     };
     curation_diff_api_v1_curations__curation_id__diff_get: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description submitted (last submission), active (the active curation) or an audit id; default: the version the caller last reviewed */
+                baseline?: string | null;
+            };
             header?: never;
             path: {
                 curation_id: string;
