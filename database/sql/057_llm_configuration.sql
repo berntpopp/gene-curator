@@ -123,7 +123,7 @@ CREATE TABLE IF NOT EXISTS llm_runs (
     model_id TEXT NOT NULL,
     prompt_version_id UUID REFERENCES prompt_template_versions(id),
     prompt_sha256 TEXT,
-    methodology_version_id UUID,  -- no FK: the 042 downgrade test drops methodology_versions
+    methodology_version_id UUID REFERENCES methodology_versions(id),
     status TEXT NOT NULL DEFAULT 'queued'
         CHECK (status IN ('queued', 'running', 'succeeded', 'failed')),
     input_tokens INTEGER NOT NULL DEFAULT 0,

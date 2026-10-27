@@ -206,8 +206,9 @@ class LLMRun(Base):
         compatible_uuid(), ForeignKey("prompt_template_versions.id")
     )
     prompt_sha256: Mapped[str | None] = mapped_column(Text)
-    # no FK (057): the 042 downgrade test drops methodology_versions
-    methodology_version_id: Mapped[PyUUID | None] = mapped_column(compatible_uuid())
+    methodology_version_id: Mapped[PyUUID | None] = mapped_column(
+        compatible_uuid(), ForeignKey("methodology_versions.id")
+    )
     status: Mapped[str] = mapped_column(Text, nullable=False, default="queued")
     input_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     output_tokens: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
