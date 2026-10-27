@@ -5,4 +5,4 @@ ClinGen-compliant genetic curation platform backend built with FastAPI.
 Implements native SOP v11 evidence scoring and summary generation.
 """
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
