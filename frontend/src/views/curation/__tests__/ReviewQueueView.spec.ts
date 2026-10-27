@@ -6,11 +6,18 @@ vi.mock('@/api', () => ({
   curationsAPI: { getCurations: vi.fn() }
 }))
 
-const routeQuery = vi.hoisted(() => ({ q: undefined as string | string[] | undefined }))
+const routeQuery = vi.hoisted(
+  () => ({ q: undefined }) as Record<string, string | string[] | undefined>
+)
 vi.mock('vue-router', async () => {
   const { reactive } = await import('vue')
   const route = reactive({ query: routeQuery })
-  return { useRoute: () => route }
+  // The table writes its state with router.replace({ query })
+  const replace = ({ query }: { query: Record<string, string> }) => {
+    for (const k of Object.keys(route.query)) delete route.query[k]
+    Object.assign(route.query, query)
+  }
+  return { useRoute: () => route, useRouter: () => ({ replace }) }
 })
 
 vi.mock('@/api/reviewComments', () => ({
@@ -48,6 +55,10 @@ const row = (overrides: Record<string, unknown>) => ({
   updated_at: '2024-05-01T00:00:00Z',
   created_by: 'someone-else',
   ...overrides
+})
+
+beforeEach(() => {
+  for (const k of Object.keys(routeQuery)) delete routeQuery[k]
 })
 
 describe('ReviewQueueView', () => {
@@ -347,11 +358,10 @@ describe('ReviewQueueView status label', () => {
       } as never)
       const wrapper = mount(ReviewQueueView)
       await flushPromises()
-      await wrapper.find('[data-testid=queue-search] input').setValue('polycystic')
+      await wrapper.find('input[aria-label="Search table"]').setValue('polycystic')
       await flushPromises()
       expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(10)
-      expect(wrapper.find('.v-pagination').exists()).toBe(true)
-      expect(wrapper.findComponent({ name: 'VPagination' }).props('length')).toBe(2)
+      expect(wrapper.text()).toContain('1-10 of 12')
     })
 
     it('labels the date as last updated, not submitted', async () => {
@@ -388,10 +398,48 @@ describe('ReviewQueueView status label', () => {
       } as never)
       const wrapper = mount(ReviewQueueView)
       await flushPromises()
-      await wrapper.find('[data-testid=queue-search] input').setValue('zzz')
+      await wrapper.find('input[aria-label="Search table"]').setValue('zzz')
       await flushPromises()
       expect(wrapper.text()).toContain('No matching curations')
+      const clear = wrapper
+        .findAllComponents({ name: 'VBtn' })
+        .find(b => b.text() === 'Clear filters')!
+      await clear.trigger('click')
+      await flushPromises()
+      expect(wrapper.findAll('[data-testid=review-row]')).toHaveLength(2)
     })
+  })
+
+  it('keeps the scope filter and column sort in the URL and applies them', async () => {
+    routeQuery.scope = 'sc2'
+    routeQuery.sort = 'gene_symbol'
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [
+        row({ id: 'a', gene_symbol: 'ZFP1', scope_id: 'sc2', scope_name: 'Kidney' }),
+        row({ id: 'b', gene_symbol: 'ABCA4', scope_id: 'sc2', scope_name: 'Kidney' }),
+        row({ id: 'c', gene_symbol: 'BRCA2' })
+      ],
+      total: 3
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    const rows = wrapper.findAll('[data-testid=review-row]')
+    expect(rows.map(r => r.find('td').text())).toEqual(['ABCA4', 'ZFP1'])
+    expect(wrapper.find('[data-testid="filter-scope"]').text()).toContain('Kidney')
+  })
+
+  it('lists newest first until a column is sorted', async () => {
+    vi.mocked(curationsAPI.getCurations).mockResolvedValue({
+      curations: [
+        row({ id: 'a', gene_symbol: 'OLD', updated_at: '2024-01-01T00:00:00Z' }),
+        row({ id: 'b', gene_symbol: 'NEW', updated_at: '2024-06-01T00:00:00Z' })
+      ],
+      total: 2
+    } as never)
+    const wrapper = mount(ReviewQueueView)
+    await flushPromises()
+    const rows = wrapper.findAll('[data-testid=review-row]')
+    expect(rows.map(r => r.find('td').text())).toEqual(['NEW', 'OLD'])
   })
 
   it('starts with the gene from a My work link in the search', async () => {

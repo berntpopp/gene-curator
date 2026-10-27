@@ -43,6 +43,7 @@
           v-model:items-per-page="table.itemsPerPage.value"
           v-model:sort-by="table.sortBy.value"
           v-model:density="table.density.value"
+          storage-key="scope-genes"
           :headers="tableHeaders"
           :items="pageRows"
           :items-length="filteredGenes.length"

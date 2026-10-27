@@ -1,4 +1,6 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { createPinia, setActivePinia } from 'pinia'
+import { useValidationStore } from '@/stores/validation'
 import { mount } from '@vue/test-utils'
 import StageLine from '../StageLine.vue'
 import SaveState from '../SaveState.vue'
@@ -84,6 +86,26 @@ const score = (over: Partial<ScoreSnapshot> = {}): ScoreSnapshot => ({
 })
 
 describe('ScorePanel', () => {
+  beforeEach(() => setActivePinia(createPinia()))
+
+  it('lists the rows the score flags, next to the score', () => {
+    useValidationStore().validationResults.form = {
+      warnings: [
+        { field: 'scoring', type: 'scoring', message: '2 evidence item(s) with invalid PMID' },
+        { field: 'disease', type: 'quality', message: 'Disease is short' }
+      ]
+    } as never
+    const w = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
+    const rows = w.find('[data-testid="score-flags"]')
+    expect(rows.text()).toContain('2 evidence item(s) with invalid PMID')
+    expect(rows.text()).not.toContain('Disease is short')
+  })
+
+  it('shows no flagged-rows list when the score flags nothing', () => {
+    const w = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
+    expect(w.find('[data-testid="score-flags"]').exists()).toBe(false)
+  })
+
   it('shows backend totals and verdict without guessed thresholds', () => {
     const w = mount(ScorePanel, { props: { score: score(), canSubmit: true, readonly: false } })
     expect(w.text()).toContain('7.50')

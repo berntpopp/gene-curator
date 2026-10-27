@@ -194,9 +194,27 @@
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const item = flat.value[active.value]
-      if (item) activate(item)
+      if (search.loading) enterWaiting = true
+      else if (item) activate(item)
     }
   }
+
+  // Enter typed faster than the search answers opens the first result once it lands
+  let enterWaiting = false
+  watch(
+    () => search.query,
+    () => (enterWaiting = false),
+    { flush: 'sync' } // before a keydown in the same tick, not after it
+  )
+  watch(
+    () => search.loading,
+    loading => {
+      if (loading || !enterWaiting) return
+      enterWaiting = false
+      const item = flat.value[0]
+      if (item && !search.error) activate(item)
+    }
+  )
 
   // Focus the field on open; give focus back to whatever had it on close.
   watch(

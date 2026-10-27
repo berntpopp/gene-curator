@@ -13,64 +13,6 @@
       </v-chip>
     </div>
 
-    <!-- Filters -->
-    <v-card class="mb-4" variant="outlined">
-      <v-card-text>
-        <v-row dense>
-          <v-col cols="12" md="3">
-            <v-select
-              v-model="selectedScope"
-              :items="scopeOptions"
-              item-title="name"
-              item-value="id"
-              label="Filter by Scope"
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-              prepend-inner-icon="mdi-folder-outline"
-            />
-          </v-col>
-          <v-col cols="12" md="3">
-            <v-text-field
-              v-model="searchQuery"
-              data-testid="queue-search"
-              label="Search gene, disease or curator"
-              variant="outlined"
-              density="compact"
-              hide-details
-              clearable
-              prepend-inner-icon="mdi-magnify"
-            />
-          </v-col>
-          <v-col cols="12" md="2">
-            <v-switch
-              v-model="mineOnly"
-              data-testid="assigned-to-me"
-              label="Assigned to me"
-              density="compact"
-              hide-details
-              color="primary"
-            />
-          </v-col>
-          <v-col cols="12" md="4">
-            <v-select
-              v-model="sortBy"
-              :items="sortOptions"
-              item-title="label"
-              item-value="value"
-              label="Sort by"
-              variant="outlined"
-              density="compact"
-              hide-details
-              prepend-inner-icon="mdi-sort"
-            />
-          </v-col>
-        </v-row>
-      </v-card-text>
-    </v-card>
-
-    <!-- Loading State -->
     <template v-if="loading">
       <v-row>
         <v-col v-for="n in 3" :key="n" cols="12">
@@ -79,137 +21,109 @@
       </v-row>
     </template>
 
-    <!-- Empty State -->
-    <div
-      v-else-if="filteredCurations.length === 0"
-      class="text-center py-8"
-      data-testid="queue-empty"
+    <DataTable
+      v-else
+      v-model:search="searchQuery"
+      v-model:page="currentPage"
+      v-model:items-per-page="itemsPerPage"
+      v-model:sort-by="sortBy"
+      v-model:density="density"
+      v-model:filters="filters"
+      :headers="HEADERS"
+      :items="pageRows"
+      :items-length="filtered.length"
+      :filter-defs="filterDefs"
+      :row-props="() => ({ 'data-testid': 'review-row' })"
+      storage-key="review-queue"
     >
-      <p class="text-body-large mb-2">
-        {{
-          searchQuery || selectedScope || mineOnly ? 'No matching curations' : 'No reviews waiting'
-        }}
-      </p>
-      <v-btn v-if="searchQuery || selectedScope || mineOnly" variant="text" @click="clearFilters">
-        Clear filters
-      </v-btn>
-    </div>
+      <template #toolbar-actions>
+        <v-switch
+          v-model="mineOnly"
+          data-testid="assigned-to-me"
+          label="Assigned to me"
+          density="compact"
+          hide-details
+          color="primary"
+        />
+      </template>
 
-    <!-- Review Cards -->
-    <v-row v-else>
-      <v-col v-for="curation in filteredCurations" :key="curation.id" cols="12">
-        <v-card variant="outlined" hover data-testid="review-row">
-          <v-card-text>
-            <v-row align="center">
-              <!-- Gene & Disease Info -->
-              <v-col cols="12" md="4">
-                <div class="d-flex align-center flex-wrap ga-1 mb-2">
-                  <v-icon icon="mdi-dna" color="primary" class="mr-2" />
-                  <span class="text-title-large font-weight-bold">{{ curation.gene_symbol }}</span>
-                  <v-chip
-                    v-if="curation.kind === 'precuration'"
-                    size="x-small"
-                    color="info"
-                    variant="tonal"
-                    class="ml-2"
-                  >
-                    Precuration
-                  </v-chip>
-                </div>
-                <div
-                  v-if="curation.disease_name"
-                  class="text-body-medium text-medium-emphasis ml-7"
-                >
-                  {{ curation.disease_name }}
-                </div>
-                <div class="text-body-small text-medium-emphasis ml-7 mt-1">
-                  <v-icon icon="mdi-folder-outline" size="small" class="mr-1" />
-                  {{ curation.scope_name }}
-                </div>
-              </v-col>
-
-              <!-- Curator & Status -->
-              <v-col cols="12" md="3">
-                <div class="d-flex align-center mb-2">
-                  <v-icon icon="mdi-account" size="small" class="mr-2" />
-                  <span class="text-body-medium">{{ curation.curator_name || 'Unknown' }}</span>
-                </div>
-                <div class="d-flex align-center">
-                  <v-chip color="warning" size="small" variant="flat">
-                    <v-icon start size="small">mdi-clock-outline</v-icon>
-                    {{ curationStatusLabel(curation.status) }}
-                  </v-chip>
-                </div>
-              </v-col>
-
-              <!-- Score Preview -->
-              <v-col cols="12" md="2">
-                <div v-if="curation.kind !== 'precuration'" class="text-center">
-                  <div class="text-headline-large font-weight-bold">
-                    {{ curation.total_score || 0 }}
-                  </div>
-                  <div class="text-body-small text-medium-emphasis">/ 18 points</div>
-                  <ClassificationMark
-                    v-if="curation.classification"
-                    :classification="curation.classification"
-                    class="mt-1"
-                  />
-                </div>
-              </v-col>
-
-              <!-- Submitted Time & Actions -->
-              <v-col cols="12" md="3" class="text-right">
-                <div class="text-body-small text-medium-emphasis mb-2">
-                  Updated {{ formatRelativeTime(curation.updated_at) }}
-                </div>
-                <div v-if="curation.kind === 'precuration'" class="d-flex justify-end ga-2">
-                  <v-btn
-                    variant="text"
-                    :to="`/scopes/${curation.scope_id}/precurations/${curation.id}`"
-                    data-test="open-precuration"
-                  >
-                    Open
-                  </v-btn>
-                  <v-btn
-                    variant="outlined"
-                    color="warning"
-                    data-test="reject-precuration"
-                    @click="openReject(curation)"
-                  >
-                    Request changes
-                  </v-btn>
-                  <v-btn
-                    color="success"
-                    :loading="busyId === curation.id"
-                    data-test="approve-precuration"
-                    @click="approve(curation)"
-                  >
-                    Approve
-                  </v-btn>
-                </div>
-                <v-btn
-                  v-else
-                  color="primary"
-                  :to="`/scopes/${curation.scope_id}/curations/${curation.id}`"
-                >
-                  <v-icon start>mdi-eye</v-icon>
-                  Review
-                </v-btn>
-              </v-col>
-            </v-row>
-          </v-card-text>
-        </v-card>
-      </v-col>
-    </v-row>
-
-    <!-- Pagination -->
-    <v-pagination
-      v-if="totalPages > 1"
-      v-model="currentPage"
-      :length="totalPages"
-      :total-visible="5"
-      class="mt-6"
-    />
+      <template #item.gene_symbol="{ item }">
+        <span class="font-weight-bold">{{ item.gene_symbol }}</span>
+        <v-chip
+          v-if="item.kind === 'precuration'"
+          size="x-small"
+          color="info"
+          variant="tonal"
+          class="ml-2"
+        >
+          Precuration
+        </v-chip>
+      </template>
+      <template #item.status="{ item }">
+        <v-chip color="warning" size="small" variant="tonal">
+          {{ curationStatusLabel(item.status) }}
+        </v-chip>
+      </template>
+      <template #item.total_score="{ item }">
+        <template v-if="item.kind !== 'precuration'">
+          <span class="font-mono">{{ item.total_score || 0 }}</span>
+          <ClassificationMark
+            v-if="item.classification"
+            :classification="item.classification"
+            class="ml-2"
+          />
+        </template>
+      </template>
+      <template #item.updated_at="{ item }">
+        <span class="text-medium-emphasis">Updated {{ relativeTime(item.updated_at) }}</span>
+      </template>
+      <template #item.actions="{ item }">
+        <div v-if="item.kind === 'precuration'" class="d-flex justify-end ga-2">
+          <v-btn
+            variant="text"
+            size="small"
+            :to="`/scopes/${item.scope_id}/precurations/${item.id}`"
+            data-test="open-precuration"
+          >
+            Open
+          </v-btn>
+          <v-btn
+            variant="outlined"
+            size="small"
+            color="warning"
+            data-test="reject-precuration"
+            @click="openReject(item)"
+          >
+            Request changes
+          </v-btn>
+          <v-btn
+            color="success"
+            size="small"
+            :loading="busyId === item.id"
+            data-test="approve-precuration"
+            @click="approve(item)"
+          >
+            Approve
+          </v-btn>
+        </div>
+        <v-btn
+          v-else
+          color="primary"
+          size="small"
+          :to="`/scopes/${item.scope_id}/curations/${item.id}`"
+        >
+          Review
+        </v-btn>
+      </template>
+      <template #no-data>
+        <div class="text-center py-8" data-testid="queue-empty">
+          <p class="text-body-large mb-2">
+            {{ filtersOn ? 'No matching curations' : 'No reviews waiting' }}
+          </p>
+          <v-btn v-if="filtersOn" variant="text" @click="clearFilters">Clear filters</v-btn>
+        </div>
+      </template>
+    </DataTable>
 
     <BaseDialog v-model="showReject" title="Request changes" size="md">
       <v-textarea
@@ -245,9 +159,10 @@
    */
 
   import { ref, computed, onMounted, watch } from 'vue'
-  import { useRoute } from 'vue-router'
-  import { formatDate } from '@/utils/format'
   import { curationsAPI } from '@/api'
+  import DataTable from '@/components/common/DataTable.vue'
+  import { clientPage, relativeTime } from '@/components/common/tableRows'
+  import { useTableUrlState } from '@/composables/useTableUrlState'
   import BaseDialog from '@/components/BaseDialog.vue'
   import { REVIEW_TEXT_MAX } from '@/components/review/reviewModel'
   import { curationStatusLabel } from '@/config/status'
@@ -261,7 +176,8 @@
   import { usePrecurationsStore } from '@/stores/precurations'
   import type { Schema } from '@/types/api'
 
-  interface ReviewItem {
+  // A type, not an interface: DataTable rows need an index signature
+  type ReviewItem = {
     kind?: 'curation' | 'precuration'
     id: string
     gene_id: string
@@ -291,83 +207,69 @@
   const loading = ref(true)
   const curations = ref<ReviewItem[]>([])
   const scopes = ref<Array<{ id: string; name: string }>>([])
-  const selectedScope = ref<string | null>(null)
-  // My work deep-links here with ?q=<gene> so the item to review is the one listed
-  const route = useRoute()
-  const queryText = (q: unknown) => String(([] as unknown[]).concat(q)[0] ?? '')
-  const searchQuery = ref(queryText(route?.query.q))
-  const sortBy = ref('submitted_desc')
-  const currentPage = ref(1)
+  // Search, scope filter, sort and page live in the URL; My work deep-links here with ?q=<gene>
+  const {
+    search: searchQuery,
+    page: currentPage,
+    itemsPerPage,
+    sortBy,
+    density,
+    filters
+  } = useTableUrlState({ filterKeys: ['scope'], pageSize: 10 })
+  const selectedScope = computed(() => filters.value.scope as string | undefined)
   const mineOnly = ref(false)
   const mineIds = ref<Set<string> | null>(null)
-  const itemsPerPage = 10
   const busyId = ref<string | null>(null)
   const showReject = ref(false)
   const rejectReason = ref('')
   const rejectError = ref<string | null>(null)
   const rejectTarget = ref<ReviewItem | null>(null)
 
-  // Sort options
-  const sortOptions = [
-    { label: 'Newest first', value: 'submitted_desc' },
-    { label: 'Oldest first', value: 'submitted_asc' },
-    { label: 'Gene (A-Z)', value: 'gene_asc' },
-    { label: 'Score (high-low)', value: 'score_desc' }
+  const HEADERS = [
+    { title: 'Gene', key: 'gene_symbol' },
+    { title: 'Disease', key: 'disease_name' },
+    { title: 'Scope', key: 'scope_name' },
+    { title: 'Curator', key: 'curator_name' },
+    { title: 'Status', key: 'status', sortable: false },
+    { title: 'Score', key: 'total_score' },
+    { title: 'Updated', key: 'updated_at' },
+    { title: 'Actions', key: 'actions', sortable: false, align: 'end', hideable: false }
   ]
-
-  // Computed
-  const scopeOptions = computed(() => scopes.value)
+  const filterDefs = computed(() => [
+    {
+      key: 'scope',
+      label: 'Scope',
+      options: scopes.value.map(s => ({ value: s.id, title: s.name }))
+    }
+  ])
+  const filtersOn = computed(() => !!(searchQuery.value || selectedScope.value || mineOnly.value))
 
   const pendingCount = computed(() => curations.value.length)
 
-  // One filtered, sorted list: the page slices it and the page count measures it
+  // Filtered here, sorted and paged by the table; newest first until a column is sorted
   const filtered = computed<ReviewItem[]>(() => {
-    let result = [...curations.value]
-    if (selectedScope.value) result = result.filter(c => c.scope_id === selectedScope.value)
-    if (mineOnly.value && mineIds.value) result = result.filter(c => mineIds.value!.has(c.id))
-    if (searchQuery.value) {
-      const query = searchQuery.value.toLowerCase()
-      result = result.filter(
+    const query = searchQuery.value?.toLowerCase()
+    return curations.value
+      .filter(c => !selectedScope.value || c.scope_id === selectedScope.value)
+      .filter(c => !mineOnly.value || !mineIds.value || mineIds.value.has(c.id))
+      .filter(
         c =>
+          !query ||
           c.gene_symbol?.toLowerCase().includes(query) ||
           c.curator_name?.toLowerCase().includes(query) ||
           c.disease_name?.toLowerCase().includes(query)
       )
-    }
-    return result.sort((a, b) => {
-      switch (sortBy.value) {
-        case 'submitted_asc':
-          return new Date(a.updated_at).getTime() - new Date(b.updated_at).getTime()
-        case 'gene_asc':
-          return (a.gene_symbol || '').localeCompare(b.gene_symbol || '')
-        case 'score_desc':
-          return (b.total_score || 0) - (a.total_score || 0)
-        case 'submitted_desc':
-        default:
-          return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      }
+  })
+  const pageRows = computed(() =>
+    clientPage(filtered.value, {
+      sortBy: sortBy.value.length ? sortBy.value : [{ key: 'updated_at', order: 'desc' }],
+      page: currentPage.value,
+      itemsPerPage: itemsPerPage.value
     })
-  })
-
-  const filteredCurations = computed<ReviewItem[]>(() => {
-    const start = (currentPage.value - 1) * itemsPerPage
-    return filtered.value.slice(start, start + itemsPerPage)
-  })
-
-  const totalPages = computed<number>(() => Math.ceil(filtered.value.length / itemsPerPage))
-
-  // A second deep link while the queue is open applies too
-  watch(
-    () => route?.query.q,
-    q => {
-      if (q !== undefined) searchQuery.value = queryText(q)
-    }
   )
 
-  // Watch for filter changes to reset pagination
-  watch([selectedScope, searchQuery, mineOnly], () => {
-    currentPage.value = 1
-  })
+  // The URL page resets on search and scope changes; the local toggle resets it here
+  watch(mineOnly, () => (currentPage.value = 1))
 
   // "Assigned to me": ids of my pending review assignments, read on first use
   watch(mineOnly, async on => {
@@ -522,27 +424,8 @@
 
   const errorText = (error: unknown): string => readableApiError(error, 'unknown error')
 
-  function formatRelativeTime(dateString: string | null | undefined): string {
-    if (!dateString) return 'unknown'
-
-    const now = new Date()
-    const date = new Date(dateString)
-    const diffMs = now.getTime() - date.getTime()
-    const diffMin = Math.floor(diffMs / 60000)
-    const diffHours = Math.floor(diffMin / 60)
-    const diffDays = Math.floor(diffHours / 24)
-
-    if (diffDays > 7) {
-      return formatDate(dateString)
-    }
-    if (diffDays > 0) return `${diffDays}d ago`
-    if (diffHours > 0) return `${diffHours}h ago`
-    if (diffMin > 0) return `${diffMin}m ago`
-    return 'just now'
-  }
-
   function clearFilters() {
-    selectedScope.value = null
+    filters.value = {}
     searchQuery.value = ''
     mineOnly.value = false
   }

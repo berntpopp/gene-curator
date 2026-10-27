@@ -68,7 +68,11 @@
           </v-btn>
         </template>
         <v-list density="compact">
-          <v-list-item v-for="h in headers" :key="h.key" :data-testid="`column-${h.key}`">
+          <v-list-item
+            v-for="h in headers.filter(c => c.hideable !== false)"
+            :key="h.key"
+            :data-testid="`column-${h.key}`"
+          >
             <v-checkbox
               :model-value="!hidden.has(h.key)"
               :label="h.title"
@@ -107,6 +111,7 @@
       :items-per-page="itemsPerPage"
       :items-per-page-options="PAGE_SIZES"
       :sort-by="sortBy"
+      :row-props="rowProps"
       fixed-header
       hover
       class="data-table__grid"
@@ -127,13 +132,15 @@
 </template>
 
 <script setup lang="ts" generic="T extends Record<string, unknown>">
-  import { computed, ref, useSlots } from 'vue'
+  import { computed, ref, useSlots, watch } from 'vue'
   import { PAGE_SIZES } from '@/composables/useTableUrlState'
   import type { Density, FilterValue, SortItem } from '@/composables/useTableUrlState'
 
   interface Header {
     title: string
     key: string
+    /** false keeps the column out of the column picker */
+    hideable?: boolean
     [k: string]: unknown
   }
   interface FilterDef {
@@ -160,6 +167,9 @@
       sortBy?: SortItem[]
       density?: Density
       emptyText?: string
+      /** Names this table's hidden columns in browser storage; stable across column changes. */
+      storageKey: string
+      rowProps?: (data: { item: T }) => Record<string, unknown>
     }>(),
     {
       loading: false,
@@ -171,7 +181,8 @@
       itemsPerPage: 25,
       sortBy: () => [],
       density: 'comfortable',
-      emptyText: 'No results. Adjust the search or filters.'
+      emptyText: 'No results. Adjust the search or filters.',
+      rowProps: undefined
     }
   )
 
@@ -185,13 +196,31 @@
     retry: []
   }>()
 
-  const hidden = ref(new Set<string>())
-  const visibleHeaders = computed(() => props.headers.filter(h => !hidden.value.has(h.key)))
+  // Hidden columns are a per-browser preference, kept per table
+  const storeKey = computed(() => `table-columns:${props.storageKey}`)
+  function loadHidden(key: string): Set<string> {
+    try {
+      const saved: unknown = JSON.parse(localStorage.getItem(key) ?? '[]')
+      return new Set(Array.isArray(saved) ? saved.map(String) : [])
+    } catch {
+      return new Set()
+    }
+  }
+  const hidden = ref(loadHidden(storeKey.value))
+  watch(storeKey, k => (hidden.value = loadHidden(k)))
+  const visibleHeaders = computed(() =>
+    props.headers.filter(h => h.hideable === false || !hidden.value.has(h.key))
+  )
 
   function toggleColumn(key: string) {
     const next = new Set(hidden.value)
     if (!next.delete(key)) next.add(key)
     hidden.value = next
+    try {
+      localStorage.setItem(storeKey.value, JSON.stringify([...next]))
+    } catch {
+      // storage blocked: the choice lasts until reload
+    }
   }
 
   const selected = (f: FilterDef): string[] => [props.filters[f.key] ?? []].flat()
