@@ -4,7 +4,7 @@ Implements the 5-stage pipeline: Entry → Precuration → Curation → Review �
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -21,7 +21,6 @@ from app.crud.review_round import (
     approving_reviewers,
     check_review_open,
     eligible_peer_reviewers,
-    has_pending_review,
     holds_review_capability,
     pending_reviews as pending_reviews_of,
     reassign_earlier_reviewers,
@@ -50,7 +49,7 @@ from app.schemas.workflow_engine import (
     WorkflowTransition,
     WorkflowValidationResult,
 )
-from app.services.review_assignment import APPROVERS, check_reviewer
+from app.services.review_assignment import APPROVERS, stage_reviewer
 from app.services.review_entry import (
     ReviewEntry,
     prepare_review_entry,
@@ -224,8 +223,9 @@ class WorkflowEngine:
         *,
         expected_version: int | None = None,
         review_entry: ReviewEntry | None = None,
+        reviewer_id: UUID | None = None,
     ) -> WorkflowTransition:
-        """Execute a workflow state transition."""
+        """Execute a workflow state transition; into review, optionally route it to reviewer_id."""
 
         current_stage, item = self._get_current_stage_and_item(db, item_id, item_type)
         if not item or current_stage is None:
@@ -270,10 +270,11 @@ class WorkflowEngine:
                 else {"message": "Approval recorded; more reviewers required"}
             )
 
-            # Emit notifications for workflow transitions
             self._emit_transition_notification(
                 db, item, item_type, current_stage, target_stage, user_id
             )
+            if reviewer_id:  # same rules as assign-reviewer, same transaction
+                stage_reviewer(db, item, reviewer_id, user_id, on_submit=True)
 
             transition = WorkflowTransition(
                 item_id=item_id,
@@ -368,50 +369,10 @@ class WorkflowEngine:
                 f"Curation {item_id} is {curation_result.status.value}; submit it for "
                 f"review before assigning a reviewer: {APPROVERS}"
             )
-        check_reviewer(
-            db,
-            "curation",
-            item_id,
-            curation_result.created_by,
-            reviewer_id,
-            curation_result.scope_id,
-        )
-        if has_pending_review(db, item_id, reviewer_id):
-            raise ValueError("Reviewer already has a pending review")
-        # Create review assignment
-        review = Review(
-            curation_id=item_id,
-            reviewer_id=reviewer_id,
-            assigned_by=assigned_by,
-            status=ReviewStatus.PENDING,
-            assigned_at=datetime.now(UTC),
-        )
-
         try:
-            db.add(review)
-            db.flush()
-
-            # Notify the assigned reviewer
-
-            gene_symbol = "Unknown"
-            if (
-                item_type == "curation"
-                and curation_result
-                and hasattr(curation_result, "gene")
-                and curation_result.gene
-            ):
-                gene_symbol = getattr(
-                    curation_result.gene, "approved_symbol", "Unknown"
-                )
-
-            db.add(
-                NotificationNew(
-                    user_id=reviewer_id,
-                    type=NotificationType.REVIEW_ASSIGNED,
-                    title="New review assigned",
-                    message=f"New review assigned: {gene_symbol}",
-                    link=f"/scopes/{curation_result.scope_id}/curations/{item_id}",
-                )
+            # a curation always gets its review row
+            review = cast(
+                Review, stage_reviewer(db, curation_result, reviewer_id, assigned_by)
             )
             db.commit()
         except Exception as e:  # RLS (005, 041, 061) decides who may insert the review

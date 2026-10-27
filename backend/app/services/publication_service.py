@@ -16,7 +16,7 @@ from datetime import UTC, datetime as dt
 from typing import Any, cast
 
 import httpx
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import SQLAlchemyError
@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.core.logging import get_logger, timed_operation
-from app.models.models import Publication
+from app.models.models import Gene, Publication
 from app.schemas.validation import (
     PMIDValidationResponse,
     PMIDValidationResult,
@@ -35,6 +35,19 @@ logger = get_logger(__name__)
 
 # Europe PMC API base URL
 EUROPE_PMC_API_BASE = "https://www.ebi.ac.uk/europepmc/webservices/rest"
+
+
+_GENERIC_TYPES = {"journal article", "research-article", "research support"}
+
+
+def _pub_type(types: Any) -> str | None:
+    """The most telling type ("Case Reports" over "Journal Article"), so agents can tell a
+    case report from a cohort; Europe PMC gives one string or a list."""
+    types = [types] if isinstance(types, str) else list(types or [])
+    return next(
+        (t for t in types if not t.lower().startswith(tuple(_GENERIC_TYPES))),
+        types[0] if types else None,
+    )
 
 
 class PublicationService:
@@ -96,7 +109,9 @@ class PublicationService:
             title=result.get("title", ""),
             authors=authors,
             author_string=result.get("authorString"),
-            journal=result.get("journalTitle", "Unknown"),
+            journal=result.get("journalTitle")
+            or result.get("journalInfo", {}).get("journal", {}).get("title")
+            or "Unknown",
             journal_abbrev=result.get("journalIssueId"),
             year=year,
             volume=result.get("journalVolume"),
@@ -105,9 +120,7 @@ class PublicationService:
             doi=result.get("doi"),
             pmcid=result.get("pmcid"),
             abstract=result.get("abstractText"),
-            pub_type=result.get("pubTypeList", {}).get("pubType", [None])[0]
-            if result.get("pubTypeList")
-            else None,
+            pub_type=_pub_type(result.get("pubTypeList", {}).get("pubType")),
             is_open_access=result.get("isOpenAccess") == "Y",
             cited_by_count=result.get("citedByCount"),
             publication_date=result.get("firstPublicationDate"),
@@ -132,7 +145,10 @@ class PublicationService:
         try:
             response = await self._client.get(
                 f"/article/MED/{clean_pmid}",
-                params={"format": "json"},
+                params={
+                    "format": "json",
+                    "resultType": "core",
+                },  # core has the abstract
             )
 
             if response.status_code == 404:
@@ -380,18 +396,17 @@ class PublicationService:
             clean_pmid = clean_pmid[5:]
         clean_pmid = clean_pmid.strip()
 
-        # Check cache first
+        # Cache first; a row cached without its abstract is fetched again to add it
         cached = await self._get_cached_publication(clean_pmid)
-        if cached:
+        if cached and cached.abstract:
             return cached
 
-        # Fetch from API
         result = await self.fetch_publication(clean_pmid)
         if result.is_valid and result.publication:
             await self._cache_publication(result.publication)
             return result.publication
 
-        return None
+        return cached
 
 
 LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
@@ -512,3 +527,86 @@ async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
         return await service.fetch_many(pmids)
     finally:
         await service.close()
+
+
+SEARCH_TIMEOUT_S = 8.0  # one Europe PMC search request
+
+
+def search_term(*parts: str | None) -> str:
+    """Europe PMC query: every given part must match, PubMed records only."""
+    return " AND ".join(
+        [f"({p.strip()})" for p in parts if p and p.strip()] + ["SRC:MED"]
+    )
+
+
+async def _search(term: str, limit: int) -> tuple[int, list[PublicationData]]:
+    service = PublicationService(cast(AsyncSession, None))
+    try:
+        response = await asyncio.wait_for(
+            service._client.get(
+                "/search",
+                params={
+                    "query": term,
+                    "resultType": "core",
+                    "pageSize": limit,
+                    "format": "json",
+                },
+            ),
+            SEARCH_TIMEOUT_S,
+        )
+        response.raise_for_status()
+        data = response.json()
+    finally:
+        await service.close()
+    found = [
+        pub
+        for row in data.get("resultList", {}).get("result", [])
+        if row.get("pmid")
+        and (pub := service._parse_publication_response({"result": row}, row["pmid"]))
+    ]
+    return int(data.get("hitCount") or 0), found
+
+
+def search_publications(
+    db: Session, term: str, limit: int
+) -> tuple[int, list[PublicationData]]:
+    """(hit count, top records) from Europe PMC; the records are cached like validated PMIDs.
+    Raises httpx.HTTPError or TimeoutError when Europe PMC is unavailable."""
+    total, found = asyncio.run(_search(term, limit))
+    _cache_found(
+        db,
+        [
+            PMIDValidationResult(pmid=p.pmid, is_valid=True, publication=p)
+            for p in found
+        ],
+    )
+    db.commit()
+    return total, found
+
+
+def mentions(names: set[str], publication: PublicationData | None) -> bool | None:
+    """Whether the title or abstract names any of the gene names (whole words, any case);
+    None when the title does not and there is no abstract to read."""
+    if publication is None:
+        return None
+    found = re.compile(
+        r"(?<![A-Z0-9])(" + "|".join(map(re.escape, names)) + r")(?![A-Z0-9])"
+    )
+    text = f"{publication.title} {publication.abstract or ''}".upper()
+    if found.search(text):
+        return True
+    return False if publication.abstract else None
+
+
+async def gene_names(db: AsyncSession, symbol: str) -> set[str]:
+    """The symbol plus the local gene's previous and alias symbols, upper case."""
+    key = symbol.strip().upper()
+    row = (
+        await db.execute(
+            select(Gene.previous_symbols, Gene.alias_symbols).where(
+                func.upper(Gene.approved_symbol) == key
+            )
+        )
+    ).first()
+    extra = [*(row.previous_symbols or []), *(row.alias_symbols or [])] if row else []
+    return {key, *(n.upper() for n in extra if n)}

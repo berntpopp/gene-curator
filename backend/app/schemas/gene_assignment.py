@@ -3,10 +3,13 @@ Pydantic schemas for gene-scope assignments.
 """
 
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.gene_resolve import GeneCandidate
+from app.schemas.scope import SCOPE_NAME
 
 
 # Base Schema
@@ -296,3 +299,37 @@ class ScopeAssignmentOverview(BaseModel):
     )
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ScopeGenesAdd(BaseModel):
+    """Add genes to a scope by HGNC symbol, previous symbol, alias or HGNC id."""
+
+    scope_id: UUID | None = Field(None, description="Scope UUID, or send scope_name")
+    scope_name: str | None = Field(None, description=SCOPE_NAME)
+    symbols: list[str] = Field(..., min_length=1, max_length=50)
+
+
+GeneAddStatus = Literal[
+    "added", "already_in_scope", "ambiguous", "not_found", "upstream_unavailable"
+]
+
+
+class ScopeGeneAdded(BaseModel):
+    input: str
+    status: GeneAddStatus = Field(
+        ..., description="upstream_unavailable: HGNC timed out; retry the input"
+    )
+    gene_id: UUID | None = None
+    symbol: str | None = None
+    hgnc_id: str | None = None
+    created: bool = Field(False, description="The gene row was created from HGNC")
+    candidates: list[GeneCandidate] = Field(
+        default_factory=list, description="ambiguous: pick one and send its hgnc_id"
+    )
+    reason: str | None = None
+
+
+class ScopeGenesAdded(BaseModel):
+    scope_id: UUID
+    added: int
+    items: list[ScopeGeneAdded]

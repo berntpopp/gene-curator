@@ -13,6 +13,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import InstrumentedAttribute, Session
 from sqlalchemy.orm.attributes import set_committed_value
 
+from app.api.v1.endpoints.review_comments import curation_diff
 from app.core.capabilities import EDIT, require, require_active_scope
 from app.core.constants import (
     CURATIONS_DEFAULT_LIMIT,
@@ -28,7 +29,8 @@ from app.crud.review_round import (
     approving_reviewers,
     reviewers_required,
 )
-from app.crud.workflow_engine import WorkflowEngine
+from app.crud.scope_visibility import scope_id_for
+from app.crud.workflow_engine import WorkflowEngine, workflow_engine
 from app.models import (
     CurationNew,
     CurationStatus,
@@ -45,12 +47,15 @@ from app.schemas.curation import (
     CurationDraftResult,
     CurationDraftSave,
     CurationListResponse,
+    CurationReviewRead,
     CurationScoreResponse,
     CurationSubmit,
     CurationUpdate,
     CurationWriteResult,
+    capped,
     lean_scores,
 )
+from app.schemas.scope import SCOPE_NAME
 from app.scoring.point_limits import enforce_clingen_point_ranges
 from app.services.curation_access import (
     _can_user_delete_curation,
@@ -140,7 +145,7 @@ def list_curations(
     ),
     curator_id: UUID | None = Query(None, description="Filter by curator"),
     gene_symbol: str | None = Query(None, description="Filter by gene symbol"),
-    scope_name: str | None = Query(None, description="Filter by scope name"),
+    scope_name: str | None = Query(None, description=SCOPE_NAME),
     pending_review: bool = Query(
         False,
         description="Only scopes where the caller can review, excluding their own",
@@ -154,10 +159,7 @@ def list_curations(
         gene_id := _id_for_name(db, Gene.approved_symbol, gene_symbol, gene_id)
     ):
         return empty
-    if scope_name and not (
-        scope_id := _id_for_name(db, Scope.name, scope_name, scope_id)
-    ):
-        return empty
+    scope_id = scope_id_for(db, current_user.id, scope_id, scope_name)
 
     scope_ids = None
     if pending_review:
@@ -261,6 +263,29 @@ def get_curation(
         )
 
     return response
+
+
+@router.get("/{curation_id}/review", response_model=CurationReviewRead)
+@api_endpoint()
+def read_curation_for_review(
+    curation_id: UUID,
+    db: Session = Depends(get_db),
+    current_user: UserNew = Depends(get_current_active_user),
+) -> CurationReviewRead:
+    """Reviewer read in one call: the curation with evidence and full score trace (excluded
+    rows with reasons), warnings, workflow state with blocked moves, and the evidence diff."""
+    curation = get_curation(curation_id, True, db, current_user)
+    return CurationReviewRead(
+        curation=curation,
+        warnings=[
+            *(curation.computed_scores.get("warnings") or []),
+            *capped(curation.computed_scores.get("trace")),
+        ],
+        workflow=workflow_engine.get_workflow_state(
+            db, curation_id, "curation", current_user.id
+        ),
+        diff=curation_diff(curation_id, None, db, current_user),
+    )
 
 
 # ========================================

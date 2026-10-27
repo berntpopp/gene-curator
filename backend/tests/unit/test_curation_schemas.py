@@ -151,6 +151,7 @@ class TestCurationSummary:
             created_at=now,
             updated_at=now,
             curator_name="Test Curator",
+            lock_version=1,
         )
         assert data.gene_symbol == "BRCA1"
         assert data.scope_name == "test-scope"
@@ -187,6 +188,7 @@ class TestCurationListResponse:
             created_at=now,
             updated_at=now,
             curator_name=None,
+            lock_version=1,
         )
         data = CurationListResponse(
             curations=[summary],

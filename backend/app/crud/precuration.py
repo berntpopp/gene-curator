@@ -37,6 +37,7 @@ from app.schemas.precuration import (
     PrecurationUpdate,
 )
 from app.services.evidence_ids import check_ids
+from app.services.review_assignment import submit_reviewer
 from app.services.review_guards import check_review_content
 
 logger = get_logger(__name__)
@@ -200,6 +201,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
                 updated_at=row.PrecurationNew.updated_at,
                 curator_name=row.curator_name,
                 created_by=row.PrecurationNew.created_by,
+                lock_version=row.PrecurationNew.lock_version,
             )
             for row in results
         ]
@@ -253,7 +255,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         now = _utc_now()
         db_obj = PrecurationNew(
             gene_id=obj_in.gene_id,
-            scope_id=obj_in.scope_id,
+            scope_id=scope.id,
             precuration_schema_id=obj_in.precuration_schema_id,
             evidence_data=obj_in.evidence_data,
             status=CurationStatus.DRAFT,
@@ -271,7 +273,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             # A concurrent create won the partial unique index on open drafts.
             db.rollback()
             existing = self.get_open_draft(
-                db, gene_id=obj_in.gene_id, scope_id=obj_in.scope_id, user_id=user_id
+                db, gene_id=obj_in.gene_id, scope_id=scope.id, user_id=user_id
             )
             if existing is None:
                 raise
@@ -365,6 +367,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
         user_id: UUID,
     ) -> PrecurationNew | None:
         """Submit precuration for review via workflow engine. None if lock_version is stale."""
+        reviewer_id = submit_reviewer(db, db_obj.scope_id, submit_data)
         # Compare-and-bump in one UPDATE first: a stale submit matches no row and changes nothing
         if not claim_version(db, PrecurationNew, db_obj.id, submit_data.lock_version):
             return None
@@ -382,6 +385,7 @@ class CRUDPrecuration(CRUDBase[PrecurationNew, PrecurationCreate, PrecurationUpd
             WorkflowStage.REVIEW,
             user_id,
             submit_data.notes,
+            reviewer_id=reviewer_id,
         )
 
         db.refresh(db_obj)

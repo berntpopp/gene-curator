@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.curation import MERGE_DESCRIPTION, EvidenceWarning
 from app.schemas.review_comment import REVIEW_TEXT_MAX
+from app.schemas.scope import SCOPE_NAME
 
 # ========================================
 # PRECURATION EVIDENCE DATA SCHEMA
@@ -27,7 +28,8 @@ class PrecurationCreate(BaseModel):
     """Schema for creating a new precuration."""
 
     gene_id: UUID = Field(..., description="Gene UUID")
-    scope_id: UUID = Field(..., description="Scope UUID")
+    scope_id: UUID | None = Field(None, description="Scope UUID, or send scope_name")
+    scope_name: str | None = Field(None, description=SCOPE_NAME)
     precuration_schema_id: UUID | None = Field(
         None,
         description="Precuration schema UUID; default: the scope's workflow pair schema",
@@ -73,6 +75,15 @@ class PrecurationSubmit(BaseModel):
 
     notes: str | None = Field(None, max_length=1000, description="Submission notes")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    reviewer_id: UUID | None = Field(
+        None,
+        description="Also route it to this reviewer, in the same transaction (assign-reviewer rules)",
+    )
+    reviewer_email: str | None = Field(
+        None,
+        max_length=255,
+        description="Or the reviewer's email (a reviewer of the scope)",
+    )
 
 
 class PrecurationReject(BaseModel):
@@ -157,6 +168,7 @@ class PrecurationSummary(BaseModel):
     updated_at: datetime
     curator_name: str | None
     created_by: UUID | None = None
+    lock_version: int = Field(..., description="Send with the next save or submit")
 
     model_config = ConfigDict(use_enum_values=True)
 

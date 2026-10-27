@@ -1,4 +1,5 @@
 accept_invitation read_only=False destructive=False
+add_genes_to_scope read_only=False destructive=False
 add_member read_only=False destructive=False
 approve_precuration read_only=False destructive=True
 assign_curator_to_gene read_only=False destructive=False
@@ -132,6 +133,7 @@ preview_llm_request read_only=True destructive=False
 publish_methodology_version read_only=False destructive=True
 publish_prompt_version read_only=False destructive=True
 reactivate_gene_assignment read_only=False destructive=False
+read_curation_for_review read_only=True destructive=False
 read_my_work read_only=True destructive=False
 read_users_me read_only=True destructive=False
 reject_precuration read_only=False destructive=True
@@ -147,6 +149,7 @@ search_hpo_terms read_only=False destructive=False
 search_logs read_only=True destructive=False
 search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
+search_pubmed read_only=True destructive=False
 search_users read_only=True destructive=False
 search_users_for_invitation read_only=True destructive=False
 set_llm_provider_key read_only=False destructive=True

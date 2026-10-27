@@ -16,6 +16,7 @@ from app.core.capabilities import VIEW, require
 from app.core.database import get_db
 from app.core.deps import get_current_active_user
 from app.crud.review_round import in_current_round
+from app.crud.scope_visibility import scope_id_for
 from app.crud.workflow_engine import workflow_engine
 from app.models import (
     CurationNew,
@@ -76,12 +77,13 @@ def get_peer_reviewers(
     *,
     db: Session = Depends(get_db),
     scope_id: UUID | None = Query(None, description="Filter by scope membership"),
+    scope_name: str | None = Query(None, description="Scope name, not scope_id"),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> list[PeerReviewerResponse]:
     """Get available peer reviewers for assignment."""
     reviewers = workflow_engine.get_eligible_peer_reviewers(
         db=db,
-        scope_id=scope_id,
+        scope_id=scope_id_for(db, current_user.id, scope_id, scope_name),
         exclude_user_id=current_user.id,  # 4-eyes principle
     )
     return [PeerReviewerResponse(**r) for r in reviewers]
@@ -165,9 +167,7 @@ def execute_workflow_transition(
 ) -> WorkflowTransition:
     """Execute a workflow state transition. Approve a curation: target_stage=active,
     by a reviewer or admin of the scope who is not its author (4-eyes)."""
-    # All authenticated users can execute transitions
     # RLS policies + workflow engine handle scope-based access
-
     try:
         transition = workflow_engine.execute_transition(
             db,
@@ -177,6 +177,7 @@ def execute_workflow_transition(
             current_user.id,
             transition_request.notes,
             transition_request.metadata,
+            reviewer_id=transition_request.reviewer_id,
         )
         return transition
     except ValueError as e:

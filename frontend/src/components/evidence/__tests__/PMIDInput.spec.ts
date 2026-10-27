@@ -51,8 +51,8 @@ const validation = {
   valid_count: 1,
   invalid_count: 1,
   results: [
-    { pmid: '123', is_valid: true, publication: pub123 },
-    { pmid: '456', is_valid: false, error: 'not found' }
+    { pmid: '123', is_valid: true, publication: pub123, status: 'found' as const },
+    { pmid: '456', is_valid: false, error: 'not found', status: 'not_found' as const }
   ]
 }
 

@@ -31,7 +31,8 @@ function toSummary(p: PrecurationDetail): PrecurationRecord {
     is_draft: p.is_draft,
     created_at: p.created_at,
     updated_at: p.updated_at,
-    curator_name: null
+    curator_name: null,
+    lock_version: p.lock_version
   }
 }
 
@@ -42,7 +43,8 @@ function refreshRow(row: PrecurationRecord, p: PrecurationDetail): PrecurationRe
     status: p.status,
     workflow_stage: p.workflow_stage,
     is_draft: p.is_draft,
-    updated_at: p.updated_at
+    updated_at: p.updated_at,
+    lock_version: p.lock_version
   }
 }
 

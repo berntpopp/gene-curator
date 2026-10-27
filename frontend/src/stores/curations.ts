@@ -30,7 +30,8 @@ function toSummary(c: Schema<'Curation'>): CurationRecord {
     created_at: c.created_at,
     updated_at: c.updated_at,
     curator_name: null,
-    created_by: c.created_by
+    created_by: c.created_by,
+    lock_version: c.lock_version
   }
 }
 
@@ -43,7 +44,8 @@ function refreshRow(row: CurationRecord, c: Schema<'Curation'>): CurationRecord 
     computed_verdict: c.computed_verdict,
     computed_scores: c.computed_scores,
     is_draft: c.is_draft,
-    updated_at: c.updated_at
+    updated_at: c.updated_at,
+    lock_version: c.lock_version
   }
 }
 

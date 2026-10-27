@@ -258,6 +258,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/scopes/genes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Genes To Scope
+         * @description Add genes to a scope by HGNC symbol in one call: resolves each symbol (also previous
+         *     symbols, aliases, HGNC ids), creates genes missing locally from HGNC, assigns them to the
+         *     scope and reports per symbol. Scope curators and admins.
+         */
+        post: operations["add_genes_to_scope_api_v1_scopes_genes_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/scopes/{scope_id}": {
         parameters: {
             query?: never;
@@ -1786,6 +1808,27 @@ export interface paths {
          * @description Soft delete a curation (archive).
          */
         delete: operations["delete_curation_api_v1_curations__curation_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/curations/{curation_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read Curation For Review
+         * @description Reviewer read in one call: the curation with evidence and full score trace (excluded
+         *     rows with reasons), warnings, workflow state with blocked moves, and the evidence diff.
+         */
+        get: operations["read_curation_for_review_api_v1_curations__curation_id__review_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -3559,6 +3602,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publications/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Pubmed
+         * @description Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
+         *     terms, all of which must match. Returns pmid, title, journal, year, publication type
+         *     (case report or cohort) and an abstract snippet, best match first; get_publication
+         *     returns the full abstract. Records are cached, so validate_pmids knows them.
+         */
+        get: operations["search_pubmed_api_v1_publications_search_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/publications/{pmid}": {
         parameters: {
             query?: never;
@@ -4838,6 +4904,23 @@ export interface components {
             limit: number;
         };
         /**
+         * CurationReviewRead
+         * @description Everything a reviewer checks, in one read.
+         */
+        CurationReviewRead: {
+            /** @description Evidence and the full score trace; computed_scores.excluded lists rows that score nothing, with the reason; trace.out_of_range flags rows outside their range */
+            curation: components["schemas"]["CurationDetail"];
+            /**
+             * Warnings
+             * @description Saved scoring and ID warnings, then points capped per category
+             */
+            warnings: string[];
+            /** @description Moves the caller may make; blocked ones with the reason */
+            workflow: components["schemas"]["WorkflowStateInfo"];
+            /** @description Evidence versus what the caller last reviewed, else the previous submission or the active curation it replaces */
+            diff: components["schemas"]["CurationDiff"];
+        };
+        /**
          * CurationSchema
          * @description Public schema for curation schemas.
          */
@@ -5123,6 +5206,16 @@ export interface components {
              * @description Lock version for optimistic locking
              */
             lock_version: number;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
+            /**
+             * Reviewer Email
+             * @description Or the reviewer's email (a reviewer of the scope)
+             */
+            reviewer_email?: string | null;
         };
         /**
          * CurationSummary
@@ -5174,6 +5267,11 @@ export interface components {
             curator_name: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @description Send with the next save or submit
+             */
+            lock_version: number;
         };
         /**
          * CurationUpdate
@@ -7729,6 +7827,11 @@ export interface components {
              * @description List of PubMed IDs to validate (max 50)
              */
             pmids: string[];
+            /**
+             * Gene Symbol
+             * @description Flag PMIDs whose title and abstract never name this gene (mentions_gene)
+             */
+            gene_symbol?: string | null;
         };
         /**
          * PMIDValidationResponse
@@ -7779,6 +7882,17 @@ export interface components {
              * @description Error message if invalid
              */
             error?: string | null;
+            /**
+             * Mentions Gene
+             * @description With gene_symbol: whether the title or abstract names the gene (or an HGNC alias); false flags an off-topic PMID, null when there is no abstract to check
+             */
+            mentions_gene?: boolean | null;
+            /**
+             * Status
+             * @description not_found: PubMed has no such PMID; upstream_unavailable: retry later.
+             * @enum {string}
+             */
+            readonly status: "found" | "not_found" | "upstream_unavailable";
         };
         /**
          * PasswordChange
@@ -8283,10 +8397,14 @@ export interface components {
             gene_id: string;
             /**
              * Scope Id
-             * Format: uuid
-             * @description Scope UUID
+             * @description Scope UUID, or send scope_name
              */
-            scope_id: string;
+            scope_id?: string | null;
+            /**
+             * Scope Name
+             * @description Scope name or display name, instead of scope_id
+             */
+            scope_name?: string | null;
             /**
              * Precuration Schema Id
              * @description Precuration schema UUID; default: the scope's workflow pair schema
@@ -8444,6 +8562,16 @@ export interface components {
              * @description Optimistic locking version (required)
              */
             lock_version: number;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
+            /**
+             * Reviewer Email
+             * @description Or the reviewer's email (a reviewer of the scope)
+             */
+            reviewer_email?: string | null;
         };
         /**
          * PrecurationSummary
@@ -8493,6 +8621,11 @@ export interface components {
             curator_name: string | null;
             /** Created By */
             created_by?: string | null;
+            /**
+             * Lock Version
+             * @description Send with the next save or submit
+             */
+            lock_version: number;
         };
         /**
          * PrecurationUpdate
@@ -8681,6 +8814,42 @@ export interface components {
              * @description Full publication date
              */
             publication_date?: string | null;
+        };
+        /** PublicationSearchHit */
+        PublicationSearchHit: {
+            /** Pmid */
+            pmid: string;
+            /** Title */
+            title: string;
+            /** Journal */
+            journal: string;
+            /** Year */
+            year?: number | null;
+            /**
+             * Abstract Snippet
+             * @description First 300 characters
+             */
+            abstract_snippet?: string | null;
+            /**
+             * Pub Type
+             * @description Publication type, e.g. case reports, review, journal article
+             */
+            pub_type?: string | null;
+        };
+        /** PublicationSearchResponse */
+        PublicationSearchResponse: {
+            /**
+             * Query
+             * @description The Europe PMC query that ran
+             */
+            query: string;
+            /**
+             * Total
+             * @description Hits in PubMed; results holds the first ones
+             */
+            total: number;
+            /** Results */
+            results: components["schemas"]["PublicationSearchHit"][];
         };
         /** ReviewComment */
         ReviewComment: {
@@ -9134,6 +9303,36 @@ export interface components {
              */
             is_active: boolean;
         };
+        /** ScopeGeneAdded */
+        ScopeGeneAdded: {
+            /** Input */
+            input: string;
+            /**
+             * Status
+             * @description upstream_unavailable: HGNC timed out; retry the input
+             * @enum {string}
+             */
+            status: "added" | "already_in_scope" | "ambiguous" | "not_found" | "upstream_unavailable";
+            /** Gene Id */
+            gene_id?: string | null;
+            /** Symbol */
+            symbol?: string | null;
+            /** Hgnc Id */
+            hgnc_id?: string | null;
+            /**
+             * Created
+             * @description The gene row was created from HGNC
+             * @default false
+             */
+            created: boolean;
+            /**
+             * Candidates
+             * @description ambiguous: pick one and send its hgnc_id
+             */
+            candidates?: components["schemas"]["GeneCandidate"][];
+            /** Reason */
+            reason?: string | null;
+        };
         /**
          * ScopeGeneListResponse
          * @description Response for scope-specific gene lists.
@@ -9162,6 +9361,36 @@ export interface components {
             has_next: boolean;
             /** Has Prev */
             has_prev: boolean;
+        };
+        /**
+         * ScopeGenesAdd
+         * @description Add genes to a scope by HGNC symbol, previous symbol, alias or HGNC id.
+         */
+        ScopeGenesAdd: {
+            /**
+             * Scope Id
+             * @description Scope UUID, or send scope_name
+             */
+            scope_id?: string | null;
+            /**
+             * Scope Name
+             * @description Scope name or display name, instead of scope_id
+             */
+            scope_name?: string | null;
+            /** Symbols */
+            symbols: string[];
+        };
+        /** ScopeGenesAdded */
+        ScopeGenesAdded: {
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /** Added */
+            added: number;
+            /** Items */
+            items: components["schemas"]["ScopeGeneAdded"][];
         };
         /** ScopeHit */
         ScopeHit: {
@@ -10919,6 +11148,11 @@ export interface components {
             metadata?: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Reviewer Id
+             * @description Also route it to this reviewer, in the same transaction (assign-reviewer rules)
+             */
+            reviewer_id?: string | null;
         };
         /**
          * WorkflowValidationResult
@@ -11335,6 +11569,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Scope"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_genes_to_scope_api_v1_scopes_genes_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ScopeGenesAdd"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ScopeGenesAdded"];
                 };
             };
             /** @description Validation Error */
@@ -13420,6 +13687,8 @@ export interface operations {
             query?: {
                 /** @description Filter by scope membership */
                 scope_id?: string | null;
+                /** @description Scope name, not scope_id */
+                scope_name?: string | null;
             };
             header?: never;
             path?: never;
@@ -13908,7 +14177,7 @@ export interface operations {
                 curator_id?: string | null;
                 /** @description Filter by gene symbol */
                 gene_symbol?: string | null;
-                /** @description Filter by scope name */
+                /** @description Scope name or display name, instead of scope_id */
                 scope_name?: string | null;
                 /** @description Only scopes where the caller can review, excluding their own */
                 pending_review?: boolean;
@@ -14070,6 +14339,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    read_curation_for_review_api_v1_curations__curation_id__review_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                curation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CurationReviewRead"];
+                };
             };
             /** @description Validation Error */
             422: {
@@ -14352,6 +14652,8 @@ export interface operations {
                 limit?: number;
                 /** @description Filter by scope */
                 scope_id?: string | null;
+                /** @description Scope name or display name, instead of scope_id */
+                scope_name?: string | null;
                 /** @description Filter by gene */
                 gene_id?: string | null;
                 /** @description Filter by status */
@@ -16504,6 +16806,40 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PMIDValidationResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    search_pubmed_api_v1_publications_search_get: {
+        parameters: {
+            query?: {
+                query?: string | null;
+                gene_symbol?: string | null;
+                disease?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicationSearchResponse"];
                 };
             };
             /** @description Validation Error */

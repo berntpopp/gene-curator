@@ -131,7 +131,9 @@ CORE_TOOLS = frozenset(
         # ontology and literature
         "search_mondo_diseases", "search_hpo_terms", "validate_hpo_term",
         "get_inheritance_patterns", "search_omim_diseases", "get_omim_disease",
-        "validate_pmids", "get_publication",
+        "validate_pmids", "get_publication", "search_pubmed",
+        # one-call round trips (token plan 2)
+        "add_genes_to_scope", "read_curation_for_review",
     }
 )  # fmt: skip
 
