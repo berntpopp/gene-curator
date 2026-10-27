@@ -1,7 +1,8 @@
 """Curation policy hardening under real RLS (app_user); data is committed by the owner role.
 
 #376: in a public scope, non-members see only ACTIVE curations at the database level, so an
-endpoint relying on RLS alone cannot leak work in progress.
+endpoint relying on RLS alone cannot leak work in progress; the same holds for precurations
+(only those behind a visible active curation) and for deactivated public scopes.
 #394: a reviewer archives an active curation only while the scope is active.
 """
 
@@ -33,6 +34,8 @@ class W:
     gene: UUID = field(default_factory=uuid4)
     draft: UUID = field(default_factory=uuid4)
     active: UUID = field(default_factory=uuid4)
+    pre_open: UUID = field(default_factory=uuid4)  # precuration with no active curation
+    pre_done: UUID = field(default_factory=uuid4)  # precuration of the active curation
 
 
 def _owner() -> psycopg2.extensions.connection:
@@ -71,13 +74,29 @@ def w() -> Generator[W, None, None]:
             "VALUES (%s, %s, %s, %s)",
             (str(x.gene), f"HGNC:{x.gene.int % 10**9}", f"SEL{tag}", x.gene.hex * 2),
         )
-        cur.execute("SELECT id FROM workflow_pairs WHERE is_active LIMIT 1")
-        pair = cur.fetchone()[0]
+        cur.execute(
+            "SELECT id, precuration_schema_id FROM workflow_pairs WHERE is_active LIMIT 1"
+        )
+        pair, schema = cur.fetchone()
+        for pid, status in ((x.pre_open, "draft"), (x.pre_done, "approved")):
+            cur.execute(
+                "INSERT INTO precurations (id, gene_id, scope_id, precuration_schema_id, "
+                "status, created_by, evidence_data) VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (
+                    str(pid),
+                    str(x.gene),
+                    str(x.scope),
+                    str(schema),
+                    status,
+                    str(x.curator),
+                    f'{{"p": "{status}"}}',
+                ),
+            )
         for cid, status in ((x.draft, "draft"), (x.active, "active")):
             cur.execute(
                 "INSERT INTO curations (id, gene_id, scope_id, workflow_pair_id, status, "
-                "workflow_stage, is_draft, created_by, evidence_data) "
-                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                "workflow_stage, is_draft, created_by, evidence_data, precuration_id) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
                 (
                     str(cid),
                     str(x.gene),
@@ -88,6 +107,7 @@ def w() -> Generator[W, None, None]:
                     status == "draft",
                     str(x.curator),
                     f'{{"status": "{status}"}}',  # distinct record_hash
+                    str(x.pre_done) if status == "active" else None,
                 ),
             )
     yield x
@@ -170,3 +190,68 @@ def test_reviewer_archives_only_in_an_active_scope(
         {"i": str(w.active)},
     ).rowcount
     assert n == archived
+
+
+def _visible_precurations(db: Session, user: UUID | None, w: W) -> set[UUID]:
+    db.execute(
+        text("SELECT set_config('app.current_user_id', :u, true)"),
+        {"u": str(user) if user else ""},
+    )
+    rows = db.execute(
+        text("SELECT id FROM precurations WHERE scope_id = :s"), {"s": str(w.scope)}
+    )
+    return {r[0] for r in rows}
+
+
+@pytest.mark.parametrize(
+    ("who", "sees_open"), [("viewer", True), ("outsider", False), (None, False)]
+)
+def test_outsiders_see_only_precurations_behind_an_active_curation(
+    db: Session, w: W, who: str | None, sees_open: bool
+) -> None:
+    seen = _visible_precurations(db, getattr(w, who) if who else None, w)
+    assert w.pre_done in seen
+    assert (w.pre_open in seen) is sees_open
+
+
+def test_api_progress_without_scope_hides_open_work_from_outsiders(
+    client: TestClient, w: W
+) -> None:
+    r = client.get(f"/api/v1/genes/{w.gene}/progress", headers=_h(w.outsider))
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["precuration_status_counts"] == {"approved": 1}
+    assert body["curation_status_counts"] == {"active": 1}
+
+
+def test_outsiders_see_nothing_of_a_deactivated_public_scope(w: W, db: Session) -> None:
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute(
+            "UPDATE scopes SET is_active = false WHERE id = %s", (str(w.scope),)
+        )
+    assert _seen(db, w.outsider, w) == set()
+    assert _visible_precurations(db, w.outsider, w) == set()
+    assert w.active in _seen(db, w.viewer, w)
+
+
+@pytest.mark.parametrize("who", ["curator", "reviewer"])
+def test_nobody_updates_curations_of_an_inactive_scope(
+    w: W, db: Session, who: str
+) -> None:
+    """#394: the permissive creator/curator/admin update policy is no way around it either."""
+    for active, expected in ((True, 1), (False, 0)):
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute(
+                "UPDATE scopes SET is_active = %s WHERE id = %s", (active, str(w.scope))
+            )
+        db.execute(
+            text("SELECT set_config('app.current_user_id', :u, true)"),
+            {"u": str(getattr(w, who))},
+        )
+        savepoint = db.begin_nested()
+        n = db.execute(
+            text("UPDATE curations SET status = 'archived' WHERE id = :i"),
+            {"i": str(w.active)},
+        ).rowcount
+        savepoint.rollback()  # keep the row active, and release its lock, for the next round
+        assert n == expected, (who, active)
