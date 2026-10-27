@@ -246,6 +246,7 @@ def _reviews_waiting_done(
         PrecurationNew,
         "precuration",
         PrecurationNew.created_by != user.id,
+        # The approver is the last updater: an approved precuration is never edited again
         PrecurationNew.updated_by == user.id,
         PrecurationNew.status == _S.APPROVED,
         PrecurationNew.updated_at >= cutoff,

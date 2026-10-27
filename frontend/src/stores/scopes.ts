@@ -241,6 +241,9 @@ export const useScopesStore = defineStore('scopes', () => {
 
       const members = await scopeService.fetchMembers(scopeId)
       membershipRole.value = members.find(m => m.user_id === currentUserId)?.role || null
+      // Keep the list in step, so role-based nav follows a role change (e.g. a demotion)
+      const entry = scopes.value.find(s => s.id === scopeId)
+      if (entry) entry.user_role = membershipRole.value
       // Application admins have implicit admin rights; the chip still shows the real role
       currentUserRole.value = authStore.isAdmin ? 'admin' : membershipRole.value
 

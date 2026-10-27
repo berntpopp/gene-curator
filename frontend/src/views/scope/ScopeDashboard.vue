@@ -256,6 +256,7 @@
 
 <script setup lang="ts">
   import { EMPTY } from '@/utils/format'
+  import { readableApiError } from '@/utils/apiErrorText'
   import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
   import { pluralize } from '@/utils/pluralize'
   import { useRoute, useRouter } from 'vue-router'
@@ -406,7 +407,9 @@
 
       // Role first: the Members/Settings tabs must exist when v-tabs first renders (#175)
       // A non-member may open a public scope: no role and no statistics, but no error (#393)
-      await scopeStore.fetchUserRole(scopeId.value).catch(() => null)
+      await scopeStore.fetchUserRole(scopeId.value).catch((e: unknown) => {
+        if ((e as { response?: { status?: number } }).response?.status !== 403) throw e
+      })
       await scopeStore.fetchScope(scopeId.value)
       await refreshStatistics().catch(() => undefined)
 
@@ -419,6 +422,7 @@
         user_role: userRole.value
       })
     } catch (err) {
+      scopeStore.error ||= readableApiError(err, 'Could not load the scope')
       logger.error('Failed to fetch scope dashboard data', {
         scope_id: scopeId.value,
         error: (err as Error).message,

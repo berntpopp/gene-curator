@@ -378,6 +378,19 @@ describe('ScopeDashboard', () => {
     expect(wrapper.text()).not.toContain("don't have access")
   })
 
+  it('shows a failed role lookup that is not a denial instead of hiding tabs', async () => {
+    routeState.params = { scopeId: 's1', tab: 'overview' }
+    const store = useScopesStore()
+    vi.spyOn(store, 'fetchUserRole').mockRejectedValue(
+      Object.assign(new Error('500'), { response: { status: 500, data: { detail: 'DB down' } } })
+    )
+    const fetchScope = vi.spyOn(store, 'fetchScope')
+    const wrapper = mount(ScopeDashboard, opts())
+    await flushPromises()
+    expect(fetchScope).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('DB down')
+  })
+
   it('uses flat outlined cards and no decorative title icons (#392)', async () => {
     const { wrapper } = await mountView()
     const cards = wrapper.findAll('.v-card')
