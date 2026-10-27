@@ -297,7 +297,13 @@ def get_scope_details(
     role = scope_membership_crud.get_user_role_in_scope(
         db, user_id=current_user.id, scope_id=scope_id
     )
-    return ScopeWithStats(**scope_with_stats, user_role=role.value if role else None)
+    pair = scope.default_workflow_pair
+    return ScopeWithStats(
+        **scope_with_stats,
+        user_role=role.value if role else None,
+        curation_schema_id=pair.curation_schema_id if pair else None,
+        precuration_schema_id=pair.precuration_schema_id if pair else None,
+    )
 
 
 @router.patch("/{scope_id}", response_model=ScopeResponse)

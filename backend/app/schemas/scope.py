@@ -198,6 +198,12 @@ class ScopeWithStats(Scope):
         default=None,
         description="Caller's role from an accepted membership in this scope, if any",
     )
+    curation_schema_id: UUID | None = Field(
+        default=None, description="Curation schema of the default workflow pair"
+    )
+    precuration_schema_id: UUID | None = Field(
+        default=None, description="Precuration schema of the default workflow pair"
+    )
 
 
 # Scope User Assignment Schema

@@ -143,6 +143,10 @@ class CurationDetail(CurationInDBBase):
     # Expanded from scope relationship
     scope_name: str | None = None
 
+    # Schemas of the workflow pair, for the schema read and field contract
+    curation_schema_id: UUID | None = None
+    precuration_schema_id: UUID | None = None
+
     # Expanded from creator relationship
     curator_name: str | None = None
     curator_id: UUID | None = None
@@ -194,6 +198,11 @@ class CurationDetail(CurationInDBBase):
         if hasattr(curation, "gene") and curation.gene:
             data["gene_symbol"] = curation.gene.approved_symbol
             data["hgnc_id"] = curation.gene.hgnc_id
+
+        pair = getattr(curation, "workflow_pair", None)
+        if pair is not None:
+            data["curation_schema_id"] = pair.curation_schema_id
+            data["precuration_schema_id"] = pair.precuration_schema_id
 
         # Expand scope relationship
         if hasattr(curation, "scope") and curation.scope:

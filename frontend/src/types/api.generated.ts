@@ -4614,6 +4614,10 @@ export interface components {
             hgnc_id?: string | null;
             /** Scope Name */
             scope_name?: string | null;
+            /** Curation Schema Id */
+            curation_schema_id?: string | null;
+            /** Precuration Schema Id */
+            precuration_schema_id?: string | null;
             /** Curator Name */
             curator_name?: string | null;
             /** Curator Id */
@@ -8146,10 +8150,9 @@ export interface components {
             scope_id: string;
             /**
              * Precuration Schema Id
-             * Format: uuid
-             * @description Precuration schema UUID
+             * @description Precuration schema UUID; default: the scope's workflow pair schema
              */
-            precuration_schema_id: string;
+            precuration_schema_id?: string | null;
             /**
              * Evidence Data
              * @description Precuration evidence data
@@ -9695,6 +9698,16 @@ export interface components {
              * @description Caller's role from an accepted membership in this scope, if any
              */
             user_role?: string | null;
+            /**
+             * Curation Schema Id
+             * @description Curation schema of the default workflow pair
+             */
+            curation_schema_id?: string | null;
+            /**
+             * Precuration Schema Id
+             * @description Precuration schema of the default workflow pair
+             */
+            precuration_schema_id?: string | null;
         };
         /** SearchResponse */
         SearchResponse: {
