@@ -296,7 +296,7 @@ def test_not_found_maps_to_a_closed_error_code(
     ("status", "code"),
     [
         (400, "invalid_input"),
-        (401, "forbidden"),
+        (401, "unauthorized"),
         (403, "forbidden"),
         (404, "not_found"),
         (409, "conflict"),
@@ -324,6 +324,13 @@ def test_destructive_tools_are_flagged(
     ):
         assert by_name[name]["annotations"]["destructiveHint"] is True, name
         assert by_name[name]["description"].startswith("Destructive")
+    for name in ("update_scope", "update_member_role", "update_curation"):
+        assert by_name[name]["annotations"]["destructiveHint"] is True, name
+    assert "resolve_genes" in by_name
+    assert (
+        by_name["mark_all_notifications_read"]["annotations"]["destructiveHint"]
+        is False
+    )
     assert by_name["list_scopes"]["annotations"]["readOnlyHint"] is True
     assert by_name["save_draft_curations"]["annotations"]["destructiveHint"] is False
 

@@ -94,7 +94,7 @@ def _apply_channel(
 # Closed set of error codes a client may branch on (fleet envelope plus conflict)
 _STATUS_CODES = {
     400: "invalid_input",
-    401: "forbidden",
+    401: "unauthorized",
     403: "forbidden",
     404: "not_found",
     405: "invalid_input",

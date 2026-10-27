@@ -43,6 +43,10 @@ EXCLUDED_OPERATIONS: dict[tuple[str, str], str] = {
 _DESTRUCTIVE = re.compile(
     r"/(approve|reject|transition|bulk-transition|submit|merge|deactivate|versions)$"
 )
+# Updates overwrite (PUT/PATCH) and are flagged too, except saving a draft or reading
+_SAFE_UPDATE = re.compile(r"/(draft|read|read-all)$")
+# Endpoint names that are not verb_noun on their own
+_RENAMES = {"resolve": "resolve_genes"}
 
 
 def tool_names(spec: dict[str, Any]) -> dict[str, str]:
@@ -56,7 +60,8 @@ def tool_names(spec: dict[str, Any]) -> dict[str, str]:
             continue
         for method, op in operations.items():
             suffix = re.sub(r"\W", "_", path) + "_" + method
-            found[op["operationId"]] = (op["operationId"].removesuffix(suffix), path)
+            name = op["operationId"].removesuffix(suffix)
+            found[op["operationId"]] = (_RENAMES.get(name, name), path)
     counts = Counter(name for name, _ in found.values())
     return {
         op_id: name
@@ -70,8 +75,10 @@ def _annotate(route: HTTPRoute, tool: Any) -> None:
     if not isinstance(tool, Tool):
         return
     read_only = route.method == "GET"
-    destructive = route.method == "DELETE" or (
-        route.method == "POST" and bool(_DESTRUCTIVE.search(route.path))
+    destructive = (
+        route.method == "DELETE"
+        or (route.method == "POST" and bool(_DESTRUCTIVE.search(route.path)))
+        or (route.method in ("PUT", "PATCH") and not _SAFE_UPDATE.search(route.path))
     )
     tool.annotations = ToolAnnotations(
         readOnlyHint=read_only,

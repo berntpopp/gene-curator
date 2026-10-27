@@ -8,9 +8,8 @@ from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, field_validato
 
 TokenScope = Literal["read", "write"]
 MAX_TOKEN_LIFETIME = timedelta(days=365)
-CLOCK_SKEW = timedelta(
-    days=1
-)  # a client clock ahead of ours may still ask for 365 days
+# A client clock ahead of ours may still ask for 365 days
+CLOCK_SKEW = timedelta(days=1)
 
 
 class PersonalAccessTokenCreate(BaseModel):
