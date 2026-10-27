@@ -1,0 +1,274 @@
+"""Drafts warn on bad IDs and never block; submit refuses them; saves can merge-patch."""
+
+from typing import Any
+
+import pytest
+from fastapi.testclient import TestClient
+from pytest import MonkeyPatch
+from sqlalchemy.orm import Session
+
+from app.crud.curation import merge_patch
+from app.models import CurationNew, PrecurationNew
+from app.services import evidence_ids, ontology_service, publication_service
+from app.services.ontology_service import OntologyService
+from tests.api.test_submit_unknown_pmids import _fake_fetch
+
+ROWS = "genetic_evidence.case_control.single_variant_analysis"
+
+
+def _evidence(pmid: str) -> dict[str, Any]:
+    return {
+        "status": "in_progress",
+        "genetic_evidence": {
+            "case_control": {"single_variant_analysis": [{"points": 2, "pmid": pmid}]}
+        },
+    }
+
+
+def _h(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
+def _draft(client: TestClient, token: str, item: Any, kind: str, **body: Any) -> Any:
+    body.setdefault("lock_version", item.lock_version)
+    return client.patch(f"/api/v1/{kind}/{item.id}/draft", json=body, headers=_h(token))
+
+
+def _terms(monkeypatch: MonkeyPatch, outcome: dict[str, bool | None]) -> None:
+    """Real lookup chain; term_found answers from ``outcome`` (missing = found)."""
+
+    async def found(self: OntologyService, curie: str) -> bool | None:
+        return outcome.get(curie, True)
+
+    monkeypatch.setattr(evidence_ids, "lookup_terms", ontology_service.lookup_terms)
+    monkeypatch.setattr(ontology_service, "_known_terms", set())
+    monkeypatch.setattr(OntologyService, "term_found", found)
+
+
+@pytest.fixture
+def online(monkeypatch: MonkeyPatch) -> MonkeyPatch:
+    monkeypatch.setattr(evidence_ids, "lookup_pmids", publication_service.lookup_pmids)
+    _terms(monkeypatch, {})
+    return monkeypatch
+
+
+def test_merge_patch_follows_rfc_7396() -> None:
+    target = {"a": {"b": 1, "c": 2}, "d": [1, 2], "e": 1}
+    patch = {"a": {"b": None, "x": 3}, "d": [3], "e": {"f": 1}}
+    assert merge_patch(target, patch) == {
+        "a": {"c": 2, "x": 3},
+        "d": [3],
+        "e": {"f": 1},
+    }
+    assert merge_patch(target, [1]) == [1] and target["a"] == {"b": 1, "c": 2}
+
+
+def test_one_field_patch_leaves_the_rest_and_a_stale_patch_409s(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+) -> None:
+    test_curation.evidence_data = {"status": "in_progress", "notes": {"a": 1, "b": 2}}
+    db_session.commit()
+    version = test_curation.lock_version
+
+    r = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data={"notes": {"a": None, "c": 3}},
+        merge=True,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["evidence_data"] == {
+        "status": "in_progress",
+        "notes": {"b": 2, "c": 3},
+    }
+    assert r.json()["warnings"] == []
+
+    stale = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data={"status": "x"},
+        merge=True,
+        lock_version=version,
+    )
+    assert stale.status_code == 409, stale.text
+    db_session.refresh(test_curation)
+    assert test_curation.evidence_data["status"] == "in_progress"
+
+    r = client.put(
+        f"/api/v1/curations/{test_curation.id}",
+        headers=_h(admin_token),
+        json={
+            "evidence_data": {"notes": None},
+            "merge": True,
+            "lock_version": test_curation.lock_version,
+        },
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["evidence_data"] == {"status": "in_progress"}
+
+
+def test_unknown_pmid_warns_and_scores_zero(
+    client: TestClient,
+    admin_token: str,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _fake_fetch(online, {"99999999": "Publication not found: 99999999"})
+    r = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data=_evidence("99999999"),
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["warnings"] == [
+        {"path": f"{ROWS}[0].pmid", "message": "99999999 not found in PubMed"}
+    ]
+    assert r.json()["computed_scores"]["total_score"] == 0
+
+    score = client.get(
+        f"/api/v1/curations/{test_curation.id}/score", headers=_h(admin_token)
+    )
+    assert score.status_code == 200, score.text
+    assert score.json()["total_score"] == 0
+    assert score.json()["breakdown"]["excluded"] == [
+        {
+            "path": f"{ROWS}[0]",
+            "pmid": "99999999",
+            "reason": "PMID 99999999 not found in PubMed",
+        }
+    ]
+
+
+def test_known_or_unverified_pmid_scores(
+    client: TestClient,
+    admin_token: str,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _fake_fetch(online, {"31000001": "API timeout; retry lookup"})
+    r = _draft(
+        client,
+        admin_token,
+        test_curation,
+        "curations",
+        evidence_data=_evidence("31000001"),
+    )
+    assert r.status_code == 200, r.text
+    assert "unverified" in r.json()["warnings"][0]["message"]
+    assert r.json()["computed_scores"]["total_score"] == 2
+
+
+def test_malformed_ids_warn_on_draft_and_refuse_submit(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    evidence = {**_evidence("PMID12x"), "entity_definition": {"mondo_id": "MONDO:12"}}
+    r = _draft(client, admin_token, test_curation, "curations", evidence_data=evidence)
+    assert r.status_code == 200, r.text
+    assert {w["path"] for w in r.json()["warnings"]} == {
+        f"{ROWS}[0].pmid",
+        "entity_definition.mondo_id",
+    }
+    assert r.json()["computed_scores"]["total_score"] == 0
+
+    db_session.refresh(test_curation)
+    submit = client.post(
+        f"/api/v1/curations/{test_curation.id}/submit",
+        json={"lock_version": test_curation.lock_version},
+        headers=_h(admin_token),
+    )
+    assert submit.status_code == 422, submit.text
+    errors = submit.json()["detail"]["errors"]
+    assert {
+        "path": f"{ROWS}[0].pmid",
+        "message": "Expected 1-9 digits, e.g. 31558469",
+    } in errors
+    assert any(e["path"] == "entity_definition.mondo_id" for e in errors)
+    db_session.refresh(test_curation)
+    assert test_curation.workflow_stage == "curation"
+
+
+def test_unknown_ontology_ids_warn_and_refuse_curation_submit(
+    client: TestClient,
+    admin_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _terms(online, {"MONDO:9999999": False, "OMIM:999999": None})
+    evidence = {
+        "status": "in_progress",
+        "entity_definition": {"mondo_id": "MONDO:9999999", "omim_id": "MIM:999999"},
+        "phenotypes": {"hpo_id": ["HP:0001250"]},
+    }
+    r = _draft(client, admin_token, test_curation, "curations", evidence_data=evidence)
+    assert r.status_code == 200, r.text
+    assert r.json()["warnings"] == [
+        {
+            "path": "entity_definition.mondo_id",
+            "message": "MONDO:9999999 not found in MONDO",
+        },
+        {
+            "path": "entity_definition.omim_id",
+            "message": "MIM:999999 unverified: OMIM lookup unavailable, retry later",
+        },
+    ]
+    db_session.refresh(test_curation)
+    submit = client.post(
+        f"/api/v1/curations/{test_curation.id}/submit",
+        json={"lock_version": test_curation.lock_version},
+        headers=_h(admin_token),
+    )
+    assert submit.status_code == 422, submit.text
+    assert submit.json()["detail"]["errors"] == [
+        {
+            "path": "entity_definition.mondo_id",
+            "message": "MONDO:9999999 not found in MONDO",
+        }
+    ]
+
+
+def test_precuration_draft_merges_and_warns_submit_refuses_malformed(
+    client: TestClient,
+    curator_token: str,
+    db_session: Session,
+    test_precuration: PrecurationNew,
+    online: MonkeyPatch,
+) -> None:
+    _terms(online, {"HP:0000006": False})
+    r = _draft(
+        client,
+        curator_token,
+        test_precuration,
+        "precurations",
+        evidence_data={"mondo_id": "mondo:1", "inheritance_hpo_id": "HP:0000006"},
+        merge=True,
+    )
+    assert r.status_code == 200, r.text
+    assert r.json()["evidence_data"]["disease_name"] == "Test Disease"
+    assert [w["path"] for w in r.json()["warnings"]] == [
+        "mondo_id",
+        "inheritance_hpo_id",
+    ]
+
+    db_session.refresh(test_precuration)
+    submit = client.post(
+        f"/api/v1/precurations/{test_precuration.id}/submit",
+        json={"lock_version": test_precuration.lock_version},
+        headers=_h(curator_token),
+    )
+    assert submit.status_code == 422, submit.text
+    # unknown HPO only warns: review entry does not refuse a precuration's unknown IDs
+    assert [e["path"] for e in submit.json()["detail"]["errors"]] == ["mondo_id"]

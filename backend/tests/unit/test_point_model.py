@@ -330,7 +330,7 @@ def _save(db: Session, curation: CurationNew, evidence: dict) -> CurationNew:
         user_id=curation.created_by,
     )
     assert result is not None
-    return result
+    return result[0]
 
 
 def test_save_scores_with_pinned_version_and_stores_trace(

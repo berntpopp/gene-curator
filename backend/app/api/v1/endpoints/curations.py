@@ -45,6 +45,7 @@ from app.schemas.curation import (
     CurationConflictResponse,
     CurationCreate,
     CurationDetail,
+    CurationDraftResult,
     CurationDraftSave,
     CurationListResponse,
     CurationScoreResponse,
@@ -421,11 +422,8 @@ def update_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
-    """
-    Update a curation with optimistic locking.
-    Returns 409 Conflict if lock_version doesn't match.
-    """
-    # Set RLS context
+    """Update a draft or rejected curation. evidence_data replaces the stored evidence
+    entirely unless merge=true (RFC 7396 merge patch). 409 if lock_version is stale."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -474,7 +472,7 @@ def update_curation(
 
 @router.patch(
     "/{curation_id}/draft",
-    response_model=Curation,
+    response_model=CurationDraftResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
@@ -483,9 +481,12 @@ def save_draft(
     draft_in: CurationDraftSave,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation:
-    """Save curation as draft (auto-save support)."""
-    # Set RLS context
+) -> CurationDraftResult:
+    """Save a draft (autosave): never refused for its content. evidence_data replaces the
+    stored evidence entirely unless merge=true (RFC 7396 merge patch: objects merge, null
+    deletes a key, arrays replace whole). `warnings` names each field path whose PMID,
+    MONDO, OMIM or HPO ID is malformed, unknown or unverified; rows with a malformed or
+    unknown PMID score 0 points. 409 if lock_version is stale, merge or not."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -513,16 +514,14 @@ def save_draft(
             detail="Only the creator can save drafts",
         )
 
-    updated = curation_crud.save_draft(
-        db,
-        db_obj=curation,
-        draft_data=draft_in,
-        user_id=current_user.id,
+    saved = curation_crud.save_draft(
+        db, db_obj=curation, draft_data=draft_in, user_id=current_user.id
     )
-    if updated is None:
+    if saved is None:
         raise _conflict(curation, draft_in.lock_version)
-
-    return Curation.model_validate(updated)
+    result = CurationDraftResult.model_validate(saved[0])
+    result.warnings = saved[1]
+    return result
 
 
 @router.post(
@@ -537,8 +536,8 @@ def submit_curation(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> Curation:
-    """Submit curation for peer review."""
-    # Set RLS context
+    """Submit for peer review. 422 names each field path that fails the schema or holds a
+    malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)
@@ -591,8 +590,8 @@ def calculate_score(
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationScoreResponse:
-    """Calculate ClinGen SOP v11 score for curation."""
-    # Set RLS context
+    """Preview the score. Rows with a malformed or unknown PMID score 0 points and are
+    listed in breakdown.excluded with the reason."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)

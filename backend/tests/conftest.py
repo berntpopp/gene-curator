@@ -81,6 +81,15 @@ def _no_database_logging() -> Generator[None, None, None]:
     db_logger.enabled = True
 
 
+@pytest.fixture(autouse=True)
+def _offline_draft_lookups(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Draft saves and score previews look IDs up; tests needing that patch the fetchers."""
+    from app.services import evidence_ids
+
+    monkeypatch.setattr(evidence_ids, "lookup_pmids", lambda db, pmids: ([], []))
+    monkeypatch.setattr(evidence_ids, "lookup_terms", lambda terms: ([], []))
+
+
 @pytest.fixture(scope="function")
 def db_session(test_engine: Engine) -> Generator[Session, None, None]:
     """Session on an empty database; all rows are deleted after the test"""

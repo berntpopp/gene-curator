@@ -39,6 +39,13 @@ class CurationCreate(CurationBase):
     pass
 
 
+MERGE_DESCRIPTION = (
+    "false or omitted: evidence_data replaces the stored evidence_data entirely. true: "
+    "evidence_data is an RFC 7396 JSON merge patch on the stored evidence_data (objects "
+    "merge, null deletes a key, arrays replace whole); a stale lock_version still 409s."
+)
+
+
 class CurationUpdate(BaseModel):
     """Schema for updating an existing curation."""
 
@@ -46,6 +53,7 @@ class CurationUpdate(BaseModel):
         None, description="Updated evidence data"
     )
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
     model_config = ConfigDict(extra="forbid")
 
@@ -55,6 +63,7 @@ class CurationDraftSave(BaseModel):
 
     evidence_data: dict[str, Any] = Field(..., description="Draft evidence data")
     lock_version: int = Field(..., description="Optimistic locking version (required)")
+    merge: bool | None = Field(None, description=MERGE_DESCRIPTION)
 
 
 class CurationSubmit(BaseModel):
@@ -113,6 +122,19 @@ class Curation(CurationInDBBase):
     """Full curation response schema."""
 
     pass
+
+
+class EvidenceWarning(BaseModel):
+    """A value a draft keeps but that needs fixing before submit."""
+
+    path: str = Field(..., description="Dotted field path in evidence_data")
+    message: str
+
+
+class CurationDraftResult(Curation):
+    """Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs."""
+
+    warnings: list[EvidenceWarning] = []
 
 
 _DISEASE_KEYS = ("disease_name", "mondo_id", "mode_of_inheritance")

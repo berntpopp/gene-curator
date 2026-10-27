@@ -411,7 +411,7 @@ LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
 LOOKUP_TIMEOUT_S = 5.0  # whole HTTP batch; frontend requests time out after 10s
 
 # pmid_format as the forms accept it: optional "PMID:" prefix, 1-9 digits
-_PMID = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
+PMID_FORMAT = re.compile(r"^(?:PMID:?\s*)?(\d{1,9})$", re.IGNORECASE)
 
 
 def evidence_pmids(evidence: Any) -> set[str]:
@@ -421,7 +421,7 @@ def evidence_pmids(evidence: Any) -> set[str]:
     if not isinstance(evidence, dict):
         return set()
     found = set().union(*(evidence_pmids(v) for v in evidence.values()))
-    match = _PMID.match(str(evidence.get("pmid") or "").strip())
+    match = PMID_FORMAT.match(str(evidence.get("pmid") or "").strip())
     return found | {match.group(1)} if match else found
 
 
