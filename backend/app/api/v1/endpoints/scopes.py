@@ -17,6 +17,7 @@ Author: Claude Code (Automated Implementation)
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core import deps
@@ -205,6 +206,12 @@ def list_scopes(
 
     # Extract scope objects
     scopes = [scope for scope, membership in user_scopes]
+    # A non-member may open an active public scope (#484): list it too, with no role
+    scopes += db.scalars(
+        select(Scope)
+        .where(Scope.is_public, Scope.is_active, Scope.id.notin_(list(roles)))
+        .order_by(Scope.name)
+    ).all()
 
     # Filter by active status if requested
     if active_only:
