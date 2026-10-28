@@ -9,13 +9,15 @@ from typing import Any
 
 from .case_rows import case_row_warnings, case_tables
 
-# "PMID: 12345678", "PMID12345678", "pubmed 1234567" or a PubMed URL; not bare numbers
-_PMID_TEXT = re.compile(
-    r"\b(?:PMID|PubMed)\s*(?:ID)?\s*[:#]?\s*\d{1,9}\b|pubmed\.ncbi\.nlm\.nih\.gov/\d",
+# "PMID: 12345678", "PMID12345678", "pubmed 1234567" or a PubMed URL; not bare numbers.
+# Group 1 or 2 is the PMID.
+PMID_TEXT = re.compile(
+    r"\b(?:PMID|PubMed)\s*(?:ID)?\s*[:#]?\s*(\d{1,9})\b"
+    r"|pubmed\.ncbi\.nlm\.nih\.gov/(\d{1,9})",
     re.IGNORECASE,
 )
 # Fields that hold IDs or variants, not prose
-_NOT_TEXT = {"id", "pmid", "variant", "variant_1", "variant_2"}
+NOT_TEXT = {"id", "pmid", "variant", "variant_1", "variant_2"}
 _CLAIM = re.compile(
     r"\btotal(?:\s+score)?(?:\s+(?:of|is|=|:))?\s*(\d+(?:\.\d+)?)"
     r"|(\d+(?:\.\d+)?)\s*points?\s+(?:in\s+)?total\b",
@@ -29,7 +31,7 @@ def _texts(node: Any, path: str = "") -> Iterator[tuple[str, str]]:
         for key, value in node.items():
             sub = f"{path}.{key}" if path else str(key)
             if isinstance(value, str):
-                if key not in _NOT_TEXT and not key.endswith(("_id", "_ids")):
+                if key not in NOT_TEXT and not key.endswith(("_id", "_ids")):
                     yield sub, value
             else:
                 yield from _texts(value, sub)
@@ -90,7 +92,7 @@ def evidence_warnings(evidence: dict[str, Any], result: dict[str, Any]) -> list[
     warnings += [
         f"{at}: mentions a PMID in free text; record each paper in a row's pmid field"
         for at, text in _texts(evidence)
-        if _PMID_TEXT.search(text)
+        if PMID_TEXT.search(text)
     ]
     summary = evidence.get("evidence_summary")
     claim = _CLAIM.search(summary) if isinstance(summary, str) else None

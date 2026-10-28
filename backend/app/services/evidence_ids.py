@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.core.schema_validator import schema_validator
 from app.schemas.curation import EvidenceWarning
+from app.scoring.evidence_lint import NOT_TEXT, PMID_TEXT
 from app.services.ontology_service import lookup_terms
 from app.services.publication_service import PMID_FORMAT, lookup_pmids
 
@@ -77,6 +78,13 @@ def _refs(node: Any, path: str = "") -> Iterator[_Ref]:
     for key, value in node.items():
         sub = f"{path}.{key}" if path else str(key)
         kind = _kind(str(key))
+        if kind is None and isinstance(value, str) and key not in NOT_TEXT:
+            # PMIDs cited in free text are checked like pmid fields: warned, never refused
+            for match in PMID_TEXT.finditer(value):
+                yield _Ref(
+                    sub, "pmid", match.group(0), match.group(1) or match.group(2)
+                )
+            continue
         if kind is None or isinstance(value, dict):
             yield from _refs(value, sub)
             continue
