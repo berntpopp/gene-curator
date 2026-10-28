@@ -9,7 +9,11 @@ from typing import Any
 
 from .case_rows import case_row_warnings, case_tables
 
-_PMID_TEXT = re.compile(r"\bPMID\b|(?<![\w.:/-])\d{7,8}(?![\w.:/-])", re.IGNORECASE)
+# "PMID: 12345678", "PMID12345678", "pubmed 1234567" or a PubMed URL; not bare numbers
+_PMID_TEXT = re.compile(
+    r"\b(?:PMID|PubMed)\s*(?:ID)?\s*[:#]?\s*\d{1,9}\b|pubmed\.ncbi\.nlm\.nih\.gov/\d",
+    re.IGNORECASE,
+)
 # Fields that hold IDs or variants, not prose
 _NOT_TEXT = {"id", "pmid", "variant", "variant_1", "variant_2"}
 _CLAIM = re.compile(

@@ -37,9 +37,18 @@ def test_pmids_in_free_text_warn_but_ids_and_variants_do_not() -> None:
         experimental_evidence={
             "function": {
                 "biochemical_function": [
-                    {"pmid": "12345678", "explanation": "as in PMID 23456789"},
+                    {"pmid": "12345678", "explanation": "as in PMID: 23456789"},
+                    {"pmid": "12345678", "explanation": "also PMID12345678"},
+                    {"pmid": "12345678", "explanation": "pubmed 1234567"},
+                    {
+                        "pmid": "1",
+                        "explanation": "https://pubmed.ncbi.nlm.nih.gov/2345/",
+                    },
                     {"pmid": "12345678", "explanation": "see 23456789 and 34567890"},
                     {"pmid": "12345678", "explanation": "chr6:51524409, 2019"},
+                    {"pmid": "12345678", "explanation": "seen 20190101"},
+                    {"pmid": "12345678", "explanation": "no PMID available"},
+                    {"pmid": "12345678", "explanation": "position 51524409 on chr6"},
                 ]
             }
         },
@@ -49,7 +58,7 @@ def test_pmids_in_free_text_warn_but_ids_and_variants_do_not() -> None:
     assert [w for w in evidence_warnings(evidence, _result(2)) if "free text" in w] == [
         f"{at}[{i}].explanation: mentions a PMID in free text; record each paper in a "
         "row's pmid field"
-        for i in (0, 1)
+        for i in (0, 1, 2, 3)
     ]
 
 
