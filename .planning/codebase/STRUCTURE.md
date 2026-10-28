@@ -53,11 +53,8 @@ gene-curator/
 │   └── init.sh                 # Database initialization script
 │
 │
-├── plan/                       # Planning & tracking (NOT code)
-│   ├── enhancements/           # Feature proposals
-│   ├── refactoring/            # Technical debt solutions
-│   ├── ISSUE_ROADMAP.md        # Issue tracking and priorities
-│   └── *.md                    # Planning documents
+├── plan/scripts/               # Legacy ClinGen downloader; pre-GSD plans are archived
+│                               # in .planning/milestones/pre-gsd/plan/
 │
 ├── .planning/codebase/         # GSD codebase analysis (this file + ARCHITECTURE.md, CONVENTIONS.md, etc.)
 │
@@ -206,8 +203,8 @@ gene-curator/
 - Numbering: 001-010 (core), 011-020 (workflow), 021-030 (migrations)
 - Seed files: `006_test_user_setup.sql`, `014_seed_clingen_schema.sql`
 
-**`plan/`:**
-- Purpose: Planning and tracking (NOT production code)
+**`.planning/milestones/pre-gsd/plan/`:**
+- Purpose: Archived pre-GSD planning (NOT production code)
 - Contains: Enhancement proposals, refactoring plans, roadmaps
 - Key files: `ISSUE_ROADMAP.md`, `enhancements/*.md`, `refactoring/*.md`
 

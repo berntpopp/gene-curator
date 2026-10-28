@@ -15,7 +15,7 @@ body:
       options:
         - label: I have searched existing issues to avoid duplicates
           required: true
-        - label: I have checked the roadmap (docs/ISSUE_ROADMAP.md)
+        - label: I have checked the roadmap (.planning/ROADMAP.md)
           required: true
         - label: This feature aligns with Gene Curator's schema-agnostic design
           required: true
