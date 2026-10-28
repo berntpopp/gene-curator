@@ -356,20 +356,3 @@ class PMIDValidationResponse(BaseModel):
     results: list[PMIDValidationResult] = Field(
         default=[], description="Validation results"
     )
-
-
-class PublicationSearchHit(BaseModel):
-    pmid: str
-    title: str
-    journal: str
-    year: int | None = None
-    abstract_snippet: str | None = Field(None, description="First 300 characters")
-    pub_type: str | None = Field(
-        None, description="Publication type, e.g. case reports, review, journal article"
-    )
-
-
-class PublicationSearchResponse(BaseModel):
-    query: str = Field(..., description="The Europe PMC query that ran")
-    total: int = Field(..., description="Hits in PubMed; results holds the first ones")
-    results: list[PublicationSearchHit]

@@ -11,7 +11,7 @@ from app.schemas.validation import (
     PMIDValidationResult,
     PublicationData,
 )
-from app.services.publication_search import mentions
+from app.services.gene_mention import mentions
 from app.services.publication_service import PublicationService
 from tests.api.test_publications_api import fake_db  # noqa: F401 (fixture)
 

@@ -294,7 +294,6 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
         "submit_precuration(reviewer_email=",
         "add_genes_to_scope(symbols, scope_name)",
         "read_curation_for_review",
-        "search_pubmed(gene_symbol",
         "validate_pmids(pmids, gene_symbol)",
         "get_curation_schema(path=)",
     ):
@@ -309,7 +308,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (78, 55_000), "admin": (78, 55_000)}
+SURFACE_BUDGET = {"curator": (77, 55_000), "admin": (77, 55_000)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

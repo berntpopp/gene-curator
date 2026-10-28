@@ -5,15 +5,10 @@ Publications are stored locally to reduce API calls and enable association
 with curations and evidence items.
 """
 
-from typing import Literal
-
-import httpx
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import Session
 
-from app.core.database import get_db
 from app.core.deps import get_async_db, get_current_active_user
 from app.core.logging import api_endpoint, get_logger
 from app.core.search_text import SearchText, escape_like
@@ -22,17 +17,8 @@ from app.schemas.validation import (
     PMIDValidationRequest,
     PMIDValidationResponse,
     PublicationData,
-    PublicationSearchHit,
-    PublicationSearchResponse,
 )
-from app.services.publication_search import (
-    SEARCH_SORTS,
-    gene_names,
-    in_title_or_abstract,
-    mentions,
-    search_publications,
-    search_term,
-)
+from app.services.gene_mention import gene_names, mentions
 from app.services.publication_service import PublicationService
 
 logger = get_logger(__name__)
@@ -124,59 +110,6 @@ async def validate_pmids(
         return result
     finally:
         await service.close()
-
-
-@router.get("/search", response_model=PublicationSearchResponse)
-@api_endpoint()
-def search_pubmed(
-    *,
-    query: SearchText = None,
-    gene_symbol: SearchText = None,
-    disease: SearchText = None,
-    limit: int = Query(10, ge=1, le=10),
-    sort: Literal["relevance", "date", "cited"] = "relevance",
-    exclude_reviews: bool | None = Query(
-        None, description="Leave out reviews; default: true when gene_symbol is given"
-    ),
-    current_user: UserNew = Depends(get_current_active_user),
-    db: Session = Depends(get_db),
-) -> PublicationSearchResponse:
-    """Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
-    terms, all of which must match, most relevant first (reviews left out for a gene
-    unless exclude_reviews=false). Returns pmid, title, journal, year, publication type
-    (case report or cohort) and an abstract snippet (300 characters); get_publication
-    returns the full abstract. Records are cached, so validate_pmids knows them."""
-    if not any(p and p.strip() for p in (query, gene_symbol, disease)):
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "Send query, gene_symbol or disease",
-        )
-    skip_reviews = bool(gene_symbol) if exclude_reviews is None else exclude_reviews
-    gene = in_title_or_abstract(gene_symbol)
-    term = search_term(query, gene, disease, exclude_reviews=skip_reviews)
-    try:
-        total, found = search_publications(db, term, limit, SEARCH_SORTS[sort])
-    except (httpx.HTTPError, TimeoutError) as e:
-        logger.warning("PubMed search failed", error=str(e))
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE,
-            "Europe PMC is unavailable; retry later",
-        ) from e
-    return PublicationSearchResponse(
-        query=term,
-        total=total,
-        results=[
-            PublicationSearchHit(
-                pmid=p.pmid,
-                title=p.title,
-                journal=p.journal,
-                year=p.year,
-                abstract_snippet=p.abstract[:300] if p.abstract else None,
-                pub_type=p.pub_type,
-            )
-            for p in found
-        ],
-    )
 
 
 @router.get(

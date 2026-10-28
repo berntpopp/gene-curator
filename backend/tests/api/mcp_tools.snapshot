@@ -149,7 +149,6 @@ search_hpo_terms read_only=False destructive=False
 search_logs read_only=True destructive=False
 search_mondo_diseases read_only=False destructive=False
 search_omim_diseases read_only=False destructive=False
-search_pubmed read_only=True destructive=False
 search_users read_only=True destructive=False
 search_users_for_invitation read_only=True destructive=False
 set_llm_provider_key read_only=False destructive=True
