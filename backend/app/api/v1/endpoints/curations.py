@@ -51,6 +51,7 @@ from app.schemas.curation import (
     CurationReviewRead,
     CurationScoreResponse,
     CurationSubmit,
+    CurationSubmitResult,
     CurationUpdate,
     CurationWriteResult,
     capped,
@@ -66,6 +67,7 @@ from app.services.curation_access import (
     _has_approved,
 )
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
+from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -477,7 +479,7 @@ def save_draft(
 
 @router.post(
     "/{curation_id}/submit",
-    response_model=Curation | CurationWriteResult,
+    response_model=Curation | CurationSubmitResult,
     responses={409: {"model": CurationConflictResponse}},
 )
 @api_endpoint()
@@ -487,7 +489,7 @@ def submit_curation(
     detail: bool = _FULL_WRITE,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Curation | CurationWriteResult:
+) -> Curation | CurationSubmitResult:
     """Submit for peer review. 422 names each field path that fails the schema or holds a
     malformed PMID, MONDO, OMIM or HPO ID, or an ID PubMed or the ontology does not know."""
     set_rls_context(db, current_user)
@@ -512,10 +514,11 @@ def submit_curation(
 
     # Point ranges and PMIDs: review_guards, in the transition into review
     try:
+        reviewer_id = submit_reviewer(db, curation.scope_id, submit_in)
         submitted = curation_crud.submit_for_review(
             db,
             db_obj=curation,
-            submit_data=submit_in,
+            submit_data=submit_in.model_copy(update={"reviewer_id": reviewer_id}),
             user_id=current_user.id,
         )
     except InvalidEvidenceError as e:
@@ -529,10 +532,11 @@ def submit_curation(
     if submitted is None:
         raise _conflict(curation, submit_in.lock_version)
 
-    return (
-        Curation.model_validate(submitted)
-        if detail
-        else CurationWriteResult.of(submitted)
+    if detail:
+        return Curation.model_validate(submitted)
+    return CurationSubmitResult(
+        **CurationWriteResult.of(submitted).model_dump(),
+        assigned_reviewer=assigned_reviewer(db, reviewer_id),
     )
 
 

@@ -46,7 +46,10 @@ from app.schemas.workflow_engine import (
     WorkflowValidationResult,
 )
 from app.services.audit_trail import audit_entries
-from app.services.review_assignment import assign_precuration_reviewer
+from app.services.review_assignment import (
+    assign_precuration_reviewer,
+    assigned_reviewer,
+)
 from app.services.review_entry import ReviewEntry, lookup_reviews, preflight_review
 from app.services.scope_permissions import ScopePermissionService
 
@@ -178,6 +181,9 @@ def execute_workflow_transition(
             transition_request.notes,
             transition_request.metadata,
             reviewer_id=transition_request.reviewer_id,
+        )
+        transition.assigned_reviewer = assigned_reviewer(
+            db, transition_request.reviewer_id
         )
         return transition
     except ValueError as e:

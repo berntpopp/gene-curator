@@ -11,7 +11,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import CurationStatus, WorkflowStage
 from app.schemas.review_comment import CurationDiff
-from app.schemas.workflow_engine import WorkflowStateInfo
+from app.schemas.workflow_engine import AssignedReviewer, WorkflowStateInfo
 
 # ========================================
 # BASE SCHEMAS (DRY - shared fields)
@@ -335,6 +335,14 @@ class CurationWriteResult(BaseModel):
             verdict=curation.computed_verdict,
             warnings=scores.get("warnings") or [],
         )
+
+
+class CurationSubmitResult(CurationWriteResult):
+    """Concise submit result, with the reviewer it was routed to."""
+
+    assigned_reviewer: AssignedReviewer | None = Field(
+        None, description="Submit with a reviewer: who it was routed to"
+    )
 
 
 def lean_scores(scores: dict[str, Any]) -> dict[str, Any]:

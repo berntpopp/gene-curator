@@ -4329,6 +4329,19 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
+         * AssignedReviewer
+         * @description The reviewer a submit routed the item to.
+         */
+        AssignedReviewer: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name?: string | null;
+        };
+        /**
          * AvailableGene
          * @description Gene available for assignment to a scope.
          */
@@ -5239,6 +5252,32 @@ export interface components {
              * @description Or the reviewer's email (a reviewer of the scope)
              */
             reviewer_email?: string | null;
+        };
+        /**
+         * CurationSubmitResult
+         * @description Concise submit result, with the reviewer it was routed to.
+         */
+        CurationSubmitResult: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Lock Version */
+            lock_version: number;
+            /** Total Score */
+            total_score: number | null;
+            /** Verdict */
+            verdict: string | null;
+            /**
+             * Warnings
+             * @description Scoring warnings, then bad or unknown ID warnings as 'path: message'
+             */
+            warnings?: string[];
+            /** @description Submit with a reviewer: who it was routed to */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
         };
         /**
          * CurationSummary
@@ -8602,6 +8641,83 @@ export interface components {
             reviewer_email?: string | null;
         };
         /**
+         * PrecurationSubmitted
+         * @description Submit result, with the reviewer it was routed to.
+         */
+        PrecurationSubmitted: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Precuration Schema Id
+             * Format: uuid
+             */
+            precuration_schema_id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Evidence Data */
+            evidence_data: {
+                [key: string]: unknown;
+            };
+            /** Computed Scores */
+            computed_scores: {
+                [key: string]: unknown;
+            };
+            /** Computed Fields */
+            computed_fields: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Auto Saved At */
+            auto_saved_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Version Number */
+            version_number: number;
+            /** Lock Version */
+            lock_version: number;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
+            /**
+             * Curation Count
+             * @description Number of linked curations
+             * @default 0
+             */
+            curation_count: number;
+            /**
+             * Rejected By Name
+             * @description Who last requested changes (computed_fields.rejected_by)
+             */
+            rejected_by_name?: string | null;
+            /** @description Submit with a reviewer: who it was routed to */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
+        };
+        /**
          * PrecurationSummary
          * @description Lightweight precuration summary for list views.
          */
@@ -11161,6 +11277,8 @@ export interface components {
              * @description Transition result message
              */
             message?: string | null;
+            /** @description Set when reviewer_id routed the item */
+            assigned_reviewer?: components["schemas"]["AssignedReviewer"] | null;
         };
         /**
          * WorkflowTransitionRequest
@@ -14488,7 +14606,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationWriteResult"];
+                    "application/json": components["schemas"]["Curation"] | components["schemas"]["CurationSubmitResult"];
                 };
             };
             /** @description Conflict */
@@ -14924,7 +15042,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationSubmitted"];
                 };
             };
             /** @description Conflict */
