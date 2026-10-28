@@ -122,21 +122,27 @@ itemised there.
 
 ## Upstream issues
 
-Root-cause comments posted 2026-10-28; no PRs opened.
+Root-cause comments posted 2026-10-28; with owner approval all three were fixed and merged the same day, each with an Opus ponytail review and green CI.
 
 - **[genefoundry-router#256](https://github.com/berntpopp/genefoundry-router/issues/256)** (pinned mondo/clingen
   return not_found). Code: the instructions and pins are built once from config (`enabled` backends), not from the
   live catalog, so dead backends stay advertised; the not-found guard returns a generic `not_found` that sends agents
   to a search that cannot find the tool. Ops: the backends' public `/mcp` return 403 (openresty) for mondo, clingen
-  and hgnc; only pubtator-link answers (200). Fix (rebuild instructions from reachable backends, return
-  `upstream_unavailable`) tested in a scratch worktree, local, not pushed.
+  and hgnc; only pubtator-link answers (200). Fixed in
+  [router#257](https://github.com/berntpopp/genefoundry-router/pull/257) (instructions rebuilt from reachable backends
+  on every refresh, `upstream_unavailable` + backend name, recovery test), after the security bump
+  [router#258](https://github.com/berntpopp/genefoundry-router/pull/258) (dnspython 2.9.0). The 403s are ops and still
+  open.
 - **[pubtator-link#230](https://github.com/berntpopp/pubtator-link/issues/230)** (Case Reports filter returns 0).
   The filter mapping is correct; PubTator3 tags only a few percent of records with some publication types (BRCA1:
-  Case Reports 51 vs PubMed 963, Clinical Study 0 vs 789). Fix: keep the filter and warn on sparsely indexed types.
+  Case Reports 51 vs PubMed 963, Clinical Study 0 vs 789). Fixed in [pubtator-link#232](https://github.com/berntpopp/pubtator-link/pull/232): keep the filter and warn on the six
+  sparsely indexed types (MCP responses; REST `/search` has no warnings field).
 - **[pubtator-link#231](https://github.com/berntpopp/pubtator-link/issues/231)** (opaque error for
   `format=pubtator` + `full=true`). The clear `ValueError` is overwritten by the message allowlist; there is no
-  recovery branch for `validation_failed`; unexpected arguments are reported as `"field": "unknown"`. Fix diff is
-  local (scratchpad), not pushed.
+  recovery branch for `validation_failed`; unexpected arguments are reported as `"field": "unknown"`. Fixed in
+  [pubtator-link#233](https://github.com/berntpopp/pubtator-link/pull/233) (up-front `full` rejection, argument-only
+  recovery text, real field names), after the security bump
+  [pubtator-link#234](https://github.com/berntpopp/pubtator-link/pull/234) (Authlib 1.9.1, dnspython 2.9.0, v7.1.19).
 
 ## Monkey test
 
@@ -176,7 +182,7 @@ Root-cause comments posted 2026-10-28; no PRs opened.
 - `monkey-stack.sh` should set `LLM_CREDENTIAL_KEYS`.
 - SSRF DNS-rebinding window (#491, `ponytail:` in `ssrf.py`).
 - Regenerate `.planning/codebase` (/gsd-map-codebase).
-- Upstream fixes above, once the owner approves PRs.
+- Upstream: tag pubtator-link v7.1.19 (release environment approval); fix the GeneFoundry backends' 403 on public `/mcp`.
 - Owner decision: a PAT can list and revoke its own user's tokens (probably fine).
 - `DynamicNestedField` does not pass the disease name on.
 - Submit stays enabled while rows would be refused.

@@ -31,8 +31,8 @@ Scope (from the Wave 7 report). Confirm once with the owner, then run:
 9. **UI for admin direct add** (platform + scope admins; API from #505).
 10. **Tooling:** `monkey-stack.sh` sets `LLM_CREDENTIAL_KEYS` (and the active kid); regenerate `.planning/codebase`
     with /gsd-map-codebase after the code PRs merge.
-11. **Upstream** (only after the owner approves opening PRs): genefoundry-router#256, pubtator-link#230, #231, using
-    the fixes in their root-cause comments.
+11. **Upstream:** the code fixes are merged (router#257/#258, pubtator-link#232/#233/#234). Left: tag pubtator-link
+    v7.1.19, and the ops fix for the GeneFoundry backends' 403 on public `/mcp` (only PubTator answers).
 12. **Wave 7 monkey-test follow-ups** (#522):
     - `DynamicNestedField` does not pass the disease name on (the MONDO pick fix stops at `DynamicField`).
     - Submit stays enabled while rows would be refused; disable it with the panel's reason.
