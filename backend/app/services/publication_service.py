@@ -537,7 +537,9 @@ def search_term(*parts: str | None, exclude_reviews: bool = False) -> str:
     term = " AND ".join(
         [f"({p.strip()})" for p in parts if p and p.strip()] + ["SRC:MED"]
     )
-    return term + ' NOT PUB_TYPE:"review"' if exclude_reviews else term
+    # a case report that also reviews the literature is primary data: keep it
+    skip = ' NOT (PUB_TYPE:"review" NOT PUB_TYPE:"case reports")'
+    return term + skip if exclude_reviews else term
 
 
 # Europe PMC sorts by relevance when no sort is sent

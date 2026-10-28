@@ -125,6 +125,7 @@ def test_resubmission_carries_the_earlier_rounds_feedback(
                 assigned_by=curator.id,
                 status=ReviewStatus.NEEDS_REVISION,
                 comments="PMID 1 is a review, not a case",
+                feedback_data={"pmids": ["1"]},
                 assigned_at=now - timedelta(days=2),
                 reviewed_at=now - timedelta(days=1),
             ),
@@ -158,7 +159,10 @@ def test_resubmission_carries_the_earlier_rounds_feedback(
         "needs_revision",
         "PMID 1 is a review, not a case",
     )
-    assert body["open_item_comments"] == [
+    assert prev["feedback_data"] == {"pmids": ["1"]}
+    (comment,) = body["open_item_comments"]
+    assert comment.pop("id")  # resolve it without another call
+    assert [comment] == [
         {
             "item_path": "genetic_evidence.segregation[0]",
             "kind": "query",

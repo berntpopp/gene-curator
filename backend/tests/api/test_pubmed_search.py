@@ -49,7 +49,8 @@ def test_search_by_gene_and_disease_returns_short_rows_and_caches_them(
     assert r.status_code == 200, r.text
     body = r.json()
     assert body["query"] == (
-        '(PKD1) AND (polycystic kidney) AND SRC:MED NOT PUB_TYPE:"review"'
+        "(PKD1) AND (polycystic kidney) AND SRC:MED "
+        'NOT (PUB_TYPE:"review" NOT PUB_TYPE:"case reports")'
     )  # a gene search leaves reviews out by default
     assert body["total"] == 42
     (hit,) = body["results"]  # the record without a PMID is not PubMed

@@ -336,7 +336,13 @@ def earlier_feedback(
     if curation.submitted_at is None:
         return [], []
     reviews = db.execute(
-        select(UserNew.name, Review.status, Review.comments, Review.reviewed_at)
+        select(
+            UserNew.name,
+            Review.status,
+            Review.comments,
+            Review.feedback_data,
+            Review.reviewed_at,
+        )
         .join(UserNew, UserNew.id == Review.reviewer_id)
         .where(
             Review.curation_id == curation.id,
@@ -347,7 +353,10 @@ def earlier_feedback(
     ).all()
     comments = db.execute(
         select(
-            ReviewItemComment.item_path, ReviewItemComment.kind, ReviewItemComment.body
+            ReviewItemComment.id,
+            ReviewItemComment.item_path,
+            ReviewItemComment.kind,
+            ReviewItemComment.body,
         ).where(
             ReviewItemComment.curation_id == curation.id,
             ReviewItemComment.status == "open",
@@ -360,6 +369,7 @@ def earlier_feedback(
                 "reviewer": r.name,
                 "decision": r.status,
                 "comments": r.comments,
+                "feedback_data": r.feedback_data,
                 "reviewed_at": r.reviewed_at,
             }
             for r in reviews
