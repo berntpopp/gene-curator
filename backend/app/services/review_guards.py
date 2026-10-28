@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.crud.precuration_required import (
     MissingRequiredFieldsError,
+    field_contract,
     missing_required_fields,
 )
 from app.models import CurationNew, CurationSchema, PrecurationNew, WorkflowPair
@@ -109,7 +110,10 @@ def check_review_content(db: Session, item: CurationNew | PrecurationNew) -> Non
         evidence,
         definition.get("validation_rules"),
     ):
-        raise MissingRequiredFieldsError(missing)
+        raise MissingRequiredFieldsError(
+            missing,
+            field_contract(definition.get("field_definitions"), evidence, missing),
+        )
     if errors := evidence_errors(evidence, definition):
         raise InvalidEvidenceError(errors)
     if isinstance(item, CurationNew) and (uncited := _uncited_rows(db, item, evidence)):

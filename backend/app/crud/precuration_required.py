@@ -24,9 +24,30 @@ from typing import Any
 class MissingRequiredFieldsError(ValueError):
     """Submit refused: schema-required fields are empty (dotted paths in ``fields``)."""
 
-    def __init__(self, fields: list[str]) -> None:
+    def __init__(
+        self, fields: list[str], contract: list[dict[str, Any]] | None = None
+    ) -> None:
         super().__init__(f"Missing required fields: {', '.join(fields)}")
         self.fields = fields
+        self.contract = contract or []
+
+
+def field_contract(
+    field_definitions: Any, data: Any, paths: list[str]
+) -> list[dict[str, Any]]:
+    """{path, type, allowed?} per path, so a client fills fields without guessing."""
+    configs = dict(_fields(field_definitions, data=data))
+    out = []
+    for path in paths:
+        config = configs.get(path, {})
+        options = config.get("options") or config.get("enum")
+        row: dict[str, Any] = {"path": path, "type": config.get("type")}
+        if isinstance(options, list):
+            row["allowed"] = [
+                o.get("value") if isinstance(o, dict) else o for o in options
+            ]
+        out.append(row)
+    return out
 
 
 _MISSING = object()  # an absent value, unlike None (an explicit null)
