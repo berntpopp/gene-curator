@@ -37,6 +37,7 @@
                 :disabled="readonly"
                 :readonly="readonly"
                 @update:model-value="$emit('update:field', fieldPath, $event)"
+                @update:disease-name="$emit('disease-name', fieldPath, $event)"
                 @clear-backend-error="$emit('clear-backend-error', fieldPath)"
               />
             </v-col>
@@ -82,6 +83,7 @@
 
   defineEmits<{
     'update:field': [fieldPath: string, value: unknown]
+    'disease-name': [fieldPath: string, name: string]
     'clear-backend-error': [fieldPath: string]
   }>()
 
