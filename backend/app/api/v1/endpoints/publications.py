@@ -21,6 +21,8 @@ from app.models.models import Publication, UserNew
 from app.schemas.validation import (
     PMIDValidationRequest,
     PMIDValidationResponse,
+    PMIDValidationResult,
+    PublicationBatchRequest,
     PublicationData,
     PublicationSearchHit,
     PublicationSearchResponse,
@@ -175,6 +177,23 @@ def search_pubmed(
             for p in found
         ],
     )
+
+
+@router.post("/batch", response_model=list[PMIDValidationResult])
+@api_endpoint()
+async def get_publications(
+    *,
+    request: PublicationBatchRequest,
+    current_user: UserNew = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_async_db),
+) -> list[PMIDValidationResult]:
+    """Read up to 10 publications with their abstracts in one call, in the order asked;
+    each result says found, not_found or upstream_unavailable. Cached records are reused."""
+    service = PublicationService(db)
+    try:
+        return await service.get_publications(request.pmids)
+    finally:
+        await service.close()
 
 
 @router.get(

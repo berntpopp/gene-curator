@@ -336,3 +336,40 @@ async def test_get_publication_adds_the_abstract_to_a_row_cached_without_it() ->
     assert pub is not None and pub.abstract == "Abstract."
     assert seen[0].url.params["resultType"] == "core"
     db.commit.assert_awaited()  # the cached row now holds the abstract
+
+
+@pytest.mark.asyncio
+async def test_get_publications_reads_several_with_abstracts_in_order() -> None:
+    with_abstract = _publication("1")
+    with_abstract.abstract = "Cached abstract."
+    rows = {"1": with_abstract, "2": _publication("2")}  # 2: cached, no abstract
+    db = _db()
+
+    async def execute(stmt: Any) -> MagicMock:
+        pmid = stmt.compile().params["pmid_1"]
+        result = MagicMock()
+        result.scalar_one_or_none.return_value = rows.get(pmid)
+        return result
+
+    db.execute = AsyncMock(side_effect=execute)
+    asked: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        pmid = request.url.path.rsplit("/", 1)[1]
+        asked.append(pmid)
+        return {"2": httpx.Response(500), "3": httpx.Response(200, json=ARTICLE)}.get(
+            pmid, httpx.Response(404)
+        )
+
+    svc = _service(handler, db)
+    results = await svc.get_publications(["PMID:3", "1", "2", "4", "1"])
+    await svc.close()
+
+    assert [(r.pmid, r.status) for r in results] == [
+        ("3", "found"),
+        ("1", "found"),
+        ("2", "found"),  # upstream down: the cached record, still found
+        ("4", "not_found"),
+    ]
+    assert results[0].publication and results[0].publication.abstract == "Abstract."
+    assert sorted(asked) == ["2", "3", "4"]  # 1 came from the cache

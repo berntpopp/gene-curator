@@ -102,3 +102,24 @@ def test_a_blank_gene_symbol_is_ignored(
     assert r.status_code == 200, r.text
     assert r.json()["results"][0].get("mentions_gene") is None
     fake_db.execute.assert_not_called()  # no gene lookup for a blank symbol
+
+
+def test_get_publications_endpoint_bounds_and_order(
+    client: TestClient,
+    admin_token: str,
+    fake_db: MagicMock,  # noqa: F811
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    h = {"Authorization": f"Bearer {admin_token}"}
+    rows = [PMIDValidationResult(pmid="2", is_valid=True, publication=_pub("T", "A"))]
+    batch = AsyncMock(return_value=rows)
+    monkeypatch.setattr(PublicationService, "get_publications", batch)
+    r = client.post("/api/v1/publications/batch", json={"pmids": ["2"]}, headers=h)
+    assert r.status_code == 200, r.text
+    assert r.json()[0]["publication"]["abstract"] == "A"
+    many = client.post(
+        "/api/v1/publications/batch",
+        json={"pmids": [str(i) for i in range(11)]},
+        headers=h,
+    )
+    assert many.status_code == 422

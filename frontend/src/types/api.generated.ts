@@ -3630,6 +3630,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/publications/batch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Get Publications
+         * @description Read up to 10 publications with their abstracts in one call, in the order asked;
+         *     each result says found, not_found or upstream_unavailable. Cached records are reused.
+         */
+        post: operations["get_publications_api_v1_publications_batch_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/publications/{pmid}": {
         parameters: {
             query?: never;
@@ -8866,6 +8887,14 @@ export interface components {
             base_url?: string | null;
             /** Enabled */
             enabled?: boolean | null;
+        };
+        /** PublicationBatchRequest */
+        PublicationBatchRequest: {
+            /**
+             * Pmids
+             * @description Up to 10 PMIDs
+             */
+            pmids: string[];
         };
         /**
          * PublicationData
@@ -16997,6 +17026,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PublicationSearchResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_publications_api_v1_publications_batch_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PublicationBatchRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PMIDValidationResult"][];
                 };
             };
             /** @description Validation Error */

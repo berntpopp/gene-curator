@@ -373,3 +373,9 @@ class PublicationSearchResponse(BaseModel):
     query: str = Field(..., description="The Europe PMC query that ran")
     total: int = Field(..., description="Hits in PubMed; results holds the first ones")
     results: list[PublicationSearchHit]
+
+
+class PublicationBatchRequest(BaseModel):
+    pmids: list[str] = Field(
+        ..., min_length=1, max_length=10, description="Up to 10 PMIDs"
+    )

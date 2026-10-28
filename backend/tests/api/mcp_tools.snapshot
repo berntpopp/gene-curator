@@ -85,6 +85,7 @@ get_peer_reviewers read_only=True destructive=False
 get_precuration read_only=True destructive=False
 get_publication read_only=True destructive=False
 get_publication_stats read_only=True destructive=False
+get_publications read_only=False destructive=False
 get_recent_errors read_only=True destructive=False
 get_scope_assignment_overview read_only=True destructive=False
 get_scope_assignments read_only=True destructive=False
