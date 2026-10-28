@@ -1824,8 +1824,9 @@ export interface paths {
         };
         /**
          * Read Curation For Review
-         * @description Reviewer read in one call: the curation with evidence and full score trace (excluded
-         *     rows with reasons), warnings, workflow state with blocked moves, and the evidence diff.
+         * @description Reviewer read in one call: the curation with evidence and score trace (excluded
+         *     rows with reasons), warnings, workflow state with blocked moves, the evidence diff (none
+         *     on a first submission) and, on a resubmission, the earlier round's feedback.
          */
         get: operations["read_curation_for_review_api_v1_curations__curation_id__review_get"];
         put?: never;
@@ -4911,7 +4912,7 @@ export interface components {
          * @description Everything a reviewer checks, in one read.
          */
         CurationReviewRead: {
-            /** @description Evidence and the full score trace; computed_scores.excluded lists rows that score nothing, with the reason; trace.out_of_range flags rows outside their range */
+            /** @description Evidence and the score trace without zero-point rows; computed_scores.excluded lists rows that score nothing, with the reason; trace.out_of_range flags rows outside their range */
             curation: components["schemas"]["CurationDetail"];
             /**
              * Warnings
@@ -4920,8 +4921,27 @@ export interface components {
             warnings: string[];
             /** @description Moves the caller may make; blocked ones with the reason */
             workflow: components["schemas"]["WorkflowStateInfo"];
+            /**
+             * First Submission
+             * @description No earlier version to compare: diff is null, review it whole
+             */
+            first_submission: boolean;
             /** @description Evidence versus what the caller last reviewed, else the previous submission or the active curation it replaces */
-            diff: components["schemas"]["CurationDiff"];
+            diff?: components["schemas"]["CurationDiff"] | null;
+            /**
+             * Previous Reviews
+             * @description Resubmission: the earlier decisions (reviewer, decision, comments)
+             */
+            previous_reviews?: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Open Item Comments
+             * @description Resubmission: item comments from earlier rounds still open
+             */
+            open_item_comments?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * CurationSchema

@@ -19,6 +19,7 @@ from app.models import (
     CurationNew,
     CurationStatus,
     Review,
+    ReviewItemComment,
     ReviewStatus,
     ScopeMembership,
     UserNew,
@@ -325,3 +326,43 @@ def eligible_peer_reviewers(
         )
 
     return result
+
+
+def earlier_feedback(
+    db: Session, curation: CurationNew
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """(decided reviews, item comments still open) from before the latest submission:
+    what the curator was asked to fix, for the reviewer of a resubmission."""
+    if curation.submitted_at is None:
+        return [], []
+    reviews = db.execute(
+        select(UserNew.name, Review.status, Review.comments, Review.reviewed_at)
+        .join(UserNew, UserNew.id == Review.reviewer_id)
+        .where(
+            Review.curation_id == curation.id,
+            Review.reviewed_at.isnot(None),
+            Review.reviewed_at < curation.submitted_at,
+        )
+        .order_by(Review.reviewed_at.desc())
+    ).all()
+    comments = db.execute(
+        select(
+            ReviewItemComment.item_path, ReviewItemComment.kind, ReviewItemComment.body
+        ).where(
+            ReviewItemComment.curation_id == curation.id,
+            ReviewItemComment.status == "open",
+            ReviewItemComment.created_at < curation.submitted_at,
+        )
+    ).all()
+    return (
+        [
+            {
+                "reviewer": r.name,
+                "decision": r.status,
+                "comments": r.comments,
+                "reviewed_at": r.reviewed_at,
+            }
+            for r in reviews
+        ],
+        [dict(c._mapping) for c in comments],
+    )

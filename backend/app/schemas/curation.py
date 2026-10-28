@@ -399,8 +399,9 @@ class CurationReviewRead(BaseModel):
 
     curation: CurationDetail = Field(
         ...,
-        description="Evidence and the full score trace; computed_scores.excluded lists rows "
-        "that score nothing, with the reason; trace.out_of_range flags rows outside their range",
+        description="Evidence and the score trace without zero-point rows; "
+        "computed_scores.excluded lists rows that score nothing, with the reason; "
+        "trace.out_of_range flags rows outside their range",
     )
     warnings: list[str] = Field(
         ...,
@@ -409,8 +410,19 @@ class CurationReviewRead(BaseModel):
     workflow: WorkflowStateInfo = Field(
         ..., description="Moves the caller may make; blocked ones with the reason"
     )
-    diff: CurationDiff = Field(
-        ...,
+    first_submission: bool = Field(
+        ..., description="No earlier version to compare: diff is null, review it whole"
+    )
+    diff: CurationDiff | None = Field(
+        None,
         description="Evidence versus what the caller last reviewed, else the previous "
         "submission or the active curation it replaces",
+    )
+    previous_reviews: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Resubmission: the earlier decisions (reviewer, decision, comments)",
+    )
+    open_item_comments: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Resubmission: item comments from earlier rounds still open",
     )
