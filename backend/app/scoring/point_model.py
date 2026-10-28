@@ -106,7 +106,8 @@ def _type_points(
                     "range": list(limits) if limits else None,  # not the cached model's
                 }
             )
-        if value > 0 and (why := uncited(row, type_def.get("rule") == "case_row")):
+        case_row = type_def.get("rule") == "case_row"
+        if value > 0 and (why := uncited(row, case_row, by_status=case_row)):
             excluded.append({"path": f"{path}[{i}]", **why})
         elif finite:
             points.append(value)

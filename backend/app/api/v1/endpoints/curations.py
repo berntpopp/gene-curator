@@ -553,7 +553,8 @@ def calculate_score(
     current_user: UserNew = Depends(get_current_active_user),
 ) -> CurationScoreResponse:
     """Preview the score. Rows with points but no PMID, an unknown PMID or (case-level) no
-    real variant score 0 points and are listed in breakdown.excluded with the reason."""
+    real variant or a score_status other than score score 0 points and are listed in
+    breakdown.excluded with the reason."""
     set_rls_context(db, current_user)
 
     curation = curation_crud.get(db, curation_id)

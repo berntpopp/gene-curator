@@ -10,7 +10,11 @@ pytestmark = pytest.mark.unit
 def _case_rows(*rows: dict) -> dict:
     return {
         "case_level": {
-            "autosomal_dominant_or_x_linked": {"predicted_or_proven_null": list(rows)}
+            "autosomal_dominant_or_x_linked": {
+                "predicted_or_proven_null": [
+                    {"score_status": "score", **r} for r in rows
+                ]
+            }
         }
     }
 

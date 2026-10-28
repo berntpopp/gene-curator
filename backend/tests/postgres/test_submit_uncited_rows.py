@@ -129,7 +129,12 @@ def test_submit_refuses_uncited_scored_case_rows_until_fixed(
 
     monkeypatch.setattr(PublicationService, "fetch_publication", fetch)
     h = {"Authorization": f"Bearer {create_access_token(data={'sub': str(w.alice)})}"}
-    row = {"proband_label": "P1", "variant_type": "nonsense", "pmid": "31558469"}
+    row = {
+        "proband_label": "P1",
+        "variant_type": "nonsense",
+        "pmid": "31558469",
+        "score_status": "score",
+    }
     rows = [
         {
             **row,
@@ -137,6 +142,8 @@ def test_submit_refuses_uncited_scored_case_rows_until_fixed(
             "proband_counted_points": 2,
         },
         {**row, "pmid": "", "variant": "c.1A>T", "proband_counted_points": 2},
+        {**row, "score_status": "", "variant": "c.2A>T", "proband_counted_points": 2},
+        {**row, "score_status": "review", "variant": "", "proband_counted_points": 2},
     ]
     r = client.post(
         "/api/v1/curations/",
@@ -157,11 +164,16 @@ def test_submit_refuses_uncited_scored_case_rows_until_fixed(
     )
     assert refused.status_code == 422, refused.text
     paths = [e["path"] for e in refused.json()["detail"]["errors"]]
-    assert paths == [f"{ROWS}[0].variant", f"{ROWS}[1].pmid"]
+    assert paths == [
+        f"{ROWS}[0].variant",
+        f"{ROWS}[1].pmid",
+        f"{ROWS}[2].score_status",
+    ]  # a review row counts nothing and is not refused
     assert _stage(cid) == before
 
     rows[0]["variant"] = "NM_000001.1:c.100C>T (p.Arg34Ter)"
     rows[1]["pmid"] = "31558469"
+    rows[2]["score_status"] = "score"
     r = client.put(
         f"/api/v1/curations/{cid}",
         json={"evidence_data": _evidence(rows), "lock_version": before[2]},

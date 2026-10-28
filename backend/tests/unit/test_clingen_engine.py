@@ -47,7 +47,7 @@ def _nested_case_level(null_items=(), other_items=()):
 
 
 def _null_item(points: float = 1.5, pmid: str = VALID_PMID) -> dict:
-    return {"pmid": pmid, "proband_counted_points": points}
+    return {"pmid": pmid, "proband_counted_points": points, "score_status": "score"}
 
 
 def _section(engine: ClinGenEngine, key: str, evidence) -> tuple[float, dict]:

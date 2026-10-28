@@ -19,13 +19,13 @@ from typing import Any
 from app.core.logging import get_logger, timed_operation
 
 from .base import ScoringEngine, ScoringResult
-from .case_rows import case_row_warnings
 from .clingen_successor import (
     explicit_legacy_segregation,
     explicit_points,
     missing_score_warnings,
 )
 from .evidence_items import case_row_has_content, has_content, indexed, rows, uncited
+from .evidence_lint import evidence_warnings
 from .point_model import ItemRule, point_model, score, template
 
 logger = get_logger(__name__)
@@ -303,7 +303,7 @@ class ClinGenEngine(ScoringEngine):
         )
         warnings += map(_range_warning, result["trace"].get("out_of_range", []))
         warnings += missing_score_warnings(model, evidence_data)
-        warnings += case_row_warnings(evidence_data)
+        warnings += evidence_warnings(evidence_data, result)
         logger.info(
             "ClinGen scoring completed",
             total_score=result["total"],

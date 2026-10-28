@@ -23,6 +23,8 @@ _UNCITED = {
     "no_variant": "Scored case-level row needs a variant",
     "placeholder_variant": "Scored case-level row needs a real variant: HGVS (c./p./g.), "
     "an rsID or a genomic coordinate",
+    "missing_status": "Case-level row with points needs a score_status: score, review "
+    "or contradicts",
 }
 
 

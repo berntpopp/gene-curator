@@ -43,7 +43,7 @@ def is_variant(text: Any) -> bool:
     return _VARIANT.search(_DIGIT_GROUPS.sub("", text)) is not None
 
 
-def _case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
+def case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
     """(path, table name, rows) for the four SOP v11 case-level tables."""
     genetic = evidence.get("genetic_evidence") if isinstance(evidence, dict) else None
     case = genetic.get("case_level") if isinstance(genetic, dict) else None
@@ -58,6 +58,13 @@ def _case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
     return out
 
 
+def _counted(row: dict[str, Any]) -> bool:
+    try:
+        return float(row.get("proband_counted_points") or 0) > 0
+    except (TypeError, ValueError):
+        return False
+
+
 def _row_warnings(at: str, table: str, row: dict[str, Any]) -> list[str]:
     variants = {k: row[k] for k in _VARIANT_KEYS if str(row.get(k) or "").strip()}
     warnings = [
@@ -66,6 +73,11 @@ def _row_warnings(at: str, table: str, row: dict[str, Any]) -> list[str]:
         for key, value in variants.items()
         if not is_variant(value)
     ]
+    if _counted(row) and not str(row.get("score_status") or "").strip():
+        warnings.append(
+            f"{at}.score_status: blank; set score, review or contradicts (only score "
+            "counts points)"
+        )
     texts = [str(v) for v in variants.values()]
     recessive = "autosomal_recessive" in at
     if table == "other_variant_type" and texts:
@@ -92,7 +104,7 @@ def case_row_warnings(evidence: Any) -> list[str]:
     labels, and one paper scored as many proband rows."""
     warnings: list[str] = []
     by_pmid: dict[str, list[str]] = defaultdict(list)
-    for path, table, rows in _case_tables(evidence):
+    for path, table, rows in case_tables(evidence):
         for i, row in enumerate(rows):
             if not isinstance(row, dict):
                 continue

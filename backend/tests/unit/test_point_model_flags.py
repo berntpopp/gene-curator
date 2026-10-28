@@ -17,7 +17,13 @@ AD_NULL = "genetic_evidence.case_level.autosomal_dominant_or_x_linked.predicted_
 
 def _null_rows(*points: object) -> dict:
     rows = [
-        {"pmid": "1", "variant": "c.1A>T", "proband_counted_points": p} for p in points
+        {
+            "pmid": "1",
+            "variant": "c.1A>T",
+            "score_status": "score",
+            "proband_counted_points": p,
+        }
+        for p in points
     ]
     return {
         "genetic_evidence": {

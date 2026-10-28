@@ -18,11 +18,13 @@ AR = "genetic_evidence.case_level.autosomal_recessive"
 
 
 def _case(ad: list[dict], ar: list[dict] | None = None) -> dict:
+    ad = [{"score_status": "score", **r} for r in ad]
+    ar = [{"score_status": "score", **r} for r in ar or []]
     return {
         "genetic_evidence": {
             "case_level": {
                 "autosomal_dominant_or_x_linked": {"predicted_or_proven_null": ad},
-                "autosomal_recessive": {"predicted_or_proven_null": ar or []},
+                "autosomal_recessive": {"predicted_or_proven_null": ar},
             }
         }
     }
@@ -124,7 +126,9 @@ def test_unknown_pmids_join_the_excluded_rows_with_a_code() -> None:
 def uncited_off(monkeypatch: pytest.MonkeyPatch) -> None:
     """Points arithmetic of fixtures written before the policy (golden parity, caps)."""
     for module in (clingen, point_model):
-        monkeypatch.setattr(module, "uncited", lambda row, case_level: None)
+        monkeypatch.setattr(
+            module, "uncited", lambda row, case_level, by_status=False: None
+        )
 
 
 def test_placeholder_variants_score_nothing() -> None:
@@ -192,7 +196,18 @@ def test_is_variant(text: object, real: bool) -> None:
 
 
 def _warn(table: str, row: dict, moi: str = "autosomal_dominant_or_x_linked") -> list:
-    tables = {moi: {table: [{"pmid": "1", "proband_counted_points": 1, **row}]}}
+    tables = {
+        moi: {
+            table: [
+                {
+                    "pmid": "1",
+                    "score_status": "score",
+                    "proband_counted_points": 1,
+                    **row,
+                }
+            ]
+        }
+    }
     return case_row_warnings({"genetic_evidence": {"case_level": tables}})
 
 
@@ -321,3 +336,68 @@ def test_submit_refuses_uncited_gencc_rows(
     assert [e["path"] for e in r.json()["detail"]["errors"]] == [
         "genetic_evidence.case_level_data[0].pmid"
     ]
+
+
+def test_only_rows_with_score_status_score_count() -> None:
+    """MCP study round 4 (T2b-1, T7-3): review, contradicts and blank rows count nothing."""
+    row = {"pmid": "1", "variant": "c.1A>T", "proband_counted_points": 2}
+    evidence = _case(
+        [
+            row,
+            {**row, "score_status": "review"},
+            {**row, "score_status": "contradicts"},
+            {**row, "score_status": " "},
+            {**row, "score_status": None},
+        ]
+    )
+    result = ClinGenEngine().calculate_scores(evidence, {})
+    assert result.total_score == 2
+    assert [
+        (e["path"][-3:], e["field"], e["reason"])
+        for e in result.evidence_breakdown["excluded"]
+    ] == [
+        ("[1]", "score_status", "not_scored"),
+        ("[2]", "score_status", "not_scored"),
+        ("[3]", "score_status", "missing_status"),
+        ("[4]", "score_status", "missing_status"),
+    ]
+    blank = [w for w in result.warnings if "score_status: blank" in w]
+    assert blank == [
+        f"{AD}.predicted_or_proven_null[{i}].score_status: blank; set score, review or "
+        "contradicts (only score counts points)"
+        for i in (3, 4)
+    ]
+
+
+def test_submit_refuses_blank_status_but_not_review_rows(
+    client: TestClient,
+    curator_token: str,
+    db_session: Session,
+    test_curation: CurationNew,
+) -> None:
+    row = {"pmid": "1", "variant": "c.1A>T", "proband_counted_points": 2}
+    test_curation.evidence_data = _case(
+        [row, {**row, "score_status": "review"}, {**row, "score_status": ""}]
+    )
+    db_session.commit()
+    r = client.post(
+        f"/api/v1/curations/{test_curation.id}/submit",
+        json={"lock_version": test_curation.lock_version},
+        headers={"Authorization": f"Bearer {curator_token}"},
+    )
+    assert r.status_code == 422, r.text
+    assert [(e["path"], e["message"]) for e in r.json()["detail"]["errors"]] == [
+        (
+            f"{AD}.predicted_or_proven_null[2].score_status",
+            "Case-level row with points needs a score_status: score, review or "
+            "contradicts",
+        )
+    ]
+
+
+def test_blank_status_warning_needs_counted_points() -> None:
+    rows = [
+        {"pmid": "1", "proband_counted_points": "two", "score_status": ""},
+        {"pmid": "1", "proband_counted_points": 0, "score_status": ""},
+    ]
+    assert not [w for w in case_row_warnings(_case(rows)) if "score_status" in w]

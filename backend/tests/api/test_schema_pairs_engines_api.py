@@ -332,11 +332,13 @@ class TestScoringEngines:
                             {
                                 "pmid": "12345678",
                                 "variant": "c.1A>T",
+                                "score_status": "score",
                                 "proband_counted_points": 1.5,
                             },
                             {
                                 "pmid": "23456789",
                                 "variant": "c.2A>T",
+                                "score_status": "score",
                                 "proband_counted_points": 1.5,
                             },
                         ]

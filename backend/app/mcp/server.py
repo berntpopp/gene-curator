@@ -175,7 +175,8 @@ _EVIDENCE_PATHS = """
 Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
 - genetic_evidence.case_level.autosomal_dominant_or_x_linked.{predicted_or_proven_null|
   other_variant_type}[]: proband_label, variant, variant_type, pmid,
-  proband_counted_points; .autosomal_recessive.{...}[]: variant_1 and variant_2
+  proband_counted_points, score_status ("score" counts; "review"/"contradicts" count
+  nothing; blank scores 0); .autosomal_recessive.{...}[]: variant_1 and variant_2
 - One row per proband the paper describes, never one per paper or cohort; each row
   has its own variant(s) as HGVS (c./p.), rsID or genomic coordinate, and the PMID
   that reports that proband.
