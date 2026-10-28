@@ -33,12 +33,18 @@ Scope (from the Wave 7 report). Confirm once with the owner, then run:
     with /gsd-map-codebase after the code PRs merge.
 11. **Upstream** (only after the owner approves opening PRs): genefoundry-router#256, pubtator-link#230, #231, using
     the fixes in their root-cause comments.
+12. **Wave 7 monkey-test follow-ups** (#522):
+    - `DynamicNestedField` does not pass the disease name on (the MONDO pick fix stops at `DynamicField`).
+    - Submit stays enabled while rows would be refused; disable it with the panel's reason.
+    - `DynamicField.vue` is at 650 lines: split by responsibility before adding to it.
+    - Worktree backend gates need a placeholder `DATABASE_URL` as well as `SECRET_KEY` (setup.sh or rules.md).
 
 Ask the owner before planning:
 - #464/#465: which provider/model for the second view, and is a key available for a real eval, or Mock only?
 - OAuth 2.1/DCR: which clients must work (Claude Code, Claude.ai, others)? Keep PATs alongside?
 - Rate limiting: shared store (Postgres/Redis) or per-worker buckets documented as a known limit?
 - Evidence-item removal: any external client still using them?
+- PATs: a token can list and revoke its own user's tokens. Keep (probably fine) or block like the account operations?
 
 Out of scope unless the owner says otherwise: #447, #453, #282, #284, #216, #218, #219, #86, #104, #105.
 

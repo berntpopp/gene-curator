@@ -140,12 +140,22 @@ Root-cause comments posted 2026-10-28; no PRs opened.
 
 ## Monkey test
 
-Not finished when this report was written: no PR titled "fix: Wave 7 monkey-test findings" exists yet
-(`gh pr list --state all`). Worktree `../gc-wt/W7MK` (branch `fix/monkey-wave7`, at `20b0c9ca`) holds uncommitted
-test edits only. What passed and the 3 bugs fixed go here once that PR is open:
-
-- Passed: TODO.
-- Bugs fixed (PR #TODO): TODO.
+- Passed:
+  - All 6 roles; outsiders see only active curations.
+  - D1 held for curators, scope admins and platform admins via approve, transition, bulk-transition, self-assign
+    and review submit, in the UI and the API.
+  - Entry -> active, including two review rounds and a re-curation that archives the old version.
+  - Admin direct add via API and MCP; the default workflow pair.
+  - Cited-evidence policy; drafts always save.
+  - PATs: shown once, prefix-only list, 367-day expiry refused, revoked tokens rejected on REST and MCP, account
+    operations blocked.
+  - MCP through a real Claude client: 47 tools; audit records `{channel: mcp, client}`.
+  - LLM console with MockProvider: the key never reaches the browser, logs or audit.
+  - 422s echo no values, except enums.
+- Bugs, all fixed in [#522](https://github.com/berntpopp/gene-curator/pull/522):
+  - Medium: a non-admin could not add members at scope creation (create form now points to the Members tab).
+  - Medium: "Ready to submit" showed for rows submit refuses, and the refusal toast did not name them.
+  - Low: a MONDO pick did not fill Disease Name.
 
 ## Follow-ups
 
@@ -167,4 +177,9 @@ test edits only. What passed and the 3 bugs fixed go here once that PR is open:
 - SSRF DNS-rebinding window (#491, `ponytail:` in `ssrf.py`).
 - Regenerate `.planning/codebase` (/gsd-map-codebase).
 - Upstream fixes above, once the owner approves PRs.
+- Owner decision: a PAT can list and revoke its own user's tokens (probably fine).
+- `DynamicNestedField` does not pass the disease name on.
+- Submit stays enabled while rows would be refused.
+- `DynamicField.vue` is at the 650-line limit.
+- Worktree backend gates need a placeholder `DATABASE_URL` as well as `SECRET_KEY`.
 - Out of scope, still open: #447, #453, #282, #284, #216, #218, #219, #86, #104, #105.
