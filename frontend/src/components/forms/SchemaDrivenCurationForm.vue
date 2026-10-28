@@ -388,7 +388,11 @@
   ) {
     isValid.value = validationResult?.is_valid !== false
     // Live score: validate-evidence (debounced per edit) scores with the pinned point model
-    score.value = scoreSnapshot(validationResult?.score_calculations, hasContradictory.value)
+    score.value = scoreSnapshot(
+      validationResult?.score_calculations,
+      hasContradictory.value,
+      evidenceData.value
+    )
   }
 
   /**

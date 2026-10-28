@@ -35,6 +35,7 @@ def test_seeded_clingen_schema_returns_scores(seeded_clingen_schema):
         "experimental_evidence_total": 0.0,
         "total_score": 2.0,
         "verdict": "limited",
+        "excluded": [],
     }
     assert (trace["total"], trace["class"]) == (2.0, "limited")
 
@@ -72,3 +73,21 @@ def test_other_registered_engines_return_scores(name):
     )
     assert result.score_calculations["total_score"] == 0.0
     assert len(result.score_calculations) >= 3
+
+
+def test_preview_lists_the_rows_that_score_zero(seeded_clingen_schema):
+    """The live preview carries breakdown.excluded so the workspace can name the rows."""
+    row = {"score_status": "score", "pmid": "1", "proband_counted_points": 2}
+    ad = {"predicted_or_proven_null": [row]}
+    evidence = {
+        "genetic_evidence": {"case_level": {"autosomal_dominant_or_x_linked": ad}}
+    }
+    result = SchemaValidator().validate_evidence_data(evidence, seeded_clingen_schema)
+    assert result.score_calculations["excluded"] == [
+        {
+            "path": "genetic_evidence.case_level.autosomal_dominant_or_x_linked"
+            ".predicted_or_proven_null[0]",
+            "field": "variant",
+            "reason": "no_variant",
+        }
+    ]

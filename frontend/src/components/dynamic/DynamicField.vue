@@ -16,6 +16,7 @@
       :required="fieldSchema.required"
       :disabled="isDisabled"
       @update:model-value="updateValue"
+      @update:disease-name="emit('update:disease-name', $event)"
     />
 
     <!-- Text Fields -->
@@ -475,6 +476,7 @@
 
   const emit = defineEmits<{
     'update:model-value': [value: unknown]
+    'update:disease-name': [name: string] // MONDOAutocomplete's label for the picked term
     validate: [value: unknown]
     'component-fallback': [payload: ComponentFallbackEvent]
     'clear-backend-error': []

@@ -1,4 +1,5 @@
 /** Presentation model for the backend's untyped JSON score trace. No scoring rules live here. */
+import { valueAt } from '@/components/dynamic/conditions'
 export interface TraceType {
   path: string
   items: number | null
@@ -72,3 +73,20 @@ export const traceLabel = (key: string): string =>
     .replaceAll('_', ' ')
     .replaceAll('.', ' › ')
     .replace(/^./, c => c.toUpperCase())
+const ownLabel = (row: unknown) => {
+  const named = Object.entries(record(row) ?? {}).find(
+    ([k, v]) => (k === 'label' || k.endsWith('_label')) && typeof v === 'string' && v.trim()
+  )
+  return named ? String(named[1]) : null
+}
+/**
+ * An evidence path for people: `a.rows[1].variant` -> `A › rows #2 › Variant`. With the
+ * evidence, a row that has its own `label` / `*_label` is named by it.
+ */
+export function rowLabel(path: string, evidence?: unknown): string {
+  const [, row = path, field = ''] = /^(.*\[\d+\])\.?(.*)$/.exec(path) ?? []
+  const name =
+    ownLabel(valueAt(evidence, row.replace(/\[(\d+)\]/g, '.$1'))) ??
+    traceLabel(row.replace(/\[(\d+)\]/g, (_, i: string) => ` #${Number(i) + 1}`))
+  return field ? `${name} › ${traceLabel(field)}` : name
+}

@@ -52,6 +52,7 @@
                       :backend-errors="backendErrors"
                       :readonly="readonly"
                       @update:field="handleTabFieldUpdate"
+                      @disease-name="fillDiseaseName"
                       @clear-backend-error="clearFieldBackendError"
                     >
                       <template #section="slotProps">
@@ -87,6 +88,7 @@
                     :disabled="readonly"
                     :readonly="readonly"
                     @update:model-value="updateField(fieldName, $event)"
+                    @update:disease-name="fillDiseaseName(fieldName, $event)"
                     @validate="validateField(fieldName, $event)"
                     @clear-backend-error="clearFieldBackendError(fieldName)"
                   />
@@ -365,6 +367,15 @@
     clearFieldBackendError(fieldName)
     userEdited = true
     formData.value[fieldName] = value
+  }
+
+  /** A picked Mondo term names the disease: fill the sibling `disease_name` when the schema has one */
+  const fillDiseaseName = (fieldPath: string, name: string) => {
+    const sibling = fieldPath.replace(/[^.]*$/, 'disease_name')
+    let fields = jsonSchema.value.properties
+    for (const key of sibling.split('.').slice(0, -1)) fields = fields?.[key]?.properties
+    // A cleared term keeps the name, which the curator may have edited
+    if (name && fields?.disease_name) handleTabFieldUpdate(sibling, name)
   }
 
   /**
