@@ -381,28 +381,6 @@ class PublicationService:
             await self._db.rollback()
             return None
 
-    async def get_publications(self, pmids: list[str]) -> list[PMIDValidationResult]:
-        """Several records with their abstracts: cached ones as stored, the rest (and rows
-        cached without an abstract) fetched in one bounded batch and cached."""
-        wanted = list(
-            dict.fromkeys(
-                p.strip().upper().removeprefix("PMID:").strip() for p in pmids
-            )
-        )
-        cached = {p: await self._get_cached_publication(p) for p in wanted}
-        results = {
-            p: PMIDValidationResult(pmid=p, is_valid=True, publication=pub)
-            for p, pub in cached.items()
-            if pub and pub.abstract
-        }
-        for r in await self.fetch_many([p for p in wanted if p not in results]):
-            if r.is_valid and r.publication:
-                await self._cache_publication(r.publication)
-            elif stale := cached.get(r.pmid):  # upstream failed: the record we have
-                r = PMIDValidationResult(pmid=r.pmid, is_valid=True, publication=stale)
-            results[r.pmid] = r
-        return [results.get(p) or _timed_out(p) for p in wanted]
-
     async def get_publication(self, pmid: str) -> PublicationData | None:
         """Get a publication by PMID, fetching from API if not cached
 
