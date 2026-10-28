@@ -34,10 +34,12 @@ from app.schemas.precuration import (
     PrecurationListResponse,
     PrecurationReject,
     PrecurationSubmit,
+    PrecurationSubmitted,
     PrecurationUpdate,
 )
 from app.schemas.scope import SCOPE_NAME
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
+from app.services.review_assignment import assigned_reviewer, submit_reviewer
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -383,7 +385,7 @@ def save_draft(
 
 @router.post(
     "/{precuration_id}/submit",
-    response_model=Precuration,
+    response_model=PrecurationSubmitted,
     responses={409: {"model": PrecurationConflictResponse}},
 )
 @api_endpoint()
@@ -392,7 +394,7 @@ def submit_precuration(
     submit_in: PrecurationSubmit,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Precuration:
+) -> PrecurationSubmitted:
     """Submit for peer review. 422 names each field path that fails the schema or holds a
     malformed PMID, MONDO, OMIM or HPO ID."""
     # CRITICAL: Set RLS context
@@ -416,10 +418,11 @@ def submit_precuration(
         )
 
     try:
+        reviewer_id = submit_reviewer(db, precuration.scope_id, submit_in)
         submitted = precuration_crud.submit_for_review(
             db,
             db_obj=precuration,
-            submit_data=submit_in,
+            submit_data=submit_in.model_copy(update={"reviewer_id": reviewer_id}),
             user_id=current_user.id,
         )
     except MissingRequiredFieldsError as e:
@@ -438,7 +441,10 @@ def submit_precuration(
     if submitted is None:
         raise _conflict(precuration, submit_in.lock_version)
 
-    return Precuration.model_validate(submitted)
+    return PrecurationSubmitted(
+        **Precuration.model_validate(submitted).model_dump(),
+        assigned_reviewer=assigned_reviewer(db, reviewer_id),
+    )
 
 
 # ========================================

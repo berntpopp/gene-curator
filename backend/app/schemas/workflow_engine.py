@@ -29,6 +29,13 @@ class WorkflowTransitionRequest(BaseModel):
     )
 
 
+class AssignedReviewer(BaseModel):
+    """The reviewer a submit routed the item to."""
+
+    id: UUID
+    name: str | None = None
+
+
 class WorkflowTransition(BaseModel):
     """Workflow transition result."""
 
@@ -42,6 +49,9 @@ class WorkflowTransition(BaseModel):
     metadata: dict[str, Any]
     success: bool = Field(default=True, description="Transition success status")
     message: str | None = Field(None, description="Transition result message")
+    assigned_reviewer: AssignedReviewer | None = Field(
+        None, description="Set when reviewer_id routed the item"
+    )
 
     model_config = ConfigDict(use_enum_values=True)
 

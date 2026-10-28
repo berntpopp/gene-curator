@@ -138,6 +138,7 @@ def test_submit_curation_assigns_reviewer_in_one_call(
         headers=auth_headers(curator),
     )
     assert r.status_code == 200, r.text
+    assert r.json()["assigned_reviewer"] == {"id": str(reviewer.id), "name": "Reviewer"}
     assert _reviews(db_session, c.id) == [reviewer.id]
     note = db_session.scalars(
         select(NotificationNew).where(NotificationNew.user_id == reviewer.id)
@@ -190,6 +191,7 @@ def test_submit_precuration_and_transition_route_to_reviewer(
     )
     assert r.status_code == 200, r.text
     assert r.json()["status"] == "submitted"
+    assert r.json()["assigned_reviewer"]["id"] == str(reviewer.id)
     c = _draft_curation(db_session, scope_with_admin, curator)
     t = client.post(
         f"/api/v1/workflow/curation/{c.id}/transition",
@@ -197,6 +199,7 @@ def test_submit_precuration_and_transition_route_to_reviewer(
         headers=auth_headers(curator),
     )
     assert t.status_code == 200, t.text
+    assert t.json()["assigned_reviewer"]["name"] == "Reviewer"
     assert _reviews(db_session, c.id) == [reviewer.id]
     links = db_session.scalars(
         select(NotificationNew.link).where(NotificationNew.user_id == reviewer.id)
@@ -267,4 +270,5 @@ def test_submit_names_the_reviewer_by_email(
             headers=auth_headers(curator),
         )
         assert r.status_code == 200, r.text
+        assert r.json()["assigned_reviewer"]["id"] == str(reviewer.id)
     assert _reviews(db_session, c.id) == [reviewer.id]

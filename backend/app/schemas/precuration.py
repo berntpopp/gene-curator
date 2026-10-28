@@ -13,6 +13,7 @@ from app.models import CurationStatus, WorkflowStage
 from app.schemas.curation import MERGE_DESCRIPTION, EvidenceWarning
 from app.schemas.review_comment import REVIEW_TEXT_MAX
 from app.schemas.scope import SCOPE_NAME
+from app.schemas.workflow_engine import AssignedReviewer
 
 # ========================================
 # PRECURATION EVIDENCE DATA SCHEMA
@@ -148,6 +149,14 @@ class PrecurationDraftResult(Precuration):
     """Saved draft plus warnings: malformed or unknown PMIDs, MONDO, OMIM and HPO IDs."""
 
     warnings: list[EvidenceWarning] = []
+
+
+class PrecurationSubmitted(Precuration):
+    """Submit result, with the reviewer it was routed to."""
+
+    assigned_reviewer: AssignedReviewer | None = Field(
+        None, description="Submit with a reviewer: who it was routed to"
+    )
 
 
 class PrecurationSummary(BaseModel):

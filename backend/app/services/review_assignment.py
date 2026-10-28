@@ -31,7 +31,7 @@ from app.models import (
 )
 from app.schemas.curation import CurationSubmit
 from app.schemas.precuration import PrecurationSubmit
-from app.schemas.workflow_engine import PeerReviewRequest
+from app.schemas.workflow_engine import AssignedReviewer, PeerReviewRequest
 
 APPROVERS = "an accepted reviewer or admin of its scope, never its author, approves it"
 
@@ -79,6 +79,16 @@ def submit_reviewer(
             f"No reviewer of this scope has the email {data.reviewer_email}: {APPROVERS}"
         )
     return found
+
+
+def assigned_reviewer(db: Session, reviewer_id: UUID | None) -> AssignedReviewer | None:
+    """The echo for a submit that named a reviewer."""
+    if reviewer_id is None:
+        return None
+    return AssignedReviewer(
+        id=reviewer_id,
+        name=db.scalar(select(UserNew.name).where(UserNew.id == reviewer_id)),
+    )
 
 
 def stage_reviewer(
