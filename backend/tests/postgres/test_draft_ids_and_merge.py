@@ -69,7 +69,11 @@ def test_patch_warns_scores_zero_409s_when_stale_and_submit_names_the_path(
     assert r.status_code == 200, r.text
     assert r.json()["evidence_data"]["entity_definition"] == entity
     assert r.json()["warnings"] == [
-        {"path": f"{ROWS}[0].pmid", "message": "99999999 not found in PubMed"}
+        {
+            "path": f"{ROWS}[0].pmid",
+            "message": "PMID 99999999 not found in PubMed: this row scores 0 and "
+            "submit will refuse it; fix or remove the PMID",
+        }
     ]
     assert r.json()["computed_scores"]["total_score"] == 0
     after = _stage(cid)

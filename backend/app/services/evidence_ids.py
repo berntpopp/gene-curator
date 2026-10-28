@@ -107,6 +107,13 @@ def format_errors(evidence: Any) -> list[EvidenceWarning]:
     ]
 
 
+# A draft never blocks (owner rule); say what an unknown PMID costs (MCP study round 6)
+_UNKNOWN_PMID = (
+    "PMID %s not found in PubMed: this row scores 0 and submit will refuse it; "
+    "fix or remove the PMID"
+)
+
+
 def check_ids(db: Session, evidence: Any) -> tuple[list[EvidenceWarning], set[str]]:
     """(warnings, unknown IDs): malformed, not found, or unverified (upstream unreachable).
     Unknown IDs are normalized: PMIDs as digits, OMIM as OMIM:NNNNNN."""
@@ -126,6 +133,8 @@ def check_ids(db: Session, evidence: Any) -> tuple[list[EvidenceWarning], set[st
         source = _KINDS[r.kind][2]
         if r.id is None:
             warnings.append(EvidenceWarning(path=r.path, message=_KINDS[r.kind][1]))
+        elif r.id in unknown and r.kind == "pmid" and r.path.endswith("pmid"):
+            warnings.append(EvidenceWarning(path=r.path, message=_UNKNOWN_PMID % r.id))
         elif r.id in unknown:
             warnings.append(
                 EvidenceWarning(path=r.path, message=f"{r.value} not found in {source}")
