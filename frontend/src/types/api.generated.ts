@@ -4746,6 +4746,11 @@ export interface components {
             has_approved: boolean;
             /** Approvals Remaining */
             approvals_remaining?: number | null;
+            /**
+             * Assigned Reviewers
+             * @description In review: who still has to review it
+             */
+            assigned_reviewers?: components["schemas"]["AssignedReviewer"][];
         };
         /**
          * CurationDiff
