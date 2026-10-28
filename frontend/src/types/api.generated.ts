@@ -3614,8 +3614,9 @@ export interface paths {
         /**
          * Search Pubmed
          * @description Search PubMed literature (via Europe PMC) by free text, gene symbol and disease
-         *     terms, all of which must match. Returns pmid, title, journal, year, publication type
-         *     (case report or cohort) and an abstract snippet, best match first; get_publication
+         *     terms, all of which must match, most relevant first (reviews left out for a gene
+         *     unless exclude_reviews=false). Returns pmid, title, journal, year, publication type
+         *     (case report or cohort) and an abstract snippet (300 characters); get_publication
          *     returns the full abstract. Records are cached, so validate_pmids knows them.
          */
         get: operations["search_pubmed_api_v1_publications_search_get"];
@@ -16840,6 +16841,9 @@ export interface operations {
                 gene_symbol?: string | null;
                 disease?: string | null;
                 limit?: number;
+                sort?: "relevance" | "date" | "cited";
+                /** @description Leave out reviews; default: true when gene_symbol is given */
+                exclude_reviews?: boolean | null;
             };
             header?: never;
             path?: never;

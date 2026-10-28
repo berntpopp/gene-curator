@@ -532,14 +532,21 @@ async def _fetch_all(pmids: list[str]) -> list[PMIDValidationResult]:
 SEARCH_TIMEOUT_S = 8.0  # one Europe PMC search request
 
 
-def search_term(*parts: str | None) -> str:
+def search_term(*parts: str | None, exclude_reviews: bool = False) -> str:
     """Europe PMC query: every given part must match, PubMed records only."""
-    return " AND ".join(
+    term = " AND ".join(
         [f"({p.strip()})" for p in parts if p and p.strip()] + ["SRC:MED"]
     )
+    return term + ' NOT PUB_TYPE:"review"' if exclude_reviews else term
 
 
-async def _search(term: str, limit: int) -> tuple[int, list[PublicationData]]:
+# Europe PMC sorts by relevance when no sort is sent
+SEARCH_SORTS = {"relevance": None, "date": "P_PDATE_D desc", "cited": "CITED desc"}
+
+
+async def _search(
+    term: str, limit: int, sort: str | None
+) -> tuple[int, list[PublicationData]]:
     service = PublicationService(cast(AsyncSession, None))
     try:
         response = await asyncio.wait_for(
@@ -550,6 +557,7 @@ async def _search(term: str, limit: int) -> tuple[int, list[PublicationData]]:
                     "resultType": "core",
                     "pageSize": limit,
                     "format": "json",
+                    **({"sort": sort} if sort else {}),
                 },
             ),
             SEARCH_TIMEOUT_S,
@@ -568,11 +576,11 @@ async def _search(term: str, limit: int) -> tuple[int, list[PublicationData]]:
 
 
 def search_publications(
-    db: Session, term: str, limit: int
+    db: Session, term: str, limit: int, sort: str | None = None
 ) -> tuple[int, list[PublicationData]]:
     """(hit count, top records) from Europe PMC; the records are cached like validated PMIDs.
     Raises httpx.HTTPError or TimeoutError when Europe PMC is unavailable."""
-    total, found = asyncio.run(_search(term, limit))
+    total, found = asyncio.run(_search(term, limit, sort))
     _cache_found(
         db,
         [
