@@ -203,6 +203,7 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     assert "get_curation_schema(schema_id,\npath=" in text
     for name in ("update_curation", "create_curation"):  # said once (list size)
         assert "see save_draft_curations" in tools[name]["description"], name
+        assert "One row per proband" in tools[name]["description"], name
     # Nullable arguments are a type list, still accepting null (and enum values)
     status = tools["list_curations"]["inputSchema"]["properties"]["curation_status"]
     assert status["type"] == ["string", "null"] and None in status["enum"]

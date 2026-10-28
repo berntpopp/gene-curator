@@ -210,8 +210,9 @@ _DESCRIPTIONS = {
 }
 # Said once, on the tool agents save evidence with (round 4: list size)
 _SEE_SAVE = (
-    "\n\nEvidence paths, one row per proband, variant_type values and "
-    "evidence_summary: see save_draft_curations."
+    "\n\nOne row per proband, each with its own variant (HGVS c./p., rsID or genomic "
+    "coordinate) and the PMID that reports it; exact variant_type values per table, "
+    "paths and evidence_summary: see save_draft_curations."
 )
 _DESCRIPTION_EXTRAS = {
     "save_draft_curations": _EVIDENCE_PATHS,
