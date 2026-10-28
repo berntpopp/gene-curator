@@ -2,12 +2,14 @@
 
 Gene Curator runs two MCP endpoints with the same token, checks, audit and rate limits:
 
-- `<API base URL>/mcp` (local development: `http://localhost:8051/mcp`): the curation core, about
-  75 tools for setting up a pipeline (create a scope, add or invite members, assign genes),
-  curating a gene end to end and checking or reviewing a curation, plus lookups (genes, scopes,
-  members, ontology, publications, your work). Start here.
-- `<API base URL>/mcp/full`: every API operation (schema and workflow-pair authoring,
-  statistics, logs, LLM and platform administration).
+- `<API base URL>/mcp` (local development: `http://localhost:8051/mcp`): the curation core,
+  47 tools for setting up a pipeline (create a scope, add members, add genes), curating a gene
+  end to end and checking or reviewing a curation. Start here. Research (papers, genotypes,
+  MONDO/HPO lookup) belongs to a literature MCP such as GeneFoundry, connected alongside;
+  saves still check every PMID, MONDO, OMIM and HP id.
+- `<API base URL>/mcp/full`: every API operation (gene, ontology and publication lookups,
+  invitations, notifications, schema and workflow-pair authoring, statistics, logs, LLM and
+  platform administration).
 
 An MCP client acts as you: every tool is an existing API endpoint
 and runs with your identity, your scope roles and the same checks as the web app (row-level

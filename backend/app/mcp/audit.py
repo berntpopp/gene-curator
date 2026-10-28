@@ -126,11 +126,6 @@ _HINTS = {
     429: "wait a minute and retry",
 }
 _TOOL_HINTS = {
-    (
-        "bulk_create_gene_assignments",
-        403,
-    ): "scope admins only; curators assign one gene "
-    "at a time with create_gene_assignment",
     ("execute_workflow_transition", 400): "get_workflow_state lists the moves you may "
     "make and why the others are blocked",
 }
@@ -155,7 +150,7 @@ _NOT_FOUND_HINTS = (
     (
         ("gene", "hgnc", "symbol"),
         "the gene is not in Gene Curator yet: add_genes_to_scope(symbols, "
-        "scope_name) adds and assigns it, or create_gene(hgnc_id)",
+        "scope_name) adds and assigns it",
     ),
     (
         ("scope",),
@@ -201,8 +196,6 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
 # Who created or submitted stays: reviewers need it for 4-eyes and feedback.
 AUDIT_KEYS = frozenset({"auto_saved_at", "record_hash", "previous_hash"})
 SLIM_KEYS = {
-    "search_mondo_diseases": frozenset({"definition", "synonyms", "xrefs", "iri"}),
-    "search_hpo_terms": frozenset({"definition", "synonyms", "descendant_count"}),
     "validate_pmids": frozenset(
         {
             "authors",
