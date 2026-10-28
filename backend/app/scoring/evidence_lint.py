@@ -19,8 +19,14 @@ PMID_TEXT = re.compile(
 )
 # Fields that hold IDs or variants, not prose
 NOT_TEXT = {"id", "pmid", "variant", "variant_1", "variant_2"}
-# A described person in an experimental row: likely a misfiled patient
-_PERSON = re.compile(r"\b(proband|patient|individual|famil(?:y|ies))s?\b")
+# A described person in an experimental row (text lowercased): likely a misfiled patient.
+# "family" only in patient context, not "gene family" or "family of proteins".
+_PERSON = re.compile(
+    r"\b(?:proband|patient|individual)s?\b|\b(?:pedigree|kindred)s?\b"
+    r"|\bfamil(?:y|ies)\s+(?:[ivx]+|\d+|[a-z])\b(?!\s+of\b)"
+    r"|\b(?:affected|consanguineous|index|two|three|four|five|several|multiple|\d+)"
+    r"\s+famil(?:y|ies)\b"
+)
 _CLAIM = re.compile(
     r"\btotal(?:\s+score)?(?:\s+(?:of|is|=|:))?\s*(\d+(?:\.\d+)?)"
     r"|(\d+(?:\.\d+)?)\s*points?\s+(?:in\s+)?total\b",

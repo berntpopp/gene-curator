@@ -4,7 +4,7 @@ differs from the computed one, an experimental row reusing a case row's PMID and
 import pytest
 
 from app.scoring.clingen import ClinGenEngine
-from app.scoring.evidence_lint import evidence_warnings
+from app.scoring.evidence_lint import _PERSON, evidence_warnings
 
 pytestmark = pytest.mark.unit
 
@@ -150,6 +150,10 @@ def test_model_row_describing_a_patient_warns() -> None:
                 "cell_culture_model": [
                     {"pmid": "2", "description": "iPSC line from the Proband II-1"},
                     {"pmid": "2", "description": "HEK293 knockout"},
+                    {"pmid": "2", "description": "a member of the SLC gene family"},
+                    {"pmid": "2", "description": "binds a family of proteins"},
+                    {"pmid": "2", "description": "protein family conserved in yeast"},
+                    {"pmid": "2", "description": "cells from affected family 2"},
                 ]
             },
             "functional_alteration": {
@@ -164,6 +168,28 @@ def test_model_row_describing_a_patient_warns() -> None:
         "experimental_evidence.models.cell_culture_model[0]: mentions 'proband'; a "
         "described patient is case-level evidence (or patient_cells), not a model or "
         "experimental row",
-        "experimental_evidence.rescue.cell_culture[0]: mentions 'families'; a described "
+        "experimental_evidence.models.cell_culture_model[5]: mentions 'affected family'; "
+        "a described patient is case-level evidence (or patient_cells), not a model or "
+        "experimental row",
+        "experimental_evidence.rescue.cell_culture[0]: mentions 'two families'; a described "
         "patient is case-level evidence (or patient_cells), not a model or experimental row",
     ]
+
+
+@pytest.mark.parametrize(
+    ("text", "flagged"),
+    [
+        ("family 1", True),
+        ("family ii-3", True),
+        ("consanguineous family", True),
+        ("pedigree shown", True),
+        ("a large kindred", True),
+        ("individuals carrying it", True),
+        ("gene family", False),
+        ("family of proteins", False),
+        ("protein family", False),
+        ("familial form", False),
+    ],
+)
+def test_person_words(text: str, flagged: bool) -> None:
+    assert (_PERSON.search(text) is not None) is flagged
