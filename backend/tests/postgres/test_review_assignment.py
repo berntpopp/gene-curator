@@ -229,3 +229,41 @@ def test_submit_precuration_with_reviewer_notifies_them(
     assert r.status_code == 200, r.text
     notes = client.get("/api/v1/notifications/", headers=_h(w.bob))
     assert str(w.pre) in notes.text
+
+
+def test_review_read_lists_the_request_for_changes_before_and_after_resubmit(
+    client: TestClient, w: W
+) -> None:
+    """Round 5: previous_reviews was empty after request_changes (DB-clock reviewed_at is
+    later than the submission). As app_user: the decision shows while the curation is
+    back with its curator, and again on the resubmission."""
+    url = f"/api/v1/curations/{w.cur}"
+
+    def submit() -> None:
+        lock = client.get(url, headers=_h(w.alice)).json()["lock_version"]
+        r = client.post(
+            f"{url}/submit",
+            json={"lock_version": lock, "reviewer_id": str(w.bob)},
+            headers=_h(w.alice),
+        )
+        assert r.status_code == 200, r.text
+
+    submit()
+    (review,) = client.get(
+        "/api/v1/workflow/reviews/my-assignments", headers=_h(w.bob)
+    ).json()
+    sent = client.post(
+        f"/api/v1/workflow/reviews/{review['review_id']}/submit",
+        json={"decision": "request_changes", "comments": "Cite the case report"},
+        headers=_h(w.bob),
+    )
+    assert sent.status_code == 200, sent.text
+    back = client.get(f"{url}/review", headers=_h(w.alice)).json()
+    assert [p["comments"] for p in back["previous_reviews"]] == ["Cite the case report"]
+
+    submit()
+    again = client.get(f"{url}/review", headers=_h(w.bob)).json()
+    assert again["first_submission"] is False
+    assert [p["comments"] for p in again["previous_reviews"]] == [
+        "Cite the case report"
+    ]

@@ -331,10 +331,17 @@ def eligible_peer_reviewers(
 def earlier_feedback(
     db: Session, curation: CurationNew
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
-    """(decided reviews, item comments still open) from before the latest submission:
-    what the curator was asked to fix, for the reviewer of a resubmission."""
+    """(decided reviews, item comments still open) the curator was asked to act on: from
+    before the latest submission while it is in review again, else every round so far
+    (after a request for changes the latest decision is the feedback)."""
     if curation.submitted_at is None:
         return [], []
+    # far future: no cut-off while the curation is back with its curator
+    cutoff = (
+        curation.submitted_at
+        if curation.status == CurationStatus.IN_REVIEW
+        else datetime.max.replace(tzinfo=UTC)
+    )
     reviews = db.execute(
         select(
             UserNew.name,
@@ -347,7 +354,7 @@ def earlier_feedback(
         .where(
             Review.curation_id == curation.id,
             Review.reviewed_at.isnot(None),
-            Review.reviewed_at < curation.submitted_at,
+            Review.reviewed_at < cutoff,
         )
         .order_by(Review.reviewed_at.desc())
     ).all()
@@ -360,7 +367,7 @@ def earlier_feedback(
         ).where(
             ReviewItemComment.curation_id == curation.id,
             ReviewItemComment.status == "open",
-            ReviewItemComment.created_at < curation.submitted_at,
+            ReviewItemComment.created_at < cutoff,
         )
     ).all()
     return (

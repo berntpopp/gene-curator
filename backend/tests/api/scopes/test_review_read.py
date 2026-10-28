@@ -6,7 +6,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app.models import Review, ReviewItemComment, ReviewStatus, Scope, UserNew
+from app.models import (
+    CurationStatus,
+    Review,
+    ReviewItemComment,
+    ReviewStatus,
+    Scope,
+    UserNew,
+    WorkflowStage,
+)
 from app.schemas.curation import capped
 from tests.api.scopes.factories import (
     auth_headers,
@@ -169,3 +177,77 @@ def test_resubmission_carries_the_earlier_rounds_feedback(
             "body": "LOD score source?",
         }
     ]
+
+
+@pytest.mark.parametrize("via", ["peer_review", "transition"])
+def test_request_changes_then_resubmit_lists_round_one(
+    client: TestClient,
+    db_session: Session,
+    curator: UserNew,
+    reviewer: UserNew,
+    scope_with_admin: Scope,
+    via: str,
+) -> None:
+    """The exact flow: submit, request changes with comments, edit, resubmit, review read."""
+    c = make_curation(
+        db_session,
+        scope=scope_with_admin,
+        gene=make_gene(db_session),
+        creator=curator,
+        stage=WorkflowStage.CURATION,
+        status=CurationStatus.DRAFT,
+    )
+    url = f"/api/v1/curations/{c.id}"
+    me, rev = auth_headers(curator), auth_headers(reviewer)
+
+    def submit() -> None:
+        lock = client.get(url, headers=me).json()["lock_version"]
+        r = client.post(
+            f"{url}/submit",
+            json={"lock_version": lock, "reviewer_id": str(reviewer.id)},
+            headers=me,
+        )
+        assert r.status_code == 200, r.text
+
+    submit()
+    comment = client.post(
+        f"{url}/review-comments",
+        json={"item_path": "summary", "body": "Which PMID?"},
+        headers=rev,
+    )
+    assert comment.status_code in (200, 201), comment.text
+    if via == "peer_review":
+        (review,) = client.get(
+            "/api/v1/workflow/reviews/my-assignments", headers=rev
+        ).json()
+        sent = client.post(
+            f"/api/v1/workflow/reviews/{review['review_id']}/submit",
+            json={"decision": "request_changes", "comments": "Cite the case report"},
+            headers=rev,
+        )
+    else:
+        sent = client.post(
+            f"/api/v1/workflow/curation/{c.id}/transition",
+            json={"target_stage": "curation", "notes": "Cite the case report"},
+            headers=rev,
+        )
+    assert sent.status_code == 200, sent.text
+    back = client.get(f"{url}/review", headers=me).json()  # changes requested
+    assert [p["comments"] for p in back["previous_reviews"]] == ["Cite the case report"]
+    assert [x["body"] for x in back["open_item_comments"]] == ["Which PMID?"]
+    lock = client.get(url, headers=me).json()["lock_version"]
+    edited = client.patch(
+        f"{url}/draft",
+        json={"evidence_data": {"summary": "PMID 123"}, "lock_version": lock},
+        headers=me,
+    )
+    assert edited.status_code == 200, edited.text
+    submit()
+
+    body = client.get(f"{url}/review", headers=rev).json()
+
+    assert body["first_submission"] is False
+    assert [(p["reviewer"], p["comments"]) for p in body["previous_reviews"]] == [
+        ("Reviewer", "Cite the case report")
+    ]
+    assert [x["body"] for x in body["open_item_comments"]] == ["Which PMID?"]
