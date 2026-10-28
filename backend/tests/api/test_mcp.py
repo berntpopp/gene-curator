@@ -128,8 +128,8 @@ def test_tool_list_matches_snapshot(
 ) -> None:
     tools = rpc(client, pat(db_session, test_user_admin), "tools/list", {}).json()
     lines = sorted(
-        f"{t['name']} read_only={t['annotations']['readOnlyHint']} "
-        f"destructive={t['annotations']['destructiveHint']}"
+        f"{t['name']} read_only={t['annotations'].get('readOnlyHint', False)} "
+        f"destructive={t['annotations'].get('destructiveHint', False)}"
         for t in tools["result"]["tools"]
     )
     assert lines == SNAPSHOT.read_text().splitlines()
