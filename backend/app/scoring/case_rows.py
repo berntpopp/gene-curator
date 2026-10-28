@@ -43,7 +43,7 @@ def is_variant(text: Any) -> bool:
     return _VARIANT.search(_DIGIT_GROUPS.sub("", text)) is not None
 
 
-def _case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
+def case_tables(evidence: Any) -> list[tuple[str, str, list[Any]]]:
     """(path, table name, rows) for the four SOP v11 case-level tables."""
     genetic = evidence.get("genetic_evidence") if isinstance(evidence, dict) else None
     case = genetic.get("case_level") if isinstance(genetic, dict) else None
@@ -104,7 +104,7 @@ def case_row_warnings(evidence: Any) -> list[str]:
     labels, and one paper scored as many proband rows."""
     warnings: list[str] = []
     by_pmid: dict[str, list[str]] = defaultdict(list)
-    for path, table, rows in _case_tables(evidence):
+    for path, table, rows in case_tables(evidence):
         for i, row in enumerate(rows):
             if not isinstance(row, dict):
                 continue
