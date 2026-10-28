@@ -89,6 +89,7 @@ def test_reviewer_reads_everything_in_one_call(
     assert body["curation"]["computed_scores"]["excluded"] == excluded
     (cases,) = body["curation"]["computed_scores"]["trace"]["sections"][0]["categories"]
     assert [t["path"] for t in cases["types"]] == ["a"]  # zero-item types dropped
+    assert "warnings" not in body["curation"]["computed_scores"]  # listed once
     assert body["warnings"] == [
         "genetic.cases[0].pmid: 999999999 not found in PubMed",
         "genetic: 14 points claimed, capped at 12",

@@ -14427,7 +14427,7 @@ export interface operations {
     get_curation_api_v1_curations__curation_id__get: {
         parameters: {
             query?: {
-                /** @description Keep the score trace's zero-point rows */
+                /** @description Include the full score trace */
                 detail?: boolean;
             };
             header?: never;
