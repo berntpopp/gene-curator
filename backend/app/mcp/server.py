@@ -60,8 +60,7 @@ update_scope changes it later). Two ClinGen SOP v11 pairs exist: "ClinGen
 Gene-Disease Validity" is_default (the full SOP v11 form; create_scope uses it) and
 "ClinGen_Complete_Workflow", the older form of the seeded demo scopes. Curate with
 the scope's default_workflow_pair_id. Members: search_users_for_invitation finds a
-user, add_member adds them at once, invite_member sends an invitation,
-update_member_role changes a role.
+user, add_member adds them at once, update_member_role changes a role.
 
 Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Active.
 1. Entry: add_genes_to_scope(symbols, scope_name) resolves HGNC symbols, creates
@@ -75,10 +74,8 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
    lives in evidence_data (save_draft_curations or update_curation with
    lock_version); their descriptions list the evidence paths and
    get_curation_schema(path=) shows one table's fields.
-4. Literature: find and read papers (per-patient genotypes, full text) with a literature
-   MCP such as GeneFoundry (PubTator, LitVar, ClinVar) used alongside; record the
-   evidence here. validate_pmids(pmids) confirms the PMIDs exist. Cite the PMID that
-   reports each proband.
+4. Research (papers, genotypes, MONDO/HPO lookup): a literature MCP such as GeneFoundry;
+   record the evidence here, validate_pmids(pmids) confirms the PMIDs you cite.
 5. Review: submit_curation(reviewer_email=...) submits and assigns the reviewer.
    The reviewer reads everything in one call with read_curation_for_review, then
    submit_peer_review(decision="approve" or "request_changes", with comments).
@@ -109,23 +106,16 @@ the user.
 # curation) plus lookups; /mcp/full keeps every operation (owner decision 2026-10-27)
 CORE_TOOLS = frozenset(
     {
-        # you, your queue, invitations
+        # you and your queue
         "read_users_me", "read_my_work", "get_my_review_assignments",
-        "list_notifications", "mark_notification_read",
-        "get_my_pending_invitations", "accept_invitation",
         # scopes and people
         "list_scopes", "get_scope_details", "list_members", "get_peer_reviewers",
         # pipeline setup: the scope and its members
-        "create_scope", "update_scope", "add_member", "invite_member",
-        "update_member_role", "search_users_for_invitation",
-        # genes
-        "resolve_genes", "get_genes_by_symbol", "search_genes", "get_gene",
-        "get_gene_by_hgnc_id", "create_gene", "search_hgnc_genes", "fetch_hgnc_gene",
-        "get_scope_genes", "get_gene_full_summary",
-        # gene assignments
-        "create_gene_assignment", "bulk_create_gene_assignments",
-        "get_scope_assignments", "get_gene_assignment", "update_gene_assignment",
-        "assign_curator_to_gene", "get_available_genes_for_scope",
+        "create_scope", "update_scope", "add_member", "update_member_role",
+        "search_users_for_invitation",
+        # genes: intake only (research goes through a literature MCP, owner 2026-10-28)
+        "add_genes_to_scope", "resolve_genes", "get_scope_genes",
+        "assign_curator_to_gene",
         # precurations
         "create_precuration", "get_precuration", "list_precurations",
         "update_precuration", "save_draft_precurations", "submit_precuration",
@@ -135,19 +125,12 @@ CORE_TOOLS = frozenset(
         "save_draft_curations", "submit_curation", "delete_curation",
         "curation_diff", "calculate_score",
         # review and workflow
-        "assign_peer_reviewer", "submit_peer_review", "list_review_comments",
-        "create_review_comment", "update_review_comment", "get_workflow_state",
-        "execute_workflow_transition", "validate_workflow_transition",
-        "get_workflow_audit_trail",
-        # methodology
+        "read_curation_for_review", "assign_peer_reviewer", "submit_peer_review",
+        "list_review_comments", "create_review_comment", "update_review_comment",
+        "get_workflow_state", "execute_workflow_transition", "get_workflow_audit_trail",
+        # methodology and validation
         "get_curation_schema", "get_workflow_pairs", "get_workflow_pair",
-        "get_methodology_version", "validate_evidence_data", "get_scoring_engine_info",
-        # ontology and literature
-        "search_mondo_diseases", "search_hpo_terms", "validate_hpo_term",
-        "get_inheritance_patterns", "search_omim_diseases", "get_omim_disease",
-        "validate_pmids", "get_publication",
-        # one-call round trips (token plan 2)
-        "add_genes_to_scope", "read_curation_for_review",
+        "validate_pmids",
     }
 )  # fmt: skip
 
@@ -206,6 +189,11 @@ path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null")
 )
 # Routes without a docstring: lead with the words an agent searches for
 _DESCRIPTIONS = {
+    # without the invitation flow, which is not on /mcp
+    "add_member": "Add an existing user to a scope as an accepted member in one step "
+    "(platform or scope admin; any role may be given). There is no invitation to "
+    "accept: the role takes effect at once, the add is audited and the user is "
+    "notified. You cannot add yourself.",
     "read_users_me": "Me: the current user's profile (id, name, application role).",
     "read_my_work": "My work queue across scopes: my drafts, my submissions and the "
     "precurations and curations waiting for my review, with counts per tab.",

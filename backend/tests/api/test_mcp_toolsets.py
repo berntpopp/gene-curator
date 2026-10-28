@@ -51,20 +51,22 @@ def test_core_tool_list_matches_snapshot(
 FLOW_TOOLS = {
     "pipeline setup": {
         "get_workflow_pairs", "create_scope", "update_scope", "list_scopes",
-        "search_users_for_invitation", "add_member", "invite_member",
-        "update_member_role", "list_members", "resolve_genes", "create_gene",
-        "bulk_create_gene_assignments", "create_gene_assignment",
+        "search_users_for_invitation", "add_member", "update_member_role",
+        "list_members", "add_genes_to_scope", "resolve_genes", "get_scope_genes",
+        "assign_curator_to_gene",
     },
     "curate a gene": {
         "create_precuration", "save_draft_precurations", "submit_precuration",
-        "assign_peer_reviewer", "list_curations", "get_curation_schema",
+        "list_curations", "get_curation", "get_curation_schema",
         "save_draft_curations", "update_curation", "submit_curation",
-        "search_mondo_diseases", "validate_pmids", "get_publication",
+        "calculate_score", "validate_pmids",
     },
     "review a curation": {
-        "read_my_work", "get_my_review_assignments", "get_curation", "curation_diff",
-        "calculate_score", "create_review_comment", "submit_peer_review",
-        "approve_precuration", "reject_precuration", "execute_workflow_transition",
+        "read_my_work", "get_my_review_assignments", "read_curation_for_review",
+        "get_curation", "curation_diff", "get_workflow_audit_trail",
+        "list_review_comments", "create_review_comment", "submit_peer_review",
+        "approve_precuration", "reject_precuration", "assign_peer_reviewer",
+        "execute_workflow_transition",
     },
 }  # fmt: skip
 
@@ -312,7 +314,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     assert "user_role on each list_scopes row" in INSTRUCTIONS
     assert "read_users_me" not in INSTRUCTIONS and "evidence-item" not in INSTRUCTIONS
     # Round 5: literature from a literature MCP, which ClinGen pair, diff baselines
-    assert "GeneFoundry (PubTator, LitVar, ClinVar)" in INSTRUCTIONS
+    assert "a literature MCP such as GeneFoundry;" in INSTRUCTIONS
     assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
     assert "previous_submission the one before it" in INSTRUCTIONS
     # the old multi-step gene entry and reviewer routing are gone
@@ -322,7 +324,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (77, 54_000), "admin": (77, 54_000)}
+SURFACE_BUDGET = {"curator": (47, 35_500), "admin": (47, 35_500)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)
