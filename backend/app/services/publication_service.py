@@ -37,19 +37,6 @@ logger = get_logger(__name__)
 EUROPE_PMC_API_BASE = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 
 
-_GENERIC_TYPES = {"journal article", "research-article", "research support"}
-
-
-def _pub_type(types: Any) -> str | None:
-    """The most telling type ("Case Reports" over "Journal Article"), so agents can tell a
-    case report from a cohort; Europe PMC gives one string or a list."""
-    types = [types] if isinstance(types, str) else list(types or [])
-    return next(
-        (t for t in types if not t.lower().startswith(tuple(_GENERIC_TYPES))),
-        types[0] if types else None,
-    )
-
-
 class PublicationService:
     """Service for validating PMIDs and retrieving publication data
 
@@ -120,7 +107,9 @@ class PublicationService:
             doi=result.get("doi"),
             pmcid=result.get("pmcid"),
             abstract=result.get("abstractText"),
-            pub_type=_pub_type(result.get("pubTypeList", {}).get("pubType")),
+            pub_type=result.get("pubTypeList", {}).get("pubType", [None])[0]
+            if result.get("pubTypeList")
+            else None,
             is_open_access=result.get("isOpenAccess") == "Y",
             cited_by_count=result.get("citedByCount"),
             publication_date=result.get("firstPublicationDate"),
@@ -145,10 +134,7 @@ class PublicationService:
         try:
             response = await self._client.get(
                 f"/article/MED/{clean_pmid}",
-                params={
-                    "format": "json",
-                    "resultType": "core",
-                },  # core has the abstract
+                params={"format": "json"},
             )
 
             if response.status_code == 404:
@@ -396,17 +382,18 @@ class PublicationService:
             clean_pmid = clean_pmid[5:]
         clean_pmid = clean_pmid.strip()
 
-        # Cache first; a row cached without its abstract is fetched again to add it
+        # Check cache first
         cached = await self._get_cached_publication(clean_pmid)
-        if cached and cached.abstract:
+        if cached:
             return cached
 
+        # Fetch from API
         result = await self.fetch_publication(clean_pmid)
         if result.is_valid and result.publication:
             await self._cache_publication(result.publication)
             return result.publication
 
-        return cached
+        return None
 
 
 LOOKUP_CONCURRENCY = 5  # parallel Europe PMC requests per submit
