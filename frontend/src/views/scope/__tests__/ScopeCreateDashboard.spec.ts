@@ -11,7 +11,6 @@ import ScopeCreate from '@/views/scope/ScopeCreate.vue'
 import ScopeDashboard from '@/views/scope/ScopeDashboard.vue'
 import { useScopesStore } from '@/stores/scopes'
 import { useAuthStore } from '@/stores/auth'
-import { usersApi } from '@/api/users'
 import { snackbarState } from '@/composables/useNotifications'
 
 const { routerPush, routerReplace, routerBack, routeState, logger } = vi.hoisted(() => ({
@@ -32,7 +31,6 @@ vi.mock('@/composables/useLogger', () => ({ useLogger: () => logger }))
 vi.mock('@/components/gene/GeneList.vue', () => ({
   default: { name: 'GeneList', template: '<div />' }
 }))
-vi.mock('@/api/users', () => ({ usersApi: { searchUsers: vi.fn() } }))
 vi.mock('@/api/schemas', () => ({
   schemasAPI: {
     getWorkflowPairs: vi.fn().mockResolvedValue([
@@ -195,16 +193,12 @@ describe('ScopeCreate', () => {
     expect(create).not.toHaveBeenCalled()
   })
 
-  it('creates the scope with only API fields, invites members and opens the dashboard', async () => {
+  it('creates the scope with only API fields and opens the dashboard', async () => {
     const { store, vm } = await mountView()
     vi.useFakeTimers()
     const create = vi
       .spyOn(store, 'createScope')
       .mockResolvedValue({ id: 's9', name: 'n' } as never)
-    const invite = vi
-      .spyOn(store, 'inviteMember')
-      .mockResolvedValueOnce(undefined as never)
-      .mockRejectedValueOnce(new Error('already member'))
     vm.valid = true
     vm.scopeData = {
       name: 'kidney-genetics',
@@ -214,10 +208,6 @@ describe('ScopeCreate', () => {
       is_public: true,
       default_workflow_pair_id: 'wp-1'
     }
-    vm.pendingMembers = [
-      { user: { id: 'u1' }, role: 'curator' },
-      { user: { id: 'u2' }, role: 'viewer' }
-    ]
     await nextTick() // let the inputs pick up the values before the form validates
     await call(vm, 'handleSubmit')
     expect(create).toHaveBeenCalledWith({
@@ -228,12 +218,6 @@ describe('ScopeCreate', () => {
       is_public: true,
       default_workflow_pair_id: 'wp-1'
     })
-    expect(invite).toHaveBeenCalledTimes(2)
-    expect(invite).toHaveBeenCalledWith('s9', { user_id: 'u1', role: 'curator' })
-    expect(logger.warn).toHaveBeenCalledWith(
-      'Failed to invite member',
-      expect.objectContaining({ user_id: 'u2' })
-    )
     expect(snackbarState.message).toBe('Scope created')
     vi.advanceTimersByTime(1000)
     expect(routerPush).toHaveBeenCalledWith({
@@ -267,55 +251,10 @@ describe('ScopeCreate', () => {
     call(vm, 'validateName')
   })
 
-  it('searches users with a debounce and hides already added members', async () => {
-    const { vm } = await mountView()
-    vi.useFakeTimers()
-    vi.mocked(usersApi.searchUsers).mockResolvedValue([
-      { id: 'u1', name: 'Ada', email: 'ada@x.org' },
-      { id: 'u2', name: null, email: 'bob@x.org' }
-    ] as never)
-    vm.pendingMembers = [{ user: { id: 'u1' }, role: 'curator' }]
-    const search = vm.onUserSearch as (q: string) => void
-    search('a')
-    expect(vm.userSearchResults).toEqual([])
-    search('ad')
-    search('ada')
-    await vi.advanceTimersByTimeAsync(300)
-    expect(usersApi.searchUsers).toHaveBeenCalledTimes(1)
-    expect(vm.userSearchResults).toEqual([
-      { id: 'u2', name: null, email: 'bob@x.org', displayName: 'bob@x.org' }
-    ])
-  })
-
-  it('clears the results and logs when the user search fails', async () => {
-    const { vm } = await mountView()
-    vi.useFakeTimers()
-    vi.mocked(usersApi.searchUsers).mockRejectedValue(new Error('boom'))
-    call(vm, 'onUserSearch', 'ada')
-    await vi.advanceTimersByTimeAsync(300)
-    expect(vm.userSearchResults).toEqual([])
-    expect(logger.error).toHaveBeenCalledWith(
-      'User search failed',
-      expect.objectContaining({ error: 'boom' })
-    )
-  })
-
-  it('adds and removes pending members and resets the dialog', async () => {
-    const { vm } = await mountView()
-    call(vm, 'addPendingMember')
-    expect(vm.pendingMembers).toEqual([])
-    vm.showAddMemberDialog = true
-    vm.selectedMember = { id: 'u1', name: 'Ada', email: 'a@x.org' }
-    vm.memberRole = 'reviewer'
-    call(vm, 'addPendingMember')
-    expect(vm.pendingMembers).toEqual([
-      { user: { id: 'u1', name: 'Ada', email: 'a@x.org' }, role: 'reviewer' }
-    ])
-    expect(vm.showAddMemberDialog).toBe(false)
-    expect(vm.selectedMember).toBeNull()
-    expect(vm.memberRole).toBe('curator')
-    call(vm, 'removePendingMember', 'u1')
-    expect(vm.pendingMembers).toEqual([])
+  it('has no admin-only user search; it points to Members -> Invite', async () => {
+    const { wrapper } = await mountView()
+    expect(wrapper.text()).not.toContain('Add member')
+    expect(wrapper.text()).toContain('Members tab')
   })
 })
 
