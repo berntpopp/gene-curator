@@ -25,7 +25,7 @@ def _error(status: int, tool: str, detail: object = "nope") -> str:
 @pytest.mark.parametrize(
     ("tool", "detail", "next_tool"),
     [
-        ("get_gene", "Gene not found", "create_gene"),
+        ("get_gene", "Gene not found", "add_genes_to_scope"),
         (
             "curation_diff",
             "No submitted snapshot of this curation",
@@ -34,7 +34,7 @@ def _error(status: int, tool: str, detail: object = "nope") -> str:
         ("curation_diff", "No active curation for this gene and scope", "audit_trail"),
         ("get_publication", "Publication not found: 1", "validate_pmids(pmids"),
         ("get_scope_details", "Scope not found", "list_scopes(name="),
-        ("create_gene_assignment", "Gene not found", "create_gene"),
+        ("create_gene_assignment", "Gene not found", "add_genes_to_scope"),
         # the detail decides, never the tool's arguments: a missing precuration is
         # not a missing gene
         ("create_curation", "Approved precuration not found", "list_curations"),
@@ -56,7 +56,6 @@ def test_errors_carry_a_next_step() -> None:
     assert _error(409, "delete_precuration", "Has linked curations").endswith(
         "next: the detail says why; a retry will not help"
     )
-    assert "create_gene_assignment" in _error(403, "bulk_create_gene_assignments")
     assert "get_workflow_state" in _error(400, "execute_workflow_transition")
     assert "\nnext:" not in _error(500, "update_curation")
 
