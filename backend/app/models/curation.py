@@ -267,6 +267,12 @@ class CurationNew(Base):
     workflow_pair: Mapped["WorkflowPair"] = relationship(
         "WorkflowPair", back_populates="curations"
     )
+
+    @property
+    def curation_schema_id(self) -> PyUUID | None:
+        """The pair's curation schema: the field contract a client reads (round 5)."""
+        return self.workflow_pair.curation_schema_id if self.workflow_pair else None
+
     creator: Mapped["UserNew | None"] = relationship(
         "UserNew", foreign_keys=[created_by], overlaps="created_curations"
     )

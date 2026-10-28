@@ -134,7 +134,10 @@ class CurationInDBBase(CurationBase):
 class Curation(CurationInDBBase):
     """Full curation response schema."""
 
-    pass
+    curation_schema_id: UUID | None = Field(
+        None,
+        description="Field contract: get_curation_schema(curation_schema_id, path=)",
+    )
 
 
 class EvidenceWarning(BaseModel):
