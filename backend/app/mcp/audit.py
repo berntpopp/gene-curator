@@ -142,6 +142,11 @@ _NOT_FOUND_HINTS = (
         "submissions and review rounds a diff can start from",
     ),
     (
+        ("schema",),
+        "schema ids: curation_schema_id on get_curation, precuration_schema_id on "
+        "get_precuration, or get_workflow_pair(the scope's default_workflow_pair_id)",
+    ),
+    (
         ("pmid", "publication"),
         "find papers with a literature MCP such as GeneFoundry; "
         "validate_pmids(pmids) checks them",

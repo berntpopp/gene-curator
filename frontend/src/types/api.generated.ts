@@ -4550,6 +4550,11 @@ export interface components {
             submitted_by: string | null;
             /** Approved By */
             approved_by: string | null;
+            /**
+             * Curation Schema Id
+             * @description Field contract: get_curation_schema(curation_schema_id, path=)
+             */
+            curation_schema_id?: string | null;
         };
         /**
          * CurationConflictResponse
@@ -4836,6 +4841,11 @@ export interface components {
             /** Approved By */
             approved_by: string | null;
             /**
+             * Curation Schema Id
+             * @description Field contract: get_curation_schema(curation_schema_id, path=)
+             */
+            curation_schema_id?: string | null;
+            /**
              * Warnings
              * @default []
              */
@@ -5109,6 +5119,38 @@ export interface components {
              * @default false
              */
             use_dynamic_form: boolean;
+        };
+        /**
+         * CurationSchemaSubtree
+         * @description One evidence field of a schema (get_curation_schema with path=), no envelope.
+         */
+        CurationSchemaSubtree: {
+            /**
+             * Schema Id
+             * Format: uuid
+             */
+            schema_id: string;
+            /** Path */
+            path: string;
+            /**
+             * Field
+             * @description The field definition at path
+             */
+            field: unknown;
+            /**
+             * Validation Rules
+             * @description Rules a field here names or that name the path
+             */
+            validation_rules?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Point Ranges
+             * @description Per evidence type under path: points range and category cap
+             */
+            point_ranges?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * CurationSchemaSummary
@@ -12400,7 +12442,7 @@ export interface operations {
             query?: {
                 /** @description Fields flattened by id without display keys (label, help, order...); option values only; ui_configuration is {} and scoring_configuration is null */
                 compact?: boolean;
-                /** @description Dotted evidence path, e.g. genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null: field_definitions holds only that field */
+                /** @description Dotted evidence path, e.g. genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null: only that field, its validation rules and point ranges, without the schema envelope */
                 path?: string | null;
             };
             header?: never;
@@ -12417,7 +12459,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["CurationSchema"];
+                    "application/json": components["schemas"]["CurationSchema"] | components["schemas"]["CurationSchemaSubtree"];
                 };
             };
             /** @description Validation Error */

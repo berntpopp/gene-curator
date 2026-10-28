@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core import deps
 from app.core.database import get_db
 from app.core.enum_options import flatten_sections
-from app.core.schema_compact import compact_field, rules_for, subtree
+from app.core.schema_compact import compact_field, ranges_for, rules_for, subtree
 from app.crud.schema_repository import (
     SNAPSHOT_KEYS,
     publish_errors,
@@ -27,6 +27,7 @@ from app.models.methodology import MethodologyVersion as MethodologyVersionModel
 from app.schemas.schema_repository import (
     CurationSchema,
     CurationSchemaCreate,
+    CurationSchemaSubtree,
     CurationSchemaSummary,
     CurationSchemaUpdate,
     MethodologyDerive,
@@ -37,6 +38,7 @@ from app.schemas.schema_repository import (
     WorkflowPairCreate,
     WorkflowPairUpdate,
 )
+from app.scoring.point_model import point_model
 from app.scoring.registry import scoring_registry
 
 router = APIRouter()
@@ -140,7 +142,10 @@ def create_curation_schema(
     return schema  # type: ignore[return-value]
 
 
-@router.get("/curation-schemas/{schema_id}", response_model=CurationSchema)
+@router.get(
+    "/curation-schemas/{schema_id}",
+    response_model=CurationSchema | CurationSchemaSubtree,
+)
 def get_curation_schema(
     *,
     db: Session = Depends(get_db),
@@ -155,11 +160,11 @@ def get_curation_schema(
         None,
         max_length=300,
         description="Dotted evidence path, e.g. genetic_evidence.case_level."
-        "autosomal_recessive.predicted_or_proven_null: field_definitions holds "
-        "only that field",
+        "autosomal_recessive.predicted_or_proven_null: only that field, its "
+        "validation rules and point ranges, without the schema envelope",
     ),
     current_user: UserNew = Depends(deps.get_current_active_user),
-) -> CurationSchema:
+) -> CurationSchema | CurationSchemaSubtree:
     """
     Get curation schema by ID. Pass compact=true to read only the field contract and
     path= to read one evidence field (one table's row fields) instead of all.
@@ -173,22 +178,26 @@ def get_curation_schema(
     fields = flatten_sections(schema.field_definitions or {})
     if compact:
         fields = {k: compact_field(v) for k, v in fields.items()}
-    update: dict[str, Any] = {}
-    if path:
+    if path:  # only that subtree, its rules and point ranges (rounds 4 and 5)
         try:
-            fields = {path: subtree(fields, path)}
+            field = subtree(fields, path)
         except KeyError as exc:
             raise HTTPException(status_code=400, detail=exc.args[0]) from exc
-        # Only that subtree: its rules, no stage list or layout (round 4)
-        update = {
-            "validation_rules": rules_for(schema.validation_rules or {}, path, fields),
-            "workflow_states": {},
+        model = point_model(schema.scoring_configuration)
+        return CurationSchemaSubtree(
+            schema_id=schema.id,
+            path=path,
+            field=field,
+            validation_rules=rules_for(schema.validation_rules or {}, path, field),
+            point_ranges=ranges_for(model, path) if model else [],
+        )
+    return CurationSchema.model_validate(schema).model_copy(
+        update={
+            "field_definitions": fields,
             "ui_configuration": {},
+            "scoring_configuration": None,
         }
-    update["field_definitions"] = fields
-    if compact:
-        update |= {"ui_configuration": {}, "scoring_configuration": None}
-    return CurationSchema.model_validate(schema).model_copy(update=update)
+    )
 
 
 @router.get(
