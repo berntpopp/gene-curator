@@ -151,6 +151,15 @@ class PrecurationDraftResult(Precuration):
     warnings: list[EvidenceWarning] = []
 
 
+class PrecurationCreated(Precuration):
+    """Create result, with what the schema requires before submit."""
+
+    required_fields: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Required fields still empty: path, type and allowed values",
+    )
+
+
 class PrecurationSubmitted(Precuration):
     """Submit result, with the reviewer it was routed to."""
 

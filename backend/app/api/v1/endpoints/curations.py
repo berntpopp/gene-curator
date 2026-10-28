@@ -28,6 +28,7 @@ from app.crud.precuration import precuration_crud
 from app.crud.review_round import (
     approving_reviewers,
     earlier_feedback,
+    pending_reviews,
     reviewers_required,
 )
 from app.crud.scope_visibility import scope_id_for
@@ -55,6 +56,7 @@ from app.schemas.curation import (
     CurationUpdate,
     CurationWriteResult,
     capped,
+    collapse_warnings,
     lean_scores,
 )
 from app.schemas.scope import SCOPE_NAME
@@ -266,6 +268,11 @@ def get_curation(
         response.approvals_remaining = max(
             0, required - approving_reviewers(db, curation)
         )
+        response.assigned_reviewers = [
+            r
+            for p in pending_reviews(db, curation.id)
+            if (r := assigned_reviewer(db, p["reviewer_id"]))
+        ]
 
     return response
 
@@ -475,7 +482,7 @@ def save_draft(
     if not detail:
         return CurationWriteResult.of(saved[0])
     result = CurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 

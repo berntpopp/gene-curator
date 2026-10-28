@@ -1976,7 +1976,8 @@ export interface paths {
         put?: never;
         /**
          * Create Precuration
-         * @description Create a new precuration.
+         * @description Create a new precuration. The result lists the schema's required fields with their
+         *     allowed values (required_fields), so the draft can be filled without guessing.
          *     Requires curator or admin access to the target scope.
          *     Idempotent per creator: an open draft for the same gene and scope is returned
          *     (200) instead of inserting another, so a retry after a lost response is safe.
@@ -4745,6 +4746,11 @@ export interface components {
             has_approved: boolean;
             /** Approvals Remaining */
             approvals_remaining?: number | null;
+            /**
+             * Assigned Reviewers
+             * @description In review: who still has to review it
+             */
+            assigned_reviewers?: components["schemas"]["AssignedReviewer"][];
         };
         /**
          * CurationDiff
@@ -8493,6 +8499,88 @@ export interface components {
             evidence_data?: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * PrecurationCreated
+         * @description Create result, with what the schema requires before submit.
+         */
+        PrecurationCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Gene Id
+             * Format: uuid
+             */
+            gene_id: string;
+            /**
+             * Scope Id
+             * Format: uuid
+             */
+            scope_id: string;
+            /**
+             * Precuration Schema Id
+             * Format: uuid
+             */
+            precuration_schema_id: string;
+            status: components["schemas"]["CurationStatus"];
+            workflow_stage: components["schemas"]["WorkflowStage"];
+            /** Is Draft */
+            is_draft: boolean;
+            /** Evidence Data */
+            evidence_data: {
+                [key: string]: unknown;
+            };
+            /** Computed Scores */
+            computed_scores: {
+                [key: string]: unknown;
+            };
+            /** Computed Fields */
+            computed_fields: {
+                [key: string]: unknown;
+            };
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /** Auto Saved At */
+            auto_saved_at: string | null;
+            /** Created By */
+            created_by: string | null;
+            /** Updated By */
+            updated_by: string | null;
+            /** Version Number */
+            version_number: number;
+            /** Lock Version */
+            lock_version: number;
+            /** Methodology Version Id */
+            methodology_version_id?: string | null;
+            /**
+             * Curation Count
+             * @description Number of linked curations
+             * @default 0
+             */
+            curation_count: number;
+            /**
+             * Rejected By Name
+             * @description Who last requested changes (computed_fields.rejected_by)
+             */
+            rejected_by_name?: string | null;
+            /**
+             * Required Fields
+             * @description Required fields still empty: path, type and allowed values
+             */
+            required_fields?: {
+                [key: string]: unknown;
+            }[];
         };
         /**
          * PrecurationDraftResult
@@ -14832,7 +14920,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Precuration"];
+                    "application/json": components["schemas"]["PrecurationCreated"];
                 };
             };
             /** @description Validation Error */

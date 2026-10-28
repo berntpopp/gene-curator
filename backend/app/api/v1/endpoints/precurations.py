@@ -21,14 +21,16 @@ from app.core.database import get_db, raise_if_rls_denied
 from app.core.deps import get_current_active_user, set_rls_context
 from app.core.logging import api_endpoint, get_logger
 from app.crud.precuration import precuration_crud
-from app.crud.precuration_required import MissingRequiredFieldsError
+from app.crud.precuration_required import MissingRequiredFieldsError, open_fields
 from app.crud.scope_visibility import scope_id_for
 from app.models import CurationStatus, PrecurationNew, Scope, UserNew
+from app.schemas.curation import collapse_warnings
 from app.schemas.precuration import (
     Precuration,
     PrecurationApprovalResult,
     PrecurationConflictResponse,
     PrecurationCreate,
+    PrecurationCreated,
     PrecurationDraftResult,
     PrecurationDraftSave,
     PrecurationListResponse,
@@ -40,6 +42,7 @@ from app.schemas.precuration import (
 from app.schemas.scope import SCOPE_NAME
 from app.services.evidence_ids import InvalidEvidenceError, unprocessable
 from app.services.review_assignment import assigned_reviewer, submit_reviewer
+from app.services.review_guards import item_definition
 from app.services.scope_permissions import ScopePermissionService
 
 router = APIRouter()
@@ -184,16 +187,19 @@ def get_precuration(
 # ========================================
 
 
-@router.post("/", response_model=Precuration, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/", response_model=PrecurationCreated, status_code=status.HTTP_201_CREATED
+)
 @api_endpoint()
 def create_precuration(
     precuration_in: PrecurationCreate,
     response: Response,
     db: Session = Depends(get_db),
     current_user: UserNew = Depends(get_current_active_user),
-) -> Precuration:
+) -> PrecurationCreated:
     """
-    Create a new precuration.
+    Create a new precuration. The result lists the schema's required fields with their
+    allowed values (required_fields), so the draft can be filled without guessing.
     Requires curator or admin access to the target scope.
     Idempotent per creator: an open draft for the same gene and scope is returned
     (200) instead of inserting another, so a retry after a lost response is safe.
@@ -231,7 +237,7 @@ def create_precuration(
     )
     if existing:
         response.status_code = status.HTTP_200_OK
-        return Precuration.model_validate(existing)
+        return _created(db, existing)
 
     try:
         precuration = precuration_crud.create_precuration(
@@ -252,7 +258,23 @@ def create_precuration(
         )
         raise
 
-    return Precuration.model_validate(precuration)
+    return _created(db, precuration)
+
+
+def _created(db: Session, precuration: PrecurationNew) -> PrecurationCreated:
+    try:
+        required = open_fields(
+            item_definition(db, precuration), precuration.evidence_data
+        )
+    except (
+        ValueError
+    ) as e:  # a broken pin must not turn the committed create into a 500
+        logger.warning("Precuration schema unreadable", error=str(e))
+        required = []
+    return PrecurationCreated(
+        **Precuration.model_validate(precuration).model_dump(),
+        required_fields=required,
+    )
 
 
 def _conflict(precuration: PrecurationNew, sent: int) -> HTTPException:
@@ -322,7 +344,7 @@ def update_precuration(
     if saved is None:
         raise _conflict(precuration, precuration_in.lock_version)
     result = PrecurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 
@@ -379,7 +401,7 @@ def save_draft(
     if saved is None:
         raise _conflict(precuration, draft_data.lock_version)
     result = PrecurationDraftResult.model_validate(saved[0])
-    result.warnings = saved[1]
+    result.warnings = collapse_warnings(saved[1])
     return result
 
 
@@ -428,7 +450,13 @@ def submit_precuration(
     except MissingRequiredFieldsError as e:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail={"message": str(e), "fields": e.fields},
+            detail={
+                "message": str(e),
+                "fields": e.fields,
+                "required": e.contract,
+                "schema": f"get_curation_schema(schema_id="
+                f"{precuration.precuration_schema_id}, compact=true)",
+            },
         ) from e
     except InvalidEvidenceError as e:
         raise unprocessable(e) from e

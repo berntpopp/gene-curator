@@ -267,3 +267,36 @@ def test_review_read_lists_the_request_for_changes_before_and_after_resubmit(
     assert [p["comments"] for p in again["previous_reviews"]] == [
         "Cite the case report"
     ]
+
+
+def test_a_non_member_of_a_public_scope_sees_no_assigned_reviewers(
+    client: TestClient, w: W
+) -> None:
+    """A member sees the assigned reviewers; a reader of the public scope who is no
+    member gets no reviewers (as app_user)."""
+    outsider = uuid4()
+    with _owner() as conn, conn.cursor() as cur:
+        cur.execute("UPDATE scopes SET is_public = true WHERE id = %s", (str(w.scope),))
+        cur.execute(
+            "INSERT INTO users (id, email, hashed_password, name, role) "
+            "VALUES (%s, %s, %s, 'out', 'user')",
+            (str(outsider), f"{outsider.hex[:8]}@out.org", get_password_hash("pw")),
+        )
+    try:
+        lock = client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.alice)).json()
+        r = client.post(
+            f"/api/v1/curations/{w.cur}/submit",
+            json={"lock_version": lock["lock_version"], "reviewer_id": str(w.bob)},
+            headers=_h(w.alice),
+        )
+        assert r.status_code == 200, r.text
+        member = client.get(f"/api/v1/curations/{w.cur}", headers=_h(w.alice)).json()
+        assert [x["id"] for x in member["assigned_reviewers"]] == [str(w.bob)]
+        # RLS hides a curation in review from a non-member even in a public scope, so
+        # its reviewers never leak (no read at all, not an empty list)
+        seen = client.get(f"/api/v1/curations/{w.cur}", headers=_h(outsider))
+        assert seen.status_code == 404, seen.text
+        assert str(w.bob) not in seen.text
+    finally:
+        with _owner() as conn, conn.cursor() as cur:
+            cur.execute("DELETE FROM users WHERE id = %s", (str(outsider),))

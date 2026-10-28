@@ -139,6 +139,10 @@ def test_submit_curation_assigns_reviewer_in_one_call(
     )
     assert r.status_code == 200, r.text
     assert r.json()["assigned_reviewer"] == {"id": str(reviewer.id), "name": "Reviewer"}
+    shown = client.get(f"/api/v1/curations/{c.id}", headers=auth_headers(curator))
+    assert shown.json()["assigned_reviewers"] == [  # who is on it (round 6, T4)
+        {"id": str(reviewer.id), "name": "Reviewer"}
+    ]
     assert _reviews(db_session, c.id) == [reviewer.id]
     note = db_session.scalars(
         select(NotificationNew).where(NotificationNew.user_id == reviewer.id)

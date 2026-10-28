@@ -24,6 +24,12 @@ from tests.api.test_submit_unknown_pmids import _fake_fetch
 
 ROWS = "genetic_evidence.case_control.single_variant_analysis"
 
+# Round 6: say plainly what an unknown PMID costs; the draft still saves
+UNKNOWN = (
+    "PMID 99999999 not found in PubMed: this row scores 0 and submit will refuse it; "
+    "fix or remove the PMID"
+)
+
 
 def _evidence(pmid: str) -> dict[str, Any]:
     return {
@@ -140,9 +146,7 @@ def test_unknown_pmid_warns_and_scores_zero(
         evidence_data=_evidence("99999999"),
     )
     assert r.status_code == 200, r.text
-    assert r.json()["warnings"] == [
-        {"path": f"{ROWS}[0].pmid", "message": "99999999 not found in PubMed"}
-    ]
+    assert r.json()["warnings"] == [{"path": f"{ROWS}[0].pmid", "message": UNKNOWN}]
     assert r.json()["computed_scores"]["total_score"] == 0
 
     score = client.get(
@@ -444,7 +448,7 @@ def test_put_and_create_exclude_unknown_pmids_and_warn(
     online: MonkeyPatch,
 ) -> None:
     _fake_fetch(online, {"99999999": "Publication not found: 99999999"})
-    warning = f"{ROWS}[0].pmid: 99999999 not found in PubMed"
+    warning = f"{ROWS}[0].pmid: {UNKNOWN}"
     r = client.put(
         f"/api/v1/curations/{test_curation.id}",
         json={"evidence_data": _evidence("99999999"), "lock_version": 0},

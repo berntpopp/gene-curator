@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, SessionTransaction
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.core.logging import get_logger
+from app.core.validation_messages import size_message
 
 logger = get_logger(__name__)
 
@@ -179,7 +180,8 @@ def _tool_error(cause: httpx.HTTPStatusError, tool: str) -> ToolError:
         except ValueError:
             detail = None
         if detail:
-            message += f": {detail}"
+            shown = _api_problems(detail) if isinstance(detail, list) else detail
+            message += f": {shown}"
     hint = (
         _TOOL_HINTS.get((tool, status))
         or (_not_found_hint(detail) if status == 404 else None)
@@ -315,8 +317,37 @@ def argument_errors(schema: dict[str, Any], args: dict[str, Any]) -> list[str]:
     for error in Draft202012Validator(schema).iter_errors(known):
         if error.validator != "required":
             field = ".".join(map(str, error.absolute_path)) or "arguments"
-            problems.append(f"{field}: {error.message[:200]}")
+            problems.append(f"{field}: {_constraint(field, error)}")
     return problems
+
+
+_SIZES = {
+    "maxLength": ("characters", "max"),
+    "minLength": ("characters", "min"),
+    "maxItems": ("items", "max"),
+    "minItems": ("items", "min"),
+}
+
+
+def _constraint(field: str, error: Any) -> str:
+    """The limit and what was sent, never the whole value (MCP study round 6, T8)."""
+    if error.validator in _SIZES:
+        unit, bound = _SIZES[error.validator]
+        return size_message(
+            field, len(error.instance), unit, bound, error.validator_value
+        )
+    return str(error.message)[:200]
+
+
+def _api_problems(detail: list[Any]) -> str:
+    """FastAPI 422 items (msg states limit and size, see main.py) as "field: msg"."""
+    if not all(isinstance(item, dict) for item in detail):
+        return str(detail)
+    return "; ".join(
+        f"{'.'.join(str(p) for p in i.get('loc', []) if p != 'body') or 'body'}: "
+        f"{i.get('msg')}"
+        for i in detail
+    )
 
 
 def _invalid_arguments(

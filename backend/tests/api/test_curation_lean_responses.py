@@ -73,3 +73,51 @@ def test_draft_save_is_concise_and_get_is_lean_by_default(
     full = client.get(f"{url}?detail=true", headers=headers).json()["computed_scores"]
     assert lean == {"total_score": 2}  # no trace unless asked for
     assert full == _TRACE
+
+
+def test_repeated_row_warnings_collapse_to_a_count() -> None:
+    from app.schemas.curation import EvidenceWarning, collapse, collapse_warnings
+
+    rows = [f"genetic.cases[{i}]: no variant" for i in range(5)]
+    assert collapse([*rows, "genetic.cases[9]: other", "Free text warning"]) == [
+        "no variant (5 rows: genetic.cases[0], genetic.cases[1], genetic.cases[2], ...)",
+        "genetic.cases[9]: other",
+        "Free text warning",
+    ]
+    ws = [EvidenceWarning(path=f"r[{i}].pmid", message="bad") for i in range(2)]
+    assert [(w.path, w.message) for w in collapse_warnings(ws)] == [
+        ("2 rows: r[0].pmid, r[1].pmid", "bad")
+    ]
+    one = [EvidenceWarning(path="r[0].pmid", message="bad")]
+    assert collapse_warnings(one)[0].path == "r[0].pmid"
+
+
+def test_get_curation_through_mcp_carries_the_evidence_once(
+    client: TestClient,
+    db_session: Session,
+    test_user_curator,
+    test_curation: CurationNew,
+    approved_precuration,
+) -> None:
+    """MCP study round 6, T5a: "the evidence payload twice". One read returns it once,
+    with the precuration linked and the score trace left out by default."""
+    import json
+
+    from tests.api.test_mcp import call, pat
+
+    test_curation.precuration_id = approved_precuration.id
+    test_curation.evidence_data = {
+        "genetic_evidence": {"rows": [{"label": "ONCE-ONLY"}]}
+    }
+    test_curation.computed_scores = {**_TRACE, "warnings": []}
+    db_session.commit()
+    result = call(
+        client,
+        pat(db_session, test_user_curator),
+        "get_curation",
+        "/mcp",
+        curation_id=str(test_curation.id),
+    )
+    (block,) = result["content"]
+    assert json.dumps(result).count("ONCE-ONLY") == 1
+    assert "trace" not in json.loads(block["text"])["computed_scores"]

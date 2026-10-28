@@ -9,6 +9,8 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy.engine import make_url
@@ -21,6 +23,7 @@ from app.core.constants import APP_DESCRIPTION, APP_NAME, APP_VERSION
 from app.core.database import async_engine
 from app.core.logging import configure_logging, get_logger
 from app.core.logging.database_logger import get_database_logger
+from app.core.validation_messages import explain
 from app.mcp import create_mcp
 from app.mcp.audit import ChannelHeaderMiddleware
 from app.middleware import LoggingMiddleware
@@ -171,6 +174,16 @@ app.router.routes.append(Route("/mcp/full", mcp_full_app, include_in_schema=Fals
 
 
 # Global exception handler
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(
+    request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    """422 detail as FastAPI builds it, with messages that name limit and received size."""
+    return JSONResponse(
+        status_code=422, content={"detail": jsonable_encoder(explain(exc.errors()))}
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.error("Global exception caught", error=exc)
