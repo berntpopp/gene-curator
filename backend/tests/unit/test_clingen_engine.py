@@ -18,8 +18,10 @@ from app.scoring.clingen import (
     lod_to_points_sop11,
     segregation_points,
 )
+from tests.unit.test_cited_evidence import uncited_off  # noqa: F401 (fixture)
 
-pytestmark = pytest.mark.unit
+# Points arithmetic written before the citation policy (tests/unit/test_cited_evidence.py)
+pytestmark = [pytest.mark.unit, pytest.mark.usefixtures("uncited_off")]
 
 VALID_PMID = "12345678"
 

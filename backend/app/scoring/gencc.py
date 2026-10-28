@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from .base import ScoringEngine, ScoringResult
+from .evidence_items import uncited
 
 
 def _section(value: Any) -> dict[str, Any]:
@@ -26,6 +27,33 @@ def _points(items: Any) -> float:
         except (AttributeError, TypeError, ValueError):
             continue
     return total
+
+
+_TABLES = {
+    "genetic_evidence": ("case_level_data", "segregation_data", "case_control_data"),
+    "experimental_evidence": ("function", "models", "rescue"),
+}
+
+
+def _cited(evidence: dict[str, Any], excluded: list[Any]) -> dict[str, Any]:
+    """Evidence with each row that has points but no PMID replaced by None: it scores 0 and
+    is listed in ``excluded`` (owner decision 2026-10-27; GenCC rows hold no variant)."""
+    out = dict(evidence)
+    for section, keys in _TABLES.items():
+        data = dict(_section(evidence.get(section)))
+        for key in keys:
+            if not isinstance(data.get(key), list):
+                continue
+            rows = []
+            for i, row in enumerate(data[key]):
+                why = uncited(row, False) if _points([row]) > 0 else None
+                if why:
+                    excluded.append({"path": f"{section}.{key}[{i}]", **why})
+                rows.append(None if why else row)
+            data[key] = rows
+        if section in evidence:
+            out[section] = data
+    return out
 
 
 class GenCCEngine(ScoringEngine):
@@ -59,6 +87,8 @@ class GenCCEngine(ScoringEngine):
         scope_context: dict[str, Any] | None = None,
     ) -> ScoringResult:
         """Calculate GenCC-based classification."""
+        excluded: list[Any] = []
+        evidence_data = _cited(evidence_data, excluded)
 
         genetic_evidence = _section(evidence_data.get("genetic_evidence"))
         experimental_evidence = _section(evidence_data.get("experimental_evidence"))
@@ -95,7 +125,7 @@ class GenCCEngine(ScoringEngine):
             total_score=total_score,
             verdict=classification,
             verdict_rationale=rationale,
-            evidence_breakdown=breakdown,
+            evidence_breakdown=breakdown | ({"excluded": excluded} if excluded else {}),
             warnings=self._check_gencc_warnings(evidence_data),
             metadata={
                 "guidelines": "GenCC_Based",

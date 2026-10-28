@@ -4,8 +4,10 @@ import pytest
 
 from app.scoring.clingen import ClinGenEngine
 from app.scoring.point_model import classify, template
+from tests.unit.test_cited_evidence import uncited_off  # noqa: F401 (fixture)
 
-pytestmark = pytest.mark.unit
+# Points arithmetic written before the citation policy (tests/unit/test_cited_evidence.py)
+pytestmark = [pytest.mark.unit, pytest.mark.usefixtures("uncited_off")]
 
 
 @pytest.fixture

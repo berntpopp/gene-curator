@@ -93,6 +93,11 @@ class DiffBaseline(BaseModel):
         "submitted",
         "audit",
     ]
+    note: str | None = Field(
+        None,
+        description="Set when baseline=submitted is the current evidence of a resubmitted "
+        "curation: names the earlier submission to compare with",
+    )
 
 
 class CurationDiff(BaseModel):

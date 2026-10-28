@@ -103,7 +103,9 @@ class TestGenCCScoring:
                 "case_level_data": [{"points": 1, "pmid": VALID_PMID}],
                 "segregation_data": [],
             },
-            "experimental_evidence": {"function": [{"points": 0.5}]},
+            "experimental_evidence": {
+                "function": [{"points": 0.5, "pmid": VALID_PMID}]
+            },
         }
 
         result = gencc.calculate_scores(evidence, {})
@@ -113,6 +115,35 @@ class TestGenCCScoring:
         assert result.total_score == pytest.approx(1.5)
         assert result.verdict == "Limited"
         assert result.metadata["guidelines"] == "GenCC_Based"
+
+    def test_uncited_rows_score_nothing(self, gencc: GenCCEngine):
+        """Owner decision 2026-10-27: a row with points needs a PMID (GenCC has no variant)."""
+        evidence = {
+            "genetic_evidence": {
+                "case_level_data": [
+                    {"points": 2, "pmid": VALID_PMID},
+                    {"points": 2},
+                    {"points": 0},
+                ],
+            },
+            "experimental_evidence": {"models": [{"points": 1, "pmid": " "}]},
+        }
+        result = gencc.calculate_scores(evidence, {})
+        assert result.total_score == pytest.approx(2.0)
+        assert result.evidence_breakdown["excluded"] == [
+            {
+                "path": "genetic_evidence.case_level_data[1]",
+                "field": "pmid",
+                "reason": "no_pmid",
+            },
+            {
+                "path": "experimental_evidence.models[0]",
+                "field": "pmid",
+                "reason": "no_pmid",
+            },
+        ]
+        clean = gencc.calculate_scores({"genetic_evidence": {}}, {})
+        assert "excluded" not in clean.evidence_breakdown
 
     def test_breakdown_counts_items(self, gencc: GenCCEngine):
         evidence = {

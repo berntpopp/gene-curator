@@ -329,8 +329,16 @@ class TestScoringEngines:
                 "case_level": {
                     "autosomal_dominant_or_x_linked": {
                         "predicted_or_proven_null": [
-                            {"pmid": "12345678", "proband_counted_points": 1.5},
-                            {"pmid": "23456789", "proband_counted_points": 1.5},
+                            {
+                                "pmid": "12345678",
+                                "variant": "c.1A>T",
+                                "proband_counted_points": 1.5,
+                            },
+                            {
+                                "pmid": "23456789",
+                                "variant": "c.2A>T",
+                                "proband_counted_points": 1.5,
+                            },
                         ]
                     }
                 }

@@ -4,7 +4,9 @@ Run once after deploying 046 (Models & Rescue as one category capped at 4):
 ``cd backend && uv run python -m app.services.recompute_scores``. Every curation whose
 total or class changes is logged with its gene and old -> new total and class. Rows are
 scored with their pinned point model, custom categories included (reported); rows holding
-evidence keys that model does not score are skipped and reported with those keys.
+evidence keys that model does not score are skipped and reported with those keys. Active
+and archived curations whose rows now lack a PMID or a real variant keep their result until
+edited and resubmitted; they are logged as kept_uncited.
 """
 
 from typing import Any, cast
@@ -16,7 +18,7 @@ from app.core.deps import set_rls_context
 from app.core.logging import get_logger
 from app.models.models import CurationNew, Gene, UserNew, UserRoleNew
 from app.scoring.clingen import ENGINE_NAME, ClinGenEngine
-from app.scoring.evidence_items import has_content
+from app.scoring.evidence_items import UNCITED, has_content
 from app.scoring.point_limits import scoring_configuration
 from app.scoring.point_model import point_model
 from app.services.evidence_ids import score_scorable
@@ -94,6 +96,19 @@ def _save(
     return True
 
 
+def _keeps_result(status: Any, breakdown: dict[str, Any]) -> bool:
+    """Active and archived curations keep their result (history is not rescored) until
+    resubmitted when rows now lack a citation."""
+    excluded = breakdown.get("excluded", [])
+    kept = status in ("active", "archived")
+    return kept and any(e.get("reason") in UNCITED for e in excluded)
+
+
+def _raise_if_failed(failed: int, total: int) -> None:
+    if failed:
+        raise RuntimeError(f"{failed} of {total} curations failed to recompute")
+
+
 def recompute_all_scores(db: Session) -> int:
     """Run the engine over every curation under an admin RLS context; returns the count."""
     admin = db.scalars(
@@ -108,7 +123,11 @@ def recompute_all_scores(db: Session) -> int:
     pin = (CurationNew.workflow_pair_id, CurationNew.methodology_version_id)
     curations = db.execute(
         select(
-            *cols, CurationNew.computed_verdict, *pin, Gene.approved_symbol
+            *cols,
+            CurationNew.computed_verdict,
+            *pin,
+            Gene.approved_symbol,
+            CurationNew.status,
         ).outerjoin(Gene, Gene.id == CurationNew.gene_id)
     ).all()
     # One bounded lookup for all PMIDs, as saves do: unknown ones score nothing
@@ -116,6 +135,7 @@ def recompute_all_scores(db: Session) -> int:
     unknown = set(lookup_pmids(db, pmids)[0]) if pmids else set()
     updated = unchanged = 0
     skipped: list[str] = []
+    kept_uncited: list[str] = []
     unscored: dict[str, list[str]] = {}
     custom: set[str] = set()
     flagged: dict[str, list[str]] = {}
@@ -128,6 +148,7 @@ def recompute_all_scores(db: Session) -> int:
         pair_id,
         version_id,
         gene,
+        status,
     ) in curations:
         try:
             config = scoring_configuration(db, pair_id, version_id)
@@ -163,6 +184,9 @@ def recompute_all_scores(db: Session) -> int:
         if (old_scores, old_verdict) == (scores, result.verdict):
             unchanged += 1
             continue
+        if _keeps_result(status, scores):  # its new score differs: reported, not saved
+            kept_uncited.append(str(curation_id))
+            continue
         if not _save(db, curation_id, scores, result, old_scores, old_verdict, gene):
             # RLS refused it, e.g. a curation of an inactive scope (054)
             skipped.append(str(curation_id))
@@ -173,6 +197,8 @@ def recompute_all_scores(db: Session) -> int:
         "Recomputed curation scores",
         updated=updated,
         unchanged=unchanged,
+        kept_uncited=len(kept_uncited),
+        kept_uncited_ids=kept_uncited,
         skipped=len(skipped),
         skipped_ids=skipped,
         unscored=unscored,
@@ -180,11 +206,8 @@ def recompute_all_scores(db: Session) -> int:
         out_of_range={key: paths for key, paths in flagged.items() if paths},
         failed=failed,
     )
-    if failed:
-        raise RuntimeError(
-            f"{failed} of {len(curations)} curations failed to recompute"
-        )
-    return updated + unchanged
+    _raise_if_failed(failed, len(curations))
+    return updated + unchanged + len(kept_uncited)
 
 
 if __name__ == "__main__":  # pragma: no cover

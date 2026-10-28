@@ -26,7 +26,7 @@ def test_rows_without_pmid_warn_when_scored_or_filled() -> None:
     }
 
     assert ClinGenEngine().calculate_scores(evidence, {}).warnings == [
-        "2 scored row(s) have no PMID",
+        "2 row(s) with points have no PMID and score 0",
         "1 evidence item(s) with invalid or missing PMID",
     ]
 
@@ -45,7 +45,7 @@ def test_not_counted_points_are_not_called_scored() -> None:
         )
     }
     assert _warnings(evidence) == [
-        "1 scored row(s) have no PMID",
+        "1 row(s) with points have no PMID and score 0",
         "1 row(s) with only not-counted points have no PMID",
     ]
 
@@ -57,7 +57,7 @@ def test_nested_experimental_rows() -> None:
         "models": {"cell_culture_model": [{"pmid": "PMID: 123", "points": 1}]},
     }
     assert _warnings({"experimental_evidence": experimental}) == [
-        "1 scored row(s) have no PMID",
+        "1 row(s) with points have no PMID and score 0",
         "1 evidence item(s) with invalid or missing PMID",
     ]
 
@@ -75,7 +75,7 @@ def test_legacy_flat_lists() -> None:
         ],
     }
     assert _warnings(evidence) == [
-        "1 scored row(s) have no PMID",
+        "1 row(s) with points have no PMID and score 0",
         "1 row(s) with only not-counted points have no PMID",
         "1 evidence item(s) with invalid or missing PMID",
     ]
