@@ -1,18 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getInitials, displayNameRules, slugify } from '@/views/scope/ScopeCreate.utils'
-
-describe('getInitials', () => {
-  it('returns ? for empty names', () => {
-    expect(getInitials(null)).toBe('?')
-    expect(getInitials('')).toBe('?')
-  })
-  it('uses the first letter for a single word', () => {
-    expect(getInitials('madonna')).toBe('M')
-  })
-  it('uses first and last word initials', () => {
-    expect(getInitials('  Ada Byron Lovelace ')).toBe('AL')
-  })
-})
+import { displayNameRules, slugify } from '@/views/scope/ScopeCreate.utils'
 
 describe('displayNameRules', () => {
   it('requires a value, at least 4 and at most 100 characters', () => {

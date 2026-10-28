@@ -249,6 +249,29 @@ describe('DynamicForm from raw config', () => {
     expect(wrapper.text()).toContain('Reason given')
   })
 
+  it('fills Disease Name from the picked Mondo term, in steps and flat (W7 monkey test)', async () => {
+    const steps = mountForm(precurationSeed)
+    await flushPromises()
+    const mondo = steps.findComponent({ name: 'MONDOAutocomplete' })
+    mondo.vm.$emit('update:modelValue', 'MONDO:0008263')
+    mondo.vm.$emit('update:diseaseName', 'polycystic kidney disease 1')
+    const last = steps.emitted('update:modelValue')!.at(-1)![0] as Record<string, unknown>
+    expect(last).toMatchObject({
+      mondo_id: 'MONDO:0008263',
+      disease_name: 'polycystic kidney disease 1'
+    })
+    // Clearing the term keeps the name the curator may have edited
+    mondo.vm.$emit('update:diseaseName', '')
+    expect(vmOf(steps).formData).toMatchObject({ disease_name: 'polycystic kidney disease 1' })
+
+    const flat = mountForm({
+      field_definitions: { mondo_id: { type: 'external_reference', external_source: 'mondo' } }
+    })
+    await flushPromises()
+    flat.findComponent({ name: 'MONDOAutocomplete' }).vm.$emit('update:diseaseName', 'PKD1')
+    expect(vmOf(flat).formData).not.toHaveProperty('disease_name')
+  })
+
   it('writes evidence cells to the form on change, not per keystroke', async () => {
     const wrapper = mountForm(
       {

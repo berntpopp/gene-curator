@@ -12,6 +12,8 @@ export type SaveState = 'saved' | 'saving' | 'unsaved' | 'failed' | 'conflict'
 export interface ScoreSnapshot extends EvidenceScores {
   classification: string
   hasContradictory: boolean
+  /** Rows with points that score 0, and whether submit refuses them */
+  excluded?: { text: string; refused: boolean }[]
 }
 
 export interface FormBinding {

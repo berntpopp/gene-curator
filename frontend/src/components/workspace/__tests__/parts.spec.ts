@@ -127,6 +127,24 @@ describe('ScorePanel', () => {
     expect(ready.text()).toContain('Ready to submit')
   })
 
+  it('lists the rows that score 0 and is not ready while submit would refuse them', () => {
+    const excluded = [
+      { text: 'P1 scores 0: needs a variant', refused: true },
+      { text: 'P2 scores 0: not scored (status review or contradicts)', refused: false }
+    ]
+    const w = mount(ScorePanel, {
+      props: { score: score({ excluded }), canSubmit: true, readonly: false }
+    })
+    expect(w.find('[data-testid="score-flags"]').text()).toContain('P1 scores 0: needs a variant')
+    expect(w.text()).toContain('P2 scores 0')
+    expect(w.text()).not.toContain('Ready to submit')
+    expect(w.text()).toContain('Fix the rows that score 0 before submitting')
+    const fine = mount(ScorePanel, {
+      props: { score: score({ excluded: [excluded[1]!] }), canSubmit: true, readonly: false }
+    })
+    expect(fine.text()).toContain('Ready to submit')
+  })
+
   it('lists blockers such as an unknown PMID', () => {
     const w = mount(ScorePanel, {
       props: {
