@@ -212,6 +212,15 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
     assert argument_errors(schema, {"curation_status": "draft"}) == []
     assert argument_errors(schema, {"curation_status": "nope"})
     assert '"anyOf"' not in json.dumps(schema)
+    # Round 5: no default additionalProperties, no enum class docstrings, short merge
+    every = json.dumps([t["inputSchema"] for t in tools.values()])
+    assert '"additionalProperties": true' not in every and "\\n\\n" not in every
+    role = tools["update_member_role"]["inputSchema"]["properties"]["role"]
+    assert (
+        role["description"] == "Scope-level roles (detailed permissions within scopes)."
+    )
+    merge = tools["save_draft_curations"]["inputSchema"]["properties"]["merge"]
+    assert merge["description"].startswith("true: evidence_data is an RFC 7396 merge")
     assert tools["read_my_work"]["description"].startswith("My work queue")
     assert "get_publication" in tools["validate_pmids"]["description"]
 
@@ -263,6 +272,7 @@ def test_every_tool_named_in_a_hint_description_or_instructions_exists(
     every = set(_tools(client, pat(db_session, test_user_admin), "/mcp/full"))
     verbs = {name.split("_")[0] for name in every}  # get, list, add, curation, ...
     arguments = set().union(*(_keys(t["inputSchema"]) for t in tools.values()))
+    arguments |= {"curation_schema_id"}  # a response field ("curation" is a verb here)
 
     def named(text: str) -> set[str]:
         words = set(re.findall(r"\b[a-z]+(?:_[a-z0-9]+)+\b", text))
@@ -302,6 +312,10 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
     # Round 4: roles come from list_scopes; evidence-item tools are not on /mcp
     assert "user_role on each list_scopes row" in INSTRUCTIONS
     assert "read_users_me" not in INSTRUCTIONS and "evidence-item" not in INSTRUCTIONS
+    # Round 5: literature from a literature MCP, which ClinGen pair, diff baselines
+    assert "GeneFoundry (PubTator, LitVar, ClinVar)" in INSTRUCTIONS
+    assert '"ClinGen\nGene-Disease Validity" is_default' in INSTRUCTIONS
+    assert "previous_submission the one before it" in INSTRUCTIONS
     # the old multi-step gene entry and reviewer routing are gone
     assert "create_gene_assignment" not in INSTRUCTIONS
     assert "assign_peer_reviewer" not in INSTRUCTIONS
@@ -309,7 +323,7 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
 
 # Surface budget for /mcp (token plan 1, 5): a regression fails CI; raise a budget
 # only on purpose. Bytes are the tools/list response as a client receives it.
-SURFACE_BUDGET = {"curator": (78, 55_000), "admin": (78, 55_000)}
+SURFACE_BUDGET = {"curator": (78, 54_000), "admin": (78, 54_000)}
 
 
 @pytest.mark.parametrize("role", SURFACE_BUDGET)

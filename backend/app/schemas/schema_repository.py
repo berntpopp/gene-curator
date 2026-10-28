@@ -102,6 +102,22 @@ class CurationSchema(CurationSchemaInDBBase):
     pass
 
 
+class CurationSchemaSubtree(BaseModel):
+    """One evidence field of a schema (get_curation_schema with path=), no envelope."""
+
+    schema_id: UUID
+    path: str
+    field: Any = Field(..., description="The field definition at path")
+    validation_rules: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Rules a field here names or that name the path",
+    )
+    point_ranges: list[dict[str, Any]] = Field(
+        default_factory=list,
+        description="Per evidence type under path: points range and category cap",
+    )
+
+
 class CurationSchemaSummary(BaseModel):
     """One row of the schema list; detail=true lists full schemas."""
 

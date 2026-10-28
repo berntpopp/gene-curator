@@ -229,8 +229,6 @@ class TestCurationSchemaRead:
             "lod": lod,  # names a key on the path
             "contradictory": {"rule": "len(contradictory_evidence) >= 0"},
         }
-        owned_schema.workflow_states = {"entry": {"label": "Entry"}}
-        owned_schema.ui_configuration = {"layout": "tabs"}
         db_session.commit()
 
         def get(**params: object) -> Any:
@@ -242,17 +240,16 @@ class TestCurationSchemaRead:
 
         path = "genetic_evidence.segregation"
         body = get(path=path).json()
-        assert body["field_definitions"] == {path: table}
-        # Round 4: only that subtree, not the whole schema's rules and stages
-        assert body["validation_rules"] == {
-            "pmid_format": {"rule": "numeric"},
-            "lod": lod,
+        # Round 5: no envelope, the schema id once; round 4: only that subtree's rules
+        assert body == {
+            "schema_id": str(owned_schema.id),
+            "path": path,
+            "field": table,
+            "validation_rules": {"pmid_format": {"rule": "numeric"}, "lod": lod},
+            "point_ranges": [],  # this schema names no point model
         }
-        assert body["workflow_states"] == {} and body["ui_configuration"] == {}
         compact = get(path=f"{path}.pmid", compact=True).json()
-        assert compact["field_definitions"] == {
-            f"{path}.pmid": {"type": "string", "validation": "pmid_format"}
-        }
+        assert compact["field"] == {"type": "string", "validation": "pmid_format"}
         missing = get(path="genetic_evidence.case_level")
         assert missing.status_code == 400
         assert (

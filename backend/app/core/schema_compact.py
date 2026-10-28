@@ -73,3 +73,19 @@ def rules_for(rules: dict[str, Any], path: str, fields: Any) -> dict[str, Any]:
         for name, rule in rules.items()
         if f'"{name}"' in used or any(key in json.dumps(rule) for key in keys)
     }
+
+
+def ranges_for(model: dict[str, Any], path: str) -> list[dict[str, Any]]:
+    """Point range and category cap of each evidence type at, under or above path."""
+    return [
+        {"path": full, "range": t["range"], "category_cap": c.get("cap")}
+        for s in model.get("sections", [])
+        for c in s.get("categories", [])
+        for t in c.get("types", [])
+        if "range" in t
+        and (
+            (full := f"{s['key']}.{t['path']}") == path
+            or full.startswith(f"{path}.")
+            or path.startswith(f"{full}.")
+        )
+    ]
