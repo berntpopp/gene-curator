@@ -69,8 +69,8 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
 3. Curation: the approval opens a draft curation (list_curations); create_curation
    only works with an approved precuration and no open curation. Evidence that scores
    lives in evidence_data (save_draft_curations or update_curation with
-   lock_version); evidence-item tools are never scored. Their descriptions list the
-   evidence paths; get_curation_schema(path=) shows one table's fields.
+   lock_version); their descriptions list the evidence paths and
+   get_curation_schema(path=) shows one table's fields.
 4. Literature: search_pubmed(gene_symbol, disease, query) finds papers with
    abstracts; validate_pmids(pmids, gene_symbol) confirms PMIDs and flags papers
    that do not mention the gene. Cite the PMID that reports each proband.
@@ -82,7 +82,7 @@ Workflow per gene and scope: Entry -> Precuration -> Curation -> Review -> Activ
 4-eyes: nobody approves or reviews their own work, platform admins included; route it
 to another reviewer of the scope.
 
-Scope roles (yours: read_users_me, the scope's: list_members):
+Scope roles (yours: user_role on each list_scopes row; everyone's: list_members):
 | role     | may                                                                  |
 | viewer   | read the scope                                                       |
 | curator  | read; add genes; create, edit and submit precurations and curations  |
@@ -188,6 +188,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   .rescue.{human|non_human_model_organism|cell_culture|patient_cells}[]: label, pmid,
   points, explanation
 - contradictory_evidence[]: pmid, impact
+- evidence_summary: free-text summary and notes of the curation (never scored);
+  submit notes go to the reviewer.
 Row fields, options and point ranges of one table: get_curation_schema(schema_id,
 path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null").""".replace(
     "{variant_types}",

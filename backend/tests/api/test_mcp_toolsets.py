@@ -199,6 +199,7 @@ def test_tool_definitions_are_lean_and_curation_saves_name_the_evidence(
         text = tools[name]["description"]
         assert "genetic_evidence.case_level" in text, name
         assert "One row per proband" in text and "variant_1 and variant_2" in text
+        assert "evidence_summary: free-text summary and notes" in text
         assert "frameshift, canonical" in text and "missense" in text
         assert "get_curation_schema(schema_id,\npath=" in text
     assert tools["read_my_work"]["description"].startswith("My work queue")
@@ -288,6 +289,9 @@ def test_instructions_name_the_shortcuts_and_fit_the_client_limit() -> None:
         "get_curation_schema(path=)",
     ):
         assert shortcut in INSTRUCTIONS, shortcut
+    # Round 4: roles come from list_scopes; evidence-item tools are not on /mcp
+    assert "user_role on each list_scopes row" in INSTRUCTIONS
+    assert "read_users_me" not in INSTRUCTIONS and "evidence-item" not in INSTRUCTIONS
     # the old multi-step gene entry and reviewer routing are gone
     assert "create_gene_assignment" not in INSTRUCTIONS
     assert "assign_peer_reviewer" not in INSTRUCTIONS
