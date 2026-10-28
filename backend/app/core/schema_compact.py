@@ -1,5 +1,6 @@
 """Agent-sized views of a curation schema's field definitions (MCP study 6, round 3)."""
 
+import json
 from typing import Any
 
 # Display-only keys; everything else (required_when, default_by, limits...) decides validity
@@ -60,3 +61,15 @@ def subtree(fields: dict[str, Any], path: str) -> Any:
             raise KeyError(f"path {path!r}: no {key!r} here; choose from {options}")
         node = children[key]
     return node
+
+
+def rules_for(rules: dict[str, Any], path: str, fields: Any) -> dict[str, Any]:
+    """The validation rules that touch a subtree: named by one of its fields
+    ("validation": "pmid_format") or naming a key on the path in their text."""
+    used = json.dumps(fields)
+    keys = path.split(".")
+    return {
+        name: rule
+        for name, rule in rules.items()
+        if f'"{name}"' in used or any(key in json.dumps(rule) for key in keys)
+    }

@@ -214,7 +214,7 @@ class TestCurationSchemaRead:
         viewer_token: str,
     ):
         """Round 3: agents asked 4 times to read one evidence table, not the schema."""
-        row = {"pmid": {"type": "string", "label": "PMID"}}
+        row = {"pmid": {"type": "string", "label": "PMID", "validation": "pmid_format"}}
         table = {"type": "array", "items": {"type": "object", "properties": row}}
         owned_schema.field_definitions = {
             "genetic_evidence": {
@@ -223,6 +223,14 @@ class TestCurationSchemaRead:
             },
             "other": {"type": "string"},
         }
+        lod = {"rule": "if segregation: lod_score >= 0"}
+        owned_schema.validation_rules = {
+            "pmid_format": {"rule": "numeric"},  # named by a field in the subtree
+            "lod": lod,  # names a key on the path
+            "contradictory": {"rule": "len(contradictory_evidence) >= 0"},
+        }
+        owned_schema.workflow_states = {"entry": {"label": "Entry"}}
+        owned_schema.ui_configuration = {"layout": "tabs"}
         db_session.commit()
 
         def get(**params: object) -> Any:
@@ -233,9 +241,18 @@ class TestCurationSchemaRead:
             )
 
         path = "genetic_evidence.segregation"
-        assert get(path=path).json()["field_definitions"] == {path: table}
+        body = get(path=path).json()
+        assert body["field_definitions"] == {path: table}
+        # Round 4: only that subtree, not the whole schema's rules and stages
+        assert body["validation_rules"] == {
+            "pmid_format": {"rule": "numeric"},
+            "lod": lod,
+        }
+        assert body["workflow_states"] == {} and body["ui_configuration"] == {}
         compact = get(path=f"{path}.pmid", compact=True).json()
-        assert compact["field_definitions"] == {f"{path}.pmid": {"type": "string"}}
+        assert compact["field_definitions"] == {
+            f"{path}.pmid": {"type": "string", "validation": "pmid_format"}
+        }
         missing = get(path="genetic_evidence.case_level")
         assert missing.status_code == 400
         assert (
