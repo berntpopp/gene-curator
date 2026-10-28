@@ -27,14 +27,15 @@ from app.schemas.validation import (
     PublicationSearchHit,
     PublicationSearchResponse,
 )
-from app.services.publication_service import (
+from app.services.publication_search import (
     SEARCH_SORTS,
-    PublicationService,
     gene_names,
+    in_title_or_abstract,
     mentions,
     search_publications,
     search_term,
 )
+from app.services.publication_service import PublicationService
 
 logger = get_logger(__name__)
 
@@ -153,7 +154,8 @@ def search_pubmed(
             "Send query, gene_symbol or disease",
         )
     skip_reviews = bool(gene_symbol) if exclude_reviews is None else exclude_reviews
-    term = search_term(query, gene_symbol, disease, exclude_reviews=skip_reviews)
+    gene = in_title_or_abstract(gene_symbol)
+    term = search_term(query, gene, disease, exclude_reviews=skip_reviews)
     try:
         total, found = search_publications(db, term, limit, SEARCH_SORTS[sort])
     except (httpx.HTTPError, TimeoutError) as e:
