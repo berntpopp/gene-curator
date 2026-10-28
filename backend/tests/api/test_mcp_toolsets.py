@@ -16,6 +16,7 @@ from app.mcp.server import (
     CORE_TOOLS,
     EXCLUDED_OPERATIONS,
     INSTRUCTIONS,
+    VARIANT_TYPES,
     admin_only_tools,
     tool_names,
 )
@@ -313,3 +314,21 @@ def test_core_tool_surface_stays_in_budget(
         len(tools),
         len(response.content),
     )
+
+
+def test_variant_types_in_descriptions_are_the_seeded_enum_values() -> None:
+    """The four case-level tables' variant_type options in the seeded schema (046)."""
+    sql = Path(__file__).parents[3] / "database/sql/046_clingen_v1_correction.sql"
+    seeded = [
+        re.findall(r'"value": "([^"]+)"', line)
+        for line in sql.read_text().splitlines()
+        if '"variant_type": {"type": "select"' in line
+    ]
+    assert seeded == [list(values) for values in VARIANT_TYPES.values()]
+    # no later migration redefines them
+    later = [
+        f.name
+        for f in sorted(sql.parent.glob("*.sql"))
+        if f.name > sql.name and '"variant_type": {"type": "select"' in f.read_text()
+    ]
+    assert later == []

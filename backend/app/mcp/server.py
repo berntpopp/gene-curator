@@ -153,6 +153,22 @@ _NARROWING = {"skip", "limit", "compact"}
 MCP_DEFAULTS: dict[str, dict[str, Any]] = {"get_curation_schema": {"compact": True}}
 
 # Where scored evidence lives, so agents need no example curation (token plan 6)
+# variant_type options of the seeded ClinGen schema (046), per case-level table
+VARIANT_TYPES = {
+    "autosomal_dominant_or_x_linked.predicted_or_proven_null": (
+        "nonsense", "frameshift", "canonical_splice", "initiation_codon",
+        "single_exon_deletion", "multi_exon_deletion", "whole_gene_deletion",
+    ),
+    "autosomal_dominant_or_x_linked.other_variant_type": (
+        "missense", "in_frame_indel", "cryptic_splice", "synonymous", "5_utr",
+        "3_utr", "intronic", "other",
+    ),
+    "autosomal_recessive.predicted_or_proven_null": ("two_null", "null_and_null"),
+    "autosomal_recessive.other_variant_type": (
+        "null_and_other", "two_other", "homozygous_other",
+    ),
+}  # fmt: skip
+
 _EVIDENCE_PATHS = """
 
 Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
@@ -162,10 +178,8 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
 - One row per proband the paper describes, never one per paper or cohort; each row
   has its own variant(s) as HGVS (c./p.), rsID or genomic coordinate, and the PMID
   that reports that proband.
-- predicted_or_proven_null: nonsense, frameshift, canonical +/-1,2 splice, initiation
-  codon, exon or whole-gene deletion; other_variant_type: missense, in-frame indel,
-  other splice, UTR, intronic. Recessive: both alleles null -> predicted_or_proven_null
-  (two_null), else other_variant_type (null_and_other, two_other, homozygous_other).
+- variant_type values per table:
+{variant_types}
 - genetic_evidence.segregation[]: family_label, lod_score or segregations_counted, pmid
 - genetic_evidence.case_control.{single_variant_analysis|aggregate_variant_analysis}[]
 - experimental_evidence.function.{biochemical_function|protein_interaction|expression}[],
@@ -175,7 +189,10 @@ Evidence that scores (ClinGen SOP v11 pairs), in evidence_data:
   points, explanation
 - contradictory_evidence[]: pmid, impact
 Row fields, options and point ranges of one table: get_curation_schema(schema_id,
-path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null")."""
+path="genetic_evidence.case_level.autosomal_recessive.predicted_or_proven_null").""".replace(
+    "{variant_types}",
+    "\n".join(f"  {table}: {', '.join(vs)}" for table, vs in VARIANT_TYPES.items()),
+)
 # Routes without a docstring: lead with the words an agent searches for
 _DESCRIPTIONS = {
     "read_users_me": "Me: the current user's profile (id, name, application role).",
