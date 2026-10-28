@@ -263,6 +263,7 @@ def test_every_tool_named_in_a_hint_description_or_instructions_exists(
     every = set(_tools(client, pat(db_session, test_user_admin), "/mcp/full"))
     verbs = {name.split("_")[0] for name in every}  # get, list, add, curation, ...
     arguments = set().union(*(_keys(t["inputSchema"]) for t in tools.values()))
+    arguments |= {"curation_schema_id"}  # a response field ("curation" is a verb here)
 
     def named(text: str) -> set[str]:
         words = set(re.findall(r"\b[a-z]+(?:_[a-z0-9]+)+\b", text))

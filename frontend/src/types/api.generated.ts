@@ -4574,6 +4574,11 @@ export interface components {
             submitted_by: string | null;
             /** Approved By */
             approved_by: string | null;
+            /**
+             * Curation Schema Id
+             * @description Field contract: get_curation_schema(curation_schema_id, path=)
+             */
+            curation_schema_id?: string | null;
         };
         /**
          * CurationConflictResponse
@@ -4859,6 +4864,11 @@ export interface components {
             submitted_by: string | null;
             /** Approved By */
             approved_by: string | null;
+            /**
+             * Curation Schema Id
+             * @description Field contract: get_curation_schema(curation_schema_id, path=)
+             */
+            curation_schema_id?: string | null;
             /**
              * Warnings
              * @default []
